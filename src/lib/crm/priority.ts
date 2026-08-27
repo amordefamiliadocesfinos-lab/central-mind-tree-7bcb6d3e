@@ -88,7 +88,7 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   if (
     input.attendance_state === 'aguardando_cliente'
     && returnAt !== null
-    && returnAt >= start
+    && returnAt >= end
     && !clientRepliedLast
   ) {
     return result('P4', 'waiting_customer', returnAt, false);
