@@ -115,11 +115,14 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   const waitingState = isWaitingCustomerState(input.attendance_state);
   const waitingBoundary = Math.max(waitingStateAt ?? 0, lastOutboundAt ?? 0);
   // Uma entrada só é nova quando ocorreu depois do envio/registro que colocou
-  // o atendimento em espera. Igualdade com last_message_at não prova novidade.
+  // o atendimento em espera. A igualdade com updated_at é válida porque a
+  // própria entrada atualiza a conversa; igualdade só com last_message_at não é.
   const clientRepliedAfterWaiting = waitingState
     && lastInboundAt !== null
-    && waitingBoundary > 0
-    && lastInboundAt > waitingBoundary;
+    && lastInboundAt > (lastOutboundAt ?? 0)
+    && (waitingStateAt !== null
+      ? lastInboundAt >= waitingStateAt
+      : lastInboundAt > lastMessageAt);
   const waitingCustomer = waitingState && !clientRepliedAfterWaiting;
 
   const validReturn = returnAt !== null

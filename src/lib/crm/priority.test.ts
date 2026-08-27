@@ -22,6 +22,7 @@ assert(res003.level === 'P4' && res003.reason === 'waiting_customer' && !res003.
 
 const replied = getCrmPriority({
   ...waitingBase,
+  attendance_state_updated_at: '2026-08-27T20:05:00.000Z',
   last_inbound_at: '2026-08-27T20:05:00.000Z',
   last_message_at: '2026-08-27T20:05:00.000Z',
 }, now);
