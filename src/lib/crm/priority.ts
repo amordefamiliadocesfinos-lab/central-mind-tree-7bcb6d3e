@@ -180,9 +180,11 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   // Mensagem enviada e nada vencido: a bola está com o cliente. Sai da fila
   // até haver resposta nova ou retorno/próxima ação realmente devida.
   if (waitingCustomer) {
+    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
     const sortAt = returnCounts ? returnAt! : nextActionCounts ? nextActionAt! : lastMessageAt;
     return result('P4', 'waiting_customer', sortAt, false);
   }
+
 
 
 
