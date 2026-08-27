@@ -145,9 +145,19 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
     (validReturn && returnAt < now.getTime())
     || (validNextAction && nextActionAt < now.getTime())
   );
+  // Uma mensagem nossa não conclui o atendimento enquanto a última mensagem
+  // relevante do cliente ainda não recebeu um Resultado canônico: o operador
+  // precisa continuar acessando a conversa para registrar o Resultado.
+  const lastResultAt = asTime(input.last_result_at);
+  const pendingResult = lastInboundAt !== null
+    && lastInboundAt >= start - (7 * 86400000)
+    && (lastResultAt === null || lastInboundAt > lastResultAt);
+
   if (waitingCustomer && !waitingHasDueAction) {
+    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
     return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
   }
+
 
   if (input.needs_reply && !waitingCustomer) {
     return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
