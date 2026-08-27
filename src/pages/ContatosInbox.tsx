@@ -57,7 +57,9 @@ interface InboxItem {
   platform_name: string | null;
   platform_icon: string | null;
   last_inbound_at: string | null;
+  last_outbound_at: string | null;
   last_message_at: string | null;
+  conversation_updated_at: string | null;
   return_at: string | null;
   next_action_date: string | null;
   next_contact_date: string | null;
@@ -86,7 +88,9 @@ function toCrmPriorityInput(item: InboxItem): CrmPriorityInput {
     next_contact_date: item.next_contact_date,
     ultimo_contato: item.ultimo_contato,
     last_inbound_at: item.last_inbound_at,
-    last_message_at: item.last_date,
+    last_outbound_at: item.last_outbound_at,
+    last_message_at: item.last_message_at,
+    attendance_state_updated_at: item.conversation_updated_at,
     is_lead_or_quote: ['novo_lead', 'contato_realizado', 'proposta_enviada', 'negociacao'].includes(item.funnel_status || ''),
   };
 }
@@ -151,7 +155,7 @@ export default function ContatosInbox() {
 
   const load = useCallback(async (): Promise<InboxItem[] | null> => {
     setLoading(true);
-    const CONVERSATION_FIELDS = 'id,contact_id,contact_name,contact_handle,contact_avatar_url,last_message_preview,last_message_at,last_inbound_at,return_at,unread_count,needs_reply,attendance_state,assigned_to,funnel_stage,status,channel,platform_id,platform:digital_platforms(name,icon)';
+    const CONVERSATION_FIELDS = 'id,contact_id,contact_name,contact_handle,contact_avatar_url,last_message_preview,last_message_at,last_inbound_at,last_outbound_at,return_at,unread_count,needs_reply,attendance_state,assigned_to,funnel_stage,status,channel,platform_id,updated_at,platform:digital_platforms(name,icon)';
     const term = deferredSearch.trim();
 
     // Busca/estágio consultam o banco inteiro: leads antigos do Kanban não
@@ -247,7 +251,9 @@ export default function ContatosInbox() {
         assigned_to: conversation.assigned_to,
         status: conversation.status || 'open',
         last_inbound_at: conversation.last_inbound_at,
+        last_outbound_at: conversation.last_outbound_at,
         last_message_at: conversation.last_message_at ?? null,
+        conversation_updated_at: conversation.updated_at ?? null,
         return_at: conversation.return_at,
         next_action_date: contact?.next_action_date || null,
         next_contact_date: contact?.next_contact_date || null,
@@ -283,7 +289,9 @@ export default function ContatosInbox() {
         assigned_to: null,
         status: 'open',
         last_inbound_at: null,
+        last_outbound_at: null,
         last_message_at: null,
+        conversation_updated_at: null,
         return_at: null,
         next_action_date: contact.next_action_date || null,
         next_contact_date: contact.next_contact_date || null,
