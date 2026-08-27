@@ -1,3 +1,5 @@
+import { parseISO } from 'date-fns';
+
 export type CrmPriorityLevel = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
 
 export type CrmPriorityReason =
@@ -23,7 +25,10 @@ export interface CrmPriorityInput {
   next_contact_date?: string | null;
   ultimo_contato?: string | null;
   last_inbound_at?: string | null;
+  last_outbound_at?: string | null;
   last_message_at?: string | null;
+  /** Momento em que o estado atual do atendimento foi registrado. */
+  attendance_state_updated_at?: string | null;
   no_response_status?: 'sem_resposta' | 'follow_up_urgente' | 'lead_esfriando' | null;
   is_lead_or_quote?: boolean;
 }
@@ -53,7 +58,7 @@ const LABELS: Record<CrmPriorityReason, string> = {
 
 function asTime(value?: string | null) {
   if (!value) return null;
-  const time = new Date(value).getTime();
+  const time = parseISO(value).getTime();
   return Number.isNaN(time) ? null : time;
 }
 
@@ -81,7 +86,13 @@ const WAITING_CUSTOMER_STATES = new Set([
 
 export function isWaitingCustomerState(state?: string | null): boolean {
   if (!state) return false;
-  return WAITING_CUSTOMER_STATES.has(state.trim().toLowerCase());
+  const normalized = state
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return WAITING_CUSTOMER_STATES.has(normalized);
 }
 
 /**
@@ -91,27 +102,54 @@ export function isWaitingCustomerState(state?: string | null): boolean {
 export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPriority {
   const lastMessageAt = asTime(input.last_message_at) ?? 0;
   const lastInboundAt = asTime(input.last_inbound_at);
+  const lastOutboundAt = asTime(input.last_outbound_at);
+  const waitingStateAt = asTime(input.attendance_state_updated_at);
   const { start, end } = dayBounds(now);
 
   if (input.status === 'resolved') return result('P4', 'resolved', lastMessageAt, false);
 
-  // A última mensagem é do cliente? Só então existe algo a responder agora.
-  const clientRepliedLast = lastInboundAt !== null && lastInboundAt >= lastMessageAt;
-  const waitingCustomer = isWaitingCustomerState(input.attendance_state) && !clientRepliedLast;
+  const returnAt = asTime(input.return_at);
+  // A data canônica tem precedência; a legada serve somente como fallback.
+  const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
+
+  const waitingState = isWaitingCustomerState(input.attendance_state);
+  const waitingBoundary = Math.max(waitingStateAt ?? 0, lastOutboundAt ?? 0);
+  // Uma entrada só é nova quando ocorreu depois do envio/registro que colocou
+  // o atendimento em espera. A igualdade com updated_at é válida porque a
+  // própria entrada atualiza a conversa; igualdade só com last_message_at não é.
+  const clientRepliedAfterWaiting = waitingState
+    && lastInboundAt !== null
+    && lastInboundAt > (lastOutboundAt ?? 0)
+    && (waitingStateAt !== null
+      ? lastInboundAt >= waitingStateAt
+      : lastInboundAt > lastMessageAt);
+  const waitingCustomer = waitingState && !clientRepliedAfterWaiting;
+
+  const validReturn = returnAt !== null
+    && (lastInboundAt === null || lastInboundAt <= returnAt)
+    && (!waitingCustomer || returnAt >= waitingBoundary);
+  const validNextAction = nextActionAt !== null
+    && (!waitingCustomer || nextActionAt >= waitingBoundary);
+
+  // Regra soberana da fila: marcadores antigos não mantêm uma conversa em
+  // Prioridade enquanto a iniciativa está com o cliente. Somente uma entrada
+  // nova ou um compromisso realmente vencido após o início da espera reativa.
+  const waitingHasDueAction = waitingCustomer && (
+    (validReturn && returnAt < now.getTime())
+    || (validNextAction && nextActionAt < now.getTime())
+  );
+  if (waitingCustomer && !waitingHasDueAction) {
+    return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
+  }
 
   if (input.needs_reply && !waitingCustomer) {
     return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
   }
 
-  const returnAt = asTime(input.return_at);
-  const validReturn = returnAt !== null && (lastInboundAt === null || lastInboundAt <= returnAt);
-  // A data canônica tem precedência; a legada serve somente como fallback.
-  const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
-
   // Enquanto aguardamos o cliente, datas anteriores à nossa última mensagem
   // são resíduo: não representam ação humana exigida agora.
-  const returnCounts = validReturn && (!waitingCustomer || returnAt >= lastMessageAt);
-  const nextActionCounts = nextActionAt !== null && (!waitingCustomer || nextActionAt >= lastMessageAt);
+  const returnCounts = validReturn;
+  const nextActionCounts = validNextAction;
 
   if (returnCounts && returnAt! < start) return result('P0', 'return_overdue', returnAt!);
   if (nextActionCounts && nextActionAt! < start) return result('P0', 'next_action_overdue', nextActionAt!);
