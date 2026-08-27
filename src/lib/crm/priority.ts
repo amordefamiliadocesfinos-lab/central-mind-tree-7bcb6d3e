@@ -81,6 +81,19 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   if (input.needs_reply) return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
 
   const returnAt = asTime(input.return_at);
+
+  // Mensagem enviada + retorno agendado no futuro = a bola está com o cliente.
+  // Datas de ação anteriores ao envio são resíduo e não podem manter a fila.
+  const clientRepliedLast = lastInboundAt !== null && lastInboundAt >= lastMessageAt;
+  if (
+    input.attendance_state === 'aguardando_cliente'
+    && returnAt !== null
+    && returnAt >= end
+    && !clientRepliedLast
+  ) {
+    return result('P4', 'waiting_customer', returnAt, false);
+  }
+
   const validReturn = returnAt !== null && (lastInboundAt === null || lastInboundAt <= returnAt);
   if (validReturn && returnAt < start) return result('P0', 'return_overdue', returnAt);
 
@@ -88,15 +101,17 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
   if (nextActionAt !== null && nextActionAt < start) return result('P0', 'next_action_overdue', nextActionAt);
 
+
   if (input.no_response_status === 'follow_up_urgente') return result('P0', 'follow_up_urgent', lastMessageAt);
   if (validReturn && returnAt < end) return result('P1', 'return_today', returnAt);
   if (nextActionAt !== null && nextActionAt < end) return result('P1', 'next_action_today', nextActionAt);
 
   // Depois de uma mensagem enviada ou de um resultado sem resposta, a
   // conversa só volta à fila quando houver resposta ou retorno devido.
-  if (input.attendance_state === 'aguardando_cliente') {
+  if (input.attendance_state === 'aguardando_cliente' && !clientRepliedLast) {
     return result('P4', 'waiting_customer', lastMessageAt, false);
   }
+
 
   const lastContactAt = asTime(input.ultimo_contato);
   const tenDaysAgo = start - (10 * 86400000);
