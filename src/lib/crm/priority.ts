@@ -29,6 +29,9 @@ export interface CrmPriorityInput {
   last_inbound_at?: string | null;
   last_outbound_at?: string | null;
   last_message_at?: string | null;
+  /** Momento do último Resultado canônico registrado para o contato. */
+  last_result_at?: string | null;
+
   /** Momento em que o estado atual do atendimento foi registrado. */
   attendance_state_updated_at?: string | null;
   no_response_status?: 'sem_resposta' | 'follow_up_urgente' | 'lead_esfriando' | null;
