@@ -68,6 +68,23 @@ function result(level: CrmPriorityLevel, reason: CrmPriorityReason, sortAt: numb
 }
 
 /**
+ * Representações equivalentes, já existentes no sistema, do estado
+ * "aguardando cliente/resposta". Centralizadas para produzir o mesmo
+ * comportamento na fila, independente da origem do dado.
+ */
+const WAITING_CUSTOMER_STATES = new Set([
+  'aguardando_cliente',
+  'aguardando_resposta',
+  'awaiting_response',
+  'waiting_customer',
+]);
+
+export function isWaitingCustomerState(state?: string | null): boolean {
+  if (!state) return false;
+  return WAITING_CUSTOMER_STATES.has(state.trim().toLowerCase());
+}
+
+/**
  * Motor único, puro e determinístico para prioridade do CRM.
  * Não grava dados e não escolhe responsável; apenas explica a próxima atenção.
  */
@@ -78,39 +95,40 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
 
   if (input.status === 'resolved') return result('P4', 'resolved', lastMessageAt, false);
 
-  if (input.needs_reply) return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
+  // A última mensagem é do cliente? Só então existe algo a responder agora.
+  const clientRepliedLast = lastInboundAt !== null && lastInboundAt >= lastMessageAt;
+  const waitingCustomer = isWaitingCustomerState(input.attendance_state) && !clientRepliedLast;
+
+  if (input.needs_reply && !waitingCustomer) {
+    return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
+  }
 
   const returnAt = asTime(input.return_at);
-
-  // Mensagem enviada + retorno agendado no futuro = a bola está com o cliente.
-  // Datas de ação anteriores ao envio são resíduo e não podem manter a fila.
-  const clientRepliedLast = lastInboundAt !== null && lastInboundAt >= lastMessageAt;
-  if (
-    input.attendance_state === 'aguardando_cliente'
-    && returnAt !== null
-    && returnAt >= end
-    && !clientRepliedLast
-  ) {
-    return result('P4', 'waiting_customer', returnAt, false);
-  }
-
   const validReturn = returnAt !== null && (lastInboundAt === null || lastInboundAt <= returnAt);
-  if (validReturn && returnAt < start) return result('P0', 'return_overdue', returnAt);
-
   // A data canônica tem precedência; a legada serve somente como fallback.
   const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
-  if (nextActionAt !== null && nextActionAt < start) return result('P0', 'next_action_overdue', nextActionAt);
 
+  // Enquanto aguardamos o cliente, datas anteriores à nossa última mensagem
+  // são resíduo: não representam ação humana exigida agora.
+  const returnCounts = validReturn && (!waitingCustomer || returnAt >= lastMessageAt);
+  const nextActionCounts = nextActionAt !== null && (!waitingCustomer || nextActionAt >= lastMessageAt);
 
-  if (input.no_response_status === 'follow_up_urgente') return result('P0', 'follow_up_urgent', lastMessageAt);
-  if (validReturn && returnAt < end) return result('P1', 'return_today', returnAt);
-  if (nextActionAt !== null && nextActionAt < end) return result('P1', 'next_action_today', nextActionAt);
+  if (returnCounts && returnAt! < start) return result('P0', 'return_overdue', returnAt!);
+  if (nextActionCounts && nextActionAt! < start) return result('P0', 'next_action_overdue', nextActionAt!);
 
-  // Depois de uma mensagem enviada ou de um resultado sem resposta, a
-  // conversa só volta à fila quando houver resposta ou retorno devido.
-  if (input.attendance_state === 'aguardando_cliente' && !clientRepliedLast) {
-    return result('P4', 'waiting_customer', lastMessageAt, false);
+  if (!waitingCustomer && input.no_response_status === 'follow_up_urgente') {
+    return result('P0', 'follow_up_urgent', lastMessageAt);
   }
+  if (returnCounts && returnAt! < end) return result('P1', 'return_today', returnAt!);
+  if (nextActionCounts && nextActionAt! < end) return result('P1', 'next_action_today', nextActionAt!);
+
+  // Mensagem enviada e nada vencido: a bola está com o cliente. Sai da fila
+  // até haver resposta nova ou retorno/próxima ação realmente devida.
+  if (waitingCustomer) {
+    const sortAt = returnCounts ? returnAt! : nextActionCounts ? nextActionAt! : lastMessageAt;
+    return result('P4', 'waiting_customer', sortAt, false);
+  }
+
 
 
   const lastContactAt = asTime(input.ultimo_contato);
