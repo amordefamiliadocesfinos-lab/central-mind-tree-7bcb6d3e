@@ -108,9 +108,10 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
 
   // Depois de uma mensagem enviada ou de um resultado sem resposta, a
   // conversa só volta à fila quando houver resposta ou retorno devido.
-  if (input.attendance_state === 'aguardando_cliente') {
+  if (input.attendance_state === 'aguardando_cliente' && !clientRepliedLast) {
     return result('P4', 'waiting_customer', lastMessageAt, false);
   }
+
 
   const lastContactAt = asTime(input.ultimo_contato);
   const tenDaysAgo = start - (10 * 86400000);
