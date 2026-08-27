@@ -6,6 +6,7 @@ import { getCanonicalNextAction } from '@/lib/crm/canonical/nextActions';
 import { getCanonicalResult } from '@/lib/crm/canonical/results';
 import { getCrmTransition } from '@/lib/crm/canonical/transitions';
 import { resolveFunnelStageFromCanonicalResult } from '@/lib/crm/canonical/funnelProgression';
+import { shouldAwaitCustomerAfterCanonicalResult } from '@/lib/crm/canonical/operationalResponsibility';
 import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
@@ -148,10 +149,14 @@ export async function applyCanonicalAttendanceResult(input: {
   }
 
   const resolvesConversation = ['OUT_OF_ACTIVE_COMMERCIAL_QUEUE', 'CONTACT_RESTRICTED'].includes(decision.desiredOperationalState);
-  // Resultados que encerram a interação atual sem próxima ação não encerram
-  // a conversa nem mudam a etapa: apenas aguardam nova iniciativa do cliente.
-  const waitingForCustomer = ['CRM-RES-003', 'CRM-RES-008', 'CRM-RES-013', 'CRM-RES-026'].includes(input.resultCode)
-    && !nextAction;
+  // A responsabilidade operacional é declarada por Resultado. Uma ação
+  // imediata ainda mantém a conversa na atenção; retorno já programado só
+  // devolve a conversa à fila quando realmente vencer.
+  const waitingForCustomer = shouldAwaitCustomerAfterCanonicalResult({
+    resultCode: input.resultCode,
+    nextAction,
+    nextActionScheduled: shouldSchedule,
+  });
   const attendanceState = resolvesConversation
     ? 'concluido'
     : waitingForCustomer
