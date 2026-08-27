@@ -17,18 +17,16 @@ export function brokeredPreviewStorage() {
   const framed = window.parent && window.parent !== window;
   if (!projectId || !framed) return localStorage;
 
-  // Only broker a session to the immediate, verifiable editor ancestor. When
-  // that origin cannot be determined, fail closed and retain local storage.
+  // Post only to the real editor ancestor, validated as a Lovable origin, so the
+  // session token can never reach an untrusted embedder.
   const dev = host.endsWith('.lovableproject-dev.com') || host.endsWith('.gpt-eng.com');
   const EDITOR = dev
     ? /^https:\/\/([a-z0-9-]+\.)*(lovable\.dev|gptengineer\.app)$|^http:\/\/localhost:3000$/
     : /^https:\/\/([a-z0-9-]+\.)*(lovable\.dev|gptengineer\.app)$/;
-  let ancestor = (location.ancestorOrigins && location.ancestorOrigins[0]) || '';
-  if (!ancestor && document.referrer) {
-    try { ancestor = new URL(document.referrer).origin; } catch { ancestor = ''; }
-  }
-  const expectedEditorOrigin = ancestor && EDITOR.test(ancestor) ? ancestor : '';
-  if (!expectedEditorOrigin) return localStorage;
+  const ancestor = (location.ancestorOrigins && location.ancestorOrigins[0]) || (document.referrer ? new URL(document.referrer).origin : '');
+  const editorOrigins = ancestor && EDITOR.test(ancestor)
+    ? [ancestor]
+    : (dev ? ['https://lovable.dev', 'http://localhost:3000'] : ['https://lovable.dev']);
   const RESULT = 'lovable-preview-auth:result';
   const TIMEOUT = 2000;
   const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -46,15 +44,15 @@ export function brokeredPreviewStorage() {
         resolve(r);
       };
       const onMessage = (e: MessageEvent) => {
-        if (e.source !== window.parent || e.origin !== expectedEditorOrigin) return;
+        if (editorOrigins.indexOf(e.origin) < 0) return;
         const d = e.data;
         if (d && d.type === RESULT && d.requestId === requestId) finish(d);
       };
       window.addEventListener('message', onMessage);
       const msg: Record<string, unknown> = { type, requestId, projectId, key };
       if (value !== undefined) msg['value'] = value;
-      // Explicit target origin: a session token is never sent to an arbitrary embedder.
-      window.parent.postMessage(msg, expectedEditorOrigin);
+      // targetOrigin per trusted editor origin, so a session token never reaches an arbitrary embedder.
+      for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
       timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
