@@ -4,6 +4,7 @@ export type CrmPriorityLevel = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
 
 export type CrmPriorityReason =
   | 'needs_reply'
+  | 'pending_result'
   | 'return_overdue'
   | 'next_action_overdue'
   | 'return_today'
@@ -14,6 +15,7 @@ export type CrmPriorityReason =
   | 'future'
   | 'waiting_customer'
   | 'resolved';
+
 
 export interface CrmPriorityInput {
   needs_reply?: boolean | null;
