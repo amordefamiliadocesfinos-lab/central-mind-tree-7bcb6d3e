@@ -26,5 +26,20 @@ for (const code of ['CRM-RES-003', 'CRM-RES-008', 'CRM-RES-013', 'CRM-RES-026'] 
 
 const now = new Date('2026-08-27T12:00:00.000Z');
 assert(!getCrmPriority({ attendance_state: 'aguardando_cliente' }, now).operational, 'awaiting customer without a due signal must stay outside the priority queue.');
-assert(getCrmPriority({ attendance_state: 'aguardando_cliente', needs_reply: true }, now).reason === 'needs_reply', 'a new customer message must return to attention.');
-assert(getCrmPriority({ attendance_state: 'aguardando_cliente', return_at: '2026-08-26T12:00:00.000Z' }, now).reason === 'return_overdue', 'a due return must return to attention.');
+assert(getCrmPriority({
+  attendance_state: 'aguardando_cliente',
+  attendance_state_updated_at: '2026-08-27T10:00:00.000Z',
+  last_outbound_at: '2026-08-27T09:59:00.000Z',
+  last_message_at: '2026-08-27T10:05:00.000Z',
+  last_inbound_at: '2026-08-27T10:05:00.000Z',
+  last_result_at: '2026-08-27T09:58:00.000Z',
+  needs_reply: true,
+}, now).reason === 'needs_reply', 'a new customer message must return to attention.');
+assert(getCrmPriority({
+  attendance_state: 'aguardando_cliente',
+  attendance_state_updated_at: '2026-08-25T10:00:00.000Z',
+  last_outbound_at: '2026-08-25T09:59:00.000Z',
+  last_message_at: '2026-08-25T09:59:00.000Z',
+  last_inbound_at: '2026-08-25T09:00:00.000Z',
+  return_at: '2026-08-26T10:00:00.000Z',
+}, now).reason === 'return_overdue', 'a due return must return to attention.');
