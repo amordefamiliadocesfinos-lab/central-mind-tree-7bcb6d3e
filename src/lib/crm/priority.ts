@@ -46,7 +46,9 @@ export interface CrmPriority {
 
 const LABELS: Record<CrmPriorityReason, string> = {
   needs_reply: 'Precisa responder',
+  pending_result: 'Registrar resultado',
   return_overdue: 'Retorno vencido',
+
   next_action_overdue: 'Ação atrasada',
   return_today: 'Retorno hoje',
   next_action_today: 'Ação hoje',
