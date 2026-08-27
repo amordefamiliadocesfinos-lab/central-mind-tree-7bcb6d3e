@@ -4,6 +4,7 @@ export type CrmPriorityLevel = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
 
 export type CrmPriorityReason =
   | 'needs_reply'
+  | 'pending_result'
   | 'return_overdue'
   | 'next_action_overdue'
   | 'return_today'
@@ -14,6 +15,7 @@ export type CrmPriorityReason =
   | 'future'
   | 'waiting_customer'
   | 'resolved';
+
 
 export interface CrmPriorityInput {
   needs_reply?: boolean | null;
@@ -27,6 +29,9 @@ export interface CrmPriorityInput {
   last_inbound_at?: string | null;
   last_outbound_at?: string | null;
   last_message_at?: string | null;
+  /** Momento do último Resultado canônico registrado para o contato. */
+  last_result_at?: string | null;
+
   /** Momento em que o estado atual do atendimento foi registrado. */
   attendance_state_updated_at?: string | null;
   no_response_status?: 'sem_resposta' | 'follow_up_urgente' | 'lead_esfriando' | null;
@@ -44,7 +49,9 @@ export interface CrmPriority {
 
 const LABELS: Record<CrmPriorityReason, string> = {
   needs_reply: 'Precisa responder',
+  pending_result: 'Registrar resultado',
   return_overdue: 'Retorno vencido',
+
   next_action_overdue: 'Ação atrasada',
   return_today: 'Retorno hoje',
   next_action_today: 'Ação hoje',
@@ -138,9 +145,19 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
     (validReturn && returnAt < now.getTime())
     || (validNextAction && nextActionAt < now.getTime())
   );
+  // Uma mensagem nossa não conclui o atendimento enquanto a última mensagem
+  // relevante do cliente ainda não recebeu um Resultado canônico: o operador
+  // precisa continuar acessando a conversa para registrar o Resultado.
+  const lastResultAt = asTime(input.last_result_at);
+  const pendingResult = lastInboundAt !== null
+    && lastInboundAt >= start - (7 * 86400000)
+    && (lastResultAt === null || lastInboundAt > lastResultAt);
+
   if (waitingCustomer && !waitingHasDueAction) {
+    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
     return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
   }
+
 
   if (input.needs_reply && !waitingCustomer) {
     return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
@@ -163,9 +180,11 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   // Mensagem enviada e nada vencido: a bola está com o cliente. Sai da fila
   // até haver resposta nova ou retorno/próxima ação realmente devida.
   if (waitingCustomer) {
+    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
     const sortAt = returnCounts ? returnAt! : nextActionCounts ? nextActionAt! : lastMessageAt;
     return result('P4', 'waiting_customer', sortAt, false);
   }
+
 
 
 

@@ -14,6 +14,8 @@ const waitingBase: CrmPriorityInput = {
   last_inbound_at: '2026-08-27T19:50:00.000Z',
   needs_reply: true,
   no_response_status: 'follow_up_urgente',
+  // Resultado canônico já registrado depois da última entrada do cliente.
+  last_result_at: '2026-08-27T19:58:00.000Z',
 };
 
 const res003 = getCrmPriority(waitingBase, now);
@@ -52,3 +54,11 @@ const residualAction = getCrmPriority({
 }, now);
 assert(residualAction.level === 'P4' && !residualAction.operational,
   'datas residuais anteriores ao início da espera não podem reativar a Prioridade.');
+
+const pendingResult = getCrmPriority({ ...waitingBase, needs_reply: false, last_result_at: null }, now);
+assert(pendingResult.operational && pendingResult.reason === 'pending_result',
+  'resposta do cliente ainda sem Resultado registrado deve permanecer acessível após o envio.');
+
+const noInboundPending = getCrmPriority({ ...waitingBase, needs_reply: false, last_inbound_at: null, last_result_at: null }, now);
+assert(!noInboundPending.operational,
+  'envio sem nenhuma resposta pendente continua saindo da Prioridade.');
