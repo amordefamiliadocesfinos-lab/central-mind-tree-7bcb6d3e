@@ -136,6 +136,17 @@ const FUNNEL_STAGES = [
   { key: 'perdido', label: 'Perdido', color: 'bg-red-500', textColor: 'text-red-700', bgLight: 'bg-red-50/80 border-red-200', headerBg: 'bg-gradient-to-r from-red-500 to-red-400' },
 ];
 
+type PurchaseFilter = 'all' | 'with_purchase' | 'never' | 'last_15' | 'last_30' | 'last_60' | 'last_90' | 'over_90';
+type PaidOrdersFilter = 'all' | 'one_plus' | 'two_plus' | 'three_plus';
+type ReactivationFilter = 'all' | 'scheduled' | 'overdue' | 'none';
+
+function daysSince(value?: string | null) {
+  if (!value) return null;
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return differenceInDays(startOfDay(new Date()), startOfDay(date));
+}
+
 const getStageNextAction = (stage: string): Partial<Contact> => {
   const actionByStage: Record<string, { text: string; days: number }> = {
     novo_lead: { text: 'Fazer primeiro contato', days: 0 },
@@ -302,7 +313,7 @@ export default function Contatos() {
     [contacts],
   );
   const hasOrders = useCallback((contactId: string) => contactsWithOrders.has(contactId), [contactsWithOrders]);
-  const { nextTaskByContact } = useContactNextTasks();
+  const { nextTaskByContact, reactivationByContact } = useContactNextTasks();
   const { byContact: convoSummaryByContact } = useAllConversationsSummary();
   const { getNoResponseInfo, refreshNoResponse } = useNoResponseDetection();
   const { getScore } = useLeadScore(contacts, getNoResponseInfo, hasOrders);
@@ -349,6 +360,12 @@ export default function Contatos() {
   const [contactDateFilter, setContactDateFilter] = useState<string>('all');
   const [classificationFilter, setClassificationFilter] = useState<string>('all');
   const [originFilter, setOriginFilter] = useState<string>('all');
+  const [cityFilter, setCityFilter] = useState<string>('all');
+  const [responsibleFilter, setResponsibleFilter] = useState<string>('all');
+  const [purchaseFilter, setPurchaseFilter] = useState<PurchaseFilter>('all');
+  const [paidOrdersFilter, setPaidOrdersFilter] = useState<PaidOrdersFilter>('all');
+  const [reactivationFilter, setReactivationFilter] = useState<ReactivationFilter>('all');
+  const [segmentationMode, setSegmentationMode] = useState(false);
   const [attentionFilter, setAttentionFilter] = useState<AttentionKey>('all');
   const [qualityOnly, setQualityOnly] = useState(false);
   // FRENTE 7A — a operação diária é a Caixa de Entrada; o CRM abre em gestão (Kanban).
@@ -451,7 +468,8 @@ export default function Contatos() {
 
   /** Base pós filtros avançados (sem o chip) — alimenta os contadores do Passo 1 */
   const baseFilteredContacts = useMemo(() => {
-    return leadsPanelContacts.filter((c) => {
+    const base = segmentationMode ? contacts : leadsPanelContacts;
+    return base.filter((c) => {
       if (!c.is_active) return false;
       if (statusFilter !== 'all' && c.funnel_status !== statusFilter) return false;
       if (tempFilter !== 'all' && c.temperatura_lead !== tempFilter) return false;
@@ -478,6 +496,27 @@ export default function Contatos() {
       if (originFilter !== 'all') {
         const o = (c.origem_lead || 'Não Informado').trim();
         if (o !== originFilter) return false;
+      }
+      if (segmentationMode && cityFilter !== 'all' && (c.city || '').trim() !== cityFilter) return false;
+      if (segmentationMode && responsibleFilter !== 'all' && (c.salesperson || '').trim() !== responsibleFilter) return false;
+      if (segmentationMode) {
+        const paidOrders = c.paid_orders_count || 0;
+        const purchaseAge = daysSince(c.last_purchase_date);
+        if (purchaseFilter === 'with_purchase' && paidOrders < 1) return false;
+        if (purchaseFilter === 'never' && (paidOrders > 0 || c.last_purchase_date)) return false;
+        if (purchaseFilter === 'last_15' && (purchaseAge === null || purchaseAge < 0 || purchaseAge > 15)) return false;
+        if (purchaseFilter === 'last_30' && (purchaseAge === null || purchaseAge < 0 || purchaseAge > 30)) return false;
+        if (purchaseFilter === 'last_60' && (purchaseAge === null || purchaseAge < 0 || purchaseAge > 60)) return false;
+        if (purchaseFilter === 'last_90' && (purchaseAge === null || purchaseAge < 0 || purchaseAge > 90)) return false;
+        if (purchaseFilter === 'over_90' && (purchaseAge === null || purchaseAge <= 90)) return false;
+        if (paidOrdersFilter === 'one_plus' && paidOrders < 1) return false;
+        if (paidOrdersFilter === 'two_plus' && paidOrders < 2) return false;
+        if (paidOrdersFilter === 'three_plus' && paidOrders < 3) return false;
+        const reactivationDate = reactivationByContact[c.id];
+        const reactivationAge = daysSince(reactivationDate);
+        if (reactivationFilter === 'scheduled' && !reactivationDate) return false;
+        if (reactivationFilter === 'overdue' && (reactivationAge === null || reactivationAge < 0)) return false;
+        if (reactivationFilter === 'none' && reactivationDate) return false;
       }
       if (contactDateFilter === 'hoje_contato') {
         if (!c.next_contact_date) return false;
@@ -518,7 +557,7 @@ export default function Contatos() {
 
       return true;
     });
-  }, [leadsPanelContacts, deferredSearchQuery, statusFilter, tempFilter, typeFilter, tagFilter, actionFilter, contactDateFilter, classificationFilter, originFilter, getTagsForContact, isNextActionOverdue]);
+  }, [contacts, leadsPanelContacts, segmentationMode, deferredSearchQuery, statusFilter, tempFilter, typeFilter, tagFilter, actionFilter, contactDateFilter, classificationFilter, originFilter, cityFilter, responsibleFilter, purchaseFilter, paidOrdersFilter, reactivationFilter, reactivationByContact, getTagsForContact, isNextActionOverdue]);
 
   const qualityIssueByContact = useMemo(() => {
     const phoneCounts = new Map<string, number>();
@@ -1201,6 +1240,11 @@ export default function Contatos() {
             tempFilter !== 'all',
             actionFilter !== 'all',
             contactDateFilter !== 'all',
+            cityFilter !== 'all',
+            responsibleFilter !== 'all',
+            purchaseFilter !== 'all',
+            paidOrdersFilter !== 'all',
+            reactivationFilter !== 'all',
           ].filter(Boolean).length}
           onClearAllFilters={() => {
             setSearchQuery('');
@@ -1212,6 +1256,11 @@ export default function Contatos() {
             setTempFilter('all');
             setActionFilter('all');
             setContactDateFilter('all');
+            setCityFilter('all');
+            setResponsibleFilter('all');
+            setPurchaseFilter('all');
+            setPaidOrdersFilter('all');
+            setReactivationFilter('all');
             setAttentionFilter('all');
             setQualityOnly(false);
           }}
@@ -1271,6 +1320,64 @@ export default function Contatos() {
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+
+              {segmentationMode && (
+                <>
+                  <Select value={cityFilter} onValueChange={setCityFilter}>
+                    <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Cidade" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas cidades</SelectItem>
+                      {Array.from(new Set(contacts.map(c => (c.city || '').trim()).filter(Boolean))).sort().map(city => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                    <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos responsáveis</SelectItem>
+                      {Array.from(new Set(contacts.map(c => (c.salesperson || '').trim()).filter(Boolean))).sort().map(person => (
+                        <SelectItem key={person} value={person}>{person}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={purchaseFilter} onValueChange={(value) => setPurchaseFilter(value as PurchaseFilter)}>
+                    <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Última compra" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas compras</SelectItem>
+                      <SelectItem value="with_purchase">Com compra</SelectItem>
+                      <SelectItem value="never">Nunca comprou</SelectItem>
+                      <SelectItem value="last_15">Comprou até 15d</SelectItem>
+                      <SelectItem value="last_30">Comprou até 30d</SelectItem>
+                      <SelectItem value="last_60">Comprou até 60d</SelectItem>
+                      <SelectItem value="last_90">Comprou até 90d</SelectItem>
+                      <SelectItem value="over_90">Mais de 90d</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={paidOrdersFilter} onValueChange={(value) => setPaidOrdersFilter(value as PaidOrdersFilter)}>
+                    <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Pedidos pagos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Pedidos pagos</SelectItem>
+                      <SelectItem value="one_plus">1 ou mais</SelectItem>
+                      <SelectItem value="two_plus">2 ou mais</SelectItem>
+                      <SelectItem value="three_plus">3 ou mais</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={reactivationFilter} onValueChange={(value) => setReactivationFilter(value as ReactivationFilter)}>
+                    <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Reativação" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toda reativação</SelectItem>
+                      <SelectItem value="scheduled">Com reativação</SelectItem>
+                      <SelectItem value="overdue">Reativação vencida</SelectItem>
+                      <SelectItem value="none">Sem reativação</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
 
               {(() => {
@@ -1352,6 +1459,24 @@ export default function Contatos() {
         {/* Ações e visualização */}
         <div className="flex items-center gap-2 justify-end flex-wrap">
           <Button
+            variant={segmentationMode ? 'secondary' : 'outline'}
+            size="sm"
+            className={cn('h-8 gap-1.5', segmentationMode && 'border-primary/30 bg-primary/10 text-primary')}
+            onClick={() => {
+              const next = !segmentationMode;
+              setSegmentationMode(next);
+              if (next) {
+                setViewMode('list');
+                setAttentionFilter('all');
+                setQualityOnly(false);
+              }
+            }}
+            title="Filtrar a base comercial sem alterar a Caixa de Entrada"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            <span className="text-xs">Segmentar{segmentationMode ? ` (${filteredContacts.length})` : ''}</span>
+          </Button>
+          <Button
             variant={qualityOnly ? 'secondary' : 'outline'}
             size="sm"
             className={cn('h-8 gap-1.5', qualityOnly && 'border-amber-300 bg-amber-100 text-amber-800')}
@@ -1396,6 +1521,17 @@ export default function Contatos() {
 
       {/* Content */}
       <div className="p-3">
+        {segmentationMode && (
+          <Card className="mb-3 border-primary/20 bg-primary/[0.03] px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Segmentação comercial</p>
+                <p className="text-xs text-muted-foreground">Use filtros combinados para encontrar grupos. Esta seleção não coloca contatos na Inbox.</p>
+              </div>
+              <Badge variant="secondary" className="text-sm">Resultado: {filteredContacts.length} contatos</Badge>
+            </div>
+          </Card>
+        )}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[...Array(6)].map((_, i) => (
@@ -1536,6 +1672,11 @@ export default function Contatos() {
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Classificação</TableHead>
                   <TableHead>Tipo</TableHead>
+                  {segmentationMode && <>
+                    <TableHead>Pedidos pagos</TableHead>
+                    <TableHead>Última compra</TableHead>
+                    <TableHead>Reativação</TableHead>
+                  </>}
                   <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('temperatura')}>
                     <div className="flex items-center">Temp. <SortIcon field="temperatura" /></div>
                   </TableHead>
@@ -1558,7 +1699,7 @@ export default function Contatos() {
               <TableBody>
                 {sortedContacts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={segmentationMode ? 18 : 15} className="text-center text-muted-foreground py-12">
                       Nenhum contato encontrado
                     </TableCell>
                   </TableRow>
@@ -1613,6 +1754,21 @@ export default function Contatos() {
                             </span>
                           )}
                         </TableCell>
+                        {segmentationMode && <>
+                          <TableCell className="text-xs font-medium">{contact.paid_orders_count || 0}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {contact.last_purchase_date ? (() => {
+                              const days = daysSince(contact.last_purchase_date);
+                              return days === null ? '-' : `${days}d atrás`;
+                            })() : 'Nunca comprou'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {reactivationByContact[contact.id] ? (() => {
+                              const days = daysSince(reactivationByContact[contact.id]);
+                              return days === null ? '-' : days < 0 ? `Em ${Math.abs(days)}d` : days === 0 ? 'Hoje' : `${days}d vencida`;
+                            })() : '-'}
+                          </TableCell>
+                        </>}
                         <TableCell>
                           <Select value={contact.temperatura_lead || 'morno'} onValueChange={(v) => handleTempChange(contact, v)}>
                             <SelectTrigger className="h-7 text-xs w-28 border-0 bg-transparent p-0 shadow-none">

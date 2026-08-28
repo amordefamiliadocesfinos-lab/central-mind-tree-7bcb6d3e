@@ -2,34 +2,37 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Returns a map of contact_id -> earliest pending task scheduled/due date (ISO string).
- * Used by CRM cards to show "Sem tarefas" / "Hoje" / "Xd atrasada" indicators based on
- * the real `tasks` table (not just contact.next_action_date).
+ * Retorna as obrigações CRM oficiais pendentes por contato. A base comercial
+ * pode usar esses mapas para segmentar sem inferir nada por nome ou prioridade.
  */
 export function useContactNextTasks() {
   const [map, setMap] = useState<Record<string, string>>({});
+  const [reactivationMap, setReactivationMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from('tasks')
-      .select('contact_id, scheduled_date, due_date, scheduled_time, status')
+      .select('contact_id, scheduled_date, due_date, scheduled_time, status, source')
       .not('contact_id', 'is', null)
-      .eq('source', 'crm_next_action')
+      .in('source', ['crm_next_action', 'crm_reactivation'])
       .neq('status', 'concluído')
       .is('deleted_at', null);
 
     const m: Record<string, string> = {};
+    const reactivations: Record<string, string> = {};
     (data || []).forEach((t: any) => {
       const date = t.scheduled_date || t.due_date;
       if (!date || !t.contact_id) return;
       const iso = t.scheduled_time ? `${date}T${t.scheduled_time}` : `${date}T00:00:00`;
-      if (!m[t.contact_id] || iso < m[t.contact_id]) {
-        m[t.contact_id] = iso;
+      const target = t.source === 'crm_reactivation' ? reactivations : m;
+      if (!target[t.contact_id] || iso < target[t.contact_id]) {
+        target[t.contact_id] = iso;
       }
     });
     setMap(m);
+    setReactivationMap(reactivations);
     setLoading(false);
   }, []);
 
@@ -44,5 +47,5 @@ export function useContactNextTasks() {
     return () => { supabase.removeChannel(channel); };
   }, [fetch]);
 
-  return { nextTaskByContact: map, loading, refetch: fetch };
+  return { nextTaskByContact: map, reactivationByContact: reactivationMap, loading, refetch: fetch };
 }
