@@ -251,40 +251,31 @@ export function useFinancial() {
     }
 
     if (data && entry.recurrence_type && entry.recurrence_end_date && recurrenceSeriesId) {
-      const end = parseISO(entry.recurrence_end_date);
-      let cursor = parseISO(entry.due_date);
-      const occurrences: any[] = [];
-      for (let sequence = 1; sequence <= 120; sequence++) {
-        switch (entry.recurrence_type) {
-          case 'semanal': cursor = addWeeks(cursor, 1); break;
-          case 'quinzenal': cursor = addDays(cursor, 15); break;
-          case 'trimestral': cursor = addMonths(cursor, 3); break;
-          case 'semestral': cursor = addMonths(cursor, 6); break;
-          case 'anual': cursor = addYears(cursor, 1); break;
-          default: cursor = addMonths(cursor, 1);
-        }
-        if (cursor > end) break;
-        let due = cursor;
-        if (entry.recurrence_use_business_days) while (isWeekend(due)) due = addDays(due, 1);
-        occurrences.push({
-          type: entry.type, description: entry.description, value: entry.value,
-          due_date: format(due, 'yyyy-MM-dd'), original_due_date: format(due, 'yyyy-MM-dd'),
-          issue_date: entry.issue_date || null, competence_date: format(due, 'yyyy-MM-dd'),
-          category_id: entry.category_id || null, account_id: entry.account_id || null,
-          contact_id: entry.contact_id || null, order_id: entry.order_id || null,
-          document_number: entry.document_number || null, notes: entry.notes || null,
-          recurrence_type: entry.recurrence_type, recurrence_day: entry.recurrence_day || null,
-          recurrence_end_date: entry.recurrence_end_date,
-          recurrence_use_business_days: !!entry.recurrence_use_business_days,
-          recurrence_series_id: recurrenceSeriesId, recurrence_sequence: sequence,
-          parent_entry_id: data.id,
-        });
-      }
+      const dueDates = buildRecurrenceDueDates(entry.due_date, {
+        recurrence_type: entry.recurrence_type,
+        recurrence_day: entry.recurrence_day,
+        recurrence_end_date: entry.recurrence_end_date,
+        recurrence_use_business_days: entry.recurrence_use_business_days,
+      });
+      const occurrences = dueDates.map((due, index) => ({
+        type: entry.type, description: entry.description, value: entry.value,
+        due_date: due, original_due_date: due,
+        issue_date: entry.issue_date || null, competence_date: due,
+        category_id: entry.category_id || null, account_id: entry.account_id || null,
+        contact_id: entry.contact_id || null, order_id: entry.order_id || null,
+        document_number: entry.document_number || null, notes: entry.notes || null,
+        recurrence_type: entry.recurrence_type, recurrence_day: entry.recurrence_day || null,
+        recurrence_end_date: entry.recurrence_end_date,
+        recurrence_use_business_days: !!entry.recurrence_use_business_days,
+        recurrence_series_id: recurrenceSeriesId, recurrence_sequence: index + 1,
+        parent_entry_id: data.id,
+      }));
       if (occurrences.length) {
         const { error: recurrenceError } = await supabase.from('financial_entries').insert(occurrences as any);
         if (recurrenceError) throw recurrenceError;
       }
     }
+
 
     fetchEntries();
     return data;
