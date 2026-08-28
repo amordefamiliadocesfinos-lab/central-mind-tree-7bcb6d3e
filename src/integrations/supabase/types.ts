@@ -810,6 +810,7 @@ export type Database = {
           category: string | null
           city: string | null
           client_classification: string | null
+          commercial_opt_out: boolean
           code: string | null
           company_name: string | null
           contact_info: string | null
@@ -895,6 +896,7 @@ export type Database = {
           category?: string | null
           city?: string | null
           client_classification?: string | null
+          commercial_opt_out?: boolean
           code?: string | null
           company_name?: string | null
           contact_info?: string | null
@@ -980,6 +982,7 @@ export type Database = {
           category?: string | null
           city?: string | null
           client_classification?: string | null
+          commercial_opt_out?: boolean
           code?: string | null
           company_name?: string | null
           contact_info?: string | null

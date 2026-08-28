@@ -79,7 +79,7 @@ export async function applyCanonicalAttendanceResult(input: {
 
   const { data: contact, error: contactError } = await supabase
     .from('contacts')
-    .select('funnel_status, next_action_text, next_action_date')
+    .select('funnel_status, next_action_text, next_action_date, commercial_opt_out')
     .eq('id', input.contactId)
     .maybeSingle();
   if (contactError || !contact) throw contactError || new Error('Contato não encontrado');
@@ -124,9 +124,10 @@ export async function applyCanonicalAttendanceResult(input: {
     hasLegitimateFutureReturn: Boolean(returnAt),
   });
 
-  if (stageResolution.action === 'MOVE') {
+  if (stageResolution.action === 'MOVE' || input.resultCode === 'CRM-RES-033') {
     const { error } = await supabase.from('contacts').update({
-      funnel_status: stageResolution.nextStage,
+      ...(stageResolution.action === 'MOVE' ? { funnel_status: stageResolution.nextStage } : {}),
+      ...(input.resultCode === 'CRM-RES-033' ? { commercial_opt_out: true } : {}),
       updated_at: now,
     }).eq('id', input.contactId);
     if (error) throw error;

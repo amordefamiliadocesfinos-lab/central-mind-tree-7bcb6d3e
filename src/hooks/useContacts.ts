@@ -82,6 +82,7 @@ export interface Contact {
   valor_estimado?: number;
   ultimo_contato?: string;
   origem_lead?: string;
+  commercial_opt_out?: boolean;
   
   // Next action
   next_action_text?: string;
@@ -116,7 +117,7 @@ export interface Contact {
 
 // Columns actually rendered in the list/kanban/cards. Drops heavy fiscal,
 // address-detail and parents columns that are only needed in the edit drawer.
-const LIST_COLUMNS = 'id,name,fantasy_name,code,type,person_type,document,phone,landline,mobile,email,whatsapp,website,photo_url,city,state,contact_type,salesperson,category,funnel_status,temperatura_lead,valor_estimado,ultimo_contato,origem_lead,next_action_text,next_action_date,next_contact_date,client_classification,campaign_idea_id,lifetime_value,paid_orders_count,last_purchase_date,last_payment_date,lost_reason,lost_at,company_name,notes,is_active,converted_at,created_at,updated_at';
+const LIST_COLUMNS = 'id,name,fantasy_name,code,type,person_type,document,phone,landline,mobile,email,whatsapp,website,photo_url,city,state,contact_type,salesperson,category,funnel_status,temperatura_lead,valor_estimado,ultimo_contato,origem_lead,commercial_opt_out,next_action_text,next_action_date,next_contact_date,client_classification,campaign_idea_id,lifetime_value,paid_orders_count,last_purchase_date,last_payment_date,lost_reason,lost_at,company_name,notes,is_active,converted_at,created_at,updated_at';
 
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);

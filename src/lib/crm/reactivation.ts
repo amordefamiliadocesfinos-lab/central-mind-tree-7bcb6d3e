@@ -19,6 +19,15 @@ function requireValidReactivation(input: CrmReactivation) {
 
 /** Mantém uma única oportunidade futura de recompra por contato. */
 export async function syncCrmReactivationTask(contactId: string, input: CrmReactivation) {
+  if (input.dueAt) {
+    const { data: contact, error: contactError } = await supabase
+      .from('contacts')
+      .select('commercial_opt_out')
+      .eq('id', contactId)
+      .maybeSingle();
+    if (contactError) throw contactError;
+    if (contact?.commercial_opt_out) throw new Error('Este contato está marcado como Não deseja contato');
+  }
   const { data: pending, error: findError } = await supabase
     .from('tasks')
     .select('id')

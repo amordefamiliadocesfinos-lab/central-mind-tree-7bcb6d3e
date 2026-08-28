@@ -139,6 +139,7 @@ const FUNNEL_STAGES = [
 type PurchaseFilter = 'all' | 'with_purchase' | 'never' | 'last_15' | 'last_30' | 'last_60' | 'last_90' | 'over_90';
 type PaidOrdersFilter = 'all' | 'one_plus' | 'two_plus' | 'three_plus';
 type ReactivationFilter = 'all' | 'scheduled' | 'overdue' | 'none';
+type CommercialOptOutFilter = 'all' | 'eligible' | 'opted_out';
 
 function daysSince(value?: string | null) {
   if (!value) return null;
@@ -365,6 +366,7 @@ export default function Contatos() {
   const [purchaseFilter, setPurchaseFilter] = useState<PurchaseFilter>('all');
   const [paidOrdersFilter, setPaidOrdersFilter] = useState<PaidOrdersFilter>('all');
   const [reactivationFilter, setReactivationFilter] = useState<ReactivationFilter>('all');
+  const [commercialOptOutFilter, setCommercialOptOutFilter] = useState<CommercialOptOutFilter>('all');
   const [segmentationMode, setSegmentationMode] = useState(false);
   const [attentionFilter, setAttentionFilter] = useState<AttentionKey>('all');
   const [qualityOnly, setQualityOnly] = useState(false);
@@ -500,6 +502,8 @@ export default function Contatos() {
       if (segmentationMode && cityFilter !== 'all' && (c.city || '').trim() !== cityFilter) return false;
       if (segmentationMode && responsibleFilter !== 'all' && (c.salesperson || '').trim() !== responsibleFilter) return false;
       if (segmentationMode) {
+        if (commercialOptOutFilter === 'eligible' && c.commercial_opt_out) return false;
+        if (commercialOptOutFilter === 'opted_out' && !c.commercial_opt_out) return false;
         const paidOrders = c.paid_orders_count || 0;
         const purchaseAge = daysSince(c.last_purchase_date);
         if (purchaseFilter === 'with_purchase' && paidOrders < 1) return false;
@@ -557,7 +561,7 @@ export default function Contatos() {
 
       return true;
     });
-  }, [contacts, leadsPanelContacts, segmentationMode, deferredSearchQuery, statusFilter, tempFilter, typeFilter, tagFilter, actionFilter, contactDateFilter, classificationFilter, originFilter, cityFilter, responsibleFilter, purchaseFilter, paidOrdersFilter, reactivationFilter, reactivationByContact, getTagsForContact, isNextActionOverdue]);
+  }, [contacts, leadsPanelContacts, segmentationMode, deferredSearchQuery, statusFilter, tempFilter, typeFilter, tagFilter, actionFilter, contactDateFilter, classificationFilter, originFilter, cityFilter, responsibleFilter, purchaseFilter, paidOrdersFilter, reactivationFilter, commercialOptOutFilter, reactivationByContact, getTagsForContact, isNextActionOverdue]);
 
   const qualityIssueByContact = useMemo(() => {
     const phoneCounts = new Map<string, number>();
@@ -1261,6 +1265,7 @@ export default function Contatos() {
             setPurchaseFilter('all');
             setPaidOrdersFilter('all');
             setReactivationFilter('all');
+            setCommercialOptOutFilter('all');
             setAttentionFilter('all');
             setQualityOnly(false);
           }}
@@ -1375,6 +1380,14 @@ export default function Contatos() {
                       <SelectItem value="scheduled">Com reativação</SelectItem>
                       <SelectItem value="overdue">Reativação vencida</SelectItem>
                       <SelectItem value="none">Sem reativação</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={commercialOptOutFilter} onValueChange={(value) => setCommercialOptOutFilter(value as CommercialOptOutFilter)}>
+                    <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Contato comercial" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os contatos</SelectItem>
+                      <SelectItem value="eligible">Pode receber contato</SelectItem>
+                      <SelectItem value="opted_out">Não deseja contato</SelectItem>
                     </SelectContent>
                   </Select>
                 </>

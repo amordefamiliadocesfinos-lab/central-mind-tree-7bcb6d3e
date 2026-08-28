@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Check, MessageCircle, Phone, CalendarClock, FileText } from 'lucide-react';
+import { Loader2, Check, MessageCircle, Phone, CalendarClock, FileText, Ban, Undo2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { ContactTimeline } from '@/components/crm/ContactTimeline';
 import { ContactTasksPanel } from '@/components/crm/ContactTasksPanel';
@@ -112,6 +113,17 @@ export function LeadDetailDrawer({ contact, open, onOpenChange, onSave, onOpenFu
     commit(field, form[field]);
   };
 
+  const setCommercialOptOut = async (value: boolean) => {
+    setSavingField('commercial_opt_out');
+    try {
+      await onSave(contact.id, { commercial_opt_out: value });
+      contact.commercial_opt_out = value;
+      toast.success(value ? 'Contato marcado como Não deseja contato' : 'Opt-out comercial removido');
+    } finally {
+      setSavingField(null);
+    }
+  };
+
   const FieldStatus = ({ field }: { field: keyof FormState }) => {
     if (savingField === field) return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
     if (savedField === field) return <Check className="h-3 w-3 text-emerald-600" />;
@@ -134,6 +146,7 @@ export function LeadDetailDrawer({ contact, open, onOpenChange, onSave, onOpenFu
                   {contact.funnel_status && <Badge variant="secondary" className="text-[10px]">{getCrmStageLabel(contact.funnel_status)}</Badge>}
                   {contact.temperatura_lead && <Badge variant="outline" className="text-[10px] capitalize">{contact.temperatura_lead}</Badge>}
                   {contact.client_classification && <Badge variant="outline" className="text-[10px] capitalize">{contact.client_classification}</Badge>}
+                  {contact.commercial_opt_out && <Badge variant="destructive" className="text-[10px] gap-1"><Ban className="h-3 w-3" /> Não deseja contato</Badge>}
                 </div>
               </div>
             </div>
@@ -159,6 +172,14 @@ export function LeadDetailDrawer({ contact, open, onOpenChange, onSave, onOpenFu
               </div>
               <p className="mt-1 text-sm font-medium">{contact.next_action_text || 'Nenhuma ação definida'}</p>
               <p className="text-xs text-muted-foreground">{formatDate(contact.next_action_date || contact.next_contact_date)}</p>
+            </div>
+
+            <div className={contact.commercial_opt_out ? 'rounded-lg border border-destructive/30 bg-destructive/5 p-3' : 'rounded-lg border p-3'}>
+              <p className="text-xs font-semibold">Opt-out comercial</p>
+              <p className="mt-1 text-xs text-muted-foreground">{contact.commercial_opt_out ? 'Não receberá reativações ou campanhas comerciais até a reversão manual.' : 'Pode receber contatos comerciais.'}</p>
+              <Button size="sm" variant={contact.commercial_opt_out ? 'outline' : 'secondary'} className="mt-2 h-7 text-xs" disabled={savingField === 'commercial_opt_out'} onClick={() => setCommercialOptOut(!contact.commercial_opt_out)}>
+                {contact.commercial_opt_out ? <><Undo2 className="mr-1 h-3 w-3" /> Remover opt-out</> : 'Marcar como não deseja contato'}
+              </Button>
             </div>
 
             <Field label="Nome" status={<FieldStatus field="name" />}>
@@ -237,7 +258,7 @@ export function LeadDetailDrawer({ contact, open, onOpenChange, onSave, onOpenFu
           </TabsContent>
 
           <TabsContent value="tarefas" className="p-4 mt-0">
-            <ContactTasksPanel contactId={contact.id} />
+            <ContactTasksPanel contactId={contact.id} commercialOptOut={Boolean(contact.commercial_opt_out)} />
           </TabsContent>
 
           <TabsContent value="atendimento" className="p-4 mt-0">

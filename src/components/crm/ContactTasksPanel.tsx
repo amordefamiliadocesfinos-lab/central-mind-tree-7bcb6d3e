@@ -39,7 +39,7 @@ const PRESETS = [
 
 type TaskKind = 'next_action' | 'reactivation';
 
-export function ContactTasksPanel({ contactId }: { contactId: string }) {
+export function ContactTasksPanel({ contactId, commercialOptOut = false }: { contactId: string; commercialOptOut?: boolean }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +86,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
   };
 
   const startReactivation = (days?: number) => {
+    if (commercialOptOut) { toast.error('Este contato está marcado como Não deseja contato'); return; }
     setTaskKind('reactivation');
     setTitle('Reativação comercial');
     setDate(days ? addDays(startOfDay(new Date()), days) : undefined);
@@ -104,8 +105,8 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
       } else {
         await setCrmNextAction({ contactId, title: title.trim(), dueAt: dueAt.toISOString() });
       }
-    } catch {
-      toast.error('Erro ao criar a próxima ação');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar a próxima ação');
       return;
     }
     toast.success(taskKind === 'reactivation' ? 'Reativação comercial programada' : 'Próxima ação CRM criada');
@@ -170,11 +171,11 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[10px] text-muted-foreground">Reativar / recompra:</span>
             {[15, 30, 60, 90].map((days) => (
-              <Badge key={days} variant="secondary" className="cursor-pointer text-[10px] hover:bg-secondary/70" onClick={() => startReactivation(days)}>
+              <Badge key={days} variant="secondary" className={cn('text-[10px]', commercialOptOut ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-secondary/70')} onClick={() => startReactivation(days)}>
                 + {days} dias
               </Badge>
             ))}
-            <Badge variant="secondary" className="cursor-pointer text-[10px] hover:bg-secondary/70" onClick={() => startReactivation()}>
+            <Badge variant="secondary" className={cn('text-[10px]', commercialOptOut ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-secondary/70')} onClick={() => startReactivation()}>
               Data personalizada
             </Badge>
           </div>
