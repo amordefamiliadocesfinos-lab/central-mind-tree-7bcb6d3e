@@ -309,8 +309,72 @@ export function useFinancial() {
       throw error;
     }
 
+    await syncRecurrenceSeries(id);
+
     fetchEntries();
   };
+
+  /**
+   * Consolida a recorrência de um lançamento existente: quando a regra está ativa,
+   * (re)gera as ocorrências futuras da série sem tocar nas já pagas.
+   */
+  const syncRecurrenceSeries = async (id: string) => {
+    const { data: row, error } = await supabase
+      .from('financial_entries')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !row) return;
+
+    const entry = row as any;
+    // Editar uma ocorrência filha não regenera a série.
+    if (entry.parent_entry_id) return;
+    if (!entry.recurrence_type || !entry.recurrence_end_date) return;
+
+    let seriesId: string = entry.recurrence_series_id;
+    if (!seriesId) {
+      seriesId = crypto.randomUUID();
+      await supabase
+        .from('financial_entries')
+        .update({ recurrence_series_id: seriesId, recurrence_sequence: 0 } as any)
+        .eq('id', id);
+    }
+
+    // Remove ocorrências futuras ainda não pagas para reaplicar a regra atual.
+    await supabase
+      .from('financial_entries')
+      .delete()
+      .eq('parent_entry_id', id)
+      .eq('value_paid', 0)
+      .is('payment_date', null);
+
+    const { data: remaining } = await supabase
+      .from('financial_entries')
+      .select('due_date')
+      .eq('parent_entry_id', id);
+    const existingDates = new Set((remaining || []).map((r: any) => r.due_date));
+
+    const dueDates = buildRecurrenceDueDates(entry.due_date, entry).filter(d => !existingDates.has(d));
+    if (!dueDates.length) return;
+
+    const occurrences = dueDates.map((due, index) => ({
+      type: entry.type, description: entry.description, value: entry.value,
+      due_date: due, original_due_date: due,
+      issue_date: entry.issue_date || null, competence_date: due,
+      category_id: entry.category_id || null, account_id: entry.account_id || null,
+      contact_id: entry.contact_id || null, order_id: entry.order_id || null,
+      document_number: entry.document_number || null, notes: entry.notes || null,
+      recurrence_type: entry.recurrence_type, recurrence_day: entry.recurrence_day || null,
+      recurrence_end_date: entry.recurrence_end_date,
+      recurrence_use_business_days: !!entry.recurrence_use_business_days,
+      recurrence_series_id: seriesId, recurrence_sequence: index + 1,
+      parent_entry_id: id,
+    }));
+
+    const { error: insertError } = await supabase.from('financial_entries').insert(occurrences as any);
+    if (insertError) console.error('Error generating recurrence occurrences:', insertError);
+  };
+
 
   const deleteEntry = async (id: string) => {
     const { error } = await supabase
