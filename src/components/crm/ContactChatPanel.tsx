@@ -43,6 +43,7 @@ const MAX_FONT = 22;
 export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [commercialOptOut, setCommercialOptOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
@@ -54,6 +55,17 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   });
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
+  const outboundBlocked = commercialOptOut && !isCustomerReply;
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('contacts').select('commercial_opt_out').eq('id', contactId).maybeSingle()
+      .then(({ data, error }) => {
+        if (!cancelled && !error) setCommercialOptOut(Boolean(data?.commercial_opt_out));
+      });
+    return () => { cancelled = true; };
+  }, [contactId]);
 
   const changeFont = (delta: number) => {
     setFontSize((prev) => {
@@ -140,6 +152,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
   const handleSend = async () => {
     if (!conversationId || (!text.trim() && !attachment)) return;
+    if (outboundBlocked) {
+      toast.error('Este contato marcou que não deseja receber contato comercial. Remova o opt-out conscientemente antes de iniciar uma nova abordagem.');
+      return;
+    }
     setSending(true);
     const content = text.trim();
     try {
@@ -304,6 +320,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       </div>
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
+        {commercialOptOut && (
+          <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+            {isCustomerReply
+              ? 'Opt-out comercial ativo: resposta ao contato iniciado pelo cliente permitida.'
+              : 'Este contato não deseja contato comercial. Remova o opt-out no detalhe antes de iniciar nova abordagem.'}
+          </p>
+        )}
         {attachment && (
           <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs">
             {attachment.type.startsWith('audio/') ? <Mic className="h-3.5 w-3.5" /> : attachment.type.startsWith('video/') ? <Video className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
@@ -314,7 +337,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         )}
         <div className="flex items-end gap-1">
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(event) => setAttachment(event.target.files?.[0] || null)} />
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleSuggest} disabled={suggesting || !conversationId} title="Sugerir resposta com IA">
             {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           </Button>
@@ -325,6 +348,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
             rows={1}
             className="resize-none min-h-[36px] max-h-28 py-2"
             style={{ fontSize: `${fontSize}px` }}
+            disabled={outboundBlocked}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -334,7 +358,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           />
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(-1)} disabled={fontSize <= MIN_FONT} title="Diminuir texto das mensagens"><AArrowDown className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(1)} disabled={fontSize >= MAX_FONT} title="Aumentar texto das mensagens"><AArrowUp className="h-4 w-4" /></Button>
-          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || (!text.trim() && !attachment) || !conversationId} title="Enviar">
+          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || outboundBlocked || (!text.trim() && !attachment) || !conversationId} title="Enviar">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
