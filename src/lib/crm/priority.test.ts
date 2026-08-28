@@ -70,3 +70,19 @@ assert(!futureReactivation.operational,
 const dueReactivation = getCrmPriority({ status: 'resolved', reactivation_at: '2026-08-27T09:00:00.000Z' }, now);
 assert(dueReactivation.operational && dueReactivation.reason === 'reactivation_today',
   'reativação vencida hoje deve trazer o cliente encerrado de volta à atenção.');
+
+const duePostSale = getCrmPriority({ status: 'resolved', next_action_date: '2026-08-27T09:00:00.000Z' }, now);
+assert(duePostSale.operational && duePostSale.reason === 'next_action_today',
+  'pós-venda agendado deve retornar à atenção na data programada.');
+
+const dateOnlyReturn = getCrmPriority({
+  attendance_state: 'aguardando_cliente',
+  // Data sem horário é persistida no início do dia local (America/Sao_Paulo).
+  return_at: '2026-08-27T03:00:00.000Z',
+}, now);
+assert(dateOnlyReturn.operational && dateOnlyReturn.reason === 'return_today',
+  'retorno para hoje sem horário deve ficar acionável durante o próprio dia.');
+
+const futureReturn = getCrmPriority({ attendance_state: 'aguardando_cliente', next_action_date: '2026-08-27T21:00:00.000Z' }, now);
+assert(!futureReturn.operational,
+  'retorno com horário explícito futuro deve permanecer fora da fila até o horário chegar.');

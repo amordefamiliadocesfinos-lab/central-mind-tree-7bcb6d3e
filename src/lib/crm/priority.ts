@@ -165,6 +165,11 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   if (input.status === 'resolved') {
     if (reactivationOverdue) return result('P1', 'reactivation_overdue', reactivationAt!);
     if (reactivationToday) return result('P1', 'reactivation_today', reactivationAt!);
+    // Pós-venda e demais próximas ações oficiais podem nascer após o
+    // atendimento ser concluído. A tarefa devolve o contato à Inbox na data,
+    // sem transformar a ação futura em atendimento aberto antes da hora.
+    if (nextActionAt !== null && nextActionAt < start) return result('P1', 'next_action_overdue', nextActionAt);
+    if (nextActionAt !== null && nextActionAt < end) return result('P1', 'next_action_today', nextActionAt);
     return result('P4', 'resolved', lastMessageAt, false);
   }
 

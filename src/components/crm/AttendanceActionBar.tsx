@@ -15,16 +15,17 @@ interface Props {
 export function AttendanceActionBar({ busy = false, onOutcome, onSnooze }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
 
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;
-    await onOutcome(resultCode, date || null);
+    await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null);
     setMode(null);
     setResultCode('');
-    setDate('');
+    setDate(''); setTime('');
   };
 
   return (
@@ -52,11 +53,14 @@ export function AttendanceActionBar({ busy = false, onOutcome, onSnooze }: Props
           </Select>
           {selectedResult && <p className="text-[11px] text-muted-foreground">{selectedResult.description}</p>}
           {(needsReturnDate || date) && (
-            <Input type="date" className="h-8 text-xs" value={date} min={new Date().toISOString().slice(0, 10)} onChange={event => setDate(event.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" className="h-8 text-xs" value={date} min={new Date().toISOString().slice(0, 10)} onChange={event => setDate(event.target.value)} />
+              <Input type="time" className="h-8 text-xs" value={time} onChange={event => setTime(event.target.value)} aria-label="Horário do retorno (opcional)" />
+            </div>
           )}
-          {needsReturnDate && <p className="text-[11px] text-amber-700 dark:text-amber-400">Informe a data combinada para o retorno.</p>}
+          {needsReturnDate && <p className="text-[11px] text-amber-700 dark:text-amber-400">Informe a data combinada. Sem horário, o retorno fica acionável durante todo o dia.</p>}
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setResultCode(''); setDate(''); }}>Cancelar</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setResultCode(''); setDate(''); setTime(''); }}>Cancelar</Button>
             <Button size="sm" className="h-8 text-xs" disabled={!resultCode || (needsReturnDate && !date) || busy} onClick={() => void submitResult()}>Confirmar resultado</Button>
           </div>
         </div>

@@ -211,25 +211,33 @@ export default function ContatosInbox() {
     const convList = (conversations || []).filter((conversation) => !scopedContactIdSet || scopedContactIdSet.has(conversation.contact_id));
 
     const conversationContactIds = Array.from(new Set(convList.map((c) => c.contact_id).filter(Boolean))) as string[];
-    // Reativação é uma obrigação CRM própria. Sua data não usa Próxima Ação
-    // nem return_at, para não reabrir o atendimento atual antes da hora.
-    const { data: reactivationTasks } = await supabase
+    // Tarefas oficiais são a mesma obrigação exibida no contato e em Tarefas
+    // CRM. Carregá-las aqui também cobre conversas resolvidas ou antigas que
+    // ficaram fora da página recente da Inbox.
+    const { data: scheduledCrmTasks } = await supabase
       .from('tasks')
-      .select('contact_id, scheduled_date, scheduled_time, due_date')
-      .eq('source', 'crm_reactivation')
+      .select('contact_id, source, scheduled_date, scheduled_time, due_date')
+      .in('source', ['crm_next_action', 'crm_reactivation'])
       .is('deleted_at', null)
       .neq('status', 'concluído')
       .not('contact_id', 'is', null);
     const reactivationByContact = new Map<string, string>();
-    for (const task of reactivationTasks || []) {
-      if (!task.contact_id || reactivationByContact.has(task.contact_id)) continue;
+    const nextActionByContact = new Map<string, string>();
+    for (const task of scheduledCrmTasks || []) {
+      if (!task.contact_id) continue;
       const date = task.scheduled_date || task.due_date;
       if (!date) continue;
       const dueAt = new Date(`${date}T${task.scheduled_time || '09:00'}:00`);
-      if (!Number.isNaN(dueAt.getTime())) reactivationByContact.set(task.contact_id, dueAt.toISOString());
+      if (Number.isNaN(dueAt.getTime())) continue;
+      const target = task.source === 'crm_reactivation' ? reactivationByContact : nextActionByContact;
+      if (!target.has(task.contact_id)) target.set(task.contact_id, dueAt.toISOString());
     }
 
-    const ids = Array.from(new Set([...conversationContactIds, ...reactivationByContact.keys()]));
+    const ids = Array.from(new Set([
+      ...conversationContactIds,
+      ...nextActionByContact.keys(),
+      ...reactivationByContact.keys(),
+    ]));
     const { data: contacts } = ids.length
       ? await supabase
           .from('contacts')
@@ -296,7 +304,7 @@ export default function ContatosInbox() {
         last_message_at: conversation.last_message_at ?? null,
         conversation_updated_at: conversation.updated_at ?? null,
         return_at: conversation.return_at,
-        next_action_date: contact?.next_action_date || null,
+        next_action_date: nextActionByContact.get(conversation.contact_id) || contact?.next_action_date || null,
         next_contact_date: contact?.next_contact_date || null,
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
         last_result_at: lastResultByContact.get(conversation.contact_id) || null,
@@ -336,16 +344,20 @@ export default function ContatosInbox() {
         last_message_at: null,
         conversation_updated_at: null,
         return_at: null,
-        next_action_date: contact.next_action_date || null,
+        next_action_date: nextActionByContact.get(contact.id) || contact.next_action_date || null,
         next_contact_date: contact.next_contact_date || null,
         reactivation_at: reactivationByContact.get(contact.id) || null,
         last_result_at: null,
       });
     }
 
-    // Cliente encerrado também precisa existir na Inbox quando uma reativação
-    // vencer, mesmo que sua conversa antiga não esteja entre as mais recentes.
-    for (const [contactId, reactivationAt] of reactivationByContact) {
+    // Cliente encerrado também precisa existir na Inbox quando sua obrigação
+    // CRM vencer, mesmo que a conversa antiga não esteja entre as recentes.
+    const scheduledContactIds = new Set([
+      ...nextActionByContact.keys(),
+      ...reactivationByContact.keys(),
+    ]);
+    for (const contactId of scheduledContactIds) {
       if (seenContacts.has(contactId)) continue;
       const contact = contactsById.get(contactId);
       if (!contact || contact.is_active === false) continue;
@@ -361,7 +373,9 @@ export default function ContatosInbox() {
         funnel_status: normalizeCrmStage(contact.funnel_status),
         temperatura_lead: contact.temperatura_lead || null,
         ultimo_contato: contact.ultimo_contato || null,
-        last_summary: 'Reativação comercial programada',
+        last_summary: reactivationByContact.has(contactId)
+          ? 'Reativação comercial programada'
+          : 'Próxima ação CRM programada',
         last_date: null,
         unread_days: 0,
         unread_count: 0,
@@ -377,9 +391,9 @@ export default function ContatosInbox() {
         last_message_at: null,
         conversation_updated_at: null,
         return_at: null,
-        next_action_date: contact.next_action_date || null,
+        next_action_date: nextActionByContact.get(contactId) || contact.next_action_date || null,
         next_contact_date: contact.next_contact_date || null,
-        reactivation_at: reactivationAt,
+        reactivation_at: reactivationByContact.get(contactId) || null,
         last_result_at: null,
       });
     }
@@ -575,7 +589,12 @@ export default function ContatosInbox() {
     }
     setSelectedId(item.id);
     const priority = getCrmPriority(toCrmPriorityInput(item), new Date());
-    if (item.status === 'resolved' && ['reactivation_overdue', 'reactivation_today'].includes(priority.reason)) {
+    if (item.status === 'resolved' && [
+      'reactivation_overdue',
+      'reactivation_today',
+      'next_action_overdue',
+      'next_action_today',
+    ].includes(priority.reason)) {
       const { error } = await supabase.from('service_conversations').update({
         status: 'open',
         resolved_at: null,

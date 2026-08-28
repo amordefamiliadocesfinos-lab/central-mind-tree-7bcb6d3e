@@ -51,9 +51,14 @@ function dueInDays(days?: number) {
   return due.toISOString();
 }
 
-function scheduledDateAtNine(date?: string | null) {
-  if (!date) return null;
-  const target = new Date(`${date}T09:00:00`);
+function scheduledDateAt(dateOrDateTime?: string | null) {
+  if (!dateOrDateTime) return null;
+  // Uma data sem horário representa um compromisso acionável naquele dia,
+  // não um horário oculto às 09:00. O horário só é respeitado quando foi
+  // informado explicitamente pelo operador.
+  const target = new Date(dateOrDateTime.includes('T')
+    ? dateOrDateTime
+    : `${dateOrDateTime}T00:00:00`);
   if (Number.isNaN(target.getTime())) throw new Error('Data inválida para a próxima ação');
   return target.toISOString();
 }
@@ -87,7 +92,7 @@ export async function applyCanonicalAttendanceResult(input: {
     .maybeSingle();
   if (conversationError || !conversation) throw conversationError || new Error('Conversa não encontrada para este contato');
 
-  const scheduledAt = scheduledDateAtNine(input.scheduledFor);
+  const scheduledAt = scheduledDateAt(input.scheduledFor);
   const decision = getCrmTransition({
     result: input.resultCode,
     currentStage: normalizeCrmStage(contact.funnel_status),
