@@ -811,6 +811,7 @@ export type Database = {
           city: string | null
           client_classification: string | null
           code: string | null
+          commercial_opt_out: boolean
           company_name: string | null
           contact_info: string | null
           contact_people: Json | null
@@ -896,6 +897,7 @@ export type Database = {
           city?: string | null
           client_classification?: string | null
           code?: string | null
+          commercial_opt_out?: boolean
           company_name?: string | null
           contact_info?: string | null
           contact_people?: Json | null
@@ -981,6 +983,7 @@ export type Database = {
           city?: string | null
           client_classification?: string | null
           code?: string | null
+          commercial_opt_out?: boolean
           company_name?: string | null
           contact_info?: string | null
           contact_people?: Json | null
