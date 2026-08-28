@@ -28,7 +28,10 @@ export const CRM_RESULT_OPERATIONAL_RESPONSIBILITY: Record<CrmResultCode, CrmOpe
   'CRM-RES-017': 'counterparty',
   'CRM-RES-018': 'counterparty',
   'CRM-RES-019': 'operator',
-  'CRM-RES-020': 'operator',
+  // Pagamento confirmado sem ação comercial pendente encerra a iniciativa do
+  // operador: PA-010 só existe quando ainda há requisito comercial (ver
+  // transitions.ts); fora desse caso a bola não é nossa.
+  'CRM-RES-020': 'counterparty',
   'CRM-RES-021': 'operator',
   'CRM-RES-022': 'counterparty',
   'CRM-RES-023': 'counterparty',

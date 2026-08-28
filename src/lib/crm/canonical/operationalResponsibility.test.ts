@@ -20,6 +20,9 @@ assert(!shouldAwaitCustomerAfterCanonicalResult({ resultCode: 'CRM-RES-018', nex
 assert(shouldAwaitCustomerAfterCanonicalResult({ resultCode: 'CRM-RES-003', nextAction: getCanonicalNextAction('CRM-PA-014'), nextActionScheduled: true }), 'scheduled silence follow-up must wait until due.');
 assert(!shouldAwaitCustomerAfterCanonicalResult({ resultCode: 'CRM-RES-001', nextAction: getCanonicalNextAction('CRM-PA-001'), nextActionScheduled: false }), 'interest with qualification remains with the operator.');
 
+assert(shouldAwaitCustomerAfterCanonicalResult({ resultCode: 'CRM-RES-020', nextAction: null, nextActionScheduled: false }), 'confirmed payment without immediate action must leave the priority queue.');
+assert(!shouldAwaitCustomerAfterCanonicalResult({ resultCode: 'CRM-RES-020', nextAction: getCanonicalNextAction('CRM-PA-010'), nextActionScheduled: false }), 'pending commercial requirement remains an immediate operator action.');
+
 for (const code of ['CRM-RES-003', 'CRM-RES-008', 'CRM-RES-013', 'CRM-RES-026'] as const) {
   assert(shouldAwaitCustomerAfterCanonicalResult({ resultCode: code, nextAction: null, nextActionScheduled: false }), `${code} must preserve the waiting-customer behavior.`);
 }
