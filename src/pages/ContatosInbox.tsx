@@ -33,6 +33,7 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, type CrmPriorityInput } from '@/lib/crm/priority';
+import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 
 interface InboxItem {
   id: string;
@@ -245,6 +246,11 @@ export default function ContatosInbox() {
           .in('id', ids)
       : { data: [] as any[] };
     const contactsById = new Map((contacts || []).map((contact) => [contact.id, contact]));
+    const officialNextActionByContact = new Map<string, string>();
+    for (const [contactId, taskDueAt] of nextActionByContact) {
+      const officialDueAt = getOfficialCrmNextActionAt(contactsById.get(contactId)?.next_action_date, taskDueAt);
+      if (officialDueAt) officialNextActionByContact.set(contactId, officialDueAt);
+    }
 
     // Pendência de Resultado: o último Resultado canônico já registrado por
     // contato. Reutiliza o histórico existente, sem nova estrutura.
@@ -304,8 +310,8 @@ export default function ContatosInbox() {
         last_message_at: conversation.last_message_at ?? null,
         conversation_updated_at: conversation.updated_at ?? null,
         return_at: conversation.return_at,
-        next_action_date: nextActionByContact.get(conversation.contact_id) || contact?.next_action_date || null,
-        next_contact_date: contact?.next_contact_date || null,
+        next_action_date: officialNextActionByContact.get(conversation.contact_id) || null,
+        next_contact_date: null,
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
         last_result_at: lastResultByContact.get(conversation.contact_id) || null,
       });
@@ -344,8 +350,8 @@ export default function ContatosInbox() {
         last_message_at: null,
         conversation_updated_at: null,
         return_at: null,
-        next_action_date: nextActionByContact.get(contact.id) || contact.next_action_date || null,
-        next_contact_date: contact.next_contact_date || null,
+        next_action_date: officialNextActionByContact.get(contact.id) || null,
+        next_contact_date: null,
         reactivation_at: reactivationByContact.get(contact.id) || null,
         last_result_at: null,
       });
@@ -354,7 +360,7 @@ export default function ContatosInbox() {
     // Cliente encerrado também precisa existir na Inbox quando sua obrigação
     // CRM vencer, mesmo que a conversa antiga não esteja entre as recentes.
     const scheduledContactIds = new Set([
-      ...nextActionByContact.keys(),
+      ...officialNextActionByContact.keys(),
       ...reactivationByContact.keys(),
     ]);
     for (const contactId of scheduledContactIds) {
@@ -391,8 +397,8 @@ export default function ContatosInbox() {
         last_message_at: null,
         conversation_updated_at: null,
         return_at: null,
-        next_action_date: nextActionByContact.get(contactId) || contact.next_action_date || null,
-        next_contact_date: contact.next_contact_date || null,
+        next_action_date: officialNextActionByContact.get(contactId) || null,
+        next_contact_date: null,
         reactivation_at: reactivationByContact.get(contactId) || null,
         last_result_at: null,
       });
