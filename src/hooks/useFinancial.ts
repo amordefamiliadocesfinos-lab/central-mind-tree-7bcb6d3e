@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfMonth, endOfMonth, format, isBefore, startOfDay, parseISO, addDays, addWeeks, addMonths, addYears, isWeekend } from 'date-fns';
+import { buildRecurrenceDueDates } from '@/lib/financial/recurrence';
 
 export interface FinancialCategory {
   id: string;
