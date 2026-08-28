@@ -16,6 +16,7 @@ export function useContactNextTasks() {
       .from('tasks')
       .select('contact_id, scheduled_date, due_date, scheduled_time, status')
       .not('contact_id', 'is', null)
+      .eq('source', 'crm_next_action')
       .neq('status', 'concluído')
       .is('deleted_at', null);
 

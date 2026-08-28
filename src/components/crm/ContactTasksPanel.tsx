@@ -12,7 +12,7 @@ import { format, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { completeCrmNextAction, CRM_TASK_SOURCE } from '@/lib/crm/nextAction';
+import { clearCrmNextAction, completeCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
 
 interface Task {
   id: string;
@@ -56,6 +56,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
       .from('tasks')
       .select('id, title, status, scheduled_date, scheduled_time, due_date, assigned_to, contact_id, source, created_at')
       .eq('contact_id', contactId)
+      .eq('source', CRM_TASK_SOURCE)
       .is('deleted_at', null)
       .order('scheduled_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
@@ -83,19 +84,16 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
 
   const createTask = async () => {
     if (!title.trim()) { toast.error('Informe um título'); return; }
-    const payload: any = {
-      title: title.trim(),
-      status: 'pendente',
-      contact_id: contactId,
-      node_id: ROOT_NODE_ID,
-      scheduled_date: date ? format(date, 'yyyy-MM-dd') : null,
-      due_date: date ? format(date, 'yyyy-MM-dd') : null,
-      scheduled_time: time || null,
-      assigned_to: assignee || null,
-    };
-    const { error } = await supabase.from('tasks').insert(payload);
-    if (error) { toast.error('Erro ao criar tarefa'); return; }
-    toast.success('Tarefa criada');
+    if (!date) { toast.error('Defina a data da próxima ação'); return; }
+    const dueAt = new Date(`${format(date, 'yyyy-MM-dd')}T${time || '09:00'}:00`);
+    if (Number.isNaN(dueAt.getTime())) { toast.error('Data inválida'); return; }
+    try {
+      await setCrmNextAction({ contactId, title: title.trim(), dueAt: dueAt.toISOString() });
+    } catch {
+      toast.error('Erro ao criar a próxima ação');
+      return;
+    }
+    toast.success('Próxima ação CRM criada');
     resetForm();
     fetchTasks();
   };
@@ -111,8 +109,8 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
     fetchTasks();
   };
 
-  const deleteTask = async (id: string) => {
-    await supabase.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const deleteTask = async () => {
+    await clearCrmNextAction(contactId);
     fetchTasks();
   };
 
@@ -244,7 +242,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
                     )}
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => deleteTask(t.id)}>
+                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => deleteTask()} title="Cancelar próxima ação">
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>

@@ -8,13 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  ArrowLeft, CalendarClock, Search, User as UserIcon, AlertTriangle, Clock, CheckCircle2,
+  ArrowLeft, CalendarClock, Search, User as UserIcon, AlertTriangle, Clock, CheckCircle2, ExternalLink, Pencil, X,
 } from 'lucide-react';
 import { parseISO, isBefore, startOfDay, isToday, isTomorrow, isThisWeek, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { clearCrmNextAction, completeCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
 
 interface TaskRow {
   id: string;
@@ -25,6 +27,7 @@ interface TaskRow {
   due_date: string | null;
   assigned_to: string | null;
   contact_id: string | null;
+  source: string | null;
   contact_name?: string | null;
   assignee_name?: string | null;
 }
@@ -44,20 +47,26 @@ export default function TarefasAgendadas() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pendente');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [editing, setEditing] = useState<TaskRow | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('09:00');
+  const [saving, setSaving] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     let q = supabase
       .from('tasks')
-      .select('id, title, status, scheduled_date, scheduled_time, due_date, assigned_to, contact_id')
+      .select('id, title, status, scheduled_date, scheduled_time, due_date, assigned_to, contact_id, source')
       .is('deleted_at', null)
       .not('contact_id', 'is', null)
+      .eq('source', CRM_TASK_SOURCE)
       .not('scheduled_date', 'is', null)
       .order('scheduled_date', { ascending: true })
       .order('scheduled_time', { ascending: true, nullsFirst: false });
 
-    if (statusFilter === 'pendente') q = q.neq('status', 'concluida');
-    else if (statusFilter === 'concluida') q = q.eq('status', 'concluida');
+    if (statusFilter === 'pendente') q = q.neq('status', 'concluído');
+    else if (statusFilter === 'concluida') q = q.eq('status', 'concluído');
 
     const { data, error } = await q;
     if (error) { toast.error('Erro ao carregar tarefas'); setLoading(false); return; }
@@ -106,7 +115,7 @@ export default function TarefasAgendadas() {
       }
       if (range !== 'all' && t.scheduled_date) {
         const d = parseISO(t.scheduled_date);
-        if (range === 'overdue' && !(isBefore(d, today) && t.status !== 'concluida')) return false;
+        if (range === 'overdue' && !(isBefore(d, today) && t.status !== 'concluído')) return false;
         if (range === 'today' && !isToday(d)) return false;
         if (range === 'tomorrow' && !isTomorrow(d)) return false;
         if (range === 'week' && !isThisWeek(d, { weekStartsOn: 1 })) return false;
@@ -122,7 +131,7 @@ export default function TarefasAgendadas() {
     filtered.forEach(t => {
       if (!t.scheduled_date) { groups['Sem data'].push(t); return; }
       const d = parseISO(t.scheduled_date);
-      if (t.status !== 'concluida' && isBefore(d, today)) groups['Atrasadas'].push(t);
+      if (t.status !== 'concluído' && isBefore(d, today)) groups['Atrasadas'].push(t);
       else if (isToday(d)) groups['Hoje'].push(t);
       else if (isTomorrow(d)) groups['Amanhã'].push(t);
       else if (isThisWeek(d, { weekStartsOn: 1 })) groups['Esta semana'].push(t);
@@ -135,17 +144,62 @@ export default function TarefasAgendadas() {
     const today = startOfDay(new Date());
     return {
       total: tasks.length,
-      atrasadas: tasks.filter(t => t.scheduled_date && t.status !== 'concluida' && isBefore(parseISO(t.scheduled_date), today)).length,
+      atrasadas: tasks.filter(t => t.scheduled_date && t.status !== 'concluído' && isBefore(parseISO(t.scheduled_date), today)).length,
       hoje: tasks.filter(t => t.scheduled_date && isToday(parseISO(t.scheduled_date))).length,
       semana: tasks.filter(t => t.scheduled_date && isThisWeek(parseISO(t.scheduled_date), { weekStartsOn: 1 })).length,
     };
   }, [tasks]);
 
-  const toggleComplete = async (t: TaskRow) => {
-    const newStatus = t.status === 'concluida' ? 'pendente' : 'concluida';
-    const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', t.id);
-    if (error) { toast.error('Erro ao atualizar'); return; }
-    setTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus } : x));
+  const completeTask = async (t: TaskRow) => {
+    if (!t.contact_id) return;
+    try {
+      await completeCrmNextAction(t.contact_id);
+      toast.success('Próxima ação concluída.');
+      void fetchTasks();
+    } catch {
+      toast.error('Não foi possível concluir a próxima ação.');
+    }
+  };
+
+  const cancelTask = async (t: TaskRow) => {
+    if (!t.contact_id) return;
+    try {
+      await clearCrmNextAction(t.contact_id);
+      toast.success('Próxima ação cancelada.');
+      void fetchTasks();
+    } catch {
+      toast.error('Não foi possível cancelar a próxima ação.');
+    }
+  };
+
+  const openReschedule = (t: TaskRow) => {
+    setEditing(t);
+    setEditTitle(t.title);
+    setEditDate(t.scheduled_date || t.due_date || '');
+    setEditTime(t.scheduled_time?.slice(0, 5) || '09:00');
+  };
+
+  const saveReschedule = async () => {
+    if (!editing?.contact_id || !editTitle.trim() || !editDate) {
+      toast.error('Informe título e nova data.');
+      return;
+    }
+    const dueAt = new Date(`${editDate}T${editTime || '09:00'}:00`);
+    if (Number.isNaN(dueAt.getTime())) {
+      toast.error('Data inválida.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await setCrmNextAction({ contactId: editing.contact_id, title: editTitle.trim(), dueAt: dueAt.toISOString() });
+      toast.success('Próxima ação reagendada.');
+      setEditing(null);
+      await fetchTasks();
+    } catch {
+      toast.error('Não foi possível reagendar a próxima ação.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -158,7 +212,7 @@ export default function TarefasAgendadas() {
             </Link>
             <h1 className="text-xl font-bold flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-primary" />
-              Tarefas Agendadas
+              Tarefas CRM
             </h1>
           </div>
         </div>
@@ -238,17 +292,17 @@ export default function TarefasAgendadas() {
               </div>
               <div className="space-y-2">
                 {list.map(t => {
-                  const overdue = t.scheduled_date && t.status !== 'concluida' && isBefore(parseISO(t.scheduled_date), startOfDay(new Date()));
+                  const overdue = t.scheduled_date && t.status !== 'concluído' && isBefore(parseISO(t.scheduled_date), startOfDay(new Date()));
                   return (
                     <Card key={t.id} className={cn("p-3 flex items-start gap-3", overdue && "border-red-300 dark:border-red-900")}>
-                      <Checkbox checked={t.status === 'concluida'} onCheckedChange={() => toggleComplete(t)} className="mt-1" />
+                      <Checkbox checked={t.status === 'concluído'} onCheckedChange={() => void completeTask(t)} className="mt-1" aria-label={`Concluir ${t.title}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={cn("font-medium text-sm leading-snug", t.status === 'concluida' && 'line-through text-muted-foreground')}>
+                          <p className={cn("font-medium text-sm leading-snug", t.status === 'concluído' && 'line-through text-muted-foreground')}>
                             {t.title}
                           </p>
                           {overdue && <Badge variant="destructive" className="h-5 text-[10px] gap-1"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>}
-                          {t.status === 'concluida' && <Badge className="h-5 text-[10px] bg-green-600 gap-1"><CheckCircle2 className="h-3 w-3" />Concluída</Badge>}
+                          {t.status === 'concluído' && <Badge className="h-5 text-[10px] bg-green-600 gap-1"><CheckCircle2 className="h-3 w-3" />Concluída</Badge>}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                           {t.scheduled_date && (
@@ -262,12 +316,19 @@ export default function TarefasAgendadas() {
                             <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" />{t.assignee_name}</span>
                           )}
                           {t.contact_name && t.contact_id && (
-                            <Link to={`/contatos?contact=${t.contact_id}`} className="text-primary hover:underline">
+                            <Link to={`/contatos/inbox?contact=${t.contact_id}`} className="text-primary hover:underline">
                               {t.contact_name}
                             </Link>
                           )}
                         </div>
                       </div>
+                      {t.contact_id && t.status !== 'concluído' && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Link to={`/contatos/inbox?contact=${t.contact_id}`}><Button size="icon" variant="ghost" className="h-7 w-7" title="Abrir na Caixa de Entrada"><ExternalLink className="h-3.5 w-3.5" /></Button></Link>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openReschedule(t)} title="Reagendar"><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => void cancelTask(t)} title="Cancelar"><X className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      )}
                     </Card>
                   );
                 })}
@@ -276,6 +337,25 @@ export default function TarefasAgendadas() {
           ))
         )}
       </div>
+      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reagendar próxima ação</DialogTitle>
+            <DialogDescription>Atualiza a mesma obrigação CRM, sem criar uma segunda tarefa.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} placeholder="Próxima ação" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} />
+              <Input type="time" value={editTime} onChange={(event) => setEditTime(event.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Voltar</Button>
+            <Button onClick={() => void saveReschedule()} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

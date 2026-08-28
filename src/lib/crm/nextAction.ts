@@ -18,6 +18,36 @@ export interface SetCrmNextActionInput {
   syncConversationReturn?: boolean;
 }
 
+async function syncMatchingConversationReturn(input: {
+  contactId: string;
+  previousDueAt?: string | null;
+  nextDueAt: string | null;
+  conversationId?: string | null;
+}) {
+  const payload = input.nextDueAt
+    ? { return_at: input.nextDueAt }
+    : { return_at: null, attendance_state: 'aguardando_cliente' };
+
+  if (input.conversationId) {
+    const { error } = await supabase.from('service_conversations')
+      .update(payload)
+      .eq('id', input.conversationId)
+      .eq('contact_id', input.contactId);
+    if (error) throw error;
+    return;
+  }
+
+  // A página de tarefas conhece o contato, mas não necessariamente a conversa.
+  // Só sincronizamos retornos que representam exatamente a ação canônica anterior.
+  if (!input.previousDueAt) return;
+  const { error } = await supabase.from('service_conversations')
+    .update(payload)
+    .eq('contact_id', input.contactId)
+    .eq('return_at', input.previousDueAt)
+    .in('attendance_state', ['retornar_em', 'aguardando_cliente']);
+  if (error) throw error;
+}
+
 function requireValidAction(action: CrmNextAction) {
   const title = action.title?.trim();
   if (!title || !action.dueAt) throw new Error('Próxima ação e data são obrigatórias');
@@ -82,6 +112,12 @@ export async function syncCrmNextActionTask(contactId: string, action: CrmNextAc
 /** Define a intenção comercial canônica e sua representação executável. */
 export async function setCrmNextAction(input: SetCrmNextActionInput) {
   const { title, dueAt } = requireValidAction(input);
+  const { data: currentContact, error: currentContactError } = await supabase.from('contacts')
+    .select('next_action_date, next_contact_date')
+    .eq('id', input.contactId)
+    .maybeSingle();
+  if (currentContactError) throw currentContactError;
+  const previousDueAt = currentContact?.next_action_date ?? currentContact?.next_contact_date ?? null;
   const { error: contactError } = await supabase.from('contacts').update({
     next_action_text: title,
     next_action_date: dueAt,
@@ -93,14 +129,24 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
 
   await syncCrmNextActionTask(input.contactId, { title, dueAt });
 
-  if (input.syncConversationReturn && input.conversationId) {
-    const { error } = await supabase.from('service_conversations').update({ return_at: dueAt }).eq('id', input.conversationId);
-    if (error) throw error;
+  if (input.syncConversationReturn || previousDueAt) {
+    await syncMatchingConversationReturn({
+      contactId: input.contactId,
+      previousDueAt,
+      nextDueAt: dueAt,
+      conversationId: input.syncConversationReturn ? input.conversationId : null,
+    });
   }
 }
 
 /** Limpa apenas a próxima ação oficial; histórico e tarefas manuais permanecem. */
-export async function clearCrmNextAction(contactId: string) {
+export async function clearCrmNextAction(contactId: string, conversationId?: string | null) {
+  const { data: currentContact, error: currentContactError } = await supabase.from('contacts')
+    .select('next_action_date, next_contact_date')
+    .eq('id', contactId)
+    .maybeSingle();
+  if (currentContactError) throw currentContactError;
+  const previousDueAt = currentContact?.next_action_date ?? currentContact?.next_contact_date ?? null;
   const { error: contactError } = await supabase.from('contacts').update({
     next_action_text: null,
     next_action_date: null,
@@ -109,6 +155,12 @@ export async function clearCrmNextAction(contactId: string) {
   }).eq('id', contactId);
   if (contactError) throw contactError;
   await syncCrmNextActionTask(contactId, { title: null, dueAt: null });
+  await syncMatchingConversationReturn({
+    contactId,
+    previousDueAt,
+    nextDueAt: null,
+    conversationId,
+  });
 }
 
 /** A conclusão da tarefa oficial encerra também a intenção que ela representa. */

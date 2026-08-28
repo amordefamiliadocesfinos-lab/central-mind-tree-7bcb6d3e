@@ -178,9 +178,13 @@ Deno.serve(async (req) => {
       return_at: returnAt.toISOString(),
     }).eq('id', conversationId);
 
-    const { data: existingTask } = await supabase.from('tasks')
+    const { data: pendingTasks } = await supabase.from('tasks')
       .select('id').eq('contact_id', conv.contact_id).eq('source', 'crm_next_action')
-      .is('deleted_at', null).neq('status', 'concluÃ­do').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      .is('deleted_at', null).neq('status', 'concluído').order('created_at', { ascending: false });
+    const [existingTask, ...duplicates] = pendingTasks || [];
+    if (duplicates.length > 0) {
+      await supabase.from('tasks').update({ status: 'concluído', updated_at: nowIso }).in('id', duplicates.map((task) => task.id));
+    }
     const taskPayload = {
       title: 'Verificar resposta no WhatsApp', contact_id: conv.contact_id,
       node_id: 'd7c76db8-b7e0-4ce1-87ca-21275c346326', source: 'crm_next_action',

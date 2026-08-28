@@ -210,12 +210,14 @@ const Planejamento = () => {
       supabase
         .from("tasks")
         .select("id, title, description, status, node_id, progress, updated_at, due_date, scheduled_date, source, contact_id")
-        .in("status", ["andamento", "pendente"]),
+        .in("status", ["andamento", "pendente"])
+        .or("source.is.null,source.neq.crm_next_action"),
       supabase
         .from("tasks")
         .select("id, title, status, updated_at")
         .eq("status", "concluído")
-        .gte("updated_at", weekStart.toISOString()),
+        .gte("updated_at", weekStart.toISOString())
+        .or("source.is.null,source.neq.crm_next_action"),
       supabase.from("nodes").select(NODE_FIELDS),
       supabase.from("inbox_entries").select("id", { count: "exact", head: true }).in("status", ["nova", "decidindo", "aguardando_selecao"]),
     ]);
