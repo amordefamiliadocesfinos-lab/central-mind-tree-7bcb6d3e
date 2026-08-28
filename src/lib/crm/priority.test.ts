@@ -62,3 +62,11 @@ assert(pendingResult.operational && pendingResult.reason === 'pending_result',
 const noInboundPending = getCrmPriority({ ...waitingBase, needs_reply: false, last_inbound_at: null, last_result_at: null }, now);
 assert(!noInboundPending.operational,
   'envio sem nenhuma resposta pendente continua saindo da Prioridade.');
+
+const futureReactivation = getCrmPriority({ status: 'resolved', reactivation_at: '2026-09-15T09:00:00.000Z' }, now);
+assert(!futureReactivation.operational,
+  'reativação futura não pode colocar cliente encerrado na Prioridade agora.');
+
+const dueReactivation = getCrmPriority({ status: 'resolved', reactivation_at: '2026-08-27T09:00:00.000Z' }, now);
+assert(dueReactivation.operational && dueReactivation.reason === 'reactivation_today',
+  'reativação vencida hoje deve trazer o cliente encerrado de volta à atenção.');

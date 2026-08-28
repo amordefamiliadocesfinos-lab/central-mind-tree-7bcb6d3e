@@ -13,6 +13,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { clearCrmNextAction, completeCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
+import { clearCrmReactivation, CRM_REACTIVATION_SOURCE, setCrmReactivation } from '@/lib/crm/reactivation';
 
 interface Task {
   id: string;
@@ -36,13 +37,14 @@ const PRESETS = [
   { label: 'Visitar cliente', title: 'Visitar cliente', daysOffset: 3, time: '09:00' },
 ];
 
-const ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
+type TaskKind = 'next_action' | 'reactivation';
 
 export function ContactTasksPanel({ contactId }: { contactId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [taskKind, setTaskKind] = useState<TaskKind>('next_action');
 
   // form state
   const [title, setTitle] = useState('');
@@ -56,7 +58,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
       .from('tasks')
       .select('id, title, status, scheduled_date, scheduled_time, due_date, assigned_to, contact_id, source, created_at')
       .eq('contact_id', contactId)
-      .eq('source', CRM_TASK_SOURCE)
+      .in('source', [CRM_TASK_SOURCE, CRM_REACTIVATION_SOURCE])
       .is('deleted_at', null)
       .order('scheduled_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
@@ -72,13 +74,22 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
   }, [contactId, fetchTasks]);
 
   const resetForm = () => {
-    setTitle(''); setDate(undefined); setTime(''); setAssignee(''); setShowForm(false);
+    setTitle(''); setDate(undefined); setTime(''); setAssignee(''); setTaskKind('next_action'); setShowForm(false);
   };
 
   const applyPreset = (p: typeof PRESETS[number]) => {
+    setTaskKind('next_action');
     setTitle(p.title);
     setDate(addDays(startOfDay(new Date()), p.daysOffset));
     setTime(p.time || '');
+    setShowForm(true);
+  };
+
+  const startReactivation = (days?: number) => {
+    setTaskKind('reactivation');
+    setTitle('Reativação comercial');
+    setDate(days ? addDays(startOfDay(new Date()), days) : undefined);
+    setTime('09:00');
     setShowForm(true);
   };
 
@@ -88,12 +99,16 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
     const dueAt = new Date(`${format(date, 'yyyy-MM-dd')}T${time || '09:00'}:00`);
     if (Number.isNaN(dueAt.getTime())) { toast.error('Data inválida'); return; }
     try {
-      await setCrmNextAction({ contactId, title: title.trim(), dueAt: dueAt.toISOString() });
+      if (taskKind === 'reactivation') {
+        await setCrmReactivation(contactId, { title: title.trim(), dueAt: dueAt.toISOString() });
+      } else {
+        await setCrmNextAction({ contactId, title: title.trim(), dueAt: dueAt.toISOString() });
+      }
     } catch {
       toast.error('Erro ao criar a próxima ação');
       return;
     }
-    toast.success('Próxima ação CRM criada');
+    toast.success(taskKind === 'reactivation' ? 'Reativação comercial programada' : 'Próxima ação CRM criada');
     resetForm();
     fetchTasks();
   };
@@ -104,13 +119,19 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
       fetchTasks();
       return;
     }
+    if (task.source === CRM_REACTIVATION_SOURCE && !task.status.includes('concl')) {
+      await clearCrmReactivation(contactId);
+      fetchTasks();
+      return;
+    }
     const newStatus = task.status === 'concluído' ? 'pendente' : 'concluído';
     await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
     fetchTasks();
   };
 
-  const deleteTask = async () => {
-    await clearCrmNextAction(contactId);
+  const deleteTask = async (task: Task) => {
+    if (task.source === CRM_REACTIVATION_SOURCE) await clearCrmReactivation(contactId);
+    else await clearCrmNextAction(contactId);
     fetchTasks();
   };
 
@@ -121,7 +142,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">Tarefas</h3>
+          <h3 className="text-sm font-semibold">Obrigações CRM</h3>
           {overdueCount > 0 && (
             <Badge variant="destructive" className="gap-1 text-[10px]">
               <AlertTriangle className="h-3 w-3" />
@@ -130,7 +151,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
           )}
         </div>
         {!showForm && (
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowForm(true)}>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setTaskKind('next_action'); setShowForm(true); }}>
             <Plus className="h-3 w-3" /> Nova
           </Button>
         )}
@@ -138,25 +159,33 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
 
       {/* Presets */}
       {!showForm && (
-        <div className="flex flex-wrap gap-1.5">
-          {PRESETS.map(p => (
-            <Badge
-              key={p.label}
-              variant="outline"
-              className="cursor-pointer text-[10px] hover:bg-accent"
-              onClick={() => applyPreset(p)}
-            >
-              + {p.label}
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map(p => (
+              <Badge key={p.label} variant="outline" className="cursor-pointer text-[10px] hover:bg-accent" onClick={() => applyPreset(p)}>
+                + {p.label}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] text-muted-foreground">Reativar / recompra:</span>
+            {[15, 30, 60, 90].map((days) => (
+              <Badge key={days} variant="secondary" className="cursor-pointer text-[10px] hover:bg-secondary/70" onClick={() => startReactivation(days)}>
+                + {days} dias
+              </Badge>
+            ))}
+            <Badge variant="secondary" className="cursor-pointer text-[10px] hover:bg-secondary/70" onClick={() => startReactivation()}>
+              Data personalizada
             </Badge>
-          ))}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Form */}
       {showForm && (
         <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
           <Input
-            placeholder="Título da tarefa..."
+            placeholder={taskKind === 'reactivation' ? 'Motivo da reativação...' : 'Próxima ação...'}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="h-9 text-sm"
@@ -200,7 +229,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
               <X className="h-3 w-3 mr-1" /> Cancelar
             </Button>
             <Button size="sm" className="h-7 text-xs" onClick={createTask} disabled={!title.trim()}>
-              Criar tarefa
+              {taskKind === 'reactivation' ? 'Programar reativação' : 'Criar próxima ação'}
             </Button>
           </div>
         </div>
@@ -210,7 +239,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
       {loading ? (
         <p className="text-xs text-muted-foreground text-center py-3">Carregando...</p>
       ) : tasks.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-3">Nenhuma tarefa para este lead</p>
+          <p className="text-xs text-muted-foreground text-center py-3">Nenhuma obrigação CRM para este contato</p>
       ) : (
         <div className="space-y-1.5">
           {tasks.map(t => {
@@ -227,6 +256,9 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
                 <div className="flex-1 min-w-0">
                   <p className={cn("font-medium", isDone && "line-through")}>{t.title}</p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[10px] text-muted-foreground">
+                    <Badge variant={t.source === CRM_REACTIVATION_SOURCE ? 'secondary' : 'outline'} className="h-4 text-[9px] px-1.5">
+                      {t.source === CRM_REACTIVATION_SOURCE ? 'Reativação / recompra' : 'Próxima ação'}
+                    </Badge>
                     {t.scheduled_date && (
                       <span className={cn("flex items-center gap-0.5", overdue && "text-destructive font-medium")}>
                         <CalendarIcon className="h-2.5 w-2.5" />
@@ -242,7 +274,7 @@ export function ContactTasksPanel({ contactId }: { contactId: string }) {
                     )}
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => deleteTask()} title="Cancelar próxima ação">
+                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => deleteTask(t)} title={t.source === CRM_REACTIVATION_SOURCE ? 'Cancelar reativação' : 'Cancelar próxima ação'}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>

@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
+import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
 
 interface Message {
   id: string;
@@ -171,6 +172,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       if (errMsg) {
         toast.error(errMsg);
         return;
+      }
+      // A mensagem enviada consome apenas uma reativação já vencida. Uma
+      // reativação futura permanece programada e não interfere no atendimento.
+      try {
+        await completeCrmReactivationIfDue(contactId);
+      } catch (reactivationError) {
+        console.warn('Mensagem enviada, mas não foi possível concluir a reativação:', reactivationError);
       }
       setText('');
       setAttachment(null);

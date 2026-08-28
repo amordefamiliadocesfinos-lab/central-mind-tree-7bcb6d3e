@@ -9,6 +9,8 @@ export type CrmPriorityReason =
   | 'next_action_overdue'
   | 'return_today'
   | 'next_action_today'
+  | 'reactivation_overdue'
+  | 'reactivation_today'
   | 'follow_up_urgent'
   | 'cooling'
   | 'normal'
@@ -23,6 +25,8 @@ export interface CrmPriorityInput {
   attendance_state?: string | null;
   return_at?: string | null;
   next_action_date?: string | null;
+  /** Obrigação de recompra futura: não substitui Próxima Ação nem return_at. */
+  reactivation_at?: string | null;
   /** Compatibilidade temporária: nunca vence a data canônica quando ela existe. */
   next_contact_date?: string | null;
   ultimo_contato?: string | null;
@@ -55,6 +59,8 @@ const LABELS: Record<CrmPriorityReason, string> = {
   next_action_overdue: 'Ação atrasada',
   return_today: 'Retorno hoje',
   next_action_today: 'Ação hoje',
+  reactivation_overdue: 'Reativação comercial atrasada',
+  reactivation_today: 'Reativação comercial',
   follow_up_urgent: 'Follow-up urgente',
   cooling: 'Esfriando',
   normal: 'Fila normal',
@@ -113,11 +119,12 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   const waitingStateAt = asTime(input.attendance_state_updated_at);
   const { start, end } = dayBounds(now);
 
-  if (input.status === 'resolved') return result('P4', 'resolved', lastMessageAt, false);
-
   const returnAt = asTime(input.return_at);
   // A data canônica tem precedência; a legada serve somente como fallback.
   const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
+  const reactivationAt = asTime(input.reactivation_at);
+  const reactivationOverdue = reactivationAt !== null && reactivationAt < start;
+  const reactivationToday = reactivationAt !== null && reactivationAt >= start && reactivationAt < end;
 
   const waitingState = isWaitingCustomerState(input.attendance_state);
   const waitingBoundary = Math.max(waitingStateAt ?? 0, lastOutboundAt ?? 0);
@@ -153,14 +160,24 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
     && lastInboundAt >= start - (7 * 86400000)
     && (lastResultAt === null || lastInboundAt > lastResultAt);
 
-  if (waitingCustomer && !waitingHasDueAction) {
-    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
-    return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
+  // Uma reativação de recompra é a única obrigação que pode trazer de volta
+  // uma conversa já resolvida. Ela nunca se apresenta como mensagem pendente.
+  if (input.status === 'resolved') {
+    if (reactivationOverdue) return result('P1', 'reactivation_overdue', reactivationAt!);
+    if (reactivationToday) return result('P1', 'reactivation_today', reactivationAt!);
+    return result('P4', 'resolved', lastMessageAt, false);
   }
-
 
   if (input.needs_reply && !waitingCustomer) {
     return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
+  }
+
+  if (reactivationOverdue) return result('P1', 'reactivation_overdue', reactivationAt!);
+  if (reactivationToday) return result('P1', 'reactivation_today', reactivationAt!);
+
+  if (waitingCustomer && !waitingHasDueAction) {
+    if (pendingResult) return result('P1', 'pending_result', lastInboundAt!);
+    return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
   }
 
   // Enquanto aguardamos o cliente, datas anteriores à nossa última mensagem

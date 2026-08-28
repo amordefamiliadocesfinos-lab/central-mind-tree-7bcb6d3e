@@ -17,6 +17,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { clearCrmNextAction, completeCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
+import { clearCrmReactivation, CRM_REACTIVATION_SOURCE, setCrmReactivation } from '@/lib/crm/reactivation';
 
 interface TaskRow {
   id: string;
@@ -60,7 +61,7 @@ export default function TarefasAgendadas() {
       .select('id, title, status, scheduled_date, scheduled_time, due_date, assigned_to, contact_id, source')
       .is('deleted_at', null)
       .not('contact_id', 'is', null)
-      .eq('source', CRM_TASK_SOURCE)
+      .in('source', [CRM_TASK_SOURCE, CRM_REACTIVATION_SOURCE])
       .not('scheduled_date', 'is', null)
       .order('scheduled_date', { ascending: true })
       .order('scheduled_time', { ascending: true, nullsFirst: false });
@@ -153,8 +154,13 @@ export default function TarefasAgendadas() {
   const completeTask = async (t: TaskRow) => {
     if (!t.contact_id) return;
     try {
-      await completeCrmNextAction(t.contact_id);
-      toast.success('Próxima ação concluída.');
+      if (t.source === CRM_REACTIVATION_SOURCE) {
+        await clearCrmReactivation(t.contact_id);
+        toast.success('Reativação concluída.');
+      } else {
+        await completeCrmNextAction(t.contact_id);
+        toast.success('Próxima ação concluída.');
+      }
       void fetchTasks();
     } catch {
       toast.error('Não foi possível concluir a próxima ação.');
@@ -164,8 +170,13 @@ export default function TarefasAgendadas() {
   const cancelTask = async (t: TaskRow) => {
     if (!t.contact_id) return;
     try {
-      await clearCrmNextAction(t.contact_id);
-      toast.success('Próxima ação cancelada.');
+      if (t.source === CRM_REACTIVATION_SOURCE) {
+        await clearCrmReactivation(t.contact_id);
+        toast.success('Reativação cancelada.');
+      } else {
+        await clearCrmNextAction(t.contact_id);
+        toast.success('Próxima ação cancelada.');
+      }
       void fetchTasks();
     } catch {
       toast.error('Não foi possível cancelar a próxima ação.');
@@ -191,8 +202,13 @@ export default function TarefasAgendadas() {
     }
     setSaving(true);
     try {
-      await setCrmNextAction({ contactId: editing.contact_id, title: editTitle.trim(), dueAt: dueAt.toISOString() });
-      toast.success('Próxima ação reagendada.');
+      if (editing.source === CRM_REACTIVATION_SOURCE) {
+        await setCrmReactivation(editing.contact_id, { title: editTitle.trim(), dueAt: dueAt.toISOString() });
+        toast.success('Reativação reagendada.');
+      } else {
+        await setCrmNextAction({ contactId: editing.contact_id, title: editTitle.trim(), dueAt: dueAt.toISOString() });
+        toast.success('Próxima ação reagendada.');
+      }
       setEditing(null);
       await fetchTasks();
     } catch {
@@ -301,6 +317,9 @@ export default function TarefasAgendadas() {
                           <p className={cn("font-medium text-sm leading-snug", t.status === 'concluído' && 'line-through text-muted-foreground')}>
                             {t.title}
                           </p>
+                          <Badge variant={t.source === CRM_REACTIVATION_SOURCE ? 'secondary' : 'outline'} className="h-5 text-[10px]">
+                            {t.source === CRM_REACTIVATION_SOURCE ? 'Reativação' : 'Próxima ação'}
+                          </Badge>
                           {overdue && <Badge variant="destructive" className="h-5 text-[10px] gap-1"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>}
                           {t.status === 'concluído' && <Badge className="h-5 text-[10px] bg-green-600 gap-1"><CheckCircle2 className="h-3 w-3" />Concluída</Badge>}
                         </div>
@@ -340,7 +359,7 @@ export default function TarefasAgendadas() {
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reagendar próxima ação</DialogTitle>
+            <DialogTitle>{editing?.source === CRM_REACTIVATION_SOURCE ? 'Reagendar reativação' : 'Reagendar próxima ação'}</DialogTitle>
             <DialogDescription>Atualiza a mesma obrigação CRM, sem criar uma segunda tarefa.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">

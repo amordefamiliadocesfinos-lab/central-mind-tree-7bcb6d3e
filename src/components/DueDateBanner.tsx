@@ -65,7 +65,7 @@ export function DueDateBanner({ onViewTasks }: DueDateBannerProps) {
       .not("due_date", "is", null)
       // Próximas ações do CRM são operadas na Inbox e não devem formar uma
       // segunda fila no Planejamento.
-      .or("source.is.null,source.neq.crm_next_action")
+      .or("source.is.null,source.not.in.(crm_next_action,crm_reactivation)")
       .neq("status", "concluído");
 
     if (error || !data) return;
