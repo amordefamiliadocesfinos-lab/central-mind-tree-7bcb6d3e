@@ -248,7 +248,7 @@ export default function ContatosInbox() {
     const contactsById = new Map((contacts || []).map((contact) => [contact.id, contact]));
     const officialNextActionByContact = new Map<string, string>();
     for (const [contactId, taskDueAt] of nextActionByContact) {
-      const officialDueAt = getOfficialCrmNextActionAt(contactsById.get(contactId)?.next_action_date, taskDueAt);
+      const officialDueAt = getOfficialCrmNextActionAt(taskDueAt);
       if (officialDueAt) officialNextActionByContact.set(contactId, officialDueAt);
     }
 

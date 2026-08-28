@@ -86,3 +86,33 @@ assert(dateOnlyReturn.operational && dateOnlyReturn.reason === 'return_today',
 const futureReturn = getCrmPriority({ attendance_state: 'aguardando_cliente', next_action_date: '2026-08-27T21:00:00.000Z' }, now);
 assert(!futureReturn.operational,
   'retorno com horário explícito futuro deve permanecer fora da fila até o horário chegar.');
+
+const futureOfficialAction = getCrmPriority({
+  status: 'open',
+  attendance_state: 'retornar_em',
+  next_action_date: '2026-09-01T12:00:00.000Z',
+}, now);
+assert(!futureOfficialAction.operational && futureOfficialAction.reason === 'waiting_customer',
+  'tarefa oficial futura sem outro fato atual deve ficar fora da Prioridade.');
+
+const futureActionWithInbound = getCrmPriority({
+  status: 'open',
+  attendance_state: 'retornar_em',
+  next_action_date: '2026-09-01T12:00:00.000Z',
+  needs_reply: true,
+  last_outbound_at: '2026-08-27T19:59:00.000Z',
+  attendance_state_updated_at: '2026-08-27T20:00:00.000Z',
+  last_inbound_at: '2026-08-27T20:05:00.000Z',
+  last_message_at: '2026-08-27T20:05:00.000Z',
+}, now);
+assert(futureActionWithInbound.operational && futureActionWithInbound.reason === 'needs_reply',
+  'nova mensagem deve continuar tendo precedência sobre uma tarefa futura.');
+
+const futureActionWithOverdueReturn = getCrmPriority({
+  status: 'open',
+  attendance_state: 'retornar_em',
+  next_action_date: '2026-09-01T12:00:00.000Z',
+  return_at: '2026-08-27T19:00:00.000Z',
+}, now);
+assert(futureActionWithOverdueReturn.operational && futureActionWithOverdueReturn.reason === 'return_today',
+  'retorno vencido deve manter precedência sobre uma tarefa futura.');

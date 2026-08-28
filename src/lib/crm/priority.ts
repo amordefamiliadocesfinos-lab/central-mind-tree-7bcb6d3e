@@ -93,6 +93,7 @@ function result(level: CrmPriorityLevel, reason: CrmPriorityReason, sortAt: numb
 const WAITING_CUSTOMER_STATES = new Set([
   'aguardando_cliente',
   'aguardando_resposta',
+  'retornar_em',
   'awaiting_response',
   'waiting_customer',
 ]);
