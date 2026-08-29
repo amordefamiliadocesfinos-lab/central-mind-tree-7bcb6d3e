@@ -4,6 +4,7 @@ export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
 
 export interface UnifiedSaleItem {
   product_id: string;
+  variant_id?: string | null;
   quantity: number;
   unit_price: number;
   notes?: string | null;

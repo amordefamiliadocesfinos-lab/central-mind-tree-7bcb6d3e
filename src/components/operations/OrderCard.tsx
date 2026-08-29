@@ -105,7 +105,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
         {order.items && order.items.length > 0 && (
           <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-2 mb-2">
             {order.items.map(item =>
-              `${item.quantity}x ${item.product?.name || 'Produto'}`
+              `${item.quantity}x ${item.product?.name || 'Produto'}${item.variant?.variant_name ? ` · ${item.variant.variant_name}` : ''}`
             ).join(', ')}
           </p>
         )}

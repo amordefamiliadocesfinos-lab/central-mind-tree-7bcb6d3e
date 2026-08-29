@@ -7,14 +7,17 @@ export const FALLBACK_LOCATION = 'Fábrica';
  * Resolve a localização de estoque a ser usada para um produto.
  * Prioriza a localização onde o produto já possui saldo; depois o primeiro local
  * cadastrado; por fim, a localização padrão.
- * Nunca retorna null/'' — a unicidade do estoque é (product_id, location).
+ * Nunca retorna null/'' — a identidade do saldo é produto + variante opcional + local.
  */
-export async function resolveStockLocation(productId: string): Promise<string> {
-  const { data: rows } = await supabase
+export async function resolveStockLocation(productId: string, variantId?: string | null): Promise<string> {
+  let query = supabase
     .from('inventory')
     .select('location, quantity')
     .eq('product_id', productId)
     .order('quantity', { ascending: false });
+
+  query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null);
+  const { data: rows } = await query;
 
   const existing = (rows || []).find((r: any) => r.location && String(r.location).trim() !== '');
   if (existing) return existing.location as string;
@@ -29,6 +32,8 @@ export async function resolveStockLocation(productId: string): Promise<string> {
 
 interface StockDeltaParams {
   productId: string;
+  /** Variante física opcional; ausente para produto simples/legado. */
+  variantId?: string | null;
   /** Positivo = entrada, negativo = saída */
   delta: number;
   movementType?: 'in' | 'out' | 'adjust' | 'consume' | 'reserve';
@@ -44,6 +49,7 @@ interface StockDeltaParams {
  */
 export async function applyStockDelta({
   productId,
+  variantId = null,
   delta,
   movementType,
   location,
@@ -53,14 +59,15 @@ export async function applyStockDelta({
 }: StockDeltaParams): Promise<boolean> {
   if (!productId || !delta) return false;
 
-  const loc = location && location.trim() !== '' ? location : await resolveStockLocation(productId);
+  const loc = location && location.trim() !== '' ? location : await resolveStockLocation(productId, variantId);
 
-  const { data: current } = await supabase
+  let currentQuery = supabase
     .from('inventory')
     .select('quantity')
     .eq('product_id', productId)
-    .eq('location', loc)
-    .maybeSingle();
+    .eq('location', loc);
+  currentQuery = variantId ? currentQuery.eq('variant_id', variantId) : currentQuery.is('variant_id', null);
+  const { data: current } = await currentQuery.maybeSingle();
 
   const previousBalance = Number(current?.quantity) || 0;
   const newBalance = Math.max(0, previousBalance + delta);
@@ -71,11 +78,12 @@ export async function applyStockDelta({
     .upsert(
       {
         product_id: productId,
+        variant_id: variantId,
         location: loc,
         quantity: newBalance,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'product_id,location' }
+      { onConflict: 'product_id,variant_id,location' }
     );
 
   if (invError) {
@@ -85,6 +93,7 @@ export async function applyStockDelta({
 
   const { error: movError } = await supabase.from('inventory_movements').insert({
     product_id: productId,
+    variant_id: variantId,
     movement_type: type,
     quantity: Math.abs(delta),
     previous_balance: previousBalance,

@@ -2322,6 +2322,7 @@ export type Database = {
           product_id: string
           quantity: number
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           id?: string
@@ -2330,6 +2331,7 @@ export type Database = {
           product_id: string
           quantity?: number
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           id?: string
@@ -2338,6 +2340,7 @@ export type Database = {
           product_id?: string
           quantity?: number
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -2352,6 +2355,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -2373,6 +2383,7 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           to_location: string | null
+          variant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2390,6 +2401,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           to_location?: string | null
+          variant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2407,6 +2419,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           to_location?: string | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -2414,6 +2427,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -2509,6 +2529,7 @@ export type Database = {
           physical_multiplier: number
           product_id: string
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           channel_account_id?: string | null
@@ -2522,6 +2543,7 @@ export type Database = {
           physical_multiplier?: number
           product_id: string
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           channel_account_id?: string | null
@@ -2535,6 +2557,7 @@ export type Database = {
           physical_multiplier?: number
           product_id?: string
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -2549,6 +2572,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_product_mappings_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -2966,6 +2996,7 @@ export type Database = {
           product_id: string
           quantity: number
           unit_price: number | null
+          variant_id: string | null
         }
         Insert: {
           id?: string
@@ -2974,6 +3005,7 @@ export type Database = {
           product_id: string
           quantity?: number
           unit_price?: number | null
+          variant_id?: string | null
         }
         Update: {
           id?: string
@@ -2982,6 +3014,7 @@ export type Database = {
           product_id?: string
           quantity?: number
           unit_price?: number | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -2996,6 +3029,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]

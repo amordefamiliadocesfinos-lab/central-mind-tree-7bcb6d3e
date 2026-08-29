@@ -9,6 +9,7 @@ export type MovementType = 'in' | 'out' | 'reserve' | 'consume' | 'adjust';
 export interface InventoryMovement {
   id: string;
   product_id: string;
+  variant_id?: string | null;
   movement_type: MovementType;
   quantity: number;
   previous_balance: number;
@@ -56,11 +57,13 @@ export function useInventoryMovements() {
     return (data as InventoryMovement[]) || [];
   }, []);
 
-  const getCurrentBalance = useCallback(async (productId: string): Promise<number> => {
-    const { data, error } = await supabase
+  const getCurrentBalance = useCallback(async (productId: string, variantId?: string | null): Promise<number> => {
+    let query = supabase
       .from('inventory')
       .select('quantity')
       .eq('product_id', productId);
+    query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null);
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error getting balance:', error);
@@ -76,16 +79,18 @@ export function useInventoryMovements() {
     quantity: number,
     notes?: string,
     referenceType?: string,
-    referenceId?: string
+    referenceId?: string,
+    variantId?: string | null,
   ): Promise<boolean> => {
-    const location = await resolveStockLocation(productId);
+    const location = await resolveStockLocation(productId, variantId);
 
-    const { data: current } = await supabase
+    let currentQuery = supabase
       .from('inventory')
       .select('quantity')
       .eq('product_id', productId)
-      .eq('location', location)
-      .maybeSingle();
+      .eq('location', location);
+    currentQuery = variantId ? currentQuery.eq('variant_id', variantId) : currentQuery.is('variant_id', null);
+    const { data: current } = await currentQuery.maybeSingle();
 
     const previousBalance = Number(current?.quantity) || 0;
 
@@ -113,6 +118,7 @@ export function useInventoryMovements() {
 
     const ok = delta === 0 ? true : await applyStockDelta({
       productId,
+      variantId,
       delta,
       movementType: type === 'adjust' ? 'adjust' : type,
       location,

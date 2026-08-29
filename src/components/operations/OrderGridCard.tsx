@@ -112,7 +112,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
         {order.items && order.items.length > 0 && (
           <p className="text-xs text-muted-foreground line-clamp-2">
             {order.items.map(item =>
-              `${item.quantity}x ${item.product?.name || 'Produto'}`
+              `${item.quantity}x ${item.product?.name || 'Produto'}${item.variant?.variant_name ? ` · ${item.variant.variant_name}` : ''}`
             ).join(', ')}
           </p>
         )}

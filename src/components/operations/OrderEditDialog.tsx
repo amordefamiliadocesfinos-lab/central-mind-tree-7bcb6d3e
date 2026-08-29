@@ -52,6 +52,7 @@ export function OrderEditDialog({
   const [items, setItems] = useState<Partial<OrderItem>[]>([]);
   const [saving, setSaving] = useState(false);
   const [linkedProductionOrders, setLinkedProductionOrders] = useState<any[]>([]);
+  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
 
   // Fetch linked production orders
   useEffect(() => {
@@ -73,6 +74,12 @@ export function OrderEditDialog({
   }, [order?.id]);
 
   useEffect(() => {
+    if (!open) return;
+    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override').eq('is_active', true).order('variant_name')
+      .then(({ data }: any) => setVariants(data || []));
+  }, [open]);
+
+  useEffect(() => {
     if (order) {
       setFormData({
         order_number: order.order_number,
@@ -88,6 +95,7 @@ export function OrderEditDialog({
       setItems(order.items?.map(i => ({
         id: i.id,
         product_id: i.product_id,
+        variant_id: i.variant_id || null,
         quantity: i.quantity,
         unit_price: i.unit_price,
         notes: i.notes,
@@ -112,7 +120,7 @@ export function OrderEditDialog({
   };
 
   const addItem = () => {
-    setItems([...items, { product_id: '', quantity: 1, unit_price: 0 }]);
+    setItems([...items, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }]);
   };
 
   const updateItem = (index: number, field: string, value: string | number) => {
@@ -121,6 +129,7 @@ export function OrderEditDialog({
     
     if (field === 'product_id') {
       const product = products.find(p => p.id === value);
+      (newItems[index] as any).variant_id = null;
       if (product?.price) {
         newItems[index].unit_price = product.price;
       }
@@ -369,6 +378,24 @@ export function OrderEditDialog({
                           ))}
                         </SelectContent>
                       </Select>
+                      {variants.some(variant => variant.product_id === item.product_id) && (
+                        <Select
+                          value={item.variant_id || '__none__'}
+                          onValueChange={(value) => {
+                            const variant = variants.find(itemVariant => itemVariant.id === value);
+                            updateItem(i, 'variant_id', value === '__none__' ? '' : value);
+                            if (variant?.price_override != null) updateItem(i, 'unit_price', variant.price_override);
+                          }}
+                        >
+                          <SelectTrigger className="w-40 h-10"><SelectValue placeholder="Variante" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Sem variante</SelectItem>
+                            {variants.filter(variant => variant.product_id === item.product_id).map(variant => (
+                              <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} · {variant.sku}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Input
                         type="number"
                         className="w-16 h-10"

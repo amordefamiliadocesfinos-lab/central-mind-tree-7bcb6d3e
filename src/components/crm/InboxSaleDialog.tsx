@@ -14,6 +14,7 @@ import { createUnifiedSale, SalePaymentStatus } from '@/lib/unifiedSales';
 
 interface SaleItem {
   product_id: string;
+  variant_id?: string | null;
   quantity: number;
   unit_price: number;
 }
@@ -50,6 +51,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [shipping, setShipping] = useState(0);
   const [marketplaceAccount, setMarketplaceAccount] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
+  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const saleRequestKeyRef = useRef<string | null>(null);
@@ -61,10 +63,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
     if (!open) return;
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
       .then(({ data }) => setAccounts(data || []));
+    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override').eq('is_active', true).order('variant_name')
+      .then(({ data }: any) => setVariants(data || []));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
-  const addItem = () => setItems((current) => [...current, { product_id: '', quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }]);
 
   const updateItem = (index: number, patch: Partial<SaleItem>) => {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -72,7 +76,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
 
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((p) => p.id === productId);
-    updateItem(index, { product_id: productId, unit_price: product?.price ?? 0 });
+    updateItem(index, { product_id: productId, variant_id: null, unit_price: product?.price ?? 0 });
+  };
+
+  const pickVariant = (index: number, variantId: string) => {
+    const variant = variants.find((item) => item.id === variantId);
+    updateItem(index, { variant_id: variantId || null, unit_price: variant?.price_override ?? items[index]?.unit_price ?? 0 });
   };
 
   const handleSave = async () => {
@@ -154,7 +163,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               </p>
             )}
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[1fr_64px_88px_32px] items-center gap-1.5">
+              <div key={index} className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] items-center gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
@@ -163,6 +172,17 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                     ))}
                   </SelectContent>
                 </Select>
+                {variants.some((variant) => variant.product_id === item.product_id) ? (
+                  <Select value={item.variant_id || '__none__'} onValueChange={(value) => pickVariant(index, value === '__none__' ? '' : value)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem variante</SelectItem>
+                      {variants.filter((variant) => variant.product_id === item.product_id).map((variant) => (
+                        <SelectItem key={variant.id} value={variant.id} className="text-xs">{variant.variant_name} · {variant.sku}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : <div />}
                 <Input
                   type="number" inputMode="decimal" className="h-8 text-xs" value={item.quantity}
                   onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}

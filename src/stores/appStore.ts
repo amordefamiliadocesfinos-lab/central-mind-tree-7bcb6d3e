@@ -93,6 +93,7 @@ export interface Order {
 export interface InventoryItem {
   id: string;
   product_id: string;
+  variant_id?: string | null;
   quantity: number;
   location: string | null;
   location_id: string | null;

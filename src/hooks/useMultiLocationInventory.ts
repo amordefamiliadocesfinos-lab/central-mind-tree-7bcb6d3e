@@ -123,11 +123,12 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: null,
         location,
         quantity: newBalance,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (inventoryError) {
@@ -186,11 +187,12 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: null,
         location,
         quantity: newBalance,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (inventoryError) {
@@ -253,11 +255,12 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: null,
         location: fromLocation,
         quantity: newSourceBalance,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (sourceError) {
@@ -271,11 +274,12 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: null,
         location: toLocation,
         quantity: newDestBalance,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (destError) {
@@ -326,11 +330,12 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: null,
         location,
         quantity: newQuantity,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (inventoryError) {

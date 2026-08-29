@@ -28,7 +28,7 @@ export function useInventorySync({ loadProducts = false }: Options = {}) {
 
   const reload = useCallback(async () => {
     const [invRes, prodRes] = await Promise.all([
-      supabase.from('inventory').select('id, product_id, location, quantity, updated_at'),
+      supabase.from('inventory').select('id, product_id, variant_id, location, quantity, updated_at'),
       loadProducts
         ? supabase.from('products').select('*').eq('is_active', true).is('deleted_at', null).order('name')
         : Promise.resolve({ data: null, error: null } as const),
@@ -49,6 +49,7 @@ export function useInventorySync({ loadProducts = false }: Options = {}) {
       rows.map((row: any) => ({
         id: row.id,
         product_id: row.product_id,
+        variant_id: row.variant_id ?? null,
         quantity: Number(row.quantity) || 0,
         location: row.location ?? null,
         location_id: null,

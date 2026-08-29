@@ -40,11 +40,13 @@ export interface ShopeeShippingOrder {
 export interface ShopeeProductMapping {
   external_item_key: string;
   product_id: string;
+  variant_id?: string | null;
   physical_multiplier: number;
 }
 
 export interface ShopeePreviewItem extends ShopeeShippingItem {
   masterProductId: string | null;
+  variantId: string | null;
   physicalMultiplier: number | null;
   physicalQuantity: number | null;
   mappingStatus: 'recognized' | 'needs_mapping' | 'error';
@@ -182,7 +184,7 @@ export function buildShopeePreview(
       const mapping = mappingByKey.get(item.externalItemKey);
       const multiplier = Number(mapping?.physical_multiplier);
       const validMultiplier = Number.isFinite(multiplier) && multiplier > 0;
-      return { ...item, masterProductId: mapping?.product_id || null, physicalMultiplier: validMultiplier ? multiplier : null, physicalQuantity: validMultiplier ? item.quantity * multiplier : null, mappingStatus: mapping && validMultiplier ? 'recognized' : 'needs_mapping' };
+      return { ...item, masterProductId: mapping?.product_id || null, variantId: mapping?.variant_id || null, physicalMultiplier: validMultiplier ? multiplier : null, physicalQuantity: validMultiplier ? item.quantity * multiplier : null, mappingStatus: mapping && validMultiplier ? 'recognized' : 'needs_mapping' };
     }),
   }));
 }

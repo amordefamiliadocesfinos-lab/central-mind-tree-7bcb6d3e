@@ -32,6 +32,7 @@ export interface Product {
 export interface InventoryItem {
   id: string;
   product_id: string;
+  variant_id?: string | null;
   quantity: number;
   location: string | null;
   updated_at: string;
@@ -42,10 +43,12 @@ export interface OrderItem {
   id: string;
   order_id: string;
   product_id: string;
+  variant_id?: string | null;
   quantity: number;
   unit_price: number | null;
   notes: string | null;
   product?: Product;
+  variant?: { id: string; variant_name: string; sku: string } | null;
 }
 
 export type OrderType = 'stock' | 'production';
@@ -116,7 +119,7 @@ export function useOrders() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, order_items(*, product:products(*))')
+        .select('*, order_items(*, product:products(*), variant:product_variants(*))')
         .is('deleted_at', null)
         .order('order_date', { ascending: false });
 
@@ -245,18 +248,19 @@ export function useOrders() {
     fetchProducts();
   }, [fetchProducts]);
 
-  const updateInventory = useCallback(async (productId: string, quantity: number, location?: string) => {
-    const loc = location && location.trim() !== '' ? location : await resolveStockLocation(productId);
+  const updateInventory = useCallback(async (productId: string, quantity: number, location?: string, variantId?: string | null) => {
+    const loc = location && location.trim() !== '' ? location : await resolveStockLocation(productId, variantId);
     // Upsert inventory
     const { error } = await supabase
       .from('inventory')
       .upsert({
         product_id: productId,
+        variant_id: variantId || null,
         quantity,
         location: loc,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'product_id,location',
+        onConflict: 'product_id,variant_id,location',
       });
 
     if (error) {
@@ -294,6 +298,7 @@ export function useOrders() {
         sale_origin: 'operacoes',
       }, items.map(item => ({
         product_id: item.product_id || '', quantity: item.quantity || 1,
+        variant_id: item.variant_id || null,
         unit_price: item.unit_price || 0, notes: item.notes,
       })));
       toast.success('Pedido e financeiro registrados! Estoque será baixado na expedição.');
@@ -441,6 +446,7 @@ export function useOrders() {
           items.map(item => ({
             order_id: orderId,
             product_id: item.product_id,
+            variant_id: item.variant_id || null,
             quantity: item.quantity || 1,
             unit_price: item.unit_price,
             notes: item.notes,
