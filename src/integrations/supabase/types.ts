@@ -2527,7 +2527,7 @@ export type Database = {
           marketplace: string
           marketplace_account: string
           physical_multiplier: number
-          product_id: string
+          product_id: string | null
           updated_at: string
           variant_id: string | null
         }
@@ -2541,7 +2541,7 @@ export type Database = {
           marketplace: string
           marketplace_account: string
           physical_multiplier?: number
-          product_id: string
+          product_id?: string | null
           updated_at?: string
           variant_id?: string | null
         }
@@ -2555,7 +2555,7 @@ export type Database = {
           marketplace?: string
           marketplace_account?: string
           physical_multiplier?: number
-          product_id?: string
+          product_id?: string | null
           updated_at?: string
           variant_id?: string | null
         }
