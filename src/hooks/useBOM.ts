@@ -6,6 +6,7 @@ export interface ProductComponent {
   id: string;
   product_id: string;
   component_id: string;
+  variant_id: string | null;
   qty_per_unit: number;
   notes: string | null;
   created_at: string;
@@ -15,10 +16,18 @@ export interface ProductComponent {
     sku: string;
     unit: string;
   };
+  variant?: {
+    id: string;
+    variant_name: string;
+    sku: string;
+    unit: string | null;
+    cost_override: number | null;
+  } | null;
 }
 
 export interface BOMLine {
   component_id: string;
+  variant_id: string | null;
   component_name: string;
   component_sku: string;
   unit: string;
@@ -38,7 +47,8 @@ export function useBOM() {
       .from('product_components')
       .select(`
         *,
-        component:products!product_components_component_id_fkey(id, name, sku, unit)
+        component:products!product_components_component_id_fkey(id, name, sku, unit),
+        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
 
@@ -57,6 +67,7 @@ export function useBOM() {
   const addComponent = useCallback(async (
     productId: string,
     componentId: string,
+    variantId: string | null,
     qtyPerUnit: number,
     notes?: string
   ) => {
@@ -70,12 +81,14 @@ export function useBOM() {
       .insert({
         product_id: productId,
         component_id: componentId,
+        variant_id: variantId,
         qty_per_unit: qtyPerUnit,
         notes: notes || null,
       })
       .select(`
         *,
-        component:products!product_components_component_id_fkey(id, name, sku, unit)
+        component:products!product_components_component_id_fkey(id, name, sku, unit),
+        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .single();
 
@@ -139,7 +152,8 @@ export function useBOM() {
       .from('product_components')
       .select(`
         *,
-        component:products!product_components_component_id_fkey(id, name, sku, unit)
+        component:products!product_components_component_id_fkey(id, name, sku, unit),
+        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
 
@@ -149,24 +163,26 @@ export function useBOM() {
     const componentIds = comps.map((c: any) => c.component_id);
     const { data: invData } = await supabase
       .from('inventory')
-      .select('product_id, quantity')
+      .select('product_id, variant_id, quantity')
       .in('product_id', componentIds);
 
     const stockMap: Record<string, number> = {};
     (invData || []).forEach((inv: any) => {
-      stockMap[inv.product_id] = inv.quantity;
+      const identity = `${inv.product_id}:${inv.variant_id || 'simple'}`;
+      stockMap[identity] = (stockMap[identity] || 0) + Number(inv.quantity || 0);
     });
 
     return comps.map((c: any) => {
       const qtyNeeded = c.qty_per_unit * quantity;
-      const stockAvailable = stockMap[c.component_id] || 0;
+      const stockAvailable = stockMap[`${c.component_id}:${c.variant_id || 'simple'}`] || 0;
       const shortage = Math.max(0, qtyNeeded - stockAvailable);
 
       return {
         component_id: c.component_id,
-        component_name: c.component?.name || 'Unknown',
-        component_sku: c.component?.sku || '',
-        unit: c.component?.unit || 'un',
+        variant_id: c.variant_id || null,
+        component_name: c.variant ? `${c.component?.name || 'Componente'} · ${c.variant.variant_name}` : (c.component?.name || 'Unknown'),
+        component_sku: c.variant?.sku || c.component?.sku || '',
+        unit: c.variant?.unit || c.component?.unit || 'un',
         qty_per_unit: c.qty_per_unit,
         qty_needed: qtyNeeded,
         stock_available: stockAvailable,

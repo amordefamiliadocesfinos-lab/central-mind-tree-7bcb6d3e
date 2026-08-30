@@ -207,12 +207,13 @@ export function useProductCosts() {
       .from('product_components')
       .select(`
         qty_per_unit,
-        component:products!product_components_component_id_fkey(cost)
+        component:products!product_components_component_id_fkey(cost),
+        variant:product_variants!product_components_variant_id_fkey(cost_override)
       `)
       .eq('product_id', productId);
 
     const materialsCost = (components || []).reduce((sum, comp: any) => {
-      const unitCost = comp.component?.cost || 0;
+      const unitCost = comp.variant?.cost_override ?? comp.component?.cost ?? 0;
       return sum + (unitCost * comp.qty_per_unit);
     }, 0);
 

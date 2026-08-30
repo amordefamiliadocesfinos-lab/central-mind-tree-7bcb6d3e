@@ -5,6 +5,7 @@ import { useInventoryMovements } from './useInventoryMovements';
 
 export interface MaterialNeed {
   component_id: string;
+  variant_id: string | null;
   component_name: string;
   component_sku: string;
   unit: string;
@@ -17,6 +18,7 @@ export interface MaterialNeed {
 
 export interface PurchaseSuggestion {
   component_id: string;
+  variant_id: string | null;
   component_name: string;
   component_sku: string;
   unit: string;
@@ -65,8 +67,10 @@ export function useMRP() {
       .select(`
         product_id,
         component_id,
+        variant_id,
         qty_per_unit,
-        component:products!product_components_component_id_fkey(id, name, sku, unit)
+        component:products!product_components_component_id_fkey(id, name, sku, unit),
+        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit)
       `)
       .in('product_id', Array.from(productIds));
 
@@ -75,7 +79,9 @@ export function useMRP() {
     // Build component needs map
     const needsMap: Record<string, {
       total_needed: number;
+      component_id: string;
       component: any;
+      variant_id: string | null;
       orders_affected: Set<string>;
     }> = {};
 
@@ -83,13 +89,15 @@ export function useMRP() {
       order.items?.forEach((item: any) => {
         const components = allComponents.filter((c: any) => c.product_id === item.product_id);
         components.forEach((comp: any) => {
-          const compId = comp.component_id;
+          const compId = `${comp.component_id}:${comp.variant_id || 'simple'}`;
           const qtyNeeded = comp.qty_per_unit * item.quantity;
 
           if (!needsMap[compId]) {
             needsMap[compId] = {
               total_needed: 0,
-              component: comp.component,
+              component_id: comp.component_id,
+              component: comp.variant ? { ...comp.component, name: `${comp.component?.name || 'Componente'} · ${comp.variant.variant_name}`, sku: comp.variant.sku, unit: comp.variant.unit || comp.component?.unit } : comp.component,
+              variant_id: comp.variant_id || null,
               orders_affected: new Set(),
             };
           }
@@ -103,25 +111,25 @@ export function useMRP() {
     const componentIds = Object.keys(needsMap);
     const { data: invData } = await supabase
       .from('inventory')
-      .select('product_id, quantity')
-      .in('product_id', componentIds);
+      .select('product_id, variant_id, quantity')
+      .in('product_id', [...new Set(allComponents.map((component: any) => component.component_id))]);
 
     // Get reserved amounts from movements
     const { data: reservedData } = await supabase
       .from('inventory_movements')
-      .select('product_id, quantity')
-      .in('product_id', componentIds)
+      .select('product_id, variant_id, quantity')
+      .in('product_id', [...new Set(allComponents.map((component: any) => component.component_id))])
       .eq('movement_type', 'reserve');
 
     const stockMap: Record<string, number> = {};
     const reservedMap: Record<string, number> = {};
 
     (invData || []).forEach((inv: any) => {
-      stockMap[inv.product_id] = inv.quantity;
+      stockMap[`${inv.product_id}:${inv.variant_id || 'simple'}`] = (stockMap[`${inv.product_id}:${inv.variant_id || 'simple'}`] || 0) + Number(inv.quantity || 0);
     });
 
     (reservedData || []).forEach((mov: any) => {
-      reservedMap[mov.product_id] = (reservedMap[mov.product_id] || 0) + mov.quantity;
+      reservedMap[`${mov.product_id}:${mov.variant_id || 'simple'}`] = (reservedMap[`${mov.product_id}:${mov.variant_id || 'simple'}`] || 0) + Number(mov.quantity || 0);
     });
 
     // Build final needs array
@@ -133,7 +141,8 @@ export function useMRP() {
       const shortage = Math.max(0, need.total_needed - effectiveStock);
 
       return {
-        component_id: compId,
+        component_id: need.component_id,
+        variant_id: need.variant_id,
         component_name: need.component?.name || 'Unknown',
         component_sku: need.component?.sku || '',
         unit: need.component?.unit || 'un',
@@ -158,6 +167,7 @@ export function useMRP() {
           n.shortage > n.total_needed * 0.25 ? 'medium' : 'low';
         return {
           component_id: n.component_id,
+          variant_id: n.variant_id,
           component_name: n.component_name,
           component_sku: n.component_sku,
           unit: n.unit,
@@ -180,7 +190,7 @@ export function useMRP() {
     const productIds = orderItems.map(i => i.product_id);
     const { data: components } = await supabase
       .from('product_components')
-      .select('product_id, component_id, qty_per_unit')
+      .select('product_id, component_id, variant_id, qty_per_unit')
       .in('product_id', productIds);
 
     if (!components || components.length === 0) {
@@ -189,17 +199,17 @@ export function useMRP() {
     }
 
     // Calculate total needs per component
-    const reservations: { componentId: string; qty: number }[] = [];
+    const reservations: { componentId: string; variantId: string | null; qty: number }[] = [];
     
     orderItems.forEach(item => {
       const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
       itemComponents.forEach((comp: any) => {
-        const existing = reservations.find(r => r.componentId === comp.component_id);
+        const existing = reservations.find(r => r.componentId === comp.component_id && r.variantId === (comp.variant_id || null));
         const qtyNeeded = comp.qty_per_unit * item.quantity;
         if (existing) {
           existing.qty += qtyNeeded;
         } else {
-          reservations.push({ componentId: comp.component_id, qty: qtyNeeded });
+          reservations.push({ componentId: comp.component_id, variantId: comp.variant_id || null, qty: qtyNeeded });
         }
       });
     });
@@ -213,7 +223,8 @@ export function useMRP() {
           r.qty,
           `Reserva para pedido ${orderId.slice(0, 8)}`,
           'order',
-          orderId
+          orderId,
+          r.variantId
         )
       )
     );
@@ -237,7 +248,7 @@ export function useMRP() {
     const productIds = orderItems.map(i => i.product_id);
     const { data: components } = await supabase
       .from('product_components')
-      .select('product_id, component_id, qty_per_unit')
+      .select('product_id, component_id, variant_id, qty_per_unit')
       .in('product_id', productIds);
 
     if (!components || components.length === 0) {
@@ -245,17 +256,17 @@ export function useMRP() {
     }
 
     // Calculate total consumption per component
-    const consumptions: { componentId: string; qty: number }[] = [];
+    const consumptions: { componentId: string; variantId: string | null; qty: number }[] = [];
     
     orderItems.forEach(item => {
       const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
       itemComponents.forEach((comp: any) => {
-        const existing = consumptions.find(c => c.componentId === comp.component_id);
+        const existing = consumptions.find(c => c.componentId === comp.component_id && c.variantId === (comp.variant_id || null));
         const qtyNeeded = comp.qty_per_unit * item.quantity;
         if (existing) {
           existing.qty += qtyNeeded;
         } else {
-          consumptions.push({ componentId: comp.component_id, qty: qtyNeeded });
+          consumptions.push({ componentId: comp.component_id, variantId: comp.variant_id || null, qty: qtyNeeded });
         }
       });
     });
@@ -269,7 +280,8 @@ export function useMRP() {
           c.qty,
           `Consumo para pedido ${orderId.slice(0, 8)}`,
           'order',
-          orderId
+          orderId,
+          c.variantId
         )
       )
     );
@@ -289,6 +301,7 @@ export function useMRP() {
     orderItems: { product_id: string; quantity: number }[]
   ): Promise<{
     component_id: string;
+    variant_id: string | null;
     component_name: string;
     qty_needed: number;
     stock_available: number;
@@ -301,23 +314,25 @@ export function useMRP() {
       .select(`
         product_id,
         component_id,
+        variant_id,
         qty_per_unit,
-        component:products!product_components_component_id_fkey(id, name, sku, unit)
+        component:products!product_components_component_id_fkey(id, name, sku, unit),
+        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit)
       `)
       .in('product_id', productIds);
 
     if (!components || components.length === 0) return [];
 
     // Aggregate needs
-    const needsMap: Record<string, { qty: number; component: any }> = {};
+    const needsMap: Record<string, { qty: number; component_id: string; component: any; variant_id: string | null }> = {};
     
     orderItems.forEach(item => {
       const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
       itemComponents.forEach((comp: any) => {
-        const compId = comp.component_id;
+        const compId = `${comp.component_id}:${comp.variant_id || 'simple'}`;
         const qtyNeeded = comp.qty_per_unit * item.quantity;
         if (!needsMap[compId]) {
-          needsMap[compId] = { qty: 0, component: comp.component };
+          needsMap[compId] = { qty: 0, component_id: comp.component_id, component: comp.variant ? { ...comp.component, name: `${comp.component?.name || 'Componente'} · ${comp.variant.variant_name}`, sku: comp.variant.sku } : comp.component, variant_id: comp.variant_id || null };
         }
         needsMap[compId].qty += qtyNeeded;
       });
@@ -327,19 +342,20 @@ export function useMRP() {
     const componentIds = Object.keys(needsMap);
     const { data: invData } = await supabase
       .from('inventory')
-      .select('product_id, quantity')
-      .in('product_id', componentIds);
+      .select('product_id, variant_id, quantity')
+      .in('product_id', [...new Set(components.map((component: any) => component.component_id))]);
 
     const stockMap: Record<string, number> = {};
     (invData || []).forEach((inv: any) => {
-      stockMap[inv.product_id] = inv.quantity;
+      stockMap[`${inv.product_id}:${inv.variant_id || 'simple'}`] = (stockMap[`${inv.product_id}:${inv.variant_id || 'simple'}`] || 0) + Number(inv.quantity || 0);
     });
 
     return componentIds.map(compId => {
       const need = needsMap[compId];
       const stock = stockMap[compId] || 0;
       return {
-        component_id: compId,
+        component_id: need.component_id,
+        variant_id: need.variant_id,
         component_name: need.component?.name || 'Unknown',
         qty_needed: need.qty,
         stock_available: stock,

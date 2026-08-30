@@ -343,6 +343,7 @@ export function useProductionOrders() {
     for (const line of bomLines) {
       await applyStockDelta({
         productId: line.component_id,
+        variantId: line.variant_id,
         delta: -Math.abs(line.qty_needed),
         movementType: 'consume',
         location: targetLocation,

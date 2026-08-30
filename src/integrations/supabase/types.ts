@@ -3575,6 +3575,7 @@ export type Database = {
           notes: string | null
           product_id: string
           qty_per_unit: number
+          variant_id: string | null
         }
         Insert: {
           component_id: string
@@ -3583,6 +3584,7 @@ export type Database = {
           notes?: string | null
           product_id: string
           qty_per_unit?: number
+          variant_id?: string | null
         }
         Update: {
           component_id?: string
@@ -3591,6 +3593,7 @@ export type Database = {
           notes?: string | null
           product_id?: string
           qty_per_unit?: number
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -3605,6 +3608,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_components_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]

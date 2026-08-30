@@ -202,7 +202,8 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
           item.adjustQuantity,
           `Ajuste para concluir OP - Estoque insuficiente`,
           'production_order',
-          pendingCompleteOrderId
+          pendingCompleteOrderId,
+          item.variant_id
         );
       }
     }
@@ -985,7 +986,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {shortageItems.map((item, index) => (
-              <Card key={item.component_id}>
+              <Card key={`${item.component_id}:${item.variant_id || 'simple'}`}>
                 <CardContent className="p-3">
                   <div className="flex justify-between items-start mb-2">
                     <div>

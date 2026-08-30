@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BOMEditorProps {
   productId: string;
@@ -16,17 +17,33 @@ interface BOMEditorProps {
 export function BOMEditor({ productId, productName, availableComponents }: BOMEditorProps) {
   const { components, loading, fetchComponentsForProduct, addComponent, updateComponent, removeComponent } = useBOM();
   const [newComponentId, setNewComponentId] = useState('');
+  const [newVariantId, setNewVariantId] = useState('');
+  const [availableVariants, setAvailableVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
   const [newQty, setNewQty] = useState(1);
 
   useEffect(() => {
     fetchComponentsForProduct(productId);
   }, [productId, fetchComponentsForProduct]);
 
+  useEffect(() => {
+    if (!newComponentId) {
+      setAvailableVariants([]);
+      setNewVariantId('');
+      return;
+    }
+    void supabase.from('product_variants').select('id, variant_name, sku').eq('product_id', newComponentId).eq('is_active', true).order('variant_name').then(({ data }) => {
+      setAvailableVariants(data || []);
+      setNewVariantId('');
+    });
+  }, [newComponentId]);
+
   const handleAdd = async () => {
     if (!newComponentId || newQty <= 0) return;
-    const result = await addComponent(productId, newComponentId, newQty);
+    if (availableVariants.length && !newVariantId) return;
+    const result = await addComponent(productId, newComponentId, newVariantId || null, newQty);
     if (result) {
       setNewComponentId('');
+      setNewVariantId('');
       setNewQty(1);
       fetchComponentsForProduct(productId);
     }
@@ -43,9 +60,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   };
 
   // Filter out the product itself and already added components
-  const availableToAdd = availableComponents.filter(
-    c => c.id !== productId && !components.find(comp => comp.component_id === c.id)
-  );
+  const availableToAdd = availableComponents.filter(c => c.id !== productId && !components.find(comp => comp.component_id === c.id && !comp.variant_id));
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
@@ -76,6 +91,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
                   <span className="text-xs text-muted-foreground ml-2">
                     ({comp.component?.sku})
                   </span>
+                  {comp.variant && <span className="text-xs text-muted-foreground ml-2">· {comp.variant.variant_name} ({comp.variant.sku})</span>}
                 </TableCell>
                 <TableCell className="text-right">
                   <Input
@@ -123,6 +139,13 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
             </SelectContent>
           </Select>
         </div>
+        {availableVariants.length > 0 && <div className="flex-1">
+          <Label className="text-xs">Variante física</Label>
+          <Select value={newVariantId} onValueChange={setNewVariantId}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Selecione a variante..." /></SelectTrigger>
+            <SelectContent>{availableVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}</SelectContent>
+          </Select>
+        </div>}
         <div className="w-24">
           <Label className="text-xs">Qtd/un</Label>
           <Input
@@ -134,7 +157,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
             onChange={(e) => setNewQty(parseFloat(e.target.value) || 1)}
           />
         </div>
-        <Button size="sm" className="h-9" onClick={handleAdd} disabled={!newComponentId}>
+        <Button size="sm" className="h-9" onClick={handleAdd} disabled={!newComponentId || (availableVariants.length > 0 && !newVariantId)}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
