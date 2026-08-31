@@ -368,8 +368,43 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 <div className="text-[10px] text-muted-foreground">Prévia. Nada é salvo automaticamente.</div>
               </div>
             )}
+            {replySuggestion && (
+              <div className="rounded border border-dashed px-2 py-1 space-y-1">
+                <div className="font-medium">
+                  {replySuggestion.reply ? 'Resposta sugerida' : 'Nenhuma resposta necessária agora'}
+                </div>
+                {replySuggestion.reply && (
+                  <p className="whitespace-pre-wrap text-foreground/90">{replySuggestion.reply}</p>
+                )}
+                <div className="text-muted-foreground">
+                  {replySuggestion.reason}
+                  {replySuggestion.tone ? ` · Tom: ${replySuggestion.tone}` : ''}
+                </div>
+                {replySuggestion.reply && (
+                  <div className="flex justify-end gap-2 pt-0.5">
+                    {/* Apenas preenche o composer — o envio continua manual pela Inbox. */}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 text-[11px]"
+                      onClick={() => { setText(replySuggestion.reply!); setReplySuggestion(null); toast.success('Resposta no campo de mensagem — revise e envie'); }}
+                    >
+                      Usar resposta
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => { navigator.clipboard?.writeText(replySuggestion.reply!); toast.success('Resposta copiada'); }}
+                    >
+                      Copiar
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-0.5">
-              {resultSuggestion.code && onUseSuggestedResult && (
+              {resultSuggestion?.code && onUseSuggestedResult && (
                 <Button
                   size="sm"
                   className="h-7 text-[11px]"
@@ -378,7 +413,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                   Usar resultado
                 </Button>
               )}
-              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setResultSuggestion(null); setNextActionRecommendation(null); }}>Ignorar</Button>
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setResultSuggestion(null); setNextActionRecommendation(null); setReplySuggestion(null); }}>Ignorar</Button>
             </div>
           </div>
         )}
