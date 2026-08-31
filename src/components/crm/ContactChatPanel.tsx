@@ -233,37 +233,39 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   }, []);
 
 
-  // F4.2/F4.3/F4.4 — Assistente CRM unificado: um único fluxo produz Resultado
+  // F4.2/4.3/4.4/4.5 — Assistente CRM unificado: um único fluxo produz Resultado
   // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
     setAnalyzing(true);
-    setNextActionRecommendation(null);
-    setReplySuggestion(null);
+    setAnalysisError(false);
+    setAnalysis(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
       const suggestion = await suggestCrmResultFromContext(context);
-      setResultSuggestion(suggestion);
 
       let recommendation: CrmNextActionRecommendation | null = null;
       if (suggestion.code) {
         // getCrmTransition() é a autoridade; a IA só explica a decisão.
         recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
-        setNextActionRecommendation(recommendation);
       }
 
       const reply = await suggestCrmReplyFromContext(context, {
         result: suggestion.code ? { code: suggestion.code, label: suggestion.label } : null,
         nextAction: recommendation,
       });
-      setReplySuggestion(reply);
+
+      setAnalysis({ result: suggestion, nextAction: recommendation, reply });
+      // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
+      setAnalyzedAt(contextStamp);
     } catch (error) {
       console.error('crm-ai-assistant:', error);
-      toast.error('Não foi possível analisar o atendimento agora.');
+      setAnalysisError(true);
     } finally {
       setAnalyzing(false);
     }
   };
+
 
   return (
     <div className={`flex flex-col ${heightClassName ?? 'h-[60vh] min-h-[400px]'}`}>
