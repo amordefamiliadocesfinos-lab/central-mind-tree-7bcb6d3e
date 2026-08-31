@@ -121,6 +121,7 @@ const LeadImportDialog = lazy(() => import('@/components/crm/LeadImportDialog').
 const ContactActivitiesPanel = lazy(() => import('@/components/crm/ContactActivitiesPanel').then(m => ({ default: m.ContactActivitiesPanel })));
 const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDispatch').then(m => ({ default: m.BulkWhatsAppDispatch })));
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
+
 const CampaignReviewDialog = lazy(() => import('@/components/crm/CampaignReviewDialog').then(m => ({ default: m.CampaignReviewDialog })));
 const KommoFunnelView = lazy(() => import('@/components/crm/KommoFunnelView').then(m => ({ default: m.KommoFunnelView })));
 const LeadDetailDrawer = lazy(() => import('@/components/crm/LeadDetailDrawer').then(m => ({ default: m.LeadDetailDrawer })));
