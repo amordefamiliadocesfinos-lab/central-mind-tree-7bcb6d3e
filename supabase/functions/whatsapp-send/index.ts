@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
       .from('service_messages')
       .update({ delivery_status: 'failed', error_code: result.errorCode ?? 'unknown' })
       .eq('id', pending.id);
-    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem' }, 502);
+    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem', code: result.errorCode ?? 'send_failed' }, 502);
   }
 
   await supabase
