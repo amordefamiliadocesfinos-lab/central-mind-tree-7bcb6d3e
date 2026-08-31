@@ -336,17 +336,22 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       </div>
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
-        {resultSuggestion && (
+        {(resultSuggestion || replySuggestion) && (
           <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] space-y-1">
-            <div className="font-medium">
-              {resultSuggestion.code
-                ? `Resultado sugerido: ${resultSuggestion.code} — ${resultSuggestion.label}`
-                : 'Sem Resultado sugerido no momento'}
-            </div>
-            {resultSuggestion.code && (
-              <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Assistente CRM</div>
+            {resultSuggestion && (
+              <>
+                <div className="font-medium">
+                  {resultSuggestion.code
+                    ? `Resultado sugerido: ${resultSuggestion.code} — ${resultSuggestion.label}`
+                    : 'Sem Resultado sugerido no momento'}
+                </div>
+                {resultSuggestion.code && (
+                  <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
+                )}
+                <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
+              </>
             )}
-            <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
             {nextActionRecommendation && (
               <div className="rounded border border-dashed px-2 py-1 space-y-0.5">
                 <div className="font-medium">
