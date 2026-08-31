@@ -71,6 +71,23 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
   const outboundBlocked = commercialOptOut && !isCustomerReply;
 
+  // F4.5 — assinatura do contexto atual: contato, conversa e última mensagem.
+  // Se mudar (nova mensagem, troca de contato, Resultado registrado que recarrega
+  // o histórico), a sugestão anterior é descartada em vez de parecer válida.
+  const contextStamp = `${contactId}|${conversationId ?? ''}|${messages.length}|${messages[messages.length - 1]?.id ?? ''}`;
+
+  const dismissAnalysis = () => {
+    setAnalysis(null);
+    setAnalysisError(false);
+    setAnalyzedAt(null);
+  };
+
+  useEffect(() => {
+    if (analyzedAt && analyzedAt !== contextStamp) dismissAnalysis();
+    // Nunca dispara IA automaticamente — apenas invalida o que ficou velho.
+  }, [contextStamp, analyzedAt]);
+
+
   useEffect(() => {
     let cancelled = false;
     supabase.from('contacts').select('commercial_opt_out').eq('id', contactId).maybeSingle()
