@@ -43,7 +43,7 @@ const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [commercialOptOut, setCommercialOptOut] = useState(false);
