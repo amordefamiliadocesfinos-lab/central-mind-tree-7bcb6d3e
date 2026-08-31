@@ -140,12 +140,93 @@ function handleNextActionMode(body: any, apiKey: string) {
   });
 }
 
+// FRENTE 4.4 — modo "reply": resposta sugerida contextual. Somente leitura:
+// a função NUNCA envia mensagem (não chama whatsapp-send) e não grava nada.
+const REPLY_SYSTEM_PROMPT = `Você é um atendente comercial brasileiro experiente escrevendo por WhatsApp em nome da empresa.
+
+Sua tarefa: sugerir a PRÓXIMA MENSAGEM que o operador enviaria ao cliente, coerente com o Resultado do atendimento e com a Próxima Ação recomendada.
+
+Regras OBRIGATÓRIAS:
+- Retorne suggested_reply = null quando NÃO houver motivo real para responder agora. Exemplos: o operador acabou de enviar mensagem e o cliente não respondeu; estamos aguardando o cliente; conversa encerrada sem ação atual; contexto insuficiente. Nunca escreva mensagem só para preencher espaço.
+- Coerência: interesse demonstrado → avançar a conversa, nunca encerrar. Proposta em análise → respeitar o tempo do cliente, sem pressão indevida. Pagamento confirmado → reconhecer e orientar o próximo passo. Não deseja contato → NUNCA gerar nova abordagem promocional (retorne null).
+- OPT-OUT: se o contato está em opt-out comercial e a última mensagem NÃO é do cliente, retorne null. Se o cliente enviou mensagem recente, pode responder àquela mensagem, sem oferta comercial nova.
+- Escreva em português do Brasil, tom humano e direto, 1 a 4 frases, sem emojis em excesso, sem placeholders como [nome]. Use o primeiro nome do contato quando fizer sentido.
+- Nunca prometa prazo, preço ou desconto que não esteja no contexto. Nunca invente data de agendamento.
+
+Responda APENAS com JSON puro: {"suggested_reply": "texto" ou null, "reason": "frase curta explicando", "tone": "cordial|consultivo|objetivo|acolhedor" ou null}`;
+
+async function handleReplyMode(body: any, apiKey: string) {
+  const context = body?.context;
+  const lastMessage = Array.isArray(context?.messages) && context.messages.length
+    ? context.messages[context.messages.length - 1]
+    : null;
+  const lastIsInbound = lastMessage?.direction === "inbound";
+  const optOut = Boolean(context?.contact?.optOut);
+
+  // Guarda determinística: opt-out sem inbound recente nunca gera abordagem.
+  if (optOut && !lastIsInbound) {
+    return json({
+      suggested_reply: null,
+      reason: "Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.",
+      tone: null,
+    });
+  }
+
+  const userContent = [
+    `Resultado do atendimento (sugerido/selecionado): ${body?.result?.code ?? "—"} — ${body?.result?.label ?? "—"}`,
+    `Próxima Ação recomendada: ${body?.nextAction?.code ?? "nenhuma ação imediata"} — ${body?.nextAction?.label ?? "—"}`,
+    `Última mensagem é do cliente: ${lastIsInbound ? "sim" : "não"}`,
+    `Opt-out comercial: ${optOut ? "sim" : "não"}`,
+    "",
+    "--- CONTEXTO DO ATENDIMENTO ---",
+    compactContext(context),
+  ].join("\n");
+
+  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: REPLY_SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!aiResp.ok) {
+    const detail = await aiResp.text();
+    console.error("crm-ai-assistant reply gateway error:", aiResp.status, detail);
+    if (aiResp.status === 429) return json({ error: "Limite de requisições da IA atingido. Tente novamente em instantes." }, 429);
+    if (aiResp.status === 402) return json({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }, 402);
+    return json({ error: "Erro no gateway de IA" }, 502);
+  }
+
+  const data = await aiResp.json();
+  const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
+  const rawReply = typeof parsed?.suggested_reply === "string" ? parsed.suggested_reply.trim() : "";
+  const reply = rawReply ? rawReply.slice(0, 1200) : null;
+  const reason = typeof parsed?.reason === "string" && parsed.reason.trim()
+    ? parsed.reason.trim().slice(0, 280)
+    : (reply ? "Resposta alinhada ao Resultado e à Próxima Ação." : "Nenhuma resposta necessária no momento.");
+  const tone = typeof parsed?.tone === "string" && parsed.tone.trim() ? parsed.tone.trim().slice(0, 40) : null;
+  return json({ suggested_reply: reply, reason, tone });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => null);
     const context = body?.context;
+
+    if (body?.mode === "reply") {
+      if (!context || !context.contact?.id) return json({ error: "context (CrmAiContext) é obrigatório" }, 400);
+      const key = Deno.env.get("LOVABLE_API_KEY");
+      if (!key) return json({ error: "LOVABLE_API_KEY não configurada" }, 500);
+      return await handleReplyMode(body, key);
+    }
 
     if (body?.mode === "next_action") {
       if (!context || !context.contact?.id) return json({ error: "context (CrmAiContext) é obrigatório" }, 400);
