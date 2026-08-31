@@ -181,7 +181,13 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
                 ) : r.status === 'skipped' ? (
                   <Badge variant="outline" className="text-[10px]">Pulado</Badge>
                 ) : r.status === 'failed' ? (
-                  <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">Falha</Badge>
+                  <Badge
+                    variant="outline"
+                    className="max-w-[55%] truncate text-[10px] text-destructive border-destructive/40"
+                    title={`${r.error_code || 'send_failed'}: ${r.error_message || ''}`}
+                  >
+                    Falha · {r.error_code || 'send_failed'}
+                  </Badge>
                 ) : r.status === 'pending' ? (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Elegível</Badge>
