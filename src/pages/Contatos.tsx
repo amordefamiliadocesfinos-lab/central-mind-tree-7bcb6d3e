@@ -125,6 +125,7 @@ const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDis
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
 
 const CampaignReviewDialog = lazy(() => import('@/components/crm/CampaignReviewDialog').then(m => ({ default: m.CampaignReviewDialog })));
+const CampaignsListDialog = lazy(() => import('@/components/crm/CampaignsListDialog').then(m => ({ default: m.CampaignsListDialog })));
 const KommoFunnelView = lazy(() => import('@/components/crm/KommoFunnelView').then(m => ({ default: m.KommoFunnelView })));
 const LeadDetailDrawer = lazy(() => import('@/components/crm/LeadDetailDrawer').then(m => ({ default: m.LeadDetailDrawer })));
 const FunnelAutomationsPanel = lazy(() => import('@/components/crm/FunnelAutomationsPanel').then(m => ({ default: m.FunnelAutomationsPanel })));
@@ -377,6 +378,7 @@ export default function Contatos() {
   // FRENTE 3.2 — Campanhas CRM (criação a partir do segmento e revisão de elegibilidade)
   const [campaignCreateOpen, setCampaignCreateOpen] = useState(false);
   const [campaignReview, setCampaignReview] = useState<CrmCampaign | null>(null);
+  const [campaignsListOpen, setCampaignsListOpen] = useState(false);
   const [attentionFilter, setAttentionFilter] = useState<AttentionKey>('all');
   const [qualityOnly, setQualityOnly] = useState(false);
   // FRENTE 7A — a operação diária é a Caixa de Entrada; o CRM abre em gestão (Kanban).
@@ -1554,6 +1556,15 @@ export default function Contatos() {
                 <Badge variant="secondary" className="text-sm">Resultado: {filteredContacts.length} contatos</Badge>
                 <Button
                   size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  onClick={() => setCampaignsListOpen(true)}
+                >
+                  <Megaphone className="h-4 w-4" />
+                  <span className="text-xs">Campanhas</span>
+                </Button>
+                <Button
+                  size="sm"
                   className="h-8 gap-1.5"
                   disabled={filteredContacts.length === 0}
                   onClick={() => setCampaignCreateOpen(true)}
@@ -2147,6 +2158,14 @@ export default function Contatos() {
               const { data } = await (supabase as any).from('crm_campaigns').select('*').eq('id', campaignId).single();
               if (data) setCampaignReview(data as CrmCampaign);
             }}
+          />
+        )}
+
+        {campaignsListOpen && (
+          <CampaignsListDialog
+            open={campaignsListOpen}
+            onOpenChange={setCampaignsListOpen}
+            onOpenCampaign={(c) => { setCampaignsListOpen(false); setCampaignReview(c); }}
           />
         )}
 

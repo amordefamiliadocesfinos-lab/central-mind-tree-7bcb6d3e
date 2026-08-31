@@ -11,13 +11,25 @@ import {
 import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
-import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
+import { countCampaignResponses } from '@/lib/crm/campaignContext';
+import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaign: CrmCampaign | null;
 }
+
+type StatusFilter = 'all' | 'pending' | 'sent' | 'skipped' | 'failed' | 'excluded';
+
+const FILTER_LABELS: Record<StatusFilter, string> = {
+  all: 'Todos',
+  pending: 'Elegíveis',
+  sent: 'Enviados',
+  skipped: 'Pulados',
+  failed: 'Falhas',
+  excluded: 'Excluídos',
+};
 
 export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const { markPrepared, fetchCampaigns } = useCrmCampaigns();
@@ -27,19 +39,24 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [confirmApiOpen, setConfirmApiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
 
   useEffect(() => {
     if (!open || !campaign) return;
     setLoading(true);
     fetchCampaignRecipients(campaign.id).then(rows => { setRecipients(rows); setLoading(false); });
+    syncCampaignStatus(campaign);
+    countCampaignResponses(campaign.id).then(setResponses);
   }, [open, campaign]);
 
   const reload = () => {
     if (!campaign) return;
     fetchCampaignRecipients(campaign.id).then(setRecipients);
+    countCampaignResponses(campaign.id).then(setResponses);
   };
 
-  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped } = useMemo(() => {
+  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped, failed } = useMemo(() => {
     const eligible = recipients.filter(r => r.status === 'pending');
     const excluded = recipients.filter(r => r.status === 'excluded');
     const reasons = new Map<string, number>();
@@ -51,10 +68,21 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     const manualCount = eligible.filter(r => r.delivery_mode !== 'api').length;
     const sent = recipients.filter(r => r.status === 'sent');
     const skipped = recipients.filter(r => r.status === 'skipped');
-    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped };
+    const failed = recipients.filter(r => r.status === 'failed');
+    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped, failed };
   }, [recipients]);
 
+  const visibleRecipients = useMemo(() => {
+    const ordered = [...eligible, ...sent, ...skipped, ...failed, ...excluded];
+    return statusFilter === 'all' ? ordered : ordered.filter(r => r.status === statusFilter);
+  }, [eligible, sent, skipped, failed, excluded, statusFilter]);
+
+  const responseRate = responses && responses.sent > 0
+    ? Math.round((responses.responded / responses.sent) * 100)
+    : null;
+
   if (!campaign) return null;
+
 
   return (
     <ResponsiveDialog
@@ -99,7 +127,27 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           <Badge variant="outline" className="text-amber-600 border-amber-300">Manual: {manualCount}</Badge>
           <Badge variant="outline">Enviados: {sent.length}</Badge>
           <Badge variant="outline">Pulados: {skipped.length}</Badge>
+          <Badge variant="outline" className="text-destructive border-destructive/40">Falhas: {failed.length}</Badge>
+          <Badge variant="outline" className="text-sky-600 border-sky-300">
+            Respostas: {responses ? `${responses.responded}/${responses.sent}` : '—'}
+            {responseRate !== null ? ` (${responseRate}%)` : ''}
+          </Badge>
         </div>
+
+        <div className="flex flex-wrap gap-1">
+          {(Object.keys(FILTER_LABELS) as StatusFilter[]).map(key => (
+            <Button
+              key={key}
+              size="sm"
+              variant={statusFilter === key ? 'default' : 'outline'}
+              className="h-7 text-[11px] px-2"
+              onClick={() => setStatusFilter(key)}
+            >
+              {FILTER_LABELS[key]}
+            </Button>
+          ))}
+        </div>
+
 
         <div className="rounded-lg border bg-muted/30 p-3 text-sm whitespace-pre-wrap">{campaign.message_text}</div>
 
@@ -119,7 +167,10 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
             {!loading && recipients.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">Nenhum destinatário.</p>
             )}
-            {[...eligible, ...sent, ...skipped, ...excluded].map(r => (
+            {!loading && recipients.length > 0 && visibleRecipients.length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">Nenhum destinatário neste filtro.</p>
+            )}
+            {visibleRecipients.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{r.contact?.name || r.contact_id}</p>
@@ -129,6 +180,8 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
                   <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-400">Enviado</Badge>
                 ) : r.status === 'skipped' ? (
                   <Badge variant="outline" className="text-[10px]">Pulado</Badge>
+                ) : r.status === 'failed' ? (
+                  <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">Falha</Badge>
                 ) : r.status === 'pending' ? (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Elegível</Badge>
