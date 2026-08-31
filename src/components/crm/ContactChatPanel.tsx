@@ -8,7 +8,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
 import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
-import { suggestCrmResult, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
+import { suggestCrmResultFromContext, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
+import { buildCrmAiContext } from '@/lib/crm/aiContext';
+import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 
 interface Message {
   id: string;
