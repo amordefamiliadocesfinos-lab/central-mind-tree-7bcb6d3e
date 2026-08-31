@@ -126,17 +126,22 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     if (!conversationId) return;
     let cancelled = false;
     const load = async () => {
+      // Conversas longas ultrapassam o teto padrão de linhas da API. Buscamos as
+      // mensagens mais recentes (desc) e reordenamos, garantindo que o último
+      // envio (inclusive de campanha) sempre apareça na conversa.
       const { data } = await supabase
         .from('service_messages')
         .select('id, conversation_id, sender, content, is_ai_suggested, created_at, source, delivery_status, message_type, media_url, media_mime_type, media_filename, media_caption')
         .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (!cancelled) {
-        setMessages((data || []) as Message[]);
+        setMessages(((data || []) as Message[]).slice().reverse());
         setLoading(false);
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
     };
+
     load();
 
     const ch = supabase

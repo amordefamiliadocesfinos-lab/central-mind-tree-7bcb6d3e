@@ -65,18 +65,22 @@ export function useServiceChat() {
 
   const fetchMessages = useCallback(async (conversationId: string) => {
     setMessagesLoading(true);
+    // Busca as mais recentes (desc + limite) e reordena: conversas longas
+    // ultrapassam o teto de linhas da API e escondiam os últimos envios.
     const { data, error } = await supabase
       .from('service_messages')
       .select('*')
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(200);
 
     if (error) {
       console.error('Error fetching messages:', error);
       setMessagesLoading(false);
       return;
     }
-    setMessages((data || []) as unknown as ServiceMessage[]);
+    setMessages(((data || []).slice().reverse()) as unknown as ServiceMessage[]);
+
     setMessagesLoading(false);
 
     // Mark as read
