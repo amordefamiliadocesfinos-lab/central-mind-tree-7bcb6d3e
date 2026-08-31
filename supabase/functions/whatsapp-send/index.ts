@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
 
   const connector = getWhatsAppConnector();
   if (!connector.isConfigured) {
-    return json({ error: 'Integração de WhatsApp ainda não configurada' }, 503);
+    return json({ error: 'Integração de WhatsApp ainda não configurada', code: 'not_configured' }, 503);
   }
 
   const { data: integration } = await supabase
@@ -124,13 +124,16 @@ Deno.serve(async (req) => {
       media_filename: body.media_filename || null,
       media_caption: mediaUrl && message ? message : null,
       delivery_status: 'pending',
-      source: isCampaign ? 'campaign' : 'crm',
+      // `source` possui CHECK ('mobile','crm','provider','legacy') — campanha usa 'crm'.
+      source: 'crm',
       provider_name: connector.providerName,
       provider_instance_ref: connector.instanceReference,
     })
     .select('id')
     .single();
-  if (pendingErr) return json({ error: 'Falha ao registrar mensagem' }, 500);
+  if (pendingErr) {
+    return json({ error: `Falha ao registrar mensagem: ${pendingErr.message}`, code: 'message_persist_failed' }, 500);
+  }
 
   const result = mediaUrl
     ? await connector.sendMediaMessage(phone, {
@@ -144,7 +147,7 @@ Deno.serve(async (req) => {
       .from('service_messages')
       .update({ delivery_status: 'failed', error_code: result.errorCode ?? 'unknown' })
       .eq('id', pending.id);
-    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem' }, 502);
+    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem', code: result.errorCode ?? 'send_failed' }, 502);
   }
 
   await supabase

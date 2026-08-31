@@ -43,6 +43,8 @@ export interface CrmCampaignRecipient {
   exclusion_reason: string | null;
   delivery_mode: string | null;
   sent_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
 }
 
 /** Substitui placeholders simples da mensagem por dados do contato. */
@@ -254,6 +256,36 @@ export async function markRecipientSkipped(recipientId: string, campaignId: stri
   return true;
 }
 
+/** Lê o corpo JSON de um erro da Edge Function (supabase-js embala a Response em error.context). */
+async function readFunctionErrorBody(error: unknown): Promise<any | null> {
+  const ctx = (error as any)?.context;
+  if (!ctx) return null;
+  try {
+    if (typeof ctx.json === 'function') return await ctx.clone().json();
+  } catch { /* corpo não-JSON */ }
+  return typeof ctx === 'object' ? ctx : null;
+}
+
+/**
+ * Códigos que significam "não dá para enviar por API agora", e não falha definitiva.
+ * Nestes casos o recipient volta para a fila manual, permanecendo elegível e pendente.
+ */
+const MANUAL_FALLBACK_CODES = new Set([
+  'template_required',
+  'not_configured',
+  'window_closed',
+  'reengagement_required',
+  '131047',
+  '131026',
+  '470',
+]);
+
+function isManualFallback(code: string | null, message: string | null): boolean {
+  if (code && MANUAL_FALLBACK_CODES.has(String(code))) return true;
+  const text = `${code || ''} ${message || ''}`.toLowerCase();
+  return /template|janela de atendimento|24 horas|re-?engagement|outside.*window/.test(text);
+}
+
 /**
  * FRENTE 3.4 — Envio API controlado.
  * Processa sequencialmente apenas recipients api/pending, reutilizando a Edge Function
@@ -304,7 +336,8 @@ export async function sendCampaignViaApi(
       },
     });
 
-    const payload: any = res ?? (error as any)?.context ?? null;
+    // supabase-js devolve o corpo do erro em error.context (Response) — precisa ser lido.
+    const payload: any = res ?? (await readFunctionErrorBody(error));
     const errorCode = payload?.code || null;
     const errorMessage = payload?.error || error?.message || null;
 
@@ -316,9 +349,14 @@ export async function sendCampaignViaApi(
         external_message_id: payload.external_message_id ?? null,
       }).eq('id', r.id);
       result.sent++;
-    } else if (errorCode === 'template_required') {
-      // Janela de 24h encerrada: não é exclusão — segue pendente na fila manual guiada.
-      await db.from('crm_campaign_recipients').update({ delivery_mode: 'manual' }).eq('id', r.id);
+    } else if (isManualFallback(errorCode, errorMessage)) {
+      // Impossibilidade de mensagem livre por API não é falha: segue pendente na fila manual.
+      await db.from('crm_campaign_recipients').update({
+        delivery_mode: 'manual',
+        status: 'pending',
+        error_code: null,
+        error_message: null,
+      }).eq('id', r.id);
       result.movedToManual++;
     } else if (errorCode === 'commercial_opt_out') {
       await db.from('crm_campaign_recipients')
@@ -351,6 +389,49 @@ export async function sendCampaignViaApi(
   }
 
   return result;
+}
+
+/**
+ * Reenfileira recipients com falha: volta a pending, recalcula delivery_mode
+ * (api só se houver conversa com janela de 24h aberta) e limpa o erro.
+ * Nenhuma mensagem é enviada aqui.
+ */
+export async function requeueFailedRecipients(campaignId: string): Promise<number> {
+  const { data } = await db
+    .from('crm_campaign_recipients')
+    .select('id, contact_id, conversation_id')
+    .eq('campaign_id', campaignId)
+    .eq('status', 'failed');
+  const rows = (data || []) as CrmCampaignRecipient[];
+  if (rows.length === 0) return 0;
+
+  const convIds = rows.map(r => r.conversation_id).filter(Boolean) as string[];
+  const convMap = new Map<string, { id: string; last_inbound_at: string | null }>();
+  if (convIds.length > 0) {
+    const { data: convs } = await db
+      .from('service_conversations')
+      .select('id, last_inbound_at')
+      .in('id', convIds);
+    (convs || []).forEach((c: any) => convMap.set(c.id, c));
+  }
+
+  const blocked = await revalidateOptOut(rows.map(r => r.contact_id));
+  for (const r of rows) {
+    if (blocked.has(r.contact_id)) {
+      await db.from('crm_campaign_recipients')
+        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+        .eq('id', r.id);
+      continue;
+    }
+    await db.from('crm_campaign_recipients').update({
+      status: 'pending',
+      error_code: null,
+      error_message: null,
+      delivery_mode: resolveDeliveryMode(r.conversation_id ? convMap.get(r.conversation_id) : null),
+    }).eq('id', r.id);
+  }
+  await refreshCampaignCounters(campaignId);
+  return rows.length;
 }
 
 export async function fetchCampaignRecipients(campaignId: string) {

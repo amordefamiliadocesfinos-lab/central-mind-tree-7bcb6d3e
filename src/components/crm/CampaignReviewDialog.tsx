@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
-import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
+import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, requeueFailedRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
   open: boolean;
@@ -134,6 +134,22 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           </Badge>
         </div>
 
+        {failed.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={async () => {
+              const n = await requeueFailedRecipients(campaign.id);
+              toast.success(`${n} destinatário(s) reenfileirado(s) — nenhum envio realizado`);
+              reload();
+              fetchCampaigns();
+            }}
+          >
+            Reenfileirar falhas ({failed.length})
+          </Button>
+        )}
+
         <div className="flex flex-wrap gap-1">
           {(Object.keys(FILTER_LABELS) as StatusFilter[]).map(key => (
             <Button
@@ -181,7 +197,13 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
                 ) : r.status === 'skipped' ? (
                   <Badge variant="outline" className="text-[10px]">Pulado</Badge>
                 ) : r.status === 'failed' ? (
-                  <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">Falha</Badge>
+                  <Badge
+                    variant="outline"
+                    className="max-w-[55%] truncate text-[10px] text-destructive border-destructive/40"
+                    title={`${r.error_code || 'send_failed'}: ${r.error_message || ''}`}
+                  >
+                    Falha · {r.error_code || 'send_failed'}
+                  </Badge>
                 ) : r.status === 'pending' ? (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Elegível</Badge>
