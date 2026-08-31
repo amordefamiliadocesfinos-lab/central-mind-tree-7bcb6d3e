@@ -367,6 +367,22 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
               <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
             )}
             <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
+            {nextActionRecommendation && (
+              <div className="rounded border border-dashed px-2 py-1 space-y-0.5">
+                <div className="font-medium">
+                  {nextActionRecommendation.noImmediateAction
+                    ? 'Nenhuma ação imediata necessária'
+                    : `Próxima ação recomendada: ${nextActionRecommendation.nextActionCode} — ${nextActionRecommendation.nextActionLabel}`}
+                </div>
+                {nextActionRecommendation.requiresDate && (
+                  <div className="text-amber-600 dark:text-amber-400">Data necessária — escolha no fluxo de registro.</div>
+                )}
+                <div className="text-muted-foreground">
+                  {nextActionRecommendation.aiExplanation || nextActionRecommendation.reason}
+                </div>
+                <div className="text-[10px] text-muted-foreground">Prévia. Nada é salvo automaticamente.</div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-0.5">
               {resultSuggestion.code && onUseSuggestedResult && (
                 <Button
