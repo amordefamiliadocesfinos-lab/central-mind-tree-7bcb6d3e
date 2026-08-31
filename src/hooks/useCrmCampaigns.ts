@@ -185,6 +185,29 @@ export async function refreshCampaignCounters(campaignId: string) {
 }
 
 /**
+ * FRENTE 3.6 — Coerência de status.
+ * sending  → ainda existem recipients executáveis (pending api/manual) ou já houve execução.
+ * completed → nenhum recipient executável pendente e já houve envio/falha.
+ * draft/prepared/cancelled não são alterados automaticamente.
+ */
+export async function syncCampaignStatus(campaign: { id: string; status: string }) {
+  if (campaign.status === 'draft' || campaign.status === 'prepared' || campaign.status === 'cancelled') return campaign.status;
+
+  const { count: pending } = await db
+    .from('crm_campaign_recipients')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', campaign.id)
+    .eq('status', 'pending');
+
+  const next = pending && pending > 0 ? 'sending' : 'completed';
+  if (next !== campaign.status) {
+    await db.from('crm_campaigns').update({ status: next, updated_at: new Date().toISOString() }).eq('id', campaign.id);
+  }
+  return next;
+}
+
+
+/**
  * Revalida commercial_opt_out antes de qualquer execução manual.
  * Se passou a true depois da preparação, o recipient é bloqueado (excluded) — sem override.
  */
