@@ -11,6 +11,7 @@ import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
 import { suggestCrmResultFromContext, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
 import { buildCrmAiContext } from '@/lib/crm/aiContext';
 import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
+import { suggestCrmReplyFromContext, type CrmReplySuggestion } from '@/lib/crm/aiReplySuggestion';
 
 interface Message {
   id: string;
