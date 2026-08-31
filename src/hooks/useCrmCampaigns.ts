@@ -52,6 +52,22 @@ export function renderMessage(template: string, contactName: string): string {
     .replace(/\{\{\s*primeiro_nome\s*\}\}/gi, first);
 }
 
+/**
+ * FRENTE 3.3 — Modo de execução.
+ * api: existe conversa no CRM e a janela de 24h está aberta (envio pela integração é válido).
+ * manual: qualquer outro caso elegível — continua na campanha, executado por fila guiada.
+ */
+export function resolveDeliveryMode(
+  conversation: { id?: string | null; last_inbound_at?: string | null } | null | undefined,
+): 'api' | 'manual' {
+  if (!conversation?.id) return 'manual';
+  const inboundAt = conversation.last_inbound_at ? Date.parse(conversation.last_inbound_at) : 0;
+  if (!inboundAt) return 'manual';
+  return Date.now() - inboundAt <= 24 * 60 * 60 * 1000 ? 'api' : 'manual';
+}
+
+
+
 export function useCrmCampaigns() {
   const [campaigns, setCampaigns] = useState<CrmCampaign[]>([]);
   const [loading, setLoading] = useState(true);
