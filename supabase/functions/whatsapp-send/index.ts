@@ -26,13 +26,14 @@ Deno.serve(async (req) => {
   );
   if (claimsError || !claimsData?.claims) return json({ error: 'Não autenticado' }, 401);
 
-  let body: { conversation_id?: string; message?: string; media_url?: string; media_type?: string; media_mime_type?: string; media_filename?: string };
+  let body: { conversation_id?: string; message?: string; media_url?: string; media_type?: string; media_mime_type?: string; media_filename?: string; mode?: string; campaign_id?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'JSON inválido' }, 400);
   }
 
+  const isCampaign = String(body.mode ?? '').trim() === 'campaign';
   const conversationId = String(body.conversation_id ?? '').trim();
   const message = String(body.message ?? '').trim();
   const mediaUrl = String(body.media_url ?? '').trim();
@@ -66,6 +67,19 @@ Deno.serve(async (req) => {
     phone = contact?.phone_normalized ?? null;
   }
   if (!phone) return json({ error: 'Contato sem telefone de WhatsApp válido' }, 400);
+
+  // Modo campanha: opt-out comercial é revalidado no servidor (frontend não é suficiente).
+  if (isCampaign) {
+    if (!conv.contact_id) return json({ error: 'Conversa sem contato vinculado', code: 'missing_contact' }, 400);
+    const { data: optOutContact } = await supabase
+      .from('contacts')
+      .select('commercial_opt_out')
+      .eq('id', conv.contact_id)
+      .maybeSingle();
+    if (optOutContact?.commercial_opt_out === true) {
+      return json({ error: 'Contato optou por não receber comunicações comerciais', code: 'commercial_opt_out' }, 403);
+    }
+  }
 
   // Texto livre só pode ser enviado dentro da janela de atendimento da Meta.
   const lastInboundAt = conv.last_inbound_at ? Date.parse(conv.last_inbound_at) : 0;
@@ -110,7 +124,7 @@ Deno.serve(async (req) => {
       media_filename: body.media_filename || null,
       media_caption: mediaUrl && message ? message : null,
       delivery_status: 'pending',
-      source: 'crm',
+      source: isCampaign ? 'campaign' : 'crm',
       provider_name: connector.providerName,
       provider_instance_ref: connector.instanceReference,
     })
@@ -141,6 +155,12 @@ Deno.serve(async (req) => {
       provider_timestamp: nowIso,
     })
     .eq('id', pending.id);
+
+  if (isCampaign) {
+    // Campanha: nenhum efeito de atendimento (sem aguardando_cliente, return_at, próxima ação,
+    // tarefa crm_next_action ou mudança de funil). Só o histórico da mensagem é preservado.
+    return json({ ok: true, mode: 'campaign', message_id: pending.id, external_message_id: result.externalMessageId ?? null });
+  }
 
   await supabase
     .from('service_conversations')
