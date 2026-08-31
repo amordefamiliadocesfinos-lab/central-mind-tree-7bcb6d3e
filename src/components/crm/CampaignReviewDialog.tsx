@@ -167,7 +167,10 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
             {!loading && recipients.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">Nenhum destinatário.</p>
             )}
-            {[...eligible, ...sent, ...skipped, ...excluded].map(r => (
+            {!loading && recipients.length > 0 && visibleRecipients.length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">Nenhum destinatário neste filtro.</p>
+            )}
+            {visibleRecipients.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{r.contact?.name || r.contact_id}</p>
@@ -177,6 +180,8 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
                   <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-400">Enviado</Badge>
                 ) : r.status === 'skipped' ? (
                   <Badge variant="outline" className="text-[10px]">Pulado</Badge>
+                ) : r.status === 'failed' ? (
+                  <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">Falha</Badge>
                 ) : r.status === 'pending' ? (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Elegível</Badge>
