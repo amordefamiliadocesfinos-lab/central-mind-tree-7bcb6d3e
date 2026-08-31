@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
-import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
+import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, requeueFailedRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
   open: boolean;
