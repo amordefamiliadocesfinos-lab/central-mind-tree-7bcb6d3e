@@ -53,9 +53,11 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
-  const [nextActionRecommendation, setNextActionRecommendation] = useState<CrmNextActionRecommendation | null>(null);
-  const [replySuggestion, setReplySuggestion] = useState<CrmReplySuggestion | null>(null);
+  // F4.5 — uma única análise por vez; invalidada sempre que o contexto muda.
+  const [analysis, setAnalysis] = useState<CrmAssistantAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState(false);
+  const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
+
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [fontSize, setFontSize] = useState<number>(() => {
