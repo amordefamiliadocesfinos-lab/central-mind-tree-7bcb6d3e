@@ -134,6 +134,22 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           </Badge>
         </div>
 
+        {failed.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={async () => {
+              const n = await requeueFailedRecipients(campaign.id);
+              toast.success(`${n} destinatário(s) reenfileirado(s) — nenhum envio realizado`);
+              reload();
+              fetchCampaigns();
+            }}
+          >
+            Reenfileirar falhas ({failed.length})
+          </Button>
+        )}
+
         <div className="flex flex-wrap gap-1">
           {(Object.keys(FILTER_LABELS) as StatusFilter[]).map(key => (
             <Button
