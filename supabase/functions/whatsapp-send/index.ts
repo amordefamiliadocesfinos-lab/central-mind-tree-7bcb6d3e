@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
 
   const connector = getWhatsAppConnector();
   if (!connector.isConfigured) {
-    return json({ error: 'Integração de WhatsApp ainda não configurada' }, 503);
+    return json({ error: 'Integração de WhatsApp ainda não configurada', code: 'not_configured' }, 503);
   }
 
   const { data: integration } = await supabase
