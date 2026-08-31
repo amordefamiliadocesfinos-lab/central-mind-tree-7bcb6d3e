@@ -2130,7 +2130,35 @@ export default function Contatos() {
             onConfirm={handleConfirmLost}
           />
         )}
+        {campaignCreateOpen && (
+          <CampaignCreateDialog
+            open={campaignCreateOpen}
+            onOpenChange={setCampaignCreateOpen}
+            contacts={filteredContacts}
+            segmentFilters={{
+              search: deferredSearchQuery || null,
+              statusFilter, tempFilter, typeFilter, tagFilter, actionFilter,
+              contactDateFilter, classificationFilter, originFilter, cityFilter,
+              responsibleFilter, purchaseFilter, paidOrdersFilter,
+              reactivationFilter, commercialOptOutFilter, attentionFilter,
+              qualityOnly,
+            }}
+            onCreated={async (campaignId) => {
+              const { data } = await (supabase as any).from('crm_campaigns').select('*').eq('id', campaignId).single();
+              if (data) setCampaignReview(data as CrmCampaign);
+            }}
+          />
+        )}
+
+        {!!campaignReview && (
+          <CampaignReviewDialog
+            open={!!campaignReview}
+            onOpenChange={(open) => { if (!open) setCampaignReview(null); }}
+            campaign={campaignReview}
+          />
+        )}
       </Suspense>
+
 
     </div>
   );
