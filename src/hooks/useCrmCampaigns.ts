@@ -304,7 +304,8 @@ export async function sendCampaignViaApi(
       },
     });
 
-    const payload: any = res ?? (error as any)?.context ?? null;
+    // supabase-js devolve o corpo do erro em error.context (Response) — precisa ser lido.
+    const payload: any = res ?? (await readFunctionErrorBody(error));
     const errorCode = payload?.code || null;
     const errorMessage = payload?.error || error?.message || null;
 
