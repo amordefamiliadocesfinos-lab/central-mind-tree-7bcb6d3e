@@ -50,6 +50,8 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [fontSize, setFontSize] = useState<number>(() => {
