@@ -1060,6 +1060,143 @@ export type Database = {
           },
         ]
       }
+      crm_campaign_recipients: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          delivery_mode: string | null
+          error_code: string | null
+          error_message: string | null
+          exclusion_reason: string | null
+          external_message_id: string | null
+          id: string
+          phone_normalized: string | null
+          rendered_message: string | null
+          sent_at: string | null
+          service_message_id: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          conversation_id?: string | null
+          created_at?: string
+          delivery_mode?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          exclusion_reason?: string | null
+          external_message_id?: string | null
+          id?: string
+          phone_normalized?: string | null
+          rendered_message?: string | null
+          sent_at?: string | null
+          service_message_id?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          delivery_mode?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          exclusion_reason?: string | null
+          external_message_id?: string | null
+          id?: string
+          phone_normalized?: string | null
+          rendered_message?: string | null
+          sent_at?: string | null
+          service_message_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "crm_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message_text: string
+          name: string
+          segment_filters: Json | null
+          started_at: string | null
+          status: string
+          total_eligible: number
+          total_excluded: number
+          total_failed: number
+          total_selected: number
+          total_sent: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_text: string
+          name: string
+          segment_filters?: Json | null
+          started_at?: string | null
+          status?: string
+          total_eligible?: number
+          total_excluded?: number
+          total_failed?: number
+          total_selected?: number
+          total_sent?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string
+          name?: string
+          segment_filters?: Json | null
+          started_at?: string | null
+          status?: string
+          total_eligible?: number
+          total_excluded?: number
+          total_failed?: number
+          total_selected?: number
+          total_sent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_routes: {
         Row: {
           completed_at: string | null
