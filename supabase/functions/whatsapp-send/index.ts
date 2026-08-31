@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
       media_filename: body.media_filename || null,
       media_caption: mediaUrl && message ? message : null,
       delivery_status: 'pending',
-      source: isCampaign ? 'campaign' : 'crm',
+      // `source` possui CHECK ('mobile','crm','provider','legacy') — campanha usa 'crm'.
+      source: 'crm',
       provider_name: connector.providerName,
       provider_instance_ref: connector.instanceReference,
     })
