@@ -38,13 +38,12 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
   return { code: canonical?.code ?? null, label: canonical?.label ?? null, confidence: canonical ? confidence : 0, reason };
 }
 
-export async function suggestCrmResult(
-  contactId: string,
-  conversationId?: string | null,
-  options?: { sources?: CrmAiContextSources; invoke?: (context: CrmAiContext) => Promise<any> },
+/** Sugere o Resultado a partir de um contexto já montado (reuso na F4.3). */
+export async function suggestCrmResultFromContext(
+  context: CrmAiContext,
+  invokeFn?: (context: CrmAiContext) => Promise<any>,
 ): Promise<CrmResultSuggestion> {
-  const context = await buildCrmAiContext(contactId, conversationId, options?.sources);
-  const invoke = options?.invoke ?? (async (ctx: CrmAiContext) => {
+  const invoke = invokeFn ?? (async (ctx: CrmAiContext) => {
     const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: { context: ctx } });
     if (error) throw error;
     return data;
