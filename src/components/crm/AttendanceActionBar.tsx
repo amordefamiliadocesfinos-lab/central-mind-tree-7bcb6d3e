@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarClock, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,15 +10,26 @@ interface Props {
   busy?: boolean;
   onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null) => void | Promise<void>;
   onSnooze: (when: number | string) => void | Promise<void>;
+  /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
+  presetResultCode?: string | null;
 }
 
-export function AttendanceActionBar({ busy = false, onOutcome, onSnooze }: Props) {
+export function AttendanceActionBar({ busy = false, onOutcome, onSnooze, presetResultCode }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
+
+  // Pré-seleção vinda da sugestão de IA: abre o fluxo canônico já preenchido,
+  // sem gravar nada. A confirmação continua sendo do operador.
+  useEffect(() => {
+    if (!presetResultCode) return;
+    if (!CRM_CANONICAL_RESULTS.some(result => result.code === presetResultCode)) return;
+    setResultCode(presetResultCode as CrmResultCode);
+    setMode('outcome');
+  }, [presetResultCode]);
 
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;

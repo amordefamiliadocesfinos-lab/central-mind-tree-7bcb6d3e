@@ -127,6 +127,7 @@ export default function ContatosInbox() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [sendConfirmation, setSendConfirmation] = useState(false);
+  const [suggestedResultCode, setSuggestedResultCode] = useState<string | null>(null);
   const [leadPanelOpen, setLeadPanelOpen] = useState(false);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
@@ -1136,6 +1137,7 @@ export default function ContatosInbox() {
                     funnelStage={selected.funnel_status}
                     heightClassName="min-h-0 flex-1"
                     onMessageSent={() => setSendConfirmation(true)}
+                    onUseSuggestedResult={setSuggestedResultCode}
                   />
                   {sendConfirmation && (
                     <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
@@ -1144,7 +1146,7 @@ export default function ContatosInbox() {
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
-                    <AttendanceActionBar busy={attendanceBusy} onOutcome={registerOutcome} onSnooze={snoozeSelected} />
+                    <AttendanceActionBar busy={attendanceBusy} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>

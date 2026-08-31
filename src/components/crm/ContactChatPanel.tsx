@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, Loader2, Send, Sparkles, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video } from 'lucide-react';
+import { FileText, Loader2, Send, Sparkles, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video, BrainCircuit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
 import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
+import { suggestCrmResult, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
 
 interface Message {
   id: string;
@@ -34,19 +35,23 @@ interface ContactChatPanelProps {
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
   onMessageSent?: (content: string) => void | Promise<void>;
+  /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
+  onUseSuggestedResult?: (resultCode: string) => void;
 }
 
 const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [commercialOptOut, setCommercialOptOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [fontSize, setFontSize] = useState<number>(() => {
@@ -253,6 +258,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     }
   };
 
+  // F4.2 — Analisar atendimento: a IA apenas sugere o Resultado provável.
+  // Nenhum efeito colateral: nada é gravado até o operador confirmar no fluxo canônico.
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const suggestion = await suggestCrmResult(contactId, conversationId);
+      setResultSuggestion(suggestion);
+    } catch (error) {
+      console.error('crm-ai-assistant:', error);
+      toast.error('Não foi possível analisar o atendimento agora.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   return (
     <div className={`flex flex-col ${heightClassName ?? 'h-[60vh] min-h-[400px]'}`}>
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
@@ -325,6 +345,31 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       </div>
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
+        {resultSuggestion && (
+          <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] space-y-1">
+            <div className="font-medium">
+              {resultSuggestion.code
+                ? `Resultado sugerido: ${resultSuggestion.code} — ${resultSuggestion.label}`
+                : 'Sem Resultado sugerido no momento'}
+            </div>
+            {resultSuggestion.code && (
+              <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
+            )}
+            <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
+            <div className="flex justify-end gap-2 pt-0.5">
+              {resultSuggestion.code && onUseSuggestedResult && (
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); }}
+                >
+                  Usar resultado
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setResultSuggestion(null)}>Ignorar</Button>
+            </div>
+          </div>
+        )}
         {commercialOptOut && (
           <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
             {isCustomerReply
@@ -345,6 +390,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleSuggest} disabled={suggesting || !conversationId} title="Sugerir resposta com IA">
             {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleAnalyze} disabled={analyzing} title="Analisar atendimento (sugerir resultado)">
+            {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
           </Button>
           <Textarea
             value={text}
