@@ -1541,10 +1541,22 @@ export default function Contatos() {
                 <p className="text-sm font-semibold">Segmentação comercial</p>
                 <p className="text-xs text-muted-foreground">Use filtros combinados para encontrar grupos. Esta seleção não coloca contatos na Inbox.</p>
               </div>
-              <Badge variant="secondary" className="text-sm">Resultado: {filteredContacts.length} contatos</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm">Resultado: {filteredContacts.length} contatos</Badge>
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  disabled={filteredContacts.length === 0}
+                  onClick={() => setCampaignCreateOpen(true)}
+                >
+                  <Megaphone className="h-4 w-4" />
+                  <span className="text-xs">Criar campanha com este segmento</span>
+                </Button>
+              </div>
             </div>
           </Card>
         )}
+
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[...Array(6)].map((_, i) => (
