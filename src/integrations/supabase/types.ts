@@ -3911,7 +3911,6 @@ export type Database = {
           period: string
           process: string
           product_id: string | null
-          variant_id: string | null
           quantity: number
           updated_at: string
           warnings: string | null
@@ -3926,7 +3925,6 @@ export type Database = {
           period?: string
           process: string
           product_id?: string | null
-          variant_id?: string | null
           quantity?: number
           updated_at?: string
           warnings?: string | null
@@ -3941,7 +3939,6 @@ export type Database = {
           period?: string
           process?: string
           product_id?: string | null
-          variant_id?: string | null
           quantity?: number
           updated_at?: string
           warnings?: string | null
@@ -4017,6 +4014,7 @@ export type Database = {
           status: string
           target_quantity: number
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           batch_code?: string | null
@@ -4032,6 +4030,7 @@ export type Database = {
           status?: string
           target_quantity?: number
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           batch_code?: string | null
@@ -4047,6 +4046,7 @@ export type Database = {
           status?: string
           target_quantity?: number
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -4057,17 +4057,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "production_orders_variant_id_fkey"
-            columns: ["variant_id"]
-            isOneToOne: false
-            referencedRelation: "product_variants"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "production_orders_source_order_id_fkey"
             columns: ["source_order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
