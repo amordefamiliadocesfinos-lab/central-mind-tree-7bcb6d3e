@@ -8,10 +8,12 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
 import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
-import { suggestCrmResultFromContext, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
+import { suggestCrmResultFromContext } from '@/lib/crm/aiResultSuggestion';
 import { buildCrmAiContext } from '@/lib/crm/aiContext';
 import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
-import { suggestCrmReplyFromContext, type CrmReplySuggestion } from '@/lib/crm/aiReplySuggestion';
+import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
+import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
+
 
 interface Message {
   id: string;
@@ -53,9 +55,11 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
-  const [nextActionRecommendation, setNextActionRecommendation] = useState<CrmNextActionRecommendation | null>(null);
-  const [replySuggestion, setReplySuggestion] = useState<CrmReplySuggestion | null>(null);
+  // F4.5 — uma única análise por vez; invalidada sempre que o contexto muda.
+  const [analysis, setAnalysis] = useState<CrmAssistantAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState(false);
+  const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
+
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [fontSize, setFontSize] = useState<number>(() => {
@@ -66,6 +70,23 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
   const outboundBlocked = commercialOptOut && !isCustomerReply;
+
+  // F4.5 — assinatura do contexto atual: contato, conversa e última mensagem.
+  // Se mudar (nova mensagem, troca de contato, Resultado registrado que recarrega
+  // o histórico), a sugestão anterior é descartada em vez de parecer válida.
+  const contextStamp = `${contactId}|${conversationId ?? ''}|${messages.length}|${messages[messages.length - 1]?.id ?? ''}`;
+
+  const dismissAnalysis = () => {
+    setAnalysis(null);
+    setAnalysisError(false);
+    setAnalyzedAt(null);
+  };
+
+  useEffect(() => {
+    if (analyzedAt && analyzedAt !== contextStamp) dismissAnalysis();
+    // Nunca dispara IA automaticamente — apenas invalida o que ficou velho.
+  }, [contextStamp, analyzedAt]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -231,37 +252,39 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   }, []);
 
 
-  // F4.2/F4.3/F4.4 — Assistente CRM unificado: um único fluxo produz Resultado
+  // F4.2/4.3/4.4/4.5 — Assistente CRM unificado: um único fluxo produz Resultado
   // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
     setAnalyzing(true);
-    setNextActionRecommendation(null);
-    setReplySuggestion(null);
+    setAnalysisError(false);
+    setAnalysis(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
       const suggestion = await suggestCrmResultFromContext(context);
-      setResultSuggestion(suggestion);
 
       let recommendation: CrmNextActionRecommendation | null = null;
       if (suggestion.code) {
         // getCrmTransition() é a autoridade; a IA só explica a decisão.
         recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
-        setNextActionRecommendation(recommendation);
       }
 
       const reply = await suggestCrmReplyFromContext(context, {
         result: suggestion.code ? { code: suggestion.code, label: suggestion.label } : null,
         nextAction: recommendation,
       });
-      setReplySuggestion(reply);
+
+      setAnalysis({ result: suggestion, nextAction: recommendation, reply });
+      // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
+      setAnalyzedAt(contextStamp);
     } catch (error) {
       console.error('crm-ai-assistant:', error);
-      toast.error('Não foi possível analisar o atendimento agora.');
+      setAnalysisError(true);
     } finally {
       setAnalyzing(false);
     }
   };
+
 
   return (
     <div className={`flex flex-col ${heightClassName ?? 'h-[60vh] min-h-[400px]'}`}>
@@ -335,87 +358,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       </div>
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
-        {(resultSuggestion || replySuggestion) && (
-          <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Assistente CRM</div>
-            {resultSuggestion && (
-              <>
-                <div className="font-medium">
-                  {resultSuggestion.code
-                    ? `Resultado sugerido: ${resultSuggestion.code} — ${resultSuggestion.label}`
-                    : 'Sem Resultado sugerido no momento'}
-                </div>
-                {resultSuggestion.code && (
-                  <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
-                )}
-                <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
-              </>
-            )}
-            {nextActionRecommendation && (
-              <div className="rounded border border-dashed px-2 py-1 space-y-0.5">
-                <div className="font-medium">
-                  {nextActionRecommendation.noImmediateAction
-                    ? 'Nenhuma ação imediata necessária'
-                    : `Próxima ação recomendada: ${nextActionRecommendation.nextActionCode} — ${nextActionRecommendation.nextActionLabel}`}
-                </div>
-                {nextActionRecommendation.requiresDate && (
-                  <div className="text-amber-600 dark:text-amber-400">Data necessária — escolha no fluxo de registro.</div>
-                )}
-                <div className="text-muted-foreground">
-                  {nextActionRecommendation.aiExplanation || nextActionRecommendation.reason}
-                </div>
-                <div className="text-[10px] text-muted-foreground">Prévia. Nada é salvo automaticamente.</div>
-              </div>
-            )}
-            {replySuggestion && (
-              <div className="rounded border border-dashed px-2 py-1 space-y-1">
-                <div className="font-medium">
-                  {replySuggestion.reply ? 'Resposta sugerida' : 'Nenhuma resposta necessária agora'}
-                </div>
-                {replySuggestion.reply && (
-                  <p className="whitespace-pre-wrap text-foreground/90">{replySuggestion.reply}</p>
-                )}
-                <div className="text-muted-foreground">
-                  {replySuggestion.reason}
-                  {replySuggestion.tone ? ` · Tom: ${replySuggestion.tone}` : ''}
-                </div>
-                {replySuggestion.reply && (
-                  <div className="flex justify-end gap-2 pt-0.5">
-                    {/* Apenas preenche o composer — o envio continua manual pela Inbox. */}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-[11px]"
-                      onClick={() => { setText(replySuggestion.reply!); setReplySuggestion(null); toast.success('Resposta no campo de mensagem — revise e envie'); }}
-                    >
-                      Usar resposta
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      onClick={() => { navigator.clipboard?.writeText(replySuggestion.reply!); toast.success('Resposta copiada'); }}
-                    >
-                      Copiar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex justify-end gap-2 pt-0.5">
-              {resultSuggestion?.code && onUseSuggestedResult && (
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px]"
-                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); setNextActionRecommendation(null); }}
-                >
-                  Usar resultado
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setResultSuggestion(null); setNextActionRecommendation(null); setReplySuggestion(null); }}>Ignorar</Button>
-            </div>
-          </div>
-        )}
+        {/* F4.5 — card único do Assistente CRM (compacto, só aparece sob demanda). */}
+        <CrmAssistantCard
+          analyzing={analyzing}
+          analysis={analysis}
+          error={analysisError}
+          onUseResult={onUseSuggestedResult ? (code) => { onUseSuggestedResult(code); dismissAnalysis(); } : undefined}
+          onUseReply={(reply) => {
+            setText(reply);
+            dismissAnalysis();
+            toast.success('Resposta no campo de mensagem — revise e envie');
+          }}
+          onDismiss={dismissAnalysis}
+          onRetry={handleAnalyze}
+        />
+
         {commercialOptOut && (
           <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
             {isCustomerReply
