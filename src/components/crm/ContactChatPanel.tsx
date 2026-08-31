@@ -258,13 +258,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     }
   };
 
-  // F4.2 — Analisar atendimento: a IA apenas sugere o Resultado provável.
-  // Nenhum efeito colateral: nada é gravado até o operador confirmar no fluxo canônico.
+  // F4.2/F4.3 — Analisar atendimento: a IA sugere o Resultado provável e o motor
+  // canônico deriva a Próxima Ação. Nenhum efeito colateral: nada é gravado até
+  // o operador confirmar no fluxo canônico.
   const handleAnalyze = async () => {
     setAnalyzing(true);
+    setNextActionRecommendation(null);
     try {
-      const suggestion = await suggestCrmResult(contactId, conversationId);
+      const context = await buildCrmAiContext(contactId, conversationId);
+      const suggestion = await suggestCrmResultFromContext(context);
       setResultSuggestion(suggestion);
+      if (suggestion.code) {
+        // getCrmTransition() é a autoridade; a IA só explica a decisão.
+        const recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
+        setNextActionRecommendation(recommendation);
+      }
     } catch (error) {
       console.error('crm-ai-assistant:', error);
       toast.error('Não foi possível analisar o atendimento agora.');
