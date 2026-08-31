@@ -77,6 +77,7 @@ import {
   Phone,
   Lightbulb,
   Send,
+  Megaphone,
   Heart,
 } from 'lucide-react';
 import { useContacts, Contact } from '@/hooks/useContacts';
