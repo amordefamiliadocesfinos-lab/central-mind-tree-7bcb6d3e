@@ -345,6 +345,31 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       </div>
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
+        {resultSuggestion && (
+          <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-[11px] space-y-1">
+            <div className="font-medium">
+              {resultSuggestion.code
+                ? `Resultado sugerido: ${resultSuggestion.code} — ${resultSuggestion.label}`
+                : 'Sem Resultado sugerido no momento'}
+            </div>
+            {resultSuggestion.code && (
+              <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
+            )}
+            <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
+            <div className="flex justify-end gap-2 pt-0.5">
+              {resultSuggestion.code && onUseSuggestedResult && (
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); }}
+                >
+                  Usar resultado
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setResultSuggestion(null)}>Ignorar</Button>
+            </div>
+          </div>
+        )}
         {commercialOptOut && (
           <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
             {isCustomerReply
