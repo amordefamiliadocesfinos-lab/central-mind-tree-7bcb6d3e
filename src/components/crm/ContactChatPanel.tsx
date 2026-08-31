@@ -230,52 +230,30 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   }, []);
 
 
-  const handleSuggest = async () => {
-    if (!conversationId) return;
-    setSuggesting(true);
-    try {
-      const recent = messages.slice(-10).map(m => ({
-        role: m.sender === 'customer' ? 'customer' : 'agent',
-        content: m.content,
-      }));
-      const { data, error } = await supabase.functions.invoke('digital-trends', {
-        body: {
-          type: 'service_response',
-          query: {
-            conversation_history: recent,
-            platform: 'crm',
-            funnel_stage: normalizeCrmStage(funnelStage),
-            contact_name: contactName || 'Cliente',
-          },
-        },
-      });
-      if (error) throw error;
-      if (data?.success && data?.data?.response) {
-        setText(data.data.response);
-        toast.success('Sugestão pronta — revise e envie');
-      }
-    } catch {
-      toast.error('Erro ao gerar sugestão');
-    } finally {
-      setSuggesting(false);
-    }
-  };
-
-  // F4.2/F4.3 — Analisar atendimento: a IA sugere o Resultado provável e o motor
-  // canônico deriva a Próxima Ação. Nenhum efeito colateral: nada é gravado até
-  // o operador confirmar no fluxo canônico.
+  // F4.2/F4.3/F4.4 — Assistente CRM unificado: um único fluxo produz Resultado
+  // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
+  // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
     setAnalyzing(true);
     setNextActionRecommendation(null);
+    setReplySuggestion(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
       const suggestion = await suggestCrmResultFromContext(context);
       setResultSuggestion(suggestion);
+
+      let recommendation: CrmNextActionRecommendation | null = null;
       if (suggestion.code) {
         // getCrmTransition() é a autoridade; a IA só explica a decisão.
-        const recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
+        recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
         setNextActionRecommendation(recommendation);
       }
+
+      const reply = await suggestCrmReplyFromContext(context, {
+        result: suggestion.code ? { code: suggestion.code, label: suggestion.label } : null,
+        nextAction: recommendation,
+      });
+      setReplySuggestion(reply);
     } catch (error) {
       console.error('crm-ai-assistant:', error);
       toast.error('Não foi possível analisar o atendimento agora.');
