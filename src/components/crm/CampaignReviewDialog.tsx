@@ -127,7 +127,27 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           <Badge variant="outline" className="text-amber-600 border-amber-300">Manual: {manualCount}</Badge>
           <Badge variant="outline">Enviados: {sent.length}</Badge>
           <Badge variant="outline">Pulados: {skipped.length}</Badge>
+          <Badge variant="outline" className="text-destructive border-destructive/40">Falhas: {failed.length}</Badge>
+          <Badge variant="outline" className="text-sky-600 border-sky-300">
+            Respostas: {responses ? `${responses.responded}/${responses.sent}` : '—'}
+            {responseRate !== null ? ` (${responseRate}%)` : ''}
+          </Badge>
         </div>
+
+        <div className="flex flex-wrap gap-1">
+          {(Object.keys(FILTER_LABELS) as StatusFilter[]).map(key => (
+            <Button
+              key={key}
+              size="sm"
+              variant={statusFilter === key ? 'default' : 'outline'}
+              className="h-7 text-[11px] px-2"
+              onClick={() => setStatusFilter(key)}
+            >
+              {FILTER_LABELS[key]}
+            </Button>
+          ))}
+        </div>
+
 
         <div className="rounded-lg border bg-muted/30 p-3 text-sm whitespace-pre-wrap">{campaign.message_text}</div>
 
