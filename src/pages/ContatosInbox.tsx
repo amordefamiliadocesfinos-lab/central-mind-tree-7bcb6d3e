@@ -1137,6 +1137,7 @@ export default function ContatosInbox() {
                     funnelStage={selected.funnel_status}
                     heightClassName="min-h-0 flex-1"
                     onMessageSent={() => setSendConfirmation(true)}
+                    onUseSuggestedResult={setSuggestedResultCode}
                   />
                   {sendConfirmation && (
                     <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
