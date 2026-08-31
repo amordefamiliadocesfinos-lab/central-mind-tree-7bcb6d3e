@@ -231,10 +231,10 @@ export async function markRecipientSkipped(recipientId: string, campaignId: stri
 }
 
 export async function fetchCampaignRecipients(campaignId: string) {
-
   const { data, error } = await db
     .from('crm_campaign_recipients')
-    .select('*, contact:contacts(id, name)')
+    .select('*, contact:contacts(id, name, commercial_opt_out)')
+
     .eq('campaign_id', campaignId)
     .order('status', { ascending: true });
   if (error) { toast.error(error.message); return []; }
