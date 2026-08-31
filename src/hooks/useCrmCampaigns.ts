@@ -170,7 +170,68 @@ export function useCrmCampaigns() {
   return { campaigns, loading, fetchCampaigns, createCampaignFromSegment, markPrepared };
 }
 
+/** Recalcula os contadores de envio da campanha a partir dos recipients reais. */
+export async function refreshCampaignCounters(campaignId: string) {
+  const { data } = await db
+    .from('crm_campaign_recipients')
+    .select('status')
+    .eq('campaign_id', campaignId);
+  const rows = (data || []) as { status: string }[];
+  const total_sent = rows.filter(r => r.status === 'sent').length;
+  const total_failed = rows.filter(r => r.status === 'failed').length;
+  await db.from('crm_campaigns').update({ total_sent, total_failed, updated_at: new Date().toISOString() }).eq('id', campaignId);
+  return { total_sent, total_failed };
+}
+
+/**
+ * Revalida commercial_opt_out antes de qualquer execução manual.
+ * Se passou a true depois da preparação, o recipient é bloqueado (excluded) — sem override.
+ */
+export async function revalidateOptOut(contactIds: string[]): Promise<Set<string>> {
+  const blocked = new Set<string>();
+  for (let i = 0; i < contactIds.length; i += 200) {
+    const { data } = await db
+      .from('contacts')
+      .select('id, commercial_opt_out')
+      .in('id', contactIds.slice(i, i + 200));
+    (data || []).forEach((c: any) => { if (c.commercial_opt_out === true) blocked.add(c.id); });
+  }
+  return blocked;
+}
+
+/** Marca um recipient como bloqueado por opt-out superveniente. */
+export async function blockRecipientByOptOut(recipientId: string, campaignId: string) {
+  await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+    .eq('id', recipientId);
+  await refreshCampaignCounters(campaignId);
+}
+
+/** Execução manual guiada: marca enviado (não cria Prioridade, Tarefa nem return_at). */
+export async function markRecipientSent(recipientId: string, campaignId: string) {
+  const { error } = await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .eq('id', recipientId);
+  if (error) { toast.error(error.message); return false; }
+  await refreshCampaignCounters(campaignId);
+  return true;
+}
+
+/** Execução manual guiada: pular não conta como enviado nem como falha. */
+export async function markRecipientSkipped(recipientId: string, campaignId: string) {
+  const { error } = await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'skipped' })
+    .eq('id', recipientId);
+  if (error) { toast.error(error.message); return false; }
+  await refreshCampaignCounters(campaignId);
+  return true;
+}
+
 export async function fetchCampaignRecipients(campaignId: string) {
+
   const { data, error } = await db
     .from('crm_campaign_recipients')
     .select('*, contact:contacts(id, name)')
