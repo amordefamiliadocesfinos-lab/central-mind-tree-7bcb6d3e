@@ -388,12 +388,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 <Button
                   size="sm"
                   className="h-7 text-[11px]"
-                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); }}
+                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); setNextActionRecommendation(null); }}
                 >
                   Usar resultado
                 </Button>
               )}
-              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setResultSuggestion(null)}>Ignorar</Button>
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setResultSuggestion(null); setNextActionRecommendation(null); }}>Ignorar</Button>
             </div>
           </div>
         )}
