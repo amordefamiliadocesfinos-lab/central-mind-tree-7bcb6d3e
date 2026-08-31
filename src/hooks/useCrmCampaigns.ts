@@ -43,6 +43,8 @@ export interface CrmCampaignRecipient {
   exclusion_reason: string | null;
   delivery_mode: string | null;
   sent_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
 }
 
 /** Substitui placeholders simples da mensagem por dados do contato. */
