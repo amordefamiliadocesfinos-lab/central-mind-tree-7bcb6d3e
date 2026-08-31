@@ -35,6 +35,8 @@ interface ContactChatPanelProps {
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
   onMessageSent?: (content: string) => void | Promise<void>;
+  /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
+  onUseSuggestedResult?: (resultCode: string) => void;
 }
 
 const CHAT_FONT_KEY = 'crm-chat-font-size';
