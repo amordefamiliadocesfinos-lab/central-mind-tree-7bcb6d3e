@@ -96,29 +96,35 @@ export function useCrmCampaigns() {
         .single();
       if (error || !campaign) { toast.error(error?.message || 'Falha ao criar campanha'); return null; }
 
-      // conversation_id quando já existir atendimento do contato (somente leitura).
+      // conversation_id + janela de 24h (somente leitura) para definir delivery_mode.
       const contactIds = evaluated.map(r => r.contact_id);
-      const conversationByContact = new Map<string, string>();
+      const conversationByContact = new Map<string, { id: string; last_inbound_at: string | null }>();
       for (let i = 0; i < contactIds.length; i += 200) {
         const slice = contactIds.slice(i, i + 200);
         const { data: convs } = await db
           .from('service_conversations')
-          .select('id, contact_id')
-          .in('contact_id', slice);
+          .select('id, contact_id, last_inbound_at, last_message_at')
+          .in('contact_id', slice)
+          .order('last_message_at', { ascending: false });
         (convs || []).forEach((c: any) => {
-          if (c.contact_id && !conversationByContact.has(c.contact_id)) conversationByContact.set(c.contact_id, c.id);
+          if (c.contact_id && !conversationByContact.has(c.contact_id)) conversationByContact.set(c.contact_id, c);
         });
       }
 
-      const rows = evaluated.map(r => ({
-        campaign_id: campaign.id,
-        contact_id: r.contact_id,
-        conversation_id: conversationByContact.get(r.contact_id) || null,
-        phone_normalized: r.phone_normalized,
-        rendered_message: r.status === 'pending' ? renderMessage(input.message_text, r.contact_name) : null,
-        status: r.status,
-        exclusion_reason: r.exclusion_reason,
-      }));
+      const rows = evaluated.map(r => {
+        const conv = conversationByContact.get(r.contact_id) || null;
+        return {
+          campaign_id: campaign.id,
+          contact_id: r.contact_id,
+          conversation_id: conv?.id || null,
+          phone_normalized: r.phone_normalized,
+          rendered_message: r.status === 'pending' ? renderMessage(input.message_text, r.contact_name) : null,
+          status: r.status,
+          exclusion_reason: r.exclusion_reason,
+          delivery_mode: r.status === 'pending' ? resolveDeliveryMode(conv) : null,
+        };
+      });
+
 
       for (let i = 0; i < rows.length; i += 200) {
         const { error: recErr } = await db
