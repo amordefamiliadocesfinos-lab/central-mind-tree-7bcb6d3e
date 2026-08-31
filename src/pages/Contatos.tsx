@@ -371,6 +371,9 @@ export default function Contatos() {
   const [reactivationFilter, setReactivationFilter] = useState<ReactivationFilter>('all');
   const [commercialOptOutFilter, setCommercialOptOutFilter] = useState<CommercialOptOutFilter>('all');
   const [segmentationMode, setSegmentationMode] = useState(false);
+  // FRENTE 3.2 — Campanhas CRM (criação a partir do segmento e revisão de elegibilidade)
+  const [campaignCreateOpen, setCampaignCreateOpen] = useState(false);
+  const [campaignReview, setCampaignReview] = useState<CrmCampaign | null>(null);
   const [attentionFilter, setAttentionFilter] = useState<AttentionKey>('all');
   const [qualityOnly, setQualityOnly] = useState(false);
   // FRENTE 7A — a operação diária é a Caixa de Entrada; o CRM abre em gestão (Kanban).
