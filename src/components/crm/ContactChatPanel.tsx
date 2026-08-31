@@ -258,6 +258,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     }
   };
 
+  // F4.2 — Analisar atendimento: a IA apenas sugere o Resultado provável.
+  // Nenhum efeito colateral: nada é gravado até o operador confirmar no fluxo canônico.
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const suggestion = await suggestCrmResult(contactId, conversationId);
+      setResultSuggestion(suggestion);
+    } catch (error) {
+      console.error('crm-ai-assistant:', error);
+      toast.error('Não foi possível analisar o atendimento agora.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   return (
     <div className={`flex flex-col ${heightClassName ?? 'h-[60vh] min-h-[400px]'}`}>
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
