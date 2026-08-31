@@ -77,12 +77,83 @@ function parseAiJson(content: string): any {
   try { return JSON.parse(match[0]); } catch { return null; }
 }
 
+// FRENTE 4.3 — modo "next_action": a IA NÃO decide a Próxima Ação. O motor
+// canônico (getCrmTransition) já decidiu no frontend; aqui a IA só explica e,
+// em ambiguidade legítima, escolhe entre os candidatos canônicos enviados.
+const NEXT_ACTION_SYSTEM_PROMPT = `Você é um analista de CRM brasileiro. A Próxima Ação já foi decidida por um motor determinístico canônico.
+
+Regras OBRIGATÓRIAS:
+- NUNCA invente uma próxima ação. Nunca escreva texto livre no lugar de um código CRM-PA-xxx.
+- Se o motor já indicou uma próxima ação, apenas explique em uma frase curta por que ela faz sentido. Nesse caso chosen_next_action_code deve ser null.
+- Se o motor indicou ausência de próxima ação e o campo "ambiguo" for true, você pode escolher UM código da lista de candidatos enviada, ou null se nenhuma ação imediata for necessária.
+- Se "ambiguo" for false, chosen_next_action_code é obrigatoriamente null.
+- Nunca sugira data, prazo ou agendamento.
+- explanation: uma frase curta, operacional, em português.
+
+Responda APENAS com JSON puro: {"explanation": "...", "chosen_next_action_code": "CRM-PA-0XX" ou null}`;
+
+function handleNextActionMode(body: any, apiKey: string) {
+  const context = body?.context;
+  const candidates: CatalogItem[] = Array.isArray(body?.candidates) ? body.candidates : [];
+  const allowed = new Set(candidates.map((item) => item.code));
+  const ambiguous = Boolean(body?.ambiguous);
+  const decision = body?.decision ?? {};
+
+  const userContent = [
+    `Resultado registrado/sugerido: ${body?.result?.code ?? "—"} — ${body?.result?.label ?? "—"}`,
+    `Decisão do motor canônico — próxima ação: ${decision.nextActionCode ?? "nenhuma (ausência legítima)"}`,
+    `Motivo do motor: ${decision.reason ?? "—"}`,
+    `Política temporal: ${decision.temporalPolicy ?? "—"} | exige data: ${decision.requiresDate ? "sim" : "não"}`,
+    `ambiguo: ${ambiguous}`,
+    `Candidatos canônicos permitidos: ${candidates.map((item) => `${item.code} — ${item.label}`).join(" | ") || "nenhum"}`,
+    "",
+    "--- CONTEXTO DO ATENDIMENTO ---",
+    compactContext(context),
+  ].join("\n");
+
+  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: NEXT_ACTION_SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  }).then(async (aiResp) => {
+    if (!aiResp.ok) {
+      const detail = await aiResp.text();
+      console.error("crm-ai-assistant next_action gateway error:", aiResp.status, detail);
+      if (aiResp.status === 429) return json({ error: "Limite de requisições da IA atingido. Tente novamente em instantes." }, 429);
+      if (aiResp.status === 402) return json({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }, 402);
+      return json({ error: "Erro no gateway de IA" }, 502);
+    }
+    const data = await aiResp.json();
+    const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
+    const explanation = typeof parsed?.explanation === "string" ? parsed.explanation.trim().slice(0, 280) : "";
+    const rawChoice = typeof parsed?.chosen_next_action_code === "string" ? parsed.chosen_next_action_code.trim() : "";
+    // Validação server-side: escolha só é aceita em ambiguidade e dentro do catálogo permitido.
+    const chosen = ambiguous && rawChoice && allowed.has(rawChoice) ? rawChoice : null;
+    return json({ explanation, chosen_next_action_code: chosen });
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => null);
     const context = body?.context;
+
+    if (body?.mode === "next_action") {
+      if (!context || !context.contact?.id) return json({ error: "context (CrmAiContext) é obrigatório" }, 400);
+      const key = Deno.env.get("LOVABLE_API_KEY");
+      if (!key) return json({ error: "LOVABLE_API_KEY não configurada" }, 500);
+      return await handleNextActionMode(body, key);
+    }
+
     const catalog: CatalogItem[] = Array.isArray(context?.catalogs?.results) ? context.catalogs.results : [];
     if (!context || !context.contact?.id) return json({ error: "context (CrmAiContext) é obrigatório" }, 400);
     if (!catalog.length) return json({ error: "catálogo de Resultados canônicos ausente no contexto" }, 400);

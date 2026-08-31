@@ -8,7 +8,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
 import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
-import { suggestCrmResult, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
+import { suggestCrmResultFromContext, type CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
+import { buildCrmAiContext } from '@/lib/crm/aiContext';
+import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 
 interface Message {
   id: string;
@@ -52,6 +54,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [suggesting, setSuggesting] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
+  const [nextActionRecommendation, setNextActionRecommendation] = useState<CrmNextActionRecommendation | null>(null);
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [fontSize, setFontSize] = useState<number>(() => {
@@ -258,13 +261,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     }
   };
 
-  // F4.2 — Analisar atendimento: a IA apenas sugere o Resultado provável.
-  // Nenhum efeito colateral: nada é gravado até o operador confirmar no fluxo canônico.
+  // F4.2/F4.3 — Analisar atendimento: a IA sugere o Resultado provável e o motor
+  // canônico deriva a Próxima Ação. Nenhum efeito colateral: nada é gravado até
+  // o operador confirmar no fluxo canônico.
   const handleAnalyze = async () => {
     setAnalyzing(true);
+    setNextActionRecommendation(null);
     try {
-      const suggestion = await suggestCrmResult(contactId, conversationId);
+      const context = await buildCrmAiContext(contactId, conversationId);
+      const suggestion = await suggestCrmResultFromContext(context);
       setResultSuggestion(suggestion);
+      if (suggestion.code) {
+        // getCrmTransition() é a autoridade; a IA só explica a decisão.
+        const recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
+        setNextActionRecommendation(recommendation);
+      }
     } catch (error) {
       console.error('crm-ai-assistant:', error);
       toast.error('Não foi possível analisar o atendimento agora.');
@@ -356,17 +367,33 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
               <div className="text-muted-foreground">Confiança: {Math.round(resultSuggestion.confidence * 100)}%</div>
             )}
             <div className="text-muted-foreground">Por quê: {resultSuggestion.reason}</div>
+            {nextActionRecommendation && (
+              <div className="rounded border border-dashed px-2 py-1 space-y-0.5">
+                <div className="font-medium">
+                  {nextActionRecommendation.noImmediateAction
+                    ? 'Nenhuma ação imediata necessária'
+                    : `Próxima ação recomendada: ${nextActionRecommendation.nextActionCode} — ${nextActionRecommendation.nextActionLabel}`}
+                </div>
+                {nextActionRecommendation.requiresDate && (
+                  <div className="text-amber-600 dark:text-amber-400">Data necessária — escolha no fluxo de registro.</div>
+                )}
+                <div className="text-muted-foreground">
+                  {nextActionRecommendation.aiExplanation || nextActionRecommendation.reason}
+                </div>
+                <div className="text-[10px] text-muted-foreground">Prévia. Nada é salvo automaticamente.</div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-0.5">
               {resultSuggestion.code && onUseSuggestedResult && (
                 <Button
                   size="sm"
                   className="h-7 text-[11px]"
-                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); }}
+                  onClick={() => { onUseSuggestedResult(resultSuggestion.code!); setResultSuggestion(null); setNextActionRecommendation(null); }}
                 >
                   Usar resultado
                 </Button>
               )}
-              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setResultSuggestion(null)}>Ignorar</Button>
+              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setResultSuggestion(null); setNextActionRecommendation(null); }}>Ignorar</Button>
             </div>
           </div>
         )}
