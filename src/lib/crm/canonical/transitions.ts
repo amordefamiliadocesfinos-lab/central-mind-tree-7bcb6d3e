@@ -219,3 +219,14 @@ export function getCrmTransition(context: CrmTransitionContext): CrmTransitionDe
 }
 
 export const CRM_TRANSITION_RESULTS = Object.freeze(Object.keys(RULES) as CrmResultCode[]);
+
+/**
+ * FRENTE 4.3 — leitura auxiliar: Próximas Ações canônicas admissíveis para um
+ * Resultado. Não decide nada (a autoridade continua sendo `getCrmTransition`);
+ * serve apenas para limitar a IA às opções já permitidas pelo motor.
+ */
+export function getCrmTransitionCandidates(result: CrmResultCode): CrmNextActionCode[] {
+  const rule = RULES[result];
+  if (!rule) return [];
+  return [rule.nextAction, ...(rule.alternatives ?? [])].filter(Boolean) as CrmNextActionCode[];
+}
