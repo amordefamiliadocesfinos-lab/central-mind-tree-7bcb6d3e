@@ -391,6 +391,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleSuggest} disabled={suggesting || !conversationId} title="Sugerir resposta com IA">
             {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleAnalyze} disabled={analyzing} title="Analisar atendimento (sugerir resultado)">
+            {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+          </Button>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
