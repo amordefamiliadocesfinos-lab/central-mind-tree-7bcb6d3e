@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 export interface ProductComponent {
   id: string;
   product_id: string;
+  /** Variante física do produto final a que esta linha de BOM pertence. */
+  product_variant_id: string | null;
   component_id: string;
   variant_id: string | null;
   qty_per_unit: number;
@@ -41,9 +43,9 @@ export function useBOM() {
   const [components, setComponents] = useState<ProductComponent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchComponentsForProduct = useCallback(async (productId: string) => {
+  const fetchComponentsForProduct = useCallback(async (productId: string, productVariantId: string | null = null) => {
     setLoading(true);
-    const { data, error } = await supabase
+    const query = supabase
       .from('product_components')
       .select(`
         *,
@@ -51,6 +53,9 @@ export function useBOM() {
         variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
+    const { data, error } = productVariantId
+      ? await query.eq('product_variant_id', productVariantId)
+      : await query.is('product_variant_id', null);
 
     if (error) {
       console.error('Error fetching components:', error);
@@ -66,6 +71,7 @@ export function useBOM() {
 
   const addComponent = useCallback(async (
     productId: string,
+    productVariantId: string | null,
     componentId: string,
     variantId: string | null,
     qtyPerUnit: number,
@@ -80,6 +86,7 @@ export function useBOM() {
       .from('product_components')
       .insert({
         product_id: productId,
+        product_variant_id: productVariantId,
         component_id: componentId,
         variant_id: variantId,
         qty_per_unit: qtyPerUnit,
@@ -145,10 +152,11 @@ export function useBOM() {
   // Calculate BOM for a given quantity of product
   const calculateBOM = useCallback(async (
     productId: string,
-    quantity: number
-  ): Promise<BOMLine[]> => {
+    quantity: number,
+    productVariantId: string | null = null
+  ): Promise<BOMLine[] | null> => {
     // Get components
-    const { data: comps, error: compsError } = await supabase
+    const query = supabase
       .from('product_components')
       .select(`
         *,
@@ -156,8 +164,13 @@ export function useBOM() {
         variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
+    const { data: comps, error: compsError } = productVariantId
+      ? await query.eq('product_variant_id', productVariantId)
+      : await query.is('product_variant_id', null);
 
-    if (compsError || !comps) return [];
+    if (compsError || !comps) return productVariantId ? null : [];
+    // Uma variante final nunca pode consumir a BOM genérica ou de outra variante.
+    if (productVariantId && comps.length === 0) return null;
 
     // Get stock for all components
     const componentIds = comps.map((c: any) => c.component_id);

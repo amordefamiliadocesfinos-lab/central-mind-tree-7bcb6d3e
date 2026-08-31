@@ -73,12 +73,24 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
   // Create form state
   const [newOrder, setNewOrder] = useState({
     product_id: '',
+    variant_id: '',
     batch_code: '',
     target_quantity: 0,
     notes: '',
     scheduled_date: new Date().toISOString().split('T')[0],
     selectedProcesses: [] as { process_id: string; is_required: boolean }[],
   });
+  const [productVariants, setProductVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
+
+  useEffect(() => {
+    if (!newOrder.product_id) {
+      setProductVariants([]);
+      return;
+    }
+    void supabase.from('product_variants').select('id, variant_name, sku')
+      .eq('product_id', newOrder.product_id).eq('is_active', true).order('variant_name')
+      .then(({ data }) => setProductVariants(data || []));
+  }, [newOrder.product_id]);
 
   // Entry form state
   const [newEntry, setNewEntry] = useState({
@@ -92,10 +104,15 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
   const handleCreateOrder = async () => {
     if (!newOrder.product_id || newOrder.selectedProcesses.length === 0) return;
+    if (productVariants.length > 0 && !newOrder.variant_id) {
+      toast.error('Selecione a variante final para este produto');
+      return;
+    }
 
     await createOrder(
       {
         product_id: newOrder.product_id,
+        variant_id: newOrder.variant_id || null,
         batch_code: newOrder.batch_code || null,
         target_quantity: newOrder.target_quantity,
         notes: newOrder.notes || null,
@@ -107,6 +124,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     setShowCreateDialog(false);
     setNewOrder({
       product_id: '',
+      variant_id: '',
       batch_code: '',
       target_quantity: 0,
       notes: '',
@@ -377,7 +395,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                         <Package className="h-4 w-4 shrink-0" />
                         <span className="truncate">
                           <span className="font-medium text-foreground">{order.target_quantity}x</span>{' '}
-                          {order.product?.name || 'Produto não definido'}
+                          {order.product?.name || 'Produto não definido'}{order.variant ? ` · ${order.variant.variant_name}` : ''}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
@@ -456,7 +474,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
               <Label>Produto *</Label>
               <Select
                 value={newOrder.product_id}
-                onValueChange={(v) => setNewOrder({ ...newOrder, product_id: v })}
+                onValueChange={(v) => setNewOrder({ ...newOrder, product_id: v, variant_id: '' })}
               >
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione o produto" />
@@ -468,6 +486,15 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                 </SelectContent>
               </Select>
             </div>
+            {productVariants.length > 0 && (
+              <div>
+                <Label>Variante final *</Label>
+                <Select value={newOrder.variant_id} onValueChange={(v) => setNewOrder({ ...newOrder, variant_id: v })}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Selecione a variante produzida" /></SelectTrigger>
+                  <SelectContent>{productVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>

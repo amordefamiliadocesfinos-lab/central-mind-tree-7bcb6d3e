@@ -201,9 +201,9 @@ export function useProductCosts() {
   }, []);
 
   // Calculate total product cost
-  const calculateProductCost = useCallback(async (productId: string): Promise<ProductCostBreakdown> => {
+  const calculateProductCost = useCallback(async (productId: string, productVariantId: string | null = null): Promise<ProductCostBreakdown> => {
     // Get BOM cost (materials)
-    const { data: components } = await supabase
+    const query = supabase
       .from('product_components')
       .select(`
         qty_per_unit,
@@ -211,6 +211,9 @@ export function useProductCosts() {
         variant:product_variants!product_components_variant_id_fkey(cost_override)
       `)
       .eq('product_id', productId);
+    const { data: components } = productVariantId
+      ? await query.eq('product_variant_id', productVariantId)
+      : await query.is('product_variant_id', null);
 
     const materialsCost = (components || []).reduce((sum, comp: any) => {
       const unitCost = comp.variant?.cost_override ?? comp.component?.cost ?? 0;

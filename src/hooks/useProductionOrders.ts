@@ -40,6 +40,7 @@ export interface ProductionOrder {
   id: string;
   order_number: string | null;
   product_id: string | null;
+  variant_id: string | null;
   batch_code: string | null;
   target_quantity: number;
   consolidated_quantity: number;
@@ -55,6 +56,11 @@ export interface ProductionOrder {
     name: string;
     sku: string;
   };
+  variant?: {
+    id: string;
+    variant_name: string;
+    sku: string;
+  } | null;
   source_order?: {
     id: string;
     order_number: string | null;
@@ -85,6 +91,7 @@ export function useProductionOrders() {
       .select(`
         *,
         product:products(id, name, sku),
+        variant:product_variants!production_orders_variant_id_fkey(id, variant_name, sku),
         source_order:orders!production_orders_source_order_id_fkey(id, order_number, customer_name, due_date),
         processes:production_order_processes(
           *,
@@ -308,7 +315,8 @@ export function useProductionOrders() {
     const consolidatedQty = calculateConsolidation(order);
     if (consolidatedQty <= 0) return [];
 
-    const bomLines = await calculateBOM(order.product_id, consolidatedQty);
+    const bomLines = await calculateBOM(order.product_id, consolidatedQty, order.variant_id);
+    if (bomLines === null) return [];
     return bomLines.filter(line => line.shortage > 0);
   }, [orders, calculateConsolidation, calculateBOM]);
 
@@ -332,7 +340,11 @@ export function useProductionOrders() {
     const targetLocation = location && location.trim() !== '' ? location.trim() : 'Fábrica';
 
     // Get BOM and check for shortages
-    const bomLines = await calculateBOM(order.product_id, consolidatedQty);
+    const bomLines = await calculateBOM(order.product_id, consolidatedQty, order.variant_id);
+    if (bomLines === null) {
+      toast.error('BOM não configurada para a variante final desta OP');
+      return { success: false, shortages: [], missingBom: true };
+    }
     const shortages = bomLines.filter(line => line.shortage > 0);
     
     if (!skipShortageCheck && shortages.length > 0) {
@@ -356,6 +368,7 @@ export function useProductionOrders() {
     // Entrada do produto acabado
     const finishedOk = await applyStockDelta({
       productId: order.product_id,
+      variantId: order.variant_id,
       delta: consolidatedQty,
       movementType: 'in',
       location: targetLocation,

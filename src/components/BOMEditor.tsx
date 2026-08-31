@@ -18,12 +18,21 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   const { components, loading, fetchComponentsForProduct, addComponent, updateComponent, removeComponent } = useBOM();
   const [newComponentId, setNewComponentId] = useState('');
   const [newVariantId, setNewVariantId] = useState('');
+  const [productVariantId, setProductVariantId] = useState('');
+  const [finalVariants, setFinalVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
   const [availableVariants, setAvailableVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
   const [newQty, setNewQty] = useState(1);
 
   useEffect(() => {
-    fetchComponentsForProduct(productId);
-  }, [productId, fetchComponentsForProduct]);
+    fetchComponentsForProduct(productId, productVariantId || null);
+  }, [productId, productVariantId, fetchComponentsForProduct]);
+
+  useEffect(() => {
+    void supabase.from('product_variants').select('id, variant_name, sku').eq('product_id', productId).eq('is_active', true).order('variant_name').then(({ data }) => {
+      setFinalVariants(data || []);
+      setProductVariantId('');
+    });
+  }, [productId]);
 
   useEffect(() => {
     if (!newComponentId) {
@@ -40,23 +49,23 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   const handleAdd = async () => {
     if (!newComponentId || newQty <= 0) return;
     if (availableVariants.length && !newVariantId) return;
-    const result = await addComponent(productId, newComponentId, newVariantId || null, newQty);
+    const result = await addComponent(productId, productVariantId || null, newComponentId, newVariantId || null, newQty);
     if (result) {
       setNewComponentId('');
       setNewVariantId('');
       setNewQty(1);
-      fetchComponentsForProduct(productId);
+      fetchComponentsForProduct(productId, productVariantId || null);
     }
   };
 
   const handleRemove = async (id: string) => {
     await removeComponent(id);
-    fetchComponentsForProduct(productId);
+    fetchComponentsForProduct(productId, productVariantId || null);
   };
 
   const handleUpdate = async (id: string, qty: number) => {
     await updateComponent(id, qty);
-    fetchComponentsForProduct(productId);
+    fetchComponentsForProduct(productId, productVariantId || null);
   };
 
   // Filter out the product itself and already added components
@@ -69,6 +78,19 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   return (
     <div className="space-y-4">
       <Label className="text-sm font-medium">Componentes de {productName}</Label>
+      {finalVariants.length > 0 && (
+        <div className="max-w-sm">
+          <Label className="text-xs">Variante final da receita</Label>
+          <Select value={productVariantId || '__base__'} onValueChange={(value) => setProductVariantId(value === '__base__' ? '' : value)}>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__base__">Sem variante (BOM base)</SelectItem>
+              {finalVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">A variante final identifica a receita; a variante do componente identifica o insumo físico.</p>
+        </div>
+      )}
       
       {components.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2">

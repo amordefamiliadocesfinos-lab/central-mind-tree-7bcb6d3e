@@ -3574,6 +3574,7 @@ export type Database = {
           id: string
           notes: string | null
           product_id: string
+          product_variant_id: string | null
           qty_per_unit: number
           variant_id: string | null
         }
@@ -3583,6 +3584,7 @@ export type Database = {
           id?: string
           notes?: string | null
           product_id: string
+          product_variant_id?: string | null
           qty_per_unit?: number
           variant_id?: string | null
         }
@@ -3592,6 +3594,7 @@ export type Database = {
           id?: string
           notes?: string | null
           product_id?: string
+          product_variant_id?: string | null
           qty_per_unit?: number
           variant_id?: string | null
         }
@@ -3608,6 +3611,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_components_product_variant_id_fkey"
+            columns: ["product_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
@@ -3901,6 +3911,7 @@ export type Database = {
           period: string
           process: string
           product_id: string | null
+          variant_id: string | null
           quantity: number
           updated_at: string
           warnings: string | null
@@ -3915,6 +3926,7 @@ export type Database = {
           period?: string
           process: string
           product_id?: string | null
+          variant_id?: string | null
           quantity?: number
           updated_at?: string
           warnings?: string | null
@@ -3929,6 +3941,7 @@ export type Database = {
           period?: string
           process?: string
           product_id?: string | null
+          variant_id?: string | null
           quantity?: number
           updated_at?: string
           warnings?: string | null
@@ -4041,6 +4054,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {

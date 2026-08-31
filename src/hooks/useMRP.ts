@@ -40,6 +40,7 @@ export function useMRP() {
         status,
         items:order_items(
           product_id,
+          variant_id,
           quantity
         )
       `)
@@ -66,6 +67,7 @@ export function useMRP() {
       .from('product_components')
       .select(`
         product_id,
+        product_variant_id,
         component_id,
         variant_id,
         qty_per_unit,
@@ -87,7 +89,7 @@ export function useMRP() {
 
     orders.forEach((order: any) => {
       order.items?.forEach((item: any) => {
-        const components = allComponents.filter((c: any) => c.product_id === item.product_id);
+        const components = allComponents.filter((c: any) => c.product_id === item.product_id && (c.product_variant_id || null) === (item.variant_id || null));
         components.forEach((comp: any) => {
           const compId = `${comp.component_id}:${comp.variant_id || 'simple'}`;
           const qtyNeeded = comp.qty_per_unit * item.quantity;
@@ -184,13 +186,13 @@ export function useMRP() {
   // Reserve materials when order is confirmed for production
   const reserveMaterials = useCallback(async (
     orderId: string,
-    orderItems: { product_id: string; quantity: number }[]
+    orderItems: { product_id: string; variant_id?: string | null; quantity: number }[]
   ): Promise<boolean> => {
     // Get BOM for all products in order
     const productIds = orderItems.map(i => i.product_id);
     const { data: components } = await supabase
       .from('product_components')
-      .select('product_id, component_id, variant_id, qty_per_unit')
+      .select('product_id, product_variant_id, component_id, variant_id, qty_per_unit')
       .in('product_id', productIds);
 
     if (!components || components.length === 0) {
@@ -202,7 +204,7 @@ export function useMRP() {
     const reservations: { componentId: string; variantId: string | null; qty: number }[] = [];
     
     orderItems.forEach(item => {
-      const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
+      const itemComponents = components.filter((c: any) => c.product_id === item.product_id && (c.product_variant_id || null) === (item.variant_id || null));
       itemComponents.forEach((comp: any) => {
         const existing = reservations.find(r => r.componentId === comp.component_id && r.variantId === (comp.variant_id || null));
         const qtyNeeded = comp.qty_per_unit * item.quantity;
@@ -242,13 +244,13 @@ export function useMRP() {
   // Consume reserved materials when production starts
   const consumeMaterials = useCallback(async (
     orderId: string,
-    orderItems: { product_id: string; quantity: number }[]
+    orderItems: { product_id: string; variant_id?: string | null; quantity: number }[]
   ): Promise<boolean> => {
     // Get BOM for all products in order
     const productIds = orderItems.map(i => i.product_id);
     const { data: components } = await supabase
       .from('product_components')
-      .select('product_id, component_id, variant_id, qty_per_unit')
+      .select('product_id, product_variant_id, component_id, variant_id, qty_per_unit')
       .in('product_id', productIds);
 
     if (!components || components.length === 0) {
@@ -259,7 +261,7 @@ export function useMRP() {
     const consumptions: { componentId: string; variantId: string | null; qty: number }[] = [];
     
     orderItems.forEach(item => {
-      const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
+      const itemComponents = components.filter((c: any) => c.product_id === item.product_id && (c.product_variant_id || null) === (item.variant_id || null));
       itemComponents.forEach((comp: any) => {
         const existing = consumptions.find(c => c.componentId === comp.component_id && c.variantId === (comp.variant_id || null));
         const qtyNeeded = comp.qty_per_unit * item.quantity;
@@ -298,7 +300,7 @@ export function useMRP() {
 
   // Calculate BOM for specific order
   const calculateOrderBOM = useCallback(async (
-    orderItems: { product_id: string; quantity: number }[]
+    orderItems: { product_id: string; variant_id?: string | null; quantity: number }[]
   ): Promise<{
     component_id: string;
     variant_id: string | null;
@@ -313,6 +315,7 @@ export function useMRP() {
       .from('product_components')
       .select(`
         product_id,
+        product_variant_id,
         component_id,
         variant_id,
         qty_per_unit,
@@ -327,7 +330,7 @@ export function useMRP() {
     const needsMap: Record<string, { qty: number; component_id: string; component: any; variant_id: string | null }> = {};
     
     orderItems.forEach(item => {
-      const itemComponents = components.filter((c: any) => c.product_id === item.product_id);
+      const itemComponents = components.filter((c: any) => c.product_id === item.product_id && (c.product_variant_id || null) === (item.variant_id || null));
       itemComponents.forEach((comp: any) => {
         const compId = `${comp.component_id}:${comp.variant_id || 'simple'}`;
         const qtyNeeded = comp.qty_per_unit * item.quantity;
