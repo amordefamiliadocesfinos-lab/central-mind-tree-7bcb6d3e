@@ -10,9 +10,11 @@ interface Props {
   busy?: boolean;
   onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null) => void | Promise<void>;
   onSnooze: (when: number | string) => void | Promise<void>;
+  /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
+  presetResultCode?: string | null;
 }
 
-export function AttendanceActionBar({ busy = false, onOutcome, onSnooze }: Props) {
+export function AttendanceActionBar({ busy = false, onOutcome, onSnooze, presetResultCode }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
