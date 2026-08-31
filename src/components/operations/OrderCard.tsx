@@ -22,6 +22,7 @@ const formatDate = (dateStr: string | null | undefined): string => {
 interface OrderItem {
   quantity: number;
   product?: { name: string };
+  variant?: { variant_name: string } | null;
 }
 
 interface Order {
