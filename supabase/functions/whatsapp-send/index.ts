@@ -131,7 +131,9 @@ Deno.serve(async (req) => {
     })
     .select('id')
     .single();
-  if (pendingErr) return json({ error: 'Falha ao registrar mensagem' }, 500);
+  if (pendingErr) {
+    return json({ error: `Falha ao registrar mensagem: ${pendingErr.message}`, code: 'message_persist_failed' }, 500);
+  }
 
   const result = mediaUrl
     ? await connector.sendMediaMessage(phone, {
