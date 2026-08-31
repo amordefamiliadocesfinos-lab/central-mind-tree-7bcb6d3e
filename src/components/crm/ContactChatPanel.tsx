@@ -395,10 +395,8 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         <div className="flex items-end gap-1">
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(event) => setAttachment(event.target.files?.[0] || null)} />
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleSuggest} disabled={suggesting || !conversationId} title="Sugerir resposta com IA">
-            {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleAnalyze} disabled={analyzing} title="Analisar atendimento (sugerir resultado)">
+          {/* F4.4 — Assistente CRM único: Resultado + Próxima Ação + Resposta sugerida. */}
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleAnalyze} disabled={analyzing} title="Assistente CRM (resultado, próxima ação e resposta sugerida)">
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
           </Button>
           <Textarea
