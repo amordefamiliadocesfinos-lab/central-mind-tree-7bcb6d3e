@@ -118,6 +118,8 @@ const ContactOrderHistory = lazy(() => import('@/components/financial/ContactOrd
 const ContactHistoryDialog = lazy(() => import('@/components/ContactHistoryDialog').then(m => ({ default: m.ContactHistoryDialog })));
 const ContactTagsManager = lazy(() => import('@/components/crm/ContactTagsManager').then(m => ({ default: m.ContactTagsManager })));
 const LeadImportDialog = lazy(() => import('@/components/crm/LeadImportDialog').then(m => ({ default: m.LeadImportDialog })));
+import { supabase } from '@/integrations/supabase/client';
+import type { CrmCampaign } from '@/hooks/useCrmCampaigns';
 const ContactActivitiesPanel = lazy(() => import('@/components/crm/ContactActivitiesPanel').then(m => ({ default: m.ContactActivitiesPanel })));
 const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDispatch').then(m => ({ default: m.BulkWhatsAppDispatch })));
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
