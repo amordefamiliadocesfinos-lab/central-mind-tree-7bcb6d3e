@@ -34,6 +34,7 @@ import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendanc
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, type CrmPriorityInput } from '@/lib/crm/priority';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
+import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
   id: string;
@@ -566,6 +567,19 @@ export default function ContatosInbox() {
 
   const selected = items.find((i) => i.id === selectedId) || null;
 
+  // FRENTE 3.5 — contexto (somente leitura) da campanha que originou o contato.
+  const [campaignContext, setCampaignContext] = useState<CampaignContext | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!selected?.id) { setCampaignContext(null); return; }
+    void resolveCampaignContext({
+      contactId: selected.id,
+      conversationId: selected.conversation_id || null,
+      lastInboundAt: selected.last_inbound_at,
+    }).then((ctx) => { if (!cancelled) setCampaignContext(ctx); });
+    return () => { cancelled = true; };
+  }, [selected?.id, selected?.conversation_id, selected?.last_inbound_at]);
+
   const openConversation = async (item: InboxItem) => {
     // Contato sem conversa: cria o atendimento na hora para não existir cadastro
     // "invisível" na caixa de entrada.
@@ -1021,6 +1035,12 @@ export default function ContatosInbox() {
                   <div className="text-[11px] text-muted-foreground truncate">
                     {selected.whatsapp || selected.phone || 'Sem telefone'} · {getCrmStageLabel(selected.funnel_status)} · {[selected.platform_icon, selected.platform_name || selected.channel || 'Canal não informado'].filter(Boolean).join(' ')}
                   </div>
+                  {campaignContext && (
+                    <div className="text-[10px] text-muted-foreground/80 truncate">
+                      Origem: Campanha — {campaignContext.campaignName}
+                      {campaignContext.responded ? ' · respondeu' : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-8 px-2 text-[10px]" />
