@@ -52,3 +52,12 @@ export async function suggestCrmResultFromContext(
   if (raw?.error) throw new Error(String(raw.error));
   return normalizeSuggestionResponse(raw);
 }
+
+export async function suggestCrmResult(
+  contactId: string,
+  conversationId?: string | null,
+  options?: { sources?: CrmAiContextSources; invoke?: (context: CrmAiContext) => Promise<any> },
+): Promise<CrmResultSuggestion> {
+  const context = await buildCrmAiContext(contactId, conversationId, options?.sources);
+  return suggestCrmResultFromContext(context, options?.invoke);
+}
