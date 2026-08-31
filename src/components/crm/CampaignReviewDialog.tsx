@@ -11,13 +11,25 @@ import {
 import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
-import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
+import { countCampaignResponses } from '@/lib/crm/campaignContext';
+import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaign: CrmCampaign | null;
 }
+
+type StatusFilter = 'all' | 'pending' | 'sent' | 'skipped' | 'failed' | 'excluded';
+
+const FILTER_LABELS: Record<StatusFilter, string> = {
+  all: 'Todos',
+  pending: 'Elegíveis',
+  sent: 'Enviados',
+  skipped: 'Pulados',
+  failed: 'Falhas',
+  excluded: 'Excluídos',
+};
 
 export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const { markPrepared, fetchCampaigns } = useCrmCampaigns();
@@ -27,19 +39,24 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [confirmApiOpen, setConfirmApiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
 
   useEffect(() => {
     if (!open || !campaign) return;
     setLoading(true);
     fetchCampaignRecipients(campaign.id).then(rows => { setRecipients(rows); setLoading(false); });
+    syncCampaignStatus(campaign);
+    countCampaignResponses(campaign.id).then(setResponses);
   }, [open, campaign]);
 
   const reload = () => {
     if (!campaign) return;
     fetchCampaignRecipients(campaign.id).then(setRecipients);
+    countCampaignResponses(campaign.id).then(setResponses);
   };
 
-  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped } = useMemo(() => {
+  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped, failed } = useMemo(() => {
     const eligible = recipients.filter(r => r.status === 'pending');
     const excluded = recipients.filter(r => r.status === 'excluded');
     const reasons = new Map<string, number>();
@@ -51,10 +68,21 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     const manualCount = eligible.filter(r => r.delivery_mode !== 'api').length;
     const sent = recipients.filter(r => r.status === 'sent');
     const skipped = recipients.filter(r => r.status === 'skipped');
-    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped };
+    const failed = recipients.filter(r => r.status === 'failed');
+    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped, failed };
   }, [recipients]);
 
+  const visibleRecipients = useMemo(() => {
+    const ordered = [...eligible, ...sent, ...skipped, ...failed, ...excluded];
+    return statusFilter === 'all' ? ordered : ordered.filter(r => r.status === statusFilter);
+  }, [eligible, sent, skipped, failed, excluded, statusFilter]);
+
+  const responseRate = responses && responses.sent > 0
+    ? Math.round((responses.responded / responses.sent) * 100)
+    : null;
+
   if (!campaign) return null;
+
 
   return (
     <ResponsiveDialog
