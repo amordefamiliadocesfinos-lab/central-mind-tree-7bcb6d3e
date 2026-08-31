@@ -347,9 +347,14 @@ export async function sendCampaignViaApi(
         external_message_id: payload.external_message_id ?? null,
       }).eq('id', r.id);
       result.sent++;
-    } else if (errorCode === 'template_required') {
-      // Janela de 24h encerrada: não é exclusão — segue pendente na fila manual guiada.
-      await db.from('crm_campaign_recipients').update({ delivery_mode: 'manual' }).eq('id', r.id);
+    } else if (isManualFallback(errorCode, errorMessage)) {
+      // Impossibilidade de mensagem livre por API não é falha: segue pendente na fila manual.
+      await db.from('crm_campaign_recipients').update({
+        delivery_mode: 'manual',
+        status: 'pending',
+        error_code: null,
+        error_message: null,
+      }).eq('id', r.id);
       result.movedToManual++;
     } else if (errorCode === 'commercial_opt_out') {
       await db.from('crm_campaign_recipients')
