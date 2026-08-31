@@ -3,10 +3,15 @@ import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CheckCircle2, PlayCircle } from 'lucide-react';
+import { CheckCircle2, PlayCircle, Send, Loader2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
-import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
+import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, sendCampaignViaApi, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
   open: boolean;
@@ -15,10 +20,13 @@ interface Props {
 }
 
 export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
-  const { markPrepared } = useCrmCampaigns();
+  const { markPrepared, fetchCampaigns } = useCrmCampaigns();
   const [recipients, setRecipients] = useState<(CrmCampaignRecipient & { contact?: { name?: string } })[]>([]);
   const [loading, setLoading] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [confirmApiOpen, setConfirmApiOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
     if (!open || !campaign) return;
@@ -58,6 +66,14 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
+          {apiCount > 0 && (
+            <Button variant="default" disabled={sending} onClick={() => setConfirmApiOpen(true)}>
+              {sending
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Send className="h-4 w-4 mr-2" />}
+              {sending ? `Enviando ${progress.done}/${progress.total}` : `Enviar via API (${apiCount})`}
+            </Button>
+          )}
           {manualCount > 0 && (
             <Button variant="secondary" onClick={() => setQueueOpen(true)}>
               <PlayCircle className="h-4 w-4 mr-2" />
@@ -135,6 +151,36 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           </div>
         </ScrollArea>
       </div>
+
+      <AlertDialog open={confirmApiOpen} onOpenChange={setConfirmApiOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar campanha via API?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Campanha: <strong>{campaign.name}</strong>. Serão processados <strong>{apiCount}</strong> destinatários
+              API pendentes, um a um. Destinatários manuais não são enviados por aqui.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setSending(true);
+                setProgress({ done: 0, total: apiCount });
+                const res = await sendCampaignViaApi(campaign, (done, total) => setProgress({ done, total }));
+                setSending(false);
+                toast.success(
+                  `Enviados: ${res.sent} · Falhas: ${res.failed} · Movidos p/ manual: ${res.movedToManual} · Bloqueados: ${res.blocked}`,
+                );
+                reload();
+                fetchCampaigns();
+              }}
+            >
+              Confirmar envio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CampaignManualQueue
         open={queueOpen}
