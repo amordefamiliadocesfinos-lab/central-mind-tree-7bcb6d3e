@@ -42,6 +42,7 @@ export interface CrmCampaignRecipient {
   status: string;
   exclusion_reason: string | null;
   delivery_mode: string | null;
+  sent_at?: string | null;
 }
 
 /** Substitui placeholders simples da mensagem por dados do contato. */
@@ -51,6 +52,22 @@ export function renderMessage(template: string, contactName: string): string {
     .replace(/\{\{\s*nome\s*\}\}/gi, contactName)
     .replace(/\{\{\s*primeiro_nome\s*\}\}/gi, first);
 }
+
+/**
+ * FRENTE 3.3 — Modo de execução.
+ * api: existe conversa no CRM e a janela de 24h está aberta (envio pela integração é válido).
+ * manual: qualquer outro caso elegível — continua na campanha, executado por fila guiada.
+ */
+export function resolveDeliveryMode(
+  conversation: { id?: string | null; last_inbound_at?: string | null } | null | undefined,
+): 'api' | 'manual' {
+  if (!conversation?.id) return 'manual';
+  const inboundAt = conversation.last_inbound_at ? Date.parse(conversation.last_inbound_at) : 0;
+  if (!inboundAt) return 'manual';
+  return Date.now() - inboundAt <= 24 * 60 * 60 * 1000 ? 'api' : 'manual';
+}
+
+
 
 export function useCrmCampaigns() {
   const [campaigns, setCampaigns] = useState<CrmCampaign[]>([]);
@@ -96,29 +113,35 @@ export function useCrmCampaigns() {
         .single();
       if (error || !campaign) { toast.error(error?.message || 'Falha ao criar campanha'); return null; }
 
-      // conversation_id quando já existir atendimento do contato (somente leitura).
+      // conversation_id + janela de 24h (somente leitura) para definir delivery_mode.
       const contactIds = evaluated.map(r => r.contact_id);
-      const conversationByContact = new Map<string, string>();
+      const conversationByContact = new Map<string, { id: string; last_inbound_at: string | null }>();
       for (let i = 0; i < contactIds.length; i += 200) {
         const slice = contactIds.slice(i, i + 200);
         const { data: convs } = await db
           .from('service_conversations')
-          .select('id, contact_id')
-          .in('contact_id', slice);
+          .select('id, contact_id, last_inbound_at, last_message_at')
+          .in('contact_id', slice)
+          .order('last_message_at', { ascending: false });
         (convs || []).forEach((c: any) => {
-          if (c.contact_id && !conversationByContact.has(c.contact_id)) conversationByContact.set(c.contact_id, c.id);
+          if (c.contact_id && !conversationByContact.has(c.contact_id)) conversationByContact.set(c.contact_id, c);
         });
       }
 
-      const rows = evaluated.map(r => ({
-        campaign_id: campaign.id,
-        contact_id: r.contact_id,
-        conversation_id: conversationByContact.get(r.contact_id) || null,
-        phone_normalized: r.phone_normalized,
-        rendered_message: r.status === 'pending' ? renderMessage(input.message_text, r.contact_name) : null,
-        status: r.status,
-        exclusion_reason: r.exclusion_reason,
-      }));
+      const rows = evaluated.map(r => {
+        const conv = conversationByContact.get(r.contact_id) || null;
+        return {
+          campaign_id: campaign.id,
+          contact_id: r.contact_id,
+          conversation_id: conv?.id || null,
+          phone_normalized: r.phone_normalized,
+          rendered_message: r.status === 'pending' ? renderMessage(input.message_text, r.contact_name) : null,
+          status: r.status,
+          exclusion_reason: r.exclusion_reason,
+          delivery_mode: r.status === 'pending' ? resolveDeliveryMode(conv) : null,
+        };
+      });
+
 
       for (let i = 0; i < rows.length; i += 200) {
         const { error: recErr } = await db
@@ -148,10 +171,71 @@ export function useCrmCampaigns() {
   return { campaigns, loading, fetchCampaigns, createCampaignFromSegment, markPrepared };
 }
 
+/** Recalcula os contadores de envio da campanha a partir dos recipients reais. */
+export async function refreshCampaignCounters(campaignId: string) {
+  const { data } = await db
+    .from('crm_campaign_recipients')
+    .select('status')
+    .eq('campaign_id', campaignId);
+  const rows = (data || []) as { status: string }[];
+  const total_sent = rows.filter(r => r.status === 'sent').length;
+  const total_failed = rows.filter(r => r.status === 'failed').length;
+  await db.from('crm_campaigns').update({ total_sent, total_failed, updated_at: new Date().toISOString() }).eq('id', campaignId);
+  return { total_sent, total_failed };
+}
+
+/**
+ * Revalida commercial_opt_out antes de qualquer execução manual.
+ * Se passou a true depois da preparação, o recipient é bloqueado (excluded) — sem override.
+ */
+export async function revalidateOptOut(contactIds: string[]): Promise<Set<string>> {
+  const blocked = new Set<string>();
+  for (let i = 0; i < contactIds.length; i += 200) {
+    const { data } = await db
+      .from('contacts')
+      .select('id, commercial_opt_out')
+      .in('id', contactIds.slice(i, i + 200));
+    (data || []).forEach((c: any) => { if (c.commercial_opt_out === true) blocked.add(c.id); });
+  }
+  return blocked;
+}
+
+/** Marca um recipient como bloqueado por opt-out superveniente. */
+export async function blockRecipientByOptOut(recipientId: string, campaignId: string) {
+  await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+    .eq('id', recipientId);
+  await refreshCampaignCounters(campaignId);
+}
+
+/** Execução manual guiada: marca enviado (não cria Prioridade, Tarefa nem return_at). */
+export async function markRecipientSent(recipientId: string, campaignId: string) {
+  const { error } = await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .eq('id', recipientId);
+  if (error) { toast.error(error.message); return false; }
+  await refreshCampaignCounters(campaignId);
+  return true;
+}
+
+/** Execução manual guiada: pular não conta como enviado nem como falha. */
+export async function markRecipientSkipped(recipientId: string, campaignId: string) {
+  const { error } = await db
+    .from('crm_campaign_recipients')
+    .update({ status: 'skipped' })
+    .eq('id', recipientId);
+  if (error) { toast.error(error.message); return false; }
+  await refreshCampaignCounters(campaignId);
+  return true;
+}
+
 export async function fetchCampaignRecipients(campaignId: string) {
   const { data, error } = await db
     .from('crm_campaign_recipients')
-    .select('*, contact:contacts(id, name)')
+    .select('*, contact:contacts(id, name, commercial_opt_out)')
+
     .eq('campaign_id', campaignId)
     .order('status', { ascending: true });
   if (error) { toast.error(error.message); return []; }
