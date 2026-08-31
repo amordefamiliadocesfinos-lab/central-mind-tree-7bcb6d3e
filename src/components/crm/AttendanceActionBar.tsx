@@ -22,6 +22,15 @@ export function AttendanceActionBar({ busy = false, onOutcome, onSnooze, presetR
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
 
+  // Pré-seleção vinda da sugestão de IA: abre o fluxo canônico já preenchido,
+  // sem gravar nada. A confirmação continua sendo do operador.
+  useEffect(() => {
+    if (!presetResultCode) return;
+    if (!CRM_CANONICAL_RESULTS.some(result => result.code === presetResultCode)) return;
+    setResultCode(presetResultCode as CrmResultCode);
+    setMode('outcome');
+  }, [presetResultCode]);
+
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;
     await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null);
