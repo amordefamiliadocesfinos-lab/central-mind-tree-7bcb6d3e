@@ -254,6 +254,36 @@ export async function markRecipientSkipped(recipientId: string, campaignId: stri
   return true;
 }
 
+/** Lê o corpo JSON de um erro da Edge Function (supabase-js embala a Response em error.context). */
+async function readFunctionErrorBody(error: unknown): Promise<any | null> {
+  const ctx = (error as any)?.context;
+  if (!ctx) return null;
+  try {
+    if (typeof ctx.json === 'function') return await ctx.clone().json();
+  } catch { /* corpo não-JSON */ }
+  return typeof ctx === 'object' ? ctx : null;
+}
+
+/**
+ * Códigos que significam "não dá para enviar por API agora", e não falha definitiva.
+ * Nestes casos o recipient volta para a fila manual, permanecendo elegível e pendente.
+ */
+const MANUAL_FALLBACK_CODES = new Set([
+  'template_required',
+  'not_configured',
+  'window_closed',
+  'reengagement_required',
+  '131047',
+  '131026',
+  '470',
+]);
+
+function isManualFallback(code: string | null, message: string | null): boolean {
+  if (code && MANUAL_FALLBACK_CODES.has(String(code))) return true;
+  const text = `${code || ''} ${message || ''}`.toLowerCase();
+  return /template|janela de atendimento|24 horas|re-?engagement|outside.*window/.test(text);
+}
+
 /**
  * FRENTE 3.4 — Envio API controlado.
  * Processa sequencialmente apenas recipients api/pending, reutilizando a Edge Function
