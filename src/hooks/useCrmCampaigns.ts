@@ -231,6 +231,105 @@ export async function markRecipientSkipped(recipientId: string, campaignId: stri
   return true;
 }
 
+/**
+ * FRENTE 3.4 — Envio API controlado.
+ * Processa sequencialmente apenas recipients api/pending, reutilizando a Edge Function
+ * whatsapp-send em mode: 'campaign' (sem pós-atendimento da Inbox).
+ */
+export async function sendCampaignViaApi(
+  campaign: { id: string; status: string },
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ sent: number; failed: number; movedToManual: number; blocked: number }> {
+  const { data } = await db
+    .from('crm_campaign_recipients')
+    .select('id, contact_id, conversation_id, rendered_message, status, delivery_mode')
+    .eq('campaign_id', campaign.id)
+    .eq('status', 'pending')
+    .eq('delivery_mode', 'api');
+
+  const queue = (data || []) as CrmCampaignRecipient[];
+  const result = { sent: 0, failed: 0, movedToManual: 0, blocked: 0 };
+  if (queue.length === 0) return result;
+
+  if (campaign.status !== 'sending') {
+    await db.from('crm_campaigns').update({ status: 'sending', updated_at: new Date().toISOString() }).eq('id', campaign.id);
+  }
+
+  const blockedOptOut = await revalidateOptOut(queue.map(r => r.contact_id));
+
+  let done = 0;
+  for (const r of queue) {
+    if (blockedOptOut.has(r.contact_id)) {
+      await db.from('crm_campaign_recipients')
+        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+        .eq('id', r.id);
+      result.blocked++; onProgress?.(++done, queue.length);
+      continue;
+    }
+    if (!r.conversation_id) {
+      await db.from('crm_campaign_recipients').update({ delivery_mode: 'manual' }).eq('id', r.id);
+      result.movedToManual++; onProgress?.(++done, queue.length);
+      continue;
+    }
+
+    const { data: res, error } = await supabase.functions.invoke('whatsapp-send', {
+      body: {
+        mode: 'campaign',
+        campaign_id: campaign.id,
+        conversation_id: r.conversation_id,
+        message: r.rendered_message || '',
+      },
+    });
+
+    const payload: any = res ?? (error as any)?.context ?? null;
+    const errorCode = payload?.code || null;
+    const errorMessage = payload?.error || error?.message || null;
+
+    if (!error && payload?.ok) {
+      await db.from('crm_campaign_recipients').update({
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        service_message_id: payload.message_id ?? null,
+        external_message_id: payload.external_message_id ?? null,
+      }).eq('id', r.id);
+      result.sent++;
+    } else if (errorCode === 'template_required') {
+      // Janela de 24h encerrada: não é exclusão — segue pendente na fila manual guiada.
+      await db.from('crm_campaign_recipients').update({ delivery_mode: 'manual' }).eq('id', r.id);
+      result.movedToManual++;
+    } else if (errorCode === 'commercial_opt_out') {
+      await db.from('crm_campaign_recipients')
+        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+        .eq('id', r.id);
+      result.blocked++;
+    } else {
+      await db.from('crm_campaign_recipients').update({
+        status: 'failed',
+        error_code: errorCode || 'send_failed',
+        error_message: errorMessage,
+      }).eq('id', r.id);
+      result.failed++;
+    }
+
+    onProgress?.(++done, queue.length);
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+
+  await refreshCampaignCounters(campaign.id);
+
+  // Só conclui quando não restar nenhum recipient executável (api ou manual).
+  const { count } = await db
+    .from('crm_campaign_recipients')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', campaign.id)
+    .eq('status', 'pending');
+  if (!count) {
+    await db.from('crm_campaigns').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', campaign.id);
+  }
+
+  return result;
+}
+
 export async function fetchCampaignRecipients(campaignId: string) {
   const { data, error } = await db
     .from('crm_campaign_recipients')
