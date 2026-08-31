@@ -127,6 +127,7 @@ export default function ContatosInbox() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [sendConfirmation, setSendConfirmation] = useState(false);
+  const [suggestedResultCode, setSuggestedResultCode] = useState<string | null>(null);
   const [leadPanelOpen, setLeadPanelOpen] = useState(false);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
