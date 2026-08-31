@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, Loader2, Send, Sparkles, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video, BrainCircuit } from 'lucide-react';
+import { FileText, Loader2, Send, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video, BrainCircuit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -52,7 +52,6 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [commercialOptOut, setCommercialOptOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [suggesting, setSuggesting] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [resultSuggestion, setResultSuggestion] = useState<CrmResultSuggestion | null>(null);
   const [nextActionRecommendation, setNextActionRecommendation] = useState<CrmNextActionRecommendation | null>(null);
