@@ -490,6 +490,9 @@ export default function Contatos() {
         if (typeFilter === 'cliente' && c.type !== 'cliente' && c.type !== 'ambos') return false;
         if (typeFilter === 'fornecedor' && c.type !== 'fornecedor' && c.type !== 'ambos') return false;
       }
+      // Fornecedor puro não participa do funil comercial nem das segmentações
+      // de clientes. Continua acessível via filtro "Fornecedores" ou busca direta.
+      if (isSupplierOnly(c) && typeFilter !== 'fornecedor' && !deferredSearchQuery) return false;
       if (tagFilter !== 'all') {
         const contactTags = getTagsForContact(c.id);
         if (!contactTags.some(t => t.id === tagFilter)) return false;
