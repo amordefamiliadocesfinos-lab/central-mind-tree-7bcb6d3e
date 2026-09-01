@@ -120,6 +120,7 @@ const ContactTagsManager = lazy(() => import('@/components/crm/ContactTagsManage
 const LeadImportDialog = lazy(() => import('@/components/crm/LeadImportDialog').then(m => ({ default: m.LeadImportDialog })));
 import { supabase } from '@/integrations/supabase/client';
 import type { CrmCampaign } from '@/hooks/useCrmCampaigns';
+import { isSupplierOnly } from '@/lib/crm/campaignEligibility';
 const ContactActivitiesPanel = lazy(() => import('@/components/crm/ContactActivitiesPanel').then(m => ({ default: m.ContactActivitiesPanel })));
 const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDispatch').then(m => ({ default: m.BulkWhatsAppDispatch })));
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
