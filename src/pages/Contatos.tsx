@@ -120,6 +120,7 @@ const ContactTagsManager = lazy(() => import('@/components/crm/ContactTagsManage
 const LeadImportDialog = lazy(() => import('@/components/crm/LeadImportDialog').then(m => ({ default: m.LeadImportDialog })));
 import { supabase } from '@/integrations/supabase/client';
 import type { CrmCampaign } from '@/hooks/useCrmCampaigns';
+import { isSupplierOnly } from '@/lib/crm/campaignEligibility';
 const ContactActivitiesPanel = lazy(() => import('@/components/crm/ContactActivitiesPanel').then(m => ({ default: m.ContactActivitiesPanel })));
 const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDispatch').then(m => ({ default: m.BulkWhatsAppDispatch })));
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
@@ -490,6 +491,9 @@ export default function Contatos() {
         if (typeFilter === 'cliente' && c.type !== 'cliente' && c.type !== 'ambos') return false;
         if (typeFilter === 'fornecedor' && c.type !== 'fornecedor' && c.type !== 'ambos') return false;
       }
+      // Fornecedor puro não participa do funil comercial nem das segmentações
+      // de clientes. Continua acessível via filtro "Fornecedores" ou busca direta.
+      if (isSupplierOnly(c) && typeFilter !== 'fornecedor' && !deferredSearchQuery) return false;
       if (tagFilter !== 'all') {
         const contactTags = getTagsForContact(c.id);
         if (!contactTags.some(t => t.id === tagFilter)) return false;

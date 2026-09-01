@@ -8,7 +8,7 @@
 import { normalizeBRPhone } from '@/lib/whatsapp';
 
 export type RecipientStatus = 'pending' | 'excluded';
-export type ExclusionReason = 'commercial_opt_out' | 'missing_phone' | 'invalid_phone' | 'duplicate';
+export type ExclusionReason = 'commercial_opt_out' | 'missing_phone' | 'invalid_phone' | 'duplicate' | 'supplier';
 
 export interface EligibilityContact {
   id: string;
@@ -17,6 +17,8 @@ export interface EligibilityContact {
   mobile?: string | null;
   whatsapp?: string | null;
   commercial_opt_out?: boolean | null;
+  /** 'cliente' | 'fornecedor' | 'ambos' — fornecedor puro não é alvo comercial. */
+  type?: string | null;
 }
 
 export interface EvaluatedRecipient {
@@ -32,7 +34,16 @@ export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   missing_phone: 'Sem telefone',
   invalid_phone: 'Telefone inválido',
   duplicate: 'Duplicidade de telefone',
+  supplier: 'Fornecedor (fora do comercial)',
 };
+
+/**
+ * Fornecedor puro (type === 'fornecedor') não é alvo comercial de venda.
+ * 'ambos' continua elegível, pois também é cliente.
+ */
+export function isSupplierOnly(contact: { type?: string | null }): boolean {
+  return (contact.type || '').trim().toLowerCase() === 'fornecedor';
+}
 
 /** Um telefone BR válido tem DDI + DDD + 8/9 dígitos (12 a 13 dígitos normalizados). */
 function isUsablePhone(normalized: string | null): boolean {
@@ -60,6 +71,9 @@ export function evaluateRecipients(contacts: EligibilityContact[]): EvaluatedRec
     if (contact.commercial_opt_out === true) {
       status = 'excluded';
       reason = 'commercial_opt_out';
+    } else if (isSupplierOnly(contact)) {
+      status = 'excluded';
+      reason = 'supplier';
     } else if (!raw.replace(/\D/g, '')) {
       status = 'excluded';
       reason = 'missing_phone';
