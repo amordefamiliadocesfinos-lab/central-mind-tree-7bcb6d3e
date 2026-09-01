@@ -14,6 +14,7 @@ import { DecimalInput } from '@/components/ui/decimal-input';
 import { parseDecimalInput } from '@/lib/decimal';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,7 @@ import { useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilte
 import type { Order, OrderItem, Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
+import { toast } from 'sonner';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
@@ -202,7 +204,7 @@ export default function Operacoes() {
   const [showNewContactFromSale, setShowNewContactFromSale] = useState(false);
   const [ordersViewMode, setOrdersViewMode] = useState<'list' | 'grid' | 'planning'>('list');
   const [showCategoriesManager, setShowCategoriesManager] = useState(false);
-  const { categoryNames: dynamicCategories } = useProductCategories();
+  const { categoryNames: dynamicCategories, categories: canonicalFamilies } = useProductCategories();
   const { platforms: allPlatforms } = usePlatforms();
   const platformsById = useMemo(
     () => Object.fromEntries(allPlatforms.map(p => [p.id, p])),
@@ -225,6 +227,11 @@ export default function Operacoes() {
   });
   const [newProductPriceText, setNewProductPriceText] = useState('');
   const [newProductCostText, setNewProductCostText] = useState('');
+  const [newProductHasVariants, setNewProductHasVariants] = useState(false);
+  const [newVariantNames, setNewVariantNames] = useState('');
+  const [newProductPurchased, setNewProductPurchased] = useState(false);
+  const [newProductManufactured, setNewProductManufactured] = useState(false);
+  const [newProductIntermediate, setNewProductIntermediate] = useState(false);
 
   const [newOrder, setNewOrder] = useState({
     customer_name: '',
@@ -278,12 +285,20 @@ export default function Operacoes() {
   const saleTotal = Math.max(0, saleSubtotal - newSale.discount_amount + newSale.shipping_amount);
 
   const handleAddProduct = async () => {
-    const result = await createProduct(newProduct);
+    if (!newProduct.name?.trim()) { toast.error('Informe o nome do produto'); return; }
+    const family_id = canonicalFamilies.find(family => family.name === newProduct.category)?.id || null;
+    const result = await createProduct({ ...newProduct, family_id, variation_mode: newProductHasVariants ? 'variacoes_fisicas' : 'sem_variacao', is_purchased: newProductPurchased, is_manufactured: newProductManufactured, is_intermediate: newProductManufactured && newProductIntermediate, is_active: newProduct.is_active !== false });
     if (result) {
+      const names = newVariantNames.split(/\n|,/).map(name => name.trim()).filter(Boolean);
+      if (newProductHasVariants && names.length) {
+        const { error } = await supabase.from('product_variants').insert(names.map((variant_name, index) => ({ product_id: result.id, variant_name, sku: `${result.sku}-${index + 1}`, attributes: {}, is_active: true })) as any);
+        if (error) { toast.error('Produto criado, mas não foi possível criar as variações'); return; }
+      }
       setShowProductDialog(false);
       setNewProduct({ sku: '', name: '', min_stock: 0, price: 0, category: '', unit: 'un', media_urls: [], cover_image_url: null });
       setNewProductPriceText('');
       setNewProductCostText('');
+      setNewProductHasVariants(false); setNewVariantNames(''); setNewProductPurchased(false); setNewProductManufactured(false); setNewProductIntermediate(false);
     }
   };
 
@@ -1150,8 +1165,19 @@ export default function Operacoes() {
                         maxDecimals={10}
                       />
                     </div>
+                    <div className="rounded-lg border p-3 space-y-3">
+                      <p className="font-medium">Como este produto funciona?</p>
+                      <div className="flex items-center justify-between gap-3"><Label>Comprado de fornecedor</Label><Switch checked={newProductPurchased} onCheckedChange={setNewProductPurchased} /></div>
+                      <div className="flex items-center justify-between gap-3"><Label>Fabricado por nós</Label><Switch checked={newProductManufactured} onCheckedChange={(value) => { setNewProductManufactured(value); if (!value) setNewProductIntermediate(false); }} /></div>
+                      {newProductManufactured && <div className="flex items-center justify-between gap-3"><Label>Usado como componente de outros produtos</Label><Switch checked={newProductIntermediate} onCheckedChange={setNewProductIntermediate} /></div>}
+                    </div>
+                    <div className="rounded-lg border p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3"><div><p className="font-medium">Possui versões físicas diferentes?</p><p className="text-xs text-muted-foreground">Ex.: sabores, pesos ou embalagens.</p></div><Switch checked={newProductHasVariants} onCheckedChange={setNewProductHasVariants} /></div>
+                      {newProductHasVariants && <div><Label>Variantes iniciais</Label><Textarea value={newVariantNames} onChange={(e) => setNewVariantNames(e.target.value)} placeholder="Uma por linha ou separadas por vírgula&#10;Brigadeiro&#10;Morango" rows={3} /><p className="mt-1 text-xs text-muted-foreground">Você poderá complementar SKU, preço e atributos depois em Variações.</p></div>}
+                    </div>
+                    <div className="flex items-center justify-between gap-3"><Label>Ativar ao salvar</Label><Switch checked={newProduct.is_active !== false} onCheckedChange={(is_active) => setNewProduct({ ...newProduct, is_active })} /></div>
                     <Button onClick={handleAddProduct} className="w-full h-12 text-base">
-                      Criar Produto
+                      Salvar produto
                     </Button>
                   </div>
                 </DialogContent>
