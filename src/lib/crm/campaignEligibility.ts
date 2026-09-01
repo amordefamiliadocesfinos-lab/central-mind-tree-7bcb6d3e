@@ -71,6 +71,9 @@ export function evaluateRecipients(contacts: EligibilityContact[]): EvaluatedRec
     if (contact.commercial_opt_out === true) {
       status = 'excluded';
       reason = 'commercial_opt_out';
+    } else if (isSupplierOnly(contact)) {
+      status = 'excluded';
+      reason = 'supplier';
     } else if (!raw.replace(/\D/g, '')) {
       status = 'excluded';
       reason = 'missing_phone';
