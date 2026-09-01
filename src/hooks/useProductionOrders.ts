@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useBOM } from './useBOM';
 import { applyStockDelta } from '@/lib/inventoryOps';
+import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export interface ProductionOrderProcess {
   id: string;
@@ -118,6 +119,13 @@ export function useProductionOrders() {
     order: Partial<ProductionOrder>,
     processIds: { process_id: string; is_required: boolean }[]
   ) => {
+    try {
+      if (!order.product_id) throw new PhysicalIdentityError('Selecione o produto a produzir.');
+      await resolvePhysicalIdentity(order.product_id, order.variant_id);
+    } catch (error) {
+      toast.error(error instanceof PhysicalIdentityError ? error.message : 'Identidade física inválida.');
+      return null;
+    }
     // Generate order number
     const orderNumber = `OP-${Date.now().toString(36).toUpperCase()}`;
 

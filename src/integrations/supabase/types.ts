@@ -3676,6 +3676,7 @@ export type Database = {
       }
       product_categories: {
         Row: {
+          attribute_schema: Json
           color: string | null
           created_at: string
           id: string
@@ -3685,6 +3686,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribute_schema?: Json
           color?: string | null
           created_at?: string
           id?: string
@@ -3694,6 +3696,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribute_schema?: Json
           color?: string | null
           created_at?: string
           id?: string
@@ -4219,9 +4222,13 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           expiry_days: number | null
+          family_id: string | null
           height_cm: number | null
           id: string
           is_active: boolean
+          is_intermediate: boolean
+          is_manufactured: boolean
+          is_purchased: boolean
           length_cm: number | null
           media_urls: Json | null
           min_stock: number | null
@@ -4230,6 +4237,7 @@ export type Database = {
           sku: string
           unit: string | null
           updated_at: string
+          variation_mode: string
           weight_g: number | null
           width_cm: number | null
         }
@@ -4242,9 +4250,13 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expiry_days?: number | null
+          family_id?: string | null
           height_cm?: number | null
           id?: string
           is_active?: boolean
+          is_intermediate?: boolean
+          is_manufactured?: boolean
+          is_purchased?: boolean
           length_cm?: number | null
           media_urls?: Json | null
           min_stock?: number | null
@@ -4253,6 +4265,7 @@ export type Database = {
           sku: string
           unit?: string | null
           updated_at?: string
+          variation_mode?: string
           weight_g?: number | null
           width_cm?: number | null
         }
@@ -4265,9 +4278,13 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expiry_days?: number | null
+          family_id?: string | null
           height_cm?: number | null
           id?: string
           is_active?: boolean
+          is_intermediate?: boolean
+          is_manufactured?: boolean
+          is_purchased?: boolean
           length_cm?: number | null
           media_urls?: Json | null
           min_stock?: number | null
@@ -4276,6 +4293,7 @@ export type Database = {
           sku?: string
           unit?: string | null
           updated_at?: string
+          variation_mode?: string
           weight_g?: number | null
           width_cm?: number | null
         }

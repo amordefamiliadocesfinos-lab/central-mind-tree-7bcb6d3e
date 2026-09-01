@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
 
@@ -48,6 +49,7 @@ export interface UnifiedSaleResult {
 export async function createUnifiedSale(order: UnifiedSaleInput, items: UnifiedSaleItem[]) {
   const validItems = items.filter(item => item.product_id && item.quantity > 0);
   if (!validItems.length) throw new Error('Adicione ao menos um produto à venda.');
+  await Promise.all(validItems.map(item => resolvePhysicalIdentity(item.product_id, item.variant_id)));
 
   const { data, error } = await (supabase.rpc as any)('create_unified_sale', {
     p_order: {

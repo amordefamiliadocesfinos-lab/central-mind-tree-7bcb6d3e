@@ -17,6 +17,11 @@ export interface Product {
   price: number | null;
   is_active: boolean;
   category: string | null;
+  family_id?: string | null;
+  variation_mode?: 'sem_variacao' | 'variacoes_fisicas';
+  is_purchased?: boolean;
+  is_manufactured?: boolean;
+  is_intermediate?: boolean;
   attributes: Record<string, unknown>;
   media_urls: string[];
   cover_image_url: string | null;
@@ -211,6 +216,11 @@ export function useOrders() {
         cost: product.cost || null,
         price: product.price || null,
         category: product.category || null,
+        family_id: product.family_id || null,
+        variation_mode: product.variation_mode || 'sem_variacao',
+        is_purchased: product.is_purchased || false,
+        is_manufactured: product.is_manufactured || false,
+        is_intermediate: product.is_intermediate || false,
         attributes: (product.attributes || {}) as any,
         media_urls: (product.media_urls || []) as any,
         cover_image_url: product.cover_image_url || null,

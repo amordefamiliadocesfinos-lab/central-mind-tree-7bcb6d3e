@@ -81,6 +81,27 @@ export function useProductVariants(productId: string | null) {
   const createVariant = useCallback(async (input: ProductVariantInput) => {
     if (!productId || !input.variant_name.trim() || !(await validateSku(input.sku))) return false;
 
+    const { data: parent, error: parentError } = await (supabase.from('products') as any)
+      .select('variation_mode')
+      .eq('id', productId)
+      .maybeSingle();
+    if (parentError || !parent) { toast.error('Produto não encontrado'); return false; }
+    if (parent.variation_mode !== 'variacoes_fisicas') {
+      const [inventory, orders, production, mappings, bom] = await Promise.all([
+        supabase.from('inventory').select('id').eq('product_id', productId).limit(1),
+        supabase.from('order_items').select('id').eq('product_id', productId).limit(1),
+        supabase.from('production_orders').select('id').eq('product_id', productId).limit(1),
+        supabase.from('marketplace_product_mappings').select('id').eq('product_id', productId).limit(1),
+        supabase.from('product_components').select('id').or(`product_id.eq.${productId},component_id.eq.${productId}`).limit(1),
+      ]);
+      if ([inventory, orders, production, mappings, bom].some(result => (result.data || []).length > 0)) {
+        toast.error('Produto com histórico não pode virar Mestre automaticamente. Use a migração assistida.');
+        return false;
+      }
+      const { error } = await (supabase.from('products') as any).update({ variation_mode: 'variacoes_fisicas' }).eq('id', productId);
+      if (error) { toast.error('Não foi possível preparar o Produto Mestre'); return false; }
+    }
+
     const { error } = await supabase.from('product_variants').insert({
       ...input,
       product_id: productId,

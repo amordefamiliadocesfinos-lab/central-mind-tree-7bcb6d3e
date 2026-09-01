@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { notifyInventoryChanged } from '@/hooks/useInventorySync';
+import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export type MovementType = 'in' | 'out' | 'transfer' | 'adjust' | 'reserve' | 'consume';
 
@@ -40,13 +41,14 @@ export function useMultiLocationInventory() {
   const [loading, setLoading] = useState(false);
 
   // Get balance for a product at a specific location
-  const getLocationBalance = useCallback(async (productId: string, location: string): Promise<number> => {
-    const { data, error } = await supabase
+  const getLocationBalance = useCallback(async (productId: string, location: string, variantId?: string | null): Promise<number> => {
+    let query = supabase
       .from('inventory')
       .select('quantity')
       .eq('product_id', productId)
-      .eq('location', location)
-      .maybeSingle();
+      .eq('location', location);
+    query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null);
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       console.error('Error getting location balance:', error);
@@ -91,11 +93,13 @@ export function useMultiLocationInventory() {
     productId: string,
     location: string,
     quantity: number,
-    notes?: string
+    notes?: string,
+    variantId?: string | null,
   ): Promise<boolean> => {
+    try { await resolvePhysicalIdentity(productId, variantId); } catch (error) { toast.error(error instanceof PhysicalIdentityError ? error.message : 'Produto inválido'); return false; }
     setLoading(true);
     
-    const previousBalance = await getLocationBalance(productId, location);
+    const previousBalance = await getLocationBalance(productId, location, variantId);
     const newBalance = previousBalance + quantity;
 
     // Create movement record
@@ -103,6 +107,7 @@ export function useMultiLocationInventory() {
       .from('inventory_movements')
       .insert({
         product_id: productId,
+        variant_id: variantId || null,
         movement_type: 'in',
         quantity,
         previous_balance: previousBalance,
@@ -123,7 +128,7 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
-        variant_id: null,
+        variant_id: variantId || null,
         location,
         quantity: newBalance,
         updated_at: new Date().toISOString(),
@@ -149,11 +154,13 @@ export function useMultiLocationInventory() {
     productId: string,
     location: string,
     quantity: number,
-    notes?: string
+    notes?: string,
+    variantId?: string | null,
   ): Promise<boolean> => {
+    try { await resolvePhysicalIdentity(productId, variantId); } catch (error) { toast.error(error instanceof PhysicalIdentityError ? error.message : 'Produto inválido'); return false; }
     setLoading(true);
     
-    const previousBalance = await getLocationBalance(productId, location);
+    const previousBalance = await getLocationBalance(productId, location, variantId);
     
     if (previousBalance < quantity) {
       toast.error(`Saldo insuficiente. Disponível: ${previousBalance}`);
@@ -168,6 +175,7 @@ export function useMultiLocationInventory() {
       .from('inventory_movements')
       .insert({
         product_id: productId,
+        variant_id: variantId || null,
         movement_type: 'out',
         quantity,
         previous_balance: previousBalance,
@@ -187,7 +195,7 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
-        variant_id: null,
+        variant_id: variantId || null,
         location,
         quantity: newBalance,
         updated_at: new Date().toISOString(),
@@ -213,19 +221,21 @@ export function useMultiLocationInventory() {
     fromLocation: string,
     toLocation: string,
     quantity: number,
-    notes?: string
+    notes?: string,
+    variantId?: string | null,
   ): Promise<boolean> => {
+    try { await resolvePhysicalIdentity(productId, variantId); } catch (error) { toast.error(error instanceof PhysicalIdentityError ? error.message : 'Produto inválido'); return false; }
     setLoading(true);
 
     // Check source balance
-    const sourceBalance = await getLocationBalance(productId, fromLocation);
+    const sourceBalance = await getLocationBalance(productId, fromLocation, variantId);
     if (sourceBalance < quantity) {
       toast.error(`Saldo insuficiente em ${fromLocation}. Disponível: ${sourceBalance}`);
       setLoading(false);
       return false;
     }
 
-    const destBalance = await getLocationBalance(productId, toLocation);
+    const destBalance = await getLocationBalance(productId, toLocation, variantId);
 
     const newSourceBalance = sourceBalance - quantity;
     const newDestBalance = destBalance + quantity;
@@ -235,6 +245,7 @@ export function useMultiLocationInventory() {
       .from('inventory_movements')
       .insert({
         product_id: productId,
+        variant_id: variantId || null,
         movement_type: 'transfer',
         quantity,
         previous_balance: sourceBalance,
@@ -255,7 +266,7 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
-        variant_id: null,
+        variant_id: variantId || null,
         location: fromLocation,
         quantity: newSourceBalance,
         updated_at: new Date().toISOString(),
@@ -274,7 +285,7 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
-        variant_id: null,
+        variant_id: variantId || null,
         location: toLocation,
         quantity: newDestBalance,
         updated_at: new Date().toISOString(),
@@ -299,11 +310,13 @@ export function useMultiLocationInventory() {
     productId: string,
     location: string,
     newQuantity: number,
-    notes?: string
+    notes?: string,
+    variantId?: string | null,
   ): Promise<boolean> => {
+    try { await resolvePhysicalIdentity(productId, variantId); } catch (error) { toast.error(error instanceof PhysicalIdentityError ? error.message : 'Produto inválido'); return false; }
     setLoading(true);
     
-    const previousBalance = await getLocationBalance(productId, location);
+    const previousBalance = await getLocationBalance(productId, location, variantId);
     const difference = newQuantity - previousBalance;
 
     // Create movement record
@@ -311,6 +324,7 @@ export function useMultiLocationInventory() {
       .from('inventory_movements')
       .insert({
         product_id: productId,
+        variant_id: variantId || null,
         movement_type: 'adjust',
         quantity: difference,
         previous_balance: previousBalance,
@@ -330,7 +344,7 @@ export function useMultiLocationInventory() {
       .from('inventory')
       .upsert({
         product_id: productId,
-        variant_id: null,
+        variant_id: variantId || null,
         location,
         quantity: newQuantity,
         updated_at: new Date().toISOString(),

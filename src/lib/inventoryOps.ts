@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { notifyInventoryChanged } from '@/hooks/useInventorySync';
+import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export const FALLBACK_LOCATION = 'Fábrica';
 
@@ -58,6 +59,12 @@ export async function applyStockDelta({
   notes,
 }: StockDeltaParams): Promise<boolean> {
   if (!productId || !delta) return false;
+  try {
+    await resolvePhysicalIdentity(productId, variantId);
+  } catch (error) {
+    if (error instanceof PhysicalIdentityError) console.error(error.message);
+    return false;
+  }
 
   const loc = location && location.trim() !== '' ? location : await resolveStockLocation(productId, variantId);
 

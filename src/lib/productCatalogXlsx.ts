@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { PRODUCT_CATALOG_HEADERS, toCatalogRows, type CatalogProduct, type CatalogVariant, type ProductCatalogRow } from '@/lib/productCatalogImport';
 
 export const PRODUCT_CATALOG_SHEET = 'Catalogo';
+const OPTIONAL_UNIVERSAL_HEADERS = new Set(['familia', 'modo_variacao', 'comprado', 'fabricado', 'intermediario']);
 
 export function downloadProductCatalogXlsx(products: CatalogProduct[], variants: CatalogVariant[]) {
   const rows = toCatalogRows(products, variants);
@@ -23,7 +24,7 @@ export async function parseProductCatalogXlsx(file: File): Promise<ProductCatalo
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '', raw: false });
   if (!rows.length) throw new Error('O arquivo não possui linhas para importar.');
   const headers = Object.keys(rows[0]);
-  const missing = PRODUCT_CATALOG_HEADERS.filter(header => !headers.includes(header));
+  const missing = PRODUCT_CATALOG_HEADERS.filter(header => !headers.includes(header) && !OPTIONAL_UNIVERSAL_HEADERS.has(header));
   if (missing.length) throw new Error(`Arquivo incompatível: faltam colunas obrigatórias (${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''}).`);
   return rows.map(source => Object.fromEntries(PRODUCT_CATALOG_HEADERS.map(header => [header, String(source[header] ?? '')])) as unknown as ProductCatalogRow).map((row, index) => ({ ...row, rowNumber: index + 2 }));
 }

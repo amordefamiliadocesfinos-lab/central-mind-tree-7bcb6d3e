@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export interface ProductComponent {
   id: string;
@@ -77,8 +78,11 @@ export function useBOM() {
     qtyPerUnit: number,
     notes?: string
   ) => {
-    if (productId === componentId) {
-      toast.error('Um produto não pode ser componente de si mesmo');
+    try {
+      await resolvePhysicalIdentity(productId, productVariantId);
+      await resolvePhysicalIdentity(componentId, variantId);
+    } catch (error) {
+      toast.error(error instanceof PhysicalIdentityError ? error.message : 'Identidade física inválida.');
       return null;
     }
 
