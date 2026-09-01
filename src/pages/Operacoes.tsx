@@ -232,6 +232,7 @@ export default function Operacoes() {
   const [newProductPurchased, setNewProductPurchased] = useState(false);
   const [newProductManufactured, setNewProductManufactured] = useState(false);
   const [newProductIntermediate, setNewProductIntermediate] = useState(false);
+  const [savingNewProduct, setSavingNewProduct] = useState(false);
 
   const [newOrder, setNewOrder] = useState({
     customer_name: '',
@@ -286,13 +287,18 @@ export default function Operacoes() {
 
   const handleAddProduct = async () => {
     if (!newProduct.name?.trim()) { toast.error('Informe o nome do produto'); return; }
+    if (!newProduct.sku?.trim()) { toast.error('Informe um SKU único para o produto'); return; }
+    if (!newProduct.category) { toast.error('Selecione uma família válida'); return; }
+    if (savingNewProduct) return;
+    setSavingNewProduct(true);
     const family_id = canonicalFamilies.find(family => family.name === newProduct.category)?.id || null;
+    if (!family_id) { toast.error('Selecione uma família válida'); setSavingNewProduct(false); return; }
     const result = await createProduct({ ...newProduct, family_id, variation_mode: newProductHasVariants ? 'variacoes_fisicas' : 'sem_variacao', is_purchased: newProductPurchased, is_manufactured: newProductManufactured, is_intermediate: newProductManufactured && newProductIntermediate, is_active: newProduct.is_active !== false });
     if (result) {
       const names = newVariantNames.split(/\n|,/).map(name => name.trim()).filter(Boolean);
       if (newProductHasVariants && names.length) {
         const { error } = await supabase.from('product_variants').insert(names.map((variant_name, index) => ({ product_id: result.id, variant_name, sku: `${result.sku}-${index + 1}`, attributes: {}, is_active: true })) as any);
-        if (error) { toast.error('Produto criado, mas não foi possível criar as variações'); return; }
+        if (error) { toast.error('Produto criado, mas não foi possível criar as variações'); setSavingNewProduct(false); return; }
       }
       setShowProductDialog(false);
       setNewProduct({ sku: '', name: '', min_stock: 0, price: 0, category: '', unit: 'un', media_urls: [], cover_image_url: null });
@@ -300,6 +306,7 @@ export default function Operacoes() {
       setNewProductCostText('');
       setNewProductHasVariants(false); setNewVariantNames(''); setNewProductPurchased(false); setNewProductManufactured(false); setNewProductIntermediate(false);
     }
+    setSavingNewProduct(false);
   };
 
   const handleUpdateProduct = async () => {
@@ -1176,8 +1183,8 @@ export default function Operacoes() {
                       {newProductHasVariants && <div><Label>Variantes iniciais</Label><Textarea value={newVariantNames} onChange={(e) => setNewVariantNames(e.target.value)} placeholder="Uma por linha ou separadas por vírgula&#10;Brigadeiro&#10;Morango" rows={3} /><p className="mt-1 text-xs text-muted-foreground">Você poderá complementar SKU, preço e atributos depois em Variações.</p></div>}
                     </div>
                     <div className="flex items-center justify-between gap-3"><Label>Ativar ao salvar</Label><Switch checked={newProduct.is_active !== false} onCheckedChange={(is_active) => setNewProduct({ ...newProduct, is_active })} /></div>
-                    <Button onClick={handleAddProduct} className="w-full h-12 text-base">
-                      Salvar produto
+                    <Button onClick={handleAddProduct} disabled={savingNewProduct} className="w-full h-12 text-base">
+                      {savingNewProduct ? 'Salvando...' : 'Salvar produto'}
                     </Button>
                   </div>
                 </DialogContent>
