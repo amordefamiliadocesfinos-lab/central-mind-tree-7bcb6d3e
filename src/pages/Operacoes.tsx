@@ -300,11 +300,11 @@ export default function Operacoes() {
         const { error } = await supabase.from('product_variants').insert(names.map((variant_name, index) => ({ product_id: result.id, variant_name, sku: `${result.sku}-${index + 1}`, attributes: {}, is_active: true })) as any);
         if (error) { toast.error('Produto criado, mas não foi possível criar as variações'); setSavingNewProduct(false); return; }
       }
-      setShowProductDialog(false);
       setNewProduct({ sku: '', name: '', min_stock: 0, price: 0, category: '', unit: 'un', media_urls: [], cover_image_url: null });
       setNewProductPriceText('');
       setNewProductCostText('');
       setNewProductHasVariants(false); setNewVariantNames(''); setNewProductPurchased(false); setNewProductManufactured(false); setNewProductIntermediate(false);
+      setShowProductDialog(false);
     }
     setSavingNewProduct(false);
   };
