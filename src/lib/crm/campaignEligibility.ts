@@ -8,7 +8,7 @@
 import { normalizeBRPhone } from '@/lib/whatsapp';
 
 export type RecipientStatus = 'pending' | 'excluded';
-export type ExclusionReason = 'commercial_opt_out' | 'missing_phone' | 'invalid_phone' | 'duplicate';
+export type ExclusionReason = 'commercial_opt_out' | 'missing_phone' | 'invalid_phone' | 'duplicate' | 'supplier';
 
 export interface EligibilityContact {
   id: string;
@@ -17,6 +17,8 @@ export interface EligibilityContact {
   mobile?: string | null;
   whatsapp?: string | null;
   commercial_opt_out?: boolean | null;
+  /** 'cliente' | 'fornecedor' | 'ambos' — fornecedor puro não é alvo comercial. */
+  type?: string | null;
 }
 
 export interface EvaluatedRecipient {
