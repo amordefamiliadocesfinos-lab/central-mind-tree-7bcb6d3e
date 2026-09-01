@@ -34,7 +34,16 @@ export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   missing_phone: 'Sem telefone',
   invalid_phone: 'Telefone inválido',
   duplicate: 'Duplicidade de telefone',
+  supplier: 'Fornecedor (fora do comercial)',
 };
+
+/**
+ * Fornecedor puro (type === 'fornecedor') não é alvo comercial de venda.
+ * 'ambos' continua elegível, pois também é cliente.
+ */
+export function isSupplierOnly(contact: { type?: string | null }): boolean {
+  return (contact.type || '').trim().toLowerCase() === 'fornecedor';
+}
 
 /** Um telefone BR válido tem DDI + DDD + 8/9 dígitos (12 a 13 dígitos normalizados). */
 function isUsablePhone(normalized: string | null): boolean {
