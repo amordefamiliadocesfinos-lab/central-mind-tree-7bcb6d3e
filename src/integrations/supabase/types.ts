@@ -4297,7 +4297,15 @@ export type Database = {
           weight_g?: number | null
           width_cm?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       routine_blocks: {
         Row: {
@@ -5490,6 +5498,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      assert_physical_identity: {
+        Args: { p_context: string; p_product_id: string; p_variant_id: string }
+        Returns: undefined
       }
       complete_campaign: {
         Args: { _campaign_id: string }
