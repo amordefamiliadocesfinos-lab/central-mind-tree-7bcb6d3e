@@ -199,7 +199,16 @@ export default function Operacoes() {
   const [showProductConversion, setShowProductConversion] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [movementProduct, setMovementProduct] = useState<{ id: string; name: string } | null>(null);
+  const [movementProduct, setMovementProduct] = useState<{ id: string; name: string; variantId?: string | null } | null>(null);
+  const [masterVariants, setMasterVariants] = useState<Record<string, { id: string; variant_name: string; sku: string }[]>>({});
+  const storeInventory = useAppStore((s) => s.inventory);
+
+  // Variant balances by physical identity (product_id + variant_id)
+  const getVariantBalance = useCallback((productId: string, variantId: string) =>
+    storeInventory
+      .filter((i: any) => i.product_id === productId && i.variant_id === variantId)
+      .reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0),
+  [storeInventory]);
   const [historyProductId, setHistoryProductId] = useState<string | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [showCostEditor, setShowCostEditor] = useState(false);
