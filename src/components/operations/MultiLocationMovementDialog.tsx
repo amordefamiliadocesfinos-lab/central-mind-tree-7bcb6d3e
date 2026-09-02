@@ -20,6 +20,8 @@ interface MultiLocationMovementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productId: string;
+  /** Variante física obrigatória para Produtos Mestres; nula para produtos simples. */
+  variantId?: string | null;
   productName: string;
   onSuccess: () => void;
 }
@@ -30,6 +32,7 @@ export function MultiLocationMovementDialog({
   open,
   onOpenChange,
   productId,
+  variantId = null,
   productName,
   onSuccess,
 }: MultiLocationMovementDialogProps) {
@@ -53,9 +56,9 @@ export function MultiLocationMovementDialog({
 
   useEffect(() => {
     if (open && productId) {
-      getProductInventoryByLocation(productId).then(setInventoryByLocation);
+      getProductInventoryByLocation(productId, variantId).then(setInventoryByLocation);
     }
-  }, [open, productId, getProductInventoryByLocation]);
+  }, [open, productId, variantId, getProductInventoryByLocation]);
 
   useEffect(() => {
     if (locations.length > 0 && !location) {
@@ -79,16 +82,16 @@ export function MultiLocationMovementDialog({
 
     switch (activeTab) {
       case 'entry':
-        success = await createEntry(productId, location, quantity, notes || undefined);
+        success = await createEntry(productId, location, quantity, notes || undefined, variantId);
         break;
       case 'exit':
-        success = await createExit(productId, location, quantity, notes || undefined);
+        success = await createExit(productId, location, quantity, notes || undefined, variantId);
         break;
       case 'transfer':
-        success = await createTransfer(productId, fromLocation, toLocation, quantity, notes || undefined);
+        success = await createTransfer(productId, fromLocation, toLocation, quantity, notes || undefined, variantId);
         break;
       case 'adjust':
-        success = await adjustInventory(productId, location, quantity, notes || undefined);
+        success = await adjustInventory(productId, location, quantity, notes || undefined, variantId);
         break;
     }
 
