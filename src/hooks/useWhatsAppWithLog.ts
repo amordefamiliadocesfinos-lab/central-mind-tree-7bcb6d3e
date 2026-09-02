@@ -5,6 +5,7 @@ import { openWhatsApp } from '@/lib/whatsapp';
 import { getTodayISO } from '@/lib/dateUtils';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
 import { setCrmNextAction } from '@/lib/crm/nextAction';
+import { canScheduleAutomaticFollowUp } from '@/lib/crm/followUpTracking';
 
 export interface WhatsAppLogOptions {
   contactId: string;
@@ -127,6 +128,10 @@ export function useWhatsAppWithLog() {
       .limit(1)
       .maybeSingle();
 
+    // F5.2.2 — depois da 3ª tentativa do ciclo o CRM não cria automaticamente
+    // uma nova obrigação de follow-up apenas por ausência de resposta.
+    const canScheduleFollowUp = await canScheduleAutomaticFollowUp(contactId);
+
     const conversationState = {
       last_message_preview: preview,
       last_message_at: now,
@@ -134,7 +139,7 @@ export function useWhatsAppWithLog() {
       funnel_stage: nextStage,
       attendance_state: 'aguardando_cliente',
       needs_reply: false,
-      return_at: followUpAt,
+      ...(canScheduleFollowUp ? { return_at: followUpAt } : {}),
       updated_at: now,
     };
 
@@ -156,7 +161,7 @@ export function useWhatsAppWithLog() {
       conversationId = newConv?.id || null;
     }
 
-    if (conversationId) {
+    if (conversationId && canScheduleFollowUp) {
       try {
         await setCrmNextAction({
           contactId,
@@ -169,6 +174,9 @@ export function useWhatsAppWithLog() {
         console.error('Contato atualizado, mas a tarefa de follow-up falhou:', error);
         toast.warning('Contato atualizado, mas revise a tarefa de follow-up');
       }
+    }
+
+    if (conversationId) {
       await supabase.from('service_messages').insert({
         conversation_id: conversationId,
         sender: 'agent',
@@ -181,7 +189,9 @@ export function useWhatsAppWithLog() {
       });
     }
 
-    toast.success('Atendimento registrado · follow-up em 2 dias');
+    toast.success(canScheduleFollowUp
+      ? 'Atendimento registrado · follow-up em 2 dias'
+      : 'Mensagem registrada · limite de follow-up atingido neste ciclo: decida o próximo passo');
     return { nextStage, followUpAt } satisfies WhatsAppOperationalResult;
   }, []);
 
