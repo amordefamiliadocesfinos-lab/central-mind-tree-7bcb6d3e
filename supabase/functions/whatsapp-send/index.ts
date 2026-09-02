@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
+import { setOfficialCrmNextAction } from '../_shared/crm/official-next-action.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -68,21 +69,30 @@ Deno.serve(async (req) => {
   }
   if (!phone) return json({ error: 'Contato sem telefone de WhatsApp válido' }, 400);
 
-  // Modo campanha: opt-out comercial é revalidado no servidor (frontend não é suficiente).
-  if (isCampaign) {
-    if (!conv.contact_id) return json({ error: 'Conversa sem contato vinculado', code: 'missing_contact' }, 400);
+  // Texto livre só pode ser enviado dentro da janela de atendimento da Meta.
+  const lastInboundAt = conv.last_inbound_at ? Date.parse(conv.last_inbound_at) : 0;
+  // A última barreira de opt-out vive no servidor. Uma resposta dentro da
+  // janela iniciada pelo cliente permanece legítima; uma nova abordagem nossa
+  // não pode depender apenas do bloqueio visual do painel.
+  if (conv.contact_id) {
     const { data: optOutContact } = await supabase
       .from('contacts')
       .select('commercial_opt_out')
       .eq('id', conv.contact_id)
       .maybeSingle();
-    if (optOutContact?.commercial_opt_out === true) {
-      return json({ error: 'Contato optou por não receber comunicações comerciais', code: 'commercial_opt_out' }, 403);
+    const isCustomerReplyWindow = Boolean(lastInboundAt) && Date.now() - lastInboundAt <= 24 * 60 * 60 * 1000;
+    if (optOutContact?.commercial_opt_out === true && (isCampaign || !isCustomerReplyWindow)) {
+      return json({
+        error: isCampaign
+          ? 'Contato optou por não receber comunicações comerciais'
+          : 'Este contato marcou que não deseja receber contato comercial. Remova o opt-out conscientemente antes de iniciar uma nova abordagem.',
+        code: 'commercial_opt_out',
+      }, 403);
     }
+  } else if (isCampaign) {
+    return json({ error: 'Conversa sem contato vinculado', code: 'missing_contact' }, 400);
   }
 
-  // Texto livre só pode ser enviado dentro da janela de atendimento da Meta.
-  const lastInboundAt = conv.last_inbound_at ? Date.parse(conv.last_inbound_at) : 0;
   if (!lastInboundAt || Date.now() - lastInboundAt > 24 * 60 * 60 * 1000) {
     return json({
       error: 'A janela de atendimento de 24 horas está encerrada. Use um template aprovado pela Meta para reiniciar a conversa.',
@@ -187,34 +197,21 @@ Deno.serve(async (req) => {
     const nextStage = currentStage === 'novo_lead' ? 'contato_realizado' : currentStage;
     const returnAt = new Date(Date.now() + 2 * 86400000);
     returnAt.setUTCHours(12, 0, 0, 0);
-    const dueDate = returnAt.toISOString().slice(0, 10);
 
     await supabase.from('contacts').update({
       funnel_status: nextStage,
-      next_action_text: 'Verificar resposta no WhatsApp',
-      next_action_date: returnAt.toISOString(),
-      next_contact_date: returnAt.toISOString(),
       updated_at: nowIso,
     }).eq('id', conv.contact_id);
     await supabase.from('service_conversations').update({
       funnel_stage: nextStage,
-      return_at: returnAt.toISOString(),
     }).eq('id', conversationId);
-
-    const { data: pendingTasks } = await supabase.from('tasks')
-      .select('id').eq('contact_id', conv.contact_id).eq('source', 'crm_next_action')
-      .is('deleted_at', null).neq('status', 'concluído').order('created_at', { ascending: false });
-    const [existingTask, ...duplicates] = pendingTasks || [];
-    if (duplicates.length > 0) {
-      await supabase.from('tasks').update({ status: 'concluído', updated_at: nowIso }).in('id', duplicates.map((task) => task.id));
-    }
-    const taskPayload = {
-      title: 'Verificar resposta no WhatsApp', contact_id: conv.contact_id,
-      node_id: 'd7c76db8-b7e0-4ce1-87ca-21275c346326', source: 'crm_next_action',
-      status: 'pendente', scheduled_date: dueDate, due_date: dueDate, scheduled_time: '09:00', updated_at: nowIso,
-    };
-    if (existingTask?.id) await supabase.from('tasks').update(taskPayload).eq('id', existingTask.id);
-    else await supabase.from('tasks').insert(taskPayload);
+    await setOfficialCrmNextAction(supabase, {
+      contactId: conv.contact_id,
+      title: 'Verificar resposta no WhatsApp',
+      dueAt: returnAt.toISOString(),
+      conversationId,
+      taskTime: '09:00',
+    });
   }
 
   return json({ ok: true, message_id: pending.id, external_message_id: result.externalMessageId ?? null });

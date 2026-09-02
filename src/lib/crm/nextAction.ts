@@ -113,11 +113,12 @@ export async function syncCrmNextActionTask(contactId: string, action: CrmNextAc
 export async function setCrmNextAction(input: SetCrmNextActionInput) {
   const { title, dueAt } = requireValidAction(input);
   const { data: currentContact, error: currentContactError } = await supabase.from('contacts')
-    .select('next_action_date, next_contact_date')
+    .select('next_action_text, next_action_date, next_contact_date')
     .eq('id', input.contactId)
     .maybeSingle();
   if (currentContactError) throw currentContactError;
   const previousDueAt = currentContact?.next_action_date ?? currentContact?.next_contact_date ?? null;
+  const previousTitle = currentContact?.next_action_text ?? null;
   const { error: contactError } = await supabase.from('contacts').update({
     next_action_text: title,
     next_action_date: dueAt,
@@ -128,6 +129,26 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
   if (contactError) throw contactError;
 
   await syncCrmNextActionTask(input.contactId, { title, dueAt });
+
+  // A substituição já é segura pela tarefa única; o histórico torna o
+  // reagendamento explicável sem criar uma segunda obrigação pendente.
+  if (previousDueAt && (previousDueAt !== dueAt || previousTitle !== title)) {
+    const { error: historyError } = await supabase.from('contact_history').insert({
+      contact_id: input.contactId,
+      event_type: 'follow_up',
+      interaction_type: 'sistema',
+      description: `Próxima ação substituída: ${previousTitle || 'Sem título'} → ${title}`,
+      interaction_date: new Date().toISOString(),
+      event_metadata: {
+        source: CRM_TASK_SOURCE,
+        previous_title: previousTitle,
+        previous_due_at: previousDueAt,
+        next_title: title,
+        next_due_at: dueAt,
+      },
+    });
+    if (historyError) throw historyError;
+  }
 
   if (input.syncConversationReturn || previousDueAt) {
     await syncMatchingConversationReturn({
