@@ -220,18 +220,18 @@ export function StockCheckWizard() {
     );
   };
 
-  // Toggle product selection
-  const toggleProduct = async (product: ProductForCheck) => {
-    const existing = selectedItems.find(i => i.product.id === product.id);
+  // Toggle physical item selection
+  const toggleItem = async (item: PhysicalItem) => {
+    const existing = selectedItems.find(i => i.item.key === item.key);
     if (existing) {
-      setSelectedItems(prev => prev.filter(i => i.product.id !== product.id));
+      setSelectedItems(prev => prev.filter(i => i.item.key !== item.key));
     } else {
-      const balances = await getProductInventoryByLocation(product.id);
+      const balances = await getProductInventoryByLocation(item.productId, item.variantId);
       // Filter to only selected locations
-      const filteredBalances = balances.filter(b => 
+      const filteredBalances = balances.filter(b =>
         selectedLocations.includes(b.location || '')
       );
-      setSelectedItems(prev => [...prev, { product, locationBalances: filteredBalances }]);
+      setSelectedItems(prev => [...prev, { item, locationBalances: filteredBalances }]);
     }
   };
 
