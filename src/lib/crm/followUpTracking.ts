@@ -60,7 +60,7 @@ export async function registerFollowUpAttemptIfReal(
     event_metadata: metadata,
     description: `🔁 Follow-up ${attemptNumber} de 3${input.preview ? ` · "${input.preview}"` : ''}`,
     interaction_date: at,
-  });
+  }]);
   if (error) {
     console.error('Falha ao registrar tentativa de follow-up:', error);
     return current;
