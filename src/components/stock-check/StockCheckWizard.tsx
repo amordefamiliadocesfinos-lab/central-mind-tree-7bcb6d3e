@@ -520,8 +520,8 @@ export function StockCheckWizard() {
                       <Package className="h-6 w-6" />
                     </div>
                     <div>
-                      <div className="font-semibold">{currentItem.product.name}</div>
-                      <div className="text-sm text-muted-foreground">{currentItem.product.sku}</div>
+                      <div className="font-semibold">{currentItem.item.name}</div>
+                      <div className="text-sm text-muted-foreground">{currentItem.item.sku}</div>
                     </div>
                   </div>
 
@@ -550,7 +550,7 @@ export function StockCheckWizard() {
                         <div className="text-2xl font-bold">
                           {currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0}
                           <span className="text-sm font-normal text-muted-foreground ml-1">
-                            {currentItem.product.unit || 'un'}
+                            {currentItem.item.unit || 'un'}
                           </span>
                         </div>
                       </div>
@@ -602,7 +602,7 @@ export function StockCheckWizard() {
                             : ''
                         }`}>
                           {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0) > 0 ? '+' : ''}
-                          {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0)} {currentItem.product.unit || 'un'}
+                          {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0)} {currentItem.item.unit || 'un'}
                         </div>
                       </div>
                     )}
