@@ -104,9 +104,9 @@ export function StockCheckWizard() {
       const fetchProducts = async () => {
         setIsLoadingProducts(true);
         try {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, name, sku, min_stock, unit, category')
+          const { data, error } = await (supabase
+            .from('products') as any)
+            .select('id, name, sku, min_stock, unit, category, variation_mode')
             .eq('is_active', true)
             .is('deleted_at', null)
             .order('name');
@@ -117,27 +117,64 @@ export function StockCheckWizard() {
             return;
           }
 
-          const productsList = (data || []).map(p => ({
-            id: p.id,
-            name: p.name,
-            sku: p.sku,
-            min_stock: p.min_stock || 0,
-            unit: p.unit,
-            category: p.category,
-          }));
-          
-          setProducts(productsList);
+          const productsList = (data || []) as ProductForCheck[];
+          const masters = productsList.filter(p => p.variation_mode === 'variacoes_fisicas');
 
-          // Fetch balances in parallel
+          // Variantes ativas dos Mestres: são elas as identidades físicas contáveis
+          let activeVariants: { id: string; product_id: string; variant_name: string; sku: string; unit: string | null }[] = [];
+          if (masters.length > 0) {
+            const { data: variantsData } = await supabase
+              .from('product_variants')
+              .select('id, product_id, variant_name, sku, unit')
+              .in('product_id', masters.map(m => m.id))
+              .eq('is_active', true)
+              .order('variant_name');
+            activeVariants = (variantsData || []) as typeof activeVariants;
+          }
+
+          const items: PhysicalItem[] = [];
+          productsList.forEach(p => {
+            if (p.variation_mode === 'variacoes_fisicas') {
+              activeVariants
+                .filter(v => v.product_id === p.id)
+                .forEach(v => {
+                  items.push({
+                    key: `${p.id}:${v.id}`,
+                    productId: p.id,
+                    variantId: v.id,
+                    name: `${p.name} / ${v.variant_name}`,
+                    sku: v.sku || p.sku,
+                    min_stock: p.min_stock || 0,
+                    unit: v.unit || p.unit,
+                    category: p.category,
+                  });
+                });
+            } else {
+              items.push({
+                key: p.id,
+                productId: p.id,
+                variantId: null,
+                name: p.name,
+                sku: p.sku,
+                min_stock: p.min_stock || 0,
+                unit: p.unit,
+                category: p.category,
+              });
+            }
+          });
+          setPhysicalItems(items);
+
+          // Fetch balances in parallel, keyed by physical identity
           const { data: inventoryData } = await supabase
             .from('inventory')
-            .select('product_id, quantity');
+            .select('product_id, variant_id, quantity');
 
           const balances: Record<string, number> = {};
-          (inventoryData || []).forEach(item => {
-            balances[item.product_id] = (balances[item.product_id] || 0) + item.quantity;
+          (inventoryData || []).forEach((row: any) => {
+            const key = row.variant_id ? `${row.product_id}:${row.variant_id}` : row.product_id;
+            balances[key] = (balances[key] || 0) + (Number(row.quantity) || 0);
           });
-          setProductBalances(balances);
+          setItemBalances(balances);
         } catch (err) {
           console.error('Error fetching products:', err);
           toast.error('Erro ao carregar produtos');
