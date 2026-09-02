@@ -308,8 +308,9 @@ export function StockCheckWizard() {
       : -countedQuantity;
 
     const entry: AdjustmentEntry = {
-      productId: currentItem.product.id,
-      productName: currentItem.product.name,
+      productId: currentItem.item.productId,
+      variantId: currentItem.item.variantId,
+      productName: currentItem.item.name,
       location: countingLocation,
       previousBalance,
       countedQuantity: adjustmentType === 'adjust' ? countedQuantity : 
