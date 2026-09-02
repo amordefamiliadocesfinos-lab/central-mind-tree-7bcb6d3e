@@ -203,6 +203,30 @@ export default function Operacoes() {
   const [masterVariants, setMasterVariants] = useState<Record<string, { id: string; variant_name: string; sku: string }[]>>({});
   const storeInventory = useAppStore((s) => s.inventory);
 
+  // Load active variants of master products shown in the inventory list.
+  // Masters are NOT countable; their active variants are the physical identities.
+  useEffect(() => {
+    const masterIds = (filteredProducts as any[])
+      .filter((p) => p.variation_mode === 'variacoes_fisicas')
+      .map((p) => p.id);
+    if (masterIds.length === 0) {
+      setMasterVariants({});
+      return;
+    }
+    supabase
+      .from('product_variants')
+      .select('id, product_id, variant_name, sku')
+      .in('product_id', masterIds)
+      .eq('is_active', true)
+      .then(({ data }) => {
+        const map: Record<string, { id: string; variant_name: string; sku: string }[]> = {};
+        (data || []).forEach((v: any) => {
+          (map[v.product_id] ||= []).push(v);
+        });
+        setMasterVariants(map);
+      });
+  }, [filteredProducts]);
+
   // Variant balances by physical identity (product_id + variant_id)
   const getVariantBalance = useCallback((productId: string, variantId: string) =>
     storeInventory
