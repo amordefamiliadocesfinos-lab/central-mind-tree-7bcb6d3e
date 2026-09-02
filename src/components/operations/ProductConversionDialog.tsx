@@ -83,7 +83,8 @@ export function ProductConversionDialog({ open, onOpenChange, products, onConver
     setSubmitting(true);
     setErrorMessage('');
     try {
-      const { error } = await supabase.rpc('convert_simple_products_to_variants', {
+      // RPC ainda não refletida nos tipos gerados do banco.
+      const { error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ error: unknown }>)('convert_simple_products_to_variants', {
         p_source_product_ids: selectedProducts.map(product => product.id),
         p_master: {
           name: masterName.trim(),
