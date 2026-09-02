@@ -73,12 +73,14 @@ export function useMultiLocationInventory() {
     return (data || []).reduce((sum, inv) => sum + (inv.quantity || 0), 0);
   }, []);
 
-  // Get inventory breakdown by location for a product
-  const getProductInventoryByLocation = useCallback(async (productId: string): Promise<LocationInventory[]> => {
-    const { data, error } = await supabase
+  // Get inventory breakdown by location for a product (variant-aware)
+  const getProductInventoryByLocation = useCallback(async (productId: string, variantId?: string | null): Promise<LocationInventory[]> => {
+    let query = supabase
       .from('inventory')
       .select('*')
       .eq('product_id', productId);
+    query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null);
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error getting inventory by location:', error);

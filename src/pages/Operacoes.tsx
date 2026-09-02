@@ -199,7 +199,40 @@ export default function Operacoes() {
   const [showProductConversion, setShowProductConversion] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [movementProduct, setMovementProduct] = useState<{ id: string; name: string } | null>(null);
+  const [movementProduct, setMovementProduct] = useState<{ id: string; name: string; variantId?: string | null } | null>(null);
+  const [masterVariants, setMasterVariants] = useState<Record<string, { id: string; variant_name: string; sku: string }[]>>({});
+  const storeInventory = useAppStore((s) => s.inventory);
+
+  // Load active variants of master products shown in the inventory list.
+  // Masters are NOT countable; their active variants are the physical identities.
+  useEffect(() => {
+    const masterIds = (filteredProducts as any[])
+      .filter((p) => p.variation_mode === 'variacoes_fisicas')
+      .map((p) => p.id);
+    if (masterIds.length === 0) {
+      setMasterVariants({});
+      return;
+    }
+    supabase
+      .from('product_variants')
+      .select('id, product_id, variant_name, sku')
+      .in('product_id', masterIds)
+      .eq('is_active', true)
+      .then(({ data }) => {
+        const map: Record<string, { id: string; variant_name: string; sku: string }[]> = {};
+        (data || []).forEach((v: any) => {
+          (map[v.product_id] ||= []).push(v);
+        });
+        setMasterVariants(map);
+      });
+  }, [filteredProducts]);
+
+  // Variant balances by physical identity (product_id + variant_id)
+  const getVariantBalance = useCallback((productId: string, variantId: string) =>
+    storeInventory
+      .filter((i: any) => i.product_id === productId && i.variant_id === variantId)
+      .reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0),
+  [storeInventory]);
   const [historyProductId, setHistoryProductId] = useState<string | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [showCostEditor, setShowCostEditor] = useState(false);
@@ -1260,19 +1293,79 @@ export default function Operacoes() {
             </div>
 
             <div className="space-y-3">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product as Product}
-                  balance={getProductBalance(product.id)}
-                  onEdit={setEditingProduct}
-                  onMovement={(p) => setMovementProduct({ id: p.id, name: p.name })}
-                  onHistory={setHistoryProductId}
-                  showInventoryActions
-                  linkedIdeas={productIdeasMap[product.id]}
-                  platformsMap={platformsById}
-                />
-              ))}
+              {filteredProducts.map((product) => {
+                const isMaster = (product as any).variation_mode === 'variacoes_fisicas';
+                if (isMaster) {
+                  const variants = masterVariants[product.id] || [];
+                  return (
+                    <Card key={product.id} className="p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Produto Mestre — movimente as variantes abaixo
+                          </p>
+                        </div>
+                        <Badge variant="secondary">{variants.length} variante(s)</Badge>
+                      </div>
+                      <div className="space-y-2 pl-3 border-l-2 border-muted">
+                        {variants.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-1">
+                            Nenhuma variante ativa. Cadastre variações na aba Produtos.
+                          </p>
+                        )}
+                        {variants.map((variant) => {
+                          const vBalance = getVariantBalance(product.id, variant.id);
+                          return (
+                            <div
+                              key={variant.id}
+                              className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {product.name} / {variant.variant_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{variant.sku}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant={vBalance <= (product as any).min_stock ? 'destructive' : 'secondary'}>
+                                  {vBalance} {(product as any).unit || 'un'}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8"
+                                  onClick={() => setMovementProduct({
+                                    id: product.id,
+                                    name: `${product.name} / ${variant.variant_name}`,
+                                    variantId: variant.id,
+                                  })}
+                                >
+                                  <Warehouse className="h-3.5 w-3.5 mr-1" />
+                                  Movimentar
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                }
+                return (
+                  <ProductCard
+                    key={product.id}
+                    product={product as Product}
+                    balance={getProductBalance(product.id)}
+                    onEdit={setEditingProduct}
+                    onMovement={(p) => setMovementProduct({ id: p.id, name: p.name })}
+                    onHistory={setHistoryProductId}
+                    showInventoryActions
+                    linkedIdeas={productIdeasMap[product.id]}
+                    platformsMap={platformsById}
+                  />
+                );
+              })}
             </div>
           </div>
         );
@@ -1598,6 +1691,7 @@ export default function Operacoes() {
           open={!!movementProduct}
           onOpenChange={(open) => !open && setMovementProduct(null)}
           productId={movementProduct.id}
+          variantId={movementProduct.variantId ?? null}
           productName={movementProduct.name}
           onSuccess={() => {
             refetch();

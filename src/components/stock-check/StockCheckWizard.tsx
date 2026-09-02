@@ -25,15 +25,32 @@ interface ProductForCheck {
   min_stock: number;
   unit: string | null;
   category: string | null;
+  variation_mode?: 'sem_variacao' | 'variacoes_fisicas' | null;
+}
+
+/**
+ * Identidade física contável: produto simples (sem variante) OU
+ * variante ativa de um Produto Mestre. O Mestre nunca é item contável.
+ */
+interface PhysicalItem {
+  key: string; // productId ou productId:variantId
+  productId: string;
+  variantId: string | null;
+  name: string;
+  sku: string;
+  min_stock: number;
+  unit: string | null;
+  category: string | null;
 }
 
 interface SelectedItem {
-  product: ProductForCheck;
+  item: PhysicalItem;
   locationBalances: LocationInventory[];
 }
 
 interface AdjustmentEntry {
   productId: string;
+  variantId: string | null;
   productName: string;
   location: string;
   previousBalance: number;
@@ -57,9 +74,9 @@ export function StockCheckWizard() {
   const { locations } = useStorageLocations();
   const { getProductInventoryByLocation, adjustInventory, createEntry, createExit, getTotalBalance } = useMultiLocationInventory();
   
-  // Local products state - fetched directly from Supabase
-  const [products, setProducts] = useState<ProductForCheck[]>([]);
-  const [productBalances, setProductBalances] = useState<Record<string, number>>({});
+  // Local physical items state - fetched directly from Supabase
+  const [physicalItems, setPhysicalItems] = useState<PhysicalItem[]>([]);
+  const [itemBalances, setItemBalances] = useState<Record<string, number>>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
   // Wizard state
@@ -87,9 +104,9 @@ export function StockCheckWizard() {
       const fetchProducts = async () => {
         setIsLoadingProducts(true);
         try {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, name, sku, min_stock, unit, category')
+          const { data, error } = await (supabase
+            .from('products') as any)
+            .select('id, name, sku, min_stock, unit, category, variation_mode')
             .eq('is_active', true)
             .is('deleted_at', null)
             .order('name');
@@ -100,27 +117,64 @@ export function StockCheckWizard() {
             return;
           }
 
-          const productsList = (data || []).map(p => ({
-            id: p.id,
-            name: p.name,
-            sku: p.sku,
-            min_stock: p.min_stock || 0,
-            unit: p.unit,
-            category: p.category,
-          }));
-          
-          setProducts(productsList);
+          const productsList = (data || []) as ProductForCheck[];
+          const masters = productsList.filter(p => p.variation_mode === 'variacoes_fisicas');
 
-          // Fetch balances in parallel
+          // Variantes ativas dos Mestres: são elas as identidades físicas contáveis
+          let activeVariants: { id: string; product_id: string; variant_name: string; sku: string; unit: string | null }[] = [];
+          if (masters.length > 0) {
+            const { data: variantsData } = await supabase
+              .from('product_variants')
+              .select('id, product_id, variant_name, sku, unit')
+              .in('product_id', masters.map(m => m.id))
+              .eq('is_active', true)
+              .order('variant_name');
+            activeVariants = (variantsData || []) as typeof activeVariants;
+          }
+
+          const items: PhysicalItem[] = [];
+          productsList.forEach(p => {
+            if (p.variation_mode === 'variacoes_fisicas') {
+              activeVariants
+                .filter(v => v.product_id === p.id)
+                .forEach(v => {
+                  items.push({
+                    key: `${p.id}:${v.id}`,
+                    productId: p.id,
+                    variantId: v.id,
+                    name: `${p.name} / ${v.variant_name}`,
+                    sku: v.sku || p.sku,
+                    min_stock: p.min_stock || 0,
+                    unit: v.unit || p.unit,
+                    category: p.category,
+                  });
+                });
+            } else {
+              items.push({
+                key: p.id,
+                productId: p.id,
+                variantId: null,
+                name: p.name,
+                sku: p.sku,
+                min_stock: p.min_stock || 0,
+                unit: p.unit,
+                category: p.category,
+              });
+            }
+          });
+          setPhysicalItems(items);
+
+          // Fetch balances in parallel, keyed by physical identity
           const { data: inventoryData } = await supabase
             .from('inventory')
-            .select('product_id, quantity');
+            .select('product_id, variant_id, quantity');
 
           const balances: Record<string, number> = {};
-          (inventoryData || []).forEach(item => {
-            balances[item.product_id] = (balances[item.product_id] || 0) + item.quantity;
+          (inventoryData || []).forEach((row: any) => {
+            const key = row.variant_id ? `${row.product_id}:${row.variant_id}` : row.product_id;
+            balances[key] = (balances[key] || 0) + (Number(row.quantity) || 0);
           });
-          setProductBalances(balances);
+          setItemBalances(balances);
         } catch (err) {
           console.error('Error fetching products:', err);
           toast.error('Erro ao carregar produtos');
@@ -135,27 +189,27 @@ export function StockCheckWizard() {
 
   const stepInfo = STEPS.find(s => s.key === currentStep)!;
 
-  // Filtered products for selection
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
+  // Filtered physical items for selection
+  const filteredItems = useMemo(() => {
+    let filtered = physicalItems;
 
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(search) || 
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(search) ||
         p.sku.toLowerCase().includes(search)
       );
     }
 
     if (lowStockOnly) {
       filtered = filtered.filter(p => {
-        const balance = productBalances[p.id] || 0;
+        const balance = itemBalances[p.key] || 0;
         return balance <= (p.min_stock || 0);
       });
     }
 
     return filtered;
-  }, [products, productBalances, searchTerm, lowStockOnly]);
+  }, [physicalItems, itemBalances, searchTerm, lowStockOnly]);
 
   // Toggle location selection
   const toggleLocation = (locationName: string) => {
@@ -166,18 +220,18 @@ export function StockCheckWizard() {
     );
   };
 
-  // Toggle product selection
-  const toggleProduct = async (product: ProductForCheck) => {
-    const existing = selectedItems.find(i => i.product.id === product.id);
+  // Toggle physical item selection
+  const toggleItem = async (item: PhysicalItem) => {
+    const existing = selectedItems.find(i => i.item.key === item.key);
     if (existing) {
-      setSelectedItems(prev => prev.filter(i => i.product.id !== product.id));
+      setSelectedItems(prev => prev.filter(i => i.item.key !== item.key));
     } else {
-      const balances = await getProductInventoryByLocation(product.id);
+      const balances = await getProductInventoryByLocation(item.productId, item.variantId);
       // Filter to only selected locations
-      const filteredBalances = balances.filter(b => 
+      const filteredBalances = balances.filter(b =>
         selectedLocations.includes(b.location || '')
       );
-      setSelectedItems(prev => [...prev, { product, locationBalances: filteredBalances }]);
+      setSelectedItems(prev => [...prev, { item, locationBalances: filteredBalances }]);
     }
   };
 
@@ -200,20 +254,13 @@ export function StockCheckWizard() {
         setLoading(true);
         try {
           const itemsWithBalances = await Promise.all(
-            products.map(async (product) => {
-              const balances = await getProductInventoryByLocation(product.id);
-              const filteredBalances = balances.filter(b => 
+            physicalItems.map(async (item) => {
+              const balances = await getProductInventoryByLocation(item.productId, item.variantId);
+              const filteredBalances = balances.filter(b =>
                 selectedLocations.includes(b.location || '')
               );
               return {
-                product: {
-                  id: product.id,
-                  name: product.name,
-                  sku: product.sku,
-                  min_stock: product.min_stock || 0,
-                  unit: product.unit,
-                  category: product.category,
-                },
+                item,
                 locationBalances: filteredBalances,
               } as SelectedItem;
             })
@@ -261,8 +308,9 @@ export function StockCheckWizard() {
       : -countedQuantity;
 
     const entry: AdjustmentEntry = {
-      productId: currentItem.product.id,
-      productName: currentItem.product.name,
+      productId: currentItem.item.productId,
+      variantId: currentItem.item.variantId,
+      productName: currentItem.item.name,
       location: countingLocation,
       previousBalance,
       countedQuantity: adjustmentType === 'adjust' ? countedQuantity : 
@@ -298,11 +346,11 @@ export function StockCheckWizard() {
         if (adj.difference === 0) continue;
 
         if (adj.adjustmentType === 'adjust') {
-          await adjustInventory(adj.productId, adj.location, adj.countedQuantity, adj.justification);
+          await adjustInventory(adj.productId, adj.location, adj.countedQuantity, adj.justification, adj.variantId);
         } else if (adj.adjustmentType === 'in') {
-          await createEntry(adj.productId, adj.location, Math.abs(adj.difference), adj.justification);
+          await createEntry(adj.productId, adj.location, Math.abs(adj.difference), adj.justification, adj.variantId);
         } else {
-          await createExit(adj.productId, adj.location, Math.abs(adj.difference), adj.justification);
+          await createExit(adj.productId, adj.location, Math.abs(adj.difference), adj.justification, adj.variantId);
         }
       }
 
@@ -414,7 +462,7 @@ export function StockCheckWizard() {
               <div className="text-sm text-muted-foreground">
                 {searchTerm || lowStockOnly ? (
                   <>
-                    {filteredProducts.filter(p => selectedItems.some(i => i.product.id === p.id)).length} de {filteredProducts.length} exibidos selecionados
+                    {filteredItems.filter(p => selectedItems.some(i => i.item.key === p.key)).length} de {filteredItems.length} exibidos selecionados
                     <span className="ml-2 text-xs">({selectedItems.length} total)</span>
                   </>
                 ) : (
@@ -423,38 +471,31 @@ export function StockCheckWizard() {
               </div>
 
               <div className="space-y-2">
-                {filteredProducts.map((product) => {
-                  const isSelected = selectedItems.some(i => i.product.id === product.id);
-                  const balance = productBalances[product.id] || 0;
-                  const isLow = balance <= (product.min_stock || 0);
+                {filteredItems.map((item) => {
+                  const isSelected = selectedItems.some(i => i.item.key === item.key);
+                  const balance = itemBalances[item.key] || 0;
+                  const isLow = balance <= (item.min_stock || 0);
 
                   return (
                     <div
-                      key={product.id}
+                      key={item.key}
                       className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                       }`}
-                      onClick={() => toggleProduct({
-                        id: product.id,
-                        name: product.name,
-                        sku: product.sku,
-                        min_stock: product.min_stock || 0,
-                        unit: product.unit,
-                        category: product.category,
-                      })}
+                      onClick={() => toggleItem(item)}
                     >
                       <Checkbox checked={isSelected} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.sku}</div>
+                        <div className="font-medium truncate">{item.name}</div>
+                        <div className="text-xs text-muted-foreground">{item.sku}</div>
                       </div>
                       <Badge variant={isLow ? 'destructive' : 'secondary'}>
-                        {balance} {product.unit || 'un'}
+                        {balance} {item.unit || 'un'}
                       </Badge>
                     </div>
                   );
                 })}
-                {filteredProducts.length === 0 && (
+                {filteredItems.length === 0 && (
                   <p className="text-center text-muted-foreground py-8">
                     {lowStockOnly 
                       ? 'Nenhum produto com estoque baixo' 
@@ -479,8 +520,8 @@ export function StockCheckWizard() {
                       <Package className="h-6 w-6" />
                     </div>
                     <div>
-                      <div className="font-semibold">{currentItem.product.name}</div>
-                      <div className="text-sm text-muted-foreground">{currentItem.product.sku}</div>
+                      <div className="font-semibold">{currentItem.item.name}</div>
+                      <div className="text-sm text-muted-foreground">{currentItem.item.sku}</div>
                     </div>
                   </div>
 
@@ -509,7 +550,7 @@ export function StockCheckWizard() {
                         <div className="text-2xl font-bold">
                           {currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0}
                           <span className="text-sm font-normal text-muted-foreground ml-1">
-                            {currentItem.product.unit || 'un'}
+                            {currentItem.item.unit || 'un'}
                           </span>
                         </div>
                       </div>
@@ -561,7 +602,7 @@ export function StockCheckWizard() {
                             : ''
                         }`}>
                           {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0) > 0 ? '+' : ''}
-                          {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0)} {currentItem.product.unit || 'un'}
+                          {countedQuantity - (currentItem.locationBalances.find(b => b.location === countingLocation)?.quantity || 0)} {currentItem.item.unit || 'un'}
                         </div>
                       </div>
                     )}
