@@ -1293,19 +1293,79 @@ export default function Operacoes() {
             </div>
 
             <div className="space-y-3">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product as Product}
-                  balance={getProductBalance(product.id)}
-                  onEdit={setEditingProduct}
-                  onMovement={(p) => setMovementProduct({ id: p.id, name: p.name })}
-                  onHistory={setHistoryProductId}
-                  showInventoryActions
-                  linkedIdeas={productIdeasMap[product.id]}
-                  platformsMap={platformsById}
-                />
-              ))}
+              {filteredProducts.map((product) => {
+                const isMaster = (product as any).variation_mode === 'variacoes_fisicas';
+                if (isMaster) {
+                  const variants = masterVariants[product.id] || [];
+                  return (
+                    <Card key={product.id} className="p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Produto Mestre — movimente as variantes abaixo
+                          </p>
+                        </div>
+                        <Badge variant="secondary">{variants.length} variante(s)</Badge>
+                      </div>
+                      <div className="space-y-2 pl-3 border-l-2 border-muted">
+                        {variants.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-1">
+                            Nenhuma variante ativa. Cadastre variações na aba Produtos.
+                          </p>
+                        )}
+                        {variants.map((variant) => {
+                          const vBalance = getVariantBalance(product.id, variant.id);
+                          return (
+                            <div
+                              key={variant.id}
+                              className="flex items-center justify-between gap-2 rounded-md bg-muted/40 p-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {product.name} / {variant.variant_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{variant.sku}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant={vBalance <= (product as any).min_stock ? 'destructive' : 'secondary'}>
+                                  {vBalance} {(product as any).unit || 'un'}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8"
+                                  onClick={() => setMovementProduct({
+                                    id: product.id,
+                                    name: `${product.name} / ${variant.variant_name}`,
+                                    variantId: variant.id,
+                                  })}
+                                >
+                                  <Warehouse className="h-3.5 w-3.5 mr-1" />
+                                  Movimentar
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                }
+                return (
+                  <ProductCard
+                    key={product.id}
+                    product={product as Product}
+                    balance={getProductBalance(product.id)}
+                    onEdit={setEditingProduct}
+                    onMovement={(p) => setMovementProduct({ id: p.id, name: p.name })}
+                    onHistory={setHistoryProductId}
+                    showInventoryActions
+                    linkedIdeas={productIdeasMap[product.id]}
+                    platformsMap={platformsById}
+                  />
+                );
+              })}
             </div>
           </div>
         );
@@ -1631,6 +1691,7 @@ export default function Operacoes() {
           open={!!movementProduct}
           onOpenChange={(open) => !open && setMovementProduct(null)}
           productId={movementProduct.id}
+          variantId={movementProduct.variantId ?? null}
           productName={movementProduct.name}
           onSuccess={() => {
             refetch();
