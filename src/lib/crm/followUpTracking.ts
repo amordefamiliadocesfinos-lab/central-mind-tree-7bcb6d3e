@@ -57,7 +57,7 @@ export async function registerFollowUpAttemptIfReal(
     event_type: 'whatsapp',
     interaction_type: 'mensagem',
     event_code: CRM_EVENT_CODES.FOLLOW_UP_COMPLETED,
-    event_metadata: metadata,
+    event_metadata: { ...metadata } as unknown as Record<string, never>,
     description: `🔁 Follow-up ${attemptNumber} de 3${input.preview ? ` · "${input.preview}"` : ''}`,
     interaction_date: at,
   }]);
