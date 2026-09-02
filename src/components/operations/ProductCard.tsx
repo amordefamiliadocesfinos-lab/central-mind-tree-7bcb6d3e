@@ -189,18 +189,20 @@ export function ProductCard({
         
         {showInventoryActions && (
           <div className="flex gap-2 mt-3 pt-3 border-t">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMovement?.({ id: product.id, name: product.name, balance });
-              }}
-            >
-              <ArrowUpDown className="h-4 w-4 mr-1" />
-              Movimentar
-            </Button>
+            {onMovement && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 h-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMovement({ id: product.id, name: product.name, balance });
+                }}
+              >
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                Movimentar
+              </Button>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
