@@ -189,27 +189,27 @@ export function StockCheckWizard() {
 
   const stepInfo = STEPS.find(s => s.key === currentStep)!;
 
-  // Filtered products for selection
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
+  // Filtered physical items for selection
+  const filteredItems = useMemo(() => {
+    let filtered = physicalItems;
 
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(search) || 
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(search) ||
         p.sku.toLowerCase().includes(search)
       );
     }
 
     if (lowStockOnly) {
       filtered = filtered.filter(p => {
-        const balance = productBalances[p.id] || 0;
+        const balance = itemBalances[p.key] || 0;
         return balance <= (p.min_stock || 0);
       });
     }
 
     return filtered;
-  }, [products, productBalances, searchTerm, lowStockOnly]);
+  }, [physicalItems, itemBalances, searchTerm, lowStockOnly]);
 
   // Toggle location selection
   const toggleLocation = (locationName: string) => {
