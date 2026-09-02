@@ -5530,6 +5530,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      convert_simple_products_to_variants: {
+        Args: {
+          p_master: Json
+          p_reset_stock?: boolean
+          p_source_product_ids: string[]
+          p_variants: Json
+        }
+        Returns: Json
+      }
       confirm_campaign_execution: {
         Args: { _execution_id: string }
         Returns: {
