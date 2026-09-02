@@ -13,6 +13,8 @@ import { buildCrmAiContext } from '@/lib/crm/aiContext';
 import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
 import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
+import { getFollowUpCycleLabel, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
+import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
 
 
 interface Message {
@@ -50,6 +52,14 @@ const MAX_FONT = 22;
 
 export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
+  // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
+  const [conversationMeta, setConversationMeta] = useState<{
+    attendance_state: string | null;
+    return_at: string | null;
+    last_inbound_at: string | null;
+    last_outbound_at: string | null;
+  } | null>(null);
+  const [followUpCycle, setFollowUpCycle] = useState<FollowUpCycleState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [commercialOptOut, setCommercialOptOut] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,7 +122,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       setLoading(true);
       const { data: existing } = await supabase
         .from('service_conversations')
-        .select('id,funnel_stage')
+        .select('id,funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
         .eq('contact_id', contactId)
         .order('last_message_at', { ascending: false })
         .limit(1)
@@ -120,6 +130,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       if (cancelled) return;
       if (existing?.id) {
         setConversationId(existing.id);
+        setConversationMeta({
+          attendance_state: existing.attendance_state ?? null,
+          return_at: existing.return_at ?? null,
+          last_inbound_at: existing.last_inbound_at ?? null,
+          last_outbound_at: existing.last_outbound_at ?? null,
+        });
         const canonicalStage = normalizeCrmStage(funnelStage);
         if (existing.funnel_stage !== canonicalStage) {
           await supabase
@@ -145,7 +161,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           setLoading(false);
           return;
         }
-        if (!cancelled) setConversationId(created.id);
+        if (!cancelled) {
+          setConversationId(created.id);
+          setConversationMeta({ attendance_state: null, return_at: null, last_inbound_at: null, last_outbound_at: null });
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -184,6 +203,15 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [conversationId]);
+
+  // F5.2.1 — contador do ciclo atual (somente leitura, não altera prioridade).
+  useEffect(() => {
+    let cancelled = false;
+    loadFollowUpCycle(contactId, { lastInboundAt: conversationMeta?.last_inbound_at })
+      .then((state) => { if (!cancelled) setFollowUpCycle(state); })
+      .catch(() => { if (!cancelled) setFollowUpCycle(null); });
+    return () => { cancelled = true; };
+  }, [contactId, conversationMeta?.last_inbound_at, messages.length]);
 
   const handleSend = async () => {
     if (!conversationId || (!text.trim() && !attachment)) return;
@@ -230,6 +258,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         await completeCrmReactivationIfDue(contactId);
       } catch (reactivationError) {
         console.warn('Mensagem enviada, mas não foi possível concluir a reativação:', reactivationError);
+      }
+      // F5.2.1 — só conta como tentativa quando é follow-up real (fora de campanha).
+      try {
+        const nextCycle = await registerFollowUpAttemptIfReal({
+          contactId,
+          mode: 'manual',
+          attendanceState: conversationMeta?.attendance_state,
+          returnAt: conversationMeta?.return_at,
+          lastInboundAt: conversationMeta?.last_inbound_at,
+          lastOutboundAt: conversationMeta?.last_outbound_at,
+          preview: content ? (content.length > 80 ? `${content.slice(0, 80)}…` : content) : null,
+        });
+        setFollowUpCycle(nextCycle);
+      } catch (followUpError) {
+        console.warn('Mensagem enviada, mas o ciclo de follow-up não foi atualizado:', followUpError);
       }
       setText('');
       setAttachment(null);
@@ -373,6 +416,11 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           onRetry={handleAnalyze}
         />
 
+        {followUpCycle && getFollowUpCycleLabel(followUpCycle) && (
+          <p className="px-1 text-[10px] text-muted-foreground">
+            🔁 {getFollowUpCycleLabel(followUpCycle)}
+          </p>
+        )}
         {commercialOptOut && (
           <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
             {isCustomerReply
