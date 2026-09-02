@@ -52,7 +52,7 @@ export async function registerFollowUpAttemptIfReal(
     cycleStartedAt: current.cycleStartedAt ?? at,
   });
 
-  const { error } = await supabase.from('contact_history').insert({
+  const { error } = await supabase.from('contact_history').insert([{
     contact_id: input.contactId,
     event_type: 'whatsapp',
     interaction_type: 'mensagem',
