@@ -150,3 +150,23 @@ export function getFollowUpCycleLabel(state: FollowUpCycleState): string | null 
   }
   return `Follow-up ${state.attemptCount} de ${FOLLOW_UP_CYCLE_LIMIT}`;
 }
+
+/**
+ * F5.2.2 — Limite operacional.
+ * Depois da 3ª tentativa o CRM não cria automaticamente uma nova obrigação
+ * de follow-up só porque continuamos sem resposta. Nada é encerrado, nenhum
+ * Resultado é gravado: a decisão final permanece com o operador.
+ */
+export function canCreateAutomaticFollowUpObligation(state: FollowUpCycleState): boolean {
+  return !state.limitReached;
+}
+
+export const FOLLOW_UP_LIMIT_TITLE = 'Limite de follow-up atingido neste ciclo';
+export const FOLLOW_UP_LIMIT_HINT =
+  'Decida encerrar, manter aguardando ou programar novo contato conscientemente.';
+
+/** Aviso discreto para a UI quando o ciclo atingiu o limite. */
+export function getFollowUpLimitNotice(state: FollowUpCycleState | null): { title: string; hint: string } | null {
+  if (!state?.limitReached) return null;
+  return { title: FOLLOW_UP_LIMIT_TITLE, hint: FOLLOW_UP_LIMIT_HINT };
+}

@@ -13,7 +13,7 @@ import { buildCrmAiContext } from '@/lib/crm/aiContext';
 import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
 import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
-import { getFollowUpCycleLabel, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
+import { getFollowUpCycleLabel, getFollowUpLimitNotice, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
 import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
 
 
@@ -419,6 +419,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         {followUpCycle && getFollowUpCycleLabel(followUpCycle) && (
           <p className="px-1 text-[10px] text-muted-foreground">
             🔁 {getFollowUpCycleLabel(followUpCycle)}
+          </p>
+        )}
+        {getFollowUpLimitNotice(followUpCycle) && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <strong className="font-medium">{getFollowUpLimitNotice(followUpCycle)!.title}.</strong>{' '}
+            {getFollowUpLimitNotice(followUpCycle)!.hint}
           </p>
         )}
         {commercialOptOut && (

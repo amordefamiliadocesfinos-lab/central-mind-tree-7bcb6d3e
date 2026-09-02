@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CRM_EVENT_CODES } from '@/lib/crm/model';
 import {
   buildFollowUpAttemptMetadata,
+  canCreateAutomaticFollowUpObligation,
   computeFollowUpCycle,
   shouldRegisterFollowUpAttempt,
   type FollowUpAttemptCheckInput,
@@ -44,6 +45,9 @@ export async function registerFollowUpAttemptIfReal(
 ): Promise<FollowUpCycleState> {
   const current = await loadFollowUpCycle(input.contactId, { lastInboundAt: input.lastInboundAt });
   if (!shouldRegisterFollowUpAttempt(input, now)) return current;
+  // F5.2.2 — envio manual consciente após o limite é permitido, mas não cria
+  // uma 4ª tentativa nem reinicia o ciclo: o limite permanece até um reset.
+  if (current.limitReached) return current;
 
   const at = now.toISOString();
   const attemptNumber = current.nextAttemptNumber;
@@ -72,4 +76,21 @@ export async function registerFollowUpAttemptIfReal(
     limitReached: attemptNumber >= 3,
     cycleStartedAt: current.cycleStartedAt ?? at,
   };
+}
+
+/**
+ * F5.2.2 — o CRM só pode criar automaticamente uma nova obrigação de
+ * follow-up enquanto o ciclo atual não tiver atingido o limite.
+ */
+export async function canScheduleAutomaticFollowUp(
+  contactId: string,
+  options: { lastInboundAt?: string | null } = {},
+): Promise<boolean> {
+  try {
+    const state = await loadFollowUpCycle(contactId, options);
+    return canCreateAutomaticFollowUpObligation(state);
+  } catch (error) {
+    console.error('Falha ao avaliar o limite de follow-up:', error);
+    return true;
+  }
 }

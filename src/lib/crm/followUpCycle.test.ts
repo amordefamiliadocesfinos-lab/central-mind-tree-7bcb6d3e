@@ -2,6 +2,8 @@ import {
   buildFollowUpAttemptMetadata,
   computeFollowUpCycle,
   getFollowUpCycleLabel,
+  canCreateAutomaticFollowUpObligation,
+  getFollowUpLimitNotice,
   shouldRegisterFollowUpAttempt,
   type FollowUpHistoryEvent,
 } from './followUpCycle';
@@ -105,5 +107,63 @@ describe('followUpCycle', () => {
     ]);
     expect(state.attemptCount).toBe(0);
     expect(getFollowUpCycleLabel(state)).toBeNull();
+  });
+});
+
+describe('F5.2.2 — limite de 3 tentativas', () => {
+  it('A/B — 1ª e 2ª tentativas ainda permitem nova obrigação automática', () => {
+    const one = computeFollowUpCycle([attempt('2026-09-01T10:00:00Z', 1)]);
+    expect(canCreateAutomaticFollowUpObligation(one)).toBe(true);
+    const two = computeFollowUpCycle([attempt('2026-09-01T10:00:00Z', 1), attempt('2026-09-02T10:00:00Z', 2)]);
+    expect(canCreateAutomaticFollowUpObligation(two)).toBe(true);
+    expect(getFollowUpLimitNotice(two)).toBeNull();
+  });
+
+  it('C/D — 3ª tentativa marca limite e bloqueia nova obrigação automática', () => {
+    const three = computeFollowUpCycle([
+      attempt('2026-09-01T10:00:00Z', 1),
+      attempt('2026-09-02T10:00:00Z', 2),
+      attempt('2026-09-03T10:00:00Z', 3),
+    ]);
+    expect(three.limitReached).toBe(true);
+    expect(canCreateAutomaticFollowUpObligation(three)).toBe(false);
+    expect(getFollowUpLimitNotice(three)?.title).toBe('Limite de follow-up atingido neste ciclo');
+  });
+
+  it('E/F — envio manual continua permitido e não reinicia o ciclo', () => {
+    const now = new Date('2026-09-04T10:00:00Z');
+    // A elegibilidade do envio manual não depende do limite.
+    expect(shouldRegisterFollowUpAttempt({
+      mode: 'manual',
+      attendanceState: 'aguardando_cliente',
+      returnAt: '2026-09-03T09:00:00Z',
+      lastInboundAt: null,
+      lastOutboundAt: '2026-09-03T10:00:00Z',
+    }, now)).toBe(true);
+    // Mas o ciclo permanece em limite atingido enquanto não houver reset.
+    const state = computeFollowUpCycle([
+      attempt('2026-09-01T10:00:00Z', 1),
+      attempt('2026-09-02T10:00:00Z', 2),
+      attempt('2026-09-03T10:00:00Z', 3),
+    ]);
+    expect(state.attemptCount).toBe(3);
+    expect(state.limitReached).toBe(true);
+  });
+
+  it('G/H — inbound reseta o limite e campanha continua fora', () => {
+    const afterInbound = computeFollowUpCycle([
+      attempt('2026-09-01T10:00:00Z', 1),
+      attempt('2026-09-02T10:00:00Z', 2),
+      attempt('2026-09-03T10:00:00Z', 3),
+    ], { lastInboundAt: '2026-09-03T12:00:00Z' });
+    expect(afterInbound.limitReached).toBe(false);
+    expect(afterInbound.nextAttemptNumber).toBe(1);
+    expect(canCreateAutomaticFollowUpObligation(afterInbound)).toBe(true);
+
+    expect(shouldRegisterFollowUpAttempt({
+      mode: 'campaign',
+      attendanceState: 'aguardando_cliente',
+      returnAt: '2026-09-03T09:00:00Z',
+    }, new Date('2026-09-04T10:00:00Z'))).toBe(false);
   });
 });
