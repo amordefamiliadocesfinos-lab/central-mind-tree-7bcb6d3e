@@ -25,15 +25,32 @@ interface ProductForCheck {
   min_stock: number;
   unit: string | null;
   category: string | null;
+  variation_mode?: 'sem_variacao' | 'variacoes_fisicas' | null;
+}
+
+/**
+ * Identidade física contável: produto simples (sem variante) OU
+ * variante ativa de um Produto Mestre. O Mestre nunca é item contável.
+ */
+interface PhysicalItem {
+  key: string; // productId ou productId:variantId
+  productId: string;
+  variantId: string | null;
+  name: string;
+  sku: string;
+  min_stock: number;
+  unit: string | null;
+  category: string | null;
 }
 
 interface SelectedItem {
-  product: ProductForCheck;
+  item: PhysicalItem;
   locationBalances: LocationInventory[];
 }
 
 interface AdjustmentEntry {
   productId: string;
+  variantId: string | null;
   productName: string;
   location: string;
   previousBalance: number;
