@@ -346,11 +346,11 @@ export function StockCheckWizard() {
         if (adj.difference === 0) continue;
 
         if (adj.adjustmentType === 'adjust') {
-          await adjustInventory(adj.productId, adj.location, adj.countedQuantity, adj.justification);
+          await adjustInventory(adj.productId, adj.location, adj.countedQuantity, adj.justification, adj.variantId);
         } else if (adj.adjustmentType === 'in') {
-          await createEntry(adj.productId, adj.location, Math.abs(adj.difference), adj.justification);
+          await createEntry(adj.productId, adj.location, Math.abs(adj.difference), adj.justification, adj.variantId);
         } else {
-          await createExit(adj.productId, adj.location, Math.abs(adj.difference), adj.justification);
+          await createExit(adj.productId, adj.location, Math.abs(adj.difference), adj.justification, adj.variantId);
         }
       }
 
@@ -462,7 +462,7 @@ export function StockCheckWizard() {
               <div className="text-sm text-muted-foreground">
                 {searchTerm || lowStockOnly ? (
                   <>
-                    {filteredProducts.filter(p => selectedItems.some(i => i.product.id === p.id)).length} de {filteredProducts.length} exibidos selecionados
+                    {filteredItems.filter(p => selectedItems.some(i => i.item.key === p.key)).length} de {filteredItems.length} exibidos selecionados
                     <span className="ml-2 text-xs">({selectedItems.length} total)</span>
                   </>
                 ) : (
@@ -471,38 +471,31 @@ export function StockCheckWizard() {
               </div>
 
               <div className="space-y-2">
-                {filteredProducts.map((product) => {
-                  const isSelected = selectedItems.some(i => i.product.id === product.id);
-                  const balance = productBalances[product.id] || 0;
-                  const isLow = balance <= (product.min_stock || 0);
+                {filteredItems.map((item) => {
+                  const isSelected = selectedItems.some(i => i.item.key === item.key);
+                  const balance = itemBalances[item.key] || 0;
+                  const isLow = balance <= (item.min_stock || 0);
 
                   return (
                     <div
-                      key={product.id}
+                      key={item.key}
                       className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                       }`}
-                      onClick={() => toggleProduct({
-                        id: product.id,
-                        name: product.name,
-                        sku: product.sku,
-                        min_stock: product.min_stock || 0,
-                        unit: product.unit,
-                        category: product.category,
-                      })}
+                      onClick={() => toggleItem(item)}
                     >
                       <Checkbox checked={isSelected} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.sku}</div>
+                        <div className="font-medium truncate">{item.name}</div>
+                        <div className="text-xs text-muted-foreground">{item.sku}</div>
                       </div>
                       <Badge variant={isLow ? 'destructive' : 'secondary'}>
-                        {balance} {product.unit || 'un'}
+                        {balance} {item.unit || 'un'}
                       </Badge>
                     </div>
                   );
                 })}
-                {filteredProducts.length === 0 && (
+                {filteredItems.length === 0 && (
                   <p className="text-center text-muted-foreground py-8">
                     {lowStockOnly 
                       ? 'Nenhum produto com estoque baixo' 
