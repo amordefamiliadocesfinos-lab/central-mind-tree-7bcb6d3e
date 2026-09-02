@@ -74,9 +74,9 @@ export function StockCheckWizard() {
   const { locations } = useStorageLocations();
   const { getProductInventoryByLocation, adjustInventory, createEntry, createExit, getTotalBalance } = useMultiLocationInventory();
   
-  // Local products state - fetched directly from Supabase
-  const [products, setProducts] = useState<ProductForCheck[]>([]);
-  const [productBalances, setProductBalances] = useState<Record<string, number>>({});
+  // Local physical items state - fetched directly from Supabase
+  const [physicalItems, setPhysicalItems] = useState<PhysicalItem[]>([]);
+  const [itemBalances, setItemBalances] = useState<Record<string, number>>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
   // Wizard state
