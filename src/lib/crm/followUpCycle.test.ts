@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   buildFollowUpAttemptMetadata,
   computeFollowUpCycle,
@@ -20,6 +19,14 @@ const legacyMessage = (at: string): FollowUpHistoryEvent => ({
 });
 
 const now = new Date('2026-09-02T18:00:00.000Z');
+
+const check = (condition: unknown, message: string) => { if (!condition) throw new Error(message); };
+const describe = (_name: string, fn: () => void) => fn();
+const it = (_name: string, fn: () => void) => fn();
+const expect = (received: unknown) => ({
+  toBe: (value: unknown) => check(received === value, `esperado ${String(value)}, recebido ${String(received)}`),
+  toBeNull: () => check(received === null, `esperado null, recebido ${String(received)}`),
+});
 
 describe('followUpCycle', () => {
   it('A/B/C — conta tentativas reais do ciclo', () => {
