@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, CalendarClock, FileSpreadsheet } from 'lucide-react';
+import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, CalendarClock, FileSpreadsheet, GitMerge } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ProductGallery } from '@/components/ProductGallery';
 import { ProductMovementHistory } from '@/components/ProductMovementHistory';
@@ -48,6 +48,7 @@ import { ContactAutocomplete } from '@/components/operations/ContactAutocomplete
 import { ProductCategoriesManager } from '@/components/operations/ProductCategoriesManager';
 import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer';
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
+import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { useProductCategories } from '@/hooks/useProductCategories';
 import { useProductIdeas } from '@/hooks/useProductIdeas';
 import { usePlatforms } from '@/hooks/usePlatforms';
@@ -195,6 +196,7 @@ export default function Operacoes() {
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [showShopeeImport, setShowShopeeImport] = useState(false);
+  const [showProductConversion, setShowProductConversion] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [movementProduct, setMovementProduct] = useState<{ id: string; name: string } | null>(null);
@@ -1059,6 +1061,10 @@ export default function Operacoes() {
             <div className="flex flex-wrap justify-between items-center gap-2">
               <h2 className="text-lg font-semibold">Produtos ({productsTabList.length})</h2>
               <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowProductConversion(true)}>
+                <GitMerge className="mr-2 h-4 w-4" />
+                Converter em Mestre + Variantes
+              </Button>
               <ProductCatalogImportExport products={rawProducts as Product[]} categories={productCategories} onImported={refetch} />
               <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
                 <DialogTrigger asChild>
@@ -1645,6 +1651,12 @@ export default function Operacoes() {
         onOpenChange={setShowShopeeImport}
         products={rawProducts.map(product => ({ id: product.id, name: product.name, sku: product.sku }))}
         onImported={refetch}
+      />
+      <ProductConversionDialog
+        open={showProductConversion}
+        onOpenChange={setShowProductConversion}
+        products={rawProducts as Product[]}
+        onConverted={refetch}
       />
     </div>
   );
