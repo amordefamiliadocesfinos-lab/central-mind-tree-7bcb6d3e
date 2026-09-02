@@ -254,20 +254,13 @@ export function StockCheckWizard() {
         setLoading(true);
         try {
           const itemsWithBalances = await Promise.all(
-            products.map(async (product) => {
-              const balances = await getProductInventoryByLocation(product.id);
-              const filteredBalances = balances.filter(b => 
+            physicalItems.map(async (item) => {
+              const balances = await getProductInventoryByLocation(item.productId, item.variantId);
+              const filteredBalances = balances.filter(b =>
                 selectedLocations.includes(b.location || '')
               );
               return {
-                product: {
-                  id: product.id,
-                  name: product.name,
-                  sku: product.sku,
-                  min_stock: product.min_stock || 0,
-                  unit: product.unit,
-                  category: product.category,
-                },
+                item,
                 locationBalances: filteredBalances,
               } as SelectedItem;
             })
