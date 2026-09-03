@@ -1153,7 +1153,7 @@ export default function ContatosInbox() {
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
-                    <AttendanceActionBar busy={attendanceBusy} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} />
+                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
