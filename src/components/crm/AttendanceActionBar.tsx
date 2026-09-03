@@ -8,19 +8,29 @@ import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
 interface Props {
   busy?: boolean;
-  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null) => void | Promise<void>;
+  /** CRM-COR-01/04: identidade do atendimento (contato+conversa) dono deste formulário. */
+  contextKey: string;
+  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string) => void | Promise<void>;
   onSnooze: (when: number | string) => void | Promise<void>;
   /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
   presetResultCode?: string | null;
 }
 
-export function AttendanceActionBar({ busy = false, onOutcome, onSnooze, presetResultCode }: Props) {
+export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
+
+  // CRM-COR-01: trocar de contato/conversa limpa todo estado temporário do formulário.
+  useEffect(() => {
+    setMode(null);
+    setResultCode('');
+    setDate('');
+    setTime('');
+  }, [contextKey]);
 
   // Pré-seleção vinda da sugestão de IA: abre o fluxo canônico já preenchido,
   // sem gravar nada. A confirmação continua sendo do operador.
@@ -33,7 +43,7 @@ export function AttendanceActionBar({ busy = false, onOutcome, onSnooze, presetR
 
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;
-    await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null);
+    await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null, contextKey);
     setMode(null);
     setResultCode('');
     setDate(''); setTime('');
