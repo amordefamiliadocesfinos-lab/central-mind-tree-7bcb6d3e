@@ -134,6 +134,13 @@ export default function ContatosInbox() {
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
+
+  // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
+  // anterior é descartado (Resultado sugerido, confirmação de envio).
+  useEffect(() => {
+    setSuggestedResultCode(null);
+    setSendConfirmation(false);
+  }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
   const { tags, assignments } = useContactTags();
 
