@@ -134,6 +134,13 @@ export default function ContatosInbox() {
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
+
+  // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
+  // anterior é descartado (Resultado sugerido, confirmação de envio).
+  useEffect(() => {
+    setSuggestedResultCode(null);
+    setSendConfirmation(false);
+  }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
   const { tags, assignments } = useContactTags();
 
@@ -741,8 +748,15 @@ export default function ContatosInbox() {
     await openConversation(next);
   };
 
-  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null) => {
+  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string) => {
     if (!selected) return;
+    // CRM-COR-04: trava de integridade — o formulário precisa pertencer ao atendimento atual.
+    const currentContextKey = `${selected.id}|${selected.conversation_id ?? ''}`;
+    if (contextKey && contextKey !== currentContextKey) {
+      setSuggestedResultCode(null);
+      toast.error('Contato alterado durante o registro. Selecione o resultado novamente.');
+      return;
+    }
     setAttendanceBusy(true);
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor });
@@ -1146,7 +1160,7 @@ export default function ContatosInbox() {
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
-                    <AttendanceActionBar busy={attendanceBusy} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} />
+                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
