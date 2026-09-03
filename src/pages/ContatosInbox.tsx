@@ -32,7 +32,7 @@ import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
-import { compareCrmPriority, getCrmPriority, type CrmPriorityInput } from '@/lib/crm/priority';
+import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
@@ -536,10 +536,16 @@ export default function ContatosInbox() {
       if (stageFilter !== 'all' && i.funnel_status !== stageFilter) return false;
       if (assignmentFilter === 'unassigned' && i.assigned_to) return false;
       if (assignmentFilter === 'assigned' && !i.assigned_to) return false;
-      if (waitingCustomerOnly && i.attendance_state !== 'aguardando_cliente') return false;
       // Resolvidas não fazem parte da fila operacional; retornos legítimos
       // continuam acessíveis em "Hoje" enquanto tiverem return_at.
       const priority = getCrmPriority(toCrmPriorityInput(i), now);
+      // "Aguardando cliente" = bola com o cliente. Aceita todos os aliases
+      // equivalentes já existentes e exclui quem exige ação nossa agora
+      // (inbound novo, retorno/obrigação vencida, Resultado pendente).
+      if (waitingCustomerOnly) {
+        if (!isWaitingCustomerState(i.attendance_state)) return false;
+        if (priority.operational) return false;
+      }
       const supplier = isPureSupplier(i);
       // Na busca/estágio o cadastro inteiro fica visível (cliente ou fornecedor).
       if (!searching) {
