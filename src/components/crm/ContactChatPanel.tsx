@@ -97,6 +97,15 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     // Nunca dispara IA automaticamente — apenas invalida o que ficou velho.
   }, [contextStamp, analyzedAt]);
 
+  // CRM-COR-02: troca de contato descarta imediatamente sugestão e rascunho
+  // do atendimento anterior, mesmo antes do histórico novo carregar.
+  useEffect(() => {
+    dismissAnalysis();
+    setText('');
+    setAttachment(null);
+    setFollowUpCycle(null);
+  }, [contactId]);
+
 
   useEffect(() => {
     let cancelled = false;
