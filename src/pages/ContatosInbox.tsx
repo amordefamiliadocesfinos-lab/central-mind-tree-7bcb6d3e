@@ -741,8 +741,15 @@ export default function ContatosInbox() {
     await openConversation(next);
   };
 
-  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null) => {
+  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string) => {
     if (!selected) return;
+    // CRM-COR-04: trava de integridade — o formulário precisa pertencer ao atendimento atual.
+    const currentContextKey = `${selected.id}|${selected.conversation_id ?? ''}`;
+    if (contextKey && contextKey !== currentContextKey) {
+      setSuggestedResultCode(null);
+      toast.error('Contato alterado durante o registro. Selecione o resultado novamente.');
+      return;
+    }
     setAttendanceBusy(true);
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor });
