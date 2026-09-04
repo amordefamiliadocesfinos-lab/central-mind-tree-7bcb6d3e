@@ -76,7 +76,8 @@ export function analyzeProductCatalog(rows: ProductCatalogRow[], products: Catal
     allNumeric.forEach(([label, value]) => numberValue(value, label, rowErrors));
     if (kind === 'PRODUTO') {
       const existing = text(row.produto_id) ? productById.get(text(row.produto_id)) : productBySku.get(key(sku));
-      const collisionVariant = variantBySku.get(key(sku)); if (collisionVariant) rowErrors.push('SKU já pertence a uma variação');
+      const keepsOwnSku = Boolean(existing && key(existing.sku) === key(sku));
+      const collisionVariant = variantBySku.get(key(sku)); if (collisionVariant && !keepsOwnSku) rowErrors.push('SKU já pertence a uma variação');
       if (text(row.produto_id) && !existing) rowErrors.push('produto_id não encontrado');
       if (existing && productBySku.get(key(sku)) && productBySku.get(key(sku))?.id !== existing.id) rowErrors.push('SKU já pertence a outro produto');
       if (rowErrors.length) { errors.push({ rowNumber: row.rowNumber, kind: 'PRODUTO', state: 'ERRO', title: sku || 'Produto sem SKU', details: rowErrors.join(' · '), changes: [] }); continue; }
