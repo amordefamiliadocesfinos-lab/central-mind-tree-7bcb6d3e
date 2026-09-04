@@ -20,3 +20,22 @@ expect(duplicate.errors === 1, 'SKU duplicado no arquivo deve bloquear');
 const missingMaster = analyzeProductCatalog([row({ tipo_registro: 'VARIACAO', produto_id: '', produto_sku: 'INEXISTENTE', variante_id: '', variante_sku: 'NOVA-VAR', variante_nome: 'Nova' })], [product], [variant], ['Doces']);
 expect(missingMaster.errors === 1, 'variação sem mestre deve bloquear');
 console.log('productCatalogImport tests: ok');
+
+// Regressões SKU legado (colisão histórica cruzada)
+const legacyProduct: CatalogProduct = { ...product, id: '33333333-3333-3333-3333-333333333333', sku: '100000040', name: 'Legado 100000040' };
+const legacyVariant: CatalogVariant = { ...variant, id: 'ee26683c-97cc-4872-a201-a82965de83ca', sku: '100000040', variant_name: 'Legado var' };
+const variantRow = (patch: Partial<ProductCatalogRow>): ProductCatalogRow => row({ tipo_registro: 'VARIACAO', produto_id: product.id, produto_sku: product.sku, variante_id: legacyVariant.id, variante_sku: legacyVariant.sku, variante_nome: 'Legado var atualizado', variante_status: 'Ativo', ...patch });
+
+const caseA = analyzeProductCatalog([variantRow({})], [product, legacyProduct], [legacyVariant], ['Doces']);
+expect(caseA.errors === 0, 'A: variação existente mantendo próprio SKU deve ser permitida mesmo com colisão legada em products');
+const caseB = analyzeProductCatalog([variantRow({ variante_sku: legacyProduct.sku === '100000040' ? product.sku : product.sku })], [product, legacyProduct], [legacyVariant], ['Doces']);
+expect(caseB.errors === 1, 'B: variação existente mudando para SKU de produto deve bloquear');
+const caseC = analyzeProductCatalog([variantRow({ variante_sku: variant.sku })], [product], [legacyVariant, variant], ['Doces']);
+expect(caseC.errors === 1, 'C: variação existente mudando para SKU de outra variação deve bloquear');
+const caseD = analyzeProductCatalog([variantRow({ variante_id: '', variante_sku: product.sku })], [product], [variant], ['Doces']);
+expect(caseD.errors === 1, 'D: variação nova com SKU de produto existente deve bloquear');
+const caseE = analyzeProductCatalog([variantRow({ variante_id: '', variante_sku: variant.sku })], [product], [variant], ['Doces']);
+expect(caseE.errors === 1, 'E: variação nova com SKU de variação existente deve bloquear');
+const caseF = analyzeProductCatalog([row({ produto_id: legacyProduct.id, produto_sku: legacyProduct.sku, produto_nome: 'Legado atualizado' })], [product, legacyProduct], [legacyVariant], ['Doces']);
+expect(caseF.errors === 0, 'F: produto existente mantendo próprio SKU deve ser permitido mesmo com colisão legada em product_variants');
+console.log('productCatalogImport legacy SKU tests: ok');
