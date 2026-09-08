@@ -11,5 +11,8 @@ export async function parseBomImportXlsx(file: File): Promise<BomImportRow[]> {
   const headers = Object.keys(source[0]);
   const missing = BOM_IMPORT_HEADERS.filter(header => !headers.includes(header));
   if (missing.length) throw new Error(`Arquivo incompatível: faltam colunas obrigatórias (${missing.join(', ')}).`);
-  return source.map((row, index) => Object.fromEntries(BOM_IMPORT_HEADERS.map(header => [header, String(row[header] ?? '')])) as BomImportRow).map((row, index) => ({ ...row, rowNumber: index + 2 }));
+  return source.map((row, index) => ({
+    ...(Object.fromEntries(BOM_IMPORT_HEADERS.map(header => [header, String(row[header] ?? '')])) as Record<(typeof BOM_IMPORT_HEADERS)[number], string>),
+    rowNumber: index + 2,
+  }));
 }
