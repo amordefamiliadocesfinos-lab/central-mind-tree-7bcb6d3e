@@ -19,7 +19,16 @@ export interface ProductComponent {
     sku: string;
     unit: string;
   };
-  variant?: {
+  /** Variante física do produto final. */
+  product_variant?: {
+    id: string;
+    variant_name: string;
+    sku: string;
+    unit: string | null;
+    cost_override: number | null;
+  } | null;
+  /** Variante física do componente/insumo. */
+  component_variant?: {
     id: string;
     variant_name: string;
     sku: string;
@@ -43,6 +52,7 @@ export interface BOMLine {
 export function useBOM() {
   const [components, setComponents] = useState<ProductComponent[]>([]);
   const [loading, setLoading] = useState(false);
+  const clearComponents = useCallback(() => setComponents([]), []);
 
   const fetchComponentsForProduct = useCallback(async (productId: string, productVariantId: string | null = null) => {
     setLoading(true);
@@ -51,7 +61,8 @@ export function useBOM() {
       .select(`
         *,
         component:products!product_components_component_id_fkey(id, name, sku, unit),
-        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
+        product_variant:product_variants!product_components_product_variant_id_fkey(id, variant_name, sku, unit, cost_override),
+        component_variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
     const { data, error } = productVariantId
@@ -72,17 +83,41 @@ export function useBOM() {
 
   const addComponent = useCallback(async (
     productId: string,
-    productVariantId: string | null,
     componentId: string,
-    variantId: string | null,
     qtyPerUnit: number,
-    notes?: string
+    notes?: string,
+    productVariantId: string | null = null,
+    componentVariantId: string | null = null,
   ) => {
     try {
       await resolvePhysicalIdentity(productId, productVariantId);
-      await resolvePhysicalIdentity(componentId, variantId);
+      await resolvePhysicalIdentity(componentId, componentVariantId);
     } catch (error) {
       toast.error(error instanceof PhysicalIdentityError ? error.message : 'Identidade física inválida.');
+      return null;
+    }
+
+    // A constraint do banco é soberana, mas a consulta evita uma tentativa
+    // duplicada e deixa explícita a identidade completa da linha da BOM.
+    let duplicateQuery = supabase
+      .from('product_components')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('component_id', componentId);
+    duplicateQuery = productVariantId
+      ? duplicateQuery.eq('product_variant_id', productVariantId)
+      : duplicateQuery.is('product_variant_id', null);
+    duplicateQuery = componentVariantId
+      ? duplicateQuery.eq('variant_id', componentVariantId)
+      : duplicateQuery.is('variant_id', null);
+    const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
+    if (duplicateError) {
+      toast.error('Erro ao validar o componente');
+      console.error('Error validating BOM component:', duplicateError);
+      return null;
+    }
+    if (duplicate) {
+      toast.error('Este componente já está na lista');
       return null;
     }
 
@@ -92,14 +127,15 @@ export function useBOM() {
         product_id: productId,
         product_variant_id: productVariantId,
         component_id: componentId,
-        variant_id: variantId,
+        variant_id: componentVariantId,
         qty_per_unit: qtyPerUnit,
         notes: notes || null,
       })
       .select(`
         *,
         component:products!product_components_component_id_fkey(id, name, sku, unit),
-        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
+        product_variant:product_variants!product_components_product_variant_id_fkey(id, variant_name, sku, unit, cost_override),
+        component_variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .single();
 
@@ -165,7 +201,8 @@ export function useBOM() {
       .select(`
         *,
         component:products!product_components_component_id_fkey(id, name, sku, unit),
-        variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
+        product_variant:product_variants!product_components_product_variant_id_fkey(id, variant_name, sku, unit, cost_override),
+        component_variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit, cost_override)
       `)
       .eq('product_id', productId);
     const { data: comps, error: compsError } = productVariantId
@@ -197,9 +234,9 @@ export function useBOM() {
       return {
         component_id: c.component_id,
         variant_id: c.variant_id || null,
-        component_name: c.variant ? `${c.component?.name || 'Componente'} · ${c.variant.variant_name}` : (c.component?.name || 'Unknown'),
-        component_sku: c.variant?.sku || c.component?.sku || '',
-        unit: c.variant?.unit || c.component?.unit || 'un',
+        component_name: c.component_variant ? `${c.component?.name || 'Componente'} · ${c.component_variant.variant_name}` : (c.component?.name || 'Unknown'),
+        component_sku: c.component_variant?.sku || c.component?.sku || '',
+        unit: c.component_variant?.unit || c.component?.unit || 'un',
         qty_per_unit: c.qty_per_unit,
         qty_needed: qtyNeeded,
         stock_available: stockAvailable,
@@ -216,5 +253,6 @@ export function useBOM() {
     updateComponent,
     removeComponent,
     calculateBOM,
+    clearComponents,
   };
 }

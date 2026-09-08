@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useBOM, ProductComponent } from '@/hooks/useBOM';
+import { useBOM } from '@/hooks/useBOM';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface BOMEditorProps {
   productId: string;
@@ -15,22 +16,35 @@ interface BOMEditorProps {
 }
 
 export function BOMEditor({ productId, productName, availableComponents }: BOMEditorProps) {
-  const { components, loading, fetchComponentsForProduct, addComponent, updateComponent, removeComponent } = useBOM();
+  const { components, loading, fetchComponentsForProduct, addComponent, updateComponent, removeComponent, clearComponents } = useBOM();
   const [newComponentId, setNewComponentId] = useState('');
   const [newVariantId, setNewVariantId] = useState('');
   const [productVariantId, setProductVariantId] = useState('');
   const [finalVariants, setFinalVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
   const [availableVariants, setAvailableVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
   const [newQty, setNewQty] = useState(1);
+  const [requiresFinalVariant, setRequiresFinalVariant] = useState(false);
+  const [finalVariantsLoaded, setFinalVariantsLoaded] = useState(false);
 
   useEffect(() => {
-    fetchComponentsForProduct(productId, productVariantId || null);
-  }, [productId, productVariantId, fetchComponentsForProduct]);
+    if (!finalVariantsLoaded) return;
+    if (requiresFinalVariant && !productVariantId) {
+      clearComponents();
+      return;
+    }
+    void fetchComponentsForProduct(productId, productVariantId || null);
+  }, [productId, productVariantId, requiresFinalVariant, finalVariantsLoaded, fetchComponentsForProduct, clearComponents]);
 
   useEffect(() => {
-    void supabase.from('product_variants').select('id, variant_name, sku').eq('product_id', productId).eq('is_active', true).order('variant_name').then(({ data }) => {
-      setFinalVariants(data || []);
+    setFinalVariantsLoaded(false);
+    void Promise.all([
+      supabase.from('product_variants').select('id, variant_name, sku').eq('product_id', productId).eq('is_active', true).order('variant_name'),
+      (supabase.from('products') as any).select('variation_mode').eq('id', productId).maybeSingle(),
+    ]).then(([variantsResult, productResult]) => {
+      setFinalVariants(variantsResult.data || []);
+      setRequiresFinalVariant(productResult.data?.variation_mode === 'variacoes_fisicas');
       setProductVariantId('');
+      setFinalVariantsLoaded(true);
     });
   }, [productId]);
 
@@ -48,8 +62,12 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
 
   const handleAdd = async () => {
     if (!newComponentId || newQty <= 0) return;
+    if (requiresFinalVariant && !productVariantId) {
+      toast.error('Selecione a variante final antes de editar a BOM.');
+      return;
+    }
     if (availableVariants.length && !newVariantId) return;
-    const result = await addComponent(productId, productVariantId || null, newComponentId, newVariantId || null, newQty);
+    const result = await addComponent(productId, newComponentId, newQty, undefined, productVariantId || null, newVariantId || null);
     if (result) {
       setNewComponentId('');
       setNewVariantId('');
@@ -68,8 +86,9 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
     fetchComponentsForProduct(productId, productVariantId || null);
   };
 
-  // Filter out the product itself and already added components
-  const availableToAdd = availableComponents.filter(c => c.id !== productId && !components.find(comp => comp.component_id === c.id && !comp.variant_id));
+  // Duplicidade é por identidade completa. Um mesmo mestre pode fornecer duas
+  // variantes físicas distintas para a mesma variante final.
+  const availableToAdd = availableComponents.filter(c => c.id !== productId);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
@@ -78,19 +97,26 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   return (
     <div className="space-y-4">
       <Label className="text-sm font-medium">Componentes de {productName}</Label>
-      {finalVariants.length > 0 && (
+      {requiresFinalVariant && (
         <div className="max-w-sm">
-          <Label className="text-xs">Variante final da receita</Label>
-          <Select value={productVariantId || '__base__'} onValueChange={(value) => setProductVariantId(value === '__base__' ? '' : value)}>
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+          <Label className="text-xs">Variante final</Label>
+          <Select value={productVariantId} onValueChange={setProductVariantId}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Selecione a variante final..." /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__base__">Sem variante (BOM base)</SelectItem>
               {finalVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="mt-1 text-xs text-muted-foreground">A variante final identifica a receita; a variante do componente identifica o insumo físico.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Cada variante final possui sua própria BOM. A variante do componente identifica o insumo físico.</p>
         </div>
       )}
+
+      {requiresFinalVariant && finalVariants.length === 0 && (
+        <p className="text-sm text-destructive">Este Produto Mestre não possui variante física ativa para receber uma BOM.</p>
+      )}
+
+      {requiresFinalVariant && !productVariantId ? (
+        <p className="text-sm text-muted-foreground py-2">Selecione uma variante final para visualizar ou editar sua composição.</p>
+      ) : <>
       
       {components.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2">
@@ -100,7 +126,9 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Componente</TableHead>
+              <TableHead>Componente físico</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead>Unidade</TableHead>
               <TableHead className="w-24 text-right">Qtd/un</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
@@ -110,11 +138,10 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
               <TableRow key={comp.id}>
                 <TableCell>
                   <span className="font-medium">{comp.component?.name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">
-                    ({comp.component?.sku})
-                  </span>
-                  {comp.variant && <span className="text-xs text-muted-foreground ml-2">· {comp.variant.variant_name} ({comp.variant.sku})</span>}
+                  {comp.component_variant && <span className="text-xs text-muted-foreground ml-2">· {comp.component_variant.variant_name}</span>}
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{comp.component_variant?.sku || comp.component?.sku}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{comp.component_variant?.unit || comp.component?.unit}</TableCell>
                 <TableCell className="text-right">
                   <Input
                     type="number"
@@ -183,6 +210,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+      </>}
     </div>
   );
 }
