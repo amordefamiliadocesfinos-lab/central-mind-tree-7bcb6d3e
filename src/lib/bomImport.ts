@@ -132,9 +132,12 @@ export function analyzeBomImport(
     const key = identity(final.product.id, final.variant?.id || null, component.product.id, component.variant?.id || null);
     if (seen.has(key)) return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: 'A mesma identidade física está repetida no arquivo.', finalLabel: label(final.product, final.variant), componentLabel: label(component.product, component.variant) };
     seen.add(key);
-    const notes = text(row.observacao);
-    const payload = { product_id: final.product.id, product_variant_id: final.variant?.id || null, component_id: component.product.id, variant_id: component.variant?.id || null, qty_per_unit: quantity, notes };
     const previous = existingByIdentity.get(key);
+    // Observação vazia em uma linha existente significa "preservar", como no
+    // importador de catálogo. Somente uma observação preenchida substitui a nota.
+    const importedNotes = text(row.observacao);
+    const notes = importedNotes ?? text(previous?.notes);
+    const payload = { product_id: final.product.id, product_variant_id: final.variant?.id || null, component_id: component.product.id, variant_id: component.variant?.id || null, qty_per_unit: quantity, notes };
     const isSame = previous && Number(previous.qty_per_unit) === quantity && text(previous.notes) === notes;
     return {
       rowNumber: row.rowNumber,
