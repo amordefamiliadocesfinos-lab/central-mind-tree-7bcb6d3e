@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { BOMImportDialog } from '@/components/operations/BOMImportDialog';
 
 interface BOMEditorProps {
   productId: string;
@@ -96,7 +97,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
 
   return (
     <div className="space-y-4">
-      <Label className="text-sm font-medium">Componentes de {productName}</Label>
+      <div className="flex flex-wrap items-center justify-between gap-2"><Label className="text-sm font-medium">Componentes de {productName}</Label><BOMImportDialog onImported={() => void fetchComponentsForProduct(productId, productVariantId || null)} /></div>
       {requiresFinalVariant && (
         <div className="max-w-sm">
           <Label className="text-xs">Variante final</Label>
