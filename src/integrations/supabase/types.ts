@@ -3674,6 +3674,127 @@ export type Database = {
         }
         Relationships: []
       }
+      product_batch_recipe_items: {
+        Row: {
+          component_label: string
+          component_product_id: string | null
+          component_variant_id: string | null
+          created_at: string
+          id: string
+          mapping_status: string
+          notes: string | null
+          qty: number | null
+          recipe_id: string
+          relation: string
+          unit: string | null
+        }
+        Insert: {
+          component_label: string
+          component_product_id?: string | null
+          component_variant_id?: string | null
+          created_at?: string
+          id?: string
+          mapping_status?: string
+          notes?: string | null
+          qty?: number | null
+          recipe_id: string
+          relation?: string
+          unit?: string | null
+        }
+        Update: {
+          component_label?: string
+          component_product_id?: string | null
+          component_variant_id?: string | null
+          created_at?: string
+          id?: string
+          mapping_status?: string
+          notes?: string | null
+          qty?: number | null
+          recipe_id?: string
+          relation?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_batch_recipe_items_component_product_id_fkey"
+            columns: ["component_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batch_recipe_items_component_variant_id_fkey"
+            columns: ["component_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batch_recipe_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "product_batch_recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_batch_recipes: {
+        Row: {
+          batch_output_qty: number | null
+          batch_output_unit: string
+          code: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          output_product_id: string
+          output_variant_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          batch_output_qty?: number | null
+          batch_output_unit?: string
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          output_product_id: string
+          output_variant_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          batch_output_qty?: number | null
+          batch_output_unit?: string
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          output_product_id?: string
+          output_variant_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_batch_recipes_output_product_id_fkey"
+            columns: ["output_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batch_recipes_output_variant_id_fkey"
+            columns: ["output_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           attribute_schema: Json
