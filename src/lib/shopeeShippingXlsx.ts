@@ -232,3 +232,39 @@ export function buildShopeePreview(
 
   }));
 }
+
+export interface ShopeePhysicalImportItem {
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+  commercial_quantity: number;
+  physical_multiplier: number;
+  unit_price: number;
+  external_item_key: string;
+  product_title: string;
+  variation: string;
+  composition_position: number;
+}
+
+/**
+ * Expande cada item comercial Shopee em N itens físicos.
+ * O preço comercial fica apenas no primeiro componente, para não inflar o
+ * total do pedido quando a composição tem várias linhas físicas.
+ */
+export function buildShopeeImportItems(order: ShopeePreviewOrder): ShopeePhysicalImportItem[] {
+  return order.items.flatMap(item => item.components.map((component, index) => ({
+    product_id: component.productId,
+    variant_id: component.variantId,
+    quantity: component.physicalQuantity,
+    commercial_quantity: item.quantity,
+    physical_multiplier: component.physicalMultiplier,
+    unit_price: index === 0 ? item.unitPrice : 0,
+    external_item_key: item.externalItemKey,
+    product_title: item.productTitle,
+    variation: item.components.length > 1
+      ? `${item.variation || 'Sem variação'} · composição ${index + 1}/${item.components.length}`
+      : item.variation,
+    composition_position: index,
+  })));
+}
+
