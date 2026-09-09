@@ -37,11 +37,29 @@ export interface ShopeeShippingOrder {
   items: ShopeeShippingItem[];
 }
 
-export interface ShopeeProductMapping {
-  external_item_key: string;
+/** Uma linha física da composição comercial de um anúncio. */
+export interface ShopeeMappingComponent {
   product_id: string;
   variant_id?: string | null;
   physical_multiplier: number;
+  position?: number;
+}
+
+export interface ShopeeProductMapping {
+  external_item_key: string;
+  /** Cabeçalho legado (1 produto/variante). Mantido para compatibilidade. */
+  product_id?: string | null;
+  variant_id?: string | null;
+  physical_multiplier?: number | null;
+  /** Composição comercial completa. Quando ausente, usa o cabeçalho legado. */
+  components?: ShopeeMappingComponent[] | null;
+}
+
+export interface ShopeePreviewComponent {
+  productId: string;
+  variantId: string | null;
+  physicalMultiplier: number;
+  physicalQuantity: number;
 }
 
 export interface ShopeePreviewItem extends ShopeeShippingItem {
@@ -49,8 +67,10 @@ export interface ShopeePreviewItem extends ShopeeShippingItem {
   variantId: string | null;
   physicalMultiplier: number | null;
   physicalQuantity: number | null;
+  components: ShopeePreviewComponent[];
   mappingStatus: 'recognized' | 'needs_mapping' | 'error';
 }
+
 
 export interface ShopeePreviewOrder extends Omit<ShopeeShippingOrder, 'items'> {
   items: ShopeePreviewItem[];
