@@ -8,6 +8,97 @@
  */
 const CRM_ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
 const CRM_TASK_SOURCE = 'crm_next_action';
+const FOLLOW_UP_LIMIT = 3;
+const FOLLOW_UP_ATTEMPT_KIND = 'follow_up_attempt';
+const FOLLOW_UP_RESET_EVENTS = new Set([
+  'customer_replied',
+  'sale_won',
+  'sale_lost',
+  'post_sale_completed',
+  'reactivation_completed',
+  'lead_created',
+]);
+
+type FollowUpHistoryRow = {
+  event_code?: string | null;
+  event_metadata?: unknown;
+  interaction_date?: string | null;
+  created_at?: string | null;
+};
+
+function historyAt(row: FollowUpHistoryRow): string | null {
+  return row.interaction_date ?? row.created_at ?? null;
+}
+
+function isFollowUpAttempt(row: FollowUpHistoryRow): boolean {
+  const metadata = row.event_metadata;
+  return Boolean(metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    && (metadata as Record<string, unknown>).kind === FOLLOW_UP_ATTEMPT_KIND);
+}
+
+/**
+ * Writer server-side não pode depender do estado visual da Inbox. Esta leitura
+ * espelha o contrato do ciclo: só tentativas explícitas contam; inbound/venda
+ * e demais fatos canônicos iniciam um novo ciclo.
+ */
+export async function canCreateAutomaticFollowUpObligation(
+  supabase: any,
+  contactId: string,
+  lastInboundAt?: string | null,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('contact_history')
+    .select('event_code, event_metadata, interaction_date, created_at')
+    .eq('contact_id', contactId)
+    .order('interaction_date', { ascending: false })
+    .limit(200);
+  if (error) throw error;
+
+  const rows = ((data ?? []) as FollowUpHistoryRow[])
+    .map((row) => ({ row, at: historyAt(row) }))
+    .filter((item): item is { row: FollowUpHistoryRow; at: string } => Boolean(item.at))
+    .sort((a, b) => a.at.localeCompare(b.at));
+
+  let boundary = lastInboundAt ?? null;
+  for (const { row, at } of rows) {
+    if (row.event_code && FOLLOW_UP_RESET_EVENTS.has(row.event_code) && (!boundary || at > boundary)) {
+      boundary = at;
+    }
+  }
+  const attempts = rows.filter(({ row, at }) => isFollowUpAttempt(row) && (!boundary || at > boundary));
+  return attempts.length < FOLLOW_UP_LIMIT;
+}
+
+/** Consome a obrigação oficial atual sem criar substituta. */
+export async function clearOfficialCrmNextAction(
+  supabase: any,
+  input: { contactId: string; conversationId?: string | null },
+) {
+  const now = new Date().toISOString();
+  const { error: contactError } = await supabase.from('contacts').update({
+    next_action_text: null,
+    next_action_date: null,
+    next_contact_date: null,
+    updated_at: now,
+  }).eq('id', input.contactId);
+  if (contactError) throw contactError;
+
+  const { error: taskError } = await supabase.from('tasks')
+    .update({ status: 'concluído', updated_at: now })
+    .eq('contact_id', input.contactId)
+    .eq('source', CRM_TASK_SOURCE)
+    .is('deleted_at', null)
+    .neq('status', 'concluído');
+  if (taskError) throw taskError;
+
+  if (input.conversationId) {
+    const { error: conversationError } = await supabase.from('service_conversations')
+      .update({ return_at: null, attendance_state: 'aguardando_cliente' })
+      .eq('id', input.conversationId)
+      .eq('contact_id', input.contactId);
+    if (conversationError) throw conversationError;
+  }
+}
 
 export async function setOfficialCrmNextAction(
   supabase: any,

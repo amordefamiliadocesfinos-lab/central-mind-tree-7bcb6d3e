@@ -2,7 +2,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
-import { setOfficialCrmNextAction } from '../_shared/crm/official-next-action.ts';
+import {
+  canCreateAutomaticFollowUpObligation,
+  clearOfficialCrmNextAction,
+  setOfficialCrmNextAction,
+} from '../_shared/crm/official-next-action.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -205,13 +209,24 @@ Deno.serve(async (req) => {
     await supabase.from('service_conversations').update({
       funnel_stage: nextStage,
     }).eq('id', conversationId);
-    await setOfficialCrmNextAction(supabase, {
-      contactId: conv.contact_id,
-      title: 'Verificar resposta no WhatsApp',
-      dueAt: returnAt.toISOString(),
-      conversationId,
-      taskTime: '09:00',
-    });
+    const canScheduleFollowUp = await canCreateAutomaticFollowUpObligation(
+      supabase,
+      conv.contact_id,
+      conv.last_inbound_at,
+    );
+    if (canScheduleFollowUp) {
+      await setOfficialCrmNextAction(supabase, {
+        contactId: conv.contact_id,
+        title: 'Verificar resposta no WhatsApp',
+        dueAt: returnAt.toISOString(),
+        conversationId,
+        taskTime: '09:00',
+      });
+    } else {
+      // A terceira obrigação acabou de ser consumida por este envio. Mantemos
+      // o atendimento aguardando o cliente, mas não criamos 4º retorno/tarefa.
+      await clearOfficialCrmNextAction(supabase, { contactId: conv.contact_id, conversationId });
+    }
   }
 
   return json({ ok: true, message_id: pending.id, external_message_id: result.externalMessageId ?? null });
