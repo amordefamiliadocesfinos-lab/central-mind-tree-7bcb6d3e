@@ -156,6 +156,9 @@ Regras OBRIGATÓRIAS:
 - Coerência: interesse demonstrado → avançar a conversa, nunca encerrar. Proposta em análise → respeitar o tempo do cliente, sem pressão indevida. Pagamento confirmado → reconhecer e orientar o próximo passo. Não deseja contato → NUNCA gerar nova abordagem promocional (retorne null).
 - OPT-OUT: se o contato está em opt-out comercial e a última mensagem NÃO é do cliente, retorne null. Se o cliente enviou mensagem recente, pode responder àquela mensagem, sem oferta comercial nova.
 - Escreva em português do Brasil, tom humano e direto, 1 a 4 frases, sem emojis em excesso, sem placeholders como [nome]. Use o primeiro nome do contato quando fizer sentido.
+- A DECISÃO OPERACIONAL é recebida pronta: não escolha nem altere Resultado, Próxima Ação, responsabilidade ou risco. O PERFIL influencia somente tom, tamanho e forma de escrever.
+- Nunca exponha tags, notas internas, objeções, riscos, memória interna ou lógica do CRM na mensagem ao cliente.
+- Evite frases genéricas/robóticas como "fico à disposição", "será um prazer", "estamos à disposição" e urgência artificial.
 - Nunca prometa prazo, preço ou desconto que não esteja no contexto. Nunca invente data de agendamento.
 
 Responda APENAS com JSON puro: {"suggested_reply": "texto" ou null, "reason": "frase curta explicando", "tone": "cordial|consultivo|objetivo|acolhedor" ou null}`;
@@ -167,6 +170,8 @@ async function handleReplyMode(body: any, apiKey: string) {
     : null;
   const lastIsInbound = lastMessage?.direction === "inbound";
   const optOut = Boolean(context?.contact?.optOut);
+  const decision = body?.decision ?? {};
+  const profile = body?.communicationProfile ?? {};
 
   // Guarda determinística: opt-out sem inbound recente nunca gera abordagem.
   if (optOut && !lastIsInbound) {
@@ -178,13 +183,23 @@ async function handleReplyMode(body: any, apiKey: string) {
   }
 
   const userContent = [
+    '--- DECISÃO OPERACIONAL ESTRUTURADA (NÃO REESCREVER) ---',
+    `Situação: ${decision.situation ?? '—'} | Intenção: ${decision.perceivedIntent ?? '—'} | Responsabilidade: ${decision.responsibility ?? 'unknown'}`,
+    `Resultado: ${decision.suggestedResult?.code ?? '—'} | Próxima ação: ${decision.nextAction?.code ?? '—'} | Deve responder: ${decision.shouldReply ? 'sim' : 'não'}`,
+    `Ambiguidade: ${decision.ambiguity ?? '—'} | Riscos: ${(decision.riskFlags ?? []).join(', ') || 'nenhum'} | Razão: ${decision.reason ?? '—'}`,
+    '',
+    '--- PERFIL DE COMUNICAÇÃO (INFLUENCIA SOMENTE A FORMA DE ESCREVER) ---',
+    `Status: ${profile.status ?? 'building'} | Formalidade: ${profile.formality ?? 'low'} | Tamanho: ${profile.preferredLength ?? 'short'} | Tom: ${profile.generalTone ?? 'cordial'}`,
+    `Follow-up: ${profile.followUpStyle ?? 'leve e sem pressão'} | Evitar: ${(profile.avoidedExpressions ?? []).join(' | ') || '—'}`,
+    `Exemplos aprovados: ${(profile.approvedExamples ?? []).join(' | ') || 'nenhum'}`,
+    '',
     `Resultado do atendimento (sugerido/selecionado): ${body?.result?.code ?? "—"} — ${body?.result?.label ?? "—"}`,
     `Próxima Ação recomendada: ${body?.nextAction?.code ?? "nenhuma ação imediata"} — ${body?.nextAction?.label ?? "—"}`,
     `Última mensagem é do cliente: ${lastIsInbound ? "sim" : "não"}`,
     `Opt-out comercial: ${optOut ? "sim" : "não"}`,
     "",
-    "--- CONTEXTO DO ATENDIMENTO ---",
-    compactContext(context),
+    "--- CONTEXTO PARA A RESPOSTA ---",
+    compactCommunicationContext(context),
   ].join("\n");
 
   const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -217,6 +232,19 @@ async function handleReplyMode(body: any, apiKey: string) {
     : (reply ? "Resposta alinhada ao Resultado e à Próxima Ação." : "Nenhuma resposta necessária no momento.");
   const tone = typeof parsed?.tone === "string" && parsed.tone.trim() ? parsed.tone.trim().slice(0, 40) : null;
   return json({ suggested_reply: reply, reason, tone });
+}
+
+/** Contexto de fala: exclui tags, objeções, fatos persistentes e notas internas. */
+function compactCommunicationContext(ctx: any) {
+  const messages = Array.isArray(ctx?.messages) ? ctx.messages.slice(-8) : [];
+  const memory = ctx?.liveContext?.memory ?? {};
+  return [
+    `Cliente: ${ctx?.contact?.name ?? '—'} | Etapa: ${ctx?.contact?.stage ?? '—'}`,
+    `Próxima ação atual: ${ctx?.nextAction?.label ?? 'nenhuma'} | Opt-out: ${ctx?.contact?.optOut ? 'sim' : 'não'}`,
+    `Preferências/interesses relevantes: ${JSON.stringify({ preferences: memory.preferences ?? [], interests: memory.interests ?? [], purchase_pattern: memory.purchase_pattern ?? {} })}`,
+    '--- MENSAGENS RECENTES ---',
+    ...messages.map((m: any) => `[${m.createdAt}] ${m.direction === 'inbound' ? 'CLIENTE' : 'OPERADOR'}: ${String(m.content ?? '').slice(0, 500)}`),
+  ].join('\n');
 }
 
 Deno.serve(async (req) => {

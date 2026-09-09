@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useState } from 'react';
 import type { CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
 import type { CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import type { CrmReplySuggestion } from '@/lib/crm/aiReplySuggestion';
@@ -29,6 +30,7 @@ interface CrmAssistantCardProps {
 export function CrmAssistantCard({
   analyzing, analysis, error, onUseResult, onUseReply, onDismiss, onRetry,
 }: CrmAssistantCardProps) {
+  const [showProfileHelp, setShowProfileHelp] = useState(false);
   if (!analyzing && !analysis && !error) return null;
 
   const result = analysis?.result ?? null;
@@ -46,6 +48,18 @@ export function CrmAssistantCard({
           </button>
         )}
       </div>
+
+      {!analyzing && (
+        <div className="rounded border border-dashed px-2 py-1 text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-2">
+            <span>Perfil de comunicação · Em construção</span>
+            <button type="button" className="underline hover:text-foreground" onClick={() => setShowProfileHelp(value => !value)}>
+              O que informar para melhorar a IA?
+            </button>
+          </div>
+          {showProfileHelp && <p className="mt-1 leading-relaxed">Informe como você fala com clientes, apresenta produto e preço, faz follow-up, expressões que usa ou evita e 3 a 5 mensagens reais que representem seu estilo. É opcional e não bloqueia o CRM.</p>}
+        </div>
+      )}
 
       {analyzing && (
         <div className="flex items-center gap-2 py-1 text-muted-foreground">

@@ -16,6 +16,7 @@ import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard'
 import { getFollowUpCycleLabel, getFollowUpLimitNotice, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
 import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
+import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from '@/lib/crm/communication';
 
 
 interface Message {
@@ -347,14 +348,14 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
       if (needsAiDisambiguation) {
         recommendation = await recommendCrmNextAction(context, suggestion.code!, { explain: true });
-        reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation });
+        const decision = buildCrmCommunicationDecision(context, suggestion, recommendation);
+        reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation, decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
       } else {
-        [recommendation, reply] = await Promise.all([
-          suggestion.code
-            ? recommendCrmNextAction(context, suggestion.code, { explain: true })
-            : Promise.resolve(null),
-          suggestCrmReplyFromContext(context, { result, nextAction: deterministicRecommendation }),
-        ]);
+        recommendation = suggestion.code
+          ? await recommendCrmNextAction(context, suggestion.code, { explain: true })
+          : null;
+        const decision = buildCrmCommunicationDecision(context, suggestion, recommendation ?? deterministicRecommendation);
+        reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation ?? deterministicRecommendation, decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
       }
 
       setAnalysis({ result: suggestion, nextAction: recommendation, reply });

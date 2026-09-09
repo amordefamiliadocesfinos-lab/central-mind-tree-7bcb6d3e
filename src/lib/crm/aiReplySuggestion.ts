@@ -11,8 +11,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext } from './aiContext';
 import type { CrmNextActionRecommendation } from './aiNextActionRecommendation';
+import {
+  DEFAULT_BUILDING_COMMUNICATION_PROFILE,
+  type CommunicationProfile,
+  type CrmCommunicationDecision,
+  type CrmCommunicationDraft,
+} from './communication';
 
-export interface CrmReplySuggestion {
+export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
   reply: string | null;
   reason: string;
@@ -22,6 +28,8 @@ export interface CrmReplySuggestion {
 export interface SuggestCrmReplyOptions {
   result?: { code: string; label: string | null } | null;
   nextAction?: Pick<CrmNextActionRecommendation, 'nextActionCode' | 'nextActionLabel'> | null;
+  decision: CrmCommunicationDecision;
+  profile?: CommunicationProfile;
   invoke?: (payload: unknown) => Promise<any>;
 }
 
@@ -32,7 +40,9 @@ export function normalizeReplyResponse(raw: any): CrmReplySuggestion {
     ? raw.reason.trim()
     : (reply ? 'Resposta alinhada ao contexto do atendimento.' : 'Nenhuma resposta necessária no momento.');
   const tone = typeof raw?.tone === 'string' && raw.tone.trim() ? raw.tone.trim() : null;
-  return { reply, reason, tone };
+  const intent = ['answer', 'follow_up', 'clarify', 'acknowledge'].includes(raw?.intent) ? raw.intent : (reply ? 'answer' : 'none');
+  const length = raw?.length === 'medium' ? 'medium' : 'short';
+  return { reply, message: reply, reason, rationale: reason, tone, intent, length };
 }
 
 export async function suggestCrmReplyFromContext(
@@ -70,6 +80,8 @@ export async function suggestCrmReplyFromContext(
     nextAction: options?.nextAction
       ? { code: options.nextAction.nextActionCode, label: options.nextAction.nextActionLabel }
       : null,
+    decision: options?.decision,
+    communicationProfile: options?.profile ?? DEFAULT_BUILDING_COMMUNICATION_PROFILE,
   });
   if (raw?.error) throw new Error(String(raw.error));
   return normalizeReplyResponse(raw);
