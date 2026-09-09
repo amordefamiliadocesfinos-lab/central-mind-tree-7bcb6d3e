@@ -14,9 +14,11 @@ interface Props {
   onSnooze: (when: number | string) => void | Promise<void>;
   /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
   presetResultCode?: string | null;
+  /** Abre um fluxo já existente a partir de uma decisão contextual externa. */
+  openModeRequest?: { mode: 'outcome' | 'snooze'; id: number } | null;
 }
 
-export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode }: Props) {
+export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode, openModeRequest }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -40,6 +42,16 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     setResultCode(presetResultCode as CrmResultCode);
     setMode('outcome');
   }, [presetResultCode]);
+
+  // F5.2.3: os atalhos do limite de follow-up apenas abrem os fluxos canônicos.
+  // Nenhum resultado ou retorno é gravado antes da confirmação do operador.
+  useEffect(() => {
+    if (!openModeRequest) return;
+    setMode(openModeRequest.mode);
+    setResultCode('');
+    setDate('');
+    setTime('');
+  }, [openModeRequest]);
 
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;

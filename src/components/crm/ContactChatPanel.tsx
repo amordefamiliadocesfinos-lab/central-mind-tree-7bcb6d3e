@@ -44,13 +44,17 @@ interface ContactChatPanelProps {
   onMessageSent?: (content: string) => void | Promise<void>;
   /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
   onUseSuggestedResult?: (resultCode: string) => void;
+  /** F5.2.3: abre o agendamento manual oficial após o limite do ciclo. */
+  onScheduleManualFollowUp?: () => void;
+  /** F5.2.3: abre o registro canônico de Resultado sem pré-seleção. */
+  onRegisterManualResult?: () => void;
 }
 
 const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -431,10 +435,16 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           </p>
         )}
         {getFollowUpLimitNotice(followUpCycle) && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-            <strong className="font-medium">{getFollowUpLimitNotice(followUpCycle)!.title}.</strong>{' '}
-            {getFollowUpLimitNotice(followUpCycle)!.hint}
-          </p>
+          <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <p><strong className="font-medium">{getFollowUpLimitNotice(followUpCycle)!.title}.</strong>{' '}{getFollowUpLimitNotice(followUpCycle)!.hint}</p>
+            {(onScheduleManualFollowUp || onRegisterManualResult) && (
+              <div className="flex flex-wrap gap-1.5">
+                <Button type="button" size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40" onClick={() => toast.success('Atendimento mantido aguardando o cliente.')}>Manter aguardando</Button>
+                {onScheduleManualFollowUp && <Button type="button" size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40" onClick={onScheduleManualFollowUp}>Programar novo contato</Button>}
+                {onRegisterManualResult && <Button type="button" size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40" onClick={onRegisterManualResult}>Registrar Resultado</Button>}
+              </div>
+            )}
+          </div>
         )}
         {commercialOptOut && (
           <p className="rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
