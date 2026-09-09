@@ -37,11 +37,29 @@ export interface ShopeeShippingOrder {
   items: ShopeeShippingItem[];
 }
 
-export interface ShopeeProductMapping {
-  external_item_key: string;
+/** Uma linha física da composição comercial de um anúncio. */
+export interface ShopeeMappingComponent {
   product_id: string;
   variant_id?: string | null;
   physical_multiplier: number;
+  position?: number;
+}
+
+export interface ShopeeProductMapping {
+  external_item_key: string;
+  /** Cabeçalho legado (1 produto/variante). Mantido para compatibilidade. */
+  product_id?: string | null;
+  variant_id?: string | null;
+  physical_multiplier?: number | null;
+  /** Composição comercial completa. Quando ausente, usa o cabeçalho legado. */
+  components?: ShopeeMappingComponent[] | null;
+}
+
+export interface ShopeePreviewComponent {
+  productId: string;
+  variantId: string | null;
+  physicalMultiplier: number;
+  physicalQuantity: number;
 }
 
 export interface ShopeePreviewItem extends ShopeeShippingItem {
@@ -49,8 +67,10 @@ export interface ShopeePreviewItem extends ShopeeShippingItem {
   variantId: string | null;
   physicalMultiplier: number | null;
   physicalQuantity: number | null;
+  components: ShopeePreviewComponent[];
   mappingStatus: 'recognized' | 'needs_mapping' | 'error';
 }
+
 
 export interface ShopeePreviewOrder extends Omit<ShopeeShippingOrder, 'items'> {
   items: ShopeePreviewItem[];
@@ -171,6 +191,16 @@ export async function parseShopeeShippingXlsx(file: File, account: string): Prom
   return normalizeShopeeShippingRows(rows, account);
 }
 
+/** Resolve a composição comercial de um mapeamento (novo formato ou legado 1:1). */
+export function resolveMappingComponents(mapping?: ShopeeProductMapping | null): ShopeeMappingComponent[] {
+  if (!mapping) return [];
+  const source = mapping.components?.length
+    ? [...mapping.components].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    : (mapping.product_id ? [{ product_id: mapping.product_id, variant_id: mapping.variant_id ?? null, physical_multiplier: Number(mapping.physical_multiplier) }] : []);
+  return source.filter(component => Boolean(component.product_id) && Number.isFinite(Number(component.physical_multiplier)) && Number(component.physical_multiplier) > 0)
+    .map(component => ({ ...component, physical_multiplier: Number(component.physical_multiplier) }));
+}
+
 export function buildShopeePreview(
   orders: ShopeeShippingOrder[],
   mappings: ShopeeProductMapping[],
@@ -180,11 +210,61 @@ export function buildShopeePreview(
   return orders.map(order => ({
     ...order,
     duplicateStatus: existingExternalOrderIds.has(order.externalOrderId) ? 'already_imported' : 'new',
-    items: order.items.map(item => {
-      const mapping = mappingByKey.get(item.externalItemKey);
-      const multiplier = Number(mapping?.physical_multiplier);
-      const validMultiplier = Number.isFinite(multiplier) && multiplier > 0;
-      return { ...item, masterProductId: mapping?.product_id || null, variantId: mapping?.variant_id || null, physicalMultiplier: validMultiplier ? multiplier : null, physicalQuantity: validMultiplier ? item.quantity * multiplier : null, mappingStatus: mapping && validMultiplier ? 'recognized' : 'needs_mapping' };
+    items: order.items.map((item): ShopeePreviewItem => {
+      const resolved = resolveMappingComponents(mappingByKey.get(item.externalItemKey));
+      const components: ShopeePreviewComponent[] = resolved.map(component => ({
+        productId: component.product_id,
+        variantId: component.variant_id ?? null,
+        physicalMultiplier: component.physical_multiplier,
+        physicalQuantity: item.quantity * component.physical_multiplier,
+      }));
+      const first = components[0] ?? null;
+      return {
+        ...item,
+        masterProductId: first?.productId ?? null,
+        variantId: first?.variantId ?? null,
+        physicalMultiplier: first?.physicalMultiplier ?? null,
+        physicalQuantity: first?.physicalQuantity ?? null,
+        components,
+        mappingStatus: components.length ? 'recognized' : 'needs_mapping',
+      };
     }),
+
   }));
 }
+
+export interface ShopeePhysicalImportItem {
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+  commercial_quantity: number;
+  physical_multiplier: number;
+  unit_price: number;
+  external_item_key: string;
+  product_title: string;
+  variation: string;
+  composition_position: number;
+}
+
+/**
+ * Expande cada item comercial Shopee em N itens físicos.
+ * O preço comercial fica apenas no primeiro componente, para não inflar o
+ * total do pedido quando a composição tem várias linhas físicas.
+ */
+export function buildShopeeImportItems(order: ShopeePreviewOrder): ShopeePhysicalImportItem[] {
+  return order.items.flatMap(item => item.components.map((component, index) => ({
+    product_id: component.productId,
+    variant_id: component.variantId,
+    quantity: component.physicalQuantity,
+    commercial_quantity: item.quantity,
+    physical_multiplier: component.physicalMultiplier,
+    unit_price: index === 0 ? item.unitPrice : 0,
+    external_item_key: item.externalItemKey,
+    product_title: item.productTitle,
+    variation: item.components.length > 1
+      ? `${item.variation || 'Sem variação'} · composição ${index + 1}/${item.components.length}`
+      : item.variation,
+    composition_position: index,
+  })));
+}
+
