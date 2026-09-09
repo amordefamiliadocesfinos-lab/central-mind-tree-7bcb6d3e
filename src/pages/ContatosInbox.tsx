@@ -33,7 +33,7 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
-import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
+import { getOfficialCrmNextActionAt, getOfficialCrmTaskDueAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
@@ -237,12 +237,10 @@ export default function ContatosInbox() {
     const nextActionByContact = new Map<string, string>();
     for (const task of scheduledCrmTasks || []) {
       if (!task.contact_id) continue;
-      const date = task.scheduled_date || task.due_date;
-      if (!date) continue;
-      const dueAt = new Date(`${date}T${task.scheduled_time || '09:00'}:00`);
-      if (Number.isNaN(dueAt.getTime())) continue;
+      const dueAt = getOfficialCrmTaskDueAt(task.scheduled_date || task.due_date, task.scheduled_time);
+      if (!dueAt) continue;
       const target = task.source === 'crm_reactivation' ? reactivationByContact : nextActionByContact;
-      if (!target.has(task.contact_id)) target.set(task.contact_id, dueAt.toISOString());
+      if (!target.has(task.contact_id)) target.set(task.contact_id, dueAt);
     }
 
     const ids = Array.from(new Set([

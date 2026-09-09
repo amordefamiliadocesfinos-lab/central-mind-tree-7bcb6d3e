@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { getOfficialCrmTaskDueAt } from './officialTask';
 
 const CRM_ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
 export const CRM_REACTIVATION_SOURCE = 'crm_reactivation';
@@ -108,10 +109,10 @@ export async function completeCrmReactivationIfDue(contactId: string, now = new 
   if (error) throw error;
   if (!data) return false;
 
-  const date = data.scheduled_date || data.due_date;
-  if (!date) return false;
-  const dueAt = new Date(`${date}T${data.scheduled_time || '09:00'}:00`);
-  if (Number.isNaN(dueAt.getTime()) || dueAt > now) return false;
+  const dueAtValue = getOfficialCrmTaskDueAt(data.scheduled_date || data.due_date, data.scheduled_time);
+  if (!dueAtValue) return false;
+  const dueAt = new Date(dueAtValue);
+  if (dueAt > now) return false;
 
   const { error: updateError } = await supabase.from('tasks')
     .update({ status: 'concluído', updated_at: now.toISOString() })

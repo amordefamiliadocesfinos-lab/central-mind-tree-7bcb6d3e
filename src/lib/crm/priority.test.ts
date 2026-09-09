@@ -1,4 +1,5 @@
 import { getCrmPriority, type CrmPriorityInput } from './priority';
+import { getOfficialCrmTaskDueAt } from './officialTask';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`CRM priority: ${message}`);
@@ -94,6 +95,26 @@ const futureOfficialAction = getCrmPriority({
 }, now);
 assert(!futureOfficialAction.operational && futureOfficialAction.reason === 'waiting_customer',
   'tarefa oficial futura sem outro fato atual deve ficar fora da Prioridade.');
+
+const dueFromPostgresTime = getOfficialCrmTaskDueAt('2026-08-24', '09:00:00');
+assert(dueFromPostgresTime !== null,
+  'horário PostgreSQL com segundos deve formar uma obrigação CRM válida.');
+const overdueOfficialTask = getCrmPriority({
+  status: 'resolved',
+  next_action_date: dueFromPostgresTime,
+}, now);
+assert(overdueOfficialTask.operational && overdueOfficialTask.reason === 'next_action_overdue',
+  'tarefa oficial vencida há dias deve permanecer acionável na Inbox.');
+
+const futureFromShortTime = getOfficialCrmTaskDueAt('2026-09-01', '09:00');
+assert(futureFromShortTime !== null,
+  'horário sem segundos deve continuar sendo aceito.');
+const futureTask = getCrmPriority({
+  status: 'resolved',
+  next_action_date: futureFromShortTime,
+}, now);
+assert(!futureTask.operational && futureTask.reason === 'resolved',
+  'tarefa oficial futura não deve antecipar a atenção.');
 
 const futureActionWithInbound = getCrmPriority({
   status: 'open',

@@ -11,3 +11,21 @@ export function getOfficialCrmNextActionAt(
   const taskAt = new Date(taskDueAt).getTime();
   return Number.isNaN(taskAt) ? null : taskDueAt;
 }
+
+/**
+ * Normaliza a representação de horário do PostgreSQL antes de compor a data.
+ * A API pode devolver `09:00` ou `09:00:00`; acrescentar segundos aos dois
+ * formatos gerava uma data inválida e fazia a Inbox ignorar a obrigação.
+ */
+export function getOfficialCrmTaskDueAt(
+  scheduledDate?: string | null,
+  scheduledTime?: string | null,
+) {
+  if (!scheduledDate) return null;
+  const suppliedTime = scheduledTime?.trim();
+  const match = suppliedTime?.match(/^(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if (suppliedTime && !match) return null;
+
+  const dueAt = new Date(`${scheduledDate}T${match?.[1] ?? '09:00'}:00`);
+  return Number.isNaN(dueAt.getTime()) ? null : dueAt.toISOString();
+}
