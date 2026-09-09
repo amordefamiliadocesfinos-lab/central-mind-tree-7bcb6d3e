@@ -1,4 +1,4 @@
-import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from './communication';
+import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE, deriveCommercialSignals } from './communication';
 import type { CrmAiContext } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -28,3 +28,18 @@ const noReply = buildCrmCommunicationDecision(context({ conversation: { id: 'v1'
 assert(!noReply.shouldReply, 'ausência legítima de ação não gera resposta artificial.');
 
 console.log('communication.test: OK');
+
+function withMessage(content: string, overrides: Partial<CrmAiContext> = {}) {
+  return context({ ...overrides, messages: [{ direction: 'inbound', sender: 'customer', content, createdAt: new Date().toISOString() }] as any });
+}
+assert(deriveCommercialSignals(withMessage('Quanto custa?'), null).commercialIntent === 'information_request', 'A: pergunta simples é dúvida, não interesse.');
+assert(deriveCommercialSignals(withMessage('Quero fechar 30 unidades'), null).commercialIntent === 'interest', 'B: intenção concreta é interesse.');
+assert(deriveCommercialSignals(withMessage('Achei caro'), null).commercialIntent === 'objection', 'C: barreira explícita é objeção.');
+assert(deriveCommercialSignals(withMessage('Vou pensar e te retorno'), null).commercialIntent === 'deferred_decision', 'D: decisão adiada não é recusa.');
+assert(deriveCommercialSignals(withMessage('Já fiz o Pix'), null).paymentState === 'informed', 'E: declaração de pagamento não confirma pagamento.');
+assert(deriveCommercialSignals(withMessage('ok'), 'CRM-RES-020').paymentState === 'confirmed', 'F: somente fato canônico confirma pagamento.');
+assert(deriveCommercialSignals(withMessage('Como está minha entrega?'), 'CRM-RES-023').commercialIntent === 'post_sale', 'G: conversa após compra é pós-venda.');
+assert(deriveCommercialSignals(withMessage('Quero fazer novo pedido'), null).commercialIntent === 'repurchase', 'H: cliente antigo com nova intenção é recompra.');
+assert(deriveCommercialSignals(withMessage('Olá'), null).commercialIntent !== 'repurchase', 'I: compra antiga sozinha não é recompra.');
+assert(buildCrmCommunicationDecision(withMessage('Quanto custa?'), result, { ...action, nextActionCode: null, noImmediateAction: true }).shouldReply, 'J: inbound atual pode exigir resposta sem próxima ação.');
+assert(deriveCommercialSignals(withMessage('Quero fechar 30 unidades'), null).commercialIntent === 'interest', 'K: inbound atual prevalece sobre memória antiga.');

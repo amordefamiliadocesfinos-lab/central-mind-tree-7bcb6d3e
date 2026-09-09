@@ -184,9 +184,9 @@ async function handleReplyMode(body: any, apiKey: string) {
 
   const userContent = [
     '--- DECISÃO OPERACIONAL ESTRUTURADA (NÃO REESCREVER) ---',
-    `Situação: ${decision.situation ?? '—'} | Intenção: ${decision.perceivedIntent ?? '—'} | Responsabilidade: ${decision.responsibility ?? 'unknown'}`,
+    `Situação: ${decision.situation ?? '—'} | Intenção percebida: ${decision.perceivedIntent ?? '—'} | Intenção comercial: ${decision.commercialIntent ?? 'unknown'} | Responsabilidade: ${decision.responsibility ?? 'unknown'}`,
     `Resultado: ${decision.suggestedResult?.code ?? '—'} | Próxima ação: ${decision.nextAction?.code ?? '—'} | Deve responder: ${decision.shouldReply ? 'sim' : 'não'}`,
-    `Ambiguidade: ${decision.ambiguity ?? '—'} | Riscos: ${(decision.riskFlags ?? []).join(', ') || 'nenhum'} | Razão: ${decision.reason ?? '—'}`,
+    `Estado decisório: ${decision.decisionState ?? 'unknown'} | Pagamento: ${decision.paymentState ?? 'none'} | Ambiguidade: ${decision.ambiguity ?? '—'} | Riscos: ${(decision.riskFlags ?? []).join(', ') || 'nenhum'} | Razão: ${decision.reason ?? '—'}`,
     '',
     '--- PERFIL DE COMUNICAÇÃO (INFLUENCIA SOMENTE A FORMA DE ESCREVER) ---',
     `Status: ${profile.status ?? 'building'} | Formalidade: ${profile.formality ?? 'low'} | Tamanho: ${profile.preferredLength ?? 'short'} | Tom: ${profile.generalTone ?? 'cordial'}`,
