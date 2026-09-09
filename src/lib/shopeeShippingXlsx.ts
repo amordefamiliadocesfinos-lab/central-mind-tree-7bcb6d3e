@@ -191,6 +191,16 @@ export async function parseShopeeShippingXlsx(file: File, account: string): Prom
   return normalizeShopeeShippingRows(rows, account);
 }
 
+/** Resolve a composição comercial de um mapeamento (novo formato ou legado 1:1). */
+export function resolveMappingComponents(mapping?: ShopeeProductMapping | null): ShopeeMappingComponent[] {
+  if (!mapping) return [];
+  const source = mapping.components?.length
+    ? [...mapping.components].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    : (mapping.product_id ? [{ product_id: mapping.product_id, variant_id: mapping.variant_id ?? null, physical_multiplier: Number(mapping.physical_multiplier) }] : []);
+  return source.filter(component => Boolean(component.product_id) && Number.isFinite(Number(component.physical_multiplier)) && Number(component.physical_multiplier) > 0)
+    .map(component => ({ ...component, physical_multiplier: Number(component.physical_multiplier) }));
+}
+
 export function buildShopeePreview(
   orders: ShopeeShippingOrder[],
   mappings: ShopeeProductMapping[],
@@ -200,11 +210,25 @@ export function buildShopeePreview(
   return orders.map(order => ({
     ...order,
     duplicateStatus: existingExternalOrderIds.has(order.externalOrderId) ? 'already_imported' : 'new',
-    items: order.items.map(item => {
-      const mapping = mappingByKey.get(item.externalItemKey);
-      const multiplier = Number(mapping?.physical_multiplier);
-      const validMultiplier = Number.isFinite(multiplier) && multiplier > 0;
-      return { ...item, masterProductId: mapping?.product_id || null, variantId: mapping?.variant_id || null, physicalMultiplier: validMultiplier ? multiplier : null, physicalQuantity: validMultiplier ? item.quantity * multiplier : null, mappingStatus: mapping && validMultiplier ? 'recognized' : 'needs_mapping' };
+    items: order.items.map((item): ShopeePreviewItem => {
+      const resolved = resolveMappingComponents(mappingByKey.get(item.externalItemKey));
+      const components: ShopeePreviewComponent[] = resolved.map(component => ({
+        productId: component.product_id,
+        variantId: component.variant_id ?? null,
+        physicalMultiplier: component.physical_multiplier,
+        physicalQuantity: item.quantity * component.physical_multiplier,
+      }));
+      const first = components[0] ?? null;
+      return {
+        ...item,
+        masterProductId: first?.productId ?? null,
+        variantId: first?.variantId ?? null,
+        physicalMultiplier: first?.physicalMultiplier ?? null,
+        physicalQuantity: first?.physicalQuantity ?? null,
+        components,
+        mappingStatus: components.length ? 'recognized' : 'needs_mapping',
+      };
     }),
+
   }));
 }
