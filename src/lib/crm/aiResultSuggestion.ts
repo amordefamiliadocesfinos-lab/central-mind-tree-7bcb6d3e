@@ -7,7 +7,7 @@
  * opt-out ou campanha, e não envia mensagem.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { buildCrmAiContext, type CrmAiContext, type CrmAiContextSources } from './aiContext';
+import { buildCrmAiContext, buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext, type CrmAiContextSources } from './aiContext';
 import { getCanonicalResult } from './canonical/results';
 
 export interface CrmResultSuggestion {
@@ -44,7 +44,15 @@ export async function suggestCrmResultFromContext(
   invokeFn?: (context: CrmAiContext) => Promise<any>,
 ): Promise<CrmResultSuggestion> {
   const invoke = invokeFn ?? (async (ctx: CrmAiContext) => {
-    const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: { context: ctx } });
+    const startedAt = performance.now();
+    const requestContext = buildCrmAiRequestContext(ctx, 'result');
+    const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: { context: requestContext } });
+    if (isCrmAiPerformanceLoggingEnabled()) {
+      console.debug('[CRM IA] sugestão de resultado', {
+        edgeAndModelMs: Math.round(performance.now() - startedAt),
+        payloadBytes: JSON.stringify({ context: requestContext }).length,
+      });
+    }
     if (error) throw error;
     return data;
   });

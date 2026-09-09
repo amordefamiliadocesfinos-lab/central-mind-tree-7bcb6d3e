@@ -94,6 +94,43 @@ export interface CrmAiContext {
   limits: typeof CRM_AI_CONTEXT_LIMITS;
 }
 
+/** Contexto transportado para cada modo da Edge Function. */
+export type CrmAiRequestContext = Omit<CrmAiContext, 'catalogs'> & {
+  catalogs?: Pick<CrmAiContext['catalogs'], 'results'>;
+};
+
+/**
+ * Evita transportar catálogos que o modo solicitado não consulta. Resultado
+ * ainda recebe o catálogo soberano; Próxima Ação recebe candidatos explícitos
+ * e Resposta não precisa de catálogo. O contexto semântico é preservado.
+ */
+export function buildCrmAiRequestContext(
+  context: CrmAiContext,
+  mode: 'result' | 'next_action' | 'reply',
+): CrmAiRequestContext {
+  const { catalogs, ...shared } = context;
+  return mode === 'result'
+    ? { ...shared, catalogs: { results: catalogs.results } }
+    : shared;
+}
+
+/** Métricas locais apenas em desenvolvimento ou no preview Lovable. */
+export function isCrmAiPerformanceLoggingEnabled(): boolean {
+  return import.meta.env.DEV
+    || (typeof window !== 'undefined' && window.location.hostname.startsWith('id-preview--'));
+}
+
+function traceAiContext(timings: Record<string, number>, context: CrmAiContext, startedAt: number) {
+  // Sem persistência e sem conteúdo de mensagens: somente métricas locais no
+  // console para desenvolvimento/preview.
+  if (!isCrmAiPerformanceLoggingEnabled()) return;
+  console.debug('[CRM IA] contexto montado', {
+    contextMs: Math.round(performance.now() - startedAt),
+    queriesMs: Object.fromEntries(Object.entries(timings).map(([name, value]) => [name, Math.round(value)])),
+    contextBytes: JSON.stringify(context).length,
+  });
+}
+
 function serializeCatalog(items: readonly { code: string; label: string; description: string }[]): CrmAiCatalogItem[] {
   return items.map(({ code, label, description }) => ({ code, label, description }));
 }
@@ -207,9 +244,17 @@ export async function buildCrmAiContext(
 ): Promise<CrmAiContext> {
   if (!contactId) throw new Error('contactId é obrigatório para montar o contexto de IA do CRM');
 
+  const startedAt = performance.now();
+  const timings: Record<string, number> = {};
+  const timed = async <T,>(name: string, operation: Promise<T>): Promise<T> => {
+    const started = performance.now();
+    try { return await operation; }
+    finally { timings[name] = performance.now() - started; }
+  };
+
   const [contact, conversationRow] = await Promise.all([
-    sources.loadContact(contactId),
-    sources.loadConversation(contactId, conversationId),
+    timed('contact', sources.loadContact(contactId)),
+    timed('conversation', sources.loadConversation(contactId, conversationId)),
   ]);
   if (!contact) throw new Error('Contato não encontrado');
 
@@ -224,12 +269,12 @@ export async function buildCrmAiContext(
   } : null;
 
   const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign] = await Promise.all([
-    conversation ? sources.loadMessages(conversation.id, CRM_AI_CONTEXT_LIMITS.messages) : Promise.resolve([]),
-    sources.loadHistory(contactId, CRM_AI_CONTEXT_LIMITS.historyEvents),
-    sources.loadTasks(contactId, CRM_AI_CONTEXT_LIMITS.tasks),
-    sources.loadOrders(contactId, CRM_AI_CONTEXT_LIMITS.orders),
-    sources.loadTags(contactId),
-    sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null),
+    conversation ? timed('messages', sources.loadMessages(conversation.id, CRM_AI_CONTEXT_LIMITS.messages)) : Promise.resolve([]),
+    timed('history', sources.loadHistory(contactId, CRM_AI_CONTEXT_LIMITS.historyEvents)),
+    timed('tasks', sources.loadTasks(contactId, CRM_AI_CONTEXT_LIMITS.tasks)),
+    timed('orders', sources.loadOrders(contactId, CRM_AI_CONTEXT_LIMITS.orders)),
+    timed('tags', sources.loadTags(contactId)),
+    timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
   ]);
 
   const messages: CrmAiMessage[] = (messageRows ?? [])
@@ -275,7 +320,7 @@ export async function buildCrmAiContext(
     .map((row: any) => row?.tag?.name ?? row?.name ?? null)
     .filter((name: unknown): name is string => typeof name === 'string' && name.length > 0);
 
-  return {
+  const context: CrmAiContext = {
     generatedAt: new Date().toISOString(),
     contact: {
       id: contact.id,
@@ -309,4 +354,6 @@ export async function buildCrmAiContext(
     catalogs: { results: CRM_AI_RESULT_CATALOG, nextActions: CRM_AI_NEXT_ACTION_CATALOG },
     limits: CRM_AI_CONTEXT_LIMITS,
   };
+  traceAiContext(timings, context, startedAt);
+  return context;
 }

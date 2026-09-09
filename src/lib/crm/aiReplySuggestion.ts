@@ -9,7 +9,7 @@
  * "Usar resposta" apenas preenche o composer no componente.
  */
 import { supabase } from '@/integrations/supabase/client';
-import type { CrmAiContext } from './aiContext';
+import { buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext } from './aiContext';
 import type { CrmNextActionRecommendation } from './aiNextActionRecommendation';
 
 export interface CrmReplySuggestion {
@@ -51,14 +51,21 @@ export async function suggestCrmReplyFromContext(
   }
 
   const invoke = options?.invoke ?? (async (payload: unknown) => {
+    const startedAt = performance.now();
     const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: payload });
+    if (isCrmAiPerformanceLoggingEnabled()) {
+      console.debug('[CRM IA] resposta sugerida', {
+        edgeAndModelMs: Math.round(performance.now() - startedAt),
+        payloadBytes: JSON.stringify(payload).length,
+      });
+    }
     if (error) throw error;
     return data;
   });
 
   const raw = await invoke({
     mode: 'reply',
-    context,
+    context: buildCrmAiRequestContext(context, 'reply'),
     result: options?.result ?? null,
     nextAction: options?.nextAction
       ? { code: options.nextAction.nextActionCode, label: options.nextAction.nextActionLabel }

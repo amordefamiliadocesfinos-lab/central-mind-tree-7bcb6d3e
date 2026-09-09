@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { normalizeCrmStage } from '@/lib/crm/model';
 import { completeCrmReactivationIfDue } from '@/lib/crm/reactivation';
 import { suggestCrmResultFromContext } from '@/lib/crm/aiResultSuggestion';
-import { buildCrmAiContext } from '@/lib/crm/aiContext';
+import { buildCrmAiContext, isCrmAiPerformanceLoggingEnabled } from '@/lib/crm/aiContext';
 import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
 import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
@@ -312,6 +312,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
+    const analysisStartedAt = performance.now();
     setAnalyzing(true);
     setAnalysisError(false);
     setAnalysis(null);
@@ -319,20 +320,37 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       const context = await buildCrmAiContext(contactId, conversationId);
       const suggestion = await suggestCrmResultFromContext(context);
 
-      let recommendation: CrmNextActionRecommendation | null = null;
-      if (suggestion.code) {
-        // getCrmTransition() é a autoridade; a IA só explica a decisão.
-        recommendation = await recommendCrmNextAction(context, suggestion.code, { explain: true });
-      }
+      // O motor canônico é imediato e fornece a base para a resposta. A
+      // explicação roda em paralelo com a resposta quando a ação já é
+      // determinística. Em ambiguidade legítima, a escolha permitida da IA é
+      // resolvida antes para que a resposta conserve o contexto completo.
+      const deterministicRecommendation = suggestion.code
+        ? await recommendCrmNextAction(context, suggestion.code, { explain: false })
+        : null;
+      const result = suggestion.code ? { code: suggestion.code, label: suggestion.label } : null;
+      const needsAiDisambiguation = deterministicRecommendation?.nextActionCode === null
+        && deterministicRecommendation.candidates.length > 1;
+      let recommendation: CrmNextActionRecommendation | null;
+      let reply;
 
-      const reply = await suggestCrmReplyFromContext(context, {
-        result: suggestion.code ? { code: suggestion.code, label: suggestion.label } : null,
-        nextAction: recommendation,
-      });
+      if (needsAiDisambiguation) {
+        recommendation = await recommendCrmNextAction(context, suggestion.code!, { explain: true });
+        reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation });
+      } else {
+        [recommendation, reply] = await Promise.all([
+          suggestion.code
+            ? recommendCrmNextAction(context, suggestion.code, { explain: true })
+            : Promise.resolve(null),
+          suggestCrmReplyFromContext(context, { result, nextAction: deterministicRecommendation }),
+        ]);
+      }
 
       setAnalysis({ result: suggestion, nextAction: recommendation, reply });
       // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
       setAnalyzedAt(contextStamp);
+      if (isCrmAiPerformanceLoggingEnabled()) {
+        console.debug('[CRM IA] análise completa', { totalMs: Math.round(performance.now() - analysisStartedAt) });
+      }
     } catch (error) {
       console.error('crm-ai-assistant:', error);
       setAnalysisError(true);

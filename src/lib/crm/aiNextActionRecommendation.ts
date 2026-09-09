@@ -10,7 +10,7 @@
  * inventadas — apenas sinalizamos "Data necessária".
  */
 import { supabase } from '@/integrations/supabase/client';
-import type { CrmAiContext } from './aiContext';
+import { buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext } from './aiContext';
 import { normalizeCrmStage } from './model';
 import { getCanonicalNextAction } from './canonical/nextActions';
 import { getCanonicalResult } from './canonical/results';
@@ -93,14 +93,21 @@ export async function recommendCrmNextAction(
   const ambiguous = nextActionCode === null && candidates.length > 1;
   if (options?.explain) {
     const invoke = options.invoke ?? (async (payload: unknown) => {
+      const startedAt = performance.now();
       const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: payload });
+      if (isCrmAiPerformanceLoggingEnabled()) {
+        console.debug('[CRM IA] explicação de próxima ação', {
+          edgeAndModelMs: Math.round(performance.now() - startedAt),
+          payloadBytes: JSON.stringify(payload).length,
+        });
+      }
       if (error) throw error;
       return data;
     });
     try {
       const raw = await invoke({
         mode: 'next_action',
-        context,
+        context: buildCrmAiRequestContext(context, 'next_action'),
         result: { code: result, label: canonicalResult.label },
         decision: {
           nextActionCode: decision.nextAction.value,
