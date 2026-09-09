@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
       `Contato: ${contact.name ?? '—'}${contact.fantasy_name ? ` (${contact.fantasy_name})` : ''}`,
       `Tipo: ${contact.type ?? '—'} | Funil: ${contact.funnel_status ?? '—'} | Temperatura: ${contact.temperatura_lead ?? '—'} | Opt-out: ${contact.commercial_opt_out ? 'sim' : 'não'}`,
       `Origem: ${contact.origem_lead ?? '—'} | Último contato: ${contact.ultimo_contato ?? '—'}`,
+      `Notas internas: ${contact.notes ?? '—'}`,
       `Próxima ação: ${contact.next_action_text ?? '—'} (${contact.next_action_date ?? '—'})`,
       `Conversa: ${conversation?.attendance_state ?? '—'} / ${conversation?.status ?? '—'} | precisa responder: ${conversation?.needs_reply ? 'sim' : 'não'} | retorno: ${conversation?.return_at ?? '—'}`,
       `Tarefas atuais: ${(tasks ?? []).map((task: any) => `${task.title} (${task.source ?? '—'} · ${task.due_date ?? task.scheduled_date ?? 'sem data'})`).join(' | ') || 'nenhuma'}`,
