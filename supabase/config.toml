@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.whatsapp-configure]
 verify_jwt = true
+
+[functions.crm-live-context-bootstrap]
+verify_jwt = true

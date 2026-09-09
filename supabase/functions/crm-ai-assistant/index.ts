@@ -40,6 +40,8 @@ function compactContext(ctx: any) {
     `Compras pagas: ${ctx?.purchases?.paidOrdersCount ?? 0} | Últimos pedidos: ${(ctx?.purchases?.lastOrders ?? []).map((o: any) => `#${o.orderNumber ?? o.id} ${o.status ?? ""}/${o.paymentStatus ?? ""}`).join(", ") || "nenhum"}`,
     `Campanha: ${ctx?.campaign ? `${ctx.campaign.campaignName} (enviada em ${ctx.campaign.sentAt}, respondeu: ${ctx.campaign.responded ? "sim" : "não"})` : "nenhuma"}`,
     `Tags: ${(ctx?.tags ?? []).join(", ") || "—"}`,
+    `Memória interpretativa do contato: ${ctx?.liveContext?.summary ?? "ainda não disponível"}`,
+    `Preferências/interesses/objeções conhecidos: ${JSON.stringify(ctx?.liveContext?.memory ?? {})}`,
     "",
     `--- Últimas mensagens (${messages.length}, ordem cronológica) ---`,
     ...messages.map((m: any) => `[${m.createdAt}] ${m.direction === "inbound" ? "CLIENTE" : m.direction === "outbound" ? "OPERADOR" : "?"}: ${String(m.content ?? "").slice(0, 500)}`),

@@ -11,6 +11,7 @@ import { CRM_CANONICAL_RESULTS, getCanonicalResult } from './canonical/results';
 import { CRM_CANONICAL_NEXT_ACTIONS, getCanonicalNextAction } from './canonical/nextActions';
 import { CRM_TASK_SOURCE } from './nextAction';
 import { resolveCampaignContext, type CampaignContext } from './campaignContext';
+import { ensureCrmLiveContext, getCrmLiveContext, type CrmContactLiveContext } from './liveContext';
 
 const db = supabase as any;
 
@@ -90,6 +91,8 @@ export interface CrmAiContext {
   purchases: { paidOrdersCount: number; lifetimeValue: number | null; lastOrders: CrmAiOrder[] };
   tags: string[];
   campaign: CampaignContext | null;
+  /** Camada interpretativa adicional; nunca é fonte de fatos canônicos. */
+  liveContext: CrmContactLiveContext | null;
   catalogs: { results: CrmAiCatalogItem[]; nextActions: CrmAiCatalogItem[] };
   limits: typeof CRM_AI_CONTEXT_LIMITS;
 }
@@ -148,6 +151,7 @@ export interface CrmAiContextSources {
   loadOrders(contactId: string, limit: number): Promise<any[]>;
   loadTags(contactId: string): Promise<any[]>;
   loadCampaign(params: { contactId: string; conversationId?: string | null; lastInboundAt?: string | null }): Promise<CampaignContext | null>;
+  loadLiveContext?(contactId: string): Promise<CrmContactLiveContext | null>;
 }
 
 export const defaultCrmAiContextSources: CrmAiContextSources = {
@@ -208,6 +212,7 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
     return data ?? [];
   },
   loadCampaign: resolveCampaignContext,
+  loadLiveContext: getCrmLiveContext,
 };
 
 function normalizeDirection(row: any): CrmAiMessage['direction'] {
@@ -268,14 +273,26 @@ export async function buildCrmAiContext(
     lastOutboundAt: conversationRow.last_outbound_at ?? null,
   } : null;
 
-  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign] = await Promise.all([
+  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign, existingLiveContext] = await Promise.all([
     conversation ? timed('messages', sources.loadMessages(conversation.id, CRM_AI_CONTEXT_LIMITS.messages)) : Promise.resolve([]),
     timed('history', sources.loadHistory(contactId, CRM_AI_CONTEXT_LIMITS.historyEvents)),
     timed('tasks', sources.loadTasks(contactId, CRM_AI_CONTEXT_LIMITS.tasks)),
     timed('orders', sources.loadOrders(contactId, CRM_AI_CONTEXT_LIMITS.orders)),
     timed('tags', sources.loadTags(contactId)),
     timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
+    sources.loadLiveContext ? timed('liveContext', sources.loadLiveContext(contactId).catch(() => null)) : Promise.resolve(null),
   ]);
+
+  // IA-07.1: apenas no primeiro uso, tenta criar a memória interpretativa.
+  // Qualquer falha é absorvida: o Assistente segue com os fatos atuais.
+  let liveContext = existingLiveContext;
+  if (!liveContext && sources === defaultCrmAiContextSources) {
+    try {
+      liveContext = await timed('liveContextBootstrap', ensureCrmLiveContext(contactId));
+    } catch (error) {
+      if (isCrmAiPerformanceLoggingEnabled()) console.debug('[CRM IA] Contexto Vivo indisponível', error);
+    }
+  }
 
   const messages: CrmAiMessage[] = (messageRows ?? [])
     .slice(0, CRM_AI_CONTEXT_LIMITS.messages)
@@ -351,6 +368,7 @@ export async function buildCrmAiContext(
     },
     tags,
     campaign: campaign ?? null,
+    liveContext,
     catalogs: { results: CRM_AI_RESULT_CATALOG, nextActions: CRM_AI_NEXT_ACTION_CATALOG },
     limits: CRM_AI_CONTEXT_LIMITS,
   };
