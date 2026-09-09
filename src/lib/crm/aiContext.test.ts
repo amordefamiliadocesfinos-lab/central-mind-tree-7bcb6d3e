@@ -1,4 +1,5 @@
-import { buildCrmAiContext, deriveLastCanonicalResult, CRM_AI_CONTEXT_LIMITS, type CrmAiContextSources } from './aiContext';
+import { buildCrmAiContext, deriveLastCanonicalResult, CRM_AI_CONTEXT_LIMITS, CRM_AI_LIVE_MEMORY_LIMITS, type CrmAiContextSources } from './aiContext';
+import type { CrmContactLiveContext } from './liveContext';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`FRENTE 4.1 — contexto de IA do CRM: ${message}`);
@@ -58,6 +59,29 @@ async function run() {
   const long = await buildCrmAiContext('c1', 'conv1', sources({ loadMessages: async () => many }));
   assert(long.messages.length === CRM_AI_CONTEXT_LIMITS.messages, 'somente as últimas 15 mensagens devem ser mantidas.');
   assert(long.messages[0].content === 'm385' && long.messages[14].content === 'm399', 'as mensagens devem ficar em ordem cronológica.');
+
+  // IA-07.3: memória válida reduz somente a janela histórica enviada; fatos
+  // atuais (incluindo tarefa e opt-out) continuam vindos de fontes canônicas.
+  const liveContext: CrmContactLiveContext = {
+    contactId: 'c1', summary: 'Cliente recorrente; prefere chocolate branco.',
+    memory: { preferences: ['chocolate branco'] }, sourceEventAt: '2026-08-30T10:00:00.000Z',
+    updatedAt: '2026-08-30T10:00:00.000Z', version: 1,
+  };
+  const withLiveMemory = await buildCrmAiContext('c1', 'conv1', sources({
+    loadLiveContext: async () => liveContext,
+    loadMessages: async (_conversationId, limit) => many.slice(0, limit),
+    loadHistory: async (_contactId, limit) => Array.from({ length: limit }, (_, index) => ({
+      event_type: 'contact', event_code: 'CRM-EVT', description: `evento ${index}`,
+      interaction_date: `2026-08-30T10:0${index}:00.000Z`, event_metadata: index === 0 ? { result_code: 'CRM-RES-019' } : {},
+    })),
+    loadOrders: async (_contactId, limit) => Array.from({ length: limit }, (_, index) => ({
+      id: `o${index}`, order_number: String(index), status: 'concluido', payment_status: 'pago', total_value: 10, order_date: '2026-08-01',
+    })),
+  }));
+  assert(withLiveMemory.limits === CRM_AI_LIVE_MEMORY_LIMITS, 'memória válida deve usar janela histórica reduzida.');
+  assert(withLiveMemory.messages.length === CRM_AI_LIVE_MEMORY_LIMITS.messages, 'janela recente deve ser reduzida com memória válida.');
+  assert(withLiveMemory.history.length === CRM_AI_LIVE_MEMORY_LIMITS.historyEvents, 'eventos antigos devem ceder espaço à memória viva.');
+  assert(withLiveMemory.tasks[0]?.source === 'crm_next_action' && withLiveMemory.contact.optOut === false, 'fatos canônicos atuais devem permanecer diretos.');
 
   // G. nenhum efeito colateral: apenas leituras
   const calls: string[] = [];

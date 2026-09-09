@@ -32,6 +32,7 @@ function compactContext(ctx: any) {
   const messages = Array.isArray(ctx?.messages) ? ctx.messages.slice(-15) : [];
   const history = Array.isArray(ctx?.history) ? ctx.history.slice(0, 8) : [];
   return [
+    "--- FATOS CANÔNICOS ATUAIS (SOBERANOS) ---",
     `Etapa comercial: ${ctx?.contact?.stage ?? "—"}`,
     `Temperatura: ${ctx?.contact?.temperature ?? "—"} | Origem: ${ctx?.contact?.origin ?? "—"} | Opt-out: ${ctx?.contact?.optOut ? "sim" : "não"}`,
     `Estado do atendimento: ${ctx?.conversation?.state ?? "—"} | aguardando resposta nossa: ${ctx?.conversation?.needsReply ? "sim" : "não"}`,
@@ -40,13 +41,15 @@ function compactContext(ctx: any) {
     `Compras pagas: ${ctx?.purchases?.paidOrdersCount ?? 0} | Últimos pedidos: ${(ctx?.purchases?.lastOrders ?? []).map((o: any) => `#${o.orderNumber ?? o.id} ${o.status ?? ""}/${o.paymentStatus ?? ""}`).join(", ") || "nenhum"}`,
     `Campanha: ${ctx?.campaign ? `${ctx.campaign.campaignName} (enviada em ${ctx.campaign.sentAt}, respondeu: ${ctx.campaign.responded ? "sim" : "não"})` : "nenhuma"}`,
     `Tags: ${(ctx?.tags ?? []).join(", ") || "—"}`,
-    `Memória interpretativa do contato: ${ctx?.liveContext?.summary ?? "ainda não disponível"}`,
+    "",
+    "--- MEMÓRIA VIVA (INTERPRETATIVA; NUNCA SUBSTITUI FATOS CANÔNICOS) ---",
+    `Resumo consolidado: ${ctx?.liveContext?.summary ?? "ainda não disponível"}`,
     `Preferências/interesses/objeções conhecidos: ${JSON.stringify(ctx?.liveContext?.memory ?? {})}`,
     "",
-    `--- Últimas mensagens (${messages.length}, ordem cronológica) ---`,
+    `--- CONTEXTO RECENTE (${messages.length} mensagens, ordem cronológica) ---`,
     ...messages.map((m: any) => `[${m.createdAt}] ${m.direction === "inbound" ? "CLIENTE" : m.direction === "outbound" ? "OPERADOR" : "?"}: ${String(m.content ?? "").slice(0, 500)}`),
     "",
-    `--- Histórico recente (${history.length}) ---`,
+    `--- Eventos recentes (${history.length}) ---`,
     ...history.map((h: any) => `[${h.at}] ${h.eventType ?? "-"}: ${h.description ?? ""}`),
   ].join("\n");
 }

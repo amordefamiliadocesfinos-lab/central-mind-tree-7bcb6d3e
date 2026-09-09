@@ -16,12 +16,32 @@ import { ensureCrmLiveContext, getCrmLiveContext, type CrmContactLiveContext } f
 const db = supabase as any;
 
 /** Limites fixos: o contexto é mínimo por definição. */
-export const CRM_AI_CONTEXT_LIMITS = {
+export interface CrmAiContextLimits {
+  messages: number;
+  historyEvents: number;
+  tasks: number;
+  orders: number;
+}
+
+/** Janela usada quando a memória interpretativa ainda não existe. */
+export const CRM_AI_CONTEXT_LIMITS: CrmAiContextLimits = {
   messages: 15,
   historyEvents: 8,
   tasks: 3,
   orders: 3,
-} as const;
+};
+
+/**
+ * Com memória válida, a IA não precisa receber a mesma história inteira
+ * novamente. A janela continua suficiente para prevalecerem fatos recentes
+ * (inclusive uma nova mensagem, tarefa ou Resultado).
+ */
+export const CRM_AI_LIVE_MEMORY_LIMITS: CrmAiContextLimits = {
+  messages: 8,
+  historyEvents: 4,
+  tasks: 3,
+  orders: 2,
+};
 
 export interface CrmAiCatalogItem {
   code: string;
@@ -94,7 +114,7 @@ export interface CrmAiContext {
   /** Camada interpretativa adicional; nunca é fonte de fatos canônicos. */
   liveContext: CrmContactLiveContext | null;
   catalogs: { results: CrmAiCatalogItem[]; nextActions: CrmAiCatalogItem[] };
-  limits: typeof CRM_AI_CONTEXT_LIMITS;
+  limits: CrmAiContextLimits;
 }
 
 /** Contexto transportado para cada modo da Edge Function. */
@@ -257,9 +277,12 @@ export async function buildCrmAiContext(
     finally { timings[name] = performance.now() - started; }
   };
 
-  const [contact, conversationRow] = await Promise.all([
+  const [contact, conversationRow, existingLiveContext] = await Promise.all([
     timed('contact', sources.loadContact(contactId)),
     timed('conversation', sources.loadConversation(contactId, conversationId)),
+    sources.loadLiveContext
+      ? timed('liveContext', sources.loadLiveContext(contactId).catch(() => null))
+      : Promise.resolve(null),
   ]);
   if (!contact) throw new Error('Contato não encontrado');
 
@@ -273,16 +296,6 @@ export async function buildCrmAiContext(
     lastOutboundAt: conversationRow.last_outbound_at ?? null,
   } : null;
 
-  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign, existingLiveContext] = await Promise.all([
-    conversation ? timed('messages', sources.loadMessages(conversation.id, CRM_AI_CONTEXT_LIMITS.messages)) : Promise.resolve([]),
-    timed('history', sources.loadHistory(contactId, CRM_AI_CONTEXT_LIMITS.historyEvents)),
-    timed('tasks', sources.loadTasks(contactId, CRM_AI_CONTEXT_LIMITS.tasks)),
-    timed('orders', sources.loadOrders(contactId, CRM_AI_CONTEXT_LIMITS.orders)),
-    timed('tags', sources.loadTags(contactId)),
-    timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
-    sources.loadLiveContext ? timed('liveContext', sources.loadLiveContext(contactId).catch(() => null)) : Promise.resolve(null),
-  ]);
-
   // IA-07.1: apenas no primeiro uso, tenta criar a memória interpretativa.
   // Qualquer falha é absorvida: o Assistente segue com os fatos atuais.
   let liveContext = existingLiveContext;
@@ -294,8 +307,20 @@ export async function buildCrmAiContext(
     }
   }
 
+  // Contexto Vivo é a memória histórica principal; as consultas abaixo ainda
+  // preservam fatos atuais oficiais e uma janela recente de segurança.
+  const limits = liveContext ? CRM_AI_LIVE_MEMORY_LIMITS : CRM_AI_CONTEXT_LIMITS;
+  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign] = await Promise.all([
+    conversation ? timed('messages', sources.loadMessages(conversation.id, limits.messages)) : Promise.resolve([]),
+    timed('history', sources.loadHistory(contactId, limits.historyEvents)),
+    timed('tasks', sources.loadTasks(contactId, limits.tasks)),
+    timed('orders', sources.loadOrders(contactId, limits.orders)),
+    timed('tags', sources.loadTags(contactId)),
+    timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
+  ]);
+
   const messages: CrmAiMessage[] = (messageRows ?? [])
-    .slice(0, CRM_AI_CONTEXT_LIMITS.messages)
+    .slice(0, limits.messages)
     .map(row => ({
       direction: normalizeDirection(row),
       sender: row.sender ?? null,
@@ -307,7 +332,7 @@ export async function buildCrmAiContext(
   const derived = deriveLastCanonicalResult(historyRows ?? []);
 
   const history: CrmAiHistoryEvent[] = (historyRows ?? [])
-    .slice(0, CRM_AI_CONTEXT_LIMITS.historyEvents)
+    .slice(0, limits.historyEvents)
     .map(row => ({
       eventType: row.event_type ?? null,
       eventCode: row.event_code ?? null,
@@ -315,7 +340,7 @@ export async function buildCrmAiContext(
       at: row.interaction_date,
     }));
 
-  const tasks: CrmAiTask[] = (taskRows ?? []).slice(0, CRM_AI_CONTEXT_LIMITS.tasks).map(row => ({
+  const tasks: CrmAiTask[] = (taskRows ?? []).slice(0, limits.tasks).map(row => ({
     id: row.id,
     title: row.title,
     dueAt: row.due_date ?? row.scheduled_date ?? null,
@@ -357,7 +382,7 @@ export async function buildCrmAiContext(
     purchases: {
       paidOrdersCount: Number(contact.paid_orders_count ?? 0),
       lifetimeValue: contact.lifetime_value ?? null,
-      lastOrders: (orderRows ?? []).slice(0, CRM_AI_CONTEXT_LIMITS.orders).map(row => ({
+      lastOrders: (orderRows ?? []).slice(0, limits.orders).map(row => ({
         id: row.id,
         orderNumber: row.order_number ?? null,
         status: row.status ?? null,
@@ -370,7 +395,7 @@ export async function buildCrmAiContext(
     campaign: campaign ?? null,
     liveContext,
     catalogs: { results: CRM_AI_RESULT_CATALOG, nextActions: CRM_AI_NEXT_ACTION_CATALOG },
-    limits: CRM_AI_CONTEXT_LIMITS,
+    limits,
   };
   traceAiContext(timings, context, startedAt);
   return context;
