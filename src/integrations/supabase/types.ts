@@ -2653,6 +2653,61 @@ export type Database = {
           },
         ]
       }
+      marketplace_product_mapping_items: {
+        Row: {
+          created_at: string
+          id: string
+          mapping_id: string
+          physical_multiplier: number
+          position: number
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mapping_id: string
+          physical_multiplier: number
+          position?: number
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mapping_id?: string
+          physical_multiplier?: number
+          position?: number
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_product_mapping_items_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_product_mapping_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_product_mapping_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_product_mappings: {
         Row: {
           channel_account_id: string | null
