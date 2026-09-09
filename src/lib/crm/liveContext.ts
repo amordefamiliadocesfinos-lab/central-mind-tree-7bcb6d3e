@@ -28,6 +28,25 @@ export interface CrmContactLiveContext {
   version: number;
 }
 
+export type CrmLiveContextEventType =
+  | 'inbound'
+  | 'outbound'
+  | 'result'
+  | 'sale'
+  | 'payment'
+  | 'next_action'
+  | 'reactivation'
+  | 'campaign_response';
+
+/** Dados já conhecidos pelo writer; nunca aceita fatos operacionais canônicos. */
+export interface CrmLiveContextEvent {
+  contactId: string;
+  type: CrmLiveContextEventType;
+  occurredAt: string;
+  summary?: string | null;
+  memory?: CrmLiveContextMemory;
+}
+
 type LiveContextRow = {
   contact_id: string;
   summary: string | null;
@@ -137,4 +156,58 @@ export async function ensureCrmLiveContext(contactId: string): Promise<CrmContac
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data?.context ? fromRow(data.context as LiveContextRow) : null;
+}
+
+function mergeSummary(current: string | null, eventSummary?: string | null) {
+  const addition = eventSummary?.trim().slice(0, 700);
+  if (!addition) return current;
+  if (current?.includes(addition)) return current;
+  return [current?.trim(), addition].filter(Boolean).join('\n').slice(-4000);
+}
+
+function mergeMemory(current: CrmLiveContextMemory, patch?: CrmLiveContextMemory): CrmLiveContextMemory {
+  const incoming = normalizeCrmLiveContextMemory(patch ?? {});
+  const combine = (a?: string[], b?: string[]) => a || b
+    ? [...new Set([...(a ?? []), ...(b ?? [])])].slice(-MAX_ITEMS)
+    : undefined;
+  return normalizeCrmLiveContextMemory({
+    preferences: combine(current.preferences, incoming.preferences),
+    objections: combine(current.objections, incoming.objections),
+    interests: combine(current.interests, incoming.interests),
+    persistent_facts: combine(current.persistent_facts, incoming.persistent_facts),
+    purchase_pattern: {
+      ...current.purchase_pattern,
+      ...incoming.purchase_pattern,
+    },
+  });
+}
+
+/**
+ * Atualizador único e monotônico: eventos repetidos ou anteriores ao último
+ * processado não alteram a memória. Falhas são tratadas pelo caller como
+ * auxiliares e jamais devem bloquear o writer canônico.
+ */
+export async function updateCrmLiveContextIncrementally(event: CrmLiveContextEvent): Promise<CrmContactLiveContext | null> {
+  const occurredAt = asIsoDate(event.occurredAt);
+  if (!event.contactId || !occurredAt) return null;
+
+  const context = await ensureCrmLiveContext(event.contactId);
+  if (!context) return null;
+  const lastEventAt = context.sourceEventAt ? Date.parse(context.sourceEventAt) : 0;
+  if (Date.parse(occurredAt) <= lastEventAt) return context;
+
+  return persistCrmLiveContext({
+    contactId: context.contactId,
+    summary: mergeSummary(context.summary, event.summary),
+    memory: mergeMemory(context.memory, event.memory),
+    sourceEventAt: occurredAt,
+    version: CRM_LIVE_CONTEXT_VERSION,
+  });
+}
+
+/** Fire-and-forget seguro para ser chamado somente após o fato canônico. */
+export function refreshCrmLiveContext(event: CrmLiveContextEvent) {
+  void updateCrmLiveContextIncrementally(event).catch((error) => {
+    console.warn('[CRM] Contexto Vivo não foi atualizado:', error);
+  });
 }

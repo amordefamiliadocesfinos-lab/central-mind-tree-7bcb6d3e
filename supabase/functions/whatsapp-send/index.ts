@@ -7,6 +7,7 @@ import {
   clearOfficialCrmNextAction,
   setOfficialCrmNextAction,
 } from '../_shared/crm/official-next-action.ts';
+import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -226,6 +227,14 @@ Deno.serve(async (req) => {
       // A terceira obrigação acabou de ser consumida por este envio. Mantemos
       // o atendimento aguardando o cliente, mas não criamos 4º retorno/tarefa.
       await clearOfficialCrmNextAction(supabase, { contactId: conv.contact_id, conversationId });
+    }
+    if (message.length >= 24) {
+      await refreshLiveContextAfterEvent(supabase, {
+        contactId: conv.contact_id,
+        type: 'outbound',
+        occurredAt: nowIso,
+        summary: `Mensagem relevante enviada: ${message.slice(0, 240)}`,
+      });
     }
   }
 

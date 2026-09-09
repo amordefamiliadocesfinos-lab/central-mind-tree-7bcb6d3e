@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getOfficialCrmTaskDueAt } from './officialTask';
+import { refreshCrmLiveContext } from './liveContext';
 
 const CRM_ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
 export const CRM_REACTIVATION_SOURCE = 'crm_reactivation';
@@ -87,11 +88,23 @@ export async function syncCrmReactivationTask(contactId: string, input: CrmReact
 
 export async function setCrmReactivation(contactId: string, input: CrmReactivation) {
   await syncCrmReactivationTask(contactId, input);
+  refreshCrmLiveContext({
+    contactId,
+    type: 'reactivation',
+    occurredAt: new Date().toISOString(),
+    summary: `Reativação comercial programada: ${input.title?.trim() || 'Reativação comercial'}.`,
+  });
 }
 
 /** Cancela somente a oportunidade de recompra, sem tocar no atendimento atual. */
 export async function clearCrmReactivation(contactId: string) {
   await syncCrmReactivationTask(contactId, { dueAt: null });
+  refreshCrmLiveContext({
+    contactId,
+    type: 'reactivation',
+    occurredAt: new Date().toISOString(),
+    summary: 'Reativação comercial encerrada.',
+  });
 }
 
 /** Um novo contato feito depois do vencimento consome a oportunidade planejada. */

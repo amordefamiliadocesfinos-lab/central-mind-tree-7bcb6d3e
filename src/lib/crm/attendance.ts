@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { clearCrmNextAction, setCrmNextAction, syncCrmNextActionTask } from '@/lib/crm/nextAction';
+import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
 import { isQueueShadowObservationEnabled, observeAttendanceOutcomeShadow } from '@/lib/crm/canonical/queueShadowObservation';
 import { getCanonicalNextAction } from '@/lib/crm/canonical/nextActions';
@@ -216,6 +217,13 @@ export async function applyCanonicalAttendanceResult(input: {
   const { error: historyError } = await supabase.from('contact_history').insert(historyRows);
   if (historyError) throw historyError;
 
+  refreshCrmLiveContext({
+    contactId: input.contactId,
+    type: 'result',
+    occurredAt: new Date().toISOString(),
+    summary: `Resultado registrado: ${canonicalResult.label}.`,
+  });
+
   return {
     label: canonicalResult.label,
     decision,
@@ -294,6 +302,12 @@ export async function applyAttendanceOutcome(input: {
     }).eq('id', conversationId);
     if (error) throw error;
   }
+  refreshCrmLiveContext({
+    contactId: input.contactId,
+    type: 'result',
+    occurredAt: new Date().toISOString(),
+    summary: `Resultado operacional registrado: ${config.label}.`,
+  });
   return { label: config.label, nextStage, returnAt, attendanceState: config.attendanceState };
 }
 
@@ -312,5 +326,11 @@ export async function snoozeAttendance(input: { contactId: string; conversationI
     event_metadata: { source: 'unified_inbox', return_at: returnAt }, description: `Atendimento adiado para ${target.toLocaleString('pt-BR')}`, interaction_date: new Date().toISOString(),
   });
   if (historyError) throw historyError;
+  refreshCrmLiveContext({
+    contactId: input.contactId,
+    type: 'next_action',
+    occurredAt: new Date().toISOString(),
+    summary: 'Próxima ação de atendimento reagendada.',
+  });
   return returnAt;
 }

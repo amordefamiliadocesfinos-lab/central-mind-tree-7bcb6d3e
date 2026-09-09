@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/zapi-connector.ts';
+import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -80,6 +81,13 @@ async function syncWhatsAppPhoto(
       .from('service_conversations')
       .update({ contact_avatar_url: publicUrl })
       .eq('id', conversationId);
+
+    await refreshLiveContextAfterEvent(supabase, {
+      contactId,
+      type: inbound ? 'inbound' : 'outbound',
+      occurredAt: nowIso,
+      summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
+    });
   }
 }
 

@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { refreshCrmLiveContext } from './liveContext';
 
 const CRM_ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
 export const CRM_TASK_SOURCE = 'crm_next_action';
@@ -158,6 +159,12 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
       conversationId: input.syncConversationReturn ? input.conversationId : null,
     });
   }
+  refreshCrmLiveContext({
+    contactId: input.contactId,
+    type: 'next_action',
+    occurredAt: new Date().toISOString(),
+    summary: `Próxima ação atualizada: ${title}.`,
+  });
 }
 
 /** Limpa apenas a próxima ação oficial; histórico e tarefas manuais permanecem. */
@@ -181,6 +188,12 @@ export async function clearCrmNextAction(contactId: string, conversationId?: str
     previousDueAt,
     nextDueAt: null,
     conversationId,
+  });
+  refreshCrmLiveContext({
+    contactId,
+    type: 'next_action',
+    occurredAt: new Date().toISOString(),
+    summary: 'Próxima ação oficial encerrada.',
   });
 }
 

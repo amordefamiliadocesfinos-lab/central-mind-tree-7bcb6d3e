@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
+import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -165,6 +166,12 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq('id', contact.id);
       }
+      await refreshLiveContextAfterEvent(supabase, {
+        contactId: conversation?.contact_id ?? contact?.id,
+        type: inbound ? 'inbound' : 'outbound',
+        occurredAt: now,
+        summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
+      });
       await finish('processed'); processed++;
     } catch (error) {
       console.error('meta webhook processing failed', (error as Error).message);

@@ -15,6 +15,7 @@ import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
 import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
 import { getFollowUpCycleLabel, getFollowUpLimitNotice, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
 import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
+import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 
 
 interface Message {
@@ -264,6 +265,17 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       if (errMsg) {
         toast.error(errMsg);
         return;
+      }
+      // Só registra na memória mensagens manuais minimamente descritivas.
+      // Campanhas não passam por este painel e confirmações curtas não poluem
+      // o contexto interpretativo.
+      if (content.length >= 24 && !/^(ok|obrigad[oa]|bom dia|boa tarde|boa noite)[!. ]*$/i.test(content)) {
+        refreshCrmLiveContext({
+          contactId,
+          type: 'outbound',
+          occurredAt: new Date().toISOString(),
+          summary: `Mensagem relevante enviada: ${content.slice(0, 240)}`,
+        });
       }
       // A mensagem enviada consome apenas uma reativação já vencida. Uma
       // reativação futura permanece programada e não interfere no atendimento.

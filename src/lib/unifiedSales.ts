@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
+import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 
 export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
 
@@ -61,5 +62,20 @@ export async function createUnifiedSale(order: UnifiedSaleInput, items: UnifiedS
     p_items: validItems,
   });
   if (error) throw error;
-  return data as UnifiedSaleResult;
+  const result = data as UnifiedSaleResult;
+  if (order.contact_id) {
+    refreshCrmLiveContext({
+      contactId: order.contact_id,
+      type: order.payment_status === 'pago' ? 'payment' : 'sale',
+      occurredAt: new Date().toISOString(),
+      summary: order.payment_status === 'pago' ? 'Pagamento de venda confirmado.' : 'Nova venda registrada.',
+      memory: {
+        purchase_pattern: {
+          last_purchase_at: order.order_date || new Date().toISOString(),
+          recurring_product_ids: validItems.map((item) => item.product_id),
+        },
+      },
+    });
+  }
+  return result;
 }
