@@ -17,6 +17,7 @@ import {
   type CrmCommunicationDecision,
   type CrmCommunicationDraft,
 } from './communication';
+import { resolveCrmKnowledgeContext, type CrmKnowledgeContext } from './knowledgeContext';
 
 export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
@@ -30,6 +31,7 @@ export interface SuggestCrmReplyOptions {
   nextAction?: Pick<CrmNextActionRecommendation, 'nextActionCode' | 'nextActionLabel'> | null;
   decision: CrmCommunicationDecision;
   profile?: CommunicationProfile;
+  knowledgeFetcher?: (platformId?: string | null) => Promise<CrmKnowledgeContext['items']>;
   invoke?: (payload: unknown) => Promise<any>;
 }
 
@@ -73,6 +75,13 @@ export async function suggestCrmReplyFromContext(
     return data;
   });
 
+  // A Base de Conhecimento é consultada somente para dúvidas factuais estáveis.
+  // Sua indisponibilidade é absorvida pelo helper e nunca bloqueia a resposta.
+  const knowledgeContext = await resolveCrmKnowledgeContext({
+    message: lastMessage?.content,
+    platformId: context.conversation?.platformId ?? null,
+  }, options?.knowledgeFetcher);
+
   const raw = await invoke({
     mode: 'reply',
     context: buildCrmAiRequestContext(context, 'reply'),
@@ -82,6 +91,7 @@ export async function suggestCrmReplyFromContext(
       : null,
     decision: options?.decision,
     communicationProfile: options?.profile ?? DEFAULT_BUILDING_COMMUNICATION_PROFILE,
+    knowledgeContext,
   });
   if (raw?.error) throw new Error(String(raw.error));
   return normalizeReplyResponse(raw);

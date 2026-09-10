@@ -160,6 +160,9 @@ Regras OBRIGATÓRIAS:
 - Nunca exponha tags, notas internas, objeções, riscos, memória interna ou lógica do CRM na mensagem ao cliente.
 - Evite frases genéricas/robóticas como "fico à disposição", "será um prazer", "estamos à disposição" e urgência artificial.
 - Nunca prometa prazo, preço ou desconto que não esteja no contexto. Nunca invente data de agendamento.
+- O bloco CONHECIMENTO RELEVANTE é apenas apoio para fatos estáveis. Use-o somente se responder diretamente à dúvida e nunca cite FAQ, base, sistema ou fonte interna.
+- Em conflito, fatos canônicos atuais e acontecimentos recentes prevalecem sobre o conhecimento. Nunca use conhecimento estático para afirmar estoque, disponibilidade, preço vigente, desconto, prazo operacional atual, status de pedido, pagamento confirmado, tarefa, Resultado ou Próxima Ação.
+- Se o conhecimento não bastar, não preencha a lacuna por inferência: responda apenas com o que os fatos permitem ou retorne null quando não houver resposta útil.
 - Pedido direto do cliente por chave PIX, catálogo, endereço, link, valor ou informação prometida é responsabilidade do operador quando não houver regra factual exigindo outro dado. Não invente CPF, nome ou requisito adicional.
 - Expressões relativas em mensagem histórica ("amanhã", "depois", "semana que vem") são relativas ao timestamp exibido ao lado daquela mensagem. Se o prazo calculado já passou, não o trate como compromisso futuro.
 
@@ -174,6 +177,7 @@ async function handleReplyMode(body: any, apiKey: string) {
   const optOut = Boolean(context?.contact?.optOut);
   const decision = body?.decision ?? {};
   const profile = body?.communicationProfile ?? {};
+  const knowledge = Array.isArray(body?.knowledgeContext?.items) ? body.knowledgeContext.items.slice(0, 5) : [];
 
   // Guarda determinística: opt-out sem inbound recente nunca gera abordagem.
   if (optOut && !lastIsInbound) {
@@ -199,6 +203,11 @@ async function handleReplyMode(body: any, apiKey: string) {
     `Próxima Ação recomendada: ${body?.nextAction?.code ?? "nenhuma ação imediata"} — ${body?.nextAction?.label ?? "—"}`,
     `Última mensagem é do cliente: ${lastIsInbound ? "sim" : "não"}`,
     `Opt-out comercial: ${optOut ? "sim" : "não"}`,
+    "",
+    "--- CONHECIMENTO RELEVANTE (APOIO; NUNCA SUBSTITUI FATOS CANÔNICOS) ---",
+    knowledge.length
+      ? knowledge.map((item: any) => `Pergunta: ${String(item.question ?? '').slice(0, 280)}\nResposta: ${String(item.answer ?? '').slice(0, 700)}\nCategoria: ${String(item.category ?? 'geral')}`).join('\n\n')
+      : 'Nenhum item aplicável.',
     "",
     "--- CONTEXTO PARA A RESPOSTA ---",
     compactCommunicationContext(context),

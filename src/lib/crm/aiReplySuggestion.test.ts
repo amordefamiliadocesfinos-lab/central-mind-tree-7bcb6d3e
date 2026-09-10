@@ -84,7 +84,18 @@ async function run() {
   );
   assert(g.reply?.includes('segunda via'), 'G: opt-out com inbound pode responder.');
 
-  // H/I. Normalização nunca envia mensagem nem inventa texto.
+  // H. Conhecimento factual relevante acompanha somente o modo reply.
+  lastPayload = null;
+  await suggestCrmReplyFromContext(
+    context({}, [inbound('Quantos alfajores vêm na caixa?')]),
+    {
+      invoke: stub({ suggested_reply: 'A caixa vem com 12 alfajores.', reason: 'Informação estável.' }),
+      knowledgeFetcher: async () => [{ id: 'faq-1', question: 'Quantos alfajores vêm na caixa?', answer: '12 unidades.', category: 'produto', keywords: ['alfajor', 'caixa'], platformId: null }],
+    },
+  );
+  assert((lastPayload as any)?.knowledgeContext?.items?.[0]?.id === 'faq-1', 'H: item relevante deve seguir separado no payload de resposta.');
+
+  // I/J. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');
 }

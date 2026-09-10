@@ -60,6 +60,7 @@ export interface CrmAiContactSummary {
 
 export interface CrmAiConversationSummary {
   id: string;
+  platformId: string | null;
   state: string | null;
   status: string | null;
   needsReply: boolean;
@@ -183,7 +184,7 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
   },
   async loadConversation(contactId, conversationId) {
     let query = db.from('service_conversations')
-      .select('id, attendance_state, status, needs_reply, return_at, last_inbound_at, last_outbound_at');
+      .select('id, platform_id, attendance_state, status, needs_reply, return_at, last_inbound_at, last_outbound_at');
     query = conversationId
       ? query.eq('id', conversationId)
       : query.eq('contact_id', contactId).order('last_message_at', { ascending: false }).limit(1);
@@ -288,6 +289,7 @@ export async function buildCrmAiContext(
 
   const conversation: CrmAiConversationSummary | null = conversationRow ? {
     id: conversationRow.id,
+    platformId: conversationRow.platform_id ?? null,
     state: conversationRow.attendance_state ?? null,
     status: conversationRow.status ?? null,
     needsReply: Boolean(conversationRow.needs_reply),
