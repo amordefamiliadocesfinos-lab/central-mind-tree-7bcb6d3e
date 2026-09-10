@@ -49,6 +49,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [accountId, setAccountId] = useState('');
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
+  const [negotiatedTotal, setNegotiatedTotal] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [marketplaceAccount, setMarketplaceAccount] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
   const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
@@ -96,7 +98,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         financial_due_date: financialDueDate, notes: notes || null,
         discount_amount: discount, shipping_amount: shipping, payment_status: paymentStatus,
         payment_method: paymentMethod || null, financial_account_id: accountId || null,
-        payment_date: paymentStatus === 'pago' ? new Date().toISOString().slice(0, 10) : null,
+        payment_date: paymentStatus === 'pago' ? paymentDate : null,
         marketplace_account: marketplaceAccount || null,
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
@@ -108,6 +110,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
       setFinancialDueDate(new Date().toISOString().slice(0, 10));
       setPaymentStatus('pendente'); setPaymentMethod(''); setAccountId('');
       setDiscount(0); setShipping(0); setMarketplaceAccount('');
+      setNegotiatedTotal(''); setPaymentDate(new Date().toISOString().slice(0, 10));
       onOpenChange(false); onCreated?.(); onSaleCreated?.();
     } catch (error: any) {
       console.error(error);
@@ -148,6 +151,18 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Total negociado</Label>
+            <Input type="number" min="0" step="0.01" className="h-9" value={negotiatedTotal} placeholder="Opcional — calcula o desconto" onChange={e => {
+              const value = e.target.value;
+              setNegotiatedTotal(value);
+              if (value === '') return;
+              const target = Number(value);
+              if (Number.isFinite(target)) setDiscount(Math.max(0, subtotal + shipping - target));
+            }} />
+            <p className="text-[10px] text-muted-foreground">Mantém o preço unitário base e calcula o desconto para atingir o total combinado.</p>
           </div>
 
           <div className="space-y-2">
@@ -215,8 +230,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               <Input type="date" className="h-9" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Vencimento financeiro</Label>
-              <Input type="date" className="h-9" value={financialDueDate} onChange={e => setFinancialDueDate(e.target.value)} />
+              <Label className="text-[11px] text-muted-foreground">{paymentStatus === 'pago' ? 'Data do recebimento' : 'Vencimento financeiro'}</Label>
+              <Input type="date" className="h-9" value={paymentStatus === 'pago' ? paymentDate : financialDueDate} onChange={e => paymentStatus === 'pago' ? setPaymentDate(e.target.value) : setFinancialDueDate(e.target.value)} />
             </div>
           </div>
 
