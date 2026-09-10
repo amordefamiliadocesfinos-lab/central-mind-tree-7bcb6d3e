@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
 import type { CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import type { CrmReplySuggestion } from '@/lib/crm/aiReplySuggestion';
+import type { RepurchaseSignal } from '@/lib/crm/repurchase';
 
 /**
  * FRENTE 4.5 — Card único do Assistente CRM.
@@ -15,6 +16,7 @@ export interface CrmAssistantAnalysis {
   result: CrmResultSuggestion | null;
   nextAction: CrmNextActionRecommendation | null;
   reply: CrmReplySuggestion | null;
+  repurchase: RepurchaseSignal | null;
 }
 
 interface CrmAssistantCardProps {
@@ -25,18 +27,26 @@ interface CrmAssistantCardProps {
   onUseReply: (reply: string) => void;
   onDismiss: () => void;
   onRetry: () => void;
+  onPrepareRepurchase?: () => void;
 }
 
 export function CrmAssistantCard({
-  analyzing, analysis, error, onUseResult, onUseReply, onDismiss, onRetry,
+  analyzing, analysis, error, onUseResult, onUseReply, onDismiss, onRetry, onPrepareRepurchase,
 }: CrmAssistantCardProps) {
   const [showProfileHelp, setShowProfileHelp] = useState(false);
+  const [showRepurchaseDetails, setShowRepurchaseDetails] = useState(false);
+  const [repurchaseDismissed, setRepurchaseDismissed] = useState(false);
+  useEffect(() => {
+    setRepurchaseDismissed(false);
+    setShowRepurchaseDetails(false);
+  }, [analysis?.repurchase?.reason]);
   if (!analyzing && !analysis && !error) return null;
 
   const result = analysis?.result ?? null;
   const nextAction = analysis?.nextAction ?? null;
   const reply = analysis?.reply ?? null;
-  const hasAnything = Boolean(result?.code || reply?.reply);
+  const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
+  const hasAnything = Boolean(result?.code || reply?.reply || repurchase);
 
   return (
     <div className="rounded-md border bg-muted/30 px-2.5 py-2 text-[11px] space-y-1.5">
@@ -102,6 +112,33 @@ export function CrmAssistantCard({
             <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
               <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Resposta sugerida</div>
               <p className="whitespace-pre-wrap text-foreground/90">{reply.reply}</p>
+            </div>
+          )}
+
+          {repurchase && (
+            <div className="rounded border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+              <div className="font-medium">Oportunidade de recompra</div>
+              <p className="mt-0.5 text-amber-900/80 dark:text-amber-200/80">{repurchase.reason}</p>
+              {showRepurchaseDetails && (
+                <p className="mt-1 text-[10px] text-amber-900/75 dark:text-amber-200/75">
+                  {repurchase.purchaseCount} compras confirmadas
+                  {repurchase.lastPurchaseAt ? ` · última compra em ${new Date(repurchase.lastPurchaseAt).toLocaleDateString('pt-BR')}` : ''}
+                  {repurchase.likelyProducts.length ? ' · há produtos recorrentes no histórico' : ''}
+                </p>
+              )}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={() => setShowRepurchaseDetails(value => !value)}>
+                  Analisar
+                </Button>
+                {onPrepareRepurchase && (
+                  <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={onPrepareRepurchase}>
+                    Preparar mensagem
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => setRepurchaseDismissed(true)}>
+                  Ignorar
+                </Button>
+              </div>
             </div>
           )}
 

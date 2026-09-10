@@ -17,6 +17,7 @@ import { getFollowUpCycleLabel, getFollowUpLimitNotice, type FollowUpCycleState 
 import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from '@/lib/crm/communication';
+import { calculateRepurchaseSignal, hasFutureCrmReactivation, loadRepurchaseOrders } from '@/lib/crm/repurchase';
 
 
 interface Message {
@@ -331,7 +332,14 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setAnalysis(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
-      const suggestion = await suggestCrmResultFromContext(context);
+      const [suggestion, repurchaseOrders] = await Promise.all([
+        suggestCrmResultFromContext(context),
+        loadRepurchaseOrders(contactId),
+      ]);
+      const repurchase = calculateRepurchaseSignal(context, repurchaseOrders);
+      // Reativação futura é um agendamento humano existente: não criamos uma
+      // segunda chamada de ação visual para a mesma oportunidade.
+      const visibleRepurchase = hasFutureCrmReactivation(context) ? null : repurchase.status === 'none' ? null : repurchase;
 
       // O motor canônico é imediato e fornece a base para a resposta. A
       // explicação roda em paralelo com a resposta quando a ação já é
@@ -358,7 +366,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation ?? deterministicRecommendation, decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
       }
 
-      setAnalysis({ result: suggestion, nextAction: recommendation, reply });
+      setAnalysis({ result: suggestion, nextAction: recommendation, reply, repurchase: visibleRepurchase });
       // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
       setAnalyzedAt(contextStamp);
       if (isCrmAiPerformanceLoggingEnabled()) {
@@ -458,6 +466,29 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           }}
           onDismiss={dismissAnalysis}
           onRetry={handleAnalyze}
+          onPrepareRepurchase={async () => {
+            try {
+              const context = await buildCrmAiContext(contactId, conversationId);
+              const decision = {
+                ...buildCrmCommunicationDecision(context, null, null),
+                commercialIntent: 'repurchase' as const,
+                responsibility: 'operator' as const,
+                decisionState: 'action_required' as const,
+                shouldReply: true,
+                reason: analysis?.repurchase?.reason ?? 'Oportunidade de recompra identificada.',
+              };
+              const reply = await suggestCrmReplyFromContext(context, { decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
+              if (!reply.reply) {
+                toast.message('Não há uma mensagem adequada para sugerir agora.');
+                return;
+              }
+              setText(reply.reply);
+              toast.success('Mensagem sugerida no campo — revise antes de enviar');
+            } catch (error) {
+              console.warn('Não foi possível preparar sugestão de recompra:', error);
+              toast.error('Não foi possível preparar a mensagem agora.');
+            }
+          }}
         />
 
         {followUpCycle && getFollowUpCycleLabel(followUpCycle) && (
