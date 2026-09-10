@@ -8,19 +8,14 @@ import { PlatformIcon } from './PlatformsManager';
 import { ContactAutocomplete } from '@/components/operations/ContactAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import {
-  Plus, MessageCircle, Send, Sparkles, Check, X, Trash2,
-  Loader2, ArrowLeft, ChevronRight, AlertTriangle, User,
-  Bot, Copy, Archive, Link2, ExternalLink, Crown, Search,
+  MessageCircle, X, Loader2, ArrowLeft, ChevronRight, User,
+  Bot, Copy, Link2, ExternalLink, Crown, Search,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,10 +35,8 @@ const FUNNEL_STAGES = Object.fromEntries(CRM_FUNNEL_STAGES.map((stage, index) =>
 export function ServicePanel() {
   const {
     conversations, messages, activeConversationId, loading,
-    messagesLoading, aiSuggesting, selectConversation,
-    createConversation, sendMessage, suggestAIResponse,
-    approveAISuggestion, updateConversation, deleteConversation,
-    toggleAutoReply, linkContactToConversation,
+    messagesLoading, selectConversation,
+    linkConversationToCrmContact, updateDigitalChannelContext,
   } = useServiceChat();
   const { activePlatforms } = usePlatforms();
   const { contacts } = useContacts();
@@ -52,9 +45,6 @@ export function ServicePanel() {
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('open');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNewConv, setShowNewConv] = useState(false);
-  const [newConv, setNewConv] = useState<{ platform_id: string; contact_id: string | null; contact_name: string; contact_handle: string }>({ platform_id: '', contact_id: null, contact_name: '', contact_handle: '' });
-  const [inputMessage, setInputMessage] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -99,33 +89,6 @@ export function ServicePanel() {
     return activePlatforms.find(p => p.id === id);
   };
 
-  const handleCreateConv = async () => {
-    const conv = await createConversation({
-      platform_id: newConv.platform_id || undefined,
-      contact_id: newConv.contact_id || undefined,
-      contact_name: newConv.contact_name || undefined,
-      contact_handle: newConv.contact_handle || undefined,
-    });
-    if (conv) {
-      setShowNewConv(false);
-      setNewConv({ platform_id: '', contact_id: null, contact_name: '', contact_handle: '' });
-      selectConversation(conv.id);
-      if (isMobile) setShowMobileChat(true);
-    }
-  };
-
-  const handleSend = async () => {
-    if (!inputMessage.trim() || !activeConversationId) return;
-    await sendMessage(activeConversationId, inputMessage.trim(), 'agent');
-    setInputMessage('');
-  };
-
-  const handleSendCustomer = async () => {
-    if (!inputMessage.trim() || !activeConversationId) return;
-    await sendMessage(activeConversationId, inputMessage.trim(), 'customer');
-    setInputMessage('');
-  };
-
   const handleSelectConv = (id: string) => {
     selectConversation(id);
     if (isMobile) setShowMobileChat(true);
@@ -154,29 +117,14 @@ export function ServicePanel() {
           conversation={activeConv}
           platform={getPlatform(activeConv.platform_id)}
           linkedContact={linkedContact}
-          onLinkContact={(cid) => linkContactToConversation(activeConv.id, cid)}
+          onLinkContact={(cid) => linkConversationToCrmContact(activeConv.id, cid)}
           onBack={() => { setShowMobileChat(false); selectConversation(null); }}
-          onUpdateFunnel={(stage) => updateConversation(activeConv.id, { funnel_stage: stage } as any)}
-          onClose={() => updateConversation(activeConv.id, { status: 'closed' } as any)}
-          onDelete={() => { deleteConversation(activeConv.id); setShowMobileChat(false); }}
-          onToggleAuto={(v) => toggleAutoReply(activeConv.id, v)}
-          onUpdateConversation={updateConversation}
+          onUpdateDigitalChannelContext={(channels) => updateDigitalChannelContext(activeConv.id, channels)}
           platforms={activePlatforms}
         />
         <ChatMessages
           messages={messages}
           loading={messagesLoading}
-          aiSuggesting={aiSuggesting}
-          onApprove={(id) => approveAISuggestion(id, true)}
-          onReject={(id) => approveAISuggestion(id, false)}
-        />
-        <ChatInput
-          value={inputMessage}
-          onChange={setInputMessage}
-          onSend={handleSend}
-          onSendAsCustomer={handleSendCustomer}
-          onSuggestAI={() => activeConversationId && suggestAIResponse(activeConversationId)}
-          aiSuggesting={aiSuggesting}
         />
       </div>
     );
@@ -184,7 +132,7 @@ export function ServicePanel() {
 
   return (
     <div className="space-y-4">
-      {/* Filters + New */}
+      {/* Filtros da visão de contexto digital. Atendimento comercial é centralizado na Inbox CRM. */}
       <div className="flex items-center gap-2 flex-wrap">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[120px] h-9">
@@ -212,10 +160,6 @@ export function ServicePanel() {
           </SelectContent>
         </Select>
 
-        <Button size="sm" onClick={() => setShowNewConv(true)} className="ml-auto">
-          <Plus className="h-4 w-4 mr-1" />
-          Nova Conversa
-        </Button>
       </div>
 
       {/* 3-panel layout (desktop) / list (mobile) */}
@@ -312,28 +256,13 @@ export function ServicePanel() {
                   conversation={activeConv}
                   platform={getPlatform(activeConv.platform_id)}
                   linkedContact={linkedContact}
-                  onLinkContact={(cid) => linkContactToConversation(activeConv.id, cid)}
-                  onUpdateFunnel={(stage) => updateConversation(activeConv.id, { funnel_stage: stage } as any)}
-                  onClose={() => updateConversation(activeConv.id, { status: 'closed' } as any)}
-                  onDelete={() => deleteConversation(activeConv.id)}
-                  onToggleAuto={(v) => toggleAutoReply(activeConv.id, v)}
-                  onUpdateConversation={updateConversation}
+                  onLinkContact={(cid) => linkConversationToCrmContact(activeConv.id, cid)}
+                  onUpdateDigitalChannelContext={(channels) => updateDigitalChannelContext(activeConv.id, channels)}
                   platforms={activePlatforms}
                 />
                 <ChatMessages
                   messages={messages}
                   loading={messagesLoading}
-                  aiSuggesting={aiSuggesting}
-                  onApprove={(id) => approveAISuggestion(id, true)}
-                  onReject={(id) => approveAISuggestion(id, false)}
-                />
-                <ChatInput
-                  value={inputMessage}
-                  onChange={setInputMessage}
-                  onSend={handleSend}
-                  onSendAsCustomer={handleSendCustomer}
-                  onSuggestAI={() => activeConversationId && suggestAIResponse(activeConversationId)}
-                  aiSuggesting={aiSuggesting}
                 />
               </>
             ) : (
@@ -347,56 +276,6 @@ export function ServicePanel() {
           </div>
         </div>
       )}
-
-      {/* New Conversation Dialog */}
-      <ResponsiveDialog open={showNewConv} onOpenChange={setShowNewConv} title="Nova Conversa">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Plataforma</Label>
-            <Select value={newConv.platform_id || '__none__'} onValueChange={(v) => setNewConv(prev => ({ ...prev, platform_id: v === '__none__' ? '' : v }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Nenhuma</SelectItem>
-                {activePlatforms.map(p => (
-                  <SelectItem key={p.id} value={p.id}><span className="flex items-center gap-1"><PlatformIcon icon={p.icon} size="sm" /> {p.name}</span></SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Vincular contato (CRM)</Label>
-            <ContactAutocomplete
-              value={newConv.contact_name}
-              contactId={newConv.contact_id}
-              onSelect={(c) => {
-                if (c) {
-                  setNewConv(prev => ({
-                    ...prev,
-                    contact_id: c.id,
-                    contact_name: c.name,
-                    contact_handle: prev.contact_handle || c.whatsapp || c.phone || '',
-                  }));
-                } else {
-                  setNewConv(prev => ({ ...prev, contact_id: null }));
-                }
-              }}
-              placeholder="Buscar contato existente..."
-            />
-            <p className="text-[10px] text-muted-foreground">Opcional. Se o telefone/@ casar com um contato, o vínculo é automático.</p>
-          </div>
-          <div className="space-y-2">
-            <Label>Nome do Contato</Label>
-            <Input value={newConv.contact_name} onChange={(e) => setNewConv(prev => ({ ...prev, contact_name: e.target.value }))} placeholder="Maria Silva" />
-          </div>
-          <div className="space-y-2">
-            <Label>Telefone / @ do Contato</Label>
-            <Input value={newConv.contact_handle} onChange={(e) => setNewConv(prev => ({ ...prev, contact_handle: e.target.value }))} placeholder="@usuario ou (11) 9..." />
-          </div>
-          <Button onClick={handleCreateConv} className="w-full">Criar Conversa</Button>
-        </div>
-      </ResponsiveDialog>
     </div>
   );
 }
@@ -466,17 +345,13 @@ function ConversationList({ conversations, platforms, activeId, onSelect }: {
   );
 }
 
-function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBack, onUpdateFunnel, onClose, onDelete, onToggleAuto, onUpdateConversation, platforms }: {
+function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBack, onUpdateDigitalChannelContext, platforms }: {
   conversation: ServiceConversation;
   platform: any;
   linkedContact?: any;
   onLinkContact: (contactId: string | null) => void;
   onBack?: () => void;
-  onUpdateFunnel: (stage: string) => void;
-  onClose: () => void;
-  onDelete: () => void;
-  onToggleAuto: (enabled: boolean) => void;
-  onUpdateConversation: (id: string, updates: Partial<ServiceConversation>) => void;
+  onUpdateDigitalChannelContext: (channels: SalesChannelEntry[]) => void;
   platforms: any[];
 }) {
   const [showChannels, setShowChannels] = useState(false);
@@ -485,12 +360,12 @@ function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBa
 
   const addChannel = (platformId: string) => {
     const updated = [...salesChannels, { platform_id: platformId, added_at: new Date().toISOString() }];
-    onUpdateConversation(conversation.id, { sales_channels: updated } as any);
+    onUpdateDigitalChannelContext(updated);
   };
 
   const removeChannel = (index: number) => {
     const updated = salesChannels.filter((_, i) => i !== index);
-    onUpdateConversation(conversation.id, { sales_channels: updated } as any);
+    onUpdateDigitalChannelContext(updated);
   };
 
   const getPlatformInfo = (id: string) => platforms.find(p => p.id === id);
@@ -530,8 +405,8 @@ function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBa
               </Badge>
             )}
             {linkedContact ? (
-              <Link to={`/contatos?contact=${linkedContact.id}`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
-                <ExternalLink className="h-2.5 w-2.5" /> CRM
+              <Link to={`/contatos/inbox?contact=${linkedContact.id}&attend=1`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
+                <ExternalLink className="h-2.5 w-2.5" /> Abrir no CRM
               </Link>
             ) : (
               <button
@@ -568,37 +443,6 @@ function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBa
           </div>
         </ResponsiveDialog>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Select value={conversation.funnel_stage} onValueChange={onUpdateFunnel}>
-            <SelectTrigger className="h-7 w-[110px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(FUNNEL_STAGES).map(([key, config]) => (
-                <SelectItem key={key} value={key}>{config.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center gap-1">
-            <Switch
-              checked={conversation.auto_reply_enabled}
-              onCheckedChange={onToggleAuto}
-              className="h-4 w-7"
-            />
-            <span className="text-[10px] text-muted-foreground">Auto</span>
-          </div>
-
-          {conversation.status === 'open' ? (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Fechar conversa">
-              <Archive className="h-3.5 w-3.5" />
-            </Button>
-          ) : null}
-
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete} title="Excluir">
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-          </Button>
-        </div>
       </div>
 
       {/* Sales Channels Journey */}
@@ -663,12 +507,9 @@ function ChatHeader({ conversation, platform, linkedContact, onLinkContact, onBa
   );
 }
 
-function ChatMessages({ messages, loading, aiSuggesting, onApprove, onReject }: {
+function ChatMessages({ messages, loading }: {
   messages: ServiceMessage[];
   loading: boolean;
-  aiSuggesting: boolean;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
 }) {
   if (loading) {
     return (
@@ -688,25 +529,15 @@ function ChatMessages({ messages, loading, aiSuggesting, onApprove, onReject }: 
           <MessageBubble
             key={msg.id}
             message={msg}
-            onApprove={() => onApprove(msg.id)}
-            onReject={() => onReject(msg.id)}
           />
         ))}
-        {aiSuggesting && (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm pl-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>IA pensando...</span>
-          </div>
-        )}
       </div>
     </ScrollArea>
   );
 }
 
-function MessageBubble({ message, onApprove, onReject }: {
+function MessageBubble({ message }: {
   message: ServiceMessage;
-  onApprove: () => void;
-  onReject: () => void;
 }) {
   const isCustomer = message.sender === 'customer';
   const isAI = message.sender === 'ai_suggestion';
@@ -749,12 +580,6 @@ function MessageBubble({ message, onApprove, onReject }: {
               }}>
                 <Copy className="h-3 w-3" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={onApprove} title="Aprovar e enviar">
-                <Check className="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={onReject} title="Rejeitar">
-                <X className="h-3.5 w-3.5" />
-              </Button>
             </div>
           )}
           {isAI && message.ai_approved === true && (
@@ -773,52 +598,6 @@ function MessageBubble({ message, onApprove, onReject }: {
           </AvatarFallback>
         </Avatar>
       )}
-    </div>
-  );
-}
-
-function ChatInput({ value, onChange, onSend, onSendAsCustomer, onSuggestAI, aiSuggesting }: {
-  value: string;
-  onChange: (v: string) => void;
-  onSend: () => void;
-  onSendAsCustomer: () => void;
-  onSuggestAI: () => void;
-  aiSuggesting: boolean;
-}) {
-  return (
-    <div className="p-3 border-t bg-muted/30">
-      <div className="flex items-end gap-2">
-        <Textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Digite uma mensagem..."
-          className="min-h-[44px] max-h-[120px] resize-none"
-          rows={1}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-        />
-        <div className="flex flex-col gap-1">
-          <Button size="icon" className="h-9 w-9" onClick={onSend} disabled={!value.trim()} title="Enviar como atendente">
-            <Send className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="outline" className="h-9 w-9" onClick={onSendAsCustomer} disabled={!value.trim()} title="Simular msg do cliente">
-            <User className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-2">
-        <Button size="sm" variant="outline" onClick={onSuggestAI} disabled={aiSuggesting}>
-          {aiSuggesting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
-          Sugerir com IA
-        </Button>
-        <span className="text-[10px] text-muted-foreground">
-          A IA sugere, você aprova antes de enviar
-        </span>
-      </div>
     </div>
   );
 }
