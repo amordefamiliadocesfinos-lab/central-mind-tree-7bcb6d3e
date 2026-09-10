@@ -178,6 +178,9 @@ async function handleReplyMode(body: any, apiKey: string) {
   const decision = body?.decision ?? {};
   const profile = body?.communicationProfile ?? {};
   const knowledge = Array.isArray(body?.knowledgeContext?.items) ? body.knowledgeContext.items.slice(0, 5) : [];
+  const authoritativeKnowledgeAnswer = typeof body?.knowledgeContext?.authoritativeAnswer === 'string'
+    ? body.knowledgeContext.authoritativeAnswer.trim()
+    : '';
 
   // Guarda determinística: opt-out sem inbound recente nunca gera abordagem.
   if (optOut && !lastIsInbound) {
@@ -185,6 +188,19 @@ async function handleReplyMode(body: any, apiKey: string) {
       suggested_reply: null,
       reason: "Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.",
       tone: null,
+    });
+  }
+
+  // FAQ estável e diretamente aplicável vence memória interpretativa e qualquer
+  // inferência do modelo. O helper só preenche esse campo em correspondência
+  // específica e não ambígua; fatos dinâmicos jamais chegam por esta via.
+  if (lastIsInbound && authoritativeKnowledgeAnswer) {
+    return json({
+      suggested_reply: authoritativeKnowledgeAnswer,
+      reason: 'Resposta baseada em conhecimento estável aplicável.',
+      tone: 'objetivo',
+      intent: 'answer',
+      length: 'short',
     });
   }
 
@@ -204,7 +220,7 @@ async function handleReplyMode(body: any, apiKey: string) {
     `Última mensagem é do cliente: ${lastIsInbound ? "sim" : "não"}`,
     `Opt-out comercial: ${optOut ? "sim" : "não"}`,
     "",
-    "--- CONHECIMENTO RELEVANTE (APOIO; NUNCA SUBSTITUI FATOS CANÔNICOS) ---",
+    "--- CONHECIMENTO RELEVANTE (FATOS ESTÁVEIS; NUNCA SUBSTITUI FATOS CANÔNICOS) ---",
     knowledge.length
       ? knowledge.map((item: any) => `Pergunta: ${String(item.question ?? '').slice(0, 280)}\nResposta: ${String(item.answer ?? '').slice(0, 700)}\nCategoria: ${String(item.category ?? 'geral')}`).join('\n\n')
       : 'Nenhum item aplicável.',

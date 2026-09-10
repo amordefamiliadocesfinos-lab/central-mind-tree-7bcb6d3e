@@ -94,6 +94,7 @@ async function run() {
     },
   );
   assert((lastPayload as any)?.knowledgeContext?.items?.[0]?.id === 'faq-1', 'H: item relevante deve seguir separado no payload de resposta.');
+  assert((lastPayload as any)?.knowledgeContext?.authoritativeAnswer === '12 unidades.', 'H: resposta factual direta deve seguir como guarda de precedência.');
 
   // I/J. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });

@@ -16,6 +16,8 @@ export interface CrmKnowledgeItem {
 export interface CrmKnowledgeContext {
   items: CrmKnowledgeItem[];
   matched: boolean;
+  /** Resposta estável diretamente aplicável; nunca representa fato dinâmico. */
+  authoritativeAnswer: string | null;
 }
 
 export interface CrmKnowledgeLookupInput {
@@ -25,7 +27,7 @@ export interface CrmKnowledgeLookupInput {
 
 export type CrmKnowledgeFetcher = (platformId?: string | null) => Promise<CrmKnowledgeItem[]>;
 
-const EMPTY_CONTEXT: CrmKnowledgeContext = { items: [], matched: false };
+const EMPTY_CONTEXT: CrmKnowledgeContext = { items: [], matched: false, authoritativeAnswer: null };
 
 // Informações dinâmicas continuam exclusivamente nas fontes canônicas.
 const DYNAMIC_ONLY = /\b(estoque|disponibilidade|disponivel|preco|quanto custa|desconto|pedido|pagamento confirmado|ja foi pago|já foi pago|prazo hoje)\b/i;
@@ -62,6 +64,29 @@ function scoreItem(item: CrmKnowledgeItem, queryTokens: string[], platformId?: s
   return score;
 }
 
+const GENERIC_QUERY_TOKENS = new Set([
+  'qual', 'quais', 'quantos', 'quanto', 'como', 'tem', 'vem', 'voces', 'voces',
+  'validade', 'sabor', 'sabores', 'pagamento', 'entrega', 'produto', 'produtos',
+]);
+
+function singular(value: string): string {
+  return value.endsWith('s') && value.length > 3 ? value.slice(0, -1) : value;
+}
+
+/**
+ * Só promove um item a resposta obrigatória quando há um identificador concreto
+ * da pergunta e ele vence inequivocamente os demais itens. Isso evita que uma
+ * consulta genérica (por exemplo, apenas "validade") escolha uma FAQ arbitrária.
+ */
+function isDirectStableMatch(item: CrmKnowledgeItem, queryTokens: string[], score: number, runnerUpScore: number): boolean {
+  if (score <= 0 || score <= runnerUpScore) return false;
+  const itemTokens = new Set([
+    ...tokens(item.question),
+    ...(item.keywords ?? []).flatMap(tokens),
+  ].map(singular));
+  return queryTokens.some(token => !GENERIC_QUERY_TOKENS.has(token) && itemTokens.has(singular(token)));
+}
+
 export async function defaultCrmKnowledgeFetcher(platformId?: string | null): Promise<CrmKnowledgeItem[]> {
   let query = db.from('digital_knowledge_base')
     .select('id, question, answer, category, keywords, platform_id')
@@ -96,10 +121,16 @@ export async function resolveCrmKnowledgeContext(
     const ranked = (await fetcher(input.platformId))
       .map(item => ({ item, score: scoreItem(item, queryTokens, input.platformId) }))
       .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score || a.item.question.localeCompare(b.item.question))
-      .slice(0, MAX_KNOWLEDGE_ITEMS)
-      .map(({ item }) => item);
-    return { items: ranked, matched: ranked.length > 0 };
+      .sort((a, b) => b.score - a.score || a.item.question.localeCompare(b.item.question));
+    const top = ranked[0];
+    const authoritativeAnswer = top && isDirectStableMatch(top.item, queryTokens, top.score, ranked[1]?.score ?? -1)
+      ? top.item.answer
+      : null;
+    return {
+      items: ranked.slice(0, MAX_KNOWLEDGE_ITEMS).map(({ item }) => item),
+      matched: ranked.length > 0,
+      authoritativeAnswer,
+    };
   } catch {
     return EMPTY_CONTEXT;
   }
