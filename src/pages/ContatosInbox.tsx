@@ -580,6 +580,12 @@ export default function ContatosInbox() {
 
 
   const selected = items.find((i) => i.id === selectedId) || null;
+  // Dono visual das operações assíncronas do atendimento. Uma operação pode
+  // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
+  const selectedContextRef = useRef<string>('');
+  useEffect(() => {
+    selectedContextRef.current = selected ? `${selected.id}|${selected.conversation_id ?? ''}` : '';
+  }, [selected?.id, selected?.conversation_id]);
 
   // FRENTE 3.5 — contexto (somente leitura) da campanha que originou o contato.
   const [campaignContext, setCampaignContext] = useState<CampaignContext | null>(null);
@@ -763,9 +769,13 @@ export default function ContatosInbox() {
       toast.error('Contato alterado durante o registro. Selecione o resultado novamente.');
       return;
     }
+    const operationContextKey = currentContextKey;
     setAttendanceBusy(true);
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor });
+      // A gravação pertence ao contato capturado acima. Depois dela, só efeitos
+      // visuais pertencentes ao mesmo contexto podem tocar a Inbox atual.
+      if (selectedContextRef.current !== operationContextKey) return;
       const stageSummary = result.stage.action === 'MOVE'
         ? `Etapa: ${getCrmStageLabel(result.stage.previousStage)} → ${getCrmStageLabel(result.stage.nextStage)}`
         : `Etapa: ${getCrmStageLabel(result.stage.previousStage)} — mantida`;
@@ -780,7 +790,9 @@ export default function ContatosInbox() {
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível registrar o resultado do atendimento.');
-    } finally { setAttendanceBusy(false); }
+    } finally {
+      if (selectedContextRef.current === operationContextKey) setAttendanceBusy(false);
+    }
   };
 
   const snoozeSelected = async (when: number | string) => {

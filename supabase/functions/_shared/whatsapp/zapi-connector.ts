@@ -14,6 +14,10 @@ const MEDIA_PLACEHOLDERS: Record<string, string> = {
   image: 'Imagem recebida',
   video: 'Vídeo recebido',
   document: 'Documento recebido',
+  sticker: 'Figurinha recebida',
+  location: 'Localização recebida',
+  contact: 'Contato recebido',
+  contacts: 'Contato recebido',
 };
 
 /** Implementação Z-API. Somente este arquivo conhece URLs e tokens do provedor. */
@@ -79,6 +83,15 @@ export class ZApiWhatsAppConnector implements WhatsAppConnector {
     } else if (p.document) {
       messageType = 'document';
       content = MEDIA_PLACEHOLDERS.document;
+    } else if (p.sticker) {
+      messageType = 'sticker';
+      content = MEDIA_PLACEHOLDERS.sticker;
+    } else if (p.location) {
+      messageType = 'location';
+      content = MEDIA_PLACEHOLDERS.location;
+    } else if (p.contact || p.contacts) {
+      messageType = p.contacts ? 'contacts' : 'contact';
+      content = MEDIA_PLACEHOLDERS[messageType];
     } else {
       messageType = 'unsupported';
       content = 'Mensagem não suportada';
