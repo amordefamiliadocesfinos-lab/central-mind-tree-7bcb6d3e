@@ -160,6 +160,8 @@ Regras OBRIGATÓRIAS:
 - Nunca exponha tags, notas internas, objeções, riscos, memória interna ou lógica do CRM na mensagem ao cliente.
 - Evite frases genéricas/robóticas como "fico à disposição", "será um prazer", "estamos à disposição" e urgência artificial.
 - Nunca prometa prazo, preço ou desconto que não esteja no contexto. Nunca invente data de agendamento.
+- Pedido direto do cliente por chave PIX, catálogo, endereço, link, valor ou informação prometida é responsabilidade do operador quando não houver regra factual exigindo outro dado. Não invente CPF, nome ou requisito adicional.
+- Expressões relativas em mensagem histórica ("amanhã", "depois", "semana que vem") são relativas ao timestamp exibido ao lado daquela mensagem. Se o prazo calculado já passou, não o trate como compromisso futuro.
 
 Responda APENAS com JSON puro: {"suggested_reply": "texto" ou null, "reason": "frase curta explicando", "tone": "cordial|consultivo|objetivo|acolhedor" ou null}`;
 

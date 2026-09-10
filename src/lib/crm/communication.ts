@@ -97,7 +97,8 @@ export function buildCrmCommunicationDecision(
   const lastInbound = lastMessage?.direction === 'inbound';
   const hasOverdueTask = context.tasks.some(task => Boolean(task.dueAt) && Date.parse(task.dueAt!) <= Date.now());
   const canonicalResponsibility = result?.code ? getCrmOperationalResponsibility(result.code as CrmResultCode) : null;
-  const responsibility = context.conversation?.needsReply || lastInbound || hasOverdueTask
+  const directOperatorRequest = lastInbound && /\b(chave pix|chave|catalogo|endereco|link|valor|preco|informacao prometida)\b/.test(normalizedText(context));
+  const responsibility = directOperatorRequest || context.conversation?.needsReply || lastInbound || hasOverdueTask
     ? 'operator'
     : canonicalResponsibility === 'operator' ? 'operator'
     : canonicalResponsibility === 'counterparty' ? 'customer'
