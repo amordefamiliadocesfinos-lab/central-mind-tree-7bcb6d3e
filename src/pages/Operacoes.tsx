@@ -4,7 +4,6 @@ import { useContacts } from '@/hooks/useContacts';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { ContactFormDialog } from '@/components/financial/ContactFormDialog';
 import { useOrders } from '@/hooks/useOrders';
-import { useMRP } from '@/hooks/useMRP';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import { useMultiLocationInventory } from '@/hooks/useMultiLocationInventory';
 import { Button } from '@/components/ui/button';
@@ -96,7 +95,6 @@ export default function Operacoes() {
   } = useOrders();
   const separation = useOrderSeparation(rawOrders);
 
-  const { reserveMaterials, consumeMaterials } = useMRP();
   const { locations } = useStorageLocations();
   const { getTotalBalance } = useMultiLocationInventory();
 
@@ -470,20 +468,11 @@ export default function Operacoes() {
   };
 
   const handleStatusChange = useCallback(async (order: Order, newStatus: string) => {
-    const oldStatus = order.status;
-    const items = order.items?.map(i => ({ product_id: i.product_id, quantity: i.quantity })) || [];
-    
-    if (oldStatus === 'rascunho' && newStatus === 'confirmado' && items.length > 0) {
-      await reserveMaterials(order.id, items);
-    }
-    
-    if ((oldStatus === 'confirmado' || oldStatus === 'rascunho') && newStatus === 'producao' && items.length > 0) {
-      await consumeMaterials(order.id, items);
-    }
-    
+    // Pedido é demanda comercial. O MRP não reserva/consome materiais nem
+    // controla status; fatos físicos pertencem à separação e à conclusão da OP.
     await updateOrderStatus(order.id, newStatus);
     refetch();
-  }, [reserveMaterials, consumeMaterials, updateOrderStatus, refetch]);
+  }, [updateOrderStatus, refetch]);
 
   const handleTabChange = useCallback((tab: OperationsTab) => {
     setActiveTab(tab);
@@ -1420,27 +1409,7 @@ export default function Operacoes() {
         return <ProductionTab products={rawProducts} onRefetch={refetch} />;
 
       case 'mrp':
-        return (
-          <MRPTab 
-            orders={rawOrders} 
-            onReserve={async (order) => {
-              const items = order.items?.map(i => ({ product_id: i.product_id, quantity: i.quantity })) || [];
-              if (items.length > 0) {
-                await reserveMaterials(order.id, items);
-                await updateOrderStatus(order.id, 'confirmado');
-                refetch();
-              }
-            }}
-            onConsume={async (order) => {
-              const items = order.items?.map(i => ({ product_id: i.product_id, quantity: i.quantity })) || [];
-              if (items.length > 0) {
-                await consumeMaterials(order.id, items);
-                await updateOrderStatus(order.id, 'producao');
-                refetch();
-              }
-            }}
-          />
-        );
+        return <MRPTab />;
 
       case 'calendar':
         return (

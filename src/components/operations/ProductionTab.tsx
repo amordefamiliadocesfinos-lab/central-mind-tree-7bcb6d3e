@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useProductionLogs, ProductionLog, PROCESS_LABELS, PRODUCTION_PERIODS } from '@/hooks/useProductionLogs';
 import { useOrders, Product } from '@/hooks/useOrders';
-import { useMRP } from '@/hooks/useMRP';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +32,6 @@ export function ProductionTab({ products, onRefetch }: ProductionTabProps) {
     deleteLog,
     getSummary,
   } = useProductionLogs();
-  const { consumeMaterials } = useMRP();
 
   const [activeSubTab, setActiveSubTab] = useState('orders');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -105,19 +103,10 @@ export function ProductionTab({ products, onRefetch }: ProductionTabProps) {
     URL.revokeObjectURL(url);
   };
 
-  const handleSave = async (data: Omit<ProductionLog, 'id' | 'created_at' | 'updated_at' | 'product'>, consumeStock?: boolean) => {
-    const result = await createLog(data);
-    if (result) {
-      // Consume stock via BOM if requested
-      if (consumeStock && data.product_id && data.quantity > 0) {
-        await consumeMaterials(
-          result.id, 
-          [{ product_id: data.product_id, quantity: data.quantity }]
-        );
-        onRefetch?.();
-      }
-    }
-    return result;
+  const handleSave = async (data: Omit<ProductionLog, 'id' | 'created_at' | 'updated_at' | 'product'>) => {
+    // Lançamentos legados registram trabalho; consumo e crédito físico são
+    // exclusivos da conclusão transacional de uma OP.
+    return createLog(data);
   };
 
   // Callback to refresh employees after adding new one
