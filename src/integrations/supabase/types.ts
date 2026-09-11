@@ -3342,9 +3342,11 @@ export type Database = {
           financial_account_id: string | null
           financial_due_date: string | null
           id: string
+          internal_order_number: string | null
           marketplace_account: string | null
           marketplace_metadata: Json
           notes: string | null
+          operational_status: string
           order_date: string
           order_number: string | null
           order_type: string
@@ -3374,9 +3376,11 @@ export type Database = {
           financial_account_id?: string | null
           financial_due_date?: string | null
           id?: string
+          internal_order_number?: string | null
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
+          operational_status?: string
           order_date?: string
           order_number?: string | null
           order_type?: string
@@ -3406,9 +3410,11 @@ export type Database = {
           financial_account_id?: string | null
           financial_due_date?: string | null
           id?: string
+          internal_order_number?: string | null
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
+          operational_status?: string
           order_date?: string
           order_number?: string | null
           order_type?: string
@@ -5875,6 +5881,10 @@ export type Database = {
       reconcile_marketplace_settlement: {
         Args: { p_entry_ids: string[]; p_payload: Json }
         Returns: string
+      }
+      set_order_operational_status: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: Json
       }
       transition_order_status_with_stock: {
         Args: { p_order_id: string; p_status: string }
