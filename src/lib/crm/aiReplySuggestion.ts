@@ -17,7 +17,7 @@ import {
   type CrmCommunicationDecision,
   type CrmCommunicationDraft,
 } from './communication';
-import { resolveCrmKnowledgeContext, type CrmKnowledgeContext } from './knowledgeContext';
+import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 
 export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
@@ -45,6 +45,23 @@ export function normalizeReplyResponse(raw: any): CrmReplySuggestion {
   const intent = ['answer', 'follow_up', 'clarify', 'acknowledge'].includes(raw?.intent) ? raw.intent : (reply ? 'answer' : 'none');
   const length = raw?.length === 'medium' ? 'medium' : 'short';
   return { reply, message: reply, reason, rationale: reason, tone, intent, length };
+}
+
+/**
+ * Perguntas inbound consecutivas ainda aguardam resposta enquanto não houver
+ * uma mensagem outbound posterior. Reunimos no máximo três consultas factuais
+ * para responder o bloco pendente sem misturar assuntos mais antigos.
+ */
+function pendingFactualQuestions(messages: CrmAiContext['messages']): string | null {
+  const pending: string[] = [];
+  for (let index = (messages?.length ?? 0) - 1; index >= 0 && pending.length < 3; index -= 1) {
+    const message = messages[index];
+    if (message?.direction === 'outbound') break;
+    if (message?.direction !== 'inbound') continue;
+    const content = String(message.content ?? '').trim();
+    if (content && shouldQueryCrmKnowledge(content)) pending.unshift(content);
+  }
+  return pending.length > 0 ? pending.join('\n') : null;
 }
 
 export async function suggestCrmReplyFromContext(
@@ -78,7 +95,7 @@ export async function suggestCrmReplyFromContext(
   // A Base de Conhecimento é consultada somente para dúvidas factuais estáveis.
   // Sua indisponibilidade é absorvida pelo helper e nunca bloqueia a resposta.
   const knowledgeContext = await resolveCrmKnowledgeContext({
-    message: lastMessage?.content,
+    message: pendingFactualQuestions(context.messages),
     platformId: context.conversation?.platformId ?? null,
   }, options?.knowledgeFetcher);
 

@@ -89,6 +89,7 @@ async function run() {
     { id: 'chocoim', question: 'Qual a validade do Chocoim?', answer: 'O Chocoim 34g tem validade de 60 dias, quando armazenado corretamente.', category: 'Validade', keywords: ['chocoim', 'validade', '34g'], platformId: null },
     { id: 'alfajor', question: 'Quantos alfajores vêm em cada bandeja?', answer: 'Cada bandeja de Alfajor 60g contém 18 unidades.', category: 'Produtos', keywords: ['alfajor', 'bandeja', 'quantidade', '18 unidades'], platformId: null },
     { id: 'retirada', question: 'Onde posso retirar meu pedido?', answer: 'Estr. Fernando Ferrari, 1300 - Vila Imperial\nParada 107 de Gravataí\nGravataí - RS\nCEP 94130-220', category: 'Retirada', keywords: ['endereço', 'retirada', 'fábrica', 'gravataí'], platformId: null },
+    { id: 'dados-envio', question: 'Quais dados preciso mandar para envio?', answer: 'Precisamos dos dados para envio:\n\nNome completo:\nTelefone:\nE-mail:\nCPF:\nEndereço completo:\nCEP:\nComplemento (se houver):\nAlguma observação na sua entrega?', category: 'Entrega', keywords: ['dados para envio', 'envio', 'cpf', 'endereço'], platformId: null },
   ];
   const factualCases = [
     ['Qual a validade do Chocoim?', '60 dias'],
@@ -109,7 +110,24 @@ async function run() {
     }
   }
 
-  // I/J. Normalização nunca envia mensagem nem inventa texto.
+  // I. Perguntas factuais consecutivas, sem outbound entre elas, formam um
+  // único bloco pendente e devem retornar os três fatos solicitados.
+  const pendingBlock = await suggestCrmReplyFromContext(context({}, [
+    inbound('Qual a validade do Chocoim?'),
+    inbound('Quantos alfajores vêm por bandeja?'),
+    inbound('Qual o endereço para retirada?'),
+  ]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({ suggested_reply: 'não deve chamar' }) });
+  assert(pendingBlock.reply?.includes('60 dias') && pendingBlock.reply?.includes('18 unidades') && pendingBlock.reply?.includes('Estr. Fernando Ferrari'), 'I: três perguntas consecutivas devem combinar os três fatos pendentes.');
+  assert(!pendingBlock.reply?.includes('Precisamos dos dados para envio'), 'I: endereço para retirada não pode promover formulário de envio.');
+
+  // J/K. Endereço e dados para envio são temas próximos, porém cada resposta
+  // só aparece quando a pergunta correspondente foi feita explicitamente.
+  const addressOnly = await suggestCrmReplyFromContext(context({}, [inbound('Qual endereço para retirada?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
+  assert(addressOnly.reply?.includes('Estr. Fernando Ferrari') && !addressOnly.reply?.includes('Precisamos dos dados para envio'), 'J: retirada deve retornar somente o endereço.');
+  const shippingData = await suggestCrmReplyFromContext(context({}, [inbound('Quais dados preciso mandar para envio?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
+  assert(shippingData.reply?.includes('Precisamos dos dados para envio') && shippingData.reply?.includes('CPF:'), 'K: dados para envio deve retornar o formulário.');
+
+  // L. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');
 }

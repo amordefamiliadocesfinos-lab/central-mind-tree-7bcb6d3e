@@ -31,7 +31,7 @@ const EMPTY_CONTEXT: CrmKnowledgeContext = { items: [], matched: false, authorit
 
 // Informações dinâmicas continuam exclusivamente nas fontes canônicas.
 const DYNAMIC_ONLY = /\b(estoque|disponibilidade|disponivel|preco|quanto custa|desconto|pedido|pagamento confirmado|ja foi pago|já foi pago|prazo hoje)\b/i;
-const STABLE_HINTS = /\b(quantos|quantidade|caixa|validade|sabores?|sabor|embalagem|pix|chave|retirada|entrega|formas? de pagamento|pagamento|catalogo|catálogo|endereco|endereço|link|politica|política)\b/i;
+const STABLE_HINTS = /\b(quantos|quantidade|caixa|validade|sabores?|sabor|embalagem|pix|chave|retirada|entrega|envio|dados|formas? de pagamento|pagamento|catalogo|catálogo|endereco|endereço|link|politica|política)\b/i;
 
 function normalize(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -87,6 +87,22 @@ function directStableTokens(item: CrmKnowledgeItem, queryTokens: string[]): stri
     .map(singular);
 }
 
+/**
+ * O formulário de dados para envio é relacionado à entrega, mas só pode ser
+ * apresentado quando o cliente o pedir. Uma pergunta sobre retirada/endereço
+ * não autoriza acrescentar dados pessoais que não foram solicitados.
+ */
+function requiresExplicitShippingDataRequest(item: CrmKnowledgeItem): boolean {
+  const itemText = normalize(`${item.question} ${(item.keywords ?? []).join(' ')}`);
+  return /\b(dados?.{0,12}envio|envio.{0,12}dados?|nome completo|cpf|complemento)\b/.test(itemText);
+}
+
+function isDirectlyRequested(item: CrmKnowledgeItem, queryTokens: string[]): boolean {
+  if (!requiresExplicitShippingDataRequest(item)) return true;
+  const explicitRequestTokens = new Set(['dado', 'dados', 'envio', 'nome', 'telefone', 'email', 'cpf', 'complemento']);
+  return queryTokens.some(token => explicitRequestTokens.has(singular(token)));
+}
+
 /** Um item menos específico não deve duplicar outro que explica os mesmos termos. */
 function isSupersededByMoreSpecificMatch(
   candidate: { score: number; directTokens: string[] },
@@ -129,6 +145,7 @@ export async function resolveCrmKnowledgeContext(
   try {
     const queryTokens = tokens(String(input.message));
     const ranked = (await fetcher(input.platformId))
+      .filter(item => isDirectlyRequested(item, queryTokens))
       .map(item => ({ item, score: scoreItem(item, queryTokens, input.platformId) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score || a.item.question.localeCompare(b.item.question));
