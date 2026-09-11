@@ -3180,6 +3180,47 @@ export type Database = {
           },
         ]
       }
+      order_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_type: string
+          file_name: string | null
+          file_url: string
+          id: string
+          order_id: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          file_name?: string | null
+          file_url: string
+          id?: string
+          order_id: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          file_name?: string | null
+          file_url?: string
+          id?: string
+          order_id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_documents_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string
@@ -3228,6 +3269,59 @@ export type Database = {
             columns: ["variant_id"]
             isOneToOne: false
             referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_separation: {
+        Row: {
+          created_at: string
+          finalized_at: string | null
+          finalized_by: string | null
+          first_printed_at: string | null
+          first_printed_by: string | null
+          id: string
+          logistics_mode: string | null
+          operational_destination: string | null
+          order_id: string
+          print_count: number
+          separation_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          first_printed_at?: string | null
+          first_printed_by?: string | null
+          id?: string
+          logistics_mode?: string | null
+          operational_destination?: string | null
+          order_id: string
+          print_count?: number
+          separation_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          first_printed_at?: string | null
+          first_printed_by?: string | null
+          id?: string
+          logistics_mode?: string | null
+          operational_destination?: string | null
+          order_id?: string
+          print_count?: number
+          separation_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_separation_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -5732,6 +5826,7 @@ export type Database = {
         Returns: Json
       }
       current_app_user_id: { Args: never; Returns: string }
+      finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
@@ -5748,6 +5843,29 @@ export type Database = {
       }
       map_contact_to_conv_funnel: { Args: { _status: string }; Returns: string }
       map_conv_to_contact_funnel: { Args: { _stage: string }; Returns: string }
+      mark_order_separation_printed: {
+        Args: { p_order_id: string }
+        Returns: {
+          created_at: string
+          finalized_at: string | null
+          finalized_by: string | null
+          first_printed_at: string | null
+          first_printed_by: string | null
+          id: string
+          logistics_mode: string | null
+          operational_destination: string | null
+          order_id: string
+          print_count: number
+          separation_status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "order_separation"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       merge_contacts: {
         Args: { _duplicate_id: string; _primary_id: string }
         Returns: Json
