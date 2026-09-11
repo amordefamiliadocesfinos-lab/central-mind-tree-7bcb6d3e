@@ -31,7 +31,8 @@ const EMPTY_CONTEXT: CrmKnowledgeContext = { items: [], matched: false, authorit
 
 // Informações dinâmicas continuam exclusivamente nas fontes canônicas.
 const DYNAMIC_ONLY = /\b(estoque|disponibilidade|disponivel|preco|quanto custa|desconto|pedido|pagamento confirmado|ja foi pago|já foi pago|prazo hoje)\b/i;
-const STABLE_HINTS = /\b(quantos|quantidade|caixa|validade|sabores?|sabor|embalagem|pix|chave|retirada|entrega|envio|dados|formas? de pagamento|pagamento|catalogo|catálogo|endereco|endereço|link|politica|política)\b/i;
+const STABLE_HINTS = /\b(quantos|quantidade|caixa|validade|sabores?|sabor|embalagem|pix|chave|retir\w*|entrega|envio|dados|frete|uber|motorista|transportadora|shopee|evento|formas? de pagamento|pagamento|catalogo|catálogo|endereco|endereço|link|politica|política)\b/i;
+const FACTUAL_REQUEST = /\?|\b(qual|quais|quanto|quantos|como|onde|manda|envi[ae]|preciso|pode|aceita|tem)\b/i;
 
 function normalize(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -47,7 +48,7 @@ function tokens(value: string): string[] {
 export function shouldQueryCrmKnowledge(message: string | null | undefined): boolean {
   const text = String(message ?? '').trim();
   if (!text || DYNAMIC_ONLY.test(normalize(text))) return false;
-  return STABLE_HINTS.test(normalize(text));
+  return STABLE_HINTS.test(normalize(text)) && FACTUAL_REQUEST.test(normalize(text));
 }
 
 function scoreItem(item: CrmKnowledgeItem, queryTokens: string[], platformId?: string | null): number {
@@ -56,9 +57,9 @@ function scoreItem(item: CrmKnowledgeItem, queryTokens: string[], platformId?: s
   const keywordTokens = new Set((item.keywords ?? []).flatMap(tokens));
   let score = 0;
   for (const token of queryTokens) {
-    if (keywordTokens.has(token)) score += 8;
-    if (questionTokens.has(token)) score += 3;
-    if (categoryTokens.has(token)) score += 1;
+    if ([...keywordTokens].some(itemToken => sameKnowledgeToken(token, itemToken))) score += 8;
+    if ([...questionTokens].some(itemToken => sameKnowledgeToken(token, itemToken))) score += 3;
+    if ([...categoryTokens].some(itemToken => sameKnowledgeToken(token, itemToken))) score += 1;
   }
   if (platformId && item.platformId === platformId) score += 2;
   return score;
@@ -73,6 +74,13 @@ function singular(value: string): string {
   return value.endsWith('s') && value.length > 3 ? value.slice(0, -1) : value;
 }
 
+function sameKnowledgeToken(left: string, right: string): boolean {
+  const normalizedLeft = singular(left);
+  const normalizedRight = singular(right);
+  return normalizedLeft === normalizedRight
+    || (normalizedLeft.startsWith('retir') && normalizedRight.startsWith('retir'));
+}
+
 /**
  * Retorna os identificadores concretos da pergunta que uma FAQ atende. Termos
  * genéricos como "validade" nunca bastam para promover uma resposta sozinhos.
@@ -83,7 +91,7 @@ function directStableTokens(item: CrmKnowledgeItem, queryTokens: string[]): stri
     ...(item.keywords ?? []).flatMap(tokens),
   ].map(singular));
   return queryTokens
-    .filter(token => !GENERIC_QUERY_TOKENS.has(token) && itemTokens.has(singular(token)))
+    .filter(token => !GENERIC_QUERY_TOKENS.has(token) && [...itemTokens].some(itemToken => sameKnowledgeToken(token, itemToken)))
     .map(singular);
 }
 

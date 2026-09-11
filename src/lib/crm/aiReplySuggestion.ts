@@ -59,9 +59,20 @@ function pendingFactualQuestions(messages: CrmAiContext['messages']): string | n
     if (message?.direction === 'outbound') break;
     if (message?.direction !== 'inbound') continue;
     const content = String(message.content ?? '').trim();
+    // Encerramento explícito supera uma pergunta temática anterior que ainda
+    // esteja no histórico da janela recente.
+    if (/\b(resolvid[oa]?|resolvi|deu certo|ja resolvi|já resolvi|nao precisa|não precisa)\b/i.test(content)) break;
     if (content && shouldQueryCrmKnowledge(content)) pending.unshift(content);
   }
   return pending.length > 0 ? pending.join('\n') : null;
+}
+
+function canUsePendingFactualKnowledge(options: SuggestCrmReplyOptions | undefined, lastIsInbound: boolean): boolean {
+  if (!lastIsInbound) return false;
+  const decision = options?.decision;
+  // A decisão operacional é soberana: não ressuscitamos uma FAQ histórica em
+  // atendimentos encerrados ou que estão aguardando o outro lado.
+  return !decision || (decision.shouldReply && !['closed', 'awaiting_counterparty'].includes(decision.decisionState));
 }
 
 export async function suggestCrmReplyFromContext(
@@ -95,7 +106,9 @@ export async function suggestCrmReplyFromContext(
   // A Base de Conhecimento é consultada somente para dúvidas factuais estáveis.
   // Sua indisponibilidade é absorvida pelo helper e nunca bloqueia a resposta.
   const knowledgeContext = await resolveCrmKnowledgeContext({
-    message: pendingFactualQuestions(context.messages),
+    message: canUsePendingFactualKnowledge(options, lastIsInbound)
+      ? pendingFactualQuestions(context.messages)
+      : null,
     platformId: context.conversation?.platformId ?? null,
   }, options?.knowledgeFetcher);
 

@@ -90,6 +90,8 @@ async function run() {
     { id: 'alfajor', question: 'Quantos alfajores vêm em cada bandeja?', answer: 'Cada bandeja de Alfajor 60g contém 18 unidades.', category: 'Produtos', keywords: ['alfajor', 'bandeja', 'quantidade', '18 unidades'], platformId: null },
     { id: 'retirada', question: 'Onde posso retirar meu pedido?', answer: 'Estr. Fernando Ferrari, 1300 - Vila Imperial\nParada 107 de Gravataí\nGravataí - RS\nCEP 94130-220', category: 'Retirada', keywords: ['endereço', 'retirada', 'fábrica', 'gravataí'], platformId: null },
     { id: 'dados-envio', question: 'Quais dados preciso mandar para envio?', answer: 'Precisamos dos dados para envio:\n\nNome completo:\nTelefone:\nE-mail:\nCPF:\nEndereço completo:\nCEP:\nComplemento (se houver):\nAlguma observação na sua entrega?', category: 'Entrega', keywords: ['dados para envio', 'envio', 'cpf', 'endereço'], platformId: null },
+    { id: 'uber', question: 'Como funciona a entrega por Uber?', answer: 'Para entrega por Uber, o cliente pode solicitar o serviço para acompanhar a entrega.', category: 'Entrega', keywords: ['uber', 'motorista', 'entrega'], platformId: null },
+    { id: 'frete', question: 'Como calculam o frete?', answer: 'Para calcular o frete, precisamos dos produtos, quantidades e CEP.', category: 'Entrega', keywords: ['frete', 'cep', 'quantidade'], platformId: null },
   ];
   const factualCases = [
     ['Qual a validade do Chocoim?', '60 dias'],
@@ -127,7 +129,30 @@ async function run() {
   const shippingData = await suggestCrmReplyFromContext(context({}, [inbound('Quais dados preciso mandar para envio?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
   assert(shippingData.reply?.includes('Precisamos dos dados para envio') && shippingData.reply?.includes('CPF:'), 'K: dados para envio deve retornar o formulário.');
 
-  // L. Normalização nunca envia mensagem nem inventa texto.
+  // L. Pergunta já coberta por outbound e problema encerrado não podem trazer
+  // FAQ antiga de volta; uma nova pergunta explícita continua funcionando.
+  const resolvedUber = await suggestCrmReplyFromContext(context({}, [
+    inbound('Como funciona a entrega por Uber?'),
+    outbound('Para entrega por Uber, o cliente pode solicitar o serviço para acompanhar a entrega.'),
+    inbound('Resolvido, obrigada.'),
+  ]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({ suggested_reply: null }) });
+  assert(resolvedUber.reply === null, 'L: problema de entrega resolvido não deve ressuscitar FAQ Uber.');
+  const newQuestionOnly = await suggestCrmReplyFromContext(context({}, [
+    inbound('Como funciona a entrega por Uber?'),
+    outbound('Para entrega por Uber, o cliente pode solicitar o serviço para acompanhar a entrega.'),
+    inbound('Como retiro?'),
+  ]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
+  assert(newQuestionOnly.reply?.includes('Estr. Fernando Ferrari') && !newQuestionOnly.reply?.includes('Uber'), 'L: pergunta nova deve responder somente o fato atual.');
+  const freight = await suggestCrmReplyFromContext(context({}, [inbound('Como calculam o frete?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
+  assert(freight.reply?.includes('produtos, quantidades e CEP'), 'L: frete deve retornar sua regra de cálculo.');
+  const closedDecision = await suggestCrmReplyFromContext(context({}, [inbound('Como funciona a entrega por Uber?')]), {
+    decision: { situation: 'resolvido', perceivedIntent: null, responsibility: 'customer', suggestedResult: { code: null, confidence: 1 }, nextAction: { code: null, source: 'none' }, shouldReply: false, ambiguity: 'none', riskFlags: ['no_immediate_action'], reason: 'Problema resolvido.', commercialIntent: 'unknown', decisionState: 'closed', paymentState: 'none' },
+    knowledgeFetcher: async () => faqItems,
+    invoke: async () => ({ suggested_reply: null }),
+  });
+  assert(closedDecision.reply === null, 'L: decisão encerrada não deve usar FAQ histórica.');
+
+  // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');
 }
