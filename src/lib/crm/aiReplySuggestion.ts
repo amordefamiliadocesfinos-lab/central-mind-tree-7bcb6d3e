@@ -82,6 +82,21 @@ export async function suggestCrmReplyFromContext(
     platformId: context.conversation?.platformId ?? null,
   }, options?.knowledgeFetcher);
 
+  // Um fato estável, específico e não ambíguo já vem da KB com sua redação
+  // aprovada. Não chamamos o modelo para reescrever números, quantidades ou
+  // endereços e, assim, eliminamos variação entre recarregamentos.
+  if (lastIsInbound && knowledgeContext.authoritativeAnswer) {
+    return {
+      reply: knowledgeContext.authoritativeAnswer,
+      message: knowledgeContext.authoritativeAnswer,
+      reason: 'Resposta baseada em conhecimento estável aplicável.',
+      rationale: 'Resposta baseada em conhecimento estável aplicável.',
+      tone: 'objetivo',
+      intent: 'answer',
+      length: 'short',
+    };
+  }
+
   const raw = await invoke({
     mode: 'reply',
     context: buildCrmAiRequestContext(context, 'reply'),

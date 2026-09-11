@@ -84,17 +84,30 @@ async function run() {
   );
   assert(g.reply?.includes('segunda via'), 'G: opt-out com inbound pode responder.');
 
-  // H. Conhecimento factual relevante acompanha somente o modo reply.
-  lastPayload = null;
-  await suggestCrmReplyFromContext(
-    context({}, [inbound('Quantos alfajores vêm na caixa?')]),
-    {
-      invoke: stub({ suggested_reply: 'A caixa vem com 12 alfajores.', reason: 'Informação estável.' }),
-      knowledgeFetcher: async () => [{ id: 'faq-1', question: 'Quantos alfajores vêm na caixa?', answer: '12 unidades.', category: 'produto', keywords: ['alfajor', 'caixa'], platformId: null }],
-    },
-  );
-  assert((lastPayload as any)?.knowledgeContext?.items?.[0]?.id === 'faq-1', 'H: item relevante deve seguir separado no payload de resposta.');
-  assert((lastPayload as any)?.knowledgeContext?.authoritativeAnswer === '12 unidades.', 'H: resposta factual direta deve seguir como guarda de precedência.');
+  // H. Fato FAQ forte bypassa a IA: dez execuções devem permanecer idênticas.
+  const faqItems = [
+    { id: 'chocoim', question: 'Qual a validade do Chocoim?', answer: 'O Chocoim 34g tem validade de 60 dias, quando armazenado corretamente.', category: 'Validade', keywords: ['chocoim', 'validade', '34g'], platformId: null },
+    { id: 'alfajor', question: 'Quantos alfajores vêm em cada bandeja?', answer: 'Cada bandeja de Alfajor 60g contém 18 unidades.', category: 'Produtos', keywords: ['alfajor', 'bandeja', 'quantidade', '18 unidades'], platformId: null },
+    { id: 'retirada', question: 'Onde posso retirar meu pedido?', answer: 'Estr. Fernando Ferrari, 1300 - Vila Imperial\nParada 107 de Gravataí\nGravataí - RS\nCEP 94130-220', category: 'Retirada', keywords: ['endereço', 'retirada', 'fábrica', 'gravataí'], platformId: null },
+  ];
+  const factualCases = [
+    ['Qual a validade do Chocoim?', '60 dias'],
+    ['Quantos alfajores vêm por bandeja?', '18 unidades'],
+    ['Qual o endereço para retirada?', 'CEP 94130-220'],
+    ['Qual a validade do Chocoim, quantos alfajores vêm por bandeja e qual o endereço para retirada?', 'Estr. Fernando Ferrari'],
+  ] as const;
+  for (const [question, expected] of factualCases) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      let invoked = false;
+      const factual = await suggestCrmReplyFromContext(context({}, [inbound(question)]), {
+        knowledgeFetcher: async () => faqItems,
+        invoke: async () => { invoked = true; return { suggested_reply: 'X dias' }; },
+      });
+      assert(factual.reply?.includes(expected), `H: ${question} deve manter ${expected} na execução ${attempt + 1}.`);
+      assert(!invoked, `H: FAQ factual não deve chamar geração livre na execução ${attempt + 1}.`);
+      assert(!/\b(?:X dias|Y unidades|\[endereço\])\b/i.test(factual.reply ?? ''), 'H: resposta factual não pode conter placeholder.');
+    }
+  }
 
   // I/J. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
