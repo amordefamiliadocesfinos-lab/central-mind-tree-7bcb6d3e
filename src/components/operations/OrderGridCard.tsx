@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { OrderPriorityBadge } from './OrderPriorityBadge';
 import { LateProductionBadge } from './LateProductionBadge';
 import { getOrderCustomerName, getOrderReference } from './orderPresentation';
+import { ORDER_OPERATIONAL_STATUS, ORDER_OPERATIONAL_STATUS_LIST, getOperationalStatus } from '@/lib/orders/operationalStatus';
 
 const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '';
@@ -26,6 +27,8 @@ interface OrderItem {
 interface Order {
   id: string;
   order_number?: string | null;
+  internal_order_number?: string | null;
+  operational_status?: string | null;
   customer_name?: string | null;
   status: string;
   channel?: string | null;
@@ -38,27 +41,18 @@ interface Order {
 
 interface OrderGridCardProps {
   order: Order;
-  orderStatus: Record<string, { label: string; color: string }>;
+  /** Catálogo legado — mantido apenas por compatibilidade nesta fase. */
+  orderStatus?: Record<string, { label: string; color: string }>;
   orderChannels: Record<string, string>;
   onStatusChange: (order: Order, newStatus: string) => void;
   onClick?: (order: Order) => void;
 }
 
-const STATUS_BORDER_COLORS: Record<string, string> = {
-  pendente: 'border-l-yellow-400',
-  producao: 'border-l-amber-500',
-  produzido: 'border-l-emerald-500',
-  enviado: 'border-l-blue-500',
-  faturado: 'border-l-indigo-500',
-  entregue: 'border-l-teal-500',
-  concluido: 'border-l-green-500',
-  cancelado: 'border-l-red-500',
-};
-
 export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChange, onClick }: OrderGridCardProps) {
-  const statusInfo = orderStatus[order.status as keyof typeof orderStatus];
+  const operationalStatus = getOperationalStatus(order);
+  const statusInfo = ORDER_OPERATIONAL_STATUS[operationalStatus];
   const isStockOrder = order.order_type === 'stock';
-  const borderColor = STATUS_BORDER_COLORS[order.status] || 'border-l-muted';
+  const borderColor = statusInfo.border;
   const customerName = getOrderCustomerName(order);
   const orderReference = getOrderReference(order);
   const channelLabel = order.channel ? orderChannels[order.channel] : undefined;
@@ -80,7 +74,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
         {/* Line 2 - Status + type (consolidated) */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge className={cn('text-xs', statusInfo?.color)}>
-            {statusInfo?.label || order.status}
+            {statusInfo.label}
           </Badge>
           <span
             className={cn(
@@ -125,14 +119,14 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
 
         {/* Line 6 - Action */}
         <Select
-          value={order.status}
+          value={operationalStatus}
           onValueChange={(v) => onStatusChange(order, v)}
         >
           <SelectTrigger className="w-full h-9 text-xs" onClick={(e) => e.stopPropagation()}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(orderStatus).map(([key, { label }]) => (
+            {ORDER_OPERATIONAL_STATUS_LIST.map(({ key, label }) => (
               <SelectItem key={key} value={key}>{label}</SelectItem>
             ))}
           </SelectContent>

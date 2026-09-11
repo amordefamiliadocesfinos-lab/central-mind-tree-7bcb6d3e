@@ -25,6 +25,8 @@ export interface OrderDocument {
   file_url: string;
   file_name: string | null;
   source: string | null;
+  created_at?: string;
+  created_by?: string | null;
 }
 
 export function useOrderSeparation(orders: Order[]) {

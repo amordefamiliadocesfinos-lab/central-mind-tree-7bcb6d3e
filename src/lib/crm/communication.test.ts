@@ -8,7 +8,7 @@ function assert(condition: unknown, message: string): asserts condition {
 const context = (overrides: Partial<CrmAiContext> = {}): CrmAiContext => ({
   generatedAt: new Date().toISOString(),
   contact: { id: 'c1', name: 'Cliente', stage: 'negociacao', origin: 'whatsapp', optOut: false, temperature: null },
-  conversation: { id: 'v1', state: 'em_atendimento', status: 'open', needsReply: true, returnAt: null, lastInboundAt: null, lastOutboundAt: null },
+  conversation: { id: 'v1', platformId: null, state: 'em_atendimento', status: 'open', needsReply: true, returnAt: null, lastInboundAt: null, lastOutboundAt: null },
   messages: [{ direction: 'inbound', sender: 'customer', content: 'Quero saber mais', createdAt: new Date().toISOString() }],
   history: [], lastResult: null, lastResultAt: null, nextAction: null, tasks: [],
   purchases: { paidOrdersCount: 0, lifetimeValue: null, lastOrders: [] }, tags: [], campaign: null,
@@ -24,7 +24,7 @@ assert(decision.shouldReply && decision.responsibility === 'operator', 'inbound 
 assert(decision.suggestedResult.code === 'CRM-RES-001' && decision.nextAction.code === 'CRM-PA-001', 'contrato carrega somente decisões já canônicas.');
 assert(DEFAULT_BUILDING_COMMUNICATION_PROFILE.status === 'building' && DEFAULT_BUILDING_COMMUNICATION_PROFILE.approvedExamples.length === 0, 'perfil padrão permanece neutro e em construção.');
 
-const noReply = buildCrmCommunicationDecision(context({ conversation: { id: 'v1', state: 'aguardando_cliente', status: 'open', needsReply: false, returnAt: null, lastInboundAt: null, lastOutboundAt: null } }), result, { ...action, noImmediateAction: true, nextActionCode: null });
+const noReply = buildCrmCommunicationDecision(context({ conversation: { id: 'v1', platformId: null, state: 'aguardando_cliente', status: 'open', needsReply: false, returnAt: null, lastInboundAt: null, lastOutboundAt: null } }), result, { ...action, noImmediateAction: true, nextActionCode: null });
 assert(!noReply.shouldReply, 'ausência legítima de ação não gera resposta artificial.');
 
 console.log('communication.test: OK');

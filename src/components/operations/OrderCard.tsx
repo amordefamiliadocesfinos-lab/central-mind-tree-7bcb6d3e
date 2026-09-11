@@ -9,6 +9,7 @@ import { format, parseISO } from 'date-fns';
 import { OrderPriorityBadge } from './OrderPriorityBadge';
 import { LateProductionBadge } from './LateProductionBadge';
 import { getOrderCustomerName, getOrderReference } from './orderPresentation';
+import { ORDER_OPERATIONAL_STATUS, ORDER_OPERATIONAL_STATUS_LIST, getOperationalStatus } from '@/lib/orders/operationalStatus';
 
 const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '';
@@ -28,6 +29,8 @@ interface OrderItem {
 interface Order {
   id: string;
   order_number?: string | null;
+  internal_order_number?: string | null;
+  operational_status?: string | null;
   customer_name?: string | null;
   status: string;
   channel?: string | null;
@@ -40,7 +43,8 @@ interface Order {
 
 interface OrderCardProps {
   order: Order;
-  orderStatus: Record<string, { label: string; color: string }>;
+  /** Catálogo legado — mantido apenas por compatibilidade nesta fase. */
+  orderStatus?: Record<string, { label: string; color: string }>;
   orderChannels: Record<string, string>;
   onStatusChange: (order: Order, newStatus: string) => void;
   onDelete?: (orderId: string) => void;
@@ -48,7 +52,8 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, onDelete, onClick }: OrderCardProps) {
-  const statusInfo = orderStatus[order.status as keyof typeof orderStatus];
+  const operationalStatus = getOperationalStatus(order);
+  const statusInfo = ORDER_OPERATIONAL_STATUS[operationalStatus];
   const isStockOrder = order.order_type === 'stock';
   const customerName = getOrderCustomerName(order);
   const orderReference = getOrderReference(order);
@@ -66,7 +71,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
             <div className="flex items-center gap-1.5 flex-wrap">
               <h3 className="font-semibold text-sm md:text-base truncate">{customerName}</h3>
               <Badge className={cn('text-[10px] md:text-xs px-1.5 py-0', statusInfo?.color)}>
-                {statusInfo?.label || order.status}
+                {statusInfo.label}
               </Badge>
               <span
                 className={cn(
@@ -115,7 +120,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
         <div className="flex items-center gap-2 pt-1">
           <span className="text-[11px] text-muted-foreground shrink-0">Status:</span>
           <Select
-            value={order.status}
+            value={operationalStatus}
             onValueChange={(v) => onStatusChange(order, v)}
           >
             <SelectTrigger
@@ -125,7 +130,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(orderStatus).map(([key, { label }]) => (
+              {ORDER_OPERATIONAL_STATUS_LIST.map(({ key, label }) => (
                 <SelectItem key={key} value={key}>{label}</SelectItem>
               ))}
             </SelectContent>

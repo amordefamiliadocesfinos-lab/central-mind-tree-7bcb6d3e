@@ -76,6 +76,8 @@ export const ORDER_TYPES: Record<OrderType, { label: string; description: string
 export interface Order {
   id: string;
   order_number: string | null;
+  internal_order_number?: string | null;
+  operational_status?: 'todo' | 'preparing' | 'finalized' | 'cancelled';
   customer_name: string | null;
   customer_contact: string | null;
   channel: string;
@@ -245,11 +247,10 @@ export function sortOrdersByStatus(orders: Order[]): Order[] {
 
     if (prioA !== prioB) return prioA - prioB;
 
-    // Secondary sort: status order
-    const statusA = ORDER_STATUS[a.status as keyof typeof ORDER_STATUS];
-    const statusB = ORDER_STATUS[b.status as keyof typeof ORDER_STATUS];
-    const orderA = statusA?.order ?? 99;
-    const orderB = statusB?.order ?? 99;
+    // Secondary sort: operational dimension (Fase 1), legado como fallback
+    const OPERATIONAL_ORDER: Record<string, number> = { todo: 0, preparing: 1, finalized: 2, cancelled: 3 };
+    const orderA = OPERATIONAL_ORDER[a.operational_status ?? 'todo'] ?? 99;
+    const orderB = OPERATIONAL_ORDER[b.operational_status ?? 'todo'] ?? 99;
 
     if (orderA !== orderB) return orderA - orderB;
 

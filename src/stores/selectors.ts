@@ -106,9 +106,15 @@ export function useFilteredOrders(): Order[] {
     const matchesSearch =
       !searchTerm ||
       order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.order_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.internal_order_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    // Fase 1: a tela de Pedidos filtra pela dimensão operacional.
+    const operationalStatus = order.operational_status ?? 'todo';
+    const matchesStatus =
+      statusFilter === 'all' ||
+      operationalStatus === statusFilter ||
+      order.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });

@@ -61,6 +61,8 @@ export type OrderType = 'stock' | 'production';
 export interface Order {
   id: string;
   order_number: string | null;
+  internal_order_number?: string | null;
+  operational_status?: 'todo' | 'preparing' | 'finalized' | 'cancelled';
   customer_name: string | null;
   customer_contact: string | null;
   contact_id: string | null;

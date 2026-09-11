@@ -29,6 +29,7 @@ import { OrdersDateFilter, filterOrdersByDate, type OrdersDateFilterValue } from
 import { ProductsSubFilters, applyProductsSubFilters, type ProductsSubFiltersValue } from '@/components/operations/ProductsSubFilters';
 import { OperationsTopTabs } from '@/components/operations/OperationsTopTabs';
 import { OrderCard } from '@/components/operations/OrderCard';
+import { ORDER_OPERATIONAL_STATUS_LIST, setOrderOperationalStatus, finalizeOrderOperational, describeFinalizationError } from '@/lib/orders/operationalStatus';
 import { OrderGridCard } from '@/components/operations/OrderGridCard';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ProductCard } from '@/components/operations/ProductCard';
@@ -490,6 +491,25 @@ export default function Operacoes() {
   }, [setActiveTab, resetFilters]);
 
   const statusList = Object.entries(ORDER_STATUS).map(([key, value]) => ({ key, label: value.label }));
+  const operationalStatusList = ORDER_OPERATIONAL_STATUS_LIST;
+
+  /** Fase 1: seletor principal de Pedidos opera na dimensão operacional. */
+  const handleOperationalStatusChange = useCallback(async (order: Order, newStatus: string) => {
+    try {
+      if (newStatus === 'finalized') {
+        const result = await finalizeOrderOperational(order.id);
+        toast.success(result.stock_result?.already_applied
+          ? 'Pedido finalizado; estoque já estava baixado.'
+          : 'Pedido finalizado e saída física registrada.');
+      } else {
+        await setOrderOperationalStatus(order.id, newStatus as 'todo' | 'preparing' | 'cancelled');
+        toast.success('Situação operacional atualizada.');
+      }
+      refetch();
+    } catch (error) {
+      toast.error(describeFinalizationError(error));
+    }
+  }, [refetch]);
 
   if (loading) {
     return (
@@ -515,9 +535,8 @@ export default function Operacoes() {
                   <OrderCard 
                     key={order.id}
                     order={order}
-                    orderStatus={ORDER_STATUS}
                     orderChannels={ORDER_CHANNELS}
-                    onStatusChange={handleStatusChange}
+                    onStatusChange={handleOperationalStatusChange}
                   />
                 ))}
                 {rawOrders.length > 3 && (
@@ -584,7 +603,7 @@ export default function Operacoes() {
               statusFilter={statusFilter}
               onStatusChange={setStatusFilter}
               categories={productCategories}
-              statuses={statusList}
+              statuses={operationalStatusList}
               placeholder="Buscar pedidos..."
               showCategoryFilter={false}
             />
@@ -1048,9 +1067,8 @@ export default function Operacoes() {
                   <OrderCard
                     key={order.id}
                     order={order as Order}
-                    orderStatus={ORDER_STATUS}
                     orderChannels={ORDER_CHANNELS}
-                    onStatusChange={handleStatusChange}
+                    onStatusChange={handleOperationalStatusChange}
                     onClick={(o) => setEditingOrder(rawOrders.find(ord => ord.id === o.id) || null)}
                   />
                 ))}
@@ -1061,9 +1079,8 @@ export default function Operacoes() {
                   <OrderGridCard
                     key={order.id}
                     order={order as Order}
-                    orderStatus={ORDER_STATUS}
                     orderChannels={ORDER_CHANNELS}
-                    onStatusChange={handleStatusChange}
+                    onStatusChange={handleOperationalStatusChange}
                     onClick={(o) => setEditingOrder(rawOrders.find(ord => ord.id === o.id) || null)}
                   />
                 ))}

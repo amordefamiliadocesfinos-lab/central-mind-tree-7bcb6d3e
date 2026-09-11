@@ -23,13 +23,13 @@ export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
   reply: string | null;
   reason: string;
-  tone: string | null;
+  tone: CrmCommunicationDraft['tone'];
 }
 
 export interface SuggestCrmReplyOptions {
   result?: { code: string; label: string | null } | null;
   nextAction?: Pick<CrmNextActionRecommendation, 'nextActionCode' | 'nextActionLabel'> | null;
-  decision: CrmCommunicationDecision;
+  decision?: CrmCommunicationDecision;
   profile?: CommunicationProfile;
   knowledgeFetcher?: (platformId?: string | null) => Promise<CrmKnowledgeContext['items']>;
   invoke?: (payload: unknown) => Promise<any>;
@@ -41,7 +41,10 @@ export function normalizeReplyResponse(raw: any): CrmReplySuggestion {
   const reason = typeof raw?.reason === 'string' && raw.reason.trim()
     ? raw.reason.trim()
     : (reply ? 'Resposta alinhada ao contexto do atendimento.' : 'Nenhuma resposta necessária no momento.');
-  const tone = typeof raw?.tone === 'string' && raw.tone.trim() ? raw.tone.trim() : null;
+  const rawTone = typeof raw?.tone === 'string' ? raw.tone.trim() : '';
+  const tone: CrmCommunicationDraft['tone'] = (['cordial', 'consultivo', 'objetivo', 'acolhedor'] as const).includes(rawTone as any)
+    ? (rawTone as CrmCommunicationDraft['tone'])
+    : null;
   const intent = ['answer', 'follow_up', 'clarify', 'acknowledge'].includes(raw?.intent) ? raw.intent : (reply ? 'answer' : 'none');
   const length = raw?.length === 'medium' ? 'medium' : 'short';
   return { reply, message: reply, reason, rationale: reason, tone, intent, length };
@@ -85,8 +88,12 @@ export async function suggestCrmReplyFromContext(
   if (context.contact?.optOut && !lastIsInbound) {
     return {
       reply: null,
+      message: null,
       reason: 'Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.',
+      rationale: 'Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.',
       tone: null,
+      intent: 'none',
+      length: 'short',
     };
   }
 
