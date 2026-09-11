@@ -49,6 +49,8 @@ import { ProductCategoriesManager } from '@/components/operations/ProductCategor
 import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer';
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
+import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
+import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
 import { useProductIdeas } from '@/hooks/useProductIdeas';
 import { usePlatforms } from '@/hooks/usePlatforms';
@@ -71,7 +73,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
 
-const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'products', 'inventory', 'production', 'mrp', 'calendar'];
+const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
 export default function Operacoes() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,6 +93,7 @@ export default function Operacoes() {
     deleteOrder,
     refetch,
   } = useOrders();
+  const separation = useOrderSeparation(rawOrders);
 
   const { reserveMaterials, consumeMaterials } = useMRP();
   const { locations } = useStorageLocations();
@@ -1068,6 +1071,32 @@ export default function Operacoes() {
             )}
           </div>
         );
+
+      case 'separation':
+        return <OrderSeparationBoard
+          orders={rawOrders}
+          separationByOrderId={separation.separationByOrderId}
+          documentsByOrderId={separation.documentsByOrderId}
+          onPrint={async (order, document) => {
+            await separation.markPrinted(order.id);
+            if (document) window.open(document.file_url, '_blank', 'noopener,noreferrer');
+            else printOrderSummary(order);
+            toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
+          }}
+          onFinalize={async order => {
+            const result = await separation.finalize(order.id);
+            toast.success(result.stock_result?.already_applied ? 'Separação finalizada; estoque já estava baixado.' : 'Separação finalizada e saída física registrada.');
+            refetch();
+          }}
+          onSetDestination={async (orderId, destination) => {
+            await separation.setDestination(orderId, destination);
+            toast.success('Destino operacional definido.');
+          }}
+          onAttachDocument={async document => {
+            await separation.addDocument(document);
+            toast.success('Documento anexado ao pedido.');
+          }}
+        />;
 
       case 'products':
         return (

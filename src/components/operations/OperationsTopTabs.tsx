@@ -1,10 +1,11 @@
-import { ShoppingCart, Factory, Boxes, Package, LayoutGrid } from "lucide-react";
+import { ShoppingCart, Factory, Boxes, Package, LayoutGrid, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OperationsTab } from "@/components/operations/OperationsBottomNav";
 
 const TOP_TABS: { id: OperationsTab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Visão Geral", icon: LayoutGrid },
   { id: "orders", label: "Pedidos", icon: ShoppingCart },
+  { id: "separation", label: "Separação", icon: ClipboardCheck },
   { id: "production", label: "Produção", icon: Factory },
   { id: "mrp", label: "MRP", icon: Boxes },
   { id: "inventory", label: "Estoque", icon: Boxes },
@@ -45,7 +46,7 @@ export function OperationsTopTabs({ activeTab, onTabChange }: OperationsTopTabsP
           })}
         </div>
         {/* Desktop: grid */}
-        <div className="hidden sm:grid grid-cols-6 gap-1">
+        <div className="hidden sm:grid grid-cols-7 gap-1">
           {TOP_TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
