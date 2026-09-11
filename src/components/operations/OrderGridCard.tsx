@@ -48,17 +48,6 @@ interface OrderGridCardProps {
   onClick?: (order: Order) => void;
 }
 
-const STATUS_BORDER_COLORS: Record<string, string> = {
-  pendente: 'border-l-yellow-400',
-  producao: 'border-l-amber-500',
-  produzido: 'border-l-emerald-500',
-  enviado: 'border-l-blue-500',
-  faturado: 'border-l-indigo-500',
-  entregue: 'border-l-teal-500',
-  concluido: 'border-l-green-500',
-  cancelado: 'border-l-red-500',
-};
-
 export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChange, onClick }: OrderGridCardProps) {
   const operationalStatus = getOperationalStatus(order);
   const statusInfo = ORDER_OPERATIONAL_STATUS[operationalStatus];
