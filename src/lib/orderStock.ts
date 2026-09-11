@@ -38,3 +38,19 @@ export async function transitionOrderStatusWithStock(orderId: string, status: st
   if (error) throw error;
   return data as { stock_event: OrderStockEvent | null; movement_count: number };
 }
+
+/**
+ * Finalização operacional canônica, compartilhada por Pedido e Separação.
+ * A RPC concentra a baixa física idempotente e a sincronização operacional.
+ */
+export async function finalizeOrderSeparation(orderId: string) {
+  const { data, error } = await (supabase.rpc as any)('finalize_order_separation', {
+    p_order_id: orderId,
+  });
+
+  if (error) throw error;
+  return data as {
+    already_finalized: boolean;
+    stock_result: OrderStockEventResult | null;
+  };
+}

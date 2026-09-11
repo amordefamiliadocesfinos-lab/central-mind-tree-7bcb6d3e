@@ -4,7 +4,7 @@ import { resolveStockLocation } from '@/lib/inventoryOps';
 import { notifyInventoryChanged } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
 import { createUnifiedSale } from '@/lib/unifiedSales';
-import { transitionOrderStatusWithStock } from '@/lib/orderStock';
+import { finalizeOrderSeparation, transitionOrderStatusWithStock } from '@/lib/orderStock';
 
 export interface Product {
   id: string;
@@ -328,6 +328,12 @@ export function useOrders() {
     const isChangingToConcluido = status === 'concluido' && currentOrder?.status !== 'concluido';
 
     try {
+      // A seleção de um status terminal no card legado é apenas uma entrada
+      // de UI: a consequência física segue obrigatoriamente a RPC canônica
+      // da Separação, nunca a transição de status em si.
+      if (['enviado', 'entregue', 'concluido'].includes(status)) {
+        await finalizeOrderSeparation(orderId);
+      }
       await transitionOrderStatusWithStock(orderId, status);
     } catch (error) {
       console.error('Erro ao atualizar status do pedido:', error);
@@ -469,6 +475,9 @@ export function useOrders() {
 
     if (statusChanged && updates.status) {
       try {
+        if (['enviado', 'entregue', 'concluido'].includes(updates.status)) {
+          await finalizeOrderSeparation(orderId);
+        }
         await transitionOrderStatusWithStock(orderId, updates.status);
       } catch (error) {
         console.error('Erro ao aplicar estoque na atualização do pedido:', error);

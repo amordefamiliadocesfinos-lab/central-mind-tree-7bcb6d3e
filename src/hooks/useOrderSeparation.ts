@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { finalizeOrderSeparation } from '@/lib/orderStock';
 import type { Order } from '@/hooks/useOrders';
 
 const db = supabase as any;
@@ -78,8 +79,7 @@ export function useOrderSeparation(orders: Order[]) {
   }, [fetchSeparation]);
 
   const finalize = useCallback(async (orderId: string) => {
-    const { data, error } = await db.rpc('finalize_order_separation', { p_order_id: orderId });
-    if (error) throw error;
+    const data = await finalizeOrderSeparation(orderId);
     await fetchSeparation();
     return data as { already_finalized: boolean; stock_result: { already_applied?: boolean; movement_count?: number } | null };
   }, [fetchSeparation]);
