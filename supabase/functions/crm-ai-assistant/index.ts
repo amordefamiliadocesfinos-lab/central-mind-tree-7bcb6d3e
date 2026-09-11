@@ -192,8 +192,8 @@ async function handleReplyMode(body: any, apiKey: string) {
   }
 
   // FAQ estável e diretamente aplicável vence memória interpretativa e qualquer
-  // inferência do modelo. O helper só preenche esse campo em correspondência
-  // específica e não ambígua; fatos dinâmicos jamais chegam por esta via.
+  // inferência do modelo. O helper pode combinar até três fatos explícitos da
+  // mesma pergunta; fatos dinâmicos jamais chegam por esta via.
   if (lastIsInbound && authoritativeKnowledgeAnswer) {
     return json({
       suggested_reply: authoritativeKnowledgeAnswer,

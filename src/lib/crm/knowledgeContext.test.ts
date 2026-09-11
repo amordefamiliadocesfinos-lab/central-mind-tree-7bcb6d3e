@@ -10,6 +10,7 @@ const items: CrmKnowledgeItem[] = [
   { id: '5', question: 'Qual a validade da Trufa 40g?', answer: 'A Trufa 40g tem validade de 60 dias.', category: 'produto', keywords: ['trufa', '40g', 'validade'], platformId: null },
   { id: '6', question: 'Qual a validade do Alfajor 60g?', answer: 'O Alfajor 60g tem validade de 45 dias.', category: 'produto', keywords: ['alfajor', '60g', 'validade'], platformId: null },
   { id: '7', question: 'Qual a validade do Chocoim?', answer: 'O Chocoim 34g tem validade de 60 dias.', category: 'produto', keywords: ['chocoim', 'validade', '34g'], platformId: null },
+  { id: '8', question: 'Onde posso retirar meu pedido?', answer: 'Estr. Fernando Ferrari, 1300 - Vila Imperial\nParada 107 de Gravataí\nGravataí - RS\nCEP 94130-220', category: 'retirada', keywords: ['endereço', 'retirada', 'fábrica', 'gravataí'], platformId: null },
   { id: '3', question: 'Vocês aceitam PIX?', answer: 'Aceitamos PIX.', category: 'pagamento', keywords: ['pix', 'chave pix'], platformId: 'whatsapp' },
   { id: '4', question: 'Sabores disponíveis', answer: 'Consulte os sabores cadastrados.', category: 'produto', keywords: ['sabores'], platformId: 'instagram' },
 ];
@@ -28,6 +29,10 @@ async function run() {
   assert(b2.items[0]?.id === '6' && b2.authoritativeAnswer?.includes('45 dias'), 'B2: Alfajor deve usar 45 dias.');
   const b3 = await resolveCrmKnowledgeContext({ message: 'Qual a validade do Chocoim?', platformId: 'whatsapp' }, fetcher);
   assert(b3.items[0]?.id === '7' && b3.authoritativeAnswer?.includes('60 dias'), 'B3: Chocoim deve usar 60 dias.');
+  const b4 = await resolveCrmKnowledgeContext({ message: 'Qual o endereço para retirada?', platformId: 'whatsapp' }, fetcher);
+  assert(b4.authoritativeAnswer?.includes('Estr. Fernando Ferrari') && b4.authoritativeAnswer?.includes('CEP 94130-220'), 'B4: retirada deve informar o endereço completo.');
+  const b5 = await resolveCrmKnowledgeContext({ message: 'Qual a validade do Chocoim, quantos alfajores vêm por bandeja e qual o endereço para retirada?', platformId: 'whatsapp' }, fetcher);
+  assert(b5.authoritativeAnswer?.includes('60 dias') && b5.authoritativeAnswer?.includes('18 unidades') && b5.authoritativeAnswer?.includes('Estr. Fernando Ferrari'), 'B5: múltiplas perguntas devem combinar os fatos recuperados.');
   const c = await resolveCrmKnowledgeContext({ message: 'Manda a chave PIX', platformId: 'whatsapp' }, fetcher);
   assert(c.matched && c.items[0]?.id === '3', 'C: chave PIX deve usar item do canal atual.');
   const beforeThanks = calls;

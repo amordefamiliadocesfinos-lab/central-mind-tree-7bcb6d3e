@@ -74,17 +74,27 @@ function singular(value: string): string {
 }
 
 /**
- * Só promove um item a resposta obrigatória quando há um identificador concreto
- * da pergunta e ele vence inequivocamente os demais itens. Isso evita que uma
- * consulta genérica (por exemplo, apenas "validade") escolha uma FAQ arbitrária.
+ * Retorna os identificadores concretos da pergunta que uma FAQ atende. Termos
+ * genéricos como "validade" nunca bastam para promover uma resposta sozinhos.
  */
-function isDirectStableMatch(item: CrmKnowledgeItem, queryTokens: string[], score: number, runnerUpScore: number): boolean {
-  if (score <= 0 || score <= runnerUpScore) return false;
+function directStableTokens(item: CrmKnowledgeItem, queryTokens: string[]): string[] {
   const itemTokens = new Set([
     ...tokens(item.question),
     ...(item.keywords ?? []).flatMap(tokens),
   ].map(singular));
-  return queryTokens.some(token => !GENERIC_QUERY_TOKENS.has(token) && itemTokens.has(singular(token)));
+  return queryTokens
+    .filter(token => !GENERIC_QUERY_TOKENS.has(token) && itemTokens.has(singular(token)))
+    .map(singular);
+}
+
+/** Um item menos específico não deve duplicar outro que explica os mesmos termos. */
+function isSupersededByMoreSpecificMatch(
+  candidate: { score: number; directTokens: string[] },
+  ranked: Array<{ score: number; directTokens: string[] }>,
+): boolean {
+  return ranked.some(other => other !== candidate
+    && other.score > candidate.score
+    && candidate.directTokens.every(token => other.directTokens.includes(token)));
 }
 
 export async function defaultCrmKnowledgeFetcher(platformId?: string | null): Promise<CrmKnowledgeItem[]> {
@@ -122,10 +132,15 @@ export async function resolveCrmKnowledgeContext(
       .map(item => ({ item, score: scoreItem(item, queryTokens, input.platformId) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score || a.item.question.localeCompare(b.item.question));
-    const top = ranked[0];
-    const authoritativeAnswer = top && isDirectStableMatch(top.item, queryTokens, top.score, ranked[1]?.score ?? -1)
-      ? top.item.answer
-      : null;
+    const withDirectTokens = ranked.map(entry => ({
+      ...entry,
+      directTokens: directStableTokens(entry.item, queryTokens),
+    }));
+    const authoritativeAnswer = [...new Set(withDirectTokens
+      .filter(entry => entry.directTokens.length > 0 && !isSupersededByMoreSpecificMatch(entry, withDirectTokens))
+      .slice(0, 3)
+      .map(entry => entry.item.answer))]
+      .join('\n\n') || null;
     return {
       items: ranked.slice(0, MAX_KNOWLEDGE_ITEMS).map(({ item }) => item),
       matched: ranked.length > 0,
