@@ -368,35 +368,6 @@ export function useOrders() {
       // User must go to Financeiro > A Receber to register payment manually.
     }
 
-    // Propagate terminal status to linked production orders (OPs)
-    if (status === 'cancelado' || status === 'concluido' || status === 'entregue') {
-      const { data: linkedOps } = await supabase
-        .from('production_orders')
-        .select('id, order_number')
-        .eq('source_order_id', orderId)
-        .not('status', 'in', '("concluido","cancelado")');
-
-      if (linkedOps && linkedOps.length > 0) {
-        const isCancel = status === 'cancelado';
-        const stamp = new Date().toLocaleString('pt-BR');
-        const noteLine = isCancel
-          ? `[${stamp}] Cancelada automaticamente — pedido ${currentOrder?.order_number || orderId.slice(0, 8)} cancelado`
-          : `[${stamp}] Encerrada automaticamente — pedido ${currentOrder?.order_number || orderId.slice(0, 8)} concluído`;
-
-        await supabase
-          .from('production_orders')
-          .update({
-            status: isCancel ? 'cancelado' : 'concluido',
-            completed_at: isCancel ? null : new Date().toISOString(),
-            notes: noteLine,
-            updated_at: new Date().toISOString(),
-          })
-          .in('id', linkedOps.map(op => op.id));
-
-        toast.info(`${linkedOps.length} ordem(ns) de produção ${isCancel ? 'cancelada(s)' : 'encerrada(s)'}`);
-      }
-    }
-
     toast.success('Status atualizado!');
     fetchOrders();
   }, [fetchOrders, orders]);
@@ -545,13 +516,6 @@ export function useOrders() {
       toast.error('Erro ao excluir pedido');
       return;
     }
-
-    // Cancela OPs vinculadas ainda abertas
-    await supabase
-      .from('production_orders')
-      .update({ status: 'cancelado', updated_at: new Date().toISOString() })
-      .eq('source_order_id', orderId)
-      .not('status', 'in', '("concluido","cancelado")');
 
     // Remove cobrança gerada automaticamente se ainda não houve recebimento
     const { data: entry } = await supabase

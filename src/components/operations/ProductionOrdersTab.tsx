@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useProductionOrders, ProductionOrder, ProductionEntry, PRODUCTION_ORDER_STATUS } from '@/hooks/useProductionOrders';
 import { useProcesses, Process } from '@/hooks/useProcesses';
 import { useOrders, Product } from '@/hooks/useOrders';
-import { useInventoryMovements } from '@/hooks/useInventoryMovements';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import { supabase } from '@/integrations/supabase/client';
 import { ResponsiveDialog, FullScreenDialog } from '@/components/ui/responsive-dialog';
@@ -18,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Plus, Factory, Package, Users, CheckCircle2, 
-  ChevronRight, Clock, Trash2, Play, Check, Pencil, AlertTriangle, PackagePlus,
+  ChevronRight, Clock, Trash2, Play, Check, AlertTriangle, PackagePlus,
   List, CalendarDays
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -29,10 +28,6 @@ import { ProductionWeekView } from './ProductionWeekView';
 
 interface ProductionOrdersTabProps {
   products: Product[];
-}
-
-interface ShortageItem extends BOMLine {
-  adjustQuantity: number;
 }
 
 export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
@@ -51,7 +46,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     fetchOrders,
   } = useProductionOrders();
   const { processes, activeProcesses } = useProcesses();
-  const { createMovement } = useInventoryMovements();
   const { locations } = useStorageLocations();
   const defaultLocation = locations[0]?.name || 'Fábrica';
   const [completionLocation, setCompletionLocation] = useState<string>('');
@@ -61,14 +55,12 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedOrderNumber, setEditedOrderNumber] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'week'>('list');
   
-  // Stock adjustment state
+  // Falta de componentes apenas bloqueia e informa. Ajuste é um fato físico
+  // próprio, nunca uma consequência automática da conclusão da OP.
   const [showShortageDialog, setShowShortageDialog] = useState(false);
-  const [shortageItems, setShortageItems] = useState<ShortageItem[]>([]);
-  const [pendingCompleteOrderId, setPendingCompleteOrderId] = useState<string | null>(null);
+  const [shortageItems, setShortageItems] = useState<BOMLine[]>([]);
 
   // Create form state
   const [newOrder, setNewOrder] = useState({
@@ -189,15 +181,10 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
   };
 
   const handleCompleteOrder = async (order: ProductionOrder) => {
-    const result = await completeOrder(order.id, false, effectiveLocation);
+    const result = await completeOrder(order.id, effectiveLocation);
     
     if (!result.success && result.shortages && result.shortages.length > 0) {
-      // Show shortage dialog with adjustment options
-      setShortageItems(result.shortages.map(s => ({
-        ...s,
-        adjustQuantity: s.shortage,
-      })));
-      setPendingCompleteOrderId(order.id);
+      setShortageItems(result.shortages);
       setShowShortageDialog(true);
       return;
     }
@@ -205,44 +192,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     // Successfully completed
     if (result.success) {
       setSelectedOrder(null);
-    }
-  };
-
-  const handleAdjustStockAndComplete = async () => {
-    if (!pendingCompleteOrderId) return;
-
-    // Create stock adjustments for each shortage item
-    for (const item of shortageItems) {
-      if (item.adjustQuantity > 0) {
-        await createMovement(
-          item.component_id,
-          'in',
-          item.adjustQuantity,
-          `Ajuste para concluir OP - Estoque insuficiente`,
-          'production_order',
-          pendingCompleteOrderId,
-          item.variant_id
-        );
-      }
-    }
-
-    // Now complete the order with shortage check skipped
-    const result = await completeOrder(pendingCompleteOrderId, true, effectiveLocation);
-    
-    if (result.success) {
-      setShowShortageDialog(false);
-      setShortageItems([]);
-      setPendingCompleteOrderId(null);
-      setSelectedOrder(null);
-    }
-  };
-
-  const handleSaveOrderName = async () => {
-    if (!selectedOrder || !editedOrderNumber.trim()) return;
-    
-    const success = await updateOrder(selectedOrder.id, { order_number: editedOrderNumber.trim() });
-    if (success) {
-      setIsEditingName(false);
     }
   };
 
@@ -361,6 +310,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start gap-3">
                     <div className="space-y-1.5 min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-primary tabular-nums">
+                        {order.internal_production_number || order.order_number || 'OP'}
+                      </p>
                       <h3 className="font-semibold text-base truncate flex items-center gap-2">
                         {isForStock ? (
                           <>
@@ -385,9 +337,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                             Pedido
                           </span>
                         )}
-                        {order.source_order?.order_number && (
+                        {order.source_order && (
                           <Badge variant="outline" className="text-[10px]">
-                            {order.source_order.order_number}
+                            Origem: {order.source_order.internal_order_number || order.source_order.order_number || 'PED'}
                           </Badge>
                         )}
                       </div>
@@ -399,10 +351,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                        <span>Criada: {format(parseISO(order.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
                         {order.scheduled_date && (
                           <span className="text-primary font-medium">
-                            Programada: {format(parseISO(order.scheduled_date), "dd/MM/yyyy", { locale: ptBR })}
+                            Data Programada: {format(parseISO(order.scheduled_date), "dd/MM/yyyy", { locale: ptBR })}
                           </span>
                         )}
                         {order.source_order?.due_date && (
@@ -584,46 +535,14 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
         onOpenChange={(open) => {
           if (!open) {
             setSelectedOrder(null);
-            setIsEditingName(false);
           }
         }}
-        title={selectedOrder?.order_number}
+        title={selectedOrder?.internal_production_number || selectedOrder?.order_number}
       >
         {selectedOrder && (
           <div className="p-4">
-            {/* Editable Order Name */}
             <div className="flex items-center gap-2 mb-4">
-              {isEditingName ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <Input
-                    value={editedOrderNumber}
-                    onChange={(e) => setEditedOrderNumber(e.target.value)}
-                    className="h-8 font-medium"
-                    placeholder="Nome da OP"
-                    autoFocus
-                  />
-                  <Button size="sm" onClick={handleSaveOrderName}>
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setIsEditingName(false)}>
-                    Cancelar
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{selectedOrder.order_number}</span>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={() => {
-                      setEditedOrderNumber(selectedOrder.order_number || '');
-                      setIsEditingName(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+              <span className="font-semibold">{selectedOrder.internal_production_number || selectedOrder.order_number}</span>
               <Badge className={cn(
                 "text-xs text-white ml-auto",
                 PRODUCTION_ORDER_STATUS[selectedOrder.status as keyof typeof PRODUCTION_ORDER_STATUS]?.color
@@ -645,6 +564,18 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Produto:</span>
                         <span className="font-medium">{selectedOrder.product?.name}</span>
+                      </div>
+                      {selectedOrder.variant && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Variante Física:</span>
+                          <span className="font-medium">{selectedOrder.variant.variant_name}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Origem:</span>
+                        <span className="font-medium text-right">{selectedOrder.source_order
+                          ? `${selectedOrder.source_order.internal_order_number || selectedOrder.source_order.order_number || 'PED'} · ${selectedOrder.source_order.customer_name || 'Cliente'}`
+                          : 'Produção para Estoque'}</span>
                       </div>
                       {selectedOrder.batch_code && (
                         <div className="flex justify-between">
@@ -726,7 +657,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                         <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
                           Ao concluir, <span className="font-semibold">{calculateConsolidation(selectedOrder)} un.</span> serão
                           adicionadas em <span className="font-semibold">{effectiveLocation}</span>
-                          {selectedOrder.source_order_id ? ' e o pedido será marcado como Produzido.' : '.'}
+                          . O pedido vinculado não terá seu status alterado.
                         </p>
                       </CardContent>
                     </Card>
@@ -996,7 +927,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
           if (!open) {
             setShowShortageDialog(false);
             setShortageItems([]);
-            setPendingCompleteOrderId(null);
           }
         }}
         title="Estoque Insuficiente"
@@ -1008,11 +938,11 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Ajuste as quantidades abaixo para dar entrada no estoque antes de concluir a ordem.
+            A conclusão foi bloqueada. Registre recebimento, inventário ou ajuste autorizado antes de tentar novamente.
           </p>
 
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {shortageItems.map((item, index) => (
+            {shortageItems.map((item) => (
               <Card key={`${item.component_id}:${item.variant_id || 'simple'}`}>
                 <CardContent className="p-3">
                   <div className="flex justify-between items-start mb-2">
@@ -1038,37 +968,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       <span className="ml-1 font-medium text-red-500">{item.shortage}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs whitespace-nowrap">Qtd. a adicionar:</Label>
-                    <Input
-                      type="number"
-                      className="h-8"
-                      value={item.adjustQuantity}
-                      onChange={(e) => {
-                        const newItems = [...shortageItems];
-                        newItems[index] = {
-                          ...item,
-                          adjustQuantity: parseFloat(e.target.value) || 0,
-                        };
-                        setShortageItems(newItems);
-                      }}
-                      min={0}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const newItems = [...shortageItems];
-                        newItems[index] = {
-                          ...item,
-                          adjustQuantity: item.shortage,
-                        };
-                        setShortageItems(newItems);
-                      }}
-                    >
-                      = Falta
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -1081,17 +980,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
               onClick={() => {
                 setShowShortageDialog(false);
                 setShortageItems([]);
-                setPendingCompleteOrderId(null);
               }}
             >
-              Cancelar
-            </Button>
-            <Button 
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={handleAdjustStockAndComplete}
-            >
-              <PackagePlus className="h-4 w-4 mr-2" />
-              Ajustar e Concluir OP
+              Entendi
             </Button>
           </div>
         </div>

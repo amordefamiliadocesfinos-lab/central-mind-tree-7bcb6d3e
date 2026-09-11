@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useBOM } from './useBOM';
-import { applyStockDelta } from '@/lib/inventoryOps';
 import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export interface ProductionOrderProcess {
@@ -40,6 +39,7 @@ export interface ProductionEntry {
 export interface ProductionOrder {
   id: string;
   order_number: string | null;
+  internal_production_number?: string | null;
   product_id: string | null;
   variant_id: string | null;
   batch_code: string | null;
@@ -65,6 +65,7 @@ export interface ProductionOrder {
   source_order?: {
     id: string;
     order_number: string | null;
+    internal_order_number?: string | null;
     customer_name: string | null;
     due_date: string | null;
   } | null;
@@ -93,7 +94,7 @@ export function useProductionOrders() {
         *,
         product:products(id, name, sku),
         variant:product_variants!production_orders_variant_id_fkey(id, variant_name, sku),
-        source_order:orders!production_orders_source_order_id_fkey(id, order_number, customer_name, due_date),
+        source_order:orders!production_orders_source_order_id_fkey(id, order_number, internal_order_number, customer_name, due_date),
         processes:production_order_processes(
           *,
           process:processes(id, name, value_per_unit)
@@ -126,12 +127,9 @@ export function useProductionOrders() {
       toast.error(error instanceof PhysicalIdentityError ? error.message : 'Identidade física inválida.');
       return null;
     }
-    // Generate order number
-    const orderNumber = `OP-${Date.now().toString(36).toUpperCase()}`;
-
     const { data, error } = await supabase
       .from('production_orders')
-      .insert({ ...order, order_number: orderNumber })
+      .insert(order)
       .select()
       .single();
 
@@ -328,125 +326,54 @@ export function useProductionOrders() {
     return bomLines.filter(line => line.shortage > 0);
   }, [orders, calculateConsolidation, calculateBOM]);
 
-  // Complete production order (consume BOM, add finished product to stock)
-  const completeOrder = useCallback(async (orderId: string, skipShortageCheck = false, location = 'Fábrica') => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order || !order.product_id) return { success: false, shortages: [] };
-
-    // Guard: never re-process a terminal OP (evita crédito duplicado em estoque)
-    if (order.status === 'concluido' || order.status === 'cancelado') {
-      toast.error('Esta OP já está finalizada');
-      return { success: false, shortages: [] };
-    }
-
-    const consolidatedQty = calculateConsolidation(order);
-    if (consolidatedQty <= 0) {
-      toast.error('Nenhuma quantidade consolidada para concluir');
-      return { success: false, shortages: [] };
-    }
-
-    const targetLocation = location && location.trim() !== '' ? location.trim() : 'Fábrica';
-
-    // Get BOM and check for shortages
-    const bomLines = await calculateBOM(order.product_id, consolidatedQty, order.variant_id);
-    if (bomLines === null) {
-      toast.error('BOM não configurada para a variante final desta OP');
-      return { success: false, shortages: [], missingBom: true };
-    }
-    const shortages = bomLines.filter(line => line.shortage > 0);
-    
-    if (!skipShortageCheck && shortages.length > 0) {
-      return { success: false, shortages };
-    }
-
-    // Consumo de matéria-prima (saldo por localização + histórico centralizados)
-    for (const line of bomLines) {
-      await applyStockDelta({
-        productId: line.component_id,
-        variantId: line.variant_id,
-        delta: -Math.abs(line.qty_needed),
-        movementType: 'consume',
-        location: targetLocation,
-        referenceType: 'production_order',
-        referenceId: orderId,
-        notes: `Consumo OP ${order.order_number}`,
-      });
-    }
-
-    // Entrada do produto acabado
-    const finishedOk = await applyStockDelta({
-      productId: order.product_id,
-      variantId: order.variant_id,
-      delta: consolidatedQty,
-      movementType: 'in',
-      location: targetLocation,
-      referenceType: 'production_order',
-      referenceId: orderId,
-      notes: `Entrada produção OP ${order.order_number}`,
+  // A transformação física é uma única transação no banco: valida BOM e
+  // componentes, consome, credita acabado e só então conclui a OP.
+  const completeOrder = useCallback(async (orderId: string, location = 'Fábrica') => {
+    const { data, error } = await (supabase.rpc as any)('complete_production_order', {
+      p_production_order_id: orderId,
+      p_finished_location: location,
     });
 
-    if (!finishedOk) {
-      toast.error('Falha ao creditar produto acabado no estoque');
-      return { success: false, shortages: [] };
+    if (error) {
+      console.error('Erro ao concluir OP:', error);
+      toast.error(error.message || 'Não foi possível concluir a OP');
+      return { success: false, shortages: [] as BOMLine[] };
     }
 
+    const result = data as {
+      success: boolean;
+      already_completed?: boolean;
+      reason?: string;
+      shortages?: Array<{
+        product_id: string; variant_id: string | null; component_name: string;
+        component_variant_name: string | null; component_sku: string;
+        required_quantity: number; available_quantity: number; missing_quantity: number;
+      }>;
+    };
 
-    // Update order status
-    await supabase
-      .from('production_orders')
-      .update({
-        status: 'concluido',
-        consolidated_quantity: consolidatedQty,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
-
-    // Sync linked sales order: bump status to 'produzido' and append note
-    let linkedOrderSynced = false;
-    if (order.source_order_id) {
-      const { data: linkedOrder } = await supabase
-        .from('orders')
-        .select('id, order_number, status, notes')
-        .eq('id', order.source_order_id)
-        .maybeSingle();
-
-      if (linkedOrder) {
-        const STATUS_RANK: Record<string, number> = {
-          rascunho: 0, confirmado: 1, producao: 2,
-          produzido: 3, pronto: 4, enviado: 5, concluido: 6, cancelado: 7,
-        };
-        const currentRank = STATUS_RANK[linkedOrder.status] ?? -1;
-        const targetRank = STATUS_RANK['produzido'];
-        const noteLine = `[${new Date().toLocaleString('pt-BR')}] OP ${order.order_number} concluída — ${consolidatedQty} un. creditadas em ${targetLocation}`;
-        const newNotes = linkedOrder.notes
-          ? `${linkedOrder.notes}\n${noteLine}`
-          : noteLine;
-
-        const updates: Record<string, unknown> = {
-          notes: newNotes,
-          updated_at: new Date().toISOString(),
-        };
-        // Only advance status if current is earlier than 'produzido' and not terminal
-        if (currentRank < targetRank && linkedOrder.status !== 'cancelado' && linkedOrder.status !== 'concluido') {
-          updates.status = 'produzido';
-        }
-
-        const { error: linkErr } = await supabase
-          .from('orders')
-          .update(updates)
-          .eq('id', linkedOrder.id);
-
-        if (!linkErr) {
-          linkedOrderSynced = true;
-          toast.success(`Pedido ${linkedOrder.order_number || linkedOrder.id.slice(0, 8)} atualizado → Produzido`);
-        }
-      }
+    if (!result.success) {
+      if (result.reason === 'missing_bom') toast.error('BOM não configurada para a variante final desta OP');
+      if (result.reason === 'no_consolidated_quantity') toast.error('Nenhuma quantidade consolidada para concluir');
+      return {
+        success: false,
+        shortages: (result.shortages ?? []).map(line => ({
+          component_id: line.product_id,
+          variant_id: line.variant_id,
+          component_name: line.component_variant_name ? `${line.component_name} · ${line.component_variant_name}` : line.component_name,
+          component_sku: line.component_sku,
+          unit: 'un',
+          qty_per_unit: 0,
+          qty_needed: Number(line.required_quantity),
+          stock_available: Number(line.available_quantity),
+          shortage: Number(line.missing_quantity),
+        })),
+      };
     }
 
-    toast.success(`OP concluída! ${consolidatedQty} unidades produzidas em ${targetLocation}`);
+    toast.success(result.already_completed ? 'Esta OP já estava concluída.' : 'OP concluída e produto acabado registrado.');
     fetchOrders();
-    return { success: true, shortages: [], linkedOrderSynced };
-  }, [orders, calculateConsolidation, calculateBOM, fetchOrders]);
+    return { success: true, shortages: [] as BOMLine[] };
+  }, [fetchOrders]);
 
   // Get payment summary by employee
   const getPaymentSummary = useCallback((entries: ProductionEntry[]) => {

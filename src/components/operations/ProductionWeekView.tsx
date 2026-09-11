@@ -50,6 +50,9 @@ function MiniCard({ order, calculateConsolidation, onClick, dragHandleProps }: {
             <GripVertical className="h-3.5 w-3.5" />
           </button>
           <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-[10px] font-semibold text-primary tabular-nums">
+              {order.internal_production_number || order.order_number || 'OP'}
+            </p>
             <div className="flex items-center gap-1 text-xs font-semibold truncate">
               {isForStock ? (
                 <><PackagePlus className="h-3 w-3 text-emerald-600 shrink-0" /><span className="truncate">Para Estoque</span></>
@@ -185,17 +188,6 @@ export function ProductionWeekView({ orders, calculateConsolidation, onSelectOrd
     if (opError) {
       toast.error('Erro ao reagendar OP');
       return;
-    }
-
-    // If linked to a customer order, also update the delivery date to stay in sync
-    if (order.source_order_id) {
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({ due_date: targetDateKey })
-        .eq('id', order.source_order_id);
-      if (orderError) {
-        toast.error('OP reagendada, mas falhou ao atualizar data de entrega do pedido');
-      }
     }
 
     toast.success(`Movido para ${format(parseISO(targetDateKey), "dd/MM (EEE)", { locale: ptBR })}`);
