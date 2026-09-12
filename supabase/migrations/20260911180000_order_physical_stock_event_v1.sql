@@ -189,7 +189,21 @@ AS $$
 DECLARE
   v_separation public.order_separation;
   v_stock_result jsonb;
+  v_operational_status text;
 BEGIN
+  SELECT operational_status INTO v_operational_status
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pedido não encontrado';
+  END IF;
+
+  IF v_operational_status = 'cancelled' THEN
+    RAISE EXCEPTION 'Pedido cancelado não pode ser finalizado.';
+  END IF;
+
   INSERT INTO public.order_separation (order_id)
   VALUES (p_order_id)
   ON CONFLICT (order_id) DO NOTHING;
@@ -211,7 +225,8 @@ BEGIN
   UPDATE public.order_separation
   SET separation_status = 'finalized',
       finalized_at = now(),
-      finalized_by = auth.uid()
+      finalized_by = auth.uid(),
+      updated_at = now()
   WHERE order_id = p_order_id;
 
   UPDATE public.orders
