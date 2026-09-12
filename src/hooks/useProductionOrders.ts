@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useBOM } from './useBOM';
+import { useBOM, type BOMLine } from './useBOM';
 import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 
 export interface ProductionOrderProcess {
