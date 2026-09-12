@@ -31,7 +31,7 @@ export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
       color: 'text-primary',
     },
     {
-      label: 'Faturamento',
+      label: 'Valor dos Pedidos',
       value: kpis.totalValue,
       format: (v: number) => formatCurrency(v, { compact: true }),
       subtitle: undefined,
@@ -41,7 +41,7 @@ export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
     {
       label: 'Ticket Médio',
       value: kpis.avgTicket,
-      format: (v: number) => formatCurrency(v, { compact: true }),
+      format: (v: number) => formatCurrency(v, { maxDecimals: 2 }),
       subtitle: undefined,
       icon: TrendingUp,
       color: 'text-blue-600',

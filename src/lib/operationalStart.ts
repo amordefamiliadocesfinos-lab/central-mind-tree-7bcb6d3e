@@ -5,7 +5,7 @@
  * mas é neutralizado nos indicadores operacionais (dashboard, prioridades,
  * resumo do dia) para que a gestão diária se baseie apenas no período atual.
  */
-export const OPERATIONAL_START_DATE = '2026-08-01';
+export const OPERATIONAL_START_DATE = '2026-09-01';
 
 /** Retorna true quando a data (YYYY-MM-DD ou ISO) é anterior ao início da operação. */
 export function isBeforeOperationalStart(date?: string | null): boolean {

@@ -44,6 +44,7 @@ export interface Product {
   price: number | null;
   is_active: boolean;
   category: string | null;
+  variation_mode?: 'sem_variacao' | 'variacoes_fisicas';
   attributes: Record<string, unknown>;
   media_urls: string[];
   cover_image_url: string | null;

@@ -1,11 +1,42 @@
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { isWithinOperationalPeriod } from '@/lib/operationalStart';
 import { useAppStore, Order, Product, InventoryItem } from './appStore';
+
+type ProductVariant = {
+  id: string;
+  product_id: string;
+  variant_name: string;
+  sku: string;
+};
+
+export interface LowStockIdentity {
+  id: string;
+  productId: string;
+  variantId: string | null;
+  productName: string;
+  variantName: string | null;
+  sku: string;
+  unit: string;
+  balance: number;
+  minStock: number;
+}
+
+export function isOperationalOrder(order: Pick<Order, 'created_at' | 'order_date' | 'operational_status'>): boolean {
+  return isWithinOperationalPeriod(order.created_at || order.order_date)
+    && (order.operational_status ?? 'todo') !== 'cancelled';
+}
+
+export function getOperationalOrders(orders: Order[]): Order[] {
+  return orders.filter(isOperationalOrder);
+}
 
 // ====== KPI Selectors ======
 export interface KPIs {
   totalOrders: number;
   totalValue: number;
   avgTicket: number;
-  lowStock: Product[];
+  lowStock: LowStockIdentity[];
   byChannel: Record<string, number>;
   byStatus: Record<string, number>;
 }
@@ -13,31 +44,100 @@ export interface KPIs {
 export function useKPIsSelector(): KPIs {
   const orders = useAppStore((state) => state.orders);
   const products = useAppStore((state) => state.products);
-  const productBalances = useAppStore((state) => state.productBalances);
+  const inventory = useAppStore((state) => state.inventory);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthOrders = orders.filter((o) => o.order_date?.startsWith(thisMonth));
+  const masterIds = useMemo(
+    () => products
+      .filter((product) => product.variation_mode === 'variacoes_fisicas')
+      .map((product) => product.id),
+    [products],
+  );
+  const masterIdsKey = masterIds.join(',');
 
-  const totalOrders = monthOrders.length;
-  const totalValue = monthOrders.reduce((acc, o) => acc + (o.total_value || 0), 0);
+  useEffect(() => {
+    if (masterIds.length === 0) {
+      setVariants([]);
+      return;
+    }
+
+    let active = true;
+    void supabase
+      .from('product_variants')
+      .select('id, product_id, variant_name, sku')
+      .in('product_id', masterIds)
+      .eq('is_active', true)
+      .then(({ data, error }) => {
+        if (!active || error) return;
+        setVariants((data ?? []) as ProductVariant[]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [masterIdsKey]);
+
+  const operationalOrders = getOperationalOrders(orders);
+
+  const totalOrders = operationalOrders.length;
+  const totalValue = operationalOrders.reduce((acc, o) => acc + (o.total_value || 0), 0);
   const avgTicket = totalOrders > 0 ? totalValue / totalOrders : 0;
 
-  const byChannel = monthOrders.reduce((acc, o) => {
+  const byChannel = operationalOrders.reduce((acc, o) => {
     const channel = o.channel || 'direto';
     acc[channel] = (acc[channel] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const byStatus = orders.reduce((acc, o) => {
-    const status = o.status || 'rascunho';
+  const byStatus = operationalOrders.reduce((acc, o) => {
+    const status = o.operational_status ?? 'todo';
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  // Low stock calculation using productBalances
-  const lowStock = products.filter((p) => {
-    const balance = productBalances[p.id] || 0;
-    return balance <= (p.min_stock || 0);
+  const getBalance = (productId: string, variantId: string | null) =>
+    inventory
+      .filter((item) => item.product_id === productId && (item.variant_id ?? null) === variantId)
+      .reduce((total, item) => total + (Number(item.quantity) || 0), 0);
+
+  // Masters are catalog containers, never stock identities. The current schema
+  // has no variant-level min_stock, so active physical variants inherit the
+  // existing minimum configured on their master product.
+  const lowStock = products.flatMap((product): LowStockIdentity[] => {
+    const minStock = Number(product.min_stock) || 0;
+    if (minStock <= 0) return [];
+
+    if (product.variation_mode === 'variacoes_fisicas') {
+      return variants
+        .filter((variant) => variant.product_id === product.id)
+        .map((variant) => ({
+          id: variant.id,
+          productId: product.id,
+          variantId: variant.id,
+          productName: product.name,
+          variantName: variant.variant_name,
+          sku: variant.sku,
+          unit: product.unit,
+          balance: getBalance(product.id, variant.id),
+          minStock,
+        }))
+        .filter((identity) => identity.balance <= identity.minStock);
+    }
+
+    const balance = getBalance(product.id, null);
+    return balance <= minStock
+      ? [{
+          id: product.id,
+          productId: product.id,
+          variantId: null,
+          productName: product.name,
+          variantName: null,
+          sku: product.sku,
+          unit: product.unit,
+          balance,
+          minStock,
+        }]
+      : [];
   });
 
   return {

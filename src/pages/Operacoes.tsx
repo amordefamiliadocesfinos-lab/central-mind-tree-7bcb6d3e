@@ -67,7 +67,7 @@ import {
   OrderItem as StoreOrderItem,
 } from '@/stores/appStore';
 import { useStockCheckStore } from '@/stores/stockCheckStore';
-import { useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilters, useStockValueSelector } from '@/stores/selectors';
+import { getOperationalOrders, useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilters, useStockValueSelector } from '@/stores/selectors';
 import type { Order, OrderItem, Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
@@ -169,6 +169,16 @@ export default function Operacoes() {
   // KPIs from selector
   const kpis = useKPIsSelector();
   const stockValue = useStockValueSelector();
+  const operationalOrders = useMemo(
+    () => getOperationalOrders(rawOrders as StoreOrder[]),
+    [rawOrders],
+  );
+  const recentOperationalOrders = useMemo(
+    () => [...operationalOrders]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3),
+    [operationalOrders],
+  );
 
   // Date filter state for orders
   const [ordersDateFilter, setOrdersDateFilter] = useState<OrdersDateFilterValue>({
@@ -520,7 +530,7 @@ export default function Operacoes() {
                 <CardTitle className="text-base">Pedidos Recentes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {sortOrdersByStatus(rawOrders).slice(0, 3).map(order => (
+                {recentOperationalOrders.map(order => (
                   <OrderCard 
                     key={order.id}
                     order={order}
@@ -528,13 +538,13 @@ export default function Operacoes() {
                     onStatusChange={handleOperationalStatusChange}
                   />
                 ))}
-                {rawOrders.length > 3 && (
+                {operationalOrders.length > 3 && (
                   <Button 
                     variant="ghost" 
                     className="w-full"
                     onClick={() => handleTabChange('orders')}
                   >
-                    Ver todos ({rawOrders.length})
+                    Ver todos ({operationalOrders.length})
                   </Button>
                 )}
               </CardContent>
@@ -554,18 +564,19 @@ export default function Operacoes() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {sortProductsByCategory(kpis.lowStock as Product[])
-                      .slice(0, 3)
-                      .map(product => (
-                        <ProductCard
-                          key={product.id}
-                          product={product}
-                          balance={getProductBalance(product.id)}
-                          onEdit={setEditingProduct}
-                          linkedIdeas={productIdeasMap[product.id]}
-                          platformsMap={platformsById}
-                        />
-                      ))}
+                    {kpis.lowStock.slice(0, 3).map((identity) => (
+                      <div key={`${identity.productId}:${identity.variantId ?? 'simple'}`} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {identity.productName}{identity.variantName ? ` · ${identity.variantName}` : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{identity.sku}</p>
+                        </div>
+                        <Badge variant="destructive" className="shrink-0">
+                          {identity.balance} / mín. {identity.minStock} {identity.unit}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
