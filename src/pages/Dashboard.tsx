@@ -218,6 +218,7 @@ export default function Dashboard() {
     const weekEnd = format(addDays(new Date(), 7), 'yyyy-MM-dd');
     const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
     const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+    const nextMonthStart = format(addDays(endOfMonth(new Date()), 1), 'yyyy-MM-dd');
 
     // Parallel fetches
     const [
@@ -239,10 +240,18 @@ export default function Dashboard() {
       supabase.from('routine_blocks').select('id, status, duration_minutes, title, focus').eq('date', today),
       // Routine stats today
       supabase.from('routine_stats').select('planned_min, done_min').eq('date', today).maybeSingle(),
-      // Orders this month
-      supabase.from('orders').select('id, status, total_value').gte('order_date', monthStart).lte('order_date', monthEnd).is('deleted_at', null),
-      // The order itself is overdue only when its deadline passed and it is not finished or cancelled.
-      supabase.from('orders').select('id, status, due_date').is('deleted_at', null).not('due_date', 'is', null).gte('due_date', OPERATIONAL_START_DATE).lt('due_date', today).not('status', 'in', '("concluido","concluído","entregue","cancelado")'),
+      // Pedido operacional do mês, sempre dentro do marco oficial da operação.
+      supabase.from('orders').select('id, operational_status, total_value, created_at')
+        .gte('created_at', monthStart > OPERATIONAL_START_DATE ? monthStart : OPERATIONAL_START_DATE)
+        .lt('created_at', nextMonthStart)
+        .is('deleted_at', null),
+      // Atraso é uma dimensão operacional: somente pedido ainda a fazer/em
+      // preparação, criado após o baseline e com prazo realmente vencido.
+      supabase.from('orders').select('id, operational_status, due_date, created_at')
+        .is('deleted_at', null)
+        .gte('created_at', OPERATIONAL_START_DATE)
+        .not('due_date', 'is', null)
+        .lt('due_date', today),
       // Digital ideas
       supabase.from('digital_ideas').select('id, status'),
       // Variations scheduled
@@ -284,7 +293,11 @@ export default function Dashboard() {
     const routineBlocksConcluidos = routineBlocks.filter(b => b.status === 'concluido').length;
 
     // Orders
-    const ordersPending = orders.filter(o => ['rascunho', 'pendente', 'producao'].includes(o.status)).length;
+    const operationalOrders = orders.filter(o => (o.operational_status ?? 'todo') !== 'cancelled');
+    const ordersPending = operationalOrders.filter(o => ['todo', 'preparing'].includes(o.operational_status ?? 'todo')).length;
+    const overdueOperationalOrders = overdueOrders.filter(
+      o => !['finalized', 'cancelled'].includes(o.operational_status ?? 'todo'),
+    );
     const realizedRevenue = realizedRevenueMovements.reduce((sum, movement) => sum + Number(movement.value || 0), 0);
 
     // Digital
@@ -345,9 +358,9 @@ export default function Dashboard() {
       routineMinutesPlanned: stats?.planned_min || routineBlocks.reduce((sum, b) => sum + (b.duration_minutes || 0), 0),
       routineMinutesDone: stats?.done_min || 0,
       activeBlock: activeBlock ? { title: activeBlock.title, focus: activeBlock.focus } : null,
-      ordersThisMonth: orders.length,
+      ordersThisMonth: operationalOrders.length,
       ordersPending,
-      overdueOrders: overdueOrders.length,
+      overdueOrders: overdueOperationalOrders.length,
       realizedRevenue,
       lowStockCount: kpis.lowStock.length,
       ideasInProgress,
@@ -511,7 +524,7 @@ export default function Dashboard() {
           {/* OPERAÇÕES Widget */}
           <DashboardWidget title="Operações" icon={Package} href="/operacoes" accentColor="blue">
             <StatItem label="Pedidos (mês)" value={data.ordersThisMonth} />
-            <StatItem label="Em produção/pendentes" value={data.ordersPending} icon={Clock} />
+            <StatItem label="A fazer/em preparação" value={data.ordersPending} icon={Clock} />
             <StatItem 
               label="Receita realizada" 
               value={formatCurrency(data.realizedRevenue, { compact: true })} 

@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ListChecks, ArrowRight, RefreshCw } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { isBeforeOperationalStart } from '@/lib/operationalStart';
+import { OPERATIONAL_START_DATE, isWithinOperationalPeriod } from '@/lib/operationalStart';
+import { useKPIsSelector } from '@/stores/selectors';
 
 interface NextAction {
   title: string;
@@ -27,23 +28,22 @@ const PRIORITY_STYLES = [
 export function NextActionsCard() {
   const [actions, setActions] = useState<NextAction[]>([]);
   const [loading, setLoading] = useState(true);
+  const lowStockCount = useKPIsSelector().lowStock.length;
 
   const compute = async () => {
     setLoading(true);
     const today = format(new Date(), 'yyyy-MM-dd');
     const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-    const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
 
-    const [accountsR, entriesR, ordersR, monthOrdersR, tasksR, productsR] = await Promise.all([
+    const [accountsR, entriesR, ordersR, productionOrdersR, tasksR] = await Promise.all([
       supabase.from('financial_accounts').select('current_balance').eq('is_active', true),
       supabase.from('financial_entries').select('type, value, value_paid, due_date, payment_date'),
-      supabase.from('orders').select('id, status, due_date').is('deleted_at', null),
-      supabase.from('orders').select('id, total_value').gte('order_date', monthStart).lte('order_date', monthEnd).is('deleted_at', null),
+      supabase.from('orders').select('id, operational_status, due_date, created_at, total_value').is('deleted_at', null).gte('created_at', OPERATIONAL_START_DATE),
+      supabase.from('production_orders').select('id, status, scheduled_date, created_at').gte('created_at', OPERATIONAL_START_DATE),
       supabase.from('tasks').select('id, status, due_date').is('deleted_at', null),
-      supabase.from('products').select('id, name, current_stock, min_stock').eq('is_active', true),
     ]);
 
-    const inPeriod = (d?: string | null) => !!d && !isBeforeOperationalStart(d);
+    const inPeriod = (d?: string | null) => !!d && isWithinOperationalPeriod(d);
     const isDone = (s?: string | null) => ['concluido', 'concluído', 'entregue', 'cancelado'].includes(String(s || ''));
 
     const saldo = (accountsR.data || []).reduce((s, a: any) => s + (a.current_balance || 0), 0);
@@ -57,22 +57,19 @@ export function NextActionsCard() {
       .reduce((s, e: any) => s + (e.value - (e.value_paid || 0)), 0);
 
     const orders = ordersR.data || [];
-    const pendentes = orders.filter((o: any) => ['rascunho', 'pendente', 'aguardando'].includes(o.status)).length;
-    const producaoAtrasada = orders.filter((o: any) =>
-      ['producao', 'em_producao', 'production'].includes(o.status) && inPeriod(o.due_date) && o.due_date < today
+    const operationalOrders = orders.filter((o: any) => (o.operational_status ?? 'todo') !== 'cancelled');
+    const pendentes = operationalOrders.filter((o: any) => ['todo', 'preparing'].includes(o.operational_status ?? 'todo')).length;
+    const producaoAtrasada = (productionOrdersR.data || []).filter((o: any) =>
+      ['aberto', 'producao'].includes(o.status) && inPeriod(o.scheduled_date) && o.scheduled_date < today
     ).length;
 
-    const monthOrders = monthOrdersR.data || [];
-    const faturamento = monthOrders.reduce((s, o: any) => s + (o.total_value || 0), 0);
+    const monthOrders = operationalOrders.filter((o: any) => o.created_at?.slice(0, 7) === monthStart.slice(0, 7));
+    const valorPedidos = monthOrders.reduce((s, o: any) => s + (o.total_value || 0), 0);
 
     const tasks = tasksR.data || [];
     const tarefasAtrasadas = tasks.filter((t: any) =>
       inPeriod(t.due_date) && !isDone(t.status) && t.due_date < today
     ).length;
-
-    const lowStock = (productsR.data || []).filter((p: any) =>
-      p.min_stock != null && (p.current_stock || 0) <= p.min_stock
-    );
 
     const candidates: NextAction[] = [];
 
@@ -151,18 +148,18 @@ export function NextActionsCard() {
       });
     }
 
-    if (lowStock.length > 0) {
+    if (lowStockCount > 0) {
       candidates.push({
         title: 'Repor estoque crítico',
-        reason: `${lowStock.length} produto(s) abaixo do mínimo`,
+        reason: `${lowStockCount} identidade(s) física(s) abaixo do mínimo`,
         href: '/operacoes',
         cta: 'Ver estoque',
-        score: 50 + Math.min(lowStock.length * 2, 30),
+        score: 50 + Math.min(lowStockCount * 2, 30),
         area: 'Produção',
       });
     }
 
-    if (faturamento === 0) {
+    if (valorPedidos === 0) {
       candidates.push({
         title: 'Gerar primeira venda do mês',
         reason: 'Nenhuma venda registrada neste mês',
@@ -171,10 +168,10 @@ export function NextActionsCard() {
         score: 75,
         area: 'Metas',
       });
-    } else if (faturamento < 5000) {
+    } else if (valorPedidos < 5000) {
       candidates.push({
         title: 'Impulsionar vendas do mês',
-        reason: `Faturamento ainda baixo (R$ ${faturamento.toFixed(2)})`,
+        reason: `Valor dos pedidos ainda baixo (R$ ${valorPedidos.toFixed(2)})`,
         href: '/digital',
         cta: 'Criar campanha',
         score: 45,
@@ -229,8 +226,7 @@ export function NextActionsCard() {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lowStockCount]);
 
   return (
     <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">

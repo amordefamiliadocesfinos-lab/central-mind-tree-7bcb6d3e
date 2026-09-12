@@ -16,9 +16,10 @@ import {
   Wrench,
   Boxes,
 } from 'lucide-react';
-import { isBeforeOperationalStart } from '@/lib/operationalStart';
+import { OPERATIONAL_START_DATE, isWithinOperationalPeriod } from '@/lib/operationalStart';
 import { cn, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useKPIsSelector } from '@/stores/selectors';
 
 type Bottleneck = {
   id: string;
@@ -201,30 +202,29 @@ const SEVERITY_META = {
 export function BottleneckCard() {
   const [bottleneck, setBottleneck] = useState<Bottleneck | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const lowStockCount = useKPIsSelector().lowStock.length;
 
   const load = useCallback(async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const monthStart = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
-
-    const [accounts, orders, tasks, entries, kpiRes] = await Promise.all([
+    const [accounts, orders, productionOrders, tasks, entries] = await Promise.all([
       supabase.from('financial_accounts').select('current_balance').eq('is_active', true),
-      supabase.from('orders').select('id, status, total_value, order_date').is('deleted_at', null),
+      supabase.from('orders').select('id, operational_status, created_at').is('deleted_at', null).gte('created_at', OPERATIONAL_START_DATE),
+      supabase.from('production_orders').select('id, status, created_at').gte('created_at', OPERATIONAL_START_DATE),
       supabase.from('tasks').select('id, status, due_date').is('deleted_at', null),
       supabase.from('financial_entries').select('type, value, value_paid, due_date, payment_date'),
-      supabase.from('products').select('id, min_stock, current_stock').lte('current_stock', 'min_stock').gt('min_stock', 0),
     ]);
 
     const cashBalance = (accounts.data || []).reduce((s, a: any) => s + (Number(a.current_balance) || 0), 0);
 
     const ordersAll = orders.data || [];
-    const productionPending = ordersAll.filter((o: any) =>
-      ['producao', 'em_producao', 'production'].includes(o.status)
+    const productionPending = (productionOrders.data || []).filter((o: any) =>
+      ['aberto', 'producao'].includes(o.status)
     ).length;
     const ordersPending = ordersAll.filter((o: any) =>
-      ['rascunho', 'pendente', 'aguardando'].includes(o.status)
+      ['todo', 'preparing'].includes(o.operational_status ?? 'todo')
     ).length;
 
-    const inPeriod = (d?: string | null) => !!d && !isBeforeOperationalStart(d);
+    const inPeriod = (d?: string | null) => !!d && isWithinOperationalPeriod(d);
 
     const tasksLate = (tasks.data || []).filter(
       (t: any) => inPeriod(t.due_date) && t.due_date < today && t.status !== 'concluído' && t.status !== 'concluido'
@@ -235,13 +235,11 @@ export function BottleneckCard() {
         && ((Number(e.value) || 0) - (Number(e.value_paid) || 0)) > 0.009)
       .reduce((s, e: any) => s + ((Number(e.value) || 0) - (Number(e.value_paid) || 0)), 0);
 
-    const lowStockCount = (kpiRes.data || []).length;
-
     setBottleneck(
       pickBottleneck({ cashBalance, salesMonth: 0, productionPending, ordersPending, tasksLate, lowStockCount, receivablesLate })
     );
     setUpdatedAt(new Date());
-  }, []);
+  }, [lowStockCount]);
 
   useEffect(() => {
     load();
