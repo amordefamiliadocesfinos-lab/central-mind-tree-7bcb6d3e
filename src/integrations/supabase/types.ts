@@ -4586,6 +4586,283 @@ export type Database = {
           },
         ]
       }
+      purchase_order_items: {
+        Row: {
+          conversion_factor: number
+          created_at: string
+          id: string
+          ordered_purchase_qty: number
+          presentation_snapshot: Json
+          product_id: string
+          purchase_order_id: string
+          purchase_presentation_id: string | null
+          purchase_unit_label: string
+          stock_unit_label: string
+          unit_price: number | null
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          conversion_factor: number
+          created_at?: string
+          id?: string
+          ordered_purchase_qty: number
+          presentation_snapshot: Json
+          product_id: string
+          purchase_order_id: string
+          purchase_presentation_id?: string | null
+          purchase_unit_label: string
+          stock_unit_label: string
+          unit_price?: number | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          conversion_factor?: number
+          created_at?: string
+          id?: string
+          ordered_purchase_qty?: number
+          presentation_snapshot?: Json
+          product_id?: string
+          purchase_order_id?: string
+          purchase_presentation_id?: string | null
+          purchase_unit_label?: string
+          stock_unit_label?: string
+          unit_price?: number | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_presentation_id_fkey"
+            columns: ["purchase_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          expected_at: string | null
+          id: string
+          notes: string | null
+          ordered_at: string | null
+          status: string
+          supplier_contact_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expected_at?: string | null
+          id?: string
+          notes?: string | null
+          ordered_at?: string | null
+          status?: string
+          supplier_contact_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expected_at?: string | null
+          id?: string
+          notes?: string | null
+          ordered_at?: string | null
+          status?: string
+          supplier_contact_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_presentations: {
+        Row: {
+          conversion_factor: number
+          created_at: string
+          id: string
+          is_active: boolean
+          is_approximate: boolean
+          name: string
+          notes: string | null
+          product_id: string
+          purchase_unit_label: string
+          stock_unit_label: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          conversion_factor: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_approximate?: boolean
+          name: string
+          notes?: string | null
+          product_id: string
+          purchase_unit_label: string
+          stock_unit_label: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          conversion_factor?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_approximate?: boolean
+          name?: string
+          notes?: string | null
+          product_id?: string
+          purchase_unit_label?: string
+          stock_unit_label?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_presentations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_presentations_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_receipt_items: {
+        Row: {
+          created_at: string
+          id: string
+          operational_received_qty: number
+          purchase_order_item_id: string
+          purchase_receipt_id: string
+          received_purchase_qty: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          operational_received_qty: number
+          purchase_order_item_id: string
+          purchase_receipt_id: string
+          received_purchase_qty: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          operational_received_qty?: number
+          purchase_order_item_id?: string
+          purchase_receipt_id?: string
+          received_purchase_qty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_receipt_items_purchase_order_item_id_fkey"
+            columns: ["purchase_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_receipt_items_purchase_receipt_id_fkey"
+            columns: ["purchase_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_receipts: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          purchase_order_id: string
+          received_at: string | null
+          status: string
+          storage_location_id: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          purchase_order_id: string
+          received_at?: string | null
+          status?: string
+          storage_location_id: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          purchase_order_id?: string
+          received_at?: string | null
+          status?: string
+          storage_location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_receipts_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_receipts_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routine_blocks: {
         Row: {
           actual_end: string | null
@@ -5834,6 +6111,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_purchase_receipt: {
+        Args: { p_receipt_id: string }
+        Returns: Json
+      }
       create_unified_sale: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
@@ -5885,6 +6166,10 @@ export type Database = {
       }
       normalize_br_phone: { Args: { _raw: string }; Returns: string }
       owns_campaign: { Args: { _campaign_id: string }; Returns: boolean }
+      recalculate_purchase_order_receiving_status: {
+        Args: { p_purchase_order_id: string }
+        Returns: string
+      }
       reconcile_marketplace_settlement: {
         Args: { p_entry_ids: string[]; p_payload: Json }
         Returns: string
