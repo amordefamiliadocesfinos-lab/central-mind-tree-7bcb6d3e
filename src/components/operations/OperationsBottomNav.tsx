@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Package, Boxes, Factory, Calendar, LayoutGrid, BarChart3, ClipboardCheck } from 'lucide-react';
+import { ShoppingCart, Package, Boxes, Factory, Calendar, LayoutGrid, BarChart3, ClipboardCheck, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export type OperationsTab = 'overview' | 'orders' | 'separation' | 'products' | 'inventory' | 'production' | 'mrp' | 'calendar';
+export type OperationsTab = 'overview' | 'orders' | 'purchases' | 'separation' | 'products' | 'inventory' | 'production' | 'mrp' | 'calendar';
 
 interface OperationsBottomNavProps {
   activeTab: OperationsTab;
@@ -13,6 +13,7 @@ interface OperationsBottomNavProps {
 const tabs: { id: OperationsTab; label: string; shortLabel: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Geral', shortLabel: 'Geral', icon: LayoutGrid },
   { id: 'orders', label: 'Pedidos', shortLabel: 'Pedidos', icon: ShoppingCart },
+  { id: 'purchases', label: 'Compras', shortLabel: 'Compras', icon: Truck },
   { id: 'separation', label: 'Separação', shortLabel: 'Separar', icon: ClipboardCheck },
   { id: 'products', label: 'Produtos', shortLabel: 'Prod.', icon: Package },
   { id: 'inventory', label: 'Estoque', shortLabel: 'Estoq.', icon: Boxes },

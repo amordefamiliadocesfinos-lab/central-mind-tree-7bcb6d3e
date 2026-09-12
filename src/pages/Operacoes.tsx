@@ -49,6 +49,7 @@ import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
+import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
 import { useProductIdeas } from '@/hooks/useProductIdeas';
@@ -72,7 +73,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
 
-const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
+const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
 export default function Operacoes() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1398,6 +1399,9 @@ export default function Operacoes() {
 
       case 'production':
         return <ProductionTab products={rawProducts} onRefetch={refetch} />;
+
+      case 'purchases':
+        return <PurchasesTab products={rawProducts} />;
 
       case 'mrp':
         return <MRPTab />;
