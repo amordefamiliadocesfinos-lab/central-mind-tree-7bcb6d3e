@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { ChevronDown, CheckCircle2, AlertTriangle, AlertOctagon, Activity } from 'lucide-react';
-import { isBeforeOperationalStart } from '@/lib/operationalStart';
+import { isWithinOperationalPeriod } from '@/lib/operationalStart';
 import { cn, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -41,7 +41,7 @@ function evaluate(snap: Snapshot): { overall: Level; indicators: Indicator[] } {
   inds.push({
     key: 'sales',
     label: 'Vendas',
-    detail: `Faturamento do mês: ${formatCurrency(snap.salesMonth, { compact: true })}`,
+    detail: `Valor dos pedidos no mês: ${formatCurrency(snap.salesMonth, { compact: true })}`,
     level: snap.salesMonth <= 0 ? 'crit' : snap.salesMonth < 1000 ? 'warn' : 'ok',
   });
 
@@ -117,9 +117,10 @@ export function CompanyStatus() {
     const today = format(new Date(), 'yyyy-MM-dd');
     const monthStart = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
 
-    const [accounts, orders, tasks, entries] = await Promise.all([
+    const [accounts, orders, productionOrders, tasks, entries] = await Promise.all([
       supabase.from('financial_accounts').select('current_balance').eq('is_active', true),
-      supabase.from('orders').select('id, status, total_value, order_date').is('deleted_at', null),
+      supabase.from('orders').select('id, operational_status, total_value, created_at').is('deleted_at', null),
+      supabase.from('production_orders').select('id, status, created_at'),
       supabase.from('tasks').select('id, status, due_date').is('deleted_at', null),
       supabase.from('financial_entries').select('type, value, value_paid, due_date, payment_date'),
     ]);
@@ -128,16 +129,16 @@ export function CompanyStatus() {
 
     const ordersAll = orders.data || [];
     const salesMonth = ordersAll
-      .filter((o: any) => o.order_date && o.order_date >= monthStart && o.status !== 'cancelado')
+      .filter((o: any) => o.created_at && o.created_at >= monthStart && isWithinOperationalPeriod(o.created_at) && o.operational_status !== 'cancelled')
       .reduce((s, o: any) => s + (Number(o.total_value) || 0), 0);
     const ordersPending = ordersAll.filter((o: any) =>
-      ['rascunho', 'pendente', 'aguardando'].includes(o.status)
+      isWithinOperationalPeriod(o.created_at) && ['todo', 'preparing'].includes(o.operational_status || 'todo')
     ).length;
-    const productionPending = ordersAll.filter((o: any) =>
-      ['producao', 'em_producao', 'production'].includes(o.status)
+    const productionPending = (productionOrders.data || []).filter((op: any) =>
+      isWithinOperationalPeriod(op.created_at) && ['aberto', 'producao'].includes(op.status)
     ).length;
 
-    const inPeriod = (d?: string | null) => !!d && !isBeforeOperationalStart(d);
+    const inPeriod = (d?: string | null) => !!d && isWithinOperationalPeriod(d);
 
     const tasksLate = (tasks.data || []).filter(
       (t: any) => inPeriod(t.due_date) && t.due_date < today && t.status !== 'concluído' && t.status !== 'concluido'

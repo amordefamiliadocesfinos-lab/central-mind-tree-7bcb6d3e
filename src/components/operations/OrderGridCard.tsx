@@ -98,7 +98,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
             <div className="flex items-center gap-1.5">
               <span><span className="font-medium text-amber-600">Entrega:</span> {formatDate(order.due_date)}</span>
               <OrderPriorityBadge dueDate={order.due_date} />
-              <LateProductionBadge dueDate={order.due_date} status={order.status} />
+              <LateProductionBadge dueDate={order.due_date} status={order.status} operationalStatus={operationalStatus} />
             </div>
           )}
         </div>

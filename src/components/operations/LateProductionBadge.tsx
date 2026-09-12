@@ -6,19 +6,21 @@ import { cn } from '@/lib/utils';
 interface LateProductionBadgeProps {
   dueDate: string | null | undefined;
   status: string;
+  operationalStatus?: string | null;
   className?: string;
 }
 
-export function isProductionLate(dueDate: string | null | undefined, status: string): boolean {
+export function isProductionLate(dueDate: string | null | undefined, status: string, operationalStatus?: string | null): boolean {
   if (!dueDate) return false;
+  if (operationalStatus === 'finalized' || operationalStatus === 'cancelled') return false;
   if (status === 'produzido' || status === 'concluido' || status === 'cancelado' || status === 'enviado' || status === 'entregue' || status === 'faturado') return false;
   const today = startOfDay(getNowSaoPaulo());
   const due = startOfDay(parseISO(dueDate));
   return differenceInDays(due, today) <= 0;
 }
 
-export function LateProductionBadge({ dueDate, status, className }: LateProductionBadgeProps) {
-  if (!isProductionLate(dueDate, status)) return null;
+export function LateProductionBadge({ dueDate, status, operationalStatus, className }: LateProductionBadgeProps) {
+  if (!isProductionLate(dueDate, status, operationalStatus)) return null;
 
   return (
     <span

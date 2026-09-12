@@ -99,7 +99,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
         {/* Priority badges row */}
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
           <OrderPriorityBadge dueDate={order.due_date} />
-          <LateProductionBadge dueDate={order.due_date} status={order.status} />
+          <LateProductionBadge dueDate={order.due_date} status={order.status} operationalStatus={operationalStatus} />
           {order.due_date && (
             <span className="text-[11px] text-amber-600 font-medium">
               Entrega: {formatDate(order.due_date)}
