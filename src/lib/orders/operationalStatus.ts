@@ -21,6 +21,15 @@ export function getOperationalStatus(order: { operational_status?: string | null
   return value && value in ORDER_OPERATIONAL_STATUS ? (value as OrderOperationalStatus) : 'todo';
 }
 
+/**
+ * A Central de Separação continua exibindo finalizados como histórico, mas um
+ * cancelamento operacional nunca pode permanecer no fluxo físico. O status
+ * legado fica apenas como compatibilidade para registros anteriores à Fase 1.
+ */
+export function isSeparationEligible(order: { operational_status?: string | null; status?: string | null }): boolean {
+  return order.operational_status !== 'cancelled' && order.status !== 'cancelado';
+}
+
 /** Transições manuais sem efeito de estoque (todo/preparing/cancelled). */
 export async function setOrderOperationalStatus(orderId: string, status: Exclude<OrderOperationalStatus, 'finalized'>) {
   const { data, error } = await (supabase.rpc as any)('set_order_operational_status', {

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import type { Order } from '@/hooks/useOrders';
 import type { OperationalDestination, OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
 
@@ -71,7 +72,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
   const [documentOrder, setDocumentOrder] = useState<Order | null>(null);
   const [documentUrl, setDocumentUrl] = useState('');
   const [documentType, setDocumentType] = useState<OrderDocument['document_type']>('other');
-  const operationalOrders = useMemo(() => orders.filter(order => !['cancelado', 'concluido'].includes(order.status)), [orders]);
+  const operationalOrders = useMemo(() => orders.filter(isSeparationEligible), [orders]);
 
   const run = async (orderId: string, action: () => Promise<void>) => {
     setBusyOrderId(orderId);

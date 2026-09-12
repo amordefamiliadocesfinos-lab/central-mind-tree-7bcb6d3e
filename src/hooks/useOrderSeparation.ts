@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { finalizeOrderSeparation } from '@/lib/orderStock';
+import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import type { Order } from '@/hooks/useOrders';
 
 const db = supabase as any;
@@ -36,7 +37,7 @@ export function useOrderSeparation(orders: Order[]) {
   const [loading, setLoading] = useState(true);
 
   const fetchSeparation = useCallback(async () => {
-    const activeIds = orders.filter(order => !['cancelado', 'concluido'].includes(order.status)).map(order => order.id);
+    const activeIds = orders.filter(isSeparationEligible).map(order => order.id);
     if (activeIds.length === 0) {
       setSeparations([]);
       setDocuments([]);
