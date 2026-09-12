@@ -3342,7 +3342,7 @@ export type Database = {
           financial_account_id: string | null
           financial_due_date: string | null
           id: string
-          internal_order_number: string | null
+          internal_order_number: string
           marketplace_account: string | null
           marketplace_metadata: Json
           notes: string | null
@@ -3376,7 +3376,7 @@ export type Database = {
           financial_account_id?: string | null
           financial_due_date?: string | null
           id?: string
-          internal_order_number?: string | null
+          internal_order_number: string
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
@@ -3410,7 +3410,7 @@ export type Database = {
           financial_account_id?: string | null
           financial_due_date?: string | null
           id?: string
-          internal_order_number?: string | null
+          internal_order_number?: string
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
@@ -4422,6 +4422,7 @@ export type Database = {
           consolidated_quantity: number
           created_at: string
           id: string
+          internal_production_number: string | null
           notes: string | null
           order_number: string | null
           product_id: string | null
@@ -4438,6 +4439,7 @@ export type Database = {
           consolidated_quantity?: number
           created_at?: string
           id?: string
+          internal_production_number?: string | null
           notes?: string | null
           order_number?: string | null
           product_id?: string | null
@@ -4454,6 +4456,7 @@ export type Database = {
           consolidated_quantity?: number
           created_at?: string
           id?: string
+          internal_production_number?: string | null
           notes?: string | null
           order_number?: string | null
           product_id?: string | null
@@ -5805,6 +5808,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      complete_production_order: {
+        Args: { p_finished_location?: string; p_production_order_id: string }
+        Returns: Json
       }
       confirm_campaign_execution: {
         Args: { _execution_id: string }
