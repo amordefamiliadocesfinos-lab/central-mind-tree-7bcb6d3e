@@ -1,17 +1,346 @@
 import { useMemo, useState } from 'react';
-import { Plus, Truck, PackageCheck, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button'; import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; import { Badge } from '@/components/ui/badge'; import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; import { Input } from '@/components/ui/input'; import { Label } from '@/components/ui/label'; import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; import { Textarea } from '@/components/ui/textarea'; import { toast } from 'sonner';
-import { usePurchases, PURCHASE_STATUS_LABEL, type PurchaseOrder } from '@/hooks/usePurchases'; import { useContacts } from '@/hooks/useContacts'; import { useStorageLocations } from '@/hooks/useStorageLocations'; import type { Product } from '@/hooks/useOrders'; import { supabase } from '@/integrations/supabase/client';
+import { AlertTriangle, Plus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  PURCHASE_STATUS_LABEL,
+  usePurchases,
+  type PurchaseOrder,
+  type PurchaseStatus,
+} from '@/hooks/usePurchases';
+import { useContacts } from '@/hooks/useContacts';
+import { useStorageLocations } from '@/hooks/useStorageLocations';
+import type { Product } from '@/hooks/useOrders';
+import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/utils';
+import {
+  PurchaseOrderItemEditor,
+  type PurchaseDraftLine,
+  type PurchasePresentationOption,
+  type PurchaseVariantOption,
+} from './purchases/PurchaseOrderItemEditor';
+import { PurchaseOrderCard } from './purchases/PurchaseOrderCard';
+import {
+  PurchaseReceiptDialog,
+  type PurchaseReceiptDraftLine,
+} from './purchases/PurchaseReceiptDialog';
+
 const db = supabase as any;
+const RECEIVABLE_STATUSES: PurchaseStatus[] = ['confirmado', 'em_transito', 'parcialmente_recebido'];
+
+function createDraftLine(): PurchaseDraftLine {
+  return {
+    id: crypto.randomUUID(),
+    product_id: '',
+    variant_id: null,
+    qty: '1',
+    price: '',
+    presentation: null,
+    variants: [],
+  };
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export function PurchasesTab({ products }: { products: Product[] }) {
- const p = usePurchases(), { contacts } = useContacts(), { locations } = useStorageLocations(); const [open,setOpen]=useState(false),[receipt,setReceipt]=useState<PurchaseOrder|null>(null),[supplier,setSupplier]=useState(''),[expected,setExpected]=useState(''),[note,setNote]=useState(''); const [lines,setLines]=useState<any[]>([]),[location,setLocation]=useState(''),[busy,setBusy]=useState(false);
- const suppliers=contacts.filter(c=>c.is_active&&(c.type==='fornecedor'||c.type==='ambos'));
- const addLine=()=>setLines(x=>[...x,{product_id:'',variant_id:null,qty:'1',price:'',presentation:null,variants:[]}]);
- const loadVariants=async(i:number,id:string)=>{const {data}=await db.from('product_variants').select('id,variant_name').eq('product_id',id).eq('is_active',true); setLines(x=>x.map((l,n)=>n===i?{...l,product_id:id,variant_id:null,presentation:null,variants:data||[]}:l));};
- const save=async()=>{try{if(!supplier||!lines.length)throw Error('Informe fornecedor e ao menos um item.'); const items=lines.map(l=>{const product=products.find(x=>x.id===l.product_id) as any;if(!product)throw Error('Selecione o produto.'); if(product.variation_mode==='variacoes_fisicas'&&!l.variant_id)throw Error('Produto Mestre exige variante física.'); if(!l.presentation)throw Error('Selecione uma apresentação de compra.'); const s=l.presentation;return {product_id:l.product_id,variant_id:l.variant_id,purchase_presentation_id:s.id,ordered_purchase_qty:Number(l.qty),purchase_unit_label:s.purchase_unit_label,conversion_factor:Number(s.conversion_factor),stock_unit_label:s.stock_unit_label,unit_price:l.price===''?null:Number(l.price),presentation_snapshot:{presentation_id:s.id,name:s.name,purchase_unit_label:s.purchase_unit_label,stock_unit_label:s.stock_unit_label,conversion_factor:s.conversion_factor,is_approximate:s.is_approximate}};}); await p.createDraft({supplier_contact_id:supplier,expected_at:expected||null,notes:note||null},items);toast.success('Compra criada. Estoque não foi alterado.');setOpen(false);setLines([]);}catch(e:any){toast.error(e.message||'Não foi possível salvar a compra.')}};
- const receive=async()=>{if(!receipt||!location)return toast.error('Selecione o local de estoque.');try{setBusy(true);const items=(receipt.items||[]).map((i:any)=>{const confirmed=(receipt.receipts||[]).filter((r:any)=>r.status==='confirmed').flatMap((r:any)=>r.items||[]).filter((x:any)=>x.purchase_order_item_id===i.id).reduce((a:number,x:any)=>a+Number(x.received_purchase_qty),0); const pending=Math.max(0,Number(i.ordered_purchase_qty)-confirmed);return {purchase_order_item_id:i.id,received_purchase_qty:pending,operational_received_qty:pending*Number(i.conversion_factor)};}).filter((x:any)=>x.received_purchase_qty>0); const r=await p.createReceipt({purchase_order_id:receipt.id,storage_location_id:location},items); await p.confirmReceipt(r.id);toast.success('Recebimento confirmado e estoque atualizado.');setReceipt(null);}catch(e:any){toast.error(e.message||'Não foi possível confirmar recebimento.');}finally{setBusy(false)}};
- const total=useMemo(()=>lines.reduce((a,l)=>a+(Number(l.qty)||0)*(Number(l.price)||0),0),[lines]);
- return <div className="space-y-4"><div className="flex justify-between"><div><h2 className="text-lg font-semibold">Compras</h2><p className="text-sm text-muted-foreground">Pedidos, trânsito e recebimentos físicos.</p></div><Button onClick={()=>setOpen(true)}><Plus className="h-4 w-4 mr-1"/>Nova compra</Button></div>{!p.loading&&p.orders.length===0?<Card><CardContent className="py-10 text-center text-muted-foreground">Nenhum pedido de compra registrado.<div><Button className="mt-3" onClick={()=>setOpen(true)}>Nova compra</Button></div></CardContent></Card>:p.orders.map(o=><Card key={o.id}><CardHeader className="py-3"><div className="flex justify-between gap-2"><CardTitle className="text-base">Compra · {o.supplier?.name||'Fornecedor'}</CardTitle><Badge>{PURCHASE_STATUS_LABEL[o.status]}</Badge></div></CardHeader><CardContent className="space-y-2">{o.items?.map(i=>{const received=(o.receipts||[]).filter(r=>r.status==='confirmed').flatMap(r=>r.items||[]).filter((x:any)=>x.purchase_order_item_id===i.id).reduce((a:number,x:any)=>a+Number(x.received_purchase_qty),0);return <div key={i.id} className="rounded border p-2 text-sm"><b>{i.product?.name}</b>{i.variant&&` · ${i.variant.variant_name}`}<br/>{i.presentation_snapshot?.name}: Pedido {i.ordered_purchase_qty} {i.purchase_unit_label} · Recebido {received} · Pendente {Math.max(0,Number(i.ordered_purchase_qty)-received)}</div>})}<div className="flex gap-2">{o.status==='rascunho'&&<Button size="sm" onClick={()=>p.setStatus(o.id,'confirmado')}>Confirmar compra</Button>}{o.status==='confirmado'&&<Button size="sm" variant="outline" onClick={()=>p.setStatus(o.id,'em_transito')}><Truck className="h-4 w-4 mr-1"/>Em trânsito</Button>}{['confirmado','em_transito','parcialmente_recebido'].includes(o.status)&&<Button size="sm" onClick={()=>setReceipt(o)}><PackageCheck className="h-4 w-4 mr-1"/>Registrar recebimento</Button>}</div></CardContent></Card>) }
- <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Nova compra</DialogTitle></DialogHeader><Label>Fornecedor</Label><Select value={supplier} onValueChange={setSupplier}><SelectTrigger><SelectValue placeholder="Selecione o fornecedor"/></SelectTrigger><SelectContent>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select><Label>Previsão</Label><Input type="date" value={expected} onChange={e=>setExpected(e.target.value)}/><div className="space-y-3">{lines.map((l,i)=>{const product=products.find(x=>x.id===l.product_id) as any;return <Card key={i}><CardContent className="pt-4 grid gap-2"><Label>Produto / Variante física</Label><Select value={l.product_id} onValueChange={v=>loadVariants(i,v)}><SelectTrigger><SelectValue placeholder="Produto"/></SelectTrigger><SelectContent>{products.map(x=><SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}</SelectContent></Select>{product?.variation_mode==='variacoes_fisicas'&&<Select value={l.variant_id||''} onValueChange={v=>setLines(x=>x.map((z,n)=>n===i?{...z,variant_id:v,presentation:null}:z))}><SelectTrigger><SelectValue placeholder="Variante física obrigatória"/></SelectTrigger><SelectContent>{l.variants.map((v:any)=><SelectItem key={v.id} value={v.id}>{v.variant_name}</SelectItem>)}</SelectContent></Select>}<Button variant="outline" disabled={!l.product_id||product?.variation_mode==='variacoes_fisicas'&&!l.variant_id} onClick={async()=>{const q=db.from('purchase_presentations').select('*').eq('product_id',l.product_id).eq('is_active',true);const {data}=l.variant_id?await q.eq('variant_id',l.variant_id):await q.is('variant_id',null);if(!(data||[]).length)return toast.error('Nenhuma apresentação cadastrada para esta identidade.');setLines(x=>x.map((z,n)=>n===i?{...z,presentation:data[0]}:z));}}>Selecionar apresentação {l.presentation?`: ${l.presentation.name}`:''}</Button><Input type="number" min="0" value={l.qty} onChange={e=>setLines(x=>x.map((z,n)=>n===i?{...z,qty:e.target.value}:z))} placeholder="Quantidade de compra"/><Input type="number" min="0" value={l.price} onChange={e=>setLines(x=>x.map((z,n)=>n===i?{...z,price:e.target.value}:z))} placeholder="Preço por unidade"/>{l.presentation&&<p className="text-xs text-muted-foreground">Previsto: {Number(l.qty||0)*Number(l.presentation.conversion_factor)} {l.presentation.stock_unit_label} (não é estoque)</p>}</CardContent></Card>})}<Button variant="outline" onClick={addLine}>Adicionar item</Button></div><Textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Observação"/><p className="text-sm font-medium">Total previsto: R$ {total.toFixed(2)}</p><Button onClick={save}>Salvar compra</Button></DialogContent></Dialog>
- <Dialog open={!!receipt} onOpenChange={x=>!x&&setReceipt(null)}><DialogContent><DialogHeader><DialogTitle>Confirmar recebimento</DialogTitle></DialogHeader><p className="text-sm">Esta ação criará a entrada física no estoque pela rotina oficial.</p><Select value={location} onValueChange={setLocation}><SelectTrigger><SelectValue placeholder="Local de estoque"/></SelectTrigger><SelectContent>{locations.map(l=><SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent></Select><Button disabled={busy} onClick={receive}>{busy?'Confirmando…':'Confirmar recebimento'}</Button></DialogContent></Dialog></div>
+  const purchases = usePurchases();
+  const { contacts } = useContacts();
+  const { locations } = useStorageLocations();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
+  const [supplierId, setSupplierId] = useState('');
+  const [expectedAt, setExpectedAt] = useState('');
+  const [notes, setNotes] = useState('');
+  const [lines, setLines] = useState<PurchaseDraftLine[]>([]);
+  const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const suppliers = useMemo(
+    () => contacts.filter(contact => contact.is_active && (contact.type === 'fornecedor' || contact.type === 'ambos')),
+    [contacts],
+  );
+  const visibleOrders = useMemo(
+    () => statusFilter === 'all' ? purchases.orders : purchases.orders.filter(order => order.status === statusFilter),
+    [purchases.orders, statusFilter],
+  );
+  const total = useMemo(
+    () => lines.reduce((sum, line) => sum + (Number(line.qty) || 0) * (Number(line.price) || 0), 0),
+    [lines],
+  );
+
+  const updateLine = (lineId: string, nextLine: PurchaseDraftLine) => {
+    setLines(current => current.map(line => line.id === lineId ? nextLine : line));
+  };
+
+  const loadVariants = async (lineId: string, productId: string) => {
+    const { data, error } = await db
+      .from('product_variants')
+      .select('id,variant_name')
+      .eq('product_id', productId)
+      .eq('is_active', true);
+    if (error) throw error;
+
+    setLines(current => current.map(line => line.id === lineId ? {
+      ...line,
+      product_id: productId,
+      variant_id: null,
+      presentation: null,
+      variants: (data ?? []) as PurchaseVariantOption[],
+    } : line));
+  };
+
+  const choosePresentation = async (line: PurchaseDraftLine) => {
+    try {
+      const presentations = await purchases.getPresentations(line.product_id, line.variant_id);
+      if (!presentations.length) throw new Error('Nenhuma apresentação cadastrada para esta identidade.');
+      updateLine(line.id, { ...line, presentation: presentations[0] as PurchasePresentationOption });
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível carregar a apresentação.'));
+    }
+  };
+
+  const resetEditor = () => {
+    setSupplierId('');
+    setExpectedAt('');
+    setNotes('');
+    setLines([]);
+  };
+
+  const openEditor = () => {
+    resetEditor();
+    setEditorOpen(true);
+  };
+
+  const savePurchase = async () => {
+    try {
+      setBusyAction('save');
+      if (!supplierId || !lines.length) throw new Error('Informe fornecedor e ao menos um item.');
+
+      const items = lines.map(line => {
+        const product = products.find(item => item.id === line.product_id);
+        if (!product) throw new Error('Selecione o produto.');
+        if (product.variation_mode === 'variacoes_fisicas' && !line.variant_id) {
+          throw new Error('Produto Mestre exige variante física.');
+        }
+        if (!line.presentation) throw new Error('Selecione uma apresentação de compra.');
+
+        const presentation = line.presentation;
+        return {
+          product_id: line.product_id,
+          variant_id: line.variant_id,
+          purchase_presentation_id: presentation.id,
+          ordered_purchase_qty: Number(line.qty),
+          purchase_unit_label: presentation.purchase_unit_label,
+          conversion_factor: Number(presentation.conversion_factor),
+          stock_unit_label: presentation.stock_unit_label,
+          unit_price: line.price === '' ? null : Number(line.price),
+          presentation_snapshot: {
+            presentation_id: presentation.id,
+            name: presentation.name,
+            purchase_unit_label: presentation.purchase_unit_label,
+            stock_unit_label: presentation.stock_unit_label,
+            conversion_factor: presentation.conversion_factor,
+            is_approximate: presentation.is_approximate,
+          },
+        };
+      });
+
+      await purchases.createDraft({
+        supplier_contact_id: supplierId,
+        expected_at: expectedAt || null,
+        notes: notes || null,
+      }, items);
+      toastSuccess('Compra criada. Estoque não foi alterado.');
+      setEditorOpen(false);
+      resetEditor();
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível salvar a compra.'));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const changeStatus = async (order: PurchaseOrder, status: PurchaseStatus) => {
+    try {
+      setBusyAction(order.id);
+      await purchases.setStatus(order.id, status);
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível atualizar a compra.'));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const confirmReceipt = async (locationId: string, receiptLines: PurchaseReceiptDraftLine[]) => {
+    if (!receiptOrder) return;
+    if (!locationId) return toastError('Selecione o local de estoque.');
+
+    const items = receiptLines
+      .map(line => ({
+        purchase_order_item_id: line.purchase_order_item_id,
+        received_purchase_qty: Number(line.received_purchase_qty),
+        operational_received_qty: Number(line.operational_received_qty),
+      }))
+      .filter(line => line.received_purchase_qty > 0);
+    if (!items.length) return toastError('Informe ao menos uma quantidade recebida.');
+
+    try {
+      setBusyAction('receipt');
+      const receipt = await purchases.createReceipt({
+        purchase_order_id: receiptOrder.id,
+        storage_location_id: locationId,
+      }, items);
+      await purchases.confirmReceipt(receipt.id);
+      toastSuccess('Recebimento confirmado e estoque atualizado.');
+      setReceiptOrder(null);
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível confirmar o recebimento.'));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Compras</h2>
+          <p className="text-sm text-muted-foreground">Pedidos, trânsito e recebimentos físicos.</p>
+        </div>
+        <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
+      </header>
+
+      <div className="max-w-xs">
+        <Label className="sr-only">Filtrar compras por status</Label>
+        <Select value={statusFilter} onValueChange={value => setStatusFilter(value as PurchaseStatus | 'all')}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            {Object.entries(PURCHASE_STATUS_LABEL).map(([status, label]) => (
+              <SelectItem key={status} value={status}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {purchases.loading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map(item => <Skeleton key={item} className="h-36 w-full" />)}
+        </div>
+      ) : visibleOrders.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              {purchases.orders.length ? 'Nenhuma compra encontrada neste status.' : 'Nenhum pedido de compra registrado.'}
+            </p>
+            {!purchases.orders.length && <Button className="mt-3" onClick={openEditor}>Nova compra</Button>}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {visibleOrders.map(order => (
+            <PurchaseOrderCard
+              key={order.id}
+              order={order}
+              busy={busyAction === order.id}
+              onConfirm={current => changeStatus(current, 'confirmado')}
+              onMarkInTransit={current => changeStatus(current, 'em_transito')}
+              onReceive={setReceiptOrder}
+            />
+          ))}
+        </div>
+      )}
+
+      <ResponsiveDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        title="Nova compra"
+        className="sm:max-w-2xl"
+        footer={(
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium">Total previsto: {formatCurrency(total)}</p>
+            <Button disabled={busyAction === 'save'} onClick={() => void savePurchase()}>
+              {busyAction === 'save' ? 'Salvando…' : 'Salvar rascunho'}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Fornecedor</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                <SelectContent>
+                  {suppliers.map(supplier => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Previsão</Label>
+              <Input type="date" value={expectedAt} onChange={event => setExpectedAt(event.target.value)} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Observação</Label>
+              <Textarea value={notes} onChange={event => setNotes(event.target.value)} placeholder="Observação" />
+            </div>
+          </div>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">Itens</h3>
+              <Button type="button" variant="outline" size="sm" onClick={() => setLines(current => [...current, createDraftLine()])}>
+                <Plus className="mr-1 h-4 w-4" />Adicionar item
+              </Button>
+            </div>
+
+            {lines.length === 0 && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>Adicione ao menos um item à compra.</AlertDescription>
+              </Alert>
+            )}
+
+            {lines.map(line => (
+              <PurchaseOrderItemEditor
+                key={line.id}
+                line={line}
+                products={products}
+                canRemove={lines.length > 0}
+                onChange={nextLine => updateLine(line.id, nextLine)}
+                onProductChange={productId => loadVariants(line.id, productId).catch(error => toastError(errorMessage(error, 'Não foi possível carregar as variantes.')))}
+                onChoosePresentation={() => choosePresentation(line)}
+                onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
+              />
+            ))}
+          </section>
+        </div>
+      </ResponsiveDialog>
+
+      <PurchaseReceiptDialog
+        order={receiptOrder}
+        locations={locations}
+        busy={busyAction === 'receipt'}
+        onOpenChange={open => !open && setReceiptOrder(null)}
+        onConfirm={confirmReceipt}
+      />
+    </div>
+  );
+}
+
+function toastSuccess(message: string) {
+  import('sonner').then(({ toast }) => toast.success(message));
+}
+
+function toastError(message: string) {
+  import('sonner').then(({ toast }) => toast.error(message));
 }
