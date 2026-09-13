@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import type { Product } from '@/hooks/useOrders';
+import type { CreatePurchasePresentationInput } from '@/hooks/usePurchases';
 
 export interface PurchaseVariantOption {
   id: string;
@@ -38,6 +39,7 @@ interface PurchaseOrderItemEditorProps {
   onChange: (line: PurchaseDraftLine) => void;
   onProductChange: (productId: string) => Promise<void>;
   onChoosePresentation: () => Promise<void>;
+  onCreatePresentation: (input: CreatePurchasePresentationInput) => Promise<PurchasePresentationOption>;
   onRemove: () => void;
 }
 

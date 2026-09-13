@@ -319,6 +319,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                 onChange={nextLine => updateLine(line.id, nextLine)}
                 onProductChange={productId => loadVariants(line.id, productId).catch(error => toastError(errorMessage(error, 'Não foi possível carregar as variantes.')))}
                 onChoosePresentation={() => choosePresentation(line)}
+                onCreatePresentation={purchases.createPresentation}
                 onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
               />
             ))}
