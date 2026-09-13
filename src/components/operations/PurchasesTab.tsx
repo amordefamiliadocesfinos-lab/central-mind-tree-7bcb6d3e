@@ -51,6 +51,10 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function presentationIdentityKey(productId: string, variantId: string | null) {
+  return `${productId}:${variantId ?? 'simple'}`;
+}
+
 export function PurchasesTab({ products }: { products: Product[] }) {
   const purchases = usePurchases();
   const { contacts } = useContacts();
@@ -61,6 +65,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [expectedAt, setExpectedAt] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<PurchaseDraftLine[]>([]);
+  const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, PurchasePresentationOption[]>>({});
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
@@ -79,6 +84,19 @@ export function PurchasesTab({ products }: { products: Product[] }) {
 
   const updateLine = (lineId: string, nextLine: PurchaseDraftLine) => {
     setLines(current => current.map(line => line.id === lineId ? nextLine : line));
+  };
+
+  const selectPresentationForLine = (lineId: string, presentation: PurchasePresentationOption) => {
+    setLines(current => current.map(line => line.id === lineId ? { ...line, presentation } : line));
+  };
+
+  const rememberPresentation = (productId: string, variantId: string | null, presentation: PurchasePresentationOption) => {
+    const key = presentationIdentityKey(productId, variantId);
+    setPresentationsByIdentity(current => {
+      const presentations = current[key] ?? [];
+      if (presentations.some(item => item.id === presentation.id)) return current;
+      return { ...current, [key]: [...presentations, presentation] };
+    });
   };
 
   const loadVariants = async (lineId: string, productId: string) => {
@@ -100,12 +118,24 @@ export function PurchasesTab({ products }: { products: Product[] }) {
 
   const choosePresentation = async (line: PurchaseDraftLine) => {
     try {
-      const presentations = await purchases.getPresentations(line.product_id, line.variant_id);
+      const key = presentationIdentityKey(line.product_id, line.variant_id);
+      let presentations = presentationsByIdentity[key];
+      if (!presentations) {
+        presentations = await purchases.getPresentations(line.product_id, line.variant_id) as PurchasePresentationOption[];
+        setPresentationsByIdentity(current => ({ ...current, [key]: presentations }));
+      }
       if (!presentations.length) throw new Error('Nenhuma apresentação cadastrada para esta identidade.');
-      updateLine(line.id, { ...line, presentation: presentations[0] as PurchasePresentationOption });
+      selectPresentationForLine(line.id, presentations[0]);
     } catch (error) {
       toastError(errorMessage(error, 'Não foi possível carregar a apresentação.'));
     }
+  };
+
+  const createPresentationForLine = async (lineId: string, input: Parameters<typeof purchases.createPresentation>[0]) => {
+    const presentation = await purchases.createPresentation(input) as PurchasePresentationOption;
+    rememberPresentation(input.product_id, input.variant_id, presentation);
+    selectPresentationForLine(lineId, presentation);
+    return presentation;
   };
 
   const resetEditor = () => {
@@ -319,6 +349,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                 onChange={nextLine => updateLine(line.id, nextLine)}
                 onProductChange={productId => loadVariants(line.id, productId).catch(error => toastError(errorMessage(error, 'Não foi possível carregar as variantes.')))}
                 onChoosePresentation={() => choosePresentation(line)}
+                onCreatePresentation={input => createPresentationForLine(line.id, input)}
                 onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
               />
             ))}
