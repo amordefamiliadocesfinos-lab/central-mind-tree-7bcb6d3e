@@ -52,6 +52,9 @@ export function PurchaseOrderItemEditor({
 }: PurchaseOrderItemEditorProps) {
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
+  // Produto simples é uma identidade física completa sem variante. Um Mestre
+  // só se torna uma identidade comprável após a variante ser escolhida.
+  const identityResolved = Boolean(product) && (!requiresVariant || Boolean(line.variant_id));
   const subtotal = (Number(line.qty) || 0) * (Number(line.price) || 0);
   const operationalQuantity = line.presentation
     ? (Number(line.qty) || 0) * Number(line.presentation.conversion_factor)
@@ -108,7 +111,7 @@ export function PurchaseOrderItemEditor({
               type="button"
               variant="outline"
               className="w-full justify-start font-normal"
-              disabled={!line.product_id || (requiresVariant && !line.variant_id)}
+              disabled={!identityResolved}
               onClick={() => void onChoosePresentation()}
             >
               {line.presentation ? line.presentation.name : 'Selecionar apresentação existente'}
