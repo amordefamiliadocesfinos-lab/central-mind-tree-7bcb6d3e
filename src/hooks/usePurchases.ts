@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type PurchaseStatus = 'rascunho' | 'confirmado' | 'em_transito' | 'parcialmente_recebido' | 'recebido' | 'cancelado';
 export const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = { rascunho: 'Rascunho', confirmado: 'Confirmado', em_transito: 'Em trânsito', parcialmente_recebido: 'Parcialmente recebido', recebido: 'Recebido', cancelado: 'Cancelado' };
-export interface PurchaseOrder { id: string; status: PurchaseStatus; supplier_contact_id: string; ordered_at: string | null; expected_at: string | null; notes: string | null; created_at: string; supplier?: { name: string } | null; items?: PurchaseItem[]; receipts?: PurchaseReceipt[] }
+export interface PurchaseOrder { id: string; internal_purchase_number?: string | null; status: PurchaseStatus; supplier_contact_id: string; ordered_at: string | null; expected_at: string | null; notes: string | null; created_at: string; supplier?: { name: string } | null; items?: PurchaseItem[]; receipts?: PurchaseReceipt[] }
 export interface PurchaseItem { id: string; product_id: string; variant_id: string | null; ordered_purchase_qty: number; purchase_unit_label: string; conversion_factor: number; stock_unit_label: string; unit_price: number | null; presentation_snapshot: any; product?: { name: string; variation_mode: string; unit: string | null } | null; variant?: { variant_name: string } | null; }
 export interface PurchaseReceipt { id: string; status: 'draft' | 'confirmed' | 'cancelled'; storage_location_id: string; received_at: string | null; confirmed_at: string | null; notes: string | null; items?: any[]; location?: { name: string } | null }
 export interface CreatePurchasePresentationInput {

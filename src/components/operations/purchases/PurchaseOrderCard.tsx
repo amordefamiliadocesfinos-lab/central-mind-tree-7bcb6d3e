@@ -56,7 +56,9 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
       <CardHeader className="space-y-3 pb-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base">Compra · {order.supplier?.name ?? 'Fornecedor'}</CardTitle>
+            <CardTitle className="text-base">
+              {order.internal_purchase_number ?? 'Compra'} · {order.supplier?.name ?? 'Fornecedor'}
+            </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               {order.expected_at ? `Previsão ${formatDisplayDate(order.expected_at)}` : 'Sem previsão informada'}
             </p>

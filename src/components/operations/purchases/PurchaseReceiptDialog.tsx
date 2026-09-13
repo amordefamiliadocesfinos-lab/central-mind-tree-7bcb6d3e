@@ -52,7 +52,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
     <ResponsiveDialog
       open={Boolean(order)}
       onOpenChange={onOpenChange}
-      title="Confirmar recebimento"
+      title={order?.internal_purchase_number ? `Confirmar recebimento · ${order.internal_purchase_number}` : 'Confirmar recebimento'}
       description="A confirmação cria a entrada física no estoque pela rotina oficial."
       className="sm:max-w-2xl"
       footer={(
