@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/utils';
 import type { Product } from '@/hooks/useOrders';
 import type { CreatePurchasePresentationInput } from '@/hooks/usePurchases';
@@ -44,6 +46,26 @@ interface PurchaseOrderItemEditorProps {
   onRemove: () => void;
 }
 
+interface PresentationDraft {
+  name: string;
+  purchaseUnitLabel: string;
+  stockUnitLabel: string;
+  conversionFactor: string;
+  isApproximate: boolean;
+  notes: string;
+}
+
+function createPresentationDraft(): PresentationDraft {
+  return {
+    name: '',
+    purchaseUnitLabel: '',
+    stockUnitLabel: '',
+    conversionFactor: '',
+    isApproximate: false,
+    notes: '',
+  };
+}
+
 export function PurchaseOrderItemEditor({
   line,
   products,
@@ -54,6 +76,7 @@ export function PurchaseOrderItemEditor({
   onRemove,
 }: PurchaseOrderItemEditorProps) {
   const [isCreatingPresentation, setIsCreatingPresentation] = useState(false);
+  const [presentationDraft, setPresentationDraft] = useState<PresentationDraft>(createPresentationDraft);
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   // Produto simples é uma identidade física completa sem variante. Um Mestre
@@ -63,6 +86,18 @@ export function PurchaseOrderItemEditor({
   const operationalQuantity = line.presentation
     ? (Number(line.qty) || 0) * Number(line.presentation.conversion_factor)
     : 0;
+  const conversionFactor = Number(presentationDraft.conversionFactor);
+  const presentationDraftIsValid = Boolean(
+    presentationDraft.name.trim()
+    && presentationDraft.purchaseUnitLabel.trim()
+    && presentationDraft.stockUnitLabel.trim()
+    && Number.isFinite(conversionFactor)
+    && conversionFactor > 0,
+  );
+  const resetPresentationDraft = () => {
+    setIsCreatingPresentation(false);
+    setPresentationDraft(createPresentationDraft());
+  };
 
   return (
     <Card>
@@ -87,7 +122,7 @@ export function PurchaseOrderItemEditor({
             <Select
               value={line.product_id}
               onValueChange={value => {
-                setIsCreatingPresentation(false);
+                resetPresentationDraft();
                 void onProductChange(value);
               }}
             >
@@ -106,7 +141,7 @@ export function PurchaseOrderItemEditor({
                 onValueChange={variantId => {
                   // A apresentação é específica da identidade física; nunca
                   // pode sobreviver à troca da variante selecionada.
-                  setIsCreatingPresentation(false);
+                  resetPresentationDraft();
                   onChange({ ...line, variant_id: variantId, presentation: null });
                 }}
               >
@@ -136,17 +171,91 @@ export function PurchaseOrderItemEditor({
               variant="ghost"
               size="sm"
               disabled={!identityResolved}
-              onClick={() => setIsCreatingPresentation(true)}
+              onClick={() => {
+                setPresentationDraft(createPresentationDraft());
+                setIsCreatingPresentation(true);
+              }}
             >
               + Nova Apresentação
             </Button>
 
             {isCreatingPresentation && (
-              <div className="flex items-center justify-between gap-3 rounded-md border border-dashed p-3">
-                <span className="text-sm font-medium">Nova Apresentação</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsCreatingPresentation(false)}>
-                  Cancelar
-                </Button>
+              <div className="space-y-4 rounded-md border border-dashed p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">Nova Apresentação</span>
+                  <Button type="button" variant="outline" size="sm" onClick={resetPresentationDraft}>
+                    Cancelar
+                  </Button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor={`presentation-name-${line.id}`}>Nome da apresentação</Label>
+                    <Input
+                      id={`presentation-name-${line.id}`}
+                      value={presentationDraft.name}
+                      onChange={event => setPresentationDraft(current => ({ ...current, name: event.target.value }))}
+                      aria-invalid={!presentationDraft.name.trim()}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`presentation-purchase-unit-${line.id}`}>Unidade de compra</Label>
+                    <Input
+                      id={`presentation-purchase-unit-${line.id}`}
+                      value={presentationDraft.purchaseUnitLabel}
+                      onChange={event => setPresentationDraft(current => ({ ...current, purchaseUnitLabel: event.target.value }))}
+                      aria-invalid={!presentationDraft.purchaseUnitLabel.trim()}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`presentation-stock-unit-${line.id}`}>Unidade de estoque</Label>
+                    <Input
+                      id={`presentation-stock-unit-${line.id}`}
+                      value={presentationDraft.stockUnitLabel}
+                      onChange={event => setPresentationDraft(current => ({ ...current, stockUnitLabel: event.target.value }))}
+                      aria-invalid={!presentationDraft.stockUnitLabel.trim()}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`presentation-conversion-factor-${line.id}`}>Fator de conversão</Label>
+                    <Input
+                      id={`presentation-conversion-factor-${line.id}`}
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={presentationDraft.conversionFactor}
+                      onChange={event => setPresentationDraft(current => ({ ...current, conversionFactor: event.target.value }))}
+                      aria-invalid={presentationDraft.conversionFactor !== '' && (!Number.isFinite(conversionFactor) || conversionFactor <= 0)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                    <Label htmlFor={`presentation-approximate-${line.id}`}>Valor aproximado</Label>
+                    <Switch
+                      id={`presentation-approximate-${line.id}`}
+                      checked={presentationDraft.isApproximate}
+                      onCheckedChange={checked => setPresentationDraft(current => ({ ...current, isApproximate: checked }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor={`presentation-notes-${line.id}`}>Observação</Label>
+                    <Textarea
+                      id={`presentation-notes-${line.id}`}
+                      value={presentationDraft.notes}
+                      onChange={event => setPresentationDraft(current => ({ ...current, notes: event.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <p className={presentationDraftIsValid ? 'text-sm text-muted-foreground' : 'text-sm text-destructive'}>
+                  {presentationDraftIsValid
+                    ? 'Dados básicos preenchidos.'
+                    : 'Preencha nome, unidades e um fator de conversão maior que zero.'}
+                </p>
               </div>
             )}
           </div>
