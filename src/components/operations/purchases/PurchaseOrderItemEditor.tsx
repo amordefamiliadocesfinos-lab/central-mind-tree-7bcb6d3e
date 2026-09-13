@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ export function PurchaseOrderItemEditor({
   onChoosePresentation,
   onRemove,
 }: PurchaseOrderItemEditorProps) {
+  const [isCreatingPresentation, setIsCreatingPresentation] = useState(false);
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   // Produto simples é uma identidade física completa sem variante. Um Mestre
@@ -82,7 +84,13 @@ export function PurchaseOrderItemEditor({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Produto</Label>
-            <Select value={line.product_id} onValueChange={value => void onProductChange(value)}>
+            <Select
+              value={line.product_id}
+              onValueChange={value => {
+                setIsCreatingPresentation(false);
+                void onProductChange(value);
+              }}
+            >
               <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
               <SelectContent>
                 {products.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
@@ -98,6 +106,7 @@ export function PurchaseOrderItemEditor({
                 onValueChange={variantId => {
                   // A apresentação é específica da identidade física; nunca
                   // pode sobreviver à troca da variante selecionada.
+                  setIsCreatingPresentation(false);
                   onChange({ ...line, variant_id: variantId, presentation: null });
                 }}
               >
@@ -122,6 +131,24 @@ export function PurchaseOrderItemEditor({
             >
               {line.presentation ? line.presentation.name : 'Selecionar apresentação existente'}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!identityResolved}
+              onClick={() => setIsCreatingPresentation(true)}
+            >
+              + Nova Apresentação
+            </Button>
+
+            {isCreatingPresentation && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-dashed p-3">
+                <span className="text-sm font-medium">Nova Apresentação</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsCreatingPresentation(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
