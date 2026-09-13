@@ -73,10 +73,14 @@ export function PurchaseOrderItemEditor({
   onChange,
   onProductChange,
   onChoosePresentation,
+  onCreatePresentation,
   onRemove,
 }: PurchaseOrderItemEditorProps) {
   const [isCreatingPresentation, setIsCreatingPresentation] = useState(false);
+  const [isSavingPresentation, setIsSavingPresentation] = useState(false);
   const [presentationDraft, setPresentationDraft] = useState<PresentationDraft>(createPresentationDraft);
+  const [presentationError, setPresentationError] = useState<string | null>(null);
+  const [lastCreatedPresentation, setLastCreatedPresentation] = useState<PurchasePresentationOption | null>(null);
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   // Produto simples é uma identidade física completa sem variante. Um Mestre
@@ -97,6 +101,31 @@ export function PurchaseOrderItemEditor({
   const resetPresentationDraft = () => {
     setIsCreatingPresentation(false);
     setPresentationDraft(createPresentationDraft());
+    setPresentationError(null);
+  };
+  const savePresentation = async () => {
+    if (!identityResolved || !presentationDraftIsValid) return;
+
+    setIsSavingPresentation(true);
+    setPresentationError(null);
+    try {
+      const createdPresentation = await onCreatePresentation({
+        product_id: line.product_id,
+        variant_id: requiresVariant ? line.variant_id : null,
+        name: presentationDraft.name,
+        purchase_unit_label: presentationDraft.purchaseUnitLabel,
+        stock_unit_label: presentationDraft.stockUnitLabel,
+        conversion_factor: conversionFactor,
+        is_approximate: presentationDraft.isApproximate,
+        notes: presentationDraft.notes.trim() || null,
+      });
+      setLastCreatedPresentation(createdPresentation);
+      resetPresentationDraft();
+    } catch (error) {
+      setPresentationError(error instanceof Error ? error.message : 'Não foi possível criar a apresentação. Tente novamente.');
+    } finally {
+      setIsSavingPresentation(false);
+    }
   };
 
   return (
@@ -178,12 +207,17 @@ export function PurchaseOrderItemEditor({
             >
               + Nova Apresentação
             </Button>
+            {lastCreatedPresentation && (
+              <p className="text-sm text-muted-foreground">
+                Apresentação criada: {lastCreatedPresentation.name}
+              </p>
+            )}
 
             {isCreatingPresentation && (
               <div className="space-y-4 rounded-md border border-dashed p-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">Nova Apresentação</span>
-                  <Button type="button" variant="outline" size="sm" onClick={resetPresentationDraft}>
+                  <Button type="button" variant="outline" size="sm" disabled={isSavingPresentation} onClick={resetPresentationDraft}>
                     Cancelar
                   </Button>
                 </div>
@@ -196,6 +230,7 @@ export function PurchaseOrderItemEditor({
                       value={presentationDraft.name}
                       onChange={event => setPresentationDraft(current => ({ ...current, name: event.target.value }))}
                       aria-invalid={!presentationDraft.name.trim()}
+                      disabled={isSavingPresentation}
                     />
                   </div>
 
@@ -206,6 +241,7 @@ export function PurchaseOrderItemEditor({
                       value={presentationDraft.purchaseUnitLabel}
                       onChange={event => setPresentationDraft(current => ({ ...current, purchaseUnitLabel: event.target.value }))}
                       aria-invalid={!presentationDraft.purchaseUnitLabel.trim()}
+                      disabled={isSavingPresentation}
                     />
                   </div>
 
@@ -216,6 +252,7 @@ export function PurchaseOrderItemEditor({
                       value={presentationDraft.stockUnitLabel}
                       onChange={event => setPresentationDraft(current => ({ ...current, stockUnitLabel: event.target.value }))}
                       aria-invalid={!presentationDraft.stockUnitLabel.trim()}
+                      disabled={isSavingPresentation}
                     />
                   </div>
 
@@ -229,6 +266,7 @@ export function PurchaseOrderItemEditor({
                       value={presentationDraft.conversionFactor}
                       onChange={event => setPresentationDraft(current => ({ ...current, conversionFactor: event.target.value }))}
                       aria-invalid={presentationDraft.conversionFactor !== '' && (!Number.isFinite(conversionFactor) || conversionFactor <= 0)}
+                      disabled={isSavingPresentation}
                     />
                   </div>
 
@@ -238,6 +276,7 @@ export function PurchaseOrderItemEditor({
                       id={`presentation-approximate-${line.id}`}
                       checked={presentationDraft.isApproximate}
                       onCheckedChange={checked => setPresentationDraft(current => ({ ...current, isApproximate: checked }))}
+                      disabled={isSavingPresentation}
                     />
                   </div>
 
@@ -247,6 +286,7 @@ export function PurchaseOrderItemEditor({
                       id={`presentation-notes-${line.id}`}
                       value={presentationDraft.notes}
                       onChange={event => setPresentationDraft(current => ({ ...current, notes: event.target.value }))}
+                      disabled={isSavingPresentation}
                     />
                   </div>
                 </div>
@@ -256,6 +296,14 @@ export function PurchaseOrderItemEditor({
                     ? 'Dados básicos preenchidos.'
                     : 'Preencha nome, unidades e um fator de conversão maior que zero.'}
                 </p>
+                {presentationError && <p className="text-sm text-destructive">{presentationError}</p>}
+                <Button
+                  type="button"
+                  disabled={!presentationDraftIsValid || isSavingPresentation}
+                  onClick={() => void savePresentation()}
+                >
+                  {isSavingPresentation ? 'Salvando apresentação...' : 'Salvar Apresentação'}
+                </Button>
               </div>
             )}
           </div>
