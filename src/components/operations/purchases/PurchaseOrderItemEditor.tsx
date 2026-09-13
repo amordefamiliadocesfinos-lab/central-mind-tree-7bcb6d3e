@@ -93,7 +93,11 @@ export function PurchaseOrderItemEditor({
               <Label>Variante física</Label>
               <Select
                 value={line.variant_id ?? ''}
-                onValueChange={variantId => onChange({ ...line, variant_id: variantId, presentation: null })}
+                onValueChange={variantId => {
+                  // A apresentação é específica da identidade física; nunca
+                  // pode sobreviver à troca da variante selecionada.
+                  onChange({ ...line, variant_id: variantId, presentation: null });
+                }}
               >
                 <SelectTrigger><SelectValue placeholder="Variante física obrigatória" /></SelectTrigger>
                 <SelectContent>
