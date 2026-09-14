@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export const OPERATIONAL_DESTINATIONS = [
   'retirada_fabrica',
   'transportadora',
@@ -45,9 +47,8 @@ export async function updateOrderOperationalDestination(
     operational_destination: destination,
   };
   if (logisticsMode !== undefined) payload.logistics_mode = logisticsMode;
-  if (details !== undefined) payload.operational_destination_details = details;
+  if (details !== undefined) payload.operational_destination_details = details ?? {};
 
   const { error } = await (supabase as any).from('orders').update(payload).eq('id', orderId);
   if (error) throw error;
 }
-import { supabase } from '@/integrations/supabase/client';
