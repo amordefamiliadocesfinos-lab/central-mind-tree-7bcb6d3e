@@ -75,6 +75,14 @@ import { toast } from 'sonner';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
+type NewSaleItem = {
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+  unit_price: number;
+  _unit_price_text?: string;
+};
+
 export default function Operacoes() {
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -303,14 +311,30 @@ export default function Operacoes() {
     shipping_amount: 0,
     discount_text: '',
     shipping_text: '',
-    items: [] as { product_id: string; quantity: number; unit_price: number; _unit_price_text?: string }[],
+    items: [] as NewSaleItem[],
   });
+  const [saleVariants, setSaleVariants] = useState<Array<{
+    id: string;
+    product_id: string;
+    variant_name: string;
+    sku: string;
+    price_override: number | null;
+  }>>([]);
   const [financialAccounts, setFinancialAccounts] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
       .then(({ data }) => setFinancialAccounts(data || []));
   }, []);
+
+  useEffect(() => {
+    if (!showSaleDialog) return;
+    (supabase as any).from('product_variants')
+      .select('id, product_id, variant_name, sku, price_override')
+      .eq('is_active', true)
+      .order('variant_name')
+      .then(({ data }: { data: typeof saleVariants | null }) => setSaleVariants(data ?? []));
+  }, [showSaleDialog]);
 
   const [editingCostText, setEditingCostText] = useState('');
   const [editingPriceText, setEditingPriceText] = useState('');
@@ -330,6 +354,10 @@ export default function Operacoes() {
 
   const saleSubtotal = newSale.items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
   const saleTotal = Math.max(0, saleSubtotal - newSale.discount_amount + newSale.shipping_amount);
+  const missingSaleVariantProduct = newSale.items
+    .map(item => ({ item, product: rawProducts.find(product => product.id === item.product_id) }))
+    .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id)
+    ?.product;
 
   const handleAddProduct = async () => {
     if (!newProduct.name?.trim()) { toast.error('Informe o nome do produto'); return; }
@@ -400,6 +428,10 @@ export default function Operacoes() {
   };
 
   const handleAddSale = async () => {
+    if (missingSaleVariantProduct) {
+      toast.error(`Selecione a variante física de ${missingSaleVariantProduct.name}.`);
+      return;
+    }
     const { items, discount_text, shipping_text, ...saleData } = newSale;
     await createOrder(
       { ...saleData, order_type: 'stock', contact_id: newSale.contact_id || undefined },
@@ -434,7 +466,7 @@ export default function Operacoes() {
   const addItemToSale = () => {
     setNewSale({
       ...newSale,
-      items: [...newSale.items, { product_id: '', quantity: 1, unit_price: 0 }],
+      items: [...newSale.items, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }],
     });
   };
 
@@ -452,12 +484,14 @@ export default function Operacoes() {
     setNewOrder({ ...newOrder, items });
   };
 
-  const updateSaleItem = (index: number, field: string, value: string | number) => {
+  const updateSaleItem = (index: number, field: keyof NewSaleItem, value: string | number | null) => {
     const items = [...newSale.items];
-    (items[index] as Record<string, string | number>)[field] = value;
+    if (!items[index]) return;
+    (items[index] as Record<string, string | number | null | undefined>)[field] = value;
     
     if (field === 'product_id') {
       const product = rawProducts.find(p => p.id === value);
+      items[index].variant_id = null;
       if (product?.price) {
         items[index].unit_price = product.price;
       }
@@ -923,6 +957,25 @@ export default function Operacoes() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && (
+                          <Select
+                            value={item.variant_id ?? ''}
+                            onValueChange={(variantId) => {
+                              const variant = saleVariants.find(candidate => candidate.id === variantId);
+                              updateSaleItem(i, 'variant_id', variantId || null);
+                              if (variant?.price_override != null) updateSaleItem(i, 'unit_price', variant.price_override);
+                            }}
+                          >
+                            <SelectTrigger className="w-44 h-10">
+                              <SelectValue placeholder="Variante física" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {saleVariants.filter(variant => variant.product_id === item.product_id).map(variant => (
+                                <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} · {variant.sku}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Input
                           type="number"
                           className="w-16 h-10"
@@ -950,6 +1003,11 @@ export default function Operacoes() {
                         </Button>
                       </div>
                     ))}
+                    {missingSaleVariantProduct && (
+                      <p className="mt-2 text-sm text-destructive">
+                        Selecione a variante física de {missingSaleVariantProduct.name}.
+                      </p>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3 mt-4">
                       <div>
@@ -1014,6 +1072,7 @@ export default function Operacoes() {
 
                   <Button 
                     onClick={handleAddSale} 
+                    disabled={Boolean(missingSaleVariantProduct)}
                     className="w-full h-12 text-base bg-green-600 hover:bg-green-700"
                   >
                     Registrar Venda
