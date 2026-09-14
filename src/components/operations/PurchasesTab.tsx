@@ -81,6 +81,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     () => statusFilter === 'all' ? purchases.orders : purchases.orders.filter(order => order.status === statusFilter),
     [purchases.orders, statusFilter],
   );
+  const editingHasConfirmedReceipts = Boolean(editingOrder?.receipts?.some(receipt => receipt.status === 'confirmed'));
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + (Number(line.qty) || 0) * (Number(line.price) || 0), 0),
     [lines],
@@ -195,7 +196,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     try {
       setBusyAction('save');
       const hasConfirmedReceipts = (editingOrder?.receipts ?? []).some(receipt => receipt.status === 'confirmed');
-      if (!supplierId || (!hasConfirmedReceipts && !lines.length)) throw new Error('Informe fornecedor e ao menos um item.');
+      if ((!hasConfirmedReceipts && !supplierId) || (!hasConfirmedReceipts && !lines.length)) throw new Error('Informe fornecedor e ao menos um item.');
 
       const items = lines.map(line => {
         const product = products.find(item => item.id === line.product_id);
@@ -230,7 +231,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       });
 
       const header = {
-        supplier_contact_id: supplierId,
+        ...(hasConfirmedReceipts ? {} : { supplier_contact_id: supplierId }),
         expected_at: expectedAt || null,
         notes: notes || null,
       };
@@ -382,7 +383,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label>Fornecedor</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
+              <Select value={supplierId} onValueChange={setSupplierId} disabled={editingHasConfirmedReceipts}>
                 <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                 <SelectContent>
                   {suppliers.map(supplier => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}

@@ -27,7 +27,7 @@ export function usePurchases() {
   useEffect(() => { refetch(); }, [refetch]);
   const createDraft = useCallback(async (input: any, items: any[]) => { const { data: order, error } = await db.from('purchase_orders').insert(input).select().single(); if (error) throw error; const { error: itemError } = await db.from('purchase_order_items').insert(items.map(i => ({ ...i, purchase_order_id: order.id }))); if (itemError) throw itemError; await refetch(); return order; }, [refetch]);
   const setStatus = useCallback(async (id: string, status: PurchaseStatus) => { const { error } = await db.from('purchase_orders').update({ status }).eq('id', id); if (error) throw error; await refetch(); }, [refetch]);
-  const updatePurchase = useCallback(async (id: string, input: Pick<PurchaseOrder, 'supplier_contact_id' | 'expected_at' | 'notes'>, items?: any[]) => {
+  const updatePurchase = useCallback(async (id: string, input: Partial<Pick<PurchaseOrder, 'supplier_contact_id' | 'expected_at' | 'notes'>>, items?: any[]) => {
     const { error } = await db.from('purchase_orders').update(input).eq('id', id);
     if (error) throw error;
     if (items) {
