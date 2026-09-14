@@ -28,6 +28,8 @@ interface ResponsiveDialogProps {
    * fixed bottom bar with safe-area padding. On desktop renders below content.
    */
   footer?: React.ReactNode;
+  /** Keeps header and footer visible while the dialog body scrolls. */
+  scrollable?: boolean;
 }
 
 export function ResponsiveDialog({
@@ -38,6 +40,7 @@ export function ResponsiveDialog({
   description,
   className,
   footer,
+  scrollable = false,
 }: ResponsiveDialogProps) {
   const isMobile = useIsMobile();
 
@@ -77,7 +80,7 @@ export function ResponsiveDialog({
               </DrawerClose>
             </div>
           )}
-          <div className="overflow-y-auto flex-1 px-4 py-3">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
           {footer && (
             <div className="sticky bottom-0 z-10 border-t bg-background/95 backdrop-blur px-4 py-3 pb-safe-bottom">
               {footer}
@@ -90,15 +93,21 @@ export function ResponsiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("sm:max-w-lg", className)}>
+      <DialogContent className={cn(
+        "sm:max-w-lg",
+        scrollable && "flex max-h-[92vh] flex-col",
+        className,
+      )}>
         {(title || description) && (
           <DialogHeader>
             {title && <DialogTitle>{title}</DialogTitle>}
             {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
         )}
-        {children}
-        {footer && <div className="pt-3 border-t mt-3">{footer}</div>}
+        {scrollable ? (
+          <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">{children}</div>
+        ) : children}
+        {footer && <div className={cn("border-t", scrollable ? "mt-2 shrink-0 pt-3" : "mt-3 pt-3")}>{footer}</div>}
       </DialogContent>
     </Dialog>
   );
