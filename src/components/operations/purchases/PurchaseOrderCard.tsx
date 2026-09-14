@@ -111,22 +111,27 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
-          {order.status === 'rascunho' && (
-            <><Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
-          )}
-          {order.status === 'confirmado' && (
-            <><Button size="sm" variant="outline" disabled={busy} onClick={() => void onMarkInTransit(order)}>
-              <Truck className="mr-1 h-4 w-4" />Em trânsito
-            </Button>{!hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}</>
-          )}
-          {order.status === 'em_transito' && !hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}
-          {canReceive && (
-            <Button size="sm" disabled={busy} onClick={() => onReceive(order)}>
-              <PackageCheck className="mr-1 h-4 w-4" />Registrar recebimento
-            </Button>
-          )}
+        <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold">
+            Total da compra: <span className="text-base text-foreground">{formatCurrency(getPurchaseOrderTotal(order))}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
+            {order.status === 'rascunho' && (
+              <><Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
+            )}
+            {order.status === 'confirmado' && (
+              <><Button size="sm" variant="outline" disabled={busy} onClick={() => void onMarkInTransit(order)}>
+                <Truck className="mr-1 h-4 w-4" />Em trânsito
+              </Button>{!hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}</>
+            )}
+            {order.status === 'em_transito' && !hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}
+            {canReceive && (
+              <Button size="sm" disabled={busy} onClick={() => onReceive(order)}>
+                <PackageCheck className="mr-1 h-4 w-4" />Registrar recebimento
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
