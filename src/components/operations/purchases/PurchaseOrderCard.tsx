@@ -25,10 +25,17 @@ export function getConfirmedPurchaseQuantity(order: PurchaseOrder, itemId: strin
     .reduce((total, item) => total + Number(item.received_purchase_qty), 0);
 }
 
+function hasConfirmedReceiptForItem(order: PurchaseOrder, itemId: string) {
+  return (order.receipts ?? [])
+    .filter(receipt => receipt.status === 'confirmed')
+    .some(receipt => (receipt.items ?? []).some(item => item.purchase_order_item_id === itemId));
+}
+
 function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: PurchaseItem }) {
   const received = getConfirmedPurchaseQuantity(order, item.id);
   const pending = Math.max(0, Number(item.ordered_purchase_qty) - received);
   const divergence = received - Number(item.ordered_purchase_qty);
+  const hasConfirmedReceipt = hasConfirmedReceiptForItem(order, item.id);
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
@@ -47,7 +54,9 @@ function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: Purcha
         <span>Pedido: {item.ordered_purchase_qty} {item.purchase_unit_label}</span>
         <span>Recebido: {received} {item.purchase_unit_label}</span>
         <span>Pendente: {pending} {item.purchase_unit_label}</span>
-        <span className={divergence === 0 ? undefined : divergence > 0 ? 'text-amber-600' : 'text-destructive'}>Divergência: {divergence > 0 ? '+' : ''}{divergence} {item.purchase_unit_label}</span>
+        <span className={hasConfirmedReceipt && divergence !== 0 ? divergence > 0 ? 'text-amber-600' : 'text-destructive' : undefined}>
+          Divergência: {hasConfirmedReceipt ? `${divergence > 0 ? '+' : ''}${divergence} ${item.purchase_unit_label}` : '—'}
+        </span>
       </div>
     </div>
   );

@@ -369,7 +369,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         title={editingOrder ? `Editar ${editingOrder.internal_purchase_number ?? 'compra'}` : 'Nova compra'}
-        className="sm:max-w-2xl"
+        className="sm:max-w-4xl"
+        scrollable
         footer={(
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium">Total previsto: {formatCurrency(total)}</p>
