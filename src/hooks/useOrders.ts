@@ -5,6 +5,7 @@ import { notifyInventoryChanged } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
 import { createUnifiedSale } from '@/lib/unifiedSales';
 import { transitionOrderStatusWithStock } from '@/lib/orderStock';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 
 export interface Product {
   id: string;
@@ -63,6 +64,9 @@ export interface Order {
   order_number: string | null;
   internal_order_number?: string | null;
   operational_status?: 'todo' | 'preparing' | 'finalized' | 'cancelled';
+  operational_destination?: OperationalDestination | null;
+  logistics_mode?: string | null;
+  operational_destination_details?: Record<string, unknown>;
   customer_name: string | null;
   customer_contact: string | null;
   contact_id: string | null;

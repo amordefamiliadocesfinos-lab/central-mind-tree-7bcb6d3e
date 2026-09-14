@@ -10,21 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
+import { OPERATIONAL_DESTINATION_LABELS, getOperationalDestinationLabel } from '@/lib/orders/operationalDestination';
 import type { Order } from '@/hooks/useOrders';
-import type { OperationalDestination, OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
+import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
 
 const COLUMNS: Array<{ status: SeparationStatus; title: string; color: string }> = [
   { status: 'todo', title: 'A FAZER', color: 'border-red-500/40 bg-red-500/5' },
   { status: 'preparing', title: 'EM PREPARAÇÃO', color: 'border-amber-500/40 bg-amber-500/5' },
   { status: 'finalized', title: 'FINALIZADO', color: 'border-emerald-500/40 bg-emerald-500/5' },
 ];
-
-const DESTINATIONS: Record<OperationalDestination, string> = {
-  academia_ponto_logistico: 'ACADEMIA / PONTO LOGÍSTICO',
-  retirada_fabrica: 'RETIRADA NA FÁBRICA',
-  uber: 'UBER / ENTREGA',
-  outro: 'OUTRO',
-};
 
 const DOCUMENT_TYPES: Record<OrderDocument['document_type'], string> = {
   order_pdf: 'Pedido em PDF',
@@ -148,8 +143,8 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
             return <Card key={order.id} className="bg-background"><CardContent className="space-y-3 p-3">
               <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p></div>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div>
               <div className="space-y-2">{itemGroups.length > 0 ? itemGroups.map(group => <div key={group.name} className="text-sm"><p className="font-medium">{group.name}</p>{group.variants.map((variant, index) => <div key={`${variant.name}-${index}`} className="flex items-baseline justify-between gap-3 pl-2 text-xs text-muted-foreground"><span>{variant.name}</span><span className="shrink-0 text-sm font-bold text-foreground">{variant.quantity}x</span></div>)}</div>) : <p className="text-sm text-muted-foreground">Sem itens</p>}</div>
-              <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"><div className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" />{separation?.operational_destination ? DESTINATIONS[separation.operational_destination] : 'Destino operacional a definir'}</div><div className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3.5 w-3.5" />{separation?.logistics_mode || 'Modalidade não informada'}</div>{relevantDate(order) && <div className="text-muted-foreground">Prazo: {new Date(`${relevantDate(order)}T00:00:00`).toLocaleDateString('pt-BR')}</div>}</div>
-              {column.status !== 'finalized' && <Select value={separation?.operational_destination ?? ''} onValueChange={value => void run(order.id, () => onSetDestination(order.id, value as OperationalDestination))}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Definir destino" /></SelectTrigger><SelectContent>{Object.entries(DESTINATIONS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>}
+              <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"><div className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" />{getOperationalDestinationLabel(order.operational_destination) ?? 'Destino operacional a definir'}</div><div className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3.5 w-3.5" />{order.logistics_mode || 'Modalidade não informada'}</div>{relevantDate(order) && <div className="text-muted-foreground">Prazo: {new Date(`${relevantDate(order)}T00:00:00`).toLocaleDateString('pt-BR')}</div>}</div>
+              {column.status !== 'finalized' && <Select value={order.operational_destination ?? ''} onValueChange={value => void run(order.id, () => onSetDestination(order.id, value as OperationalDestination))}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Definir destino" /></SelectTrigger><SelectContent>{Object.entries(OPERATIONAL_DESTINATION_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>}
               {documents.length > 0 && <div className="space-y-1 rounded-md border p-2"><p className="text-xs font-medium">Documentos anexados</p>{documents.map(document => <div key={document.id} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate">{documentTypeLabel(document.document_type)} · {document.file_name ?? 'Documento'}{document.created_at ? ` · ${new Date(document.created_at).toLocaleDateString('pt-BR')}` : ''}</span><Button variant="link" className="h-auto p-0 text-xs" disabled={busy} onClick={() => void run(order.id, () => onPrint(order, document))}>Abrir / Imprimir</Button></div>)}</div>}
               {column.status === 'todo' && <div className="flex gap-2"><Button className="flex-1" size="sm" disabled={busy} onClick={() => requestPrint(order, documents)}><Printer className="mr-1 h-4 w-4" />IMPRIMIR</Button><Button variant="outline" size="icon" aria-label="Anexar documento" disabled={busy} onClick={() => setDocumentOrder(order)}><Upload className="h-4 w-4" /></Button></div>}
               {column.status === 'preparing' && <div className="flex gap-2"><Button variant="outline" className="flex-1" size="sm" disabled={busy} onClick={() => requestPrint(order, documents)}><Printer className="mr-1 h-4 w-4" />IMPRIMIR</Button><Button className="flex-1" size="sm" disabled={busy} onClick={() => void run(order.id, () => onFinalize(order))}><PackageCheck className="mr-1 h-4 w-4" />FINALIZAR</Button><Button variant="outline" size="icon" aria-label="Anexar documento" disabled={busy} onClick={() => setDocumentOrder(order)}><Upload className="h-4 w-4" /></Button></div>}

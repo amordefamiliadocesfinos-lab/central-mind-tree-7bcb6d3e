@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 
 export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
 
@@ -37,6 +38,10 @@ export interface UnifiedSaleInput {
   sale_request_key?: string | null;
   /** Quando a venda nasce no CRM, registra o fato canônico Pedido confirmado. */
   crm_order_confirmed?: boolean;
+  /** Destino operacional canônico do pedido, separado do status comercial. */
+  operational_destination?: OperationalDestination | null;
+  logistics_mode?: string | null;
+  operational_destination_details?: Record<string, unknown> | null;
 }
 
 export interface UnifiedSaleResult {

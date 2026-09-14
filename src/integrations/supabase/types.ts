@@ -3355,10 +3355,13 @@ export type Database = {
           financial_due_date: string | null
           id: string
           internal_order_number: string
+          logistics_mode: string | null
           marketplace_account: string | null
           marketplace_metadata: Json
           notes: string | null
           operational_status: string
+          operational_destination: string | null
+          operational_destination_details: Json
           order_date: string
           order_number: string | null
           order_type: string
@@ -3389,10 +3392,13 @@ export type Database = {
           financial_due_date?: string | null
           id?: string
           internal_order_number: string
+          logistics_mode?: string | null
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
           operational_status?: string
+          operational_destination?: string | null
+          operational_destination_details?: Json
           order_date?: string
           order_number?: string | null
           order_type?: string
@@ -3423,10 +3429,13 @@ export type Database = {
           financial_due_date?: string | null
           id?: string
           internal_order_number?: string
+          logistics_mode?: string | null
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
           operational_status?: string
+          operational_destination?: string | null
+          operational_destination_details?: Json
           order_date?: string
           order_number?: string | null
           order_type?: string

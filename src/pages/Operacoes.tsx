@@ -1146,7 +1146,8 @@ export default function Operacoes() {
             refetch();
           }}
           onSetDestination={async (orderId, destination) => {
-            await separation.setDestination(orderId, destination);
+            await separation.updateOrderOperationalDestination(orderId, destination);
+            await refetch();
             toast.success('Destino operacional definido.');
           }}
           onAttachDocument={async document => {
