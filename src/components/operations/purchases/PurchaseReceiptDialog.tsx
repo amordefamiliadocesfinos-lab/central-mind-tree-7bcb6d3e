@@ -79,6 +79,9 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
             const item = itemById.get(line.purchase_order_item_id);
             if (!item) return null;
             const pending = Math.max(0, Number(item.ordered_purchase_qty) - getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id));
+            const confirmed = getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id);
+            const projectedReceived = confirmed + (Number(line.received_purchase_qty) || 0);
+            const projectedDivergence = projectedReceived - Number(item.ordered_purchase_qty);
             return (
               <div key={line.purchase_order_item_id} className="space-y-3 rounded-md border p-3">
                 <div>
@@ -93,7 +96,6 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                     <Input
                       type="number"
                       min="0"
-                      max={pending}
                       step="any"
                       value={line.received_purchase_qty}
                       onChange={event => {
@@ -119,6 +121,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                     />
                   </div>
                 </div>
+                {projectedDivergence > 0 && <p className="text-xs text-amber-600">Este recebimento fará o total recebido ficar {projectedDivergence} {item.purchase_unit_label} acima do pedido. A divergência será preservada no histórico.</p>}
               </div>
             );
           })}
