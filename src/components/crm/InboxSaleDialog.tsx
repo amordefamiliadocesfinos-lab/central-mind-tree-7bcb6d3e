@@ -11,6 +11,8 @@ import { useProductsList } from '@/hooks/useProductsList';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { createUnifiedSale, SalePaymentStatus } from '@/lib/unifiedSales';
+import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 
 interface SaleItem {
   product_id: string;
@@ -55,6 +57,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
   const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
   const [notes, setNotes] = useState('');
+  const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
+  const [logisticsMode, setLogisticsMode] = useState('');
+  const [operationalDestinationDetails, setOperationalDestinationDetails] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const saleRequestKeyRef = useRef<string | null>(null);
 
@@ -100,6 +105,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         payment_method: paymentMethod || null, financial_account_id: accountId || null,
         payment_date: paymentStatus === 'pago' ? paymentDate : null,
         marketplace_account: marketplaceAccount || null,
+        operational_destination: operationalDestination,
+        logistics_mode: logisticsMode,
+        operational_destination_details: operationalDestinationDetails,
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
       }, validItems);
@@ -111,6 +119,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
       setPaymentStatus('pendente'); setPaymentMethod(''); setAccountId('');
       setDiscount(0); setShipping(0); setMarketplaceAccount('');
       setNegotiatedTotal(''); setPaymentDate(new Date().toISOString().slice(0, 10));
+      setOperationalDestination(null); setLogisticsMode(''); setOperationalDestinationDetails({});
       onOpenChange(false); onCreated?.(); onSaleCreated?.();
     } catch (error: any) {
       console.error(error);
@@ -212,6 +221,17 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               </div>
             ))}
           </div>
+
+          <OperationalDestinationFields
+            destination={operationalDestination}
+            logisticsMode={logisticsMode}
+            details={operationalDestinationDetails}
+            onChange={({ destination, logisticsMode: nextLogisticsMode, details }) => {
+              setOperationalDestination(destination);
+              setLogisticsMode(nextLogisticsMode);
+              setOperationalDestinationDetails(details);
+            }}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
