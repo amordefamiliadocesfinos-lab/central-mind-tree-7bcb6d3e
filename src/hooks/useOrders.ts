@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { createUnifiedSale } from '@/lib/unifiedSales';
 import { transitionOrderStatusWithStock } from '@/lib/orderStock';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
+import { updateOrderOperationalDestination } from '@/lib/orders/operationalDestination';
 
 export interface Product {
   id: string;
@@ -311,6 +312,9 @@ export function useOrders() {
         financial_account_id: order.financial_account_id,
         marketplace_account: order.marketplace_account,
         channel_account_id: order.channel_account_id,
+        operational_destination: order.operational_destination,
+        logistics_mode: order.logistics_mode,
+        operational_destination_details: order.operational_destination_details,
         sale_origin: 'operacoes',
       }, items.map(item => ({
         product_id: item.product_id || '', quantity: item.quantity || 1,
@@ -409,6 +413,14 @@ export function useOrders() {
     if (orderError) {
       toast.error('Erro ao atualizar pedido');
       return;
+    }
+
+    if ('operational_destination' in updates || 'logistics_mode' in updates || 'operational_destination_details' in updates) {
+      await updateOrderOperationalDestination(orderId, {
+        destination: updates.operational_destination ?? null,
+        logisticsMode: updates.logistics_mode,
+        details: updates.operational_destination_details,
+      });
     }
 
     // Sync production orders names when order_number changes

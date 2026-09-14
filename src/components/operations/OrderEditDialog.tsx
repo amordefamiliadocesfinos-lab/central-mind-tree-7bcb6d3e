@@ -13,6 +13,7 @@ import { Order, OrderItem, Product, OrderType } from '@/hooks/useOrders';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { ContactAutocomplete } from './ContactAutocomplete';
+import { OperationalDestinationFields } from './OperationalDestinationFields';
 
 const asRecord = (value: unknown): Record<string, string> =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, string> : {};
@@ -91,6 +92,9 @@ export function OrderEditDialog({
         order_date: order.order_date,
         due_date: order.due_date,
         notes: order.notes,
+        operational_destination: order.operational_destination ?? null,
+        logistics_mode: order.logistics_mode ?? '',
+        operational_destination_details: order.operational_destination_details ?? {},
       });
       setItems(order.items?.map(i => ({
         id: i.id,
@@ -309,6 +313,18 @@ export function OrderEditDialog({
               rows={2}
             />
           </div>
+
+          <OperationalDestinationFields
+            destination={formData.operational_destination}
+            logisticsMode={formData.logistics_mode}
+            details={formData.operational_destination_details}
+            onChange={({ destination, logisticsMode, details }) => setFormData({
+              ...formData,
+              operational_destination: destination,
+              logistics_mode: logisticsMode || null,
+              operational_destination_details: details,
+            })}
+          />
 
           {/* Linked Production Orders */}
           {linkedProductionOrders.length > 0 && (

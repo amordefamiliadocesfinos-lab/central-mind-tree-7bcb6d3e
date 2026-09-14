@@ -33,7 +33,7 @@ export function isOperationalDestination(value: unknown): value is OperationalDe
 export interface OperationalDestinationUpdate {
   destination: OperationalDestination | null;
   logisticsMode?: string | null;
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown> | null;
 }
 
 /** Atualiza somente a verdade operacional do Pedido, sem tocar na Separação física. */
