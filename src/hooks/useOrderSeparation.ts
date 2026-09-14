@@ -3,7 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { finalizeOrderSeparation } from '@/lib/orderStock';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import { updateOrderOperationalDestination as persistOperationalDestination } from '@/lib/orders/operationalDestination';
+import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
+import type { OrderDocumentType } from '@/lib/orders/orderDocuments';
 import type { Order } from '@/hooks/useOrders';
 
 const db = supabase as any;
@@ -22,7 +24,7 @@ export interface OrderSeparation {
 export interface OrderDocument {
   id: string;
   order_id: string;
-  document_type: 'order_pdf' | 'shipping_label' | 'invoice' | 'declaration' | 'receipt' | 'other';
+  document_type: OrderDocumentType;
   file_url: string | null;
   file_name: string | null;
   source: string | null;
@@ -106,30 +108,7 @@ export function useOrderSeparation(orders: Order[]) {
     documentType: OrderDocument['document_type'];
     file: File;
   }) => {
-    const bucket = 'order-documents';
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${orderId}/${crypto.randomUUID()}-${safeName}`;
-    const { error: uploadError } = await db.storage.from(bucket).upload(storagePath, file, {
-      contentType: file.type || undefined,
-      upsert: false,
-    });
-    if (uploadError) throw uploadError;
-
-    const { data, error } = await db.from('order_documents').insert({
-      order_id: orderId,
-      document_type: documentType,
-      file_url: null,
-      file_name: file.name,
-      source: 'operacoes',
-      storage_bucket: bucket,
-      storage_path: storagePath,
-      mime_type: file.type || null,
-      file_size: file.size,
-    }).select().single();
-    if (error) {
-      await db.storage.from(bucket).remove([storagePath]);
-      throw error;
-    }
+    const data = await uploadOrderDocument({ orderId, documentType, file, source: 'operacoes' });
     await fetchSeparation();
     return data as OrderDocument;
   }, [fetchSeparation]);

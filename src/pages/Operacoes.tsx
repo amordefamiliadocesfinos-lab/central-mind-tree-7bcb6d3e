@@ -50,6 +50,7 @@ import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersIm
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
 import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
+import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
@@ -71,6 +72,8 @@ import { useStockCheckStore } from '@/stores/stockCheckStore';
 import { getOperationalOrders, useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilters, useStockValueSelector } from '@/stores/selectors';
 import type { Order, OrderItem, Product } from '@/hooks/useOrders';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
+import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
+import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
@@ -219,6 +222,8 @@ export default function Operacoes() {
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showSaleDialog, setShowSaleDialog] = useState(false);
+  const [pendingOrderDocuments, setPendingOrderDocuments] = useState<PendingOrderDocument[]>([]);
+  const [pendingSaleDocuments, setPendingSaleDocuments] = useState<PendingOrderDocument[]>([]);
   const [showShopeeImport, setShowShopeeImport] = useState(false);
   const [showProductConversion, setShowProductConversion] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -421,9 +426,22 @@ export default function Operacoes() {
       { ...orderData, contact_id: newOrder.contact_id || undefined },
       items as Partial<OrderItem>[]
     );
+    if (!result) return;
+    const documentResults = await Promise.allSettled(
+      pendingOrderDocuments.map(document => uploadOrderDocument({
+        orderId: result.id,
+        documentType: document.documentType,
+        file: document.file,
+        source: 'operacoes',
+      })),
+    );
+    if (documentResults.some(result => result.status === 'rejected')) {
+      toast.error('Pedido criado, mas um documento não pôde ser anexado.');
+    }
+    setPendingOrderDocuments([]);
     
     // Log timeline event if order was created from CRM
-    if (result && crmContactId && newOrder.contact_id) {
+    if (crmContactId && newOrder.contact_id) {
       const orderNum = result.order_number || result.id.slice(0, 8);
       await addEntry(
         crmContactId,
@@ -444,10 +462,23 @@ export default function Operacoes() {
       return;
     }
     const { items, discount_text, shipping_text, ...saleData } = newSale;
-    await createOrder(
+    const result = await createOrder(
       { ...saleData, order_type: 'stock', contact_id: newSale.contact_id || undefined },
       items as Partial<OrderItem>[]
     );
+    if (!result) return;
+    const documentResults = await Promise.allSettled(
+      pendingSaleDocuments.map(document => uploadOrderDocument({
+        orderId: result.id,
+        documentType: document.documentType,
+        file: document.file,
+        source: 'operacoes',
+      })),
+    );
+    if (documentResults.some(result => result.status === 'rejected')) {
+      toast.error('Pedido criado, mas um documento não pôde ser anexado.');
+    }
+    setPendingSaleDocuments([]);
     setShowSaleDialog(false);
     setNewSale({
       customer_name: '',
@@ -666,7 +697,7 @@ export default function Operacoes() {
                   <DollarSign className="h-5 w-5 mr-1" />
                   Venda
                 </Button>
-                <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
+                <Dialog open={showOrderDialog} onOpenChange={open => { setShowOrderDialog(open); if (!open) setPendingOrderDocuments([]); }}>
                   <DialogTrigger asChild>
                     <Button size="lg" className="h-12 px-6">
                       <Plus className="h-5 w-5 mr-2" />
@@ -766,6 +797,8 @@ export default function Operacoes() {
                         })}
                       />
 
+                      <PendingOrderDocumentsFields value={pendingOrderDocuments} onChange={setPendingOrderDocuments} />
+
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <Label>Itens</Label>
@@ -831,7 +864,7 @@ export default function Operacoes() {
             </div>
 
             {/* Sale Dialog */}
-            <Dialog open={showSaleDialog} onOpenChange={setShowSaleDialog}>
+            <Dialog open={showSaleDialog} onOpenChange={open => { setShowSaleDialog(open); if (!open) setPendingSaleDocuments([]); }}>
               <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
@@ -932,6 +965,8 @@ export default function Operacoes() {
                       operational_destination_details: details,
                     })}
                   />
+
+                  <PendingOrderDocumentsFields value={pendingSaleDocuments} onChange={setPendingSaleDocuments} />
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

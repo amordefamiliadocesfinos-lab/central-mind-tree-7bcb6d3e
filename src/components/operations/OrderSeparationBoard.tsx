@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import { OPERATIONAL_DESTINATION_LABELS, getOperationalDestinationLabel } from '@/lib/orders/operationalDestination';
+import { ORDER_DOCUMENT_TYPE_LABELS, SUPPORTED_ORDER_DOCUMENT_MIME_TYPES } from '@/lib/orders/orderDocuments';
 import type { Order } from '@/hooks/useOrders';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
@@ -21,19 +22,8 @@ const COLUMNS: Array<{ status: SeparationStatus; title: string; color: string }>
   { status: 'finalized', title: 'FINALIZADO', color: 'border-emerald-500/40 bg-emerald-500/5' },
 ];
 
-const DOCUMENT_TYPES: Record<OrderDocument['document_type'], string> = {
-  order_pdf: 'Pedido em PDF',
-  shipping_label: 'Etiqueta de envio',
-  invoice: 'Nota fiscal',
-  declaration: 'Declaração',
-  receipt: 'Comprovante',
-  other: 'Outro',
-};
-
-const SUPPORTED_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
-
 function documentTypeLabel(type: OrderDocument['document_type']) {
-  return DOCUMENT_TYPES[type] ?? 'Outro';
+  return ORDER_DOCUMENT_TYPE_LABELS[type] ?? 'Outro';
 }
 
 function relevantDate(order: Order) {
@@ -96,7 +86,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
       setDocumentFile(null);
       return;
     }
-    if (!SUPPORTED_DOCUMENT_TYPES.has(file.type)) {
+    if (!SUPPORTED_ORDER_DOCUMENT_MIME_TYPES.includes(file.type as typeof SUPPORTED_ORDER_DOCUMENT_MIME_TYPES[number])) {
       toast.error('Selecione um arquivo PDF, JPG, PNG ou WebP.');
       return;
     }

@@ -12,7 +12,10 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { createUnifiedSale, SalePaymentStatus } from '@/lib/unifiedSales';
 import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
+import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
+import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
+import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 
 interface SaleItem {
   product_id: string;
@@ -60,6 +63,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
   const [operationalDestinationDetails, setOperationalDestinationDetails] = useState<Record<string, unknown>>({});
+  const [pendingDocuments, setPendingDocuments] = useState<PendingOrderDocument[]>([]);
   const [saving, setSaving] = useState(false);
   const saleRequestKeyRef = useRef<string | null>(null);
 
@@ -111,15 +115,27 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
       }, validItems);
+      const documentResults = await Promise.allSettled(
+        pendingDocuments.map(document => uploadOrderDocument({
+          orderId: result.order_id,
+          documentType: document.documentType,
+          file: document.file,
+          source: 'crm_inbox',
+        })),
+      );
       toast.success(result.already_registered
         ? `Venda já registrada · ${result.order_number}`
         : `Venda, operação e financeiro registrados · ${result.order_number}`);
+      if (documentResults.some(result => result.status === 'rejected')) {
+        toast.error('Pedido criado, mas um documento não pôde ser anexado.');
+      }
       setItems([]); setNotes(''); setDueDate('');
       setFinancialDueDate(new Date().toISOString().slice(0, 10));
       setPaymentStatus('pendente'); setPaymentMethod(''); setAccountId('');
       setDiscount(0); setShipping(0); setMarketplaceAccount('');
       setNegotiatedTotal(''); setPaymentDate(new Date().toISOString().slice(0, 10));
       setOperationalDestination(null); setLogisticsMode(''); setOperationalDestinationDetails({});
+      setPendingDocuments([]);
       onOpenChange(false); onCreated?.(); onSaleCreated?.();
     } catch (error: any) {
       console.error(error);
@@ -128,7 +144,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={nextOpen => { if (!nextOpen) setPendingDocuments([]); onOpenChange(nextOpen); }}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -232,6 +248,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               setOperationalDestinationDetails(details);
             }}
           />
+
+          <PendingOrderDocumentsFields value={pendingDocuments} onChange={setPendingDocuments} />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
