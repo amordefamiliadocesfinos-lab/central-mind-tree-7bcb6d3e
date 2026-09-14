@@ -16,6 +16,9 @@ export interface CreatePurchasePresentationInput {
   is_approximate?: boolean;
   notes?: string | null;
 }
+export type UpdatePurchasePresentationInput = Partial<Omit<CreatePurchasePresentationInput, 'product_id' | 'variant_id'>> & {
+  is_active?: boolean;
+};
 
 const db = supabase as any;
 export function usePurchases() {
@@ -40,8 +43,23 @@ export function usePurchases() {
     if (error) throw error;
     return data;
   }, []);
-  const getPresentations = useCallback(async (productId: string, variantId: string | null) => { let q = db.from('purchase_presentations').select('*').eq('product_id', productId).eq('is_active', true); q = variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null); const { data, error } = await q.order('name'); if (error) throw error; return data || []; }, []);
+  const updatePresentation = useCallback(async (id: string, input: UpdatePurchasePresentationInput) => {
+    const updates = {
+      ...input,
+      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+      ...(input.purchase_unit_label !== undefined ? { purchase_unit_label: input.purchase_unit_label.trim() } : {}),
+      ...(input.stock_unit_label !== undefined ? { stock_unit_label: input.stock_unit_label.trim() } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
+    };
+    if (updates.conversion_factor !== undefined && updates.conversion_factor <= 0) {
+      throw new Error('O fator de conversão deve ser maior que zero.');
+    }
+    const { data, error } = await db.from('purchase_presentations').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }, []);
+  const getPresentations = useCallback(async (productId: string, variantId: string | null, includeInactive = false) => { let q = db.from('purchase_presentations').select('*').eq('product_id', productId); if (!includeInactive) q = q.eq('is_active', true); q = variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null); const { data, error } = await q.order('name'); if (error) throw error; return data || []; }, []);
   const createReceipt = useCallback(async (input: any, items: any[]) => { const { data: receipt, error } = await db.from('purchase_receipts').insert(input).select().single(); if (error) throw error; const { error: itemError } = await db.from('purchase_receipt_items').insert(items.map(i => ({ ...i, purchase_receipt_id: receipt.id }))); if (itemError) throw itemError; return receipt; }, []);
   const confirmReceipt = useCallback(async (receiptId: string) => { const { data, error } = await db.rpc('confirm_purchase_receipt', { p_receipt_id: receiptId }); if (error) throw error; await refetch(); return data; }, [refetch]);
-  return { orders, loading, refetch, createDraft, setStatus, createPresentation, getPresentations, createReceipt, confirmReceipt };
+  return { orders, loading, refetch, createDraft, setStatus, createPresentation, updatePresentation, getPresentations, createReceipt, confirmReceipt };
 }

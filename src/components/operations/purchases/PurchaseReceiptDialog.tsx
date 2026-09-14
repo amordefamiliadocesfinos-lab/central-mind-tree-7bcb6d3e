@@ -12,6 +12,7 @@ export interface PurchaseReceiptDraftLine {
   purchase_order_item_id: string;
   received_purchase_qty: string;
   operational_received_qty: string;
+  operationalEdited?: boolean;
 }
 
 interface PurchaseReceiptDialogProps {
@@ -39,6 +40,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
         purchase_order_item_id: item.id,
         received_purchase_qty: String(pending),
         operational_received_qty: String(pending * Number(item.conversion_factor)),
+        operationalEdited: false,
       };
     }));
   }, [order]);
@@ -98,19 +100,22 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                         const received = event.target.value;
                         updateLine(item.id, {
                           received_purchase_qty: received,
-                          operational_received_qty: String((Number(received) || 0) * Number(item.conversion_factor)),
+                          ...(line.operationalEdited ? {} : { operational_received_qty: String((Number(received) || 0) * Number(item.conversion_factor)) }),
                         });
                       }}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Quantidade operacional ({item.stock_unit_label})</Label>
+                    {item.presentation_snapshot?.is_approximate && (
+                      <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {Number(line.received_purchase_qty || 0) * Number(item.conversion_factor)} {item.stock_unit_label}. Confirme a medida física real.</p>
+                    )}
                     <Input
                       type="number"
                       min="0"
                       step="any"
                       value={line.operational_received_qty}
-                      onChange={event => updateLine(item.id, { operational_received_qty: event.target.value })}
+                      onChange={event => updateLine(item.id, { operational_received_qty: event.target.value, operationalEdited: true })}
                     />
                   </div>
                 </div>

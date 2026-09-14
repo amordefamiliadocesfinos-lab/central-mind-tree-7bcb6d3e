@@ -52,6 +52,7 @@ import { OrderSeparationBoard, printOrderSummary } from '@/components/operations
 import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
 import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
+import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
 import { useProductIdeas } from '@/hooks/useProductIdeas';
@@ -1451,6 +1452,8 @@ export default function Operacoes() {
                 Atualizar Estoque
               </Button>
             </div>
+
+            <PurchasePresentationManager products={rawProducts} />
 
             <div className="space-y-3">
               {filteredProducts.map((product) => {

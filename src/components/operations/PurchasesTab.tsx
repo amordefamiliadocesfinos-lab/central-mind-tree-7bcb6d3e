@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import {
   PurchaseOrderItemEditor,
+  directPresentation,
   type PurchaseDraftLine,
   type PurchasePresentationOption,
   type PurchaseVariantOption,
@@ -43,7 +44,9 @@ function createDraftLine(): PurchaseDraftLine {
     qty: '1',
     price: '',
     presentation: null,
+    presentationOverridden: false,
     variants: [],
+    presentations: [],
   };
 }
 
@@ -86,19 +89,6 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setLines(current => current.map(line => line.id === lineId ? nextLine : line));
   };
 
-  const selectPresentationForLine = (lineId: string, presentation: PurchasePresentationOption) => {
-    setLines(current => current.map(line => line.id === lineId ? { ...line, presentation } : line));
-  };
-
-  const rememberPresentation = (productId: string, variantId: string | null, presentation: PurchasePresentationOption) => {
-    const key = presentationIdentityKey(productId, variantId);
-    setPresentationsByIdentity(current => {
-      const presentations = current[key] ?? [];
-      if (presentations.some(item => item.id === presentation.id)) return current;
-      return { ...current, [key]: [...presentations, presentation] };
-    });
-  };
-
   const loadVariants = async (lineId: string, productId: string) => {
     const { data, error } = await db
       .from('product_variants')
@@ -111,31 +101,40 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       ...line,
       product_id: productId,
       variant_id: null,
-      presentation: null,
+      presentation: directPresentation(products.find(product => product.id === productId)?.unit),
+      presentationOverridden: false,
       variants: (data ?? []) as PurchaseVariantOption[],
+      presentations: [],
     } : line));
   };
 
-  const choosePresentation = async (line: PurchaseDraftLine) => {
+  const loadPresentations = async (lineId: string, productId: string, variantId: string | null) => {
+    if (!productId) return;
     try {
-      const key = presentationIdentityKey(line.product_id, line.variant_id);
+      const key = presentationIdentityKey(productId, variantId);
       let presentations = presentationsByIdentity[key];
       if (!presentations) {
-        presentations = await purchases.getPresentations(line.product_id, line.variant_id) as PurchasePresentationOption[];
+        presentations = await purchases.getPresentations(productId, variantId) as PurchasePresentationOption[];
         setPresentationsByIdentity(current => ({ ...current, [key]: presentations }));
       }
-      if (!presentations.length) throw new Error('Nenhuma apresentação cadastrada para esta identidade.');
-      selectPresentationForLine(line.id, presentations[0]);
+      setLines(current => current.map(line => line.id === lineId ? { ...line, presentations } : line));
     } catch (error) {
-      toastError(errorMessage(error, 'Não foi possível carregar a apresentação.'));
+      toastError(errorMessage(error, 'Não foi possível carregar as apresentações.'));
     }
   };
 
-  const createPresentationForLine = async (lineId: string, input: Parameters<typeof purchases.createPresentation>[0]) => {
-    const presentation = await purchases.createPresentation(input) as PurchasePresentationOption;
-    rememberPresentation(input.product_id, input.variant_id, presentation);
-    selectPresentationForLine(lineId, presentation);
-    return presentation;
+  const changeVariant = async (lineId: string, variantId: string) => {
+    const line = lines.find(item => item.id === lineId);
+    if (!line) return;
+    const product = products.find(item => item.id === line.product_id);
+    setLines(current => current.map(item => item.id === lineId ? {
+      ...item,
+      variant_id: variantId,
+      presentation: directPresentation(product?.unit),
+      presentationOverridden: false,
+      presentations: [],
+    } : item));
+    await loadPresentations(lineId, line.product_id, variantId);
   };
 
   const resetEditor = () => {
@@ -161,7 +160,9 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         if (product.variation_mode === 'variacoes_fisicas' && !line.variant_id) {
           throw new Error('Produto Mestre exige variante física.');
         }
-        if (!line.presentation) throw new Error('Selecione uma apresentação de compra.');
+        if (!line.presentation || !Number(line.presentation.conversion_factor) || Number(line.presentation.conversion_factor) <= 0) {
+          throw new Error('Informe uma forma de compra com conversão maior que zero.');
+        }
 
         const presentation = line.presentation;
         return {
@@ -180,6 +181,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             stock_unit_label: presentation.stock_unit_label,
             conversion_factor: presentation.conversion_factor,
             is_approximate: presentation.is_approximate,
+            notes: presentation.notes || null,
           },
         };
       });
@@ -348,8 +350,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                 canRemove={lines.length > 0}
                 onChange={nextLine => updateLine(line.id, nextLine)}
                 onProductChange={productId => loadVariants(line.id, productId).catch(error => toastError(errorMessage(error, 'Não foi possível carregar as variantes.')))}
-                onChoosePresentation={() => choosePresentation(line)}
-                onCreatePresentation={input => createPresentationForLine(line.id, input)}
+                onVariantChange={variantId => changeVariant(line.id, variantId)}
+                onLoadPresentations={() => loadPresentations(line.id, line.product_id, line.variant_id)}
                 onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
               />
             ))}
