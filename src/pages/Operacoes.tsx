@@ -1077,7 +1077,7 @@ export default function Operacoes() {
           documentsByOrderId={separation.documentsByOrderId}
           onPrint={async (order, document) => {
             await separation.markPrinted(order.id);
-            if (document) window.open(document.file_url, '_blank', 'noopener,noreferrer');
+            if (document) await separation.openDocument(document);
             else printOrderSummary(order);
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
           }}
@@ -1091,7 +1091,7 @@ export default function Operacoes() {
             toast.success('Destino operacional definido.');
           }}
           onAttachDocument={async document => {
-            await separation.addDocument(document);
+            await separation.uploadDocument(document);
             toast.success('Documento anexado ao pedido.');
           }}
         />;
