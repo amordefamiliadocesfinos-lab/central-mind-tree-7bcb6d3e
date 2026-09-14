@@ -67,7 +67,7 @@ DECLARE
   v_crm_order_confirmed boolean := COALESCE((p_order->>'crm_order_confirmed')::boolean, false);
   v_operational_destination text := NULLIF(btrim(p_order->>'operational_destination'), '');
   v_logistics_mode text := NULLIF(btrim(p_order->>'logistics_mode'), '');
-  v_operational_destination_details jsonb := COALESCE(p_order->'operational_destination_details', '{}'::jsonb);
+  v_operational_destination_details jsonb := COALESCE(NULLIF(p_order->'operational_destination_details', 'null'::jsonb), '{}'::jsonb);
 BEGIN
   IF jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN RAISE EXCEPTION 'Adicione ao menos um produto à venda.'; END IF;
   IF v_payment_status NOT IN ('pendente', 'pago', 'parcial') THEN RAISE EXCEPTION 'Situação financeira inválida.'; END IF;

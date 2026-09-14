@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { finalizeOrderSeparation } from '@/lib/orderStock';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
+import { updateOrderOperationalDestination as persistOperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { Order } from '@/hooks/useOrders';
 
@@ -89,16 +90,14 @@ export function useOrderSeparation(orders: Order[]) {
 
   const updateOrderOperationalDestination = useCallback(async (
     orderId: string,
-    destination: OperationalDestination,
+    destination: OperationalDestination | null,
     options: { logisticsMode?: string | null; details?: Record<string, unknown> } = {},
   ) => {
-    const payload: Record<string, unknown> = {
-      operational_destination: destination,
-    };
-    if (options.logisticsMode !== undefined) payload.logistics_mode = options.logisticsMode;
-    if (options.details !== undefined) payload.operational_destination_details = options.details;
-    const { error } = await db.from('orders').update(payload).eq('id', orderId);
-    if (error) throw error;
+    await persistOperationalDestination(orderId, {
+      destination,
+      logisticsMode: options.logisticsMode,
+      details: options.details,
+    });
     await fetchSeparation();
   }, [fetchSeparation]);
 

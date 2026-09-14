@@ -29,3 +29,25 @@ export function getOperationalDestinationLabel(destination: OperationalDestinati
 export function isOperationalDestination(value: unknown): value is OperationalDestination {
   return typeof value === 'string' && OPERATIONAL_DESTINATIONS.includes(value as OperationalDestination);
 }
+
+export interface OperationalDestinationUpdate {
+  destination: OperationalDestination | null;
+  logisticsMode?: string | null;
+  details?: Record<string, unknown>;
+}
+
+/** Atualiza somente a verdade operacional do Pedido, sem tocar na Separação física. */
+export async function updateOrderOperationalDestination(
+  orderId: string,
+  { destination, logisticsMode, details }: OperationalDestinationUpdate,
+) {
+  const payload: Record<string, unknown> = {
+    operational_destination: destination,
+  };
+  if (logisticsMode !== undefined) payload.logistics_mode = logisticsMode;
+  if (details !== undefined) payload.operational_destination_details = details;
+
+  const { error } = await (supabase as any).from('orders').update(payload).eq('id', orderId);
+  if (error) throw error;
+}
+import { supabase } from '@/integrations/supabase/client';
