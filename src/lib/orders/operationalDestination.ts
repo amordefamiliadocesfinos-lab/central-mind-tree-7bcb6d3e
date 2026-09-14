@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export const OPERATIONAL_DESTINATIONS = [
   'retirada_fabrica',
   'transportadora',
@@ -33,7 +35,7 @@ export function isOperationalDestination(value: unknown): value is OperationalDe
 export interface OperationalDestinationUpdate {
   destination: OperationalDestination | null;
   logisticsMode?: string | null;
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown> | null;
 }
 
 /** Atualiza somente a verdade operacional do Pedido, sem tocar na Separação física. */
@@ -45,9 +47,8 @@ export async function updateOrderOperationalDestination(
     operational_destination: destination,
   };
   if (logisticsMode !== undefined) payload.logistics_mode = logisticsMode;
-  if (details !== undefined) payload.operational_destination_details = details;
+  if (details !== undefined) payload.operational_destination_details = details ?? {};
 
   const { error } = await (supabase as any).from('orders').update(payload).eq('id', orderId);
   if (error) throw error;
 }
-import { supabase } from '@/integrations/supabase/client';

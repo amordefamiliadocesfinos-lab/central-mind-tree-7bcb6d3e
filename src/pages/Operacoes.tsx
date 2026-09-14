@@ -49,6 +49,7 @@ import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
+import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
@@ -69,6 +70,7 @@ import {
 import { useStockCheckStore } from '@/stores/stockCheckStore';
 import { getOperationalOrders, useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilters, useStockValueSelector } from '@/stores/selectors';
 import type { Order, OrderItem, Product } from '@/hooks/useOrders';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import { supabase } from '@/integrations/supabase/client';
 import { useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
@@ -146,6 +148,9 @@ export default function Operacoes() {
         channel: 'direto',
         order_type: 'production',
         due_date: '',
+        operational_destination: null,
+        logistics_mode: '',
+        operational_destination_details: {},
         items: [],
       });
       setCrmContactId(contactId);
@@ -294,6 +299,9 @@ export default function Operacoes() {
     channel: 'direto',
     order_type: 'production' as 'stock' | 'production',
     due_date: '',
+    operational_destination: null as OperationalDestination | null,
+    logistics_mode: '',
+    operational_destination_details: {} as Record<string, unknown>,
     items: [] as { product_id: string; quantity: number; unit_price: number; _unit_price_text?: string }[],
   });
 
@@ -311,6 +319,9 @@ export default function Operacoes() {
     shipping_amount: 0,
     discount_text: '',
     shipping_text: '',
+    operational_destination: null as OperationalDestination | null,
+    logistics_mode: '',
+    operational_destination_details: {} as Record<string, unknown>,
     items: [] as NewSaleItem[],
   });
   const [saleVariants, setSaleVariants] = useState<Array<{
@@ -424,7 +435,7 @@ export default function Operacoes() {
     }
     
     setShowOrderDialog(false);
-    setNewOrder({ customer_name: '', contact_id: null, channel: 'direto', order_type: 'production', due_date: '', items: [] });
+    setNewOrder({ customer_name: '', contact_id: null, channel: 'direto', order_type: 'production', due_date: '', operational_destination: null, logistics_mode: '', operational_destination_details: {}, items: [] });
   };
 
   const handleAddSale = async () => {
@@ -452,6 +463,9 @@ export default function Operacoes() {
       shipping_amount: 0,
       discount_text: '',
       shipping_text: '',
+      operational_destination: null,
+      logistics_mode: '',
+      operational_destination_details: {},
       items: [],
     });
   };
@@ -740,6 +754,18 @@ export default function Operacoes() {
                         />
                       </div>
 
+                      <OperationalDestinationFields
+                        destination={newOrder.operational_destination}
+                        logisticsMode={newOrder.logistics_mode}
+                        details={newOrder.operational_destination_details}
+                        onChange={({ destination, logisticsMode, details }) => setNewOrder({
+                          ...newOrder,
+                          operational_destination: destination,
+                          logistics_mode: logisticsMode,
+                          operational_destination_details: details,
+                        })}
+                      />
+
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <Label>Itens</Label>
@@ -894,6 +920,18 @@ export default function Operacoes() {
                       onChange={(e) => setNewSale({ ...newSale, due_date: e.target.value })}
                     />
                   </div>
+
+                  <OperationalDestinationFields
+                    destination={newSale.operational_destination}
+                    logisticsMode={newSale.logistics_mode}
+                    details={newSale.operational_destination_details}
+                    onChange={({ destination, logisticsMode, details }) => setNewSale({
+                      ...newSale,
+                      operational_destination: destination,
+                      logistics_mode: logisticsMode,
+                      operational_destination_details: details,
+                    })}
+                  />
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

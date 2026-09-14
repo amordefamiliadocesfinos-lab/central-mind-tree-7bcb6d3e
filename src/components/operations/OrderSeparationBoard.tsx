@@ -50,7 +50,7 @@ function groupedItems(order: Order) {
     const name = item.product?.name ?? 'Produto';
     const key = item.product_id || name;
     const group = groups.get(key) ?? { name, variants: [] };
-    group.variants.push({ name: item.variant?.variant_name ?? 'Sem variação', quantity: item.quantity });
+    group.variants.push({ name: item.variant_id ? item.variant?.variant_name ?? 'Variante física' : 'Produto simples', quantity: item.quantity });
     groups.set(key, group);
   }
   return [...groups.values()];
