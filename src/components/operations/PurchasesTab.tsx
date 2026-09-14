@@ -63,6 +63,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const { contacts } = useContacts();
   const { locations } = useStorageLocations();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [expectedAt, setExpectedAt] = useState('');
@@ -142,6 +143,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setExpectedAt('');
     setNotes('');
     setLines([]);
+    setEditingOrder(null);
   };
 
   const openEditor = () => {
@@ -149,10 +151,51 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setEditorOpen(true);
   };
 
+  const openEdit = async (order: PurchaseOrder) => {
+    const hasConfirmedReceipts = (order.receipts ?? []).some(receipt => receipt.status === 'confirmed');
+    setEditingOrder(order);
+    setSupplierId(order.supplier_contact_id);
+    setExpectedAt(order.expected_at ?? '');
+    setNotes(order.notes ?? '');
+    if (hasConfirmedReceipts) {
+      setLines([]);
+    } else {
+      const restoredLines = await Promise.all((order.items ?? []).map(async item => {
+        let variants: PurchaseVariantOption[] = [];
+        if (item.product?.variation_mode === 'variacoes_fisicas') {
+          const { data } = await db.from('product_variants').select('id,variant_name').eq('product_id', item.product_id).eq('is_active', true);
+          variants = (data ?? []) as PurchaseVariantOption[];
+        }
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          qty: String(item.ordered_purchase_qty),
+          price: item.unit_price === null ? '' : String(item.unit_price),
+          presentation: {
+            id: item.purchase_presentation_id,
+            name: item.presentation_snapshot?.name ?? 'Apresentação',
+            purchase_unit_label: item.purchase_unit_label,
+            stock_unit_label: item.stock_unit_label,
+            conversion_factor: Number(item.conversion_factor),
+            is_approximate: Boolean(item.presentation_snapshot?.is_approximate),
+            notes: item.presentation_snapshot?.notes ?? null,
+          },
+          presentationOverridden: false,
+          variants,
+          presentations: [],
+        } satisfies PurchaseDraftLine;
+      }));
+      setLines(restoredLines);
+    }
+    setEditorOpen(true);
+  };
+
   const savePurchase = async () => {
     try {
       setBusyAction('save');
-      if (!supplierId || !lines.length) throw new Error('Informe fornecedor e ao menos um item.');
+      const hasConfirmedReceipts = (editingOrder?.receipts ?? []).some(receipt => receipt.status === 'confirmed');
+      if (!supplierId || (!hasConfirmedReceipts && !lines.length)) throw new Error('Informe fornecedor e ao menos um item.');
 
       const items = lines.map(line => {
         const product = products.find(item => item.id === line.product_id);
@@ -186,12 +229,18 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         };
       });
 
-      await purchases.createDraft({
+      const header = {
         supplier_contact_id: supplierId,
         expected_at: expectedAt || null,
         notes: notes || null,
-      }, items);
-      toastSuccess('Compra criada. Estoque não foi alterado.');
+      };
+      if (editingOrder) {
+        await purchases.updatePurchase(editingOrder.id, header, hasConfirmedReceipts ? undefined : items);
+        toastSuccess('Compra atualizada. Recebimentos físicos foram preservados.');
+      } else {
+        await purchases.createDraft(header, items);
+        toastSuccess('Compra criada. Estoque não foi alterado.');
+      }
       setEditorOpen(false);
       resetEditor();
     } catch (error) {
@@ -210,6 +259,26 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const deleteDraft = async (order: PurchaseOrder) => {
+    if (!window.confirm('Excluir este rascunho de compra?')) return;
+    try {
+      setBusyAction(order.id);
+      await purchases.deleteDraft(order.id);
+      toastSuccess('Rascunho excluído. Nenhum estoque foi alterado.');
+    } catch (error) { toastError(errorMessage(error, 'Não foi possível excluir o rascunho.')); }
+    finally { setBusyAction(null); }
+  };
+
+  const cancelPurchase = async (order: PurchaseOrder) => {
+    if (!window.confirm('Cancelar esta compra?')) return;
+    try {
+      setBusyAction(order.id);
+      await purchases.setStatus(order.id, 'cancelado');
+      toastSuccess('Compra cancelada.');
+    } catch (error) { toastError(errorMessage(error, 'Esta compra já possui recebimento físico confirmado e não pode ser cancelada sem reversão.')); }
+    finally { setBusyAction(null); }
   };
 
   const confirmReceipt = async (locationId: string, receiptLines: PurchaseReceiptDraftLine[]) => {
@@ -287,6 +356,9 @@ export function PurchasesTab({ products }: { products: Product[] }) {
               onConfirm={current => changeStatus(current, 'confirmado')}
               onMarkInTransit={current => changeStatus(current, 'em_transito')}
               onReceive={setReceiptOrder}
+              onEdit={order => void openEdit(order)}
+              onDelete={deleteDraft}
+              onCancel={cancelPurchase}
             />
           ))}
         </div>
@@ -295,13 +367,13 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       <ResponsiveDialog
         open={editorOpen}
         onOpenChange={setEditorOpen}
-        title="Nova compra"
+        title={editingOrder ? `Editar ${editingOrder.internal_purchase_number ?? 'compra'}` : 'Nova compra'}
         className="sm:max-w-2xl"
         footer={(
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium">Total previsto: {formatCurrency(total)}</p>
             <Button disabled={busyAction === 'save'} onClick={() => void savePurchase()}>
-              {busyAction === 'save' ? 'Salvando…' : 'Salvar rascunho'}
+              {busyAction === 'save' ? 'Salvando…' : editingOrder ? 'Salvar alterações' : 'Salvar rascunho'}
             </Button>
           </div>
         )}
@@ -327,7 +399,11 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             </div>
           </div>
 
-          <section className="space-y-3">
+          {editingOrder && (editingOrder.receipts ?? []).some(receipt => receipt.status === 'confirmed') && (
+            <Alert><AlertTriangle className="h-4 w-4" /><AlertDescription>Esta compra já possui recebimento físico confirmado. Apenas previsão e observação podem ser alteradas nesta etapa.</AlertDescription></Alert>
+          )}
+
+          {(!editingOrder || !(editingOrder.receipts ?? []).some(receipt => receipt.status === 'confirmed')) && <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">Itens</h3>
               <Button type="button" variant="outline" size="sm" onClick={() => setLines(current => [...current, createDraftLine()])}>
@@ -355,7 +431,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                 onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
               />
             ))}
-          </section>
+          </section>}
         </div>
       </ResponsiveDialog>
 

@@ -1,4 +1,4 @@
-import { PackageCheck, Truck } from 'lucide-react';
+import { PackageCheck, Pencil, Trash2, Truck, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,9 @@ interface PurchaseOrderCardProps {
   onConfirm: (order: PurchaseOrder) => Promise<void>;
   onMarkInTransit: (order: PurchaseOrder) => Promise<void>;
   onReceive: (order: PurchaseOrder) => void;
+  onEdit: (order: PurchaseOrder) => void;
+  onDelete: (order: PurchaseOrder) => Promise<void>;
+  onCancel: (order: PurchaseOrder) => Promise<void>;
 }
 
 export function getConfirmedPurchaseQuantity(order: PurchaseOrder, itemId: string) {
@@ -25,6 +28,7 @@ export function getConfirmedPurchaseQuantity(order: PurchaseOrder, itemId: strin
 function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: PurchaseItem }) {
   const received = getConfirmedPurchaseQuantity(order, item.id);
   const pending = Math.max(0, Number(item.ordered_purchase_qty) - received);
+  const divergence = received - Number(item.ordered_purchase_qty);
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
@@ -40,16 +44,20 @@ function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: Purcha
         {item.presentation_snapshot?.name ?? 'Apresentação'}: pedido {item.ordered_purchase_qty} {item.purchase_unit_label}
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>Pedido: {item.ordered_purchase_qty} {item.purchase_unit_label}</span>
         <span>Recebido: {received} {item.purchase_unit_label}</span>
         <span>Pendente: {pending} {item.purchase_unit_label}</span>
+        <span className={divergence === 0 ? undefined : divergence > 0 ? 'text-amber-600' : 'text-destructive'}>Divergência: {divergence > 0 ? '+' : ''}{divergence} {item.purchase_unit_label}</span>
       </div>
     </div>
   );
 }
 
-export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onReceive }: PurchaseOrderCardProps) {
+export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
+  const hasPhysicalReceipt = confirmedReceipts.length > 0;
+  const canEdit = !hasPhysicalReceipt || order.status === 'parcialmente_recebido';
 
   return (
     <Card>
@@ -87,14 +95,16 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
+          {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
           {order.status === 'rascunho' && (
-            <Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button>
+            <><Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
           )}
           {order.status === 'confirmado' && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => void onMarkInTransit(order)}>
+            <><Button size="sm" variant="outline" disabled={busy} onClick={() => void onMarkInTransit(order)}>
               <Truck className="mr-1 h-4 w-4" />Em trânsito
-            </Button>
+            </Button>{!hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}</>
           )}
+          {order.status === 'em_transito' && !hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}
           {canReceive && (
             <Button size="sm" disabled={busy} onClick={() => onReceive(order)}>
               <PackageCheck className="mr-1 h-4 w-4" />Registrar recebimento
