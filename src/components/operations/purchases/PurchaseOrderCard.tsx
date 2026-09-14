@@ -31,6 +31,14 @@ function hasConfirmedReceiptForItem(order: PurchaseOrder, itemId: string) {
     .some(receipt => (receipt.items ?? []).some(item => item.purchase_order_item_id === itemId));
 }
 
+function getPurchaseOrderTotal(order: PurchaseOrder) {
+  return (order.items ?? []).reduce((total, item) => {
+    const qty = Number(item.ordered_purchase_qty) || 0;
+    const price = item.unit_price === null ? 0 : Number(item.unit_price);
+    return total + qty * price;
+  }, 0);
+}
+
 function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: PurchaseItem }) {
   const received = getConfirmedPurchaseQuantity(order, item.id);
   const pending = Math.max(0, Number(item.ordered_purchase_qty) - received);
