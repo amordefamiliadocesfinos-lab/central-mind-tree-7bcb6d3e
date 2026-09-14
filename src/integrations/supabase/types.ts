@@ -3359,9 +3359,9 @@ export type Database = {
           marketplace_account: string | null
           marketplace_metadata: Json
           notes: string | null
-          operational_status: string
           operational_destination: string | null
           operational_destination_details: Json
+          operational_status: string
           order_date: string
           order_number: string | null
           order_type: string
@@ -3396,9 +3396,9 @@ export type Database = {
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
-          operational_status?: string
           operational_destination?: string | null
           operational_destination_details?: Json
+          operational_status?: string
           order_date?: string
           order_number?: string | null
           order_type?: string
@@ -3433,9 +3433,9 @@ export type Database = {
           marketplace_account?: string | null
           marketplace_metadata?: Json
           notes?: string | null
-          operational_status?: string
           operational_destination?: string | null
           operational_destination_details?: Json
+          operational_status?: string
           order_date?: string
           order_number?: string | null
           order_type?: string
@@ -4689,6 +4689,7 @@ export type Database = {
           created_at: string
           expected_at: string | null
           id: string
+          internal_purchase_number: string | null
           notes: string | null
           ordered_at: string | null
           status: string
@@ -4699,6 +4700,7 @@ export type Database = {
           created_at?: string
           expected_at?: string | null
           id?: string
+          internal_purchase_number?: string | null
           notes?: string | null
           ordered_at?: string | null
           status?: string
@@ -4709,6 +4711,7 @@ export type Database = {
           created_at?: string
           expected_at?: string | null
           id?: string
+          internal_purchase_number?: string | null
           notes?: string | null
           ordered_at?: string | null
           status?: string
