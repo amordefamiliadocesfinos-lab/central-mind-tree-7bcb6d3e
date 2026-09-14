@@ -130,11 +130,19 @@ export function useOrderSeparation(orders: Order[]) {
 
   const openDocument = useCallback(async (document: OrderDocument) => {
     if (document.storage_bucket && document.storage_path) {
-      const { data, error } = await db.storage
-        .from(document.storage_bucket)
-        .createSignedUrl(document.storage_path, 60 * 5);
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      const documentWindow = window.open('', '_blank');
+      if (documentWindow) documentWindow.opener = null;
+      try {
+        const { data, error } = await db.storage
+          .from(document.storage_bucket)
+          .createSignedUrl(document.storage_path, 60 * 5);
+        if (error) throw error;
+        if (!documentWindow) throw new Error('O navegador bloqueou a abertura do documento.');
+        documentWindow.location.assign(data.signedUrl);
+      } catch (error) {
+        documentWindow?.close();
+        throw error;
+      }
       return;
     }
     if (!document.file_url) throw new Error('Documento sem local de arquivo disponível.');
