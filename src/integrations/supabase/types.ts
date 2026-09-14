@@ -3186,30 +3186,42 @@ export type Database = {
           created_by: string | null
           document_type: string
           file_name: string | null
-          file_url: string
+          file_size: number | null
+          file_url: string | null
           id: string
+          mime_type: string | null
           order_id: string
           source: string | null
+          storage_bucket: string | null
+          storage_path: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           document_type: string
           file_name?: string | null
-          file_url: string
+          file_size?: number | null
+          file_url?: string | null
           id?: string
+          mime_type?: string | null
           order_id: string
           source?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           document_type?: string
           file_name?: string | null
-          file_url?: string
+          file_size?: number | null
+          file_url?: string | null
           id?: string
+          mime_type?: string | null
           order_id?: string
           source?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
         }
         Relationships: [
           {

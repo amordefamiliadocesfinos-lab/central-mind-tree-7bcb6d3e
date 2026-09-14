@@ -23,10 +23,14 @@ export interface OrderSeparation {
 export interface OrderDocument {
   id: string;
   order_id: string;
-  document_type: 'order_pdf' | 'shipping_label' | 'declaration' | 'receipt' | 'other';
-  file_url: string;
+  document_type: 'order_pdf' | 'shipping_label' | 'invoice' | 'declaration' | 'receipt' | 'other';
+  file_url: string | null;
   file_name: string | null;
   source: string | null;
+  storage_bucket: string | null;
+  storage_path: string | null;
+  mime_type: string | null;
+  file_size: number | null;
   created_at?: string;
   created_by?: string | null;
 }
@@ -91,11 +95,51 @@ export function useOrderSeparation(orders: Order[]) {
     await fetchSeparation();
   }, [fetchSeparation]);
 
-  const addDocument = useCallback(async (input: Omit<OrderDocument, 'id'>) => {
-    const { error } = await db.from('order_documents').insert(input);
-    if (error) throw error;
+  const uploadDocument = useCallback(async ({ orderId, documentType, file }: {
+    orderId: string;
+    documentType: OrderDocument['document_type'];
+    file: File;
+  }) => {
+    const bucket = 'order-documents';
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `${orderId}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await db.storage.from(bucket).upload(storagePath, file, {
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+    if (uploadError) throw uploadError;
+
+    const { data, error } = await db.from('order_documents').insert({
+      order_id: orderId,
+      document_type: documentType,
+      file_url: null,
+      file_name: file.name,
+      source: 'operacoes',
+      storage_bucket: bucket,
+      storage_path: storagePath,
+      mime_type: file.type || null,
+      file_size: file.size,
+    }).select().single();
+    if (error) {
+      await db.storage.from(bucket).remove([storagePath]);
+      throw error;
+    }
     await fetchSeparation();
+    return data as OrderDocument;
   }, [fetchSeparation]);
 
-  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, setDestination, addDocument, refetch: fetchSeparation };
+  const openDocument = useCallback(async (document: OrderDocument) => {
+    if (document.storage_bucket && document.storage_path) {
+      const { data, error } = await db.storage
+        .from(document.storage_bucket)
+        .createSignedUrl(document.storage_path, 60 * 5);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (!document.file_url) throw new Error('Documento sem local de arquivo disponível.');
+    window.open(document.file_url, '_blank', 'noopener,noreferrer');
+  }, []);
+
+  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, setDestination, uploadDocument, openDocument, refetch: fetchSeparation };
 }
