@@ -2,19 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { finalizeOrderSeparation } from '@/lib/orderStock';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
+import { updateOrderOperationalDestination as persistOperationalDestination } from '@/lib/orders/operationalDestination';
+import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { Order } from '@/hooks/useOrders';
 
 const db = supabase as any;
 
 export type SeparationStatus = 'todo' | 'preparing' | 'finalized';
-export type OperationalDestination = 'academia_ponto_logistico' | 'retirada_fabrica' | 'uber' | 'outro';
 
 export interface OrderSeparation {
   id: string;
   order_id: string;
   separation_status: SeparationStatus;
-  operational_destination: OperationalDestination | null;
-  logistics_mode: string | null;
   first_printed_at: string | null;
   print_count: number;
   finalized_at: string | null;
@@ -89,9 +88,16 @@ export function useOrderSeparation(orders: Order[]) {
     return data as { already_finalized: boolean; stock_result: { already_applied?: boolean; movement_count?: number } | null };
   }, [fetchSeparation]);
 
-  const setDestination = useCallback(async (orderId: string, destination: OperationalDestination) => {
-    const { error } = await db.from('order_separation').upsert({ order_id: orderId, operational_destination: destination }, { onConflict: 'order_id' });
-    if (error) throw error;
+  const updateOrderOperationalDestination = useCallback(async (
+    orderId: string,
+    destination: OperationalDestination | null,
+    options: { logisticsMode?: string | null; details?: Record<string, unknown> } = {},
+  ) => {
+    await persistOperationalDestination(orderId, {
+      destination,
+      logisticsMode: options.logisticsMode,
+      details: options.details,
+    });
     await fetchSeparation();
   }, [fetchSeparation]);
 
@@ -149,5 +155,5 @@ export function useOrderSeparation(orders: Order[]) {
     window.open(document.file_url, '_blank', 'noopener,noreferrer');
   }, []);
 
-  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, setDestination, uploadDocument, openDocument, refetch: fetchSeparation };
+  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, updateOrderOperationalDestination, uploadDocument, openDocument, refetch: fetchSeparation };
 }
