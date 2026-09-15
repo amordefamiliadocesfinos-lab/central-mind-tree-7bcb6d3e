@@ -62,12 +62,10 @@ import {
   PRODUCT_CATEGORIES, 
   ORDER_STATUS,
   ORDER_CHANNELS,
-  ORDER_TYPES,
   sortProductsByCategory,
   sortOrdersByStatus,
   Product as StoreProduct,
   Order as StoreOrder,
-  OrderItem as StoreOrderItem,
 } from '@/stores/appStore';
 import { useStockCheckStore } from '@/stores/stockCheckStore';
 import { getOperationalOrders, useKPIsSelector, useFilteredOrders, useFilteredProducts, useSearchFilters, useStockValueSelector } from '@/stores/selectors';
@@ -146,19 +144,28 @@ export default function Operacoes() {
       const contactPhone = searchParams.get('contactPhone') || '';
       const contactEmail = searchParams.get('contactEmail') || '';
       const contactNotes = searchParams.get('contactNotes') || '';
-      setNewOrder({
+      setNewSale({
         customer_name: contactName,
         contact_id: contactId,
         channel: 'direto',
         order_type: 'production',
         due_date: '',
+        financial_due_date: new Date().toISOString().slice(0, 10),
+        payment_status: 'pendente',
+        payment_method: '',
+        financial_account_id: '',
+        marketplace_account: '',
+        discount_amount: 0,
+        shipping_amount: 0,
+        discount_text: '',
+        shipping_text: '',
         operational_destination: null,
         logistics_mode: '',
         operational_destination_details: {},
         items: [],
       });
       setCrmContactId(contactId);
-      setShowOrderDialog(true);
+      setShowSaleDialog(true);
       // Clean up URL params
       const newParams = new URLSearchParams({ tab: 'orders' });
       setSearchParams(newParams, { replace: true });
@@ -221,9 +228,7 @@ export default function Operacoes() {
 
   // Dialog states (local)
   const [showProductDialog, setShowProductDialog] = useState(false);
-  const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showSaleDialog, setShowSaleDialog] = useState(false);
-  const [pendingOrderDocuments, setPendingOrderDocuments] = useState<PendingOrderDocument[]>([]);
   const [pendingSaleDocuments, setPendingSaleDocuments] = useState<PendingOrderDocument[]>([]);
   const [showShopeeImport, setShowShopeeImport] = useState(false);
   const [showProductConversion, setShowProductConversion] = useState(false);
@@ -297,22 +302,11 @@ export default function Operacoes() {
   const [newProductIntermediate, setNewProductIntermediate] = useState(false);
   const [savingNewProduct, setSavingNewProduct] = useState(false);
 
-  const [newOrder, setNewOrder] = useState({
-    customer_name: '',
-    contact_id: null as string | null,
-    channel: 'direto',
-    order_type: 'production' as 'stock' | 'production',
-    due_date: '',
-    operational_destination: null as OperationalDestination | null,
-    logistics_mode: '',
-    operational_destination_details: {} as Record<string, unknown>,
-    items: [] as { product_id: string; quantity: number; unit_price: number; _unit_price_text?: string }[],
-  });
-
   const [newSale, setNewSale] = useState({
     customer_name: '',
     contact_id: null as string | null,
     channel: 'direto',
+    order_type: 'stock' as 'stock' | 'production',
     due_date: '',
     financial_due_date: new Date().toISOString().slice(0, 10),
     payment_status: 'pendente' as 'pendente' | 'pago',
@@ -432,50 +426,14 @@ export default function Operacoes() {
     setEditingProduct(null);
   };
 
-  const handleAddOrder = async () => {
-    const { items, ...orderData } = newOrder;
-    const result = await createOrder(
-      { ...orderData, contact_id: newOrder.contact_id || undefined },
-      items as Partial<OrderItem>[]
-    );
-    if (!result) return;
-    const documentResults = await Promise.allSettled(
-      pendingOrderDocuments.map(document => uploadOrderDocument({
-        orderId: result.id,
-        documentType: document.documentType,
-        file: document.file,
-        source: 'operacoes',
-      })),
-    );
-    if (documentResults.some(result => result.status === 'rejected')) {
-      toast.error('Pedido criado, mas um documento não pôde ser anexado.');
-    }
-    setPendingOrderDocuments([]);
-    
-    // Log timeline event if order was created from CRM
-    if (crmContactId && newOrder.contact_id) {
-      const orderNum = result.order_number || result.id.slice(0, 8);
-      await addEntry(
-        crmContactId,
-        'conversao',
-        `🧾 Lead convertido em pedido #${orderNum}`,
-        new Date().toISOString()
-      );
-      setCrmContactId(null);
-    }
-    
-    setShowOrderDialog(false);
-    setNewOrder({ customer_name: '', contact_id: null, channel: 'direto', order_type: 'production', due_date: '', operational_destination: null, logistics_mode: '', operational_destination_details: {}, items: [] });
-  };
-
-  const handleAddSale = async () => {
+  const handleCreateOrder = async () => {
     if (missingSaleVariantProduct) {
       toast.error(`Selecione a variante física de ${missingSaleVariantProduct.name}.`);
       return;
     }
     const { items, discount_text, shipping_text, ...saleData } = newSale;
     const result = await createOrder(
-      { ...saleData, order_type: 'stock', contact_id: newSale.contact_id || undefined },
+      { ...saleData, contact_id: newSale.contact_id || undefined },
       items as Partial<OrderItem>[]
     );
     if (!result) return;
@@ -491,11 +449,17 @@ export default function Operacoes() {
       toast.error('Pedido criado, mas um documento não pôde ser anexado.');
     }
     setPendingSaleDocuments([]);
+    if (crmContactId && newSale.contact_id) {
+      const orderNum = result.order_number || result.id.slice(0, 8);
+      await addEntry(crmContactId, 'conversao', `🧾 Lead convertido em pedido #${orderNum}`, new Date().toISOString());
+      setCrmContactId(null);
+    }
     setShowSaleDialog(false);
     setNewSale({
       customer_name: '',
       contact_id: null,
       channel: 'direto',
+      order_type: 'stock',
       due_date: '',
       financial_due_date: new Date().toISOString().slice(0, 10),
       payment_status: 'pendente',
@@ -513,32 +477,11 @@ export default function Operacoes() {
     });
   };
 
-  const addItemToOrder = () => {
-    setNewOrder({
-      ...newOrder,
-      items: [...newOrder.items, { product_id: '', quantity: 1, unit_price: 0 }],
-    });
-  };
-
   const addItemToSale = () => {
     setNewSale({
       ...newSale,
       items: [...newSale.items, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }],
     });
-  };
-
-  const updateOrderItem = (index: number, field: string, value: string | number) => {
-    const items = [...newOrder.items];
-    (items[index] as Record<string, string | number>)[field] = value;
-    
-    if (field === 'product_id') {
-      const product = rawProducts.find(p => p.id === value);
-      if (product?.price) {
-        items[index].unit_price = product.price;
-      }
-    }
-    
-    setNewOrder({ ...newOrder, items });
   };
 
   const updateSaleItem = (index: number, field: keyof NewSaleItem, value: string | number | null) => {
@@ -555,11 +498,6 @@ export default function Operacoes() {
     }
     
     setNewSale({ ...newSale, items });
-  };
-
-  const removeOrderItem = (index: number) => {
-    const items = newOrder.items.filter((_, i) => i !== index);
-    setNewOrder({ ...newOrder, items });
   };
 
   const removeSaleItem = (index: number) => {
@@ -700,196 +638,24 @@ export default function Operacoes() {
                   <FileSpreadsheet className="h-5 w-5 mr-1" />
                   Importar Pedidos
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline"
-                  className="h-12 px-5 border-green-500 text-green-700 hover:bg-green-50"
+                <Button
+                  size="lg"
+                  className="h-12 px-6"
                   onClick={() => setShowSaleDialog(true)}
                 >
-                  <DollarSign className="h-5 w-5 mr-1" />
-                  Venda
+                  <Plus className="h-5 w-5 mr-2" />
+                  Novo Pedido
                 </Button>
-                <Dialog open={showOrderDialog} onOpenChange={open => { setShowOrderDialog(open); if (!open) setPendingOrderDocuments([]); }}>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="h-12 px-6">
-                      <Plus className="h-5 w-5 mr-2" />
-                      Novo
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] flex flex-col gap-0 overflow-hidden p-0">
-                    <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6">
-                      <DialogTitle>Novo Pedido</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                      <div className="space-y-4 pb-4">
-                      <div>
-                        <Label>Cliente</Label>
-                        <ContactAutocomplete
-                          value={newOrder.customer_name}
-                          contactId={newOrder.contact_id}
-                          onSelect={(contact, manualName) => {
-                            if (contact) {
-                              setNewOrder({ 
-                                ...newOrder, 
-                                customer_name: contact.name,
-                                contact_id: contact.id,
-                              });
-                            } else {
-                              setNewOrder({ 
-                                ...newOrder, 
-                                customer_name: manualName || '',
-                                contact_id: null,
-                              });
-                            }
-                          }}
-                          placeholder="Digite o nome do cliente..."
-                        />
-                      </div>
-                      <div>
-                        <Label>Tipo de Pedido</Label>
-                        <Select
-                          value={newOrder.order_type}
-                          onValueChange={(v: 'stock' | 'production') => setNewOrder({ ...newOrder, order_type: v })}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(ORDER_TYPES).map(([key, { label, description }]) => (
-                              <SelectItem key={key} value={key}>
-                                <div className="flex flex-col">
-                                  <span>{label}</span>
-                                  <span className="text-xs text-muted-foreground">{description}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {newOrder.order_type === 'stock' && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            ℹ️ A baixa física será registrada somente na expedição
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Canal</Label>
-                        <Select
-                          value={newOrder.channel}
-                          onValueChange={(v) => setNewOrder({ ...newOrder, channel: v })}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(ORDER_CHANNELS).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Prazo de Entrega</Label>
-                        <Input
-                          type="date"
-                          className="h-12"
-                          value={newOrder.due_date}
-                          onChange={(e) => setNewOrder({ ...newOrder, due_date: e.target.value })}
-                        />
-                      </div>
-
-                      <OperationalDestinationFields
-                        destination={newOrder.operational_destination}
-                        logisticsMode={newOrder.logistics_mode}
-                        details={newOrder.operational_destination_details}
-                        onChange={({ destination, logisticsMode, details }) => setNewOrder({
-                          ...newOrder,
-                          operational_destination: destination,
-                          logistics_mode: logisticsMode,
-                          operational_destination_details: details,
-                        })}
-                      />
-
-                      <PendingOrderDocumentsFields value={pendingOrderDocuments} onChange={setPendingOrderDocuments} />
-
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <Label>Itens</Label>
-                          <Button size="sm" variant="outline" onClick={addItemToOrder}>
-                            <Plus className="h-3 w-3 mr-1" />
-                            Item
-                          </Button>
-                        </div>
-                        {newOrder.items.map((item, i) => (
-                          <div key={i} className="flex gap-2 mb-2">
-                            <Select
-                              value={item.product_id}
-                              onValueChange={(v) => updateOrderItem(i, 'product_id', v)}
-                            >
-                              <SelectTrigger className="flex-1 h-10">
-                                <SelectValue placeholder="Produto" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sortProductsByCategory(rawProducts).map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              className="w-16 h-10"
-                              placeholder="Qtd"
-                              value={item.quantity}
-                              onChange={(e) => updateOrderItem(i, 'quantity', parseInt(e.target.value) || 1)}
-                            />
-                            <DecimalInput
-                              className="w-20 h-10"
-                              placeholder="R$"
-                              value={(item as any)._unit_price_text ?? String(item.unit_price ?? '')}
-                              onValueChange={(v) => {
-                                const items = [...newOrder.items];
-                                (items[i] as any)._unit_price_text = v;
-                                setNewOrder({ ...newOrder, items });
-                              }}
-                              onValueCommit={(parsed) => {
-                                updateOrderItem(i, 'unit_price', parsed?.number ?? 0);
-                              }}
-                              min={0}
-                              maxDecimals={10}
-                            />
-                            <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => removeOrderItem(i)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-
-                      </div>
-                    </div>
-                    <div className="shrink-0 border-t bg-background px-4 py-3 pb-safe-bottom sm:px-6">
-                      <Button onClick={handleAddOrder} className="w-full h-12 text-base">
-                        Criar Pedido
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               </div>
             </div>
 
-            {/* Sale Dialog */}
             <Dialog open={showSaleDialog} onOpenChange={open => { setShowSaleDialog(open); if (!open) setPendingSaleDocuments([]); }}>
-              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    Nova Venda
-                  </DialogTitle>
+              <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] flex flex-col gap-0 overflow-hidden p-0">
+                <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6">
+                  <DialogTitle>Novo Pedido</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-xs text-green-700">
-                      <strong>Venda de Estoque:</strong> Os itens serão consumidos diretamente do estoque acabado e o valor será registrado no Financeiro (A Receber).
-                    </p>
-                  </div>
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                  <div className="space-y-4 pb-4">
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <Label>Cliente</Label>
@@ -964,6 +730,21 @@ export default function Operacoes() {
                       value={newSale.due_date}
                       onChange={(e) => setNewSale({ ...newSale, due_date: e.target.value })}
                     />
+                  </div>
+                  <div>
+                    <Label>Tipo de atendimento</Label>
+                    <Select value={newSale.order_type} onValueChange={(value: 'stock' | 'production') => setNewSale({ ...newSale, order_type: value })}>
+                      <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="stock">
+                          <div className="flex flex-col"><span>Atender do estoque</span><span className="text-xs text-muted-foreground">A saída física continua sendo registrada somente na expedição.</span></div>
+                        </SelectItem>
+                        <SelectItem value="production">
+                          <div className="flex flex-col"><span>Produzir</span><span className="text-xs text-muted-foreground">Demanda comercial que será atendida pelo fluxo operacional de produção.</span></div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {newSale.order_type === 'stock' && <p className="mt-1 text-xs text-amber-600">A baixa física será registrada somente na expedição.</p>}
                   </div>
 
                   <OperationalDestinationFields
@@ -1158,12 +939,11 @@ export default function Operacoes() {
                     )}
                   </div>
 
-                  <Button 
-                    onClick={handleAddSale} 
-                    disabled={Boolean(missingSaleVariantProduct)}
-                    className="w-full h-12 text-base bg-green-600 hover:bg-green-700"
-                  >
-                    Registrar Venda
+                </div>
+                </div>
+                <div className="shrink-0 border-t bg-background px-4 py-3 pb-safe-bottom sm:px-6">
+                  <Button onClick={handleCreateOrder} disabled={Boolean(missingSaleVariantProduct)} className="w-full h-12 text-base">
+                    Criar Pedido
                   </Button>
                 </div>
               </DialogContent>
