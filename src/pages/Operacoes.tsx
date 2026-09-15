@@ -76,7 +76,7 @@ import type { OperationalDestination } from '@/lib/orders/operationalDestination
 import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { supabase } from '@/integrations/supabase/client';
-import { useInventorySync } from '@/hooks/useInventorySync';
+import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -259,9 +259,7 @@ export default function Operacoes() {
 
   // Variant balances by physical identity (product_id + variant_id)
   const getVariantBalance = useCallback((productId: string, variantId: string) =>
-    storeInventory
-      .filter((i: any) => i.product_id === productId && i.variant_id === variantId)
-      .reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0),
+    getInventoryBalanceByIdentity(storeInventory, productId, variantId),
   [storeInventory]);
   const [historyProductId, setHistoryProductId] = useState<string | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -375,6 +373,19 @@ export default function Operacoes() {
     .map(item => ({ item, product: rawProducts.find(product => product.id === item.product_id) }))
     .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id)
     ?.product;
+
+  const getSaleItemStockBalance = (item: NewSaleItem) => {
+    const product = rawProducts.find(candidate => candidate.id === item.product_id);
+    if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
+    return getInventoryBalanceByIdentity(storeInventory, item.product_id, item.variant_id);
+  };
+
+  const formatSaleItemStockBalance = (item: NewSaleItem) => {
+    const balance = getSaleItemStockBalance(item);
+    const product = rawProducts.find(candidate => candidate.id === item.product_id);
+    if (balance === null) return '—';
+    return `${balance} ${product?.unit || 'un'}`;
+  };
 
   const handleAddProduct = async () => {
     if (!newProduct.name?.trim()) { toast.error('Informe o nome do produto'); return; }
@@ -1017,7 +1028,8 @@ export default function Operacoes() {
                       </Button>
                     </div>
                     {newSale.items.map((item, i) => (
-                      <div key={i} className="flex gap-2 mb-2">
+                      <div key={i} className="mb-2 space-y-1">
+                      <div className="flex gap-2">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
@@ -1075,6 +1087,8 @@ export default function Operacoes() {
                         <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => removeSaleItem(i)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)}</p>
                       </div>
                     ))}
                     {missingSaleVariantProduct && (

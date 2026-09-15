@@ -4,6 +4,23 @@ import { useAppStore, type Product as StoreProduct } from '@/stores/appStore';
 
 const INVENTORY_EVENT = 'inventory:changed';
 
+type InventoryIdentityRow = {
+  product_id: string;
+  variant_id?: string | null;
+  quantity: number | string | null;
+};
+
+/** Soma as localizações de uma única identidade física (produto + variante). */
+export function getInventoryBalanceByIdentity(
+  inventory: InventoryIdentityRow[],
+  productId: string,
+  variantId: string | null,
+) {
+  return inventory
+    .filter((item) => item.product_id === productId && (item.variant_id ?? null) === variantId)
+    .reduce((total, item) => total + (Number(item.quantity) || 0), 0);
+}
+
 /** Dispara um refresh global de estoque (saldos + inventário) em todas as telas abertas. */
 export function notifyInventoryChanged() {
   if (typeof window !== 'undefined') {

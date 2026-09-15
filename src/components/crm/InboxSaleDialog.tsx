@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useProductsList } from '@/hooks/useProductsList';
+import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInventorySync';
+import { useAppStore } from '@/stores/appStore';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { createUnifiedSale, SalePaymentStatus } from '@/lib/unifiedSales';
@@ -44,6 +46,8 @@ const CHANNELS: Array<[string, string]> = [
 
 export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, contactHandle, onCreated, onSaleCreated }: InboxSaleDialogProps) {
   const { products } = useProductsList();
+  const inventory = useAppStore((state) => state.inventory);
+  useInventorySync();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [channel, setChannel] = useState('whatsapp');
   const [orderType, setOrderType] = useState<'stock' | 'production'>('stock');
@@ -93,6 +97,19 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
     updateItem(index, { variant_id: variantId || null, unit_price: variant?.price_override ?? items[index]?.unit_price ?? 0 });
+  };
+
+  const getItemStockBalance = (item: SaleItem) => {
+    const product = products.find((candidate) => candidate.id === item.product_id);
+    if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
+    return getInventoryBalanceByIdentity(inventory, item.product_id, item.variant_id ?? null);
+  };
+
+  const formatStockBalance = (item: SaleItem) => {
+    const balance = getItemStockBalance(item);
+    const product = products.find((candidate) => candidate.id === item.product_id);
+    if (balance === null) return '—';
+    return `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleSave = async () => {
@@ -203,7 +220,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               </p>
             )}
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] items-center gap-1.5">
+              <div key={index} className="space-y-1">
+                <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] items-center gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
@@ -234,6 +252,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setItems((c) => c.filter((_, i) => i !== index))}>
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)}</p>
               </div>
             ))}
           </div>
