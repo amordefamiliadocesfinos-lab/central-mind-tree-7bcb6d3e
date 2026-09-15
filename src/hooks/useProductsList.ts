@@ -11,6 +11,8 @@ export interface ProductListItem {
   category: string | null;
   description: string | null;
   media_urls: string[];
+  unit: string;
+  variation_mode: 'sem_variacao' | 'variacoes_fisicas';
 }
 
 export function useProductsList() {
@@ -21,7 +23,7 @@ export function useProductsList() {
     const fetch = async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, cover_image_url, price, cost, category, description, media_urls')
+        .select('id, name, sku, cover_image_url, price, cost, category, description, media_urls, unit, variation_mode')
         .eq('is_active', true)
         .is('deleted_at', null)
         .order('name');
