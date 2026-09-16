@@ -57,11 +57,13 @@ export interface ProductionOrder {
     id: string;
     name: string;
     sku: string;
+    unit: string;
   };
   variant?: {
     id: string;
     variant_name: string;
     sku: string;
+    unit: string | null;
   } | null;
   source_order?: {
     id: string;
@@ -93,8 +95,8 @@ export function useProductionOrders() {
       .from('production_orders')
       .select(`
         *,
-        product:products(id, name, sku),
-        variant:product_variants!production_orders_variant_id_fkey(id, variant_name, sku),
+        product:products(id, name, sku, unit),
+        variant:product_variants!production_orders_variant_id_fkey(id, variant_name, sku, unit),
         source_order:orders!production_orders_source_order_id_fkey(id, order_number, internal_order_number, customer_name, due_date),
         processes:production_order_processes(
           *,

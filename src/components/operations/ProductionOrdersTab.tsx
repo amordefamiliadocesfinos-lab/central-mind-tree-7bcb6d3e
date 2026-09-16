@@ -24,6 +24,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BOMLine } from '@/hooks/useBOM';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { ProductionWeekView } from './ProductionWeekView';
 
 interface ProductionOrdersTabProps {
@@ -72,17 +73,22 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     scheduled_date: new Date().toISOString().split('T')[0],
     selectedProcesses: [] as { process_id: string; is_required: boolean }[],
   });
-  const [productVariants, setProductVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
+  const [productVariants, setProductVariants] = useState<{ id: string; variant_name: string; sku: string; unit: string | null }[]>([]);
 
   useEffect(() => {
     if (!newOrder.product_id) {
       setProductVariants([]);
       return;
     }
-    void supabase.from('product_variants').select('id, variant_name, sku')
+    void supabase.from('product_variants').select('id, variant_name, sku, unit')
       .eq('product_id', newOrder.product_id).eq('is_active', true).order('variant_name')
       .then(({ data }) => setProductVariants(data || []));
   }, [newOrder.product_id]);
+
+  const newOrderProduct = products.find((product) => product.id === newOrder.product_id);
+  const newOrderVariant = productVariants.find((variant) => variant.id === newOrder.variant_id);
+  const newOrderUnit = getPhysicalIdentityUnit(newOrderProduct, newOrderVariant);
+  const getOrderUnit = (order: ProductionOrder) => getPhysicalIdentityUnit(order.product, order.variant);
 
   // Entry form state
   const [newEntry, setNewEntry] = useState({
@@ -346,7 +352,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Package className="h-4 w-4 shrink-0" />
                         <span className="truncate">
-                          <span className="font-medium text-foreground">{order.target_quantity}x</span>{' '}
+                          <span className="font-medium text-foreground">{order.target_quantity} {getOrderUnit(order)}</span>{' '}
                           {order.product?.name || 'Produto não definido'}{order.variant ? ` · ${order.variant.variant_name}` : ''}
                         </span>
                       </div>
@@ -368,7 +374,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       <div>
                         <p className="text-2xl font-bold leading-tight">{consolidated}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          de {order.target_quantity}
+                          de {order.target_quantity} {getOrderUnit(order)}
                         </p>
                       </div>
                       <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -458,7 +464,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                 />
               </div>
               <div>
-                <Label>Meta de Produção</Label>
+                <Label>Meta de Produção ({newOrderUnit})</Label>
                 <Input
                   type="number"
                   className="h-12"
@@ -585,11 +591,11 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Meta:</span>
-                        <span>{selectedOrder.target_quantity}</span>
+                        <span>{selectedOrder.target_quantity} {getOrderUnit(selectedOrder)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Consolidado:</span>
-                        <span className="font-bold text-lg">{calculateConsolidation(selectedOrder)}</span>
+                        <span className="font-bold text-lg">{calculateConsolidation(selectedOrder)} {getOrderUnit(selectedOrder)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">Data programada:</span>
@@ -624,7 +630,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                               <span>{op.process?.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{totalQty}</span>
+                              <span className="font-medium">{totalQty} {getOrderUnit(selectedOrder)}</span>
                               <span className="text-xs text-muted-foreground">({progress}%)</span>
                             </div>
                           </div>
@@ -655,7 +661,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
-                          Ao concluir, <span className="font-semibold">{calculateConsolidation(selectedOrder)} un.</span> serão
+                          Ao concluir, <span className="font-semibold">{calculateConsolidation(selectedOrder)} {getOrderUnit(selectedOrder)}.</span> serão
                           adicionadas em <span className="font-semibold">{effectiveLocation}</span>
                           . O pedido vinculado não terá seu status alterado.
                         </p>
@@ -721,7 +727,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                                 )}
                               </div>
                               <div className="text-right">
-                                <p className="text-xl font-bold">{entry.quantity}</p>
+                                <p className="text-xl font-bold">{entry.quantity} {getOrderUnit(selectedOrder)}</p>
                                 <p className="text-sm text-green-600">
                                   {formatCurrency(entry.total_value)}
                                 </p>
@@ -775,7 +781,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                               {Object.entries(data.byProcess).map(([process, info]) => (
                                 <div key={process} className="flex justify-between text-sm">
                                   <span className="text-muted-foreground">{process}</span>
-                                  <span>{info.qty} un = {formatCurrency(info.value)}</span>
+                                  <span>{info.qty} {getOrderUnit(selectedOrder)} = {formatCurrency(info.value)}</span>
                                 </div>
                               ))}
                             </CardContent>
@@ -892,7 +898,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
             </div>
 
             <div>
-              <Label>Quantidade *</Label>
+              <Label>Quantidade ({selectedOrder ? getOrderUnit(selectedOrder) : 'un'}) *</Label>
               <Input
                 type="number"
                 className="h-12 text-xl"
@@ -957,15 +963,15 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                   <div className="grid grid-cols-3 gap-2 text-sm mb-2">
                     <div>
                       <span className="text-muted-foreground">Necessário:</span>
-                      <span className="ml-1 font-medium">{item.qty_needed}</span>
+                      <span className="ml-1 font-medium">{item.qty_needed} {item.unit}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Estoque:</span>
-                      <span className="ml-1 font-medium">{item.stock_available}</span>
+                      <span className="ml-1 font-medium">{item.stock_available} {item.unit}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Falta:</span>
-                      <span className="ml-1 font-medium text-red-500">{item.shortage}</span>
+                      <span className="ml-1 font-medium text-red-500">{item.shortage} {item.unit}</span>
                     </div>
                   </div>
                 </CardContent>
