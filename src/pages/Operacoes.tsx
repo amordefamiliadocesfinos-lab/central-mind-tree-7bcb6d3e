@@ -653,11 +653,13 @@ export default function Operacoes() {
 
             <Dialog open={showSaleDialog} onOpenChange={open => { setShowSaleDialog(open); if (!open) setPendingSaleDocuments([]); }}>
               <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] flex flex-col gap-0 overflow-hidden p-0">
-                <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6">
+                <DialogHeader className="shrink-0 border-b bg-background px-4 py-4 sm:px-6">
                   <DialogTitle>Novo Pedido</DialogTitle>
                 </DialogHeader>
                 <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                  <div className="space-y-4 pb-4">
+                  <div className="space-y-5 pb-4">
+                  <section className="space-y-4 rounded-xl border bg-muted/20 p-3 sm:p-4">
+                  <h3 className="text-sm font-semibold">Contexto do pedido</h3>
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <Label>Cliente</Label>
@@ -748,7 +750,9 @@ export default function Operacoes() {
                     </Select>
                     {newSale.order_type === 'stock' && <p className="mt-1 text-xs text-amber-600">A baixa física será registrada somente na expedição.</p>}
                   </div>
+                  </section>
 
+                  <section className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-4"><h3 className="text-sm font-semibold">Logística e destino</h3>
                   <OperationalDestinationFields
                     destination={newSale.operational_destination}
                     logisticsMode={newSale.logistics_mode}
@@ -760,9 +764,13 @@ export default function Operacoes() {
                       operational_destination_details: details,
                     })}
                   />
+                  </section>
 
+                  <section className="space-y-3 rounded-xl border p-3 sm:p-4"><h3 className="text-sm font-semibold">Documentos</h3>
                   <PendingOrderDocumentsFields value={pendingSaleDocuments} onChange={setPendingSaleDocuments} />
+                  </section>
 
+                  <section className="space-y-3 rounded-xl border p-3 sm:p-4"><h3 className="text-sm font-semibold">Financeiro</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Vencimento Financeiro</Label>
@@ -801,23 +809,24 @@ export default function Operacoes() {
                       onChange={e => setNewSale({ ...newSale, marketplace_account: e.target.value })}
                       placeholder="Ex.: Shopee Viviane" />
                   </div>}
+                  </section>
 
-                  <div>
+                  <section className="space-y-3 rounded-xl border p-3 sm:p-4">
                     <div className="flex justify-between items-center mb-2">
-                      <Label>Itens</Label>
+                      <h3 className="text-sm font-semibold">Itens</h3>
                       <Button size="sm" variant="outline" onClick={addItemToSale}>
                         <Plus className="h-3 w-3 mr-1" />
                         Item
                       </Button>
                     </div>
                     {newSale.items.map((item, i) => (
-                      <div key={i} className="mb-2 space-y-1">
-                      <div className="flex gap-2">
+                      <div key={i} className="mb-3 space-y-2 rounded-lg border bg-muted/10 p-2.5">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(180px,1fr)_11rem_4rem_5rem_2.5rem] sm:items-center">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
                         >
-                          <SelectTrigger className="flex-1 h-10">
+                          <SelectTrigger className="h-10">
                             <SelectValue placeholder="Produto" />
                           </SelectTrigger>
                           <SelectContent>
@@ -835,7 +844,7 @@ export default function Operacoes() {
                               if (variant?.price_override != null) updateSaleItem(i, 'unit_price', variant.price_override);
                             }}
                           >
-                            <SelectTrigger className="w-44 h-10">
+                            <SelectTrigger className="h-10">
                               <SelectValue placeholder="Variante física" />
                             </SelectTrigger>
                             <SelectContent>
@@ -847,13 +856,13 @@ export default function Operacoes() {
                         )}
                         <Input
                           type="number"
-                          className="w-16 h-10"
+                          className="h-10"
                           placeholder="Qtd"
                           value={item.quantity}
                           onChange={(e) => updateSaleItem(i, 'quantity', parseInt(e.target.value) || 1)}
                         />
                         <DecimalInput
-                          className="w-20 h-10"
+                          className="h-10"
                           placeholder="R$"
                           value={(item as any)._unit_price_text ?? String(item.unit_price ?? '')}
                           onValueChange={(v) => {
@@ -867,7 +876,7 @@ export default function Operacoes() {
                           min={0}
                           maxDecimals={10}
                         />
-                        <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => removeSaleItem(i)}>
+                          <Button size="icon" variant="ghost" className="h-10 w-full sm:w-10" onClick={() => removeSaleItem(i)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -880,7 +889,7 @@ export default function Operacoes() {
                       </p>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
                       <div>
                         <Label>Desconto</Label>
                         <DecimalInput
@@ -939,7 +948,7 @@ export default function Operacoes() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </section>
 
                 </div>
                 </div>
