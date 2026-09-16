@@ -1,4 +1,4 @@
-import { buildCrmAiContext, deriveLastCanonicalResult, CRM_AI_CONTEXT_LIMITS, CRM_AI_LIVE_MEMORY_LIMITS, type CrmAiContextSources } from './aiContext';
+import { buildCrmAiContext, buildCrmAiRequestContext, deriveLastCanonicalResult, CRM_AI_CONTEXT_LIMITS, CRM_AI_LIVE_MEMORY_LIMITS, type CrmAiContextSources } from './aiContext';
 import type { CrmContactLiveContext } from './liveContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -82,6 +82,18 @@ async function run() {
   assert(withLiveMemory.messages.length === CRM_AI_LIVE_MEMORY_LIMITS.messages, 'janela recente deve ser reduzida com memória válida.');
   assert(withLiveMemory.history.length === CRM_AI_LIVE_MEMORY_LIMITS.historyEvents, 'eventos antigos devem ceder espaço à memória viva.');
   assert(withLiveMemory.tasks[0]?.source === 'crm_next_action' && withLiveMemory.contact.optOut === false, 'fatos canônicos atuais devem permanecer diretos.');
+
+  // IA-REV-02: o compilador de transporte mantém fatos/tarefa oficiais e
+  // limita memória viva exagerada antes de chegar ao modelo.
+  const largeLive = {
+    ...liveContext,
+    summary: 'x'.repeat(5000),
+    memory: { preferences: Array.from({ length: 30 }, (_, i) => `preferência ${i} ${'x'.repeat(300)}`) },
+  } as CrmContactLiveContext;
+  const compiled = buildCrmAiRequestContext({ ...withLiveMemory, liveContext: largeLive }, 'reply');
+  assert(compiled.liveContext?.summary?.length === 900, 'compilador deve limitar o resumo da memória viva.');
+  assert(compiled.liveContext?.memory.preferences?.length === 6, 'compilador deve limitar listas da memória viva.');
+  assert(compiled.tasks[0]?.source === 'crm_next_action' && compiled.nextAction?.code === 'CRM-PA-013', 'tarefa e Próxima Ação oficiais devem seguir explícitas no contexto.');
 
   // G. nenhum efeito colateral: apenas leituras
   const calls: string[] = [];
