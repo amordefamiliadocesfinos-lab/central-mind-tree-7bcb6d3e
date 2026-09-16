@@ -54,6 +54,23 @@ function getOperationalIdentifier(order: OrderIdentity): string {
   return `${prefix} · ${getOrderReference(order)}`;
 }
 
+/**
+ * Identifica a origem operacional sem substituir a identidade do cliente.
+ * A conta Shopee é canônica em `marketplace_account` e pode já conter o
+ * prefixo do canal; nesse caso ele não é repetido.
+ */
+export function getOrderOperationalOrigin(order: OrderIdentity): string | null {
+  const store = order.marketplace_account?.trim();
+  if (!store) return null;
+
+  const channelLabel = getChannelLabel(order.channel);
+  const normalizedStore = store.toLocaleLowerCase();
+  const normalizedChannel = channelLabel.toLocaleLowerCase();
+  return normalizedStore.startsWith(normalizedChannel)
+    ? store
+    : `${channelLabel} ${store}`;
+}
+
 export function getOrderCustomerName(order: OrderIdentity): string {
   const name = order.customer_name?.trim();
   if (name && !isMaskedOrPlaceholderName(name)) {

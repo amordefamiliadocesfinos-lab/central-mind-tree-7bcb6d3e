@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { OrderPriorityBadge } from './OrderPriorityBadge';
 import { LateProductionBadge } from './LateProductionBadge';
-import { getOrderCustomerName, getOrderReference } from './orderPresentation';
+import { getOrderCustomerName, getOrderOperationalOrigin, getOrderReference } from './orderPresentation';
 import { ORDER_OPERATIONAL_STATUS, ORDER_OPERATIONAL_STATUS_LIST, getOperationalStatus } from '@/lib/orders/operationalStatus';
 
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -34,6 +34,7 @@ interface Order {
   customer_name?: string | null;
   status: string;
   channel?: string | null;
+  marketplace_account?: string | null;
   order_date: string;
   due_date?: string | null;
   total_value?: number | null;
@@ -58,6 +59,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
   const customerName = getOrderCustomerName(order);
   const orderReference = getOrderReference(order);
   const channelLabel = order.channel ? orderChannels[order.channel] : undefined;
+  const operationalOrigin = getOrderOperationalOrigin(order);
 
   return (
     <Card
@@ -87,6 +89,7 @@ export function OrderCard({ order, orderStatus, orderChannels, onStatusChange, o
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">
               Pedido {orderReference}{channelLabel ? ` · ${channelLabel}` : ''}
             </p>
+            {operationalOrigin && <p className="text-xs text-muted-foreground mt-0.5 truncate">{operationalOrigin}</p>}
           </div>
           <div className="text-right shrink-0">
             <p className="font-bold text-base md:text-lg leading-tight">
