@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Package, PackagePlus, Factory, GripVertical, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 interface Props {
   orders: ProductionOrder[];
@@ -35,6 +36,7 @@ function MiniCard({ order, calculateConsolidation, onClick, dragHandleProps }: {
   const statusConfig = PRODUCTION_ORDER_STATUS[order.status as keyof typeof PRODUCTION_ORDER_STATUS];
   const isForStock = !order.source_order_id;
   const consolidated = calculateConsolidation(order);
+  const unit = getPhysicalIdentityUnit(order.product, order.variant);
 
   return (
     <Card
@@ -65,13 +67,13 @@ function MiniCard({ order, calculateConsolidation, onClick, dragHandleProps }: {
                 {statusConfig?.label}
               </Badge>
               <span className="text-[10px] text-muted-foreground tabular-nums">
-                {consolidated}/{order.target_quantity}
+                {consolidated}/{order.target_quantity} {unit}
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Package className="h-3 w-3 shrink-0" />
               <span className="truncate">
-                <span className="font-medium text-foreground">{order.target_quantity}x</span> {order.product?.name || '—'}
+                <span className="font-medium text-foreground">{order.target_quantity} {unit}</span> {order.product?.name || '—'}
               </span>
             </div>
           </div>

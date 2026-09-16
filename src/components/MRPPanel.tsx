@@ -64,13 +64,13 @@ export function MRPPanel() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{n.total_needed}</TableCell>
-                    <TableCell className="text-right font-mono">{n.stock_available}</TableCell>
+                    <TableCell className="text-right font-mono">{n.total_needed} {n.unit}</TableCell>
+                    <TableCell className="text-right font-mono">{n.stock_available} {n.unit}</TableCell>
                     <TableCell className={cn(
                       "text-right font-mono font-bold",
                       n.shortage > 0 ? "text-red-500" : "text-green-500"
                     )}>
-                      {n.shortage > 0 ? `-${n.shortage}` : 'OK'}
+                      {n.shortage > 0 ? `-${n.shortage} ${n.unit}` : 'OK'}
                     </TableCell>
                   </TableRow>
                 ))}
