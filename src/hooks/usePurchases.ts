@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 export type PurchaseStatus = 'rascunho' | 'confirmado' | 'em_transito' | 'parcialmente_recebido' | 'recebido' | 'cancelado';
 export const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = { rascunho: 'Rascunho', confirmado: 'Confirmado', em_transito: 'Em trânsito', parcialmente_recebido: 'Parcialmente recebido', recebido: 'Recebido', cancelado: 'Cancelado' };
@@ -11,7 +12,8 @@ export interface CreatePurchasePresentationInput {
   variant_id: string | null;
   name: string;
   purchase_unit_label: string;
-  stock_unit_label: string;
+  /** Derivada da identidade física pelo hook; nunca é uma entrada livre. */
+  stock_unit_label?: string;
   conversion_factor: number;
   is_approximate?: boolean;
   notes?: string | null;
@@ -42,14 +44,21 @@ export function usePurchases() {
   }, [refetch]);
   const deleteDraft = useCallback(async (id: string) => { const { error } = await db.from('purchase_orders').delete().eq('id', id).eq('status', 'rascunho'); if (error) throw error; await refetch(); }, [refetch]);
   const createPresentation = useCallback(async (input: CreatePurchasePresentationInput) => {
-    if (!input.product_id || !input.name.trim() || !input.purchase_unit_label.trim() || !input.stock_unit_label.trim() || input.conversion_factor <= 0) {
-      throw new Error('Informe produto, nome, unidades e um fator de conversão maior que zero.');
+    if (!input.product_id || !input.name.trim() || !input.purchase_unit_label.trim() || input.conversion_factor <= 0) {
+      throw new Error('Informe produto, nome, unidade de compra e um fator de conversão maior que zero.');
     }
+    const { data: product, error: productError } = await db.from('products').select('unit').eq('id', input.product_id).single();
+    if (productError) throw productError;
+    const { data: variant, error: variantError } = input.variant_id
+      ? await db.from('product_variants').select('unit').eq('id', input.variant_id).single()
+      : { data: null, error: null };
+    if (variantError) throw variantError;
+    const canonicalUnit = getPhysicalIdentityUnit(product, variant);
     const { data, error } = await db.from('purchase_presentations').insert({
       ...input,
       name: input.name.trim(),
       purchase_unit_label: input.purchase_unit_label.trim(),
-      stock_unit_label: input.stock_unit_label.trim(),
+      stock_unit_label: canonicalUnit,
       is_approximate: input.is_approximate ?? false,
       notes: input.notes || null,
       is_active: true,
@@ -58,11 +67,34 @@ export function usePurchases() {
     return data;
   }, []);
   const updatePresentation = useCallback(async (id: string, input: UpdatePurchasePresentationInput) => {
+    const hasFunctionalChange = input.name !== undefined
+      || input.purchase_unit_label !== undefined
+      || input.conversion_factor !== undefined
+      || input.is_approximate !== undefined
+      || input.notes !== undefined;
+    if (!hasFunctionalChange && input.is_active !== undefined) {
+      const { data, error } = await db
+        .from('purchase_presentations')
+        .update({ is_active: input.is_active })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+    const { data: current, error: currentError } = await db.from('purchase_presentations').select('product_id,variant_id').eq('id', id).single();
+    if (currentError) throw currentError;
+    const { data: product, error: productError } = await db.from('products').select('unit').eq('id', current.product_id).single();
+    if (productError) throw productError;
+    const { data: variant, error: variantError } = current.variant_id
+      ? await db.from('product_variants').select('unit').eq('id', current.variant_id).single()
+      : { data: null, error: null };
+    if (variantError) throw variantError;
     const updates = {
       ...input,
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.purchase_unit_label !== undefined ? { purchase_unit_label: input.purchase_unit_label.trim() } : {}),
-      ...(input.stock_unit_label !== undefined ? { stock_unit_label: input.stock_unit_label.trim() } : {}),
+      stock_unit_label: getPhysicalIdentityUnit(product, variant),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
     };
     if (updates.conversion_factor !== undefined && updates.conversion_factor <= 0) {

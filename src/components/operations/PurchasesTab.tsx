@@ -19,6 +19,7 @@ import { useContacts } from '@/hooks/useContacts';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 import {
   PurchaseOrderItemEditor,
@@ -94,7 +95,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const loadVariants = async (lineId: string, productId: string) => {
     const { data, error } = await db
       .from('product_variants')
-      .select('id,variant_name')
+      .select('id,variant_name,unit')
       .eq('product_id', productId)
       .eq('is_active', true);
     if (error) throw error;
@@ -103,7 +104,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       ...line,
       product_id: productId,
       variant_id: null,
-      presentation: directPresentation(products.find(product => product.id === productId)?.unit),
+      presentation: directPresentation(products.find(product => product.id === productId), null),
       presentationOverridden: false,
       variants: (data ?? []) as PurchaseVariantOption[],
       presentations: [],
@@ -132,7 +133,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setLines(current => current.map(item => item.id === lineId ? {
       ...item,
       variant_id: variantId,
-      presentation: directPresentation(product?.unit),
+      presentation: directPresentation(product, line.variants.find(item => item.id === variantId)),
       presentationOverridden: false,
       presentations: [],
     } : item));
@@ -164,7 +165,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       const restoredLines = await Promise.all((order.items ?? []).map(async item => {
         let variants: PurchaseVariantOption[] = [];
         if (item.product?.variation_mode === 'variacoes_fisicas') {
-          const { data } = await db.from('product_variants').select('id,variant_name').eq('product_id', item.product_id).eq('is_active', true);
+          const { data } = await db.from('product_variants').select('id,variant_name,unit').eq('product_id', item.product_id).eq('is_active', true);
           variants = (data ?? []) as PurchaseVariantOption[];
         }
         return {
@@ -209,6 +210,10 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         }
 
         const presentation = line.presentation;
+        const canonicalUnit = getPhysicalIdentityUnit(
+          product,
+          line.variants.find(variant => variant.id === line.variant_id),
+        );
         return {
           product_id: line.product_id,
           variant_id: line.variant_id,
@@ -216,13 +221,13 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           ordered_purchase_qty: Number(line.qty),
           purchase_unit_label: presentation.purchase_unit_label,
           conversion_factor: Number(presentation.conversion_factor),
-          stock_unit_label: presentation.stock_unit_label,
+          stock_unit_label: canonicalUnit,
           unit_price: line.price === '' ? null : Number(line.price),
           presentation_snapshot: {
             presentation_id: presentation.id,
             name: presentation.name,
             purchase_unit_label: presentation.purchase_unit_label,
-            stock_unit_label: presentation.stock_unit_label,
+            stock_unit_label: canonicalUnit,
             conversion_factor: presentation.conversion_factor,
             is_approximate: presentation.is_approximate,
             notes: presentation.notes || null,

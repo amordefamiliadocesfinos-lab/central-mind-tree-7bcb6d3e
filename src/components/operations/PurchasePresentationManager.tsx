@@ -11,6 +11,7 @@ import type { Product } from '@/hooks/useOrders';
 import { usePurchases, type CreatePurchasePresentationInput } from '@/hooks/usePurchases';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 type Presentation = CreatePurchasePresentationInput & { id: string; is_active: boolean };
 const EMPTY = { name: '', purchase_unit_label: '', stock_unit_label: '', conversion_factor: '', is_approximate: false, notes: '' };
@@ -19,7 +20,7 @@ export function PurchasePresentationManager({ products }: { products: Product[] 
   const { createPresentation, updatePresentation, getPresentations } = usePurchases();
   const [productId, setProductId] = useState('');
   const [variantId, setVariantId] = useState<string | null>(null);
-  const [variants, setVariants] = useState<{ id: string; variant_name: string }[]>([]);
+  const [variants, setVariants] = useState<{ id: string; variant_name: string; unit: string | null }[]>([]);
   const [items, setItems] = useState<Presentation[]>([]);
   const [draft, setDraft] = useState(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
@@ -27,6 +28,8 @@ export function PurchasePresentationManager({ products }: { products: Product[] 
   const product = useMemo(() => products.find(item => item.id === productId), [products, productId]);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   const identityResolved = Boolean(product) && (!requiresVariant || Boolean(variantId));
+  const selectedVariant = variants.find(item => item.id === variantId);
+  const canonicalUnit = getPhysicalIdentityUnit(product, selectedVariant);
 
   const refresh = async () => {
     if (!identityResolved) return setItems([]);
@@ -38,16 +41,16 @@ export function PurchasePresentationManager({ products }: { products: Product[] 
     setProductId(id); setVariantId(null); setItems([]); setDraft(EMPTY); setEditing(null);
     const selected = products.find(item => item.id === id);
     if (selected?.variation_mode !== 'variacoes_fisicas') return setVariants([]);
-    const { data, error } = await (supabase as any).from('product_variants').select('id,variant_name').eq('product_id', id).eq('is_active', true).order('variant_name');
+    const { data, error } = await (supabase as any).from('product_variants').select('id,variant_name,unit').eq('product_id', id).eq('is_active', true).order('variant_name');
     if (error) return toast.error('Não foi possível carregar as variantes.');
     setVariants(data ?? []);
   };
   const resetDraft = () => { setDraft(EMPTY); setEditing(null); };
-  const valid = Boolean(draft.name.trim() && draft.purchase_unit_label.trim() && draft.stock_unit_label.trim() && Number(draft.conversion_factor) > 0);
+  const valid = Boolean(draft.name.trim() && draft.purchase_unit_label.trim() && Number(draft.conversion_factor) > 0);
   const save = async () => {
     if (!identityResolved || !valid) return;
     setBusy(true);
-    const input = { product_id: productId, variant_id: variantId, name: draft.name, purchase_unit_label: draft.purchase_unit_label, stock_unit_label: draft.stock_unit_label, conversion_factor: Number(draft.conversion_factor), is_approximate: draft.is_approximate, notes: draft.notes || null };
+    const input = { product_id: productId, variant_id: variantId, name: draft.name, purchase_unit_label: draft.purchase_unit_label, stock_unit_label: canonicalUnit, conversion_factor: Number(draft.conversion_factor), is_approximate: draft.is_approximate, notes: draft.notes || null };
     try {
       if (editing) await updatePresentation(editing, input);
       else await createPresentation(input);
@@ -55,7 +58,7 @@ export function PurchasePresentationManager({ products }: { products: Product[] 
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível salvar a apresentação.'); }
     finally { setBusy(false); }
   };
-  const edit = (item: Presentation) => { setEditing(item.id); setDraft({ name: item.name, purchase_unit_label: item.purchase_unit_label, stock_unit_label: item.stock_unit_label, conversion_factor: String(item.conversion_factor), is_approximate: item.is_approximate ?? false, notes: item.notes ?? '' }); };
+  const edit = (item: Presentation) => { setEditing(item.id); setDraft({ name: item.name, purchase_unit_label: item.purchase_unit_label, stock_unit_label: canonicalUnit, conversion_factor: String(item.conversion_factor), is_approximate: item.is_approximate ?? false, notes: item.notes ?? '' }); };
   const toggle = async (item: Presentation) => {
     setBusy(true);
     try { await updatePresentation(item.id, { is_active: !item.is_active }); await refresh(); }
@@ -79,7 +82,7 @@ export function PurchasePresentationManager({ products }: { products: Product[] 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2"><Label>Nome</Label><Input value={draft.name} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} placeholder="Ex.: Caixa 8 kg" /></div>
             <div className="space-y-2"><Label>Unidade de compra</Label><Input value={draft.purchase_unit_label} onChange={event => setDraft(current => ({ ...current, purchase_unit_label: event.target.value }))} placeholder="Ex.: caixa" /></div>
-            <div className="space-y-2"><Label>Unidade de estoque</Label><Input value={draft.stock_unit_label} onChange={event => setDraft(current => ({ ...current, stock_unit_label: event.target.value }))} placeholder="Ex.: unidade" /></div>
+            <div className="space-y-2"><Label>Unidade física de controle</Label><Input value={canonicalUnit} readOnly className="bg-muted" /><p className="text-xs text-muted-foreground">Definida pelo Produto/Variante e usada por Estoque, BOM, Produção e MRP.</p></div>
             <div className="space-y-2"><Label>Conversão de referência</Label><Input type="number" min="0" step="any" value={draft.conversion_factor} onChange={event => setDraft(current => ({ ...current, conversion_factor: event.target.value }))} /></div>
             <div className="flex items-center justify-between rounded-md border p-3"><Label>Conversão aproximada</Label><Switch checked={draft.is_approximate} onCheckedChange={checked => setDraft(current => ({ ...current, is_approximate: checked }))} /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Observação</Label><Textarea value={draft.notes} onChange={event => setDraft(current => ({ ...current, notes: event.target.value }))} placeholder="Ex.: Rendimento médio. Pode variar por lote." /></div>

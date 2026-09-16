@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { Product } from '@/hooks/useOrders';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 
-export interface PurchaseVariantOption { id: string; variant_name: string; }
+export interface PurchaseVariantOption { id: string; variant_name: string; unit: string | null; }
 export interface PurchasePresentationOption {
   id: string | null;
   name: string;
@@ -42,8 +43,8 @@ interface Props {
   onRemove: () => void;
 }
 
-export function directPresentation(unit?: string | null): PurchasePresentationOption {
-  const label = unit?.trim() || 'unidade';
+export function directPresentation(product?: Pick<Product, 'unit'> | null, variant?: Pick<PurchaseVariantOption, 'unit'> | null): PurchasePresentationOption {
+  const label = getPhysicalIdentityUnit(product, variant);
   return { id: null, name: 'Unidade direta', purchase_unit_label: label, stock_unit_label: label, conversion_factor: 1, is_approximate: false };
 }
 
@@ -51,6 +52,8 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   const identityResolved = Boolean(product) && (!requiresVariant || Boolean(line.variant_id));
+  const selectedVariant = line.variants.find(item => item.id === line.variant_id);
+  const canonicalUnit = getPhysicalIdentityUnit(product, selectedVariant);
   const presentation = line.presentation;
   const subtotal = (Number(line.qty) || 0) * (Number(line.price) || 0);
   const setPresentation = (next: PurchasePresentationOption, overridden = false) => onChange({ ...line, presentation: next, presentationOverridden: overridden });
@@ -83,9 +86,9 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
           <div className="space-y-2 sm:col-span-2">
             <Label>Forma de compra</Label>
             <Select disabled={!identityResolved} value={presentation?.id ?? 'direct'} onOpenChange={open => { if (open && identityResolved) void onLoadPresentations(); }} onValueChange={value => {
-              if (value === 'direct') return setPresentation(directPresentation(product?.unit));
+              if (value === 'direct') return setPresentation(directPresentation(product, selectedVariant));
               const selected = line.presentations.find(item => item.id === value);
-              if (selected) setPresentation(selected);
+              if (selected) setPresentation({ ...selected, stock_unit_label: canonicalUnit });
             }}>
               <SelectTrigger><SelectValue placeholder={identityResolved ? 'Selecione a forma de compra' : 'Selecione a identidade física primeiro'} /></SelectTrigger>
               <SelectContent>
@@ -103,7 +106,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
             </div>
             {line.presentationOverridden && <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2"><Label>Unidade de compra</Label><Input value={presentation.purchase_unit_label} onChange={event => setPresentation({ ...presentation, purchase_unit_label: event.target.value }, true)} /></div>
-              <div className="space-y-2"><Label>Unidade de estoque</Label><Input value={presentation.stock_unit_label} onChange={event => setPresentation({ ...presentation, stock_unit_label: event.target.value }, true)} /></div>
+              <div className="space-y-2"><Label>Unidade física de controle</Label><Input value={canonicalUnit} readOnly className="bg-muted" /><p className="text-xs text-muted-foreground">Definida pelo Produto/Variante e usada por Estoque, BOM, Produção e MRP.</p></div>
               <div className="space-y-2"><Label>Conversão usada nesta compra</Label><Input type="number" min="0" step="any" value={presentation.conversion_factor} onChange={event => setPresentation({ ...presentation, conversion_factor: Number(event.target.value) }, true)} /></div>
               <div className="flex items-center justify-between gap-3 rounded-md border p-3"><Label>Conversão aproximada</Label><Switch checked={presentation.is_approximate} onCheckedChange={checked => setPresentation({ ...presentation, is_approximate: checked }, true)} /></div>
               <div className="space-y-2 sm:col-span-2"><Label>Observação da compra</Label><Textarea value={presentation.notes ?? ''} onChange={event => setPresentation({ ...presentation, notes: event.target.value }, true)} /></div>
@@ -115,7 +118,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
         </div>
 
         <div className="flex flex-col gap-1 border-t pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          {presentation ? <span className="text-muted-foreground">Referência: {line.qty || 0} × {presentation.conversion_factor}{presentation.is_approximate ? ' ≈' : ''} {presentation.stock_unit_label} (não é estoque)</span> : <span />}
+          {presentation ? <span className="text-muted-foreground">Referência: {line.qty || 0} × {presentation.conversion_factor}{presentation.is_approximate ? ' ≈' : ''} {canonicalUnit} (não é estoque)</span> : <span />}
           <span className="font-medium">Subtotal: {formatCurrency(subtotal)}</span>
         </div>
       </CardContent>
