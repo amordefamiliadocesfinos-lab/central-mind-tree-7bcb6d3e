@@ -20,7 +20,8 @@ import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { buildCommercialOrderItem, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 interface SaleItem {
   product_id: string;
@@ -68,7 +69,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [marketplaceAccount, setMarketplaceAccount] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
-  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
+  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null; unit: string | null }>>([]);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
@@ -85,7 +86,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
     if (!open) return;
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
       .then(({ data }) => setAccounts(data || []));
-    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override').eq('is_active', true).order('variant_name')
+    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override,unit').eq('is_active', true).order('variant_name')
       .then(({ data }: any) => setVariants(data || []));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
@@ -98,12 +99,13 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
 
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((p) => p.id === productId);
-    updateItem(index, { product_id: productId, variant_id: null, unit_price: product?.price ?? 0, commercial_presentation: null, commercial_quantity: 1 });
+    updateItem(index, { product_id: productId, variant_id: null, unit_price: product ? getDefaultCommercialUnitPrice(product) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
 
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
-    updateItem(index, { variant_id: variantId || null, unit_price: variant?.price_override ?? items[index]?.unit_price ?? 0, commercial_presentation: null, commercial_quantity: 1 });
+    const product = products.find((item) => item.id === items[index]?.product_id);
+    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
 
   const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
@@ -275,7 +277,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                 ) : <div />}
                 <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
                   const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
-                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1 });
+                  const product = products.find(candidate => candidate.id === item.product_id);
+                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
+                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0 });
                 }} disabled={!item.product_id || (products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                   <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
@@ -292,7 +296,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {products.find(product => product.id === item.product_id)?.unit ?? 'un'}</p>
+                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>
               </div>
             ))}
           </div>

@@ -79,7 +79,8 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { buildCommercialOrderItem, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
@@ -336,6 +337,7 @@ export default function Operacoes() {
     variant_name: string;
     sku: string;
     price_override: number | null;
+    unit: string | null;
   }>>([]);
   const [financialAccounts, setFinancialAccounts] = useState<Array<{ id: string; name: string }>>([]);
 
@@ -347,7 +349,7 @@ export default function Operacoes() {
   useEffect(() => {
     if (!showSaleDialog) return;
     (supabase as any).from('product_variants')
-      .select('id, product_id, variant_name, sku, price_override')
+      .select('id, product_id, variant_name, sku, price_override, unit')
       .eq('is_active', true)
       .order('variant_name')
       .then(({ data }: { data: typeof saleVariants | null }) => setSaleVariants(data ?? []));
@@ -510,9 +512,7 @@ export default function Operacoes() {
       items[index].variant_id = null;
       items[index].commercial_presentation = null;
       items[index].commercial_quantity = 1;
-      if (product?.price) {
-        items[index].unit_price = product.price;
-      }
+      items[index].unit_price = product ? getDefaultCommercialUnitPrice(product) : 0;
     }
     
     setNewSale({ ...newSale, items });
@@ -878,7 +878,8 @@ export default function Operacoes() {
                               updateSaleItem(i, 'variant_id', variantId || null);
                               updateSaleItem(i, 'commercial_presentation', null);
                               updateSaleItem(i, 'commercial_quantity', 1);
-                              if (variant?.price_override != null) updateSaleItem(i, 'unit_price', variant.price_override);
+                              const product = rawProducts.find(candidate => candidate.id === item.product_id);
+                              updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant) : 0);
                             }}
                           >
                             <SelectTrigger className="h-10">
@@ -898,6 +899,9 @@ export default function Operacoes() {
                             const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
                             updateSaleItem(i, 'commercial_presentation', presentation as any);
                             updateSaleItem(i, 'commercial_quantity', 1);
+                            const product = rawProducts.find(candidate => candidate.id === item.product_id);
+                            const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
+                            updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0);
                           }}
                         >
                           <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
@@ -932,7 +936,7 @@ export default function Operacoes() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {rawProducts.find(product => product.id === item.product_id)?.unit ?? 'un'}</p>
+                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(rawProducts.find(product => product.id === item.product_id), item.variant_id ? saleVariants.find(variant => variant.id === item.variant_id) : null)}</p>
                       </div>
                     ))}
                     {missingSaleVariantProduct && (

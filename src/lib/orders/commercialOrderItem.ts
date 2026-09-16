@@ -14,7 +14,18 @@ export type CommercialOrderItemSnapshot = {
 };
 
 type PhysicalProduct = { id: string; unit?: string | null };
-type PhysicalVariant = { id: string; product_id?: string; unit?: string | null } | null | undefined;
+type PhysicalVariant = { id: string; product_id?: string; unit?: string | null; price_override?: number | null } | null | undefined;
+
+/** Price for one commercial unit. The catalog/variant price remains physical. */
+export function getDefaultCommercialUnitPrice(
+  product: PhysicalProduct & { price?: number | null },
+  variant?: PhysicalVariant,
+  presentation?: Pick<CommercialPresentation, 'conversion_factor'> | null,
+) {
+  const physicalUnitPrice = variant?.price_override ?? product.price ?? 0;
+  const factor = Number(presentation?.conversion_factor ?? 1);
+  return Number.isFinite(factor) && factor > 0 ? Number(physicalUnitPrice) * factor : Number(physicalUnitPrice);
+}
 
 /**
  * Converts the commercial entry to the physical quantity used by stock,
