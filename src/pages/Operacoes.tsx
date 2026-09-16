@@ -415,8 +415,8 @@ export default function Operacoes() {
       cost: editingCostText.trim() === '' ? null : (parsedCost ? parsedCost.number : editingProduct.cost),
       price: editingPriceText.trim() === '' ? null : (parsedPrice ? parsedPrice.number : editingProduct.price),
     };
-    await updateProduct(editingProduct.id, payload);
-    setEditingProduct(null);
+    const updated = await updateProduct(editingProduct.id, payload);
+    if (updated) setEditingProduct(null);
   };
 
   const handleDeleteProduct = async () => {
