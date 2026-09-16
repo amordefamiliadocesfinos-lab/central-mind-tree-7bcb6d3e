@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import { OPERATIONAL_DESTINATION_LABELS, getOperationalDestinationLabel } from '@/lib/orders/operationalDestination';
 import { ORDER_DOCUMENT_TYPE_LABELS, SUPPORTED_ORDER_DOCUMENT_MIME_TYPES } from '@/lib/orders/orderDocuments';
+import { getOrderOperationalOrigin } from './orderPresentation';
 import type { Order } from '@/hooks/useOrders';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
@@ -51,7 +52,7 @@ function printOrderSummary(order: Order) {
   const page = window.open('', '_blank');
   if (!page) return;
   page.opener = null;
-  page.document.write(`<title>Pedido ${orderReference(order)}</title><main><h1>Pedido ${orderReference(order)}</h1><p>Cliente: ${order.customer_name ?? 'Não informado'}</p><p>Canal: ${order.channel ?? 'Não informado'}</p><h2>Itens</h2><ul>${lines.map(line => `<li>${line}</li>`).join('')}</ul></main>`);
+  page.document.write(`<title>Pedido ${orderReference(order)}</title><style>html,body{margin:0;min-height:100%;font-family:Arial,sans-serif}body{display:flex;align-items:center;justify-content:center;text-align:center}main{width:88%;max-width:900px;padding:48px 32px}h1{font-size:42px;margin:0 0 36px}h2{font-size:32px;margin:42px 0 20px}p,li{font-size:28px;line-height:1.45;margin:12px 0}ul{display:inline-block;text-align:left;margin:0;padding-left:36px}@media print{main{padding:0}}</style><main><h1>Pedido ${orderReference(order)}</h1><p>Cliente: ${order.customer_name ?? 'Não informado'}</p><p>Canal: ${order.channel ?? 'Não informado'}</p><h2>Itens</h2><ul>${lines.map(line => `<li>${line}</li>`).join('')}</ul></main>`);
   page.document.close();
   page.focus();
   page.print();
@@ -74,6 +75,21 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [printSelectionOrder, setPrintSelectionOrder] = useState<Order | null>(null);
   const operationalOrders = useMemo(() => orders.filter(isSeparationEligible), [orders]);
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [destinationFilter, setDestinationFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | SeparationStatus>('all');
+  const [logisticsModeFilter, setLogisticsModeFilter] = useState('all');
+  const availableChannels = useMemo(() => [...new Set(operationalOrders.map(order => order.channel).filter(Boolean))].sort(), [operationalOrders]);
+  const availableDestinations = useMemo(() => [...new Set(operationalOrders.map(order => order.operational_destination).filter(Boolean))] as OperationalDestination[], [operationalOrders]);
+  const availableLogisticsModes = useMemo(() => [...new Set(operationalOrders.map(order => order.logistics_mode?.trim()).filter(Boolean))] as string[], [operationalOrders]);
+  const hasFilters = channelFilter !== 'all' || destinationFilter !== 'all' || statusFilter !== 'all' || logisticsModeFilter !== 'all';
+  const filteredOrders = useMemo(() => operationalOrders.filter(order => {
+    const separationStatus = separationByOrderId.get(order.id)?.separation_status ?? 'todo';
+    return (channelFilter === 'all' || order.channel === channelFilter)
+      && (destinationFilter === 'all' || order.operational_destination === destinationFilter)
+      && (statusFilter === 'all' || separationStatus === statusFilter)
+      && (logisticsModeFilter === 'all' || order.logistics_mode === logisticsModeFilter);
+  }), [channelFilter, destinationFilter, logisticsModeFilter, operationalOrders, separationByOrderId, statusFilter]);
 
   const resetDocumentDialog = () => {
     setDocumentOrder(null);
@@ -120,9 +136,16 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
       <h2 className="text-lg font-semibold">Central de Separação</h2>
       <p className="text-sm text-muted-foreground">A finalização encerra somente a responsabilidade física da separação — não conclui o pedido.</p>
     </div>
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-muted/20 p-3">
+      <div className="min-w-36 flex-1"><Label className="text-xs">Canal</Label><Select value={channelFilter} onValueChange={setChannelFilter}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem>{availableChannels.map(channel => <SelectItem key={channel} value={channel}>{channel}</SelectItem>)}</SelectContent></Select></div>
+      <div className="min-w-48 flex-1"><Label className="text-xs">Destino operacional</Label><Select value={destinationFilter} onValueChange={setDestinationFilter}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem>{availableDestinations.map(destination => <SelectItem key={destination} value={destination}>{getOperationalDestinationLabel(destination)}</SelectItem>)}</SelectContent></Select></div>
+      <div className="min-w-36 flex-1"><Label className="text-xs">Status</Label><Select value={statusFilter} onValueChange={value => setStatusFilter(value as 'all' | SeparationStatus)}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem>{COLUMNS.map(column => <SelectItem key={column.status} value={column.status}>{column.title}</SelectItem>)}</SelectContent></Select></div>
+      {availableLogisticsModes.length > 0 && <div className="min-w-44 flex-1"><Label className="text-xs">Modalidade logística</Label><Select value={logisticsModeFilter} onValueChange={setLogisticsModeFilter}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas</SelectItem>{availableLogisticsModes.map(mode => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}</SelectContent></Select></div>}
+      {hasFilters && <Button variant="ghost" size="sm" onClick={() => { setChannelFilter('all'); setDestinationFilter('all'); setStatusFilter('all'); setLogisticsModeFilter('all'); }}>Limpar filtros</Button>}
+    </div>
     <div className="grid gap-3 xl:grid-cols-3">
       {COLUMNS.map(column => {
-        const columnOrders = operationalOrders.filter(order => (separationByOrderId.get(order.id)?.separation_status ?? 'todo') === column.status);
+        const columnOrders = filteredOrders.filter(order => (separationByOrderId.get(order.id)?.separation_status ?? 'todo') === column.status);
         return <section key={column.status} className={cn('rounded-xl border p-3 min-h-48', column.color)}>
           <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-sm">{column.title}</h3><Badge variant="secondary">{columnOrders.length}</Badge></div>
           <div className="space-y-3">{columnOrders.map(order => {
@@ -131,7 +154,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
             const busy = busyOrderId === order.id;
             const itemGroups = groupedItems(order);
             return <Card key={order.id} className="bg-background"><CardContent className="space-y-3 p-3">
-              <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p></div>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div>
+              <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p>{getOrderOperationalOrigin(order) && <p className="mt-1 text-xs text-muted-foreground">{getOrderOperationalOrigin(order)}</p>}</div>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div>
               <div className="space-y-2">{itemGroups.length > 0 ? itemGroups.map(group => <div key={group.name} className="text-sm"><p className="font-medium">{group.name}</p>{group.variants.map((variant, index) => <div key={`${variant.name}-${index}`} className="flex items-baseline justify-between gap-3 pl-2 text-xs text-muted-foreground"><span>{variant.name}</span><span className="shrink-0 text-sm font-bold text-foreground">{variant.quantity}x</span></div>)}</div>) : <p className="text-sm text-muted-foreground">Sem itens</p>}</div>
               <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"><div className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" />{getOperationalDestinationLabel(order.operational_destination) ?? 'Destino operacional a definir'}</div><div className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3.5 w-3.5" />{order.logistics_mode || 'Modalidade não informada'}</div>{relevantDate(order) && <div className="text-muted-foreground">Prazo: {new Date(`${relevantDate(order)}T00:00:00`).toLocaleDateString('pt-BR')}</div>}</div>
               {column.status !== 'finalized' && <Select value={order.operational_destination ?? ''} onValueChange={value => void run(order.id, () => onSetDestination(order.id, value as OperationalDestination))}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Definir destino" /></SelectTrigger><SelectContent>{Object.entries(OPERATIONAL_DESTINATION_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>}

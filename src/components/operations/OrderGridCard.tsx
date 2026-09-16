@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { OrderPriorityBadge } from './OrderPriorityBadge';
 import { LateProductionBadge } from './LateProductionBadge';
-import { getOrderCustomerName, getOrderReference } from './orderPresentation';
+import { getOrderCustomerName, getOrderOperationalOrigin, getOrderReference } from './orderPresentation';
 import { ORDER_OPERATIONAL_STATUS, ORDER_OPERATIONAL_STATUS_LIST, getOperationalStatus } from '@/lib/orders/operationalStatus';
 
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -32,6 +32,7 @@ interface Order {
   customer_name?: string | null;
   status: string;
   channel?: string | null;
+  marketplace_account?: string | null;
   order_date: string;
   due_date?: string | null;
   total_value?: number | null;
@@ -56,6 +57,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
   const customerName = getOrderCustomerName(order);
   const orderReference = getOrderReference(order);
   const channelLabel = order.channel ? orderChannels[order.channel] : undefined;
+  const operationalOrigin = getOrderOperationalOrigin(order);
 
   return (
     <Card
@@ -94,6 +96,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
             {channelLabel && <><span className="font-medium">Canal:</span> {channelLabel} · </>}
             {formatDate(order.order_date)}
           </p>
+          {operationalOrigin && <p><span className="font-medium">Origem:</span> {operationalOrigin}</p>}
           {order.due_date && (
             <div className="flex items-center gap-1.5">
               <span><span className="font-medium text-amber-600">Entrega:</span> {formatDate(order.due_date)}</span>
