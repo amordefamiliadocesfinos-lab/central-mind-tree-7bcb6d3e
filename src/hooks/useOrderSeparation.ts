@@ -113,6 +113,20 @@ export function useOrderSeparation(orders: Order[]) {
     return data as OrderDocument;
   }, [fetchSeparation]);
 
+  /** Sincroniza o anexo de um pedido recém-criado sem depender do ciclo da lista. */
+  const refreshDocumentsForOrder = useCallback(async (orderId: string) => {
+    const { data, error } = await db
+      .from('order_documents')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    setDocuments(current => [
+      ...current.filter(document => document.order_id !== orderId),
+      ...((data ?? []) as OrderDocument[]),
+    ]);
+  }, []);
+
   const openDocument = useCallback(async (document: OrderDocument) => {
     if (document.storage_bucket && document.storage_path) {
       const documentWindow = window.open('', '_blank');
@@ -134,5 +148,5 @@ export function useOrderSeparation(orders: Order[]) {
     window.open(document.file_url, '_blank', 'noopener,noreferrer');
   }, []);
 
-  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, updateOrderOperationalDestination, uploadDocument, openDocument, refetch: fetchSeparation };
+  return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, updateOrderOperationalDestination, uploadDocument, refreshDocumentsForOrder, openDocument, refetch: fetchSeparation };
 }

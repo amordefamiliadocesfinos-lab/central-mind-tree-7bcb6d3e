@@ -78,3 +78,11 @@ export function getOrderCustomerName(order: OrderIdentity): string {
   }
   return getOperationalIdentifier(order);
 }
+
+type PaymentStatus = 'pendente' | 'pago' | 'parcial' | null | undefined;
+
+export function getOrderPaymentPresentation(status: PaymentStatus) {
+  if (status === 'pago') return { label: 'PAGO', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700' };
+  if (status === 'parcial') return { label: 'PARCIAL', className: 'border-amber-500/30 bg-amber-500/10 text-amber-700' };
+  return { label: 'PENDENTE', className: 'border-rose-500/30 bg-rose-500/10 text-rose-700' };
+}

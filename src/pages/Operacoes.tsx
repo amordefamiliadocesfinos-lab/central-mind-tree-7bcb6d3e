@@ -448,6 +448,8 @@ export default function Operacoes() {
     if (documentResults.some(result => result.status === 'rejected')) {
       toast.error('Pedido criado, mas um documento não pôde ser anexado.');
     }
+    await separation.refreshDocumentsForOrder(result.id);
+    await refetch();
     setPendingSaleDocuments([]);
     if (crmContactId && newSale.contact_id) {
       const orderNum = result.order_number || result.id.slice(0, 8);
