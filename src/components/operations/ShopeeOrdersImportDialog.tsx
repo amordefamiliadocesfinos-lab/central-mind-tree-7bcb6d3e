@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { buildShopeeImportItems, buildShopeePreview, parseShopeeShippingXlsx, type ShopeeMappingComponent, type ShopeePreviewItem, type ShopeeProductMapping, type ShopeeShippingOrder } from '@/lib/shopeeShippingXlsx';
+import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInventorySync';
+import { useAppStore } from '@/stores/appStore';
 
-type ProductOption = { id: string; name: string; sku: string };
+type ProductOption = { id: string; name: string; sku: string; unit?: string };
 type ProductVariantOption = { id: string; product_id: string; sku: string; variant_name: string; is_active: boolean };
 type DraftRow = { productId: string; variantId: string; multiplier: string };
 type DraftMapping = { rows: DraftRow[] };
@@ -41,6 +43,8 @@ export function ShopeeOrdersImportDialog({ open, onOpenChange, products, onImpor
   const [showConfirm, setShowConfirm] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [error, setError] = useState('');
+  const inventory = useAppStore(state => state.inventory);
+  useInventorySync();
   const selectedAccount = accounts.find(account => account.id === accountId) || null;
 
   const preview = useMemo(() => buildShopeePreview(orders, mappings, existingIds), [orders, mappings, existingIds]);
@@ -269,7 +273,12 @@ export function ShopeeOrdersImportDialog({ open, onOpenChange, products, onImpor
               <ul className="text-xs text-muted-foreground">{item.components.map((component, index) => {
                 const product = products.find(option => option.id === component.productId);
                 const variant = variants.find(option => option.id === component.variantId);
-                return <li key={index}>{product?.name || 'Produto mapeado'}{variant ? ` · ${variant.variant_name}` : ''} — {item.quantity} × {component.physicalMultiplier} = <b>{component.physicalQuantity}</b> físicas</li>;
+                const identityResolved = Boolean(component.productId) && (!variantsOf(component.productId).length || Boolean(component.variantId));
+                const balance = identityResolved
+                  ? getInventoryBalanceByIdentity(inventory, component.productId, component.variantId || null)
+                  : null;
+                const unit = product?.unit || 'un';
+                return <li key={index}>{product?.name || 'Produto mapeado'}{variant ? ` · ${variant.variant_name}` : ''} — Pedido: <b>{component.physicalQuantity}</b> {unit} · Estoque: <b>{balance === null ? '—' : `${balance} ${unit}`}</b></li>;
               })}</ul>
               <Button type="button" size="sm" variant="outline" onClick={() => { setEditingKey(item.externalItemKey); setDrafts(current => ({ ...current, [item.externalItemKey]: { rows: rowsFromItem(item) } })); }}><Pencil className="mr-1 h-4 w-4" />Editar composição</Button>
             </div>}

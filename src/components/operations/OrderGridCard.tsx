@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { OrderPriorityBadge } from './OrderPriorityBadge';
 import { LateProductionBadge } from './LateProductionBadge';
-import { getOrderCustomerName, getOrderOperationalOrigin, getOrderReference } from './orderPresentation';
+import { getOrderCustomerName, getOrderOperationalOrigin, getOrderPaymentPresentation, getOrderReference } from './orderPresentation';
 import { ORDER_OPERATIONAL_STATUS, ORDER_OPERATIONAL_STATUS_LIST, getOperationalStatus } from '@/lib/orders/operationalStatus';
 
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -33,6 +33,7 @@ interface Order {
   status: string;
   channel?: string | null;
   marketplace_account?: string | null;
+  payment_status?: 'pendente' | 'pago' | 'parcial' | null;
   order_date: string;
   due_date?: string | null;
   total_value?: number | null;
@@ -58,6 +59,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
   const orderReference = getOrderReference(order);
   const channelLabel = order.channel ? orderChannels[order.channel] : undefined;
   const operationalOrigin = getOrderOperationalOrigin(order);
+  const payment = getOrderPaymentPresentation(order.payment_status);
 
   return (
     <Card
@@ -78,6 +80,7 @@ export function OrderGridCard({ order, orderStatus, orderChannels, onStatusChang
           <Badge className={cn('text-xs', statusInfo?.color)}>
             {statusInfo.label}
           </Badge>
+          <Badge variant="outline" className={cn('text-[10px]', payment.className)}>{payment.label}</Badge>
           <span
             className={cn(
               'inline-flex items-center gap-1 text-[11px]',

@@ -77,30 +77,33 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
   const canEdit = !hasPhysicalReceipt || order.status === 'parcialmente_recebido';
 
   return (
-    <Card>
-      <CardHeader className="space-y-3 pb-3">
+    <Card className="overflow-hidden border-l-4 border-l-primary/60 shadow-sm">
+      <CardHeader className="space-y-3 border-b bg-muted/35 pb-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">
-              {order.internal_purchase_number ?? 'Compra'} · {order.supplier?.name ?? 'Fornecedor'}
+          <div className="min-w-0">
+            <CardTitle className="text-lg font-bold tracking-tight">
+              {order.internal_purchase_number ?? 'Compra'}
             </CardTitle>
+            <p className="mt-1 truncate text-sm font-medium text-foreground">
+              {order.supplier?.name ?? 'Fornecedor não informado'}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {order.expected_at ? `Previsão ${formatDisplayDate(order.expected_at)}` : 'Sem previsão informada'}
             </p>
           </div>
-          <Badge variant="secondary">{PURCHASE_STATUS_LABEL[order.status]}</Badge>
+          <Badge className="px-2 py-1">{PURCHASE_STATUS_LABEL[order.status]}</Badge>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
-        <div className="space-y-2">
+        <div className="space-y-2 rounded-lg bg-muted/20 p-2">
           {(order.items ?? []).map(item => <PurchaseOrderLine key={item.id} order={order} item={item} />)}
         </div>
 
         {order.notes && <p className="text-sm text-muted-foreground">Observação: {order.notes}</p>}
 
         {confirmedReceipts.length > 0 && (
-          <div className="space-y-2 border-t pt-3">
+          <div className="space-y-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">Histórico de recebimentos</p>
             {confirmedReceipts.map(receipt => (
               <div key={receipt.id} className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
@@ -112,8 +115,8 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
         )}
 
         <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold">
-            Total da compra: <span className="text-base text-foreground">{formatCurrency(getPurchaseOrderTotal(order))}</span>
+          <p className="text-sm font-semibold text-muted-foreground">
+            Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseOrderTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
