@@ -23,7 +23,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   const [newVariantId, setNewVariantId] = useState('');
   const [productVariantId, setProductVariantId] = useState('');
   const [finalVariants, setFinalVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
-  const [availableVariants, setAvailableVariants] = useState<{ id: string; variant_name: string; sku: string }[]>([]);
+  const [availableVariants, setAvailableVariants] = useState<{ id: string; variant_name: string; sku: string; unit: string | null }[]>([]);
   const [newQty, setNewQty] = useState(1);
   const [requiresFinalVariant, setRequiresFinalVariant] = useState(false);
   const [finalVariantsLoaded, setFinalVariantsLoaded] = useState(false);
@@ -56,7 +56,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
       setNewVariantId('');
       return;
     }
-    void supabase.from('product_variants').select('id, variant_name, sku').eq('product_id', newComponentId).eq('is_active', true).order('variant_name').then(({ data }) => {
+    void supabase.from('product_variants').select('id, variant_name, sku, unit').eq('product_id', newComponentId).eq('is_active', true).order('variant_name').then(({ data }) => {
       setAvailableVariants(data || []);
       setNewVariantId('');
     });
@@ -91,6 +91,9 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
   // Duplicidade é por identidade completa. Um mesmo mestre pode fornecer duas
   // variantes físicas distintas para a mesma variante final.
   const availableToAdd = availableComponents.filter(c => c.id !== productId);
+  const selectedComponent = availableComponents.find(component => component.id === newComponentId);
+  const selectedComponentVariant = availableVariants.find(variant => variant.id === newVariantId);
+  const selectedComponentUnit = getPhysicalIdentityUnit(selectedComponent, selectedComponentVariant);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
@@ -131,7 +134,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
               <TableHead>Componente físico</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Unidade</TableHead>
-              <TableHead className="w-32 text-right">Qtd. por unidade produzida</TableHead>
+              <TableHead className="w-40 text-right">Qtd. na unidade física</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
@@ -145,17 +148,20 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
                 <TableCell className="text-xs text-muted-foreground">{comp.component_variant?.sku || comp.component?.sku}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{getPhysicalIdentityUnit(comp.component, comp.component_variant)}</TableCell>
                 <TableCell className="text-right">
-                  <Input
-                    type="number"
-                    step="any"
-                    min="0.000001"
-                    className="w-24 h-8 text-right"
-                    value={comp.qty_per_unit}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      if (val > 0) handleUpdate(comp.id, val);
-                    }}
-                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <Input
+                      type="number"
+                      step="any"
+                      min="0.000001"
+                      className="w-24 h-8 text-right"
+                      value={comp.qty_per_unit}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (val > 0) handleUpdate(comp.id, val);
+                      }}
+                    />
+                    <span className="w-8 text-left text-xs text-muted-foreground">{getPhysicalIdentityUnit(comp.component, comp.component_variant)}</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Button
@@ -197,8 +203,12 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
             <SelectContent>{availableVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}</SelectContent>
           </Select>
         </div>}
+        {newComponentId && <div className="w-24">
+          <Label className="text-xs">Unidade física</Label>
+          <Input className="h-9 bg-muted" value={selectedComponentUnit} readOnly />
+        </div>}
         <div className="w-24">
-          <Label className="text-xs">Qtd. por unidade produzida</Label>
+          <Label className="text-xs">Qtd. por unidade ({selectedComponentUnit})</Label>
           <Input
             type="number"
             step="any"

@@ -13,6 +13,7 @@ export async function parseBomImportXlsx(file: File): Promise<BomImportRow[]> {
   if (missing.length) throw new Error(`Arquivo incompatível: faltam colunas obrigatórias (${missing.join(', ')}).`);
   return source.map((row, index) => ({
     ...(Object.fromEntries(BOM_IMPORT_HEADERS.map(header => [header, String(row[header] ?? '')])) as Record<(typeof BOM_IMPORT_HEADERS)[number], string>),
+    unidade: String(row.unidade ?? row.unit ?? ''),
     rowNumber: index + 2,
   }));
 }
