@@ -7,6 +7,7 @@ import { createUnifiedSale } from '@/lib/unifiedSales';
 import { transitionOrderStatusWithStock } from '@/lib/orderStock';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import { updateOrderOperationalDestination } from '@/lib/orders/operationalDestination';
+import { assertProductUnitCanChange, normalizePhysicalUnit } from '@/lib/products/canonicalUnitLock';
 
 export interface Product {
   id: string;
@@ -247,6 +248,18 @@ export function useOrders() {
   }, [fetchProducts]);
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
+    if (updates.unit !== undefined) {
+      const { data: current, error: currentError } = await (supabase.from('products') as any).select('unit').eq('id', id).maybeSingle();
+      if (currentError || !current) { toast.error('Não foi possível validar a unidade física do produto.'); return false; }
+      if (normalizePhysicalUnit(current.unit) !== normalizePhysicalUnit(updates.unit)) {
+        try {
+          await assertProductUnitCanChange(id, current.unit, updates.unit);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Não foi possível validar o uso operacional da unidade.');
+          return false;
+        }
+      }
+    }
     const updateData: any = { ...updates };
     if (updates.attributes) updateData.attributes = updates.attributes;
     if (updates.media_urls) updateData.media_urls = updates.media_urls;
@@ -258,11 +271,12 @@ export function useOrders() {
 
     if (error) {
       toast.error('Erro ao atualizar produto');
-      return;
+      return false;
     }
 
     toast.success('Produto atualizado!');
     fetchProducts();
+    return true;
   }, [fetchProducts]);
 
   const updateInventory = useCallback(async (productId: string, quantity: number, location?: string, variantId?: string | null) => {

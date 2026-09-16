@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { assertPhysicalIdentityUnitCanChange, normalizePhysicalUnit } from '@/lib/products/canonicalUnitLock';
 
 export interface ProductVariant {
   id: string;
@@ -122,6 +123,19 @@ export function useProductVariants(productId: string | null) {
 
   const updateVariant = useCallback(async (variantId: string, input: ProductVariantInput) => {
     if (!input.variant_name.trim() || !(await validateSku(input.sku, variantId))) return false;
+
+    const { data: current, error: currentError } = await (supabase.from('product_variants') as any).select('product_id,unit').eq('id', variantId).maybeSingle();
+    if (currentError || !current) { toast.error('Não foi possível validar a unidade física da variação.'); return false; }
+    const { data: parent, error: parentError } = await (supabase.from('products') as any).select('unit').eq('id', current.product_id).maybeSingle();
+    if (parentError || !parent) { toast.error('Não foi possível validar a unidade física do Produto Mestre.'); return false; }
+    if (normalizePhysicalUnit(current.unit || parent.unit) !== normalizePhysicalUnit(input.unit || parent.unit)) {
+      try {
+        await assertPhysicalIdentityUnitCanChange({ productId: current.product_id, variantId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível validar o uso operacional da unidade.');
+        return false;
+      }
+    }
 
     const { error } = await supabase.from('product_variants').update({
       ...input,
