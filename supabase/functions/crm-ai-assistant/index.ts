@@ -14,6 +14,58 @@ const json = (body: unknown, status = 200) =>
 
 interface CatalogItem { code: string; label: string; description: string }
 
+const FAST_MODEL = 'google/gemini-2.5-flash';
+// O gateway pode recusar temporariamente um modelo forte. A chamada abaixo
+// volta ao Flash nessa situação, sem interromper o atendimento.
+const STRONG_MODEL = 'google/gemini-2.5-pro';
+const LOW_CONFIDENCE_THRESHOLD = 0.7;
+
+type EscalationReason =
+  | 'low_confidence'
+  | 'conflicting_signals'
+  | 'multiple_products_or_quantities'
+  | 'relative_date'
+  | 'multiple_plausible_readings'
+  | 'ambiguous_context';
+
+const ESCALATION_REASONS = new Set<EscalationReason>([
+  'low_confidence', 'conflicting_signals', 'multiple_products_or_quantities',
+  'relative_date', 'multiple_plausible_readings', 'ambiguous_context',
+]);
+
+function requestEscalationReasons(body: any): EscalationReason[] {
+  const values = body?.routing?.escalationReasons;
+  return Array.isArray(values)
+    ? [...new Set(values.filter((value): value is EscalationReason => typeof value === 'string' && ESCALATION_REASONS.has(value as EscalationReason)))]
+    : [];
+}
+
+async function requestGateway(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+) {
+  return fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages, response_format: { type: 'json_object' } }),
+  });
+}
+
+async function requestReplyModel(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+) {
+  const response = await requestGateway(apiKey, model, messages);
+  if (response.ok || model === FAST_MODEL) return { response, modelUsed: model };
+
+  // Escalonamento é auxiliar. Se Pro estiver indisponível, o caso continua no
+  // modelo rápido em vez de transformar uma sugestão em falha operacional.
+  console.warn('crm-ai-assistant strong model unavailable; falling back to Flash', response.status);
+  return { response: await requestGateway(apiKey, FAST_MODEL, messages), modelUsed: FAST_MODEL };
+}
+
 const SYSTEM_PROMPT = `Você é um analista de CRM brasileiro. Sua única tarefa é sugerir qual RESULTADO CANÔNICO representa o atendimento atual.
 
 Regras OBRIGATÓRIAS:
@@ -28,9 +80,16 @@ Regras OBRIGATÓRIAS:
 
 Responda APENAS com JSON puro: {"suggested_result_code": "CRM-RES-0XX" ou null, "confidence": 0.0-1.0, "reason": "..."}`;
 
+/** Compilador enxuto: fatos soberanos → tarefa → recente → memória. */
 function compactContext(ctx: any) {
-  const messages = Array.isArray(ctx?.messages) ? ctx.messages.slice(-15) : [];
-  const history = Array.isArray(ctx?.history) ? ctx.history.slice(0, 8) : [];
+  const messages = Array.isArray(ctx?.messages) ? ctx.messages.slice(-8) : [];
+  const history = Array.isArray(ctx?.history) ? ctx.history.slice(0, 4) : [];
+  const tasks = Array.isArray(ctx?.tasks) ? ctx.tasks.slice(0, 3) : [];
+  const officialTask = tasks.find((task: any) => task?.source === 'crm_next_action');
+  const memory = ctx?.liveContext?.memory ?? {};
+  const compactList = (value: unknown) => Array.isArray(value)
+    ? value.slice(0, 6).map((item) => String(item).slice(0, 180))
+    : [];
   return [
     "--- FATOS CANÔNICOS ATUAIS (SOBERANOS) ---",
     `Etapa comercial: ${ctx?.contact?.stage ?? "—"}`,
@@ -38,19 +97,20 @@ function compactContext(ctx: any) {
     `Estado do atendimento: ${ctx?.conversation?.state ?? "—"} | aguardando resposta nossa: ${ctx?.conversation?.needsReply ? "sim" : "não"}`,
     `Último inbound: ${ctx?.conversation?.lastInboundAt ?? "—"} | Último outbound: ${ctx?.conversation?.lastOutboundAt ?? "—"} | Retorno combinado: ${ctx?.conversation?.returnAt ?? "—"}`,
     `Último Resultado registrado: ${ctx?.lastResult ? `${ctx.lastResult.code} — ${ctx.lastResult.label} (${ctx.lastResultAt ?? "—"})` : "nenhum"}`,
+    `Próxima Ação oficial: ${ctx?.nextAction ? `${ctx.nextAction.code} — ${ctx.nextAction.label} | prazo: ${ctx.nextAction.dueAt ?? '—'}` : 'nenhuma'}`,
+    `Tarefa oficial pendente: ${officialTask ? `${officialTask.title} | prazo: ${officialTask.dueAt ?? '—'}` : 'nenhuma'}`,
     `Compras pagas: ${ctx?.purchases?.paidOrdersCount ?? 0} | Últimos pedidos: ${(ctx?.purchases?.lastOrders ?? []).map((o: any) => `#${o.orderNumber ?? o.id} ${o.status ?? ""}/${o.paymentStatus ?? ""}`).join(", ") || "nenhum"}`,
     `Campanha: ${ctx?.campaign ? `${ctx.campaign.campaignName} (enviada em ${ctx.campaign.sentAt}, respondeu: ${ctx.campaign.responded ? "sim" : "não"})` : "nenhuma"}`,
-    `Tags: ${(ctx?.tags ?? []).join(", ") || "—"}`,
     "",
     "--- MEMÓRIA VIVA (INTERPRETATIVA; NUNCA SUBSTITUI FATOS CANÔNICOS) ---",
-    `Resumo consolidado: ${ctx?.liveContext?.summary ?? "ainda não disponível"}`,
-    `Preferências/interesses/objeções conhecidos: ${JSON.stringify(ctx?.liveContext?.memory ?? {})}`,
+    `Resumo consolidado: ${String(ctx?.liveContext?.summary ?? "ainda não disponível").slice(0, 900)}`,
+    `Preferências: ${JSON.stringify(compactList(memory.preferences))} | Interesses: ${JSON.stringify(compactList(memory.interests))} | Padrão de compra: ${JSON.stringify(memory.purchase_pattern ?? {})}`,
     "",
     `--- CONTEXTO RECENTE (${messages.length} mensagens, ordem cronológica) ---`,
     ...messages.map((m: any) => `[${m.createdAt}] ${m.direction === "inbound" ? "CLIENTE" : m.direction === "outbound" ? "OPERADOR" : "?"}: ${String(m.content ?? "").slice(0, 500)}`),
     "",
     `--- Eventos recentes (${history.length}) ---`,
-    ...history.map((h: any) => `[${h.at}] ${h.eventType ?? "-"}: ${h.description ?? ""}`),
+    ...history.map((h: any) => `[${h.at}] ${h.eventType ?? "-"}: ${String(h.description ?? "").slice(0, 280)}`),
   ].join("\n");
 }
 
@@ -116,18 +176,12 @@ function handleNextActionMode(body: any, apiKey: string) {
     compactContext(context),
   ].join("\n");
 
-  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: NEXT_ACTION_SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  }).then(async (aiResp) => {
+  // Próxima Ação é canônica: explicação sempre fica no modelo rápido e nunca
+  // passa a decidir o que o motor já resolveu.
+  return requestGateway(apiKey, FAST_MODEL, [
+    { role: 'system', content: NEXT_ACTION_SYSTEM_PROMPT },
+    { role: 'user', content: userContent },
+  ]).then(async (aiResp) => {
     if (!aiResp.ok) {
       const detail = await aiResp.text();
       console.error("crm-ai-assistant next_action gateway error:", aiResp.status, detail);
@@ -191,6 +245,20 @@ async function handleReplyMode(body: any, apiKey: string) {
     });
   }
 
+  // A Camada A decide se há resposta legítima. Nenhuma variação de modelo ou
+  // prompt pode transformar uma ausência de ação em texto para o cliente.
+  if (decision.shouldReply === false) {
+    return json({
+      suggested_reply: null,
+      reason: typeof decision.reason === 'string' && decision.reason.trim()
+        ? decision.reason.trim().slice(0, 280)
+        : 'A decisão operacional indica que não há resposta necessária no momento.',
+      tone: null,
+      intent: 'none',
+      length: 'short',
+    });
+  }
+
   // FAQ estável e diretamente aplicável vence memória interpretativa e qualquer
   // inferência do modelo. O helper pode combinar até três fatos explícitos da
   // mesma pergunta; fatos dinâmicos jamais chegam por esta via.
@@ -229,18 +297,16 @@ async function handleReplyMode(body: any, apiKey: string) {
     compactCommunicationContext(context),
   ].join("\n");
 
-  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: REPLY_SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
+  const escalationReasons = requestEscalationReasons(body);
+  const routed = await requestReplyModel(
+    apiKey,
+    escalationReasons.length ? STRONG_MODEL : FAST_MODEL,
+    [
+      { role: 'system', content: REPLY_SYSTEM_PROMPT },
+      { role: 'user', content: userContent },
+    ],
+  );
+  const aiResp = routed.response;
 
   if (!aiResp.ok) {
     const detail = await aiResp.text();
@@ -258,17 +324,21 @@ async function handleReplyMode(body: any, apiKey: string) {
     ? parsed.reason.trim().slice(0, 280)
     : (reply ? "Resposta alinhada ao Resultado e à Próxima Ação." : "Nenhuma resposta necessária no momento.");
   const tone = typeof parsed?.tone === "string" && parsed.tone.trim() ? parsed.tone.trim().slice(0, 40) : null;
-  return json({ suggested_reply: reply, reason, tone });
+  return json({ suggested_reply: reply, reason, tone, model_used: routed.modelUsed, escalation_reasons: escalationReasons });
 }
 
 /** Contexto de fala: exclui tags, objeções, fatos persistentes e notas internas. */
 function compactCommunicationContext(ctx: any) {
   const messages = Array.isArray(ctx?.messages) ? ctx.messages.slice(-8) : [];
   const memory = ctx?.liveContext?.memory ?? {};
+  const tasks = Array.isArray(ctx?.tasks) ? ctx.tasks.slice(0, 3) : [];
+  const officialTask = tasks.find((task: any) => task?.source === 'crm_next_action');
   return [
     `Cliente: ${ctx?.contact?.name ?? '—'} | Etapa: ${ctx?.contact?.stage ?? '—'}`,
-    `Próxima ação atual: ${ctx?.nextAction?.label ?? 'nenhuma'} | Opt-out: ${ctx?.contact?.optOut ? 'sim' : 'não'}`,
-    `Preferências/interesses relevantes: ${JSON.stringify({ preferences: memory.preferences ?? [], interests: memory.interests ?? [], purchase_pattern: memory.purchase_pattern ?? {} })}`,
+    `Estado do atendimento: ${ctx?.conversation?.state ?? '—'} | aguarda nossa resposta: ${ctx?.conversation?.needsReply ? 'sim' : 'não'} | return_at: ${ctx?.conversation?.returnAt ?? '—'}`,
+    `Último Resultado: ${ctx?.lastResult ? `${ctx.lastResult.code} — ${ctx.lastResult.label}` : 'nenhum'} | Próxima ação oficial: ${ctx?.nextAction ? `${ctx.nextAction.code} — ${ctx.nextAction.label} | prazo: ${ctx.nextAction.dueAt ?? '—'}` : 'nenhuma'}`,
+    `Tarefa oficial pendente: ${officialTask ? `${officialTask.title} | prazo: ${officialTask.dueAt ?? '—'}` : 'nenhuma'} | Opt-out: ${ctx?.contact?.optOut ? 'sim' : 'não'}`,
+    `Preferências/interesses relevantes: ${JSON.stringify({ preferences: (memory.preferences ?? []).slice(0, 6), interests: (memory.interests ?? []).slice(0, 6), purchase_pattern: memory.purchase_pattern ?? {} })}`,
     '--- MENSAGENS RECENTES ---',
     ...messages.map((m: any) => `[${m.createdAt}] ${m.direction === 'inbound' ? 'CLIENTE' : 'OPERADOR'}: ${String(m.content ?? '').slice(0, 500)}`),
   ].join('\n');
@@ -305,18 +375,11 @@ Deno.serve(async (req) => {
     const catalogText = catalog.map((item) => `${item.code} — ${item.label}: ${item.description}`).join("\n");
     const userContent = `--- CATÁLOGO DE RESULTADOS CANÔNICOS (${catalog.length}) ---\n${catalogText}\n\n--- CONTEXTO DO ATENDIMENTO ---\n${compactContext(context)}`;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+    const gatewayMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userContent },
+    ];
+    const aiResp = await requestGateway(LOVABLE_API_KEY, FAST_MODEL, gatewayMessages);
 
     if (!aiResp.ok) {
       const detail = await aiResp.text();
@@ -328,13 +391,34 @@ Deno.serve(async (req) => {
 
     const data = await aiResp.json();
     const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
-    const validated = validateSuggestion(parsed, catalog);
+    let validated = validateSuggestion(parsed, catalog);
+    const escalationReasons = requestEscalationReasons(body);
+    if (!validated || validated.confidence < LOW_CONFIDENCE_THRESHOLD) {
+      escalationReasons.push('low_confidence');
+    }
+
+    let modelUsed = FAST_MODEL;
+    if (escalationReasons.length) {
+      const strong = await requestGateway(LOVABLE_API_KEY, STRONG_MODEL, gatewayMessages);
+      if (strong.ok) {
+        const strongData = await strong.json();
+        const strongParsed = parseAiJson(String(strongData?.choices?.[0]?.message?.content ?? ''));
+        const strongValidated = validateSuggestion(strongParsed, catalog);
+        if (strongValidated) {
+          validated = strongValidated;
+          modelUsed = STRONG_MODEL;
+        }
+      } else {
+        // O escalonamento não é requisito para a disponibilidade do CRM.
+        console.warn('crm-ai-assistant strong model unavailable; keeping Flash result', strong.status);
+      }
+    }
     if (!validated) {
       // Resposta malformada ou código inexistente: erro controlado, nunca quebra a Inbox.
       return json({ suggested_result_code: null, confidence: 0, reason: "Não foi possível interpretar a análise da IA com segurança.", invalid: true });
     }
 
-    return json(validated);
+    return json({ ...validated, model_used: modelUsed, escalation_reasons: [...new Set(escalationReasons)] });
   } catch (error) {
     console.error("crm-ai-assistant error:", error);
     return json({ error: error instanceof Error ? error.message : "Erro desconhecido" }, 500);

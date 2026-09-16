@@ -9,6 +9,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { buildCrmAiContext, buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext, type CrmAiContextSources } from './aiContext';
 import { getCanonicalResult } from './canonical/results';
+import { getCrmAiEscalationReasons } from './aiModelRouting';
 
 export interface CrmResultSuggestion {
   /** null = a IA não tem informação suficiente para sugerir com segurança. */
@@ -46,7 +47,12 @@ export async function suggestCrmResultFromContext(
   const invoke = invokeFn ?? (async (ctx: CrmAiContext) => {
     const startedAt = performance.now();
     const requestContext = buildCrmAiRequestContext(ctx, 'result');
-    const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: { context: requestContext } });
+    const { data, error } = await supabase.functions.invoke('crm-ai-assistant', {
+      body: {
+        context: requestContext,
+        routing: { escalationReasons: getCrmAiEscalationReasons(ctx) },
+      },
+    });
     if (isCrmAiPerformanceLoggingEnabled()) {
       console.debug('[CRM IA] sugestão de resultado', {
         edgeAndModelMs: Math.round(performance.now() - startedAt),

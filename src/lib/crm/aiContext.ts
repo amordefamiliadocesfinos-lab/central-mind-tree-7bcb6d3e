@@ -123,6 +123,39 @@ export type CrmAiRequestContext = Omit<CrmAiContext, 'catalogs'> & {
   catalogs?: Pick<CrmAiContext['catalogs'], 'results'>;
 };
 
+const REQUEST_LIMITS = {
+  messages: 8,
+  history: 4,
+  tasks: 3,
+  orders: 2,
+  text: 900,
+  memoryItems: 6,
+} as const;
+
+function truncateRequestText(value: unknown, limit = REQUEST_LIMITS.text): string {
+  return String(value ?? '').slice(0, limit);
+}
+
+function compactLiveMemory(liveContext: CrmContactLiveContext | null): CrmContactLiveContext | null {
+  if (!liveContext) return null;
+  const memory = liveContext.memory ?? {};
+  const compactCollection = (value: unknown) => Array.isArray(value)
+    ? value.slice(0, REQUEST_LIMITS.memoryItems).map((item) => truncateRequestText(item, 180))
+    : value;
+
+  return {
+    ...liveContext,
+    summary: truncateRequestText(liveContext.summary),
+    memory: {
+      preferences: compactCollection(memory.preferences),
+      interests: compactCollection(memory.interests),
+      objections: compactCollection(memory.objections),
+      persistent_facts: compactCollection(memory.persistent_facts),
+      purchase_pattern: memory.purchase_pattern ?? {},
+    },
+  };
+}
+
 /**
  * Evita transportar catálogos que o modo solicitado não consulta. Resultado
  * ainda recebe o catálogo soberano; Próxima Ação recebe candidatos explícitos
@@ -133,9 +166,29 @@ export function buildCrmAiRequestContext(
   mode: 'result' | 'next_action' | 'reply',
 ): CrmAiRequestContext {
   const { catalogs, ...shared } = context;
+  // Compilador de transporte: mantém autoridade canônica e a janela recente,
+  // mas evita reenviar memória histórica extensa ou campos redundantes.
+  const compactShared = {
+    ...shared,
+    messages: shared.messages.slice(-REQUEST_LIMITS.messages).map((message) => ({
+      ...message,
+      content: truncateRequestText(message.content, 500),
+    })),
+    history: shared.history.slice(0, REQUEST_LIMITS.history).map((event) => ({
+      ...event,
+      description: truncateRequestText(event.description, 280),
+    })),
+    tasks: shared.tasks.slice(0, REQUEST_LIMITS.tasks),
+    purchases: {
+      ...shared.purchases,
+      lastOrders: shared.purchases.lastOrders.slice(0, REQUEST_LIMITS.orders),
+    },
+    tags: shared.tags.slice(0, REQUEST_LIMITS.memoryItems),
+    liveContext: compactLiveMemory(shared.liveContext),
+  };
   return mode === 'result'
-    ? { ...shared, catalogs: { results: catalogs.results } }
-    : shared;
+    ? { ...compactShared, catalogs: { results: catalogs.results } }
+    : compactShared;
 }
 
 /** Métricas locais apenas em desenvolvimento ou no preview Lovable. */

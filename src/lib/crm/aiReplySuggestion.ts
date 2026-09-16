@@ -18,6 +18,7 @@ import {
   type CrmCommunicationDraft,
 } from './communication';
 import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
+import { getCrmAiEscalationReasons } from './aiModelRouting';
 
 export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
@@ -85,6 +86,19 @@ export async function suggestCrmReplyFromContext(
   // Guarda local: opt-out sem inbound recente jamais produz abordagem outbound.
   const lastMessage = context.messages?.[context.messages.length - 1] ?? null;
   const lastIsInbound = lastMessage?.direction === 'inbound';
+  // A decisão operacional é soberana. Esta guarda vem antes de KB, gateway e
+  // geração livre para que uma fala nunca contradiga a ausência de ação.
+  if (options?.decision && !options.decision.shouldReply) {
+    return {
+      reply: null,
+      message: null,
+      reason: options.decision.reason || 'A decisão operacional indica que não há resposta necessária no momento.',
+      rationale: options.decision.reason || 'A decisão operacional indica que não há resposta necessária no momento.',
+      tone: null,
+      intent: 'none',
+      length: 'short',
+    };
+  }
   if (context.contact?.optOut && !lastIsInbound) {
     return {
       reply: null,
@@ -144,6 +158,7 @@ export async function suggestCrmReplyFromContext(
     decision: options?.decision,
     communicationProfile: options?.profile ?? DEFAULT_BUILDING_COMMUNICATION_PROFILE,
     knowledgeContext,
+    routing: { escalationReasons: getCrmAiEscalationReasons(context, { decision: options?.decision }) },
   });
   if (raw?.error) throw new Error(String(raw.error));
   return normalizeReplyResponse(raw);

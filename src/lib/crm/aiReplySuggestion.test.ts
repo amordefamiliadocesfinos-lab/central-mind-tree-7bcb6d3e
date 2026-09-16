@@ -77,6 +77,17 @@ async function run() {
   );
   assert(f.reply === null && lastPayload === null, 'F: opt-out sem inbound deve bloquear localmente.');
 
+  // F.1 A decisão canônica deve bloquear antes de qualquer FAQ ou gateway.
+  lastPayload = null;
+  const decisionBlocked = await suggestCrmReplyFromContext(
+    context({}, [inbound('Pode me passar mais detalhes?')]),
+    {
+      decision: { shouldReply: false, reason: 'Atendimento encerrado.', decisionState: 'closed' } as any,
+      invoke: stub({ suggested_reply: 'não pode ser chamado' }),
+    },
+  );
+  assert(decisionBlocked.reply === null && lastPayload === null, 'F.1: shouldReply=false deve retornar null sem chamar reply.');
+
   // G. Opt-out + inbound recente → pode sugerir resposta.
   const g = await suggestCrmReplyFromContext(
     context({ contact: { id: 'c1', name: 'Amor', stage: 'perdido', optOut: true } as any }, [inbound('Preciso da segunda via da nota')]),
