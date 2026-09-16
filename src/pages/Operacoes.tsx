@@ -77,6 +77,9 @@ import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { supabase } from '@/integrations/supabase/client';
 import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInventorySync';
 import { toast } from 'sonner';
+import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
+import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
+import { buildCommercialOrderItem, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
@@ -85,6 +88,8 @@ type NewSaleItem = {
   variant_id: string | null;
   quantity: number;
   unit_price: number;
+  commercial_quantity: number;
+  commercial_presentation: CommercialPresentation | null;
   _unit_price_text?: string;
 };
 
@@ -106,6 +111,8 @@ export default function Operacoes() {
     refetch,
   } = useOrders();
   const separation = useOrderSeparation(rawOrders);
+  const commercialPresentations = useCommercialPresentations();
+  const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, CommercialPresentation[]>>({});
 
   const { locations } = useStorageLocations();
   const { getTotalBalance } = useMultiLocationInventory();
@@ -362,7 +369,7 @@ export default function Operacoes() {
 
   const getProductBalance = (productId: string) => productBalances[productId] || 0;
 
-  const saleSubtotal = newSale.items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+  const saleSubtotal = newSale.items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0);
   const saleTotal = Math.max(0, saleSubtotal - newSale.discount_amount + newSale.shipping_amount);
   const missingSaleVariantProduct = newSale.items
     .map(item => ({ item, product: rawProducts.find(product => product.id === item.product_id) }))
@@ -433,9 +440,15 @@ export default function Operacoes() {
       return;
     }
     const { items, discount_text, shipping_text, ...saleData } = newSale;
+    const mappedItems = items.map(item => {
+      const product = rawProducts.find(candidate => candidate.id === item.product_id);
+      const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
+      if (!product) throw new Error('Produto não encontrado.');
+      return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, item.unit_price, item.commercial_presentation);
+    });
     const result = await createOrder(
       { ...saleData, contact_id: newSale.contact_id || undefined },
-      items as Partial<OrderItem>[]
+      mappedItems as Partial<OrderItem>[]
     );
     if (!result) return;
     const documentResults = await Promise.allSettled(
@@ -483,7 +496,7 @@ export default function Operacoes() {
   const addItemToSale = () => {
     setNewSale({
       ...newSale,
-      items: [...newSale.items, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }],
+      items: [...newSale.items, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }],
     });
   };
 
@@ -495,6 +508,8 @@ export default function Operacoes() {
     if (field === 'product_id') {
       const product = rawProducts.find(p => p.id === value);
       items[index].variant_id = null;
+      items[index].commercial_presentation = null;
+      items[index].commercial_quantity = 1;
       if (product?.price) {
         items[index].unit_price = product.price;
       }
@@ -502,6 +517,25 @@ export default function Operacoes() {
     
     setNewSale({ ...newSale, items });
   };
+
+  const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
+  const loadPresentations = useCallback(async (productId: string, variantId: string | null) => {
+    const key = presentationKey(productId, variantId);
+    if (!productId || presentationsByIdentity[key]) return;
+    try {
+      const data = await commercialPresentations.list(productId, variantId, false);
+      setPresentationsByIdentity(current => ({ ...current, [key]: data }));
+    } catch (error) { console.error('Erro ao carregar apresentações comerciais', error); }
+  }, [commercialPresentations, presentationsByIdentity]);
+
+  useEffect(() => {
+    newSale.items.forEach(item => {
+      const product = rawProducts.find(candidate => candidate.id === item.product_id);
+      if (product && (product.variation_mode !== 'variacoes_fisicas' || item.variant_id)) {
+        void loadPresentations(item.product_id, item.variant_id);
+      }
+    });
+  }, [newSale.items, rawProducts, loadPresentations]);
 
   const removeSaleItem = (index: number) => {
     const items = newSale.items.filter((_, i) => i !== index);
@@ -842,6 +876,8 @@ export default function Operacoes() {
                             onValueChange={(variantId) => {
                               const variant = saleVariants.find(candidate => candidate.id === variantId);
                               updateSaleItem(i, 'variant_id', variantId || null);
+                              updateSaleItem(i, 'commercial_presentation', null);
+                              updateSaleItem(i, 'commercial_quantity', 1);
                               if (variant?.price_override != null) updateSaleItem(i, 'unit_price', variant.price_override);
                             }}
                           >
@@ -855,12 +891,27 @@ export default function Operacoes() {
                             </SelectContent>
                           </Select>
                         )}
+                        <Select
+                          value={item.commercial_presentation?.id ?? '__direct__'}
+                          disabled={!item.product_id || (rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}
+                          onValueChange={(value) => {
+                            const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
+                            updateSaleItem(i, 'commercial_presentation', presentation as any);
+                            updateSaleItem(i, 'commercial_quantity', 1);
+                          }}
+                        >
+                          <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__direct__">Unidade direta</SelectItem>
+                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                         <Input
                           type="number"
                           className="h-10"
                           placeholder="Qtd"
-                          value={item.quantity}
-                          onChange={(e) => updateSaleItem(i, 'quantity', parseInt(e.target.value) || 1)}
+                          value={item.commercial_quantity}
+                          onChange={(e) => updateSaleItem(i, 'commercial_quantity', Number(e.target.value) || 0)}
                         />
                         <DecimalInput
                           className="h-10"
@@ -881,7 +932,7 @@ export default function Operacoes() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)}</p>
+                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {rawProducts.find(product => product.id === item.product_id)?.unit ?? 'un'}</p>
                       </div>
                     ))}
                     {missingSaleVariantProduct && (

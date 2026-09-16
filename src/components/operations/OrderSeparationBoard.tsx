@@ -13,6 +13,7 @@ import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import { OPERATIONAL_DESTINATION_LABELS, getOperationalDestinationLabel } from '@/lib/orders/operationalDestination';
 import { ORDER_DOCUMENT_TYPE_LABELS, SUPPORTED_ORDER_DOCUMENT_MIME_TYPES } from '@/lib/orders/orderDocuments';
 import { getOrderOperationalOrigin, getOrderPaymentPresentation } from './orderPresentation';
+import { formatCommercialQuantity } from '@/lib/orders/commercialOrderItem';
 import type { Order } from '@/hooks/useOrders';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
@@ -36,19 +37,19 @@ function orderReference(order: Order) {
 }
 
 function groupedItems(order: Order) {
-  const groups = new Map<string, { name: string; variants: Array<{ name: string; quantity: number }> }>();
+  const groups = new Map<string, { name: string; variants: Array<{ name: string; context: string }> }>();
   for (const item of order.items ?? []) {
     const name = item.product?.name ?? 'Produto';
     const key = item.product_id || name;
     const group = groups.get(key) ?? { name, variants: [] };
-    group.variants.push({ name: item.variant_id ? item.variant?.variant_name ?? 'Variante física' : 'Produto simples', quantity: item.quantity });
+    group.variants.push({ name: item.variant_id ? item.variant?.variant_name ?? 'Variante física' : 'Produto simples', context: formatCommercialQuantity(item) });
     groups.set(key, group);
   }
   return [...groups.values()];
 }
 
 function printOrderSummary(order: Order) {
-  const lines = (order.items ?? []).map(item => `${item.quantity}x ${item.product?.name ?? 'Produto'}${item.variant?.variant_name ? ` — ${item.variant.variant_name}` : ''}`);
+  const lines = (order.items ?? []).map(item => `${formatCommercialQuantity(item)} · ${item.product?.name ?? 'Produto'}${item.variant?.variant_name ? ` — ${item.variant.variant_name}` : ''}`);
   const page = window.open('', '_blank');
   if (!page) return;
   page.opener = null;
@@ -156,7 +157,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
             const payment = getOrderPaymentPresentation(order.payment_status);
             return <Card key={order.id} className="bg-background"><CardContent className="space-y-3 p-3">
               <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p>{getOrderOperationalOrigin(order) && <p className="mt-1 text-xs text-muted-foreground">{getOrderOperationalOrigin(order)}</p>}</div><div className="flex flex-wrap justify-end gap-1"><Badge variant="outline" className={cn('text-[10px]', payment.className)}>{payment.label}</Badge>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div></div>
-              <div className="space-y-2">{itemGroups.length > 0 ? itemGroups.map(group => <div key={group.name} className="text-sm"><p className="font-medium">{group.name}</p>{group.variants.map((variant, index) => <div key={`${variant.name}-${index}`} className="flex items-baseline justify-between gap-3 pl-2 text-xs text-muted-foreground"><span>{variant.name}</span><span className="shrink-0 text-sm font-bold text-foreground">{variant.quantity}x</span></div>)}</div>) : <p className="text-sm text-muted-foreground">Sem itens</p>}</div>
+              <div className="space-y-2">{itemGroups.length > 0 ? itemGroups.map(group => <div key={group.name} className="text-sm"><p className="font-medium">{group.name}</p>{group.variants.map((variant, index) => <div key={`${variant.name}-${index}`} className="flex items-baseline justify-between gap-3 pl-2 text-xs text-muted-foreground"><span>{variant.name}</span><span className="shrink-0 text-sm font-bold text-foreground">{variant.context}</span></div>)}</div>) : <p className="text-sm text-muted-foreground">Sem itens</p>}</div>
               <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"><div className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" />{getOperationalDestinationLabel(order.operational_destination) ?? 'Destino operacional a definir'}</div><div className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3.5 w-3.5" />{order.logistics_mode || 'Modalidade não informada'}</div>{relevantDate(order) && <div className="text-muted-foreground">Prazo: {new Date(`${relevantDate(order)}T00:00:00`).toLocaleDateString('pt-BR')}</div>}</div>
               {column.status !== 'finalized' && <Select value={order.operational_destination ?? ''} onValueChange={value => void run(order.id, () => onSetDestination(order.id, value as OperationalDestination))}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Definir destino" /></SelectTrigger><SelectContent>{Object.entries(OPERATIONAL_DESTINATION_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>}
               {documents.length > 0 && <div className="space-y-1 rounded-md border p-2"><p className="text-xs font-medium">Documentos anexados</p>{documents.map(document => <div key={document.id} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate">{documentTypeLabel(document.document_type)} · {document.file_name ?? 'Documento'}{document.created_at ? ` · ${new Date(document.created_at).toLocaleDateString('pt-BR')}` : ''}</span><Button variant="link" className="h-auto p-0 text-xs" disabled={busy} onClick={() => void run(order.id, () => onPrint(order, document))}>Abrir / Imprimir</Button></div>)}</div>}

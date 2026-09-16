@@ -8,6 +8,7 @@ import { transitionOrderStatusWithStock } from '@/lib/orderStock';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import { updateOrderOperationalDestination } from '@/lib/orders/operationalDestination';
 import { assertProductUnitCanChange, normalizePhysicalUnit } from '@/lib/products/canonicalUnitLock';
+import { getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 
 export interface Product {
   id: string;
@@ -55,6 +56,12 @@ export interface OrderItem {
   quantity: number;
   unit_price: number | null;
   notes: string | null;
+  commercial_presentation_id?: string | null;
+  commercial_presentation_name?: string | null;
+  commercial_unit_label?: string | null;
+  commercial_conversion_factor?: number | null;
+  commercial_quantity?: number | null;
+  physical_unit_label?: string | null;
   product?: Product;
   variant?: { id: string; variant_name: string; sku: string } | null;
 }
@@ -334,6 +341,12 @@ export function useOrders() {
         product_id: item.product_id || '', quantity: item.quantity || 1,
         variant_id: item.variant_id || null,
         unit_price: item.unit_price || 0, notes: item.notes,
+        commercial_presentation_id: item.commercial_presentation_id ?? null,
+        commercial_presentation_name: item.commercial_presentation_name ?? null,
+        commercial_unit_label: item.commercial_unit_label ?? null,
+        commercial_conversion_factor: item.commercial_conversion_factor ?? null,
+        commercial_quantity: item.commercial_quantity ?? null,
+        physical_unit_label: item.physical_unit_label ?? null,
       })));
       toast.success('Pedido e financeiro registrados! Estoque será baixado na expedição.');
       fetchOrders();
@@ -396,9 +409,7 @@ export function useOrders() {
     items?: Partial<OrderItem>[]
   ) => {
     // Update order
-    const total = items?.reduce((acc, item) => {
-      return acc + (item.quantity || 0) * (item.unit_price || 0);
-    }, 0) || updates.total_value;
+    const total = items?.reduce((acc, item) => acc + getOrderItemLineTotal(item as OrderItem), 0) || updates.total_value;
 
     // Get current order to check if order_number changed
     const currentOrder = orders.find(o => o.id === orderId);
@@ -465,6 +476,16 @@ export function useOrders() {
             quantity: item.quantity || 1,
             unit_price: item.unit_price,
             notes: item.notes,
+            commercial_presentation_id: item.commercial_presentation_id ?? null,
+            commercial_presentation_name: item.commercial_presentation_name ?? null,
+            commercial_unit_label: item.commercial_unit_label ?? null,
+            commercial_conversion_factor: item.commercial_conversion_factor ?? null,
+            // The legacy editor keeps physical quantity editable. Preserve the
+            // snapshot and derive the corresponding commercial quantity.
+            commercial_quantity: item.commercial_conversion_factor
+              ? Number(item.quantity || 0) / Number(item.commercial_conversion_factor)
+              : null,
+            physical_unit_label: item.physical_unit_label ?? null,
           }))
         );
       }

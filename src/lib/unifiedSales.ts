@@ -8,9 +8,17 @@ export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
 export interface UnifiedSaleItem {
   product_id: string;
   variant_id?: string | null;
+  /** Always physical/canonical. Commercial entry is kept separately below. */
   quantity: number;
+  /** Price per commercial unit (or physical unit for direct/legacy entries). */
   unit_price: number;
   notes?: string | null;
+  commercial_presentation_id?: string | null;
+  commercial_presentation_name?: string | null;
+  commercial_unit_label?: string | null;
+  commercial_conversion_factor?: number | null;
+  commercial_quantity?: number | null;
+  physical_unit_label?: string | null;
 }
 
 export interface UnifiedSaleInput {
