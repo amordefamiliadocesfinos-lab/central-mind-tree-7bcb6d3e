@@ -32,3 +32,11 @@ export function getVariantValue(override: number | null | undefined, masterValue
 export function getVariantUnit(override: string | null | undefined, masterUnit: string | null | undefined): string {
   return override || masterUnit || 'un';
 }
+
+type PhysicalUnitProduct = { unit?: string | null } | null | undefined;
+type PhysicalUnitVariant = { unit?: string | null } | null | undefined;
+
+/** Unidade canônica da identidade física: variante quando definida, senão Produto Mestre. */
+export function getPhysicalIdentityUnit(product: PhysicalUnitProduct, variant?: PhysicalUnitVariant): string {
+  return getVariantUnit(variant?.unit, product?.unit);
+}

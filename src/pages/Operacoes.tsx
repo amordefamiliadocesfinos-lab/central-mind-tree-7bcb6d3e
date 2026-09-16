@@ -1088,24 +1088,9 @@ export default function Operacoes() {
                         />
                       </div>
                       <div>
-                        <Label>Unidade</Label>
-                        <Select
-                          value={newProduct.unit || 'un'}
-                          onValueChange={(v) => setNewProduct({ ...newProduct, unit: v })}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="un">Unidade</SelectItem>
-                            <SelectItem value="kg">Quilograma</SelectItem>
-                            <SelectItem value="g">Grama</SelectItem>
-                            <SelectItem value="l">Litro</SelectItem>
-                            <SelectItem value="ml">Mililitro</SelectItem>
-                            <SelectItem value="cx">Caixa</SelectItem>
-                            <SelectItem value="pct">Pacote</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label>Unidade física de controle</Label>
+                        <Input className="h-12" value={newProduct.unit || 'un'} onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })} placeholder="Ex.: un, g, kg, ml, L, m ou cm" />
+                        <p className="mt-1 text-xs text-muted-foreground">Usada por Estoque, BOM, Produção e MRP para controlar fisicamente este produto.</p>
                       </div>
                     </div>
                     <div>
@@ -1434,24 +1419,9 @@ export default function Operacoes() {
                   />
                 </div>
                 <div>
-                  <Label>Unidade</Label>
-                  <Select
-                    value={editingProduct.unit}
-                    onValueChange={(v) => setEditingProduct({ ...editingProduct, unit: v })}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="un">Unidade</SelectItem>
-                      <SelectItem value="kg">Quilograma</SelectItem>
-                      <SelectItem value="g">Grama</SelectItem>
-                      <SelectItem value="l">Litro</SelectItem>
-                      <SelectItem value="ml">Mililitro</SelectItem>
-                      <SelectItem value="cx">Caixa</SelectItem>
-                      <SelectItem value="pct">Pacote</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Unidade física de controle</Label>
+                  <Input className="h-12" value={editingProduct.unit} onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })} placeholder="Ex.: un, g, kg, ml, L, m ou cm" />
+                  <p className="mt-1 text-xs text-muted-foreground">Usada por Estoque, BOM, Produção e MRP para controlar fisicamente este produto.</p>
                 </div>
               </div>
               
