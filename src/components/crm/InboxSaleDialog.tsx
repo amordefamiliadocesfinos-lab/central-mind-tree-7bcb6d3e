@@ -162,8 +162,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
 
   return (
     <Dialog open={open} onOpenChange={nextOpen => { if (!nextOpen) setPendingDocuments([]); onOpenChange(nextOpen); }}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[85vh] flex flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <ShoppingCart className="h-4 w-4 text-emerald-600" /> Registrar venda
           </DialogTitle>
@@ -172,8 +172,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="space-y-5 pb-4">
+          <section className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-4">
+          <h3 className="text-sm font-semibold">Contexto da venda</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Canal</Label>
               <Select value={channel} onValueChange={setChannel}>
@@ -194,7 +197,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               </Select>
             </div>
           </div>
+          </section>
 
+          <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+          <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Itens</h3><Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Adicionar item</Button></div>
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Total negociado</Label>
             <Input type="number" min="0" step="0.01" className="h-9" value={negotiatedTotal} placeholder="Opcional — calcula o desconto" onChange={e => {
@@ -208,12 +214,6 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-[11px] text-muted-foreground">Itens da venda</Label>
-              <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px]" onClick={addItem}>
-                <Plus className="h-3 w-3" /> Adicionar
-              </Button>
-            </div>
             {items.length === 0 && (
               <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
                 Nenhum item. Adicione o produto vendido.
@@ -221,7 +221,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
             )}
             {items.map((item, index) => (
               <div key={index} className="space-y-1">
-                <div className="grid grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] items-center gap-1.5">
+                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] sm:gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
@@ -257,7 +257,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               </div>
             ))}
           </div>
+          </section>
 
+          <section className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-4"><h3 className="text-sm font-semibold">Logística e destino</h3>
           <OperationalDestinationFields
             destination={operationalDestination}
             logisticsMode={logisticsMode}
@@ -268,9 +270,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               setOperationalDestinationDetails(details);
             }}
           />
+          </section>
 
-          <PendingOrderDocumentsFields value={pendingDocuments} onChange={setPendingDocuments} />
-
+          <section className="space-y-3 rounded-xl border p-3 sm:p-4"><h3 className="text-sm font-semibold">Financeiro</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Desconto</Label>
@@ -322,6 +324,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
             <Label className="text-[11px] text-muted-foreground">Conta do marketplace</Label>
             <Input className="h-9" value={marketplaceAccount} onChange={e => setMarketplaceAccount(e.target.value)} placeholder="Ex.: Shopee Viviane" />
           </div>}
+          </section>
+
+          <section className="space-y-3 rounded-xl border p-3 sm:p-4"><h3 className="text-sm font-semibold">Documentos</h3>
+          <PendingOrderDocumentsFields value={pendingDocuments} onChange={setPendingDocuments} />
+          </section>
 
           <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <span>Subtotal {formatCurrency(subtotal)} · desconto {formatCurrency(discount)} · frete {formatCurrency(shipping)}</span>
@@ -333,14 +340,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
             <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Combinações, forma de pagamento, prazo..." />
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5" />}
-              Registrar venda
-            </Button>
-          </div>
         </div>
+        </div>
+        <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-6"><div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button><Button onClick={handleSave} disabled={saving} className="flex-[2] gap-1.5">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}Registrar venda</Button></div></div>
       </DialogContent>
     </Dialog>
   );
