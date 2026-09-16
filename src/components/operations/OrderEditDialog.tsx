@@ -103,6 +103,12 @@ export function OrderEditDialog({
         quantity: i.quantity,
         unit_price: i.unit_price,
         notes: i.notes,
+        commercial_presentation_id: i.commercial_presentation_id ?? null,
+        commercial_presentation_name: i.commercial_presentation_name ?? null,
+        commercial_unit_label: i.commercial_unit_label ?? null,
+        commercial_conversion_factor: i.commercial_conversion_factor ?? null,
+        commercial_quantity: i.commercial_quantity ?? null,
+        physical_unit_label: i.physical_unit_label ?? null,
       })) || []);
     }
   }, [order]);
@@ -134,9 +140,23 @@ export function OrderEditDialog({
     if (field === 'product_id') {
       const product = products.find(p => p.id === value);
       (newItems[index] as any).variant_id = null;
+      (newItems[index] as any).commercial_presentation_id = null;
+      (newItems[index] as any).commercial_presentation_name = null;
+      (newItems[index] as any).commercial_unit_label = null;
+      (newItems[index] as any).commercial_conversion_factor = null;
+      (newItems[index] as any).commercial_quantity = null;
+      (newItems[index] as any).physical_unit_label = null;
       if (product?.price) {
         newItems[index].unit_price = product.price;
       }
+    }
+    if (field === 'variant_id') {
+      (newItems[index] as any).commercial_presentation_id = null;
+      (newItems[index] as any).commercial_presentation_name = null;
+      (newItems[index] as any).commercial_unit_label = null;
+      (newItems[index] as any).commercial_conversion_factor = null;
+      (newItems[index] as any).commercial_quantity = null;
+      (newItems[index] as any).physical_unit_label = null;
     }
     
     setItems(newItems);
@@ -148,7 +168,7 @@ export function OrderEditDialog({
 
   const calculateTotal = () => {
     return items.reduce((acc, item) => {
-      return acc + (item.quantity || 0) * (item.unit_price || 0);
+      return acc + (item.commercial_quantity ?? item.quantity ?? 0) * (item.unit_price || 0);
     }, 0);
   };
 

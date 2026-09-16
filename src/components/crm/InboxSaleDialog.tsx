@@ -18,12 +18,18 @@ import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrde
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
+import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
+import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
+import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 interface SaleItem {
   product_id: string;
   variant_id?: string | null;
   quantity: number;
   unit_price: number;
+  commercial_quantity: number;
+  commercial_presentation: CommercialPresentation | null;
 }
 
 interface InboxSaleDialogProps {
@@ -46,6 +52,7 @@ const CHANNELS: Array<[string, string]> = [
 
 export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, contactHandle, onCreated, onSaleCreated }: InboxSaleDialogProps) {
   const { products } = useProductsList();
+  const commercialPresentations = useCommercialPresentations();
   const inventory = useAppStore((state) => state.inventory);
   useInventorySync();
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -62,28 +69,29 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [marketplaceAccount, setMarketplaceAccount] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
-  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null }>>([]);
+  const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null; unit: string | null }>>([]);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
   const [operationalDestinationDetails, setOperationalDestinationDetails] = useState<Record<string, unknown>>({});
   const [pendingDocuments, setPendingDocuments] = useState<PendingOrderDocument[]>([]);
+  const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, CommercialPresentation[]>>({});
   const [saving, setSaving] = useState(false);
   const saleRequestKeyRef = useRef<string | null>(null);
 
-  const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity || 0) * (item.unit_price || 0), 0), [items]);
+  const subtotal = useMemo(() => items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0), [items]);
   const total = Math.max(0, subtotal - discount + shipping);
 
   useEffect(() => {
     if (!open) return;
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
       .then(({ data }) => setAccounts(data || []));
-    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override').eq('is_active', true).order('variant_name')
+    (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override,unit').eq('is_active', true).order('variant_name')
       .then(({ data }: any) => setVariants(data || []));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
-  const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }]);
 
   const updateItem = (index: number, patch: Partial<SaleItem>) => {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -91,13 +99,32 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
 
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((p) => p.id === productId);
-    updateItem(index, { product_id: productId, variant_id: null, unit_price: product?.price ?? 0 });
+    updateItem(index, { product_id: productId, variant_id: null, unit_price: product ? getDefaultCommercialUnitPrice(product) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
 
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
-    updateItem(index, { variant_id: variantId || null, unit_price: variant?.price_override ?? items[index]?.unit_price ?? 0 });
+    const product = products.find((item) => item.id === items[index]?.product_id);
+    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
+
+  const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
+  const loadPresentations = async (productId: string, variantId: string | null) => {
+    if (!productId || presentationsByIdentity[presentationKey(productId, variantId)]) return;
+    try {
+      const data = await commercialPresentations.list(productId, variantId, false);
+      setPresentationsByIdentity(current => ({ ...current, [presentationKey(productId, variantId)]: data }));
+    } catch (error) { console.error('Erro ao carregar apresentações comerciais', error); }
+  };
+
+  useEffect(() => {
+    items.forEach((item) => {
+      const product = products.find(candidate => candidate.id === item.product_id);
+      if (product && (product.variation_mode !== 'variacoes_fisicas' || item.variant_id)) {
+        void loadPresentations(item.product_id, item.variant_id ?? null);
+      }
+    });
+  }, [items, products]);
 
   const getItemStockBalance = (item: SaleItem) => {
     const product = products.find((candidate) => candidate.id === item.product_id);
@@ -115,6 +142,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const handleSave = async () => {
     const validItems = items.filter(item => item.product_id && item.quantity > 0);
     if (!validItems.length) return toast.error('Adicione ao menos um produto para registrar a venda.');
+    const missingVariant = validItems.map(item => ({ item, product: products.find(product => product.id === item.product_id) }))
+      .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id);
+    if (missingVariant?.product) return toast.error(`Selecione a variante física de ${missingVariant.product.name}.`);
     if (paymentStatus === 'pago' && !accountId) return toast.error('Selecione a conta que recebeu o pagamento.');
     setSaving(true);
     try {
@@ -131,7 +161,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         operational_destination_details: operationalDestinationDetails,
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
-      }, validItems);
+      }, validItems.map(item => {
+        const product = products.find(candidate => candidate.id === item.product_id);
+        const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
+        if (!product) throw new Error('Produto não encontrado.');
+        return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, item.unit_price, item.commercial_presentation);
+      }));
       const documentResults = await Promise.allSettled(
         pendingDocuments.map(document => uploadOrderDocument({
           orderId: result.order_id,
@@ -230,20 +265,28 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                     ))}
                   </SelectContent>
                 </Select>
-                {variants.some((variant) => variant.product_id === item.product_id) ? (
-                  <Select value={item.variant_id || '__none__'} onValueChange={(value) => pickVariant(index, value === '__none__' ? '' : value)}>
+                {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' ? (
+                  <Select value={item.variant_id || ''} onValueChange={(value) => pickVariant(index, value)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">Sem variante</SelectItem>
                       {variants.filter((variant) => variant.product_id === item.product_id).map((variant) => (
                         <SelectItem key={variant.id} value={variant.id} className="text-xs">{variant.variant_name} · {variant.sku}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : <div />}
+                <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
+                  const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
+                  const product = products.find(candidate => candidate.id === item.product_id);
+                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
+                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0 });
+                }} disabled={!item.product_id || (products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                  <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
+                </Select>
                 <Input
-                  type="number" inputMode="decimal" className="h-8 text-xs" value={item.quantity}
-                  onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
+                  type="number" inputMode="decimal" className="h-8 text-xs" value={item.commercial_quantity}
+                  onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
                 />
                 <Input
                   type="number" inputMode="decimal" className="h-8 text-xs" value={item.unit_price}
@@ -253,7 +296,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)}</p>
+                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>
               </div>
             ))}
           </div>

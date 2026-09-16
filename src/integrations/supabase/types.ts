@@ -3235,33 +3235,58 @@ export type Database = {
       }
       order_items: {
         Row: {
+          commercial_conversion_factor: number | null
+          commercial_presentation_id: string | null
+          commercial_presentation_name: string | null
+          commercial_quantity: number | null
+          commercial_unit_label: string | null
           id: string
           notes: string | null
           order_id: string
+          physical_unit_label: string | null
           product_id: string
           quantity: number
           unit_price: number | null
           variant_id: string | null
         }
         Insert: {
+          commercial_conversion_factor?: number | null
+          commercial_presentation_id?: string | null
+          commercial_presentation_name?: string | null
+          commercial_quantity?: number | null
+          commercial_unit_label?: string | null
           id?: string
           notes?: string | null
           order_id: string
+          physical_unit_label?: string | null
           product_id: string
           quantity?: number
           unit_price?: number | null
           variant_id?: string | null
         }
         Update: {
+          commercial_conversion_factor?: number | null
+          commercial_presentation_id?: string | null
+          commercial_presentation_name?: string | null
+          commercial_quantity?: number | null
+          commercial_unit_label?: string | null
           id?: string
           notes?: string | null
           order_id?: string
+          physical_unit_label?: string | null
           product_id?: string
           quantity?: number
           unit_price?: number | null
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_commercial_presentation_id_fkey"
+            columns: ["commercial_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_presentations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
