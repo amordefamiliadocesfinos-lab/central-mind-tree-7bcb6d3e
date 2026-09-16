@@ -108,7 +108,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Quantidade operacional ({item.stock_unit_label})</Label>
+                    <Label>Quantidade física recebida ({item.stock_unit_label})</Label>
                     {item.presentation_snapshot?.is_approximate && (
                       <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {Number(line.received_purchase_qty || 0) * Number(item.conversion_factor)} {item.stock_unit_label}. Confirme a medida física real.</p>
                     )}
