@@ -67,6 +67,21 @@ export function usePurchases() {
     return data;
   }, []);
   const updatePresentation = useCallback(async (id: string, input: UpdatePurchasePresentationInput) => {
+    const hasFunctionalChange = input.name !== undefined
+      || input.purchase_unit_label !== undefined
+      || input.conversion_factor !== undefined
+      || input.is_approximate !== undefined
+      || input.notes !== undefined;
+    if (!hasFunctionalChange && input.is_active !== undefined) {
+      const { data, error } = await db
+        .from('purchase_presentations')
+        .update({ is_active: input.is_active })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
     const { data: current, error: currentError } = await db.from('purchase_presentations').select('product_id,variant_id').eq('id', id).single();
     if (currentError) throw currentError;
     const { data: product, error: productError } = await db.from('products').select('unit').eq('id', current.product_id).single();
