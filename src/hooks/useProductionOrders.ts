@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useBOM, type BOMLine } from './useBOM';
 import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 export interface ProductionOrderProcess {
   id: string;
@@ -354,14 +355,23 @@ export function useProductionOrders() {
     if (!result.success) {
       if (result.reason === 'missing_bom') toast.error('BOM não configurada para a variante final desta OP');
       if (result.reason === 'no_consolidated_quantity') toast.error('Nenhuma quantidade consolidada para concluir');
+      const shortageRows = result.shortages ?? [];
+      const componentIds = [...new Set(shortageRows.map(line => line.product_id))];
+      const variantIds = [...new Set(shortageRows.map(line => line.variant_id).filter(Boolean))] as string[];
+      const [{ data: components }, { data: variants }] = await Promise.all([
+        componentIds.length ? (supabase.from('products') as any).select('id,unit').in('id', componentIds) : Promise.resolve({ data: [] }),
+        variantIds.length ? supabase.from('product_variants').select('id,unit').in('id', variantIds) : Promise.resolve({ data: [] }),
+      ]);
+      const componentsById = new Map((components ?? []).map((component: any) => [component.id, component]));
+      const variantsById = new Map((variants ?? []).map((variant: any) => [variant.id, variant]));
       return {
         success: false,
-        shortages: (result.shortages ?? []).map(line => ({
+        shortages: shortageRows.map(line => ({
           component_id: line.product_id,
           variant_id: line.variant_id,
           component_name: line.component_variant_name ? `${line.component_name} · ${line.component_variant_name}` : line.component_name,
           component_sku: line.component_sku,
-          unit: 'un',
+          unit: getPhysicalIdentityUnit(componentsById.get(line.product_id), line.variant_id ? variantsById.get(line.variant_id) : null),
           qty_per_unit: 0,
           qty_needed: Number(line.required_quantity),
           stock_available: Number(line.available_quantity),

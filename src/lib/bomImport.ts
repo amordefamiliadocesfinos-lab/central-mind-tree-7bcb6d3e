@@ -1,3 +1,5 @@
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
+
 export const BOM_IMPORT_HEADERS = [
   'produto_sku',
   'produto_variante_sku',
@@ -7,12 +9,17 @@ export const BOM_IMPORT_HEADERS = [
   'observacao',
 ] as const;
 
-export type BomImportRow = Record<(typeof BOM_IMPORT_HEADERS)[number], string> & { rowNumber: number };
+export const BOM_IMPORT_OPTIONAL_HEADERS = ['unidade'] as const;
+export type BomImportRow = Record<(typeof BOM_IMPORT_HEADERS)[number], string> & {
+  unidade?: string;
+  rowNumber: number;
+};
 
 export type BomImportProduct = {
   id: string;
   sku: string | null;
   name: string;
+  unit: string | null;
   variation_mode: 'sem_variacao' | 'variacoes_fisicas' | null;
   is_active?: boolean | null;
 };
@@ -22,6 +29,7 @@ export type BomImportVariant = {
   product_id: string;
   sku: string | null;
   variant_name: string;
+  unit: string | null;
   is_active?: boolean | null;
 };
 
@@ -64,6 +72,7 @@ export type BomImportAnalysis = {
 };
 
 const sku = (value: string | null | undefined) => String(value || '').trim();
+const unit = (value: string | null | undefined) => String(value || '').trim().toLocaleLowerCase();
 const text = (value: string | null | undefined) => {
   const normalized = String(value || '').replace(/\r\n?/g, '\n').trim();
   return normalized || null;
@@ -129,6 +138,10 @@ export function analyzeBomImport(
     if ('error' in final) return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: final.error, finalLabel: row.produto_sku || 'Produto final', componentLabel: row.componente_sku || 'Componente' };
     if ('error' in component) return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: component.error, finalLabel: label(final.product, final.variant), componentLabel: row.componente_sku || 'Componente' };
     if (!quantity) return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: 'Quantidade deve ser numérica e maior que zero.', finalLabel: label(final.product, final.variant), componentLabel: label(component.product, component.variant) };
+    const canonicalUnit = getPhysicalIdentityUnit(component.product, component.variant);
+    if (unit(row.unidade) && unit(row.unidade) !== unit(canonicalUnit)) {
+      return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: `A unidade informada diverge da unidade física cadastrada do componente (${canonicalUnit}).`, finalLabel: label(final.product, final.variant), componentLabel: label(component.product, component.variant) };
+    }
     const key = identity(final.product.id, final.variant?.id || null, component.product.id, component.variant?.id || null);
     if (seen.has(key)) return { rowNumber: row.rowNumber, state: 'ERRO' as const, details: 'A mesma identidade física está repetida no arquivo.', finalLabel: label(final.product, final.variant), componentLabel: label(component.product, component.variant) };
     seen.add(key);

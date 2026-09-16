@@ -161,7 +161,7 @@ export function useBOM() {
   ) => {
     const { error } = await supabase
       .from('product_components')
-      .update({ qty_per_unit: qtyPerUnit, notes: notes || null })
+      .update({ qty_per_unit: qtyPerUnit, ...(notes !== undefined ? { notes: notes || null } : {}) })
       .eq('id', id);
 
     if (error) {
