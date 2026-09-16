@@ -53,6 +53,7 @@ import { OperationalDestinationFields } from '@/components/operations/Operationa
 import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
+import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
 import { useProductIdeas } from '@/hooks/useProductIdeas';
@@ -1408,6 +1409,8 @@ export default function Operacoes() {
               </div>
 
               <ProductVariantsPanel product={editingProduct} />
+
+              <CommercialPresentationManager product={editingProduct} />
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
