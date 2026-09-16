@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useProductVariants, type ProductVariant, type ProductVariantInput } from '@/hooks/useProductVariants';
-import { formatVariantAttributes, getVariantUnit, getVariantValue, parseVariantAttributes } from '@/lib/productVariants';
+import { formatVariantAttributes, getPhysicalIdentityUnit, getVariantValue, parseVariantAttributes } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 
 interface ProductVariantsPanelProps {
@@ -119,7 +119,7 @@ export function ProductVariantsPanel({ product }: ProductVariantsPanelProps) {
                 </div>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {getVariantUnit(variant.unit, product.unit)} · Custo {formatCurrency(getVariantValue(variant.cost_override, product.cost) || 0)} · Preço {formatCurrency(getVariantValue(variant.price_override, product.price) || 0)}
+                Unidade física: {getPhysicalIdentityUnit(product, variant)} · Custo {formatCurrency(getVariantValue(variant.cost_override, product.cost) || 0)} · Preço {formatCurrency(getVariantValue(variant.price_override, product.price) || 0)}
               </p>
             </div>
           ))}
@@ -136,7 +136,7 @@ export function ProductVariantsPanel({ product }: ProductVariantsPanelProps) {
             </div>
             <div><Label>Características</Label><Input value={attributesText} onChange={(event) => setAttributesText(event.target.value)} placeholder="Ex.: sabor=chocolate; peso=120g" /></div>
             <div className="grid grid-cols-3 gap-3">
-              <div><Label>Unidade</Label><Input value={form.unit || ''} onChange={(event) => setForm({ ...form, unit: event.target.value || null })} placeholder={`Herda ${product.unit}`} /></div>
+              <div><Label>Unidade física de controle</Label><Input value={form.unit || ''} onChange={(event) => setForm({ ...form, unit: event.target.value || null })} placeholder={`Herda a unidade física do Produto Mestre (${product.unit})`} /><p className="mt-1 text-xs text-muted-foreground">Em branco, herda a unidade física do Produto Mestre.</p></div>
               <div><Label>Custo próprio</Label><Input type="number" min="0" step="any" value={form.cost_override ?? ''} onChange={(event) => setForm({ ...form, cost_override: optionalNumber(event.target.value) })} placeholder="Herdar" /></div>
               <div><Label>Preço próprio</Label><Input type="number" min="0" step="any" value={form.price_override ?? ''} onChange={(event) => setForm({ ...form, price_override: optionalNumber(event.target.value) })} placeholder="Herdar" /></div>
             </div>

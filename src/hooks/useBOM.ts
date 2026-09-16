@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PhysicalIdentityError, resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 export interface ProductComponent {
   id: string;
@@ -236,7 +237,7 @@ export function useBOM() {
         variant_id: c.variant_id || null,
         component_name: c.component_variant ? `${c.component?.name || 'Componente'} · ${c.component_variant.variant_name}` : (c.component?.name || 'Unknown'),
         component_sku: c.component_variant?.sku || c.component?.sku || '',
-        unit: c.component_variant?.unit || c.component?.unit || 'un',
+        unit: getPhysicalIdentityUnit(c.component, c.component_variant),
         qty_per_unit: c.qty_per_unit,
         qty_needed: qtyNeeded,
         stock_available: stockAvailable,

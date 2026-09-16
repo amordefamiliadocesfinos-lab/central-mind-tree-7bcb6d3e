@@ -9,6 +9,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BOMImportDialog } from '@/components/operations/BOMImportDialog';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 interface BOMEditorProps {
   productId: string;
@@ -130,7 +131,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
               <TableHead>Componente físico</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Unidade</TableHead>
-              <TableHead className="w-24 text-right">Qtd/un</TableHead>
+              <TableHead className="w-32 text-right">Qtd. por unidade produzida</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
@@ -142,7 +143,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
                   {comp.component_variant && <span className="text-xs text-muted-foreground ml-2">· {comp.component_variant.variant_name}</span>}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{comp.component_variant?.sku || comp.component?.sku}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{comp.component_variant?.unit || comp.component?.unit}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{getPhysicalIdentityUnit(comp.component, comp.component_variant)}</TableCell>
                 <TableCell className="text-right">
                   <Input
                     type="number"
@@ -197,7 +198,7 @@ export function BOMEditor({ productId, productName, availableComponents }: BOMEd
           </Select>
         </div>}
         <div className="w-24">
-          <Label className="text-xs">Qtd/un</Label>
+          <Label className="text-xs">Qtd. por unidade produzida</Label>
           <Input
             type="number"
             step="any"

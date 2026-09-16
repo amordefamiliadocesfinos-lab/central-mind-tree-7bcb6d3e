@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const SIMPLE_VARIANT_KEY = '__simple__';
 export const physicalIdentityKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? SIMPLE_VARIANT_KEY}`;
@@ -63,7 +64,7 @@ export function useMRP() {
       .flatMap((order: any) => (order.items || []).filter((item: any) => item.product_id).map((item: any) => ({
         product_id: item.product_id, variant_id: item.variant_id || null, quantity: Number(item.quantity || 0),
         product_name: item.product?.name || 'Produto não identificado', variant_name: item.variant?.variant_name || null,
-        product_sku: item.product?.sku || '', variant_sku: item.variant?.sku || null, unit: item.variant?.unit || item.product?.unit || 'un',
+        product_sku: item.product?.sku || '', variant_sku: item.variant?.sku || null, unit: getPhysicalIdentityUnit(item.product, item.variant),
         order_reference: order.internal_order_number || order.order_number || order.id.slice(0, 8),
       })));
     if (!demandRows.length) return [];
@@ -92,7 +93,7 @@ export function useMRP() {
       const existing = materialMap.get(key) ?? {
         component_id: component.component_id, variant_id: component.variant_id || null,
         component_name: component.variant ? `${component.component?.name || 'Componente'} · ${component.variant.variant_name}` : component.component?.name || 'Componente não identificado',
-        component_sku: component.variant?.sku || component.component?.sku || '', unit: component.variant?.unit || component.component?.unit || 'un', total_needed: 0, stock_available: 0, shortage: 0, orders_affected: [],
+        component_sku: component.variant?.sku || component.component?.sku || '', unit: getPhysicalIdentityUnit(component.component, component.variant), total_needed: 0, stock_available: 0, shortage: 0, orders_affected: [],
       };
       existing.total_needed += Number(component.qty_per_unit || 0) * need.shortage;
       for (const reference of need.orders_affected) if (!existing.orders_affected.includes(reference)) existing.orders_affected.push(reference);
