@@ -2,11 +2,13 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { Product } from '@/hooks/useOrders';
+import { parseDecimalInput } from '@/lib/decimal';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 
@@ -48,6 +50,10 @@ export function directPresentation(product?: Pick<Product, 'unit'> | null, varia
   return { id: null, name: 'Unidade direta', purchase_unit_label: label, stock_unit_label: label, conversion_factor: 1, is_approximate: false };
 }
 
+function parsePurchaseNumber(value: string) {
+  return parseDecimalInput(value, { min: 0, maxDecimals: 10, locale: 'pt-BR' })?.number ?? 0;
+}
+
 export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, onProductChange, onVariantChange, onLoadPresentations, onRemove }: Props) {
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
@@ -55,7 +61,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
   const selectedVariant = line.variants.find(item => item.id === line.variant_id);
   const canonicalUnit = getPhysicalIdentityUnit(product, selectedVariant);
   const presentation = line.presentation;
-  const subtotal = (Number(line.qty) || 0) * (Number(line.price) || 0);
+  const subtotal = parsePurchaseNumber(line.qty) * parsePurchaseNumber(line.price);
   const setPresentation = (next: PurchasePresentationOption, overridden = false) => onChange({ ...line, presentation: next, presentationOverridden: overridden });
 
   return (
@@ -113,8 +119,28 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
             </div>}
           </div>}
 
-          <div className="space-y-2"><Label>Quantidade</Label><Input type="number" min="0" step="any" value={line.qty} onChange={event => onChange({ ...line, qty: event.target.value })} /></div>
-          <div className="space-y-2"><Label>Preço por unidade</Label><Input type="number" min="0" step="any" value={line.price} onChange={event => onChange({ ...line, price: event.target.value })} /></div>
+          <div className="space-y-2">
+            <Label>Quantidade</Label>
+            <DecimalInput
+              min={0}
+              maxDecimals={10}
+              locale="pt-BR"
+              value={line.qty}
+              onValueChange={value => onChange({ ...line, qty: value })}
+              placeholder="Ex.: 8.742 ou 8.742,5"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Preço por unidade</Label>
+            <DecimalInput
+              min={0}
+              maxDecimals={10}
+              locale="pt-BR"
+              value={line.price}
+              onValueChange={value => onChange({ ...line, price: value })}
+              placeholder="Ex.: 379,10"
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 border-t pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
