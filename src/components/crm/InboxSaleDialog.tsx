@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CurrencyInput } from '@/components/ui/currency-input';
-import { formatBrazilianCurrencyInput, parseBrazilianCurrencyInput } from '@/lib/currencyInput';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,7 +30,6 @@ interface SaleItem {
   unit_price: number;
   commercial_quantity: number;
   commercial_presentation: CommercialPresentation | null;
-  _unit_price_text?: string;
 }
 
 interface InboxSaleDialogProps {
@@ -102,13 +99,13 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
 
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((p) => p.id === productId);
-    updateItem(index, { product_id: productId, variant_id: null, unit_price: product ? getDefaultCommercialUnitPrice(product) : 0, _unit_price_text: undefined, commercial_presentation: null, commercial_quantity: 1 });
+    updateItem(index, { product_id: productId, variant_id: null, unit_price: product ? getDefaultCommercialUnitPrice(product) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
 
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
     const product = products.find((item) => item.id === items[index]?.product_id);
-    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, _unit_price_text: undefined, commercial_presentation: null, commercial_quantity: 1 });
+    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, commercial_presentation: null, commercial_quantity: 1 });
   };
 
   const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
@@ -148,8 +145,6 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
     const missingVariant = validItems.map(item => ({ item, product: products.find(product => product.id === item.product_id) }))
       .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id);
     if (missingVariant?.product) return toast.error(`Selecione a variante física de ${missingVariant.product.name}.`);
-    const pricedItems = validItems.map((item) => ({ item, price: parseBrazilianCurrencyInput(item._unit_price_text ?? String(item.unit_price ?? '')) }));
-    if (pricedItems.some(({ price }) => !price)) return toast.error('Informe um valor unitário válido para cada item.');
     if (paymentStatus === 'pago' && !accountId) return toast.error('Selecione a conta que recebeu o pagamento.');
     setSaving(true);
     try {
@@ -166,11 +161,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         operational_destination_details: operationalDestinationDetails,
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
-      }, pricedItems.map(({ item, price }) => {
+      }, validItems.map(item => {
         const product = products.find(candidate => candidate.id === item.product_id);
         const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
         if (!product) throw new Error('Produto não encontrado.');
-        return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
+        return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, item.unit_price, item.commercial_presentation);
       }));
       const documentResults = await Promise.allSettled(
         pendingDocuments.map(document => uploadOrderDocument({
@@ -261,7 +256,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
             )}
             {items.map((item, index) => (
               <div key={index} className="space-y-1">
-                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_5rem_10rem_2.5rem] sm:gap-1.5">
+                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_64px_88px_32px] sm:gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
@@ -279,12 +274,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                       ))}
                     </SelectContent>
                   </Select>
-                ) : <div className="hidden sm:block" />}
+                ) : <div />}
                 <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
                   const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
                   const product = products.find(candidate => candidate.id === item.product_id);
                   const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
-                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
+                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0 });
                 }} disabled={!item.product_id || (products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                   <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
@@ -293,18 +288,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
                   type="number" inputMode="decimal" className="h-8 text-xs" value={item.commercial_quantity}
                   onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
                 />
-                <CurrencyInput
-                  className="h-8 min-w-[10rem] text-right text-xs tabular-nums"
-                  aria-label="Valor unitário"
-                  placeholder="R$ 0,00"
-                  value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
-                  onValueChange={(value) => {
-                    const parsed = parseBrazilianCurrencyInput(value);
-                    updateItem(index, { _unit_price_text: value, ...(parsed ? { unit_price: parsed.number } : {}) });
-                  }}
-                  onValueCommit={(parsed) => {
-                    if (parsed) updateItem(index, { unit_price: parsed.number });
-                  }}
+                <Input
+                  type="number" inputMode="decimal" className="h-8 text-xs" value={item.unit_price}
+                  onChange={(e) => updateItem(index, { unit_price: Number(e.target.value) })}
                 />
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setItems((c) => c.filter((_, i) => i !== index))}>
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
