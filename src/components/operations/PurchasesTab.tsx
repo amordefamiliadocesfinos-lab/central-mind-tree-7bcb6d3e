@@ -19,6 +19,7 @@ import { useContacts } from '@/hooks/useContacts';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
+import { parseDecimalInput } from '@/lib/decimal';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -59,6 +60,16 @@ function presentationIdentityKey(productId: string, variantId: string | null) {
   return `${productId}:${variantId ?? 'simple'}`;
 }
 
+function parsePurchaseNumber(value: string) {
+  return parseDecimalInput(value, { min: 0, maxDecimals: 10, locale: 'pt-BR' });
+}
+
+function requirePurchaseNumber(value: string, label: string) {
+  const parsed = parsePurchaseNumber(value);
+  if (!parsed) throw new Error(`Informe ${label} em formato numérico válido.`);
+  return parsed.number;
+}
+
 export function PurchasesTab({ products }: { products: Product[] }) {
   const purchases = usePurchases();
   const { contacts } = useContacts();
@@ -84,7 +95,11 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   );
   const editingHasConfirmedReceipts = Boolean(editingOrder?.receipts?.some(receipt => receipt.status === 'confirmed'));
   const total = useMemo(
-    () => lines.reduce((sum, line) => sum + (Number(line.qty) || 0) * (Number(line.price) || 0), 0),
+    () => lines.reduce((sum, line) => {
+      const qty = parsePurchaseNumber(line.qty)?.number ?? 0;
+      const price = parsePurchaseNumber(line.price)?.number ?? 0;
+      return sum + qty * price;
+    }, 0),
     [lines],
   );
 
@@ -209,6 +224,9 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           throw new Error('Informe uma forma de compra com conversão maior que zero.');
         }
 
+        const orderedPurchaseQty = requirePurchaseNumber(line.qty, 'a quantidade');
+        if (orderedPurchaseQty <= 0) throw new Error('A quantidade deve ser maior que zero.');
+        const unitPrice = line.price === '' ? null : requirePurchaseNumber(line.price, 'o preço por unidade');
         const presentation = line.presentation;
         const canonicalUnit = getPhysicalIdentityUnit(
           product,
@@ -218,11 +236,11 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           product_id: line.product_id,
           variant_id: line.variant_id,
           purchase_presentation_id: presentation.id,
-          ordered_purchase_qty: Number(line.qty),
+          ordered_purchase_qty: orderedPurchaseQty,
           purchase_unit_label: presentation.purchase_unit_label,
           conversion_factor: Number(presentation.conversion_factor),
           stock_unit_label: canonicalUnit,
-          unit_price: line.price === '' ? null : Number(line.price),
+          unit_price: unitPrice,
           presentation_snapshot: {
             presentation_id: presentation.id,
             name: presentation.name,
@@ -291,13 +309,18 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     if (!receiptOrder) return;
     if (!locationId) return toastError('Selecione o local de estoque.');
 
-    const items = receiptLines
-      .map(line => ({
-        purchase_order_item_id: line.purchase_order_item_id,
-        received_purchase_qty: Number(line.received_purchase_qty),
-        operational_received_qty: Number(line.operational_received_qty),
-      }))
-      .filter(line => line.received_purchase_qty > 0);
+    let items;
+    try {
+      items = receiptLines
+        .map(line => ({
+          purchase_order_item_id: line.purchase_order_item_id,
+          received_purchase_qty: requirePurchaseNumber(line.received_purchase_qty, 'a quantidade recebida'),
+          operational_received_qty: requirePurchaseNumber(line.operational_received_qty, 'a quantidade física recebida'),
+        }))
+        .filter(line => line.received_purchase_qty > 0);
+    } catch (error) {
+      return toastError(errorMessage(error, 'Informe quantidades recebidas válidas.'));
+    }
     if (!items.length) return toastError('Informe ao menos uma quantidade recebida.');
 
     try {
