@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PurchaseOrder } from '@/hooks/usePurchases';
 import type { StorageLocation } from '@/hooks/useStorageLocations';
+import { parseDecimalInput } from '@/lib/decimal';
 import { getConfirmedPurchaseQuantity } from './PurchaseOrderCard';
 
 export interface PurchaseReceiptDraftLine {
@@ -21,6 +22,10 @@ interface PurchaseReceiptDialogProps {
   busy: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (locationId: string, lines: PurchaseReceiptDraftLine[]) => Promise<void>;
+}
+
+function parsePurchaseNumber(value: string) {
+  return parseDecimalInput(value, { min: 0, maxDecimals: 10, locale: 'pt-BR' });
 }
 
 export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, onConfirm }: PurchaseReceiptDialogProps) {
@@ -50,6 +55,19 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
     setLines(current => current.map(line => line.purchase_order_item_id === itemId ? { ...line, ...updates } : line));
   };
 
+  const confirmWithNormalizedValues = async () => {
+    const normalizedLines = lines.map(line => {
+      const received = parsePurchaseNumber(line.received_purchase_qty);
+      const operational = parsePurchaseNumber(line.operational_received_qty);
+      return {
+        ...line,
+        received_purchase_qty: received?.normalized ?? '',
+        operational_received_qty: operational?.normalized ?? '',
+      };
+    });
+    await onConfirm(locationId, normalizedLines);
+  };
+
   return (
     <ResponsiveDialog
       open={Boolean(order)}
@@ -58,7 +76,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
       description="A confirmação cria a entrada física no estoque pela rotina oficial."
       className="sm:max-w-2xl"
       footer={(
-        <Button className="w-full" disabled={busy} onClick={() => void onConfirm(locationId, lines)}>
+        <Button className="w-full" disabled={busy} onClick={() => void confirmWithNormalizedValues()}>
           {busy ? 'Confirmando…' : 'Confirmar recebimento'}
         </Button>
       )}
@@ -80,7 +98,8 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
             if (!item) return null;
             const pending = Math.max(0, Number(item.ordered_purchase_qty) - getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id));
             const confirmed = getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id);
-            const projectedReceived = confirmed + (Number(line.received_purchase_qty) || 0);
+            const receivedNumber = parsePurchaseNumber(line.received_purchase_qty)?.number ?? 0;
+            const projectedReceived = confirmed + receivedNumber;
             const projectedDivergence = projectedReceived - Number(item.ordered_purchase_qty);
             return (
               <div key={line.purchase_order_item_id} className="space-y-3 rounded-md border p-3">
@@ -93,31 +112,33 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Quantidade recebida ({item.purchase_unit_label})</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <DecimalInput
+                      min={0}
+                      maxDecimals={10}
+                      locale="pt-BR"
                       value={line.received_purchase_qty}
-                      onChange={event => {
-                        const received = event.target.value;
+                      onValueChange={received => {
+                        const receivedParsed = parsePurchaseNumber(received)?.number ?? 0;
                         updateLine(item.id, {
                           received_purchase_qty: received,
-                          ...(line.operationalEdited ? {} : { operational_received_qty: String((Number(received) || 0) * Number(item.conversion_factor)) }),
+                          ...(line.operationalEdited ? {} : { operational_received_qty: String(receivedParsed * Number(item.conversion_factor)) }),
                         });
                       }}
+                      placeholder="Ex.: 8.742"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Quantidade física recebida ({item.stock_unit_label})</Label>
                     {item.presentation_snapshot?.is_approximate && (
-                      <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {Number(line.received_purchase_qty || 0) * Number(item.conversion_factor)} {item.stock_unit_label}. Confirme a medida física real.</p>
+                      <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {receivedNumber * Number(item.conversion_factor)} {item.stock_unit_label}. Confirme a medida física real.</p>
                     )}
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <DecimalInput
+                      min={0}
+                      maxDecimals={10}
+                      locale="pt-BR"
                       value={line.operational_received_qty}
-                      onChange={event => updateLine(item.id, { operational_received_qty: event.target.value, operationalEdited: true })}
+                      onValueChange={value => updateLine(item.id, { operational_received_qty: value, operationalEdited: true })}
+                      placeholder="Ex.: 8.742 ou 8.742,5"
                     />
                   </div>
                 </div>

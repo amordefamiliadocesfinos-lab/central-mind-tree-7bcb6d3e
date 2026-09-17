@@ -5,12 +5,52 @@ export interface ParsedDecimal {
   number: number;
 }
 
-export function normalizeDecimalInput(raw: string): string {
+export type DecimalInputLocale = 'auto' | 'pt-BR';
+
+function normalizePtBrDecimal(s: string): string {
+  const sign = s.startsWith('-') ? '-' : '';
+  let unsigned = s.replace(/^[+-]/, '');
+
+  // Keep only digits and separators before deciding their meaning.
+  unsigned = unsigned.replace(/[^0-9.,]/g, '');
+
+  const lastComma = unsigned.lastIndexOf(',');
+  const lastDot = unsigned.lastIndexOf('.');
+
+  if (lastComma !== -1) {
+    // In pt-BR, comma is the decimal separator. Dots are thousands separators.
+    const integerPart = unsigned.slice(0, lastComma).replace(/[.,]/g, '');
+    const decimalPart = unsigned.slice(lastComma + 1).replace(/[.,]/g, '');
+    unsigned = decimalPart ? `${integerPart}.${decimalPart}` : `${integerPart}.`;
+  } else if (lastDot !== -1) {
+    // A dot followed by exactly 3 digits is interpreted as a pt-BR thousands
+    // separator (8.742 => 8742). Other single-dot forms remain compatible
+    // with decimal-dot input (379.10 => 379.10).
+    const ptBrThousands = /^\d{1,3}(?:\.\d{3})+$/;
+    if (ptBrThousands.test(unsigned)) {
+      unsigned = unsigned.replace(/\./g, '');
+    } else {
+      const parts = unsigned.split('.');
+      unsigned = parts[0] + (parts.length > 1 ? `.${parts.slice(1).join('')}` : '');
+    }
+  }
+
+  return sign + unsigned;
+}
+
+export function normalizeDecimalInput(
+  raw: string,
+  opts?: { locale?: DecimalInputLocale },
+): string {
   let s = (raw ?? '').trim();
   if (!s) return '';
 
   // Remove spaces
   s = s.replace(/\s+/g, '');
+
+  if (opts?.locale === 'pt-BR') {
+    return normalizePtBrDecimal(s);
+  }
 
   const lastComma = s.lastIndexOf(',');
   const lastDot = s.lastIndexOf('.');
@@ -53,9 +93,10 @@ export function parseDecimalInput(
     min?: number;
     maxDecimals?: number;
     allowNegative?: boolean;
+    locale?: DecimalInputLocale;
   }
 ): ParsedDecimal | null {
-  const normalized = normalizeDecimalInput(raw);
+  const normalized = normalizeDecimalInput(raw, { locale: opts?.locale });
   if (!normalized || normalized === '-' || normalized === '.') return null;
 
   // Trim decimals without rounding (if maxDecimals provided)
