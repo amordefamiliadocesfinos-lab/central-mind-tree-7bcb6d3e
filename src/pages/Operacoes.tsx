@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DecimalInput } from '@/components/ui/decimal-input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { formatBrazilianCurrencyInput, parseBrazilianCurrencyInput } from '@/lib/currencyInput';
 import { parseDecimalInput } from '@/lib/decimal';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -442,11 +444,19 @@ export default function Operacoes() {
       return;
     }
     const { items, discount_text, shipping_text, ...saleData } = newSale;
-    const mappedItems = items.map(item => {
+    const pricedItems = items.map(item => ({
+      item,
+      price: parseBrazilianCurrencyInput(item._unit_price_text ?? String(item.unit_price ?? '')),
+    }));
+    if (pricedItems.some(({ price }) => !price)) {
+      toast.error('Informe um valor unitário válido para cada item.');
+      return;
+    }
+    const mappedItems = pricedItems.map(({ item, price }) => {
       const product = rawProducts.find(candidate => candidate.id === item.product_id);
       const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
       if (!product) throw new Error('Produto não encontrado.');
-      return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, item.unit_price, item.commercial_presentation);
+      return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
     });
     const result = await createOrder(
       { ...saleData, contact_id: newSale.contact_id || undefined },
@@ -503,19 +513,25 @@ export default function Operacoes() {
   };
 
   const updateSaleItem = (index: number, field: keyof NewSaleItem, value: string | number | null) => {
-    const items = [...newSale.items];
-    if (!items[index]) return;
-    (items[index] as Record<string, string | number | null | undefined>)[field] = value;
-    
-    if (field === 'product_id') {
-      const product = rawProducts.find(p => p.id === value);
-      items[index].variant_id = null;
-      items[index].commercial_presentation = null;
-      items[index].commercial_quantity = 1;
-      items[index].unit_price = product ? getDefaultCommercialUnitPrice(product) : 0;
-    }
-    
-    setNewSale({ ...newSale, items });
+    setNewSale((current) => {
+      const items = [...current.items];
+      if (!items[index]) return current;
+      const next = { ...items[index] };
+      if (field === '_unit_price_text' && value === null) delete next._unit_price_text;
+      else (next as Record<string, string | number | null | undefined>)[field] = value;
+
+      if (field === 'product_id') {
+        const product = rawProducts.find(p => p.id === value);
+        next.variant_id = null;
+        next.commercial_presentation = null;
+        next.commercial_quantity = 1;
+        next.unit_price = product ? getDefaultCommercialUnitPrice(product) : 0;
+        delete next._unit_price_text;
+      }
+
+      items[index] = next;
+      return { ...current, items };
+    });
   };
 
   const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
@@ -856,7 +872,7 @@ export default function Operacoes() {
                     </div>
                     {newSale.items.map((item, i) => (
                       <div key={i} className="mb-3 space-y-2 rounded-lg border bg-muted/10 p-2.5">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(180px,1fr)_11rem_4rem_5rem_2.5rem] sm:items-center">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(170px,1fr)_minmax(9rem,0.9fr)_minmax(9rem,0.9fr)_5rem_10rem_2.5rem] sm:items-center">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
@@ -870,7 +886,7 @@ export default function Operacoes() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && (
+                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' ? (
                           <Select
                             value={item.variant_id ?? ''}
                             onValueChange={(variantId) => {
@@ -880,6 +896,7 @@ export default function Operacoes() {
                               updateSaleItem(i, 'commercial_quantity', 1);
                               const product = rawProducts.find(candidate => candidate.id === item.product_id);
                               updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant) : 0);
+                              updateSaleItem(i, '_unit_price_text', null);
                             }}
                           >
                             <SelectTrigger className="h-10">
@@ -891,7 +908,7 @@ export default function Operacoes() {
                               ))}
                             </SelectContent>
                           </Select>
-                        )}
+                        ) : <div className="hidden sm:block" />}
                         <Select
                           value={item.commercial_presentation?.id ?? '__direct__'}
                           disabled={!item.product_id || (rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}
@@ -902,6 +919,7 @@ export default function Operacoes() {
                             const product = rawProducts.find(candidate => candidate.id === item.product_id);
                             const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
                             updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0);
+                            updateSaleItem(i, '_unit_price_text', null);
                           }}
                         >
                           <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
@@ -917,20 +935,23 @@ export default function Operacoes() {
                           value={item.commercial_quantity}
                           onChange={(e) => updateSaleItem(i, 'commercial_quantity', Number(e.target.value) || 0)}
                         />
-                        <DecimalInput
-                          className="h-10"
-                          placeholder="R$"
-                          value={(item as any)._unit_price_text ?? String(item.unit_price ?? '')}
+                        <CurrencyInput
+                          className="h-10 min-w-[10rem] text-right tabular-nums"
+                          aria-label="Valor unitário"
+                          placeholder="R$ 0,00"
+                          value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
                           onValueChange={(v) => {
-                            const items = [...newSale.items];
-                            (items[i] as any)._unit_price_text = v;
-                            setNewSale({ ...newSale, items });
+                            const parsed = parseBrazilianCurrencyInput(v);
+                            setNewSale((current) => {
+                              const items = [...current.items];
+                              if (!items[i]) return current;
+                              items[i] = { ...items[i], _unit_price_text: v, ...(parsed ? { unit_price: parsed.number } : {}) };
+                              return { ...current, items };
+                            });
                           }}
                           onValueCommit={(parsed) => {
-                            updateSaleItem(i, 'unit_price', parsed?.number ?? 0);
+                            if (parsed) updateSaleItem(i, 'unit_price', parsed.number);
                           }}
-                          min={0}
-                          maxDecimals={10}
                         />
                           <Button size="icon" variant="ghost" className="h-10 w-full sm:w-10" onClick={() => removeSaleItem(i)}>
                           <Trash2 className="h-4 w-4" />
