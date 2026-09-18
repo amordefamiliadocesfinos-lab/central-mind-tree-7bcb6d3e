@@ -4094,9 +4094,6 @@ export default function Nucleo() {
               <Badge variant="secondary" className="text-[10px]">
                 Área administrativa
               </Badge>
-              <Badge variant="outline" className="text-[10px]">
-                Teste de sincronização 18/09/2026
-              </Badge>
             </div>
             <p className="text-xs text-muted-foreground truncate">
               Base estratégica e documental do sistema
