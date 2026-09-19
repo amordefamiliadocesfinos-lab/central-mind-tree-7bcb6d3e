@@ -9,8 +9,6 @@ export interface PurchaseFinancialInstallment {
 
 export type PurchaseFinancialConditionPreset = 'avista' | '30dias' | 'personalizado';
 
-const MONEY_TOLERANCE_CENTS = 1;
-
 export function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -74,7 +72,7 @@ export function validatePurchaseFinancialInstallments(
   const installmentsCents = normalized.reduce((sum, installment) => sum + Math.round(installment.value * 100), 0);
   const differenceCents = installmentsCents - totalCents;
 
-  if (Math.abs(differenceCents) > MONEY_TOLERANCE_CENTS) {
+  if (differenceCents !== 0) {
     return {
       valid: false,
       message: `A soma das parcelas deve ser igual ao total comercial da compra. Diferença: R$ ${(differenceCents / 100).toFixed(2).replace('.', ',')}.`,
