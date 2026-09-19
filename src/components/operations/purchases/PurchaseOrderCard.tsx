@@ -1,4 +1,5 @@
-import { PackageCheck, Pencil, Trash2, Truck, X } from 'lucide-react';
+import { useState } from 'react';
+import { BarChart3, PackageCheck, Pencil, Trash2, Truck, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +7,7 @@ import { PURCHASE_STATUS_LABEL, type PurchaseItem, type PurchaseOrder } from '@/
 import { formatDisplayDate } from '@/lib/dateUtils';
 import { getPurchaseCommercialTotal } from '@/lib/purchases/purchaseFinancialCondition';
 import { formatCurrency } from '@/lib/utils';
+import { PurchaseItemSupplierIntelligenceDialog } from './PurchaseItemSupplierIntelligenceDialog';
 
 interface PurchaseOrderCardProps {
   order: PurchaseOrder;
@@ -32,7 +34,7 @@ function hasConfirmedReceiptForItem(order: PurchaseOrder, itemId: string) {
     .some(receipt => (receipt.items ?? []).some(item => item.purchase_order_item_id === itemId));
 }
 
-function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: PurchaseItem }) {
+function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; item: PurchaseItem; onCompare: (item: PurchaseItem) => void }) {
   const received = getConfirmedPurchaseQuantity(order, item.id);
   const pending = Math.max(0, Number(item.ordered_purchase_qty) - received);
   const divergence = received - Number(item.ordered_purchase_qty);
@@ -40,7 +42,7 @@ function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: Purcha
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
-    <div className="space-y-1 rounded-md border p-3 text-sm">
+    <div className="space-y-2 rounded-md border p-3 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-medium">
           {item.product?.name ?? 'Produto'}
@@ -59,11 +61,15 @@ function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: Purcha
           Divergência: {hasConfirmedReceipt ? `${divergence > 0 ? '+' : ''}${divergence} ${item.purchase_unit_label}` : '—'}
         </span>
       </div>
+      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => onCompare(item)}>
+        <BarChart3 className="mr-1 h-3.5 w-3.5" />Comparar fornecedores e preços
+      </Button>
     </div>
   );
 }
 
 export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
+  const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
   const hasPhysicalReceipt = confirmedReceipts.length > 0;
@@ -90,7 +96,9 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
 
       <CardContent className="space-y-3">
         <div className="space-y-2 rounded-lg bg-muted/20 p-2">
-          {(order.items ?? []).map(item => <PurchaseOrderLine key={item.id} order={order} item={item} />)}
+          {(order.items ?? []).map(item => (
+            <PurchaseOrderLine key={item.id} order={order} item={item} onCompare={setIntelligenceItem} />
+          ))}
         </div>
 
         {order.notes && <p className="text-sm text-muted-foreground">Observação: {order.notes}</p>}
@@ -129,6 +137,12 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
             )}
           </div>
         </div>
+
+        <PurchaseItemSupplierIntelligenceDialog
+          item={intelligenceItem}
+          open={Boolean(intelligenceItem)}
+          onOpenChange={open => !open && setIntelligenceItem(null)}
+        />
       </CardContent>
     </Card>
   );
