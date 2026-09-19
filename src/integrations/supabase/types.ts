@@ -4366,6 +4366,7 @@ export type Database = {
           period: string
           process_id: string
           production_order_id: string
+          production_order_item_id: string | null
           quantity: number
           total_value: number | null
           updated_at: string
@@ -4380,6 +4381,7 @@ export type Database = {
           period?: string
           process_id: string
           production_order_id: string
+          production_order_item_id?: string | null
           quantity?: number
           total_value?: number | null
           updated_at?: string
@@ -4394,6 +4396,7 @@ export type Database = {
           period?: string
           process_id?: string
           production_order_id?: string
+          production_order_item_id?: string | null
           quantity?: number
           total_value?: number | null
           updated_at?: string
@@ -4412,6 +4415,13 @@ export type Database = {
             columns: ["production_order_id"]
             isOneToOne: false
             referencedRelation: "production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_entries_production_order_item_id_fkey"
+            columns: ["production_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "production_order_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4472,6 +4482,61 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          planned_quantity: number
+          produced_quantity: number
+          product_id: string
+          production_order_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          planned_quantity: number
+          produced_quantity?: number
+          product_id: string
+          production_order_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          planned_quantity?: number
+          produced_quantity?: number
+          product_id?: string
+          production_order_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_order_items_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_order_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -6275,6 +6340,10 @@ export type Database = {
       physical_identity_has_operational_usage: {
         Args: { p_product_id: string; p_variant_id: string }
         Returns: boolean
+      }
+      recalculate_production_order_item: {
+        Args: { p_item_id: string }
+        Returns: undefined
       }
       recalculate_purchase_order_receiving_status: {
         Args: { p_purchase_order_id: string }
