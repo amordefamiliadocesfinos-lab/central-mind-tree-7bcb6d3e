@@ -1,6 +1,9 @@
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, TrendingUp, AlertTriangle, Package } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { OperationalIntelligencePanel } from './OperationalIntelligencePanel';
+import type { OperationsTab } from './OperationsBottomNav';
 
 interface KPIs {
   totalOrders: number;
@@ -21,6 +24,7 @@ interface KPICardsProps {
 }
 
 export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
+  const [, setSearchParams] = useSearchParams();
   const cards = [
     {
       label: 'Pedidos',
@@ -56,7 +60,6 @@ export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
     },
   ];
 
-  // Add stock value card if available
   if (stockValue) {
     cards.push({
       label: 'Valor em Estoque',
@@ -76,15 +79,11 @@ export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
           return (
             <Card key={card.label} className="shrink-0 min-w-[100px]">
               <CardContent className="p-3 flex items-center gap-2">
-                <Icon className={cn("h-4 w-4 shrink-0", card.color)} />
+                <Icon className={cn('h-4 w-4 shrink-0', card.color)} />
                 <div>
-                  <p className={cn("text-lg font-bold leading-none", card.color)}>
-                    {card.format(card.value)}
-                  </p>
+                  <p className={cn('text-lg font-bold leading-none', card.color)}>{card.format(card.value)}</p>
                   <p className="text-[10px] text-muted-foreground">{card.label}</p>
-                  {card.subtitle && (
-                    <p className="text-[9px] text-muted-foreground/70">{card.subtitle}</p>
-                  )}
+                  {card.subtitle && <p className="text-[9px] text-muted-foreground/70">{card.subtitle}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -94,31 +93,33 @@ export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
     );
   }
 
+  const navigateOperational = (tab: OperationsTab) => {
+    setSearchParams({ tab }, { replace: true });
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <Card key={card.label}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-lg bg-muted", card.color)}>
-                  <Icon className="h-5 w-5" />
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.label}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn('p-2 rounded-lg bg-muted', card.color)}><Icon className="h-5 w-5" /></div>
+                  <div>
+                    <p className={cn('text-xl font-bold', card.color)}>{card.format(card.value)}</p>
+                    <p className="text-xs text-muted-foreground">{card.label}</p>
+                    {card.subtitle && <p className="text-[10px] text-muted-foreground/70">{card.subtitle}</p>}
+                  </div>
                 </div>
-                <div>
-                  <p className={cn("text-xl font-bold", card.color)}>
-                    {card.format(card.value)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{card.label}</p>
-                  {card.subtitle && (
-                    <p className="text-[10px] text-muted-foreground/70">{card.subtitle}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <OperationalIntelligencePanel onNavigate={navigateOperational} />
     </div>
   );
 }
