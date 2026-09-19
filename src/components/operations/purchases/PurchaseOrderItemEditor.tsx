@@ -91,13 +91,14 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
 
           <div className="space-y-2 sm:col-span-2">
             <Label>Forma de compra</Label>
-            <Select disabled={!identityResolved} value={presentation?.id ?? 'direct'} onOpenChange={open => { if (open && identityResolved) void onLoadPresentations(); }} onValueChange={value => {
+            <Select disabled={!identityResolved} value={presentation ? (presentation.id ?? 'direct') : '__none__'} onOpenChange={open => { if (open && identityResolved) void onLoadPresentations(); }} onValueChange={value => {
               if (value === 'direct') return setPresentation(directPresentation(product, selectedVariant));
               const selected = line.presentations.find(item => item.id === value);
               if (selected) setPresentation({ ...selected, stock_unit_label: canonicalUnit });
             }}>
               <SelectTrigger><SelectValue placeholder={identityResolved ? 'Selecione a forma de compra' : 'Selecione a identidade física primeiro'} /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__" disabled>Selecione a forma de compra</SelectItem>
                 <SelectItem value="direct">Unidade direta (1 = 1)</SelectItem>
                 {line.presentations.map(item => <SelectItem key={item.id} value={item.id!}>{item.name}{item.is_approximate ? ' (aproximada)' : ''}</SelectItem>)}
               </SelectContent>
