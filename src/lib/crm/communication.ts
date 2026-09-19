@@ -3,6 +3,7 @@ import type { CrmNextActionRecommendation } from './aiNextActionRecommendation';
 import type { CrmResultSuggestion } from './aiResultSuggestion';
 import { getCrmOperationalResponsibility } from './canonical/operationalResponsibility';
 import type { CrmResultCode } from './canonical/types';
+import { isWaitingCustomerState } from './priority';
 
 export type CrmCommercialIntent = 'interest' | 'information_request' | 'objection' | 'deferred_decision' | 'payment' | 'post_sale' | 'repurchase' | 'refusal' | 'restriction' | 'unknown';
 export type CrmDecisionState = 'action_required' | 'awaiting_counterparty' | 'verification_required' | 'handoff' | 'closed' | 'unknown';
@@ -102,7 +103,7 @@ export function buildCrmCommunicationDecision(
     ? 'operator'
     : canonicalResponsibility === 'operator' ? 'operator'
     : canonicalResponsibility === 'counterparty' ? 'customer'
-    : context.conversation?.state === 'aguardando_cliente'
+    : isWaitingCustomerState(context.conversation?.state)
       ? 'customer'
       : 'unknown';
   const signals = deriveCommercialSignals(context, result?.code ?? null);
