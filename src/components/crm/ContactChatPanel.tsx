@@ -18,6 +18,8 @@ import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/foll
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from '@/lib/crm/communication';
 import { calculateRepurchaseSignal, hasFutureCrmReactivation, loadRepurchaseOrders } from '@/lib/crm/repurchase';
+import { loadPostSaleEligibility } from '@/lib/crm/postSale';
+import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
 
 
 interface Message {
@@ -332,14 +334,20 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setAnalysis(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
-      const [suggestion, repurchaseOrders] = await Promise.all([
+      const [suggestion, repurchaseOrders, postSale] = await Promise.all([
         suggestCrmResultFromContext(context),
         loadRepurchaseOrders(contactId),
+        loadPostSaleEligibility(contactId),
       ]);
       const repurchase = calculateRepurchaseSignal(context, repurchaseOrders);
       // Reativação futura é um agendamento humano existente: não criamos uma
       // segunda chamada de ação visual para a mesma oportunidade.
-      const visibleRepurchase = hasFutureCrmReactivation(context) ? null : repurchase.status === 'none' ? null : repurchase;
+      const eligibleRepurchase = hasFutureCrmReactivation(context) ? null : repurchase.status === 'none' ? null : repurchase;
+      // F3-C — aplica a precedência já congelada na F3-B antes da apresentação:
+      // recompra explícita > pós-venda elegível > recompra provável > nenhum sinal.
+      const lifecycle = resolveCrmLifecycleOpportunity(postSale, eligibleRepurchase);
+      const visiblePostSale = lifecycle.kind === 'post_sale' ? lifecycle.postSale : null;
+      const visibleRepurchase = lifecycle.kind === 'repurchase' ? lifecycle.repurchase : null;
 
       // O motor canônico é imediato e fornece a base para a resposta. A
       // explicação roda em paralelo com a resposta quando a ação já é
@@ -366,7 +374,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation ?? deterministicRecommendation, decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
       }
 
-      setAnalysis({ result: suggestion, nextAction: recommendation, reply, repurchase: visibleRepurchase });
+      setAnalysis({ result: suggestion, nextAction: recommendation, reply, postSale: visiblePostSale, repurchase: visibleRepurchase });
       // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
       setAnalyzedAt(contextStamp);
       if (isCrmAiPerformanceLoggingEnabled()) {
