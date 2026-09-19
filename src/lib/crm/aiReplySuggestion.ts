@@ -20,6 +20,7 @@ import {
 import { getUnsupportedCrmLiveDataRequirement } from './dynamicLiveData';
 import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
+import { isWaitingCustomerState } from './priority';
 
 export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
@@ -112,14 +113,12 @@ export async function suggestCrmReplyFromContext(
     };
   }
 
-  // F2-D: uma intenção de recompra não pode transformar automaticamente um
-  // atendimento que está aguardando o cliente em nova abordagem outbound.
-  // Mesmo que um chamador monte decision.shouldReply=true para preparar uma
-  // mensagem, o estado canônico aguardando_cliente continua soberano enquanto
-  // não houver novo inbound do cliente.
+  // F2-D/F2-E: uma intenção de recompra não pode transformar automaticamente
+  // um atendimento em estado equivalente a "aguardando cliente" em nova
+  // abordagem outbound. Reutilizamos a mesma normalização da fila/prioridade.
   if (
     options?.decision?.commercialIntent === 'repurchase'
-    && context.conversation?.state === 'aguardando_cliente'
+    && isWaitingCustomerState(context.conversation?.state)
     && !lastIsInbound
   ) {
     const reason = 'O atendimento está aguardando o cliente. A oportunidade de recompra pode permanecer visível, mas não deve gerar nova abordagem enquanto esse estado estiver ativo.';
