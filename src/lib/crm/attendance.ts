@@ -9,6 +9,7 @@ import { getCrmTransition } from '@/lib/crm/canonical/transitions';
 import { resolveFunnelStageFromCanonicalResult } from '@/lib/crm/canonical/funnelProgression';
 import { shouldAwaitCustomerAfterCanonicalResult } from '@/lib/crm/canonical/operationalResponsibility';
 import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
+import { classifyTemporalFact, getTemporalInvalidations, type TemporalSchedule } from '@/lib/crm/temporalAuthority';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
 export type AttendanceOutcome =
@@ -92,6 +93,34 @@ export async function applyCanonicalAttendanceResult(input: {
     .eq('contact_id', input.contactId)
     .maybeSingle();
   if (conversationError || !conversation) throw conversationError || new Error('Conversa não encontrada para este contato');
+
+  // O Resultado canônico substitui a programação dependente anterior. A F4-A
+  // decide isso antes de qualquer escrita; a materialização continua no writer
+  // único abaixo, sem executar uma limpeza separada depois do novo Resultado.
+  const previousTemporalSnapshot = {
+    returnAt: conversation.return_at,
+    nextActionText: contact.next_action_text,
+    nextActionAt: contact.next_action_date,
+  };
+  const temporalSchedules: TemporalSchedule[] = [];
+  if (previousTemporalSnapshot.returnAt) {
+    temporalSchedules.push({
+      kind: 'return_at',
+      dependency: 'conversation_context',
+      scheduledAt: previousTemporalSnapshot.returnAt,
+    });
+  }
+  if (previousTemporalSnapshot.nextActionText || previousTemporalSnapshot.nextActionAt) {
+    temporalSchedules.push({
+      kind: 'next_action',
+      dependency: 'conversation_context',
+      scheduledAt: previousTemporalSnapshot.nextActionAt,
+    });
+  }
+  const temporalInvalidations = getTemporalInvalidations(
+    classifyTemporalFact({ isCanonicalResult: true, occurredAt: now }),
+    temporalSchedules,
+  );
 
   const scheduledAt = scheduledDateAt(input.scheduledFor);
   const decision = getCrmTransition({
@@ -194,6 +223,8 @@ export async function applyCanonicalAttendanceResult(input: {
       return_at: returnAt,
       operational_state: decision.desiredOperationalState,
       handoff_required: decision.handoff.required,
+      ...(previousTemporalSnapshot.returnAt ? { previous_return_at: previousTemporalSnapshot.returnAt } : {}),
+      ...(temporalInvalidations.reassessNextAction ? { temporal_reassessment: true } : {}),
     },
     description: `Resultado: ${canonicalResult.label}`,
     interaction_date: now,
