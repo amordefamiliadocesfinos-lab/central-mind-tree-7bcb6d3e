@@ -46,7 +46,10 @@ export function CrmAssistantCard({
   const nextAction = analysis?.nextAction ?? null;
   const reply = analysis?.reply ?? null;
   const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
-  const hasAnything = Boolean(result?.code || reply?.reply || repurchase);
+  // Uma abstenção explicada pelo Assistente também é informação operacional.
+  // Ex.: F2-B bloqueia preço/estoque/frete sem fonte viva e devolve reply=null
+  // com um motivo útil. Esse estado não pode cair no vazio genérico do card.
+  const hasAnything = Boolean(result?.code || nextAction || reply?.reply || reply?.reason || repurchase);
 
   return (
     <div className="rounded-md border bg-muted/30 px-2.5 py-2 text-[11px] space-y-1.5">
@@ -112,6 +115,13 @@ export function CrmAssistantCard({
             <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
               <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Resposta sugerida</div>
               <p className="whitespace-pre-wrap text-foreground/90">{reply.reply}</p>
+            </div>
+          )}
+
+          {reply && !reply.reply && reply.reason && (
+            <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Orientação do Assistente</div>
+              <p className="text-foreground/90">{reply.reason}</p>
             </div>
           )}
 
