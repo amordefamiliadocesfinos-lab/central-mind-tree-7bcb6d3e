@@ -78,6 +78,12 @@ begin
     raise exception 'Somente compras em rascunho podem gerar obrigações financeiras.';
   end if;
 
+  if not exists (
+    select 1 from public.purchase_order_items where purchase_order_id = p_purchase_order_id
+  ) then
+    raise exception 'A compra precisa ter ao menos um item antes da confirmação.';
+  end if;
+
   if exists (
     select 1
       from public.purchase_order_items
@@ -108,7 +114,7 @@ begin
         or (installment->>'due_date') is null
         or (installment->>'installment_number') !~ '^[0-9]+$'
         or (installment->>'value') !~ '^[0-9]+([.][0-9]{1,2})?$'
-        or (installment->>'due_date') !~ '^\d{4}-\d{2}-\d{2}$'
+        or (installment->>'due_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
         or (installment->>'installment_number')::integer <= 0
         or (installment->>'value')::numeric <= 0
   ) then
