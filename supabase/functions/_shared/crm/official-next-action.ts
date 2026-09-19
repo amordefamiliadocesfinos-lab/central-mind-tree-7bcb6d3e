@@ -40,11 +40,17 @@ function isFollowUpAttempt(row: FollowUpHistoryRow): boolean {
  * Writer server-side não pode depender do estado visual da Inbox. Esta leitura
  * espelha o contrato do ciclo: só tentativas explícitas contam; inbound/venda
  * e demais fatos canônicos iniciam um novo ciclo.
+ *
+ * `currentAttemptWillBeRegistered` fecha a janela entre o envio server-side e
+ * o registro da tentativa no frontend: quando o envio atual já é o 3º follow-up
+ * real, ele é considerado antes de decidir se uma nova obrigação automática
+ * pode nascer. Assim nunca surge uma 4ª tarefa/return_at por defasagem temporal.
  */
 export async function canCreateAutomaticFollowUpObligation(
   supabase: any,
   contactId: string,
   lastInboundAt?: string | null,
+  currentAttemptWillBeRegistered = false,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from('contact_history')
@@ -66,7 +72,8 @@ export async function canCreateAutomaticFollowUpObligation(
     }
   }
   const attempts = rows.filter(({ row, at }) => isFollowUpAttempt(row) && (!boundary || at > boundary));
-  return attempts.length < FOLLOW_UP_LIMIT;
+  const effectiveAttemptCount = attempts.length + (currentAttemptWillBeRegistered ? 1 : 0);
+  return effectiveAttemptCount < FOLLOW_UP_LIMIT;
 }
 
 /** Consome a obrigação oficial atual sem criar substituta. */
