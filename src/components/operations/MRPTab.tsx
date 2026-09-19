@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Check, Download, Factory, Package, RefreshCw } from 'lucide-react';
 import { useMRP, MaterialNeed, ProductionNeed } from '@/hooks/useMRP';
 import { useProductionOrders } from '@/hooks/useProductionOrders';
@@ -18,6 +19,7 @@ function downloadCsv(filename: string, headers: string[], rows: string[][]) {
 export function MRPTab() {
   const { calculateProductionNeeds, calculateMaterialNeeds } = useMRP();
   const { createOrder } = useProductionOrders();
+  const [, setSearchParams] = useSearchParams();
   const [productionNeeds, setProductionNeeds] = useState<ProductionNeed[]>([]);
   const [materialNeeds, setMaterialNeeds] = useState<MaterialNeed[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,21 @@ export function MRPTab() {
     setCreating(false);
     if (created) { toast.success('OP criada a partir do planejamento. Nenhum estoque foi movimentado.'); setSelectedNeed(null); await loadData(); }
   };
+
+  const preparePurchase = (need: MaterialNeed) => {
+    if (need.shortage <= 0) return;
+    const params = new URLSearchParams({
+      tab: 'purchases',
+      mrpProductId: need.component_id,
+      mrpNeedQty: String(need.shortage),
+      mrpUnit: need.unit,
+      mrpName: need.component_name,
+    });
+    if (need.variant_id) params.set('mrpVariantId', need.variant_id);
+    if (need.orders_affected.length) params.set('mrpOrders', need.orders_affected.join('|'));
+    setSearchParams(params, { replace: true });
+  };
+
   const exportPlan = () => {
     downloadCsv(`mrp-planejamento-${new Date().toISOString().slice(0, 10)}.csv`, ['Produto', 'Variante', 'Demanda', 'Estoque disponível', 'OPs abertas/em produção', 'Falta produzir', 'Pedidos'], productionNeeds.map(need => [need.product_name, need.variant_name || 'Produto simples', String(need.demand), String(need.stock_available), String(need.production_programmed), String(need.shortage), need.orders_affected.join('; ')]));
     toast.success('Planejamento exportado.');
@@ -60,7 +77,7 @@ export function MRPTab() {
       {productionNeeds.length === 0 ? <div className="text-center py-8 px-4"><Check className="h-12 w-12 mx-auto text-green-500 mb-2" /><p className="text-sm text-muted-foreground">Não há demanda comercial pendente para planejar.</p></div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Produto / variante</TableHead><TableHead className="text-right">Demanda</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Programado</TableHead><TableHead className="text-right">Falta produzir</TableHead><TableHead /></TableRow></TableHeader><TableBody>{productionNeeds.map(need => <TableRow key={`${need.product_id}:${need.variant_id || 'simple'}`}><TableCell><span className="font-medium">{need.product_name}</span><span className="text-xs text-muted-foreground block">{need.variant_name || 'Produto simples'}{need.variant_sku || need.product_sku ? ` · ${need.variant_sku || need.product_sku}` : ''}</span></TableCell><TableCell className="text-right font-mono">{need.demand} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.stock_available} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.production_programmed} {need.unit}</TableCell><TableCell className={cn('text-right font-mono font-bold', need.shortage > 0 ? 'text-red-500' : 'text-green-500')}>{need.shortage} {need.unit}</TableCell><TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => setSelectedNeed(need)}>Criar OP</Button>}</TableCell></TableRow>)}</TableBody></Table></div>}
     </CardContent></Card>
     <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" />Necessidade de Materiais</CardTitle><p className="text-xs text-muted-foreground">Compra necessária = material necessário − estoque físico − compras confirmadas ainda a receber. Não movimenta estoque.</p></CardHeader><CardContent className="p-0">
-      {materialNeeds.length === 0 ? <div className="text-center py-8 px-4"><Check className="h-12 w-12 mx-auto text-green-500 mb-2" /><p className="text-sm text-muted-foreground">Nenhum material adicional é necessário para a produção planejada.</p></div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Componente</TableHead><TableHead className="text-right">Necessário</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Já comprado / A receber</TableHead><TableHead className="text-right">Comprar</TableHead></TableRow></TableHeader><TableBody>{materialNeeds.map(need => <TableRow key={`${need.component_id}:${need.variant_id || 'simple'}`}><TableCell><div className="flex items-center gap-2">{need.shortage > 0 && <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />}<div><span className="font-medium">{need.component_name}</span><span className="text-xs text-muted-foreground block">{need.component_sku}</span></div></div></TableCell><TableCell className="text-right font-mono">{need.total_needed} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.stock_available} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.open_purchase_qty} {need.unit}</TableCell><TableCell className={cn('text-right font-mono font-bold', need.shortage > 0 ? 'text-red-500' : 'text-green-500')}>{need.shortage} {need.unit}</TableCell></TableRow>)}</TableBody></Table></div>}
+      {materialNeeds.length === 0 ? <div className="text-center py-8 px-4"><Check className="h-12 w-12 mx-auto text-green-500 mb-2" /><p className="text-sm text-muted-foreground">Nenhum material adicional é necessário para a produção planejada.</p></div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Componente</TableHead><TableHead className="text-right">Necessário</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Já comprado / A receber</TableHead><TableHead className="text-right">Comprar</TableHead><TableHead /></TableRow></TableHeader><TableBody>{materialNeeds.map(need => <TableRow key={`${need.component_id}:${need.variant_id || 'simple'}`}><TableCell><div className="flex items-center gap-2">{need.shortage > 0 && <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />}<div><span className="font-medium">{need.component_name}</span><span className="text-xs text-muted-foreground block">{need.component_sku}</span></div></div></TableCell><TableCell className="text-right font-mono">{need.total_needed} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.stock_available} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.open_purchase_qty} {need.unit}</TableCell><TableCell className={cn('text-right font-mono font-bold', need.shortage > 0 ? 'text-red-500' : 'text-green-500')}>{need.shortage} {need.unit}</TableCell><TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => preparePurchase(need)}>Preparar compra</Button>}</TableCell></TableRow>)}</TableBody></Table></div>}
     </CardContent></Card>
     <ResponsiveDialog open={!!selectedNeed} onOpenChange={open => !open && setSelectedNeed(null)} title="Criar OP a partir do MRP">{selectedNeed && <div className="space-y-4 p-4"><p className="text-sm">A OP nasce <strong>aberta</strong>; ela não movimenta estoque nem altera o pedido.</p><div className="rounded-lg bg-muted p-3 text-sm space-y-1"><p className="font-medium">{selectedNeed.product_name}{selectedNeed.variant_name ? ` · ${selectedNeed.variant_name}` : ''}</p><p>Quantidade sugerida: <strong>{selectedNeed.shortage} {selectedNeed.unit}</strong></p><p>Referência: {selectedNeed.orders_affected.join(', ')}</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedNeed(null)}>Cancelar</Button><Button disabled={creating} onClick={() => void createProductionOrder()}>{creating ? 'Criando...' : 'Confirmar criação da OP'}</Button></div></div>}</ResponsiveDialog>
   </div>;
