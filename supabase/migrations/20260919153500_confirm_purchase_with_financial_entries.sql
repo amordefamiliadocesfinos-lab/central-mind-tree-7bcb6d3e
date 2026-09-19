@@ -172,8 +172,6 @@ begin
       contact_id,
       document_number,
       notes,
-      issue_date,
-      competence_date,
       purchase_order_id,
       purchase_installment_number
     )
@@ -191,8 +189,6 @@ begin
       v_purchase.supplier_contact_id,
       v_purchase.internal_purchase_number,
       'Gerado automaticamente na confirmação comercial da compra.',
-      current_date,
-      (installment->>'due_date')::date,
       p_purchase_order_id,
       (installment->>'installment_number')::integer
     from jsonb_array_elements(p_installments) as installment
