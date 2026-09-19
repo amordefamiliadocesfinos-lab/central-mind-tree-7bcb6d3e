@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PURCHASE_STATUS_LABEL, type PurchaseItem, type PurchaseOrder } from '@/hooks/usePurchases';
 import { formatDisplayDate } from '@/lib/dateUtils';
+import { getPurchaseCommercialTotal } from '@/lib/purchases/purchaseFinancialCondition';
 import { formatCurrency } from '@/lib/utils';
 
 interface PurchaseOrderCardProps {
   order: PurchaseOrder;
   busy: boolean;
-  onConfirm: (order: PurchaseOrder) => Promise<void>;
+  onConfirm: (order: PurchaseOrder) => Promise<void> | void;
   onMarkInTransit: (order: PurchaseOrder) => Promise<void>;
   onReceive: (order: PurchaseOrder) => void;
   onEdit: (order: PurchaseOrder) => void;
@@ -29,14 +30,6 @@ function hasConfirmedReceiptForItem(order: PurchaseOrder, itemId: string) {
   return (order.receipts ?? [])
     .filter(receipt => receipt.status === 'confirmed')
     .some(receipt => (receipt.items ?? []).some(item => item.purchase_order_item_id === itemId));
-}
-
-function getPurchaseOrderTotal(order: PurchaseOrder) {
-  return (order.items ?? []).reduce((total, item) => {
-    const qty = Number(item.ordered_purchase_qty) || 0;
-    const price = item.unit_price === null ? 0 : Number(item.unit_price);
-    return total + qty * price;
-  }, 0);
 }
 
 function PurchaseOrderLine({ order, item }: { order: PurchaseOrder; item: PurchaseItem }) {
@@ -116,7 +109,7 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
 
         <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-muted-foreground">
-            Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseOrderTotal(order))}</span>
+            Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
