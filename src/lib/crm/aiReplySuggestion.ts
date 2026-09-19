@@ -17,7 +17,7 @@ import {
   type CrmCommunicationDecision,
   type CrmCommunicationDraft,
 } from './communication';
-import { getUnsupportedCrmLiveDataRequirement } from './dynamicLiveData';
+import { getUnsupportedCrmLiveDataRequirement, type CrmUnsupportedLiveDataRequirement } from './dynamicLiveData';
 import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 import { isWaitingCustomerState } from './priority';
@@ -71,6 +71,24 @@ function pendingFactualQuestions(messages: CrmAiContext['messages']): string | n
     if (content && shouldQueryCrmKnowledge(content)) pending.unshift(content);
   }
   return pending.length > 0 ? pending.join('\n') : null;
+}
+
+/**
+ * F2-H: a proteção de fonte viva precisa observar o bloco inbound ainda
+ * pendente, e não apenas a última mensagem. Uma pergunta dinâmica anterior
+ * continua sem resposta até existir um outbound posterior que encerre o bloco.
+ */
+function pendingUnsupportedLiveData(
+  messages: CrmAiContext['messages'],
+): CrmUnsupportedLiveDataRequirement | null {
+  for (let index = (messages?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.direction === 'outbound') break;
+    if (message?.direction !== 'inbound') continue;
+    const requirement = getUnsupportedCrmLiveDataRequirement(message.content);
+    if (requirement) return requirement;
+  }
+  return null;
 }
 
 function canUsePendingFactualKnowledge(options: SuggestCrmReplyOptions | undefined, lastIsInbound: boolean): boolean {
@@ -133,11 +151,11 @@ export async function suggestCrmReplyFromContext(
     };
   }
 
-  // F2-B: se a última pergunta exige um fato vivo que este contexto ainda não
-  // transporta, não chamamos a IA para preencher a lacuna. O operador recebe a
-  // explicação da fonte necessária e consulta o módulo canônico correspondente.
+  // F2-B/F2-H: se qualquer pergunta ainda pendente no bloco inbound exige um
+  // fato vivo que este contexto não transporta, não chamamos FAQ nem IA para
+  // preencher a lacuna. Um outbound posterior encerra naturalmente esse bloco.
   const unsupportedLiveData = lastIsInbound
-    ? getUnsupportedCrmLiveDataRequirement(lastMessage?.content)
+    ? pendingUnsupportedLiveData(context.messages)
     : null;
   if (unsupportedLiveData) {
     const reason = `${unsupportedLiveData.reason} O Assistente não sugere esse dado sem fonte viva disponível.`;
