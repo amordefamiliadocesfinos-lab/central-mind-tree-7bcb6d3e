@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, PackageCheck, Pencil, Trash2, Truck, X } from 'lucide-react';
+import { BarChart3, FileText, PackageCheck, Pencil, Trash2, Truck, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { PURCHASE_STATUS_LABEL, type PurchaseItem, type PurchaseOrder } from '@/
 import { formatDisplayDate } from '@/lib/dateUtils';
 import { getPurchaseCommercialTotal } from '@/lib/purchases/purchaseFinancialCondition';
 import { formatCurrency } from '@/lib/utils';
+import { PurchaseDocumentsDialog } from './PurchaseDocumentsDialog';
 import { PurchaseItemSupplierIntelligenceDialog } from './PurchaseItemSupplierIntelligenceDialog';
 
 interface PurchaseOrderCardProps {
@@ -70,6 +71,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
 
 export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
   const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
   const hasPhysicalReceipt = confirmedReceipts.length > 0;
@@ -120,6 +122,7 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
             Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />Documentos</Button>
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
             {order.status === 'rascunho' && (
               <><Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
@@ -138,6 +141,7 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
           </div>
         </div>
 
+        <PurchaseDocumentsDialog order={order} open={documentsOpen} onOpenChange={setDocumentsOpen} />
         <PurchaseItemSupplierIntelligenceDialog
           item={intelligenceItem}
           open={Boolean(intelligenceItem)}
