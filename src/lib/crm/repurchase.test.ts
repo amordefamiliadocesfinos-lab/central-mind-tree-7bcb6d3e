@@ -18,7 +18,7 @@ assert(calculateRepurchaseSignal(context(), monthly.slice(0, 2), at).status === 
 assert(calculateRepurchaseSignal(context(), monthly, at).status === 'probable', 'C: padrão mensal deve ser provável.');
 assert(calculateRepurchaseSignal(context(), [order('2026-01-01', 'o1'), order('2026-02-15', 'o2'), order('2026-06-20', 'o3'), order('2026-08-01', 'o4'), order('2026-08-30', 'o5')], at).status === 'none', 'D: intervalos irregulares bloqueiam sugestão.');
 assert(calculateRepurchaseSignal(context('Quero fazer outro pedido'), monthly, at).status === 'explicit', 'E: intenção concreta é explícita.');
-assert(calculateRepurchaseSignal(context('', { lastResult: { code: 'CRM-RES-026', label: 'Experiência positiva', description: '' } }), monthly, at).status === 'none', 'F: pós-venda sem nova intenção não é recompra.');
+assert(calculateRepurchaseSignal(context('', { lastResult: { code: 'CRM-RES-026', label: 'Experiência positiva', description: '' } }), monthly, at).status === 'probable', 'F: pós-venda não bloqueia padrão independente de recompra.');
 assert(calculateRepurchaseSignal(context(), monthly, at).likelyProducts.includes('p1'), 'K: produto repetido é evidência real.');
 assert(calculateRepurchaseSignal(context('', { contact: { id: 'c1', name: null, stage: null, origin: null, optOut: true, temperature: null } }), monthly, at).status === 'none', 'G: opt-out bloqueia sugestão.');
 assert(calculateRepurchaseSignal(context('', { campaign: { campaignId: 'm1', campaignName: 'Campanha', recipientId: 'r1', sentAt: '2026-09-09T00:00:00.000Z', responded: false } }), monthly, at).status === 'none', 'H: campanha sem resposta não prova recompra.');
