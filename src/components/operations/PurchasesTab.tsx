@@ -20,6 +20,7 @@ import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { parseDecimalInput } from '@/lib/decimal';
+import { confirmPurchaseWithFinancialEntries } from '@/lib/purchases/confirmPurchaseFinancial';
 import type { PurchaseFinancialInstallment } from '@/lib/purchases/purchaseFinancialCondition';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
@@ -294,9 +295,24 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     }
   };
 
-  const validateFinancialCondition = (installments: PurchaseFinancialInstallment[]) => {
-    toastSuccess(`Condição financeira validada em ${installments.length} parcela(s). A compra permanece em rascunho até a integração 02C.`);
-    setFinancialConditionOrder(null);
+  const confirmFinancialCondition = async (installments: PurchaseFinancialInstallment[]) => {
+    const order = financialConditionOrder;
+    if (!order) return;
+
+    const busyKey = `financial-confirm:${order.id}`;
+    try {
+      setBusyAction(busyKey);
+      const result = await confirmPurchaseWithFinancialEntries(order.id, installments);
+      await purchases.refetch();
+      setFinancialConditionOrder(null);
+      toastSuccess(result.already_confirmed
+        ? 'Compra já estava confirmada e as obrigações financeiras foram preservadas.'
+        : `Compra confirmada e ${result.financial_entry_ids.length} obrigação(ões) financeira(s) criada(s).`);
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível confirmar a compra e gerar as obrigações financeiras.'));
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const deleteDraft = async (order: PurchaseOrder) => {
@@ -395,7 +411,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             <PurchaseOrderCard
               key={order.id}
               order={order}
-              busy={busyAction === order.id}
+              busy={busyAction === order.id || busyAction === `financial-confirm:${order.id}`}
               onConfirm={setFinancialConditionOrder}
               onMarkInTransit={current => changeStatus(current, 'em_transito')}
               onReceive={setReceiptOrder}
@@ -487,7 +503,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         order={financialConditionOrder}
         open={Boolean(financialConditionOrder)}
         onOpenChange={open => !open && setFinancialConditionOrder(null)}
-        onValidated={validateFinancialCondition}
+        onValidated={installments => void confirmFinancialCondition(installments)}
       />
 
       <PurchaseReceiptDialog
