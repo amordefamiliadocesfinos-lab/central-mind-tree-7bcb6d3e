@@ -47,14 +47,13 @@ interface SupplierMetric {
   purchaseUnitLabel: string;
   stockUnitLabel: string;
   isApproximate: boolean;
-  observations: number;
+  purchases: number;
   lastCommercialPrice: number;
   lastPhysicalPrice: number;
   averagePhysicalPrice: number;
   variationPct: number | null;
   averageLeadDays: number | null;
   averageDeliveryDeviationDays: number | null;
-  lastDate: string;
 }
 
 function dayDiff(from: string, to: string) {
@@ -190,7 +189,8 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
         const lead = dayDiff(order.ordered_at, finalReceipt);
         if (lead !== null && lead >= 0) leadTimes.push(lead);
         if (order.expected_at) {
-          const deviation = dayDiff(`${order.expected_at}T00:00:00`, finalReceipt);
+          const receivedDate = finalReceipt.slice(0, 10);
+          const deviation = dayDiff(`${order.expected_at}T00:00:00`, `${receivedDate}T00:00:00`);
           if (deviation !== null) deviations.push(deviation);
         }
       });
@@ -202,14 +202,13 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
         purchaseUnitLabel: last.purchase_unit_label,
         stockUnitLabel: last.stock_unit_label,
         isApproximate: Boolean(last.presentation_snapshot?.is_approximate),
-        observations: sorted.length,
+        purchases: uniqueOrders.size,
         lastCommercialPrice: lastPrice,
         lastPhysicalPrice,
         averagePhysicalPrice: totalPhysicalQty > 0 ? totalSpend / totalPhysicalQty : 0,
         variationPct,
         averageLeadDays: leadTimes.length ? leadTimes.reduce((sum, value) => sum + value, 0) / leadTimes.length : null,
         averageDeliveryDeviationDays: deviations.length ? deviations.reduce((sum, value) => sum + value, 0) / deviations.length : null,
-        lastDate: last.order?.ordered_at ?? last.order?.created_at ?? '',
       };
     }).sort((a, b) => a.lastPhysicalPrice - b.lastPhysicalPrice || a.supplierName.localeCompare(b.supplierName, 'pt-BR'));
   }, [history]);
@@ -241,7 +240,7 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
                 <TableRow>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>Apresentação</TableHead>
-                  <TableHead className="text-right">Histórico</TableHead>
+                  <TableHead className="text-right">Compras</TableHead>
                   <TableHead className="text-right">Último preço</TableHead>
                   <TableHead className="text-right">Equiv. físico</TableHead>
                   <TableHead className="text-right">Média física</TableHead>
@@ -258,7 +257,7 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
                       <span>{metric.presentationName}</span>
                       <span className="block text-xs text-muted-foreground">{metric.purchaseUnitLabel}{metric.isApproximate ? ' · aprox.' : ''}</span>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{metric.observations}</TableCell>
+                    <TableCell className="text-right font-mono">{metric.purchases}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(metric.lastCommercialPrice)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(metric.lastPhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(metric.averagePhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
