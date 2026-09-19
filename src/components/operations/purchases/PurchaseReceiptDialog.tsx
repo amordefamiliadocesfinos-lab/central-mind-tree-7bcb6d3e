@@ -28,6 +28,10 @@ function parsePurchaseNumber(value: string) {
   return parseDecimalInput(value, { min: 0, maxDecimals: 10, locale: 'pt-BR' });
 }
 
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 10 }).format(value);
+}
+
 export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, onConfirm }: PurchaseReceiptDialogProps) {
   const [locationId, setLocationId] = useState('');
   const [lines, setLines] = useState<PurchaseReceiptDraftLine[]>([]);
@@ -98,7 +102,11 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
             if (!item) return null;
             const pending = Math.max(0, Number(item.ordered_purchase_qty) - getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id));
             const confirmed = getConfirmedPurchaseQuantity(order as PurchaseOrder, item.id);
-            const receivedNumber = parsePurchaseNumber(line.received_purchase_qty)?.number ?? 0;
+            const receivedParsed = parsePurchaseNumber(line.received_purchase_qty);
+            const operationalParsed = parsePurchaseNumber(line.operational_received_qty);
+            const receivedNumber = receivedParsed?.number ?? 0;
+            const operationalReceivedNumber = operationalParsed?.number ?? 0;
+            const expectedOperationalQty = receivedNumber * Number(item.conversion_factor);
             const projectedReceived = confirmed + receivedNumber;
             const projectedDivergence = projectedReceived - Number(item.ordered_purchase_qty);
             return (
@@ -118,10 +126,10 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                       locale="pt-BR"
                       value={line.received_purchase_qty}
                       onValueChange={received => {
-                        const receivedParsed = parsePurchaseNumber(received)?.number ?? 0;
+                        const receivedNumber = parsePurchaseNumber(received)?.number ?? 0;
                         updateLine(item.id, {
                           received_purchase_qty: received,
-                          ...(line.operationalEdited ? {} : { operational_received_qty: String(receivedParsed * Number(item.conversion_factor)) }),
+                          ...(line.operationalEdited ? {} : { operational_received_qty: String(receivedNumber * Number(item.conversion_factor)) }),
                         });
                       }}
                       placeholder="Ex.: 8.742"
@@ -130,7 +138,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                   <div className="space-y-2">
                     <Label>Quantidade física recebida ({item.stock_unit_label})</Label>
                     {item.presentation_snapshot?.is_approximate && (
-                      <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {receivedNumber * Number(item.conversion_factor)} {item.stock_unit_label}. Confirme a medida física real.</p>
+                      <p className="text-xs text-muted-foreground">Previsão aproximada: ≈ {formatQuantity(expectedOperationalQty)} {item.stock_unit_label}. Confirme a medida física real.</p>
                     )}
                     <DecimalInput
                       min={0}
@@ -142,6 +150,17 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
                     />
                   </div>
                 </div>
+
+                <div className="rounded-md bg-muted/50 p-3 text-sm" aria-label="Resumo do recebimento físico">
+                  <p className="font-medium">Conferência antes de confirmar</p>
+                  <div className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                    <p><span className="text-muted-foreground">Comprado:</span> {formatQuantity(Number(item.ordered_purchase_qty))} {item.purchase_unit_label}</p>
+                    <p><span className="text-muted-foreground">Conversão prevista:</span> {item.presentation_snapshot?.is_approximate ? '≈ ' : ''}{formatQuantity(expectedOperationalQty)} {item.stock_unit_label}</p>
+                    <p><span className="text-muted-foreground">Recebido fisicamente:</span> {operationalParsed ? `${formatQuantity(operationalReceivedNumber)} ${item.stock_unit_label}` : '—'}</p>
+                    <p className="font-semibold"><span className="text-muted-foreground font-normal">Entrada no estoque:</span> {operationalParsed ? `+${formatQuantity(operationalReceivedNumber)} ${item.stock_unit_label}` : '—'}</p>
+                  </div>
+                </div>
+
                 {projectedDivergence > 0 && <p className="text-xs text-amber-600">Este recebimento fará o total recebido ficar {projectedDivergence} {item.purchase_unit_label} acima do pedido. A divergência será preservada no histórico.</p>}
               </div>
             );
