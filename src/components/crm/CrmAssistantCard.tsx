@@ -29,11 +29,12 @@ interface CrmAssistantCardProps {
   onUseReply: (reply: string) => void;
   onDismiss: () => void;
   onRetry: () => void;
+  onPreparePostSale?: () => void;
   onPrepareRepurchase?: () => void;
 }
 
 export function CrmAssistantCard({
-  analyzing, analysis, error, onUseResult, onUseReply, onDismiss, onRetry, onPrepareRepurchase,
+  analyzing, analysis, error, onUseResult, onUseReply, onDismiss, onRetry, onPreparePostSale, onPrepareRepurchase,
 }: CrmAssistantCardProps) {
   const [showProfileHelp, setShowProfileHelp] = useState(false);
   const [showRepurchaseDetails, setShowRepurchaseDetails] = useState(false);
@@ -147,6 +148,13 @@ export function CrmAssistantCard({
                 <p className="mt-1 text-[10px] text-sky-900/75 dark:text-sky-200/75">
                   Entrega registrada em {new Date(`${postSale.deliveryDate}T12:00:00`).toLocaleDateString('pt-BR')} · acompanhamento sugerido, sem ação automática.
                 </p>
+              )}
+              {onPreparePostSale && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <Button size="sm" variant="outline" className="h-7 border-sky-300 bg-transparent px-2 text-[10px] hover:bg-sky-100 dark:border-sky-800 dark:hover:bg-sky-900/40" onClick={onPreparePostSale}>
+                    Preparar mensagem
+                  </Button>
+                </div>
               )}
             </div>
           )}
