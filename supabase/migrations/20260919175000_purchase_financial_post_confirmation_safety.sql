@@ -58,6 +58,7 @@ declare
   v_financial_count integer;
   v_received_lines integer;
   v_fully_received_lines integer;
+  v_item_count integer;
 begin
   if new.status = old.status then
     return new;
@@ -86,6 +87,9 @@ begin
   end if;
 
   if new.status in ('parcialmente_recebido','recebido') then
+    select count(*) into v_item_count
+      from public.purchase_order_items where purchase_order_id = new.id;
+
     select
       count(*) filter (where coalesce(r.received_qty,0) > 0),
       count(*) filter (where coalesce(r.received_qty,0) >= i.ordered_purchase_qty)
@@ -103,10 +107,7 @@ begin
       raise exception 'Status parcialmente recebido exige recebimento físico confirmado.';
     end if;
 
-    if new.status = 'recebido' and (
-      v_received_lines = 0
-      or v_fully_received_lines <> (select count(*) from public.purchase_order_items where purchase_order_id = new.id)
-    ) then
+    if new.status = 'recebido' and (v_item_count = 0 or v_fully_received_lines <> v_item_count) then
       raise exception 'Status recebido exige recebimento comercial total confirmado.';
     end if;
   end if;
@@ -168,12 +169,21 @@ declare
   v_purchase_order_id uuid;
   v_status text;
 begin
-  v_purchase_order_id := coalesce(new.purchase_order_id, old.purchase_order_id);
+  if tg_op = 'DELETE' then
+    v_purchase_order_id := old.purchase_order_id;
+  else
+    v_purchase_order_id := new.purchase_order_id;
+  end if;
+
   select status into v_status from public.purchase_orders where id = v_purchase_order_id;
   if v_status is not null and v_status <> 'rascunho' then
     raise exception 'Itens comerciais da compra são imutáveis após a confirmação. Regularização explícita é necessária.';
   end if;
-  return coalesce(new, old);
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
 $function$;
 
@@ -192,34 +202,36 @@ declare
   v_purchase_status text;
 begin
   if old.purchase_order_id is null then
-    return coalesce(new, old);
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
   end if;
 
   select status into v_purchase_status from public.purchase_orders where id = old.purchase_order_id;
 
-  if tg_op = 'DELETE' and v_purchase_status is distinct from 'cancelado' then
-    raise exception 'Obrigação financeira vinculada a compra confirmada não pode ser excluída.';
+  if tg_op = 'DELETE' then
+    if v_purchase_status is distinct from 'cancelado' then
+      raise exception 'Obrigação financeira vinculada a compra confirmada não pode ser excluída.';
+    end if;
+    return old;
   end if;
 
-  if tg_op = 'UPDATE' then
-    if new.value is distinct from old.value
-       or new.due_date is distinct from old.due_date
-       or new.purchase_order_id is distinct from old.purchase_order_id
-       or new.purchase_installment_number is distinct from old.purchase_installment_number
-       or new.type is distinct from old.type then
-      raise exception 'Valor, vencimento e vínculo da obrigação da compra exigem regularização explícita.';
-    end if;
+  if new.value is distinct from old.value
+     or new.due_date is distinct from old.due_date
+     or new.purchase_order_id is distinct from old.purchase_order_id
+     or new.purchase_installment_number is distinct from old.purchase_installment_number
+     or new.type is distinct from old.type then
+    raise exception 'Valor, vencimento e vínculo da obrigação da compra exigem regularização explícita.';
+  end if;
 
-    if old.lifecycle_status = 'active' and new.lifecycle_status = 'cancelled' then
-      if coalesce(old.value_paid,0) > 0 or exists (
-        select 1 from public.financial_movements where entry_id = old.id
-      ) then
-        raise exception 'Obrigação com pagamento registrado não pode ser cancelada automaticamente.';
-      end if;
+  if old.lifecycle_status = 'active' and new.lifecycle_status = 'cancelled' then
+    if coalesce(old.value_paid,0) > 0 or exists (
+      select 1 from public.financial_movements where entry_id = old.id
+    ) then
+      raise exception 'Obrigação com pagamento registrado não pode ser cancelada automaticamente.';
     end if;
   end if;
 
-  return coalesce(new, old);
+  return new;
 end;
 $function$;
 
