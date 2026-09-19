@@ -75,7 +75,7 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
   const hasPhysicalReceipt = confirmedReceipts.length > 0;
-  const canEdit = !hasPhysicalReceipt || order.status === 'parcialmente_recebido';
+  const canEdit = order.status === 'rascunho';
 
   return (
     <Card className="overflow-hidden border-l-4 border-l-primary/60 shadow-sm">
