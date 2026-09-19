@@ -10,6 +10,19 @@ export interface OrderStockEventResult {
   movement_count: number;
 }
 
+export interface OrderStockShortage { product_id: string; variant_id: string | null; product_name?: string; variant_name?: string | null; required_quantity: number; available_quantity: number; missing_quantity: number; }
+export class OrderStockShortageError extends Error {
+  constructor(message: string, public readonly shortages: OrderStockShortage[]) { super(message); this.name = 'OrderStockShortageError'; }
+}
+function throwStructuredShortage(error: any): never {
+  try {
+    const detail = typeof error?.details === 'string' ? JSON.parse(error.details) : error?.details;
+    const shortages = Array.isArray(detail) ? detail : detail ? [detail] : [];
+    if (shortages.length && shortages.every(item => item && typeof item.missing_quantity !== 'undefined')) throw new OrderStockShortageError(error.message || 'Estoque insuficiente para finalizar.', shortages);
+  } catch (caught) { if (caught instanceof OrderStockShortageError) throw caught; }
+  throw error;
+}
+
 /**
  * Ponto único para futuras origens (manual, CRM, Shopee, Mercado Livre).
  * A execução efetiva fica no banco para manter saldo, rastreabilidade e
@@ -24,7 +37,7 @@ export async function applyOrderStockEvent(
     p_event: event,
   });
 
-  if (error) throw error;
+  if (error) throwStructuredShortage(error);
   return data as OrderStockEventResult;
 }
 
@@ -35,7 +48,7 @@ export async function transitionOrderStatusWithStock(orderId: string, status: st
     p_status: status,
   });
 
-  if (error) throw error;
+  if (error) throwStructuredShortage(error);
   return data as { stock_event: OrderStockEvent | null; movement_count: number };
 }
 
@@ -48,7 +61,7 @@ export async function finalizeOrderSeparation(orderId: string) {
     p_order_id: orderId,
   });
 
-  if (error) throw error;
+  if (error) throwStructuredShortage(error);
   return data as {
     already_finalized: boolean;
     stock_result: OrderStockEventResult | null;
