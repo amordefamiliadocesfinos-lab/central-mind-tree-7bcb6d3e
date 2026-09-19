@@ -5,8 +5,8 @@ import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 export type PurchaseStatus = 'rascunho' | 'confirmado' | 'em_transito' | 'parcialmente_recebido' | 'recebido' | 'cancelado';
 export const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = { rascunho: 'Rascunho', confirmado: 'Confirmado', em_transito: 'Em trânsito', parcialmente_recebido: 'Parcialmente recebido', recebido: 'Recebido', cancelado: 'Cancelado' };
 export interface PurchaseOrder { id: string; internal_purchase_number?: string | null; status: PurchaseStatus; supplier_contact_id: string; ordered_at: string | null; expected_at: string | null; notes: string | null; freight_amount: number; created_at: string; supplier?: { name: string } | null; items?: PurchaseItem[]; receipts?: PurchaseReceipt[] }
-export interface PurchaseItem { id: string; product_id: string; variant_id: string | null; purchase_presentation_id: string | null; ordered_purchase_qty: number; purchase_unit_label: string; conversion_factor: number; stock_unit_label: string; unit_price: number | null; presentation_snapshot: any; product?: { name: string; variation_mode: string; unit: string | null } | null; variant?: { variant_name: string } | null; }
-export interface PurchaseReceipt { id: string; status: 'draft' | 'confirmed' | 'cancelled'; storage_location_id: string; received_at: string | null; confirmed_at: string | null; notes: string | null; items?: any[]; location?: { name: string } | null }
+export interface PurchaseItem { id: string; product_id: string; variant_id: string | null; purchase_presentation_id: string | null; ordered_purchase_qty: number; purchase_unit_label: string; conversion_factor: number; stock_unit_label: string; unit_price: number | null; presentation_snapshot: any; planning_source?: 'mrp' | null; planning_context?: any; product?: { name: string; variation_mode: string; unit: string | null } | null; variant?: { variant_name: string } | null; }
+export interface PurchaseReceipt { id: string; status: 'draft' | 'confirmed' | 'cancelled'; storage_location_id: string; received_at: string | null; confirmed_at: string | null; notes: string | null; created_at: string; items?: any[]; location?: { name: string } | null }
 export interface CreatePurchasePresentationInput {
   product_id: string;
   variant_id: string | null;
@@ -28,8 +28,38 @@ export function usePurchases() {
   const refetch = useCallback(async () => { setLoading(true); const { data, error } = await db.from('purchase_orders').select('*, supplier:contacts!purchase_orders_supplier_contact_id_fkey(name), items:purchase_order_items(*, product:products(name,variation_mode,unit), variant:product_variants(variant_name)), receipts:purchase_receipts(*, location:storage_locations(name), items:purchase_receipt_items(*))').order('created_at', { ascending: false }); if (!error) setOrders(data || []); else console.error(error); setLoading(false); }, []);
   useEffect(() => { refetch(); }, [refetch]);
   const createDraft = useCallback(async (input: any, items: any[]) => { const { data: order, error } = await db.from('purchase_orders').insert(input).select().single(); if (error) throw error; const { error: itemError } = await db.from('purchase_order_items').insert(items.map(i => ({ ...i, purchase_order_id: order.id }))); if (itemError) throw itemError; await refetch(); return order; }, [refetch]);
-  const setStatus = useCallback(async (id: string, status: PurchaseStatus) => { const { error } = await db.from('purchase_orders').update({ status }).eq('id', id); if (error) throw error; await refetch(); }, [refetch]);
+
+  /** Status comercial sensível não é atualizado diretamente. Confirmação, recebimento e cancelamento possuem rotinas canônicas próprias. */
+  const setStatus = useCallback(async (id: string, status: PurchaseStatus) => {
+    if (status === 'cancelado') {
+      const { error } = await db.rpc('cancel_purchase_with_financial_entries', { p_purchase_order_id: id, p_reason: null });
+      if (error) throw error;
+      await refetch();
+      return;
+    }
+    if (status !== 'em_transito') {
+      throw new Error('Este status só pode ser alterado pela rotina canônica de confirmação ou recebimento.');
+    }
+    const { error } = await db.from('purchase_orders').update({ status }).eq('id', id);
+    if (error) throw error;
+    await refetch();
+  }, [refetch]);
+
   const updatePurchase = useCallback(async (id: string, input: Partial<Pick<PurchaseOrder, 'supplier_contact_id' | 'expected_at' | 'notes' | 'freight_amount'>>, items?: any[]) => {
+    const { data: current, error: currentError } = await db.from('purchase_orders').select('status').eq('id', id).single();
+    if (currentError) throw currentError;
+
+    if (current.status !== 'rascunho') {
+      if (items !== undefined || input.supplier_contact_id !== undefined || input.freight_amount !== undefined) {
+        throw new Error('Compra confirmada tem identidade comercial bloqueada. Para alterar fornecedor, frete, itens, quantidades ou preços é necessária regularização explícita.');
+      }
+      const safeUpdates = { expected_at: input.expected_at, notes: input.notes };
+      const { error } = await db.from('purchase_orders').update(safeUpdates).eq('id', id);
+      if (error) throw error;
+      await refetch();
+      return;
+    }
+
     const { error } = await db.from('purchase_orders').update(input).eq('id', id);
     if (error) throw error;
     if (items) {
@@ -73,12 +103,7 @@ export function usePurchases() {
       || input.is_approximate !== undefined
       || input.notes !== undefined;
     if (!hasFunctionalChange && input.is_active !== undefined) {
-      const { data, error } = await db
-        .from('purchase_presentations')
-        .update({ is_active: input.is_active })
-        .eq('id', id)
-        .select()
-        .single();
+      const { data, error } = await db.from('purchase_presentations').update({ is_active: input.is_active }).eq('id', id).select().single();
       if (error) throw error;
       return data;
     }
@@ -97,9 +122,7 @@ export function usePurchases() {
       stock_unit_label: getPhysicalIdentityUnit(product, variant),
       ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
     };
-    if (updates.conversion_factor !== undefined && updates.conversion_factor <= 0) {
-      throw new Error('O fator de conversão deve ser maior que zero.');
-    }
+    if (updates.conversion_factor !== undefined && updates.conversion_factor <= 0) throw new Error('O fator de conversão deve ser maior que zero.');
     const { data, error } = await db.from('purchase_presentations').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
