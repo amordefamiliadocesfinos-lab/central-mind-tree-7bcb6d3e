@@ -9,7 +9,7 @@ import { getCrmTransition } from '@/lib/crm/canonical/transitions';
 import { resolveFunnelStageFromCanonicalResult } from '@/lib/crm/canonical/funnelProgression';
 import { shouldAwaitCustomerAfterCanonicalResult } from '@/lib/crm/canonical/operationalResponsibility';
 import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
-import { classifyTemporalFact, getTemporalInvalidations } from '@/lib/crm/temporalAuthority';
+import { classifyTemporalFact, getTemporalInvalidations, type TemporalSchedule } from '@/lib/crm/temporalAuthority';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
 export type AttendanceOutcome =
@@ -99,17 +99,27 @@ export async function applyCanonicalAttendanceResult(input: {
   // único abaixo, sem executar uma limpeza separada depois do novo Resultado.
   const previousTemporalSnapshot = {
     returnAt: conversation.return_at,
+    nextActionText: contact.next_action_text,
     nextActionAt: contact.next_action_date,
   };
+  const temporalSchedules: TemporalSchedule[] = [];
+  if (previousTemporalSnapshot.returnAt) {
+    temporalSchedules.push({
+      kind: 'return_at',
+      dependency: 'conversation_context',
+      scheduledAt: previousTemporalSnapshot.returnAt,
+    });
+  }
+  if (previousTemporalSnapshot.nextActionText || previousTemporalSnapshot.nextActionAt) {
+    temporalSchedules.push({
+      kind: 'next_action',
+      dependency: 'conversation_context',
+      scheduledAt: previousTemporalSnapshot.nextActionAt,
+    });
+  }
   const temporalInvalidations = getTemporalInvalidations(
     classifyTemporalFact({ isCanonicalResult: true, occurredAt: now }),
-    [
-      { kind: 'return_at', dependency: 'conversation_context', scheduledAt: previousTemporalSnapshot.returnAt },
-      { kind: 'next_action', dependency: 'waiting_customer', scheduledAt: previousTemporalSnapshot.nextActionAt },
-      { kind: 'crm_next_action', dependency: 'waiting_customer', scheduledAt: previousTemporalSnapshot.nextActionAt },
-      { kind: 'follow_up_cycle', dependency: 'conversation_context' },
-      { kind: 'crm_reactivation', dependency: 'independent' },
-    ],
+    temporalSchedules,
   );
 
   const scheduledAt = scheduledDateAt(input.scheduledFor);
@@ -213,9 +223,8 @@ export async function applyCanonicalAttendanceResult(input: {
       return_at: returnAt,
       operational_state: decision.desiredOperationalState,
       handoff_required: decision.handoff.required,
-      previous_return_at: previousTemporalSnapshot.returnAt,
-      temporal_reassessment: temporalInvalidations.reassessNextAction,
-      reactivation_preserved: temporalInvalidations.preserveReactivation,
+      ...(previousTemporalSnapshot.returnAt ? { previous_return_at: previousTemporalSnapshot.returnAt } : {}),
+      ...(temporalInvalidations.reassessNextAction ? { temporal_reassessment: true } : {}),
     },
     description: `Resultado: ${canonicalResult.label}`,
     interaction_date: now,
