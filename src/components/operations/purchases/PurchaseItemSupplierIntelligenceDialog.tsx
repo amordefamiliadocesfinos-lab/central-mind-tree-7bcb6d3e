@@ -52,6 +52,7 @@ interface SupplierMetric {
   lastPhysicalPrice: number;
   averagePhysicalPrice: number;
   variationPct: number | null;
+  averageExpectedLeadDays: number | null;
   averageLeadDays: number | null;
   averageDeliveryDeviationDays: number | null;
 }
@@ -80,6 +81,13 @@ function formatPercent(value: number | null) {
   return `${signal}${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR');
+}
+
 function latestConfirmedReceipt(order: HistoryLine['order']) {
   if (!order || order.status !== 'recebido') return null;
   const timestamps = (order.receipts ?? [])
@@ -88,6 +96,14 @@ function latestConfirmedReceipt(order: HistoryLine['order']) {
     .filter((value): value is string => Boolean(value))
     .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
   return timestamps.length ? timestamps[timestamps.length - 1] : null;
+}
+
+function isUsableHistoryLine(line: HistoryLine) {
+  if (!line.order || line.order.status === 'rascunho' || line.order.status === 'cancelado') return false;
+  const price = Number(line.unit_price);
+  const factor = Number(line.conversion_factor);
+  const qty = Number(line.ordered_purchase_qty);
+  return Number.isFinite(price) && price >= 0 && Number.isFinite(factor) && factor > 0 && Number.isFinite(qty) && qty > 0;
 }
 
 export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChange }: Props) {
@@ -141,17 +157,11 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
     return () => { cancelled = true; };
   }, [open, item?.product_id, item?.variant_id]);
 
-  const metrics = useMemo<SupplierMetric[]>(() => {
-    const valid = history.filter(line => {
-      if (!line.order || line.order.status === 'rascunho' || line.order.status === 'cancelado') return false;
-      const price = Number(line.unit_price);
-      const factor = Number(line.conversion_factor);
-      const qty = Number(line.ordered_purchase_qty);
-      return Number.isFinite(price) && price >= 0 && Number.isFinite(factor) && factor > 0 && Number.isFinite(qty) && qty > 0;
-    });
+  const usableHistory = useMemo(() => history.filter(isUsableHistoryLine), [history]);
 
+  const metrics = useMemo<SupplierMetric[]>(() => {
     const groups = new Map<string, HistoryLine[]>();
-    valid.forEach(line => {
+    usableHistory.forEach(line => {
       const order = line.order!;
       const presentationName = line.presentation_snapshot?.name ?? line.purchase_unit_label;
       const key = [order.supplier_contact_id, presentationName, Number(line.conversion_factor)].join(':');
@@ -180,14 +190,20 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
 
       const uniqueOrders = new Map<string, HistoryLine['order']>();
       sorted.forEach(line => { if (line.order) uniqueOrders.set(line.order.id, line.order); });
-      const leadTimes: number[] = [];
+      const expectedLeadTimes: number[] = [];
+      const realLeadTimes: number[] = [];
       const deviations: number[] = [];
       uniqueOrders.forEach(order => {
         if (!order?.ordered_at) return;
+        if (order.expected_at) {
+          const expectedLead = dayDiff(order.ordered_at, `${order.expected_at}T00:00:00`);
+          if (expectedLead !== null && expectedLead >= 0) expectedLeadTimes.push(expectedLead);
+        }
+
         const finalReceipt = latestConfirmedReceipt(order);
         if (!finalReceipt) return;
         const lead = dayDiff(order.ordered_at, finalReceipt);
-        if (lead !== null && lead >= 0) leadTimes.push(lead);
+        if (lead !== null && lead >= 0) realLeadTimes.push(lead);
         if (order.expected_at) {
           const receivedDate = finalReceipt.slice(0, 10);
           const deviation = dayDiff(`${order.expected_at}T00:00:00`, `${receivedDate}T00:00:00`);
@@ -207,11 +223,23 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
         lastPhysicalPrice,
         averagePhysicalPrice: totalPhysicalQty > 0 ? totalSpend / totalPhysicalQty : 0,
         variationPct,
-        averageLeadDays: leadTimes.length ? leadTimes.reduce((sum, value) => sum + value, 0) / leadTimes.length : null,
+        averageExpectedLeadDays: expectedLeadTimes.length ? expectedLeadTimes.reduce((sum, value) => sum + value, 0) / expectedLeadTimes.length : null,
+        averageLeadDays: realLeadTimes.length ? realLeadTimes.reduce((sum, value) => sum + value, 0) / realLeadTimes.length : null,
         averageDeliveryDeviationDays: deviations.length ? deviations.reduce((sum, value) => sum + value, 0) / deviations.length : null,
       };
     }).sort((a, b) => a.lastPhysicalPrice - b.lastPhysicalPrice || a.supplierName.localeCompare(b.supplierName, 'pt-BR'));
-  }, [history]);
+  }, [usableHistory]);
+
+  const recentHistory = useMemo(
+    () => [...usableHistory]
+      .sort((a, b) => {
+        const aDate = a.order?.ordered_at ?? a.order?.created_at ?? '';
+        const bDate = b.order?.ordered_at ?? b.order?.created_at ?? '';
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      })
+      .slice(0, 10),
+    [usableHistory],
+  );
 
   const title = item
     ? `Fornecedores — ${item.product?.name ?? 'Produto'}${item.variant ? ` · ${item.variant.variant_name}` : ''}`
@@ -219,7 +247,7 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange} title={title} className="sm:max-w-6xl" scrollable>
-      <div className="space-y-4 p-1">
+      <div className="space-y-5 p-1">
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
@@ -234,51 +262,98 @@ export function PurchaseItemSupplierIntelligenceDialog({ item, open, onOpenChang
         ) : metrics.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Ainda não há histórico comercial confiável para este item.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>Apresentação</TableHead>
-                  <TableHead className="text-right">Compras</TableHead>
-                  <TableHead className="text-right">Último preço</TableHead>
-                  <TableHead className="text-right">Equiv. físico</TableHead>
-                  <TableHead className="text-right">Média física</TableHead>
-                  <TableHead className="text-right">Variação</TableHead>
-                  <TableHead className="text-right">Lead time real</TableHead>
-                  <TableHead className="text-right">Desvio da previsão</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {metrics.map(metric => (
-                  <TableRow key={metric.key}>
-                    <TableCell className="font-medium">{metric.supplierName}</TableCell>
-                    <TableCell>
-                      <span>{metric.presentationName}</span>
-                      <span className="block text-xs text-muted-foreground">{metric.purchaseUnitLabel}{metric.isApproximate ? ' · aprox.' : ''}</span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{metric.purchases}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(metric.lastCommercialPrice)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(metric.lastPhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(metric.averagePhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
-                    <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-1 font-mono">
-                        {metric.variationPct !== null && metric.variationPct > 0 && <TrendingUp className="h-3.5 w-3.5" />}
-                        {metric.variationPct !== null && metric.variationPct < 0 && <TrendingDown className="h-3.5 w-3.5" />}
-                        {formatPercent(metric.variationPct)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatDays(metric.averageLeadDays)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatDeviation(metric.averageDeliveryDeviationDays)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <>
+            <section className="space-y-2">
+              <div>
+                <h3 className="text-sm font-semibold">Comparativo fornecedor × apresentação</h3>
+                <p className="text-xs text-muted-foreground">Ordenado pelo último preço equivalente físico, do menor para o maior.</p>
+              </div>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Apresentação</TableHead>
+                      <TableHead className="text-right">Compras</TableHead>
+                      <TableHead className="text-right">Último preço</TableHead>
+                      <TableHead className="text-right">Equiv. físico</TableHead>
+                      <TableHead className="text-right">Média física</TableHead>
+                      <TableHead className="text-right">Variação</TableHead>
+                      <TableHead className="text-right">Lead previsto</TableHead>
+                      <TableHead className="text-right">Lead real</TableHead>
+                      <TableHead className="text-right">Desvio</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics.map(metric => (
+                      <TableRow key={metric.key}>
+                        <TableCell className="font-medium">{metric.supplierName}</TableCell>
+                        <TableCell>
+                          <span>{metric.presentationName}</span>
+                          <span className="block text-xs text-muted-foreground">{metric.purchaseUnitLabel}{metric.isApproximate ? ' · aprox.' : ''}</span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{metric.purchases}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(metric.lastCommercialPrice)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(metric.lastPhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(metric.averagePhysicalPrice)} / {metric.stockUnitLabel}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="inline-flex items-center gap-1 font-mono">
+                            {metric.variationPct !== null && metric.variationPct > 0 && <TrendingUp className="h-3.5 w-3.5" />}
+                            {metric.variationPct !== null && metric.variationPct < 0 && <TrendingDown className="h-3.5 w-3.5" />}
+                            {formatPercent(metric.variationPct)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{formatDays(metric.averageExpectedLeadDays)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatDays(metric.averageLeadDays)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatDeviation(metric.averageDeliveryDeviationDays)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <div>
+                <h3 className="text-sm font-semibold">Últimas compras</h3>
+                <p className="text-xs text-muted-foreground">Até 10 registros mais recentes deste produto/variante.</p>
+              </div>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Apresentação</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                      <TableHead className="text-right">Preço comercial</TableHead>
+                      <TableHead className="text-right">Equiv. físico</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentHistory.map(line => {
+                      const factor = Number(line.conversion_factor);
+                      const unitPrice = Number(line.unit_price);
+                      return (
+                        <TableRow key={line.id}>
+                          <TableCell>{formatDate(line.order?.ordered_at ?? line.order?.created_at)}</TableCell>
+                          <TableCell className="font-medium">{line.order?.supplier?.name ?? 'Fornecedor sem nome'}</TableCell>
+                          <TableCell>{line.presentation_snapshot?.name ?? line.purchase_unit_label}{line.presentation_snapshot?.is_approximate ? ' · aprox.' : ''}</TableCell>
+                          <TableCell className="text-right font-mono">{line.ordered_purchase_qty} {line.purchase_unit_label}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(unitPrice)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(unitPrice / factor)} / {line.stock_unit_label}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          </>
         )}
 
         <p className="text-xs text-muted-foreground">
-          Lead time real só usa compras com `ordered_at` registrado e recebimento total confirmado. Compras legadas sem `ordered_at` não são convertidas artificialmente em lead time. Desvio positivo significa recebimento após a data prevista; negativo, antes.
+          Lead previsto usa `ordered_at → expected_at`. Lead real só usa compras com `ordered_at` registrado e recebimento total confirmado. Compras legadas sem `ordered_at` não são convertidas artificialmente em lead time. Desvio positivo significa recebimento após a data prevista; negativo, antes.
         </p>
       </div>
     </ResponsiveDialog>
