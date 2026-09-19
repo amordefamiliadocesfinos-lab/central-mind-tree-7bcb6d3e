@@ -63,14 +63,43 @@ CREATE TRIGGER production_entries_item_contract BEFORE INSERT OR UPDATE OF produ
 -- mantida apenas como compatibilidade para os leitores legados de OP unitária.
 CREATE OR REPLACE FUNCTION public.recalculate_production_order_item(p_item_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_order_id uuid; v_qty numeric;
+DECLARE v_order_id uuid; v_qty numeric; v_has_required_process boolean;
 BEGIN
   SELECT production_order_id INTO v_order_id FROM public.production_order_items WHERE id=p_item_id FOR UPDATE;
   IF NOT FOUND THEN RETURN; END IF;
-  SELECT COALESCE(min(sum_qty),0) INTO v_qty FROM (SELECT process_id,sum(quantity) sum_qty FROM public.production_entries WHERE production_order_item_id=p_item_id GROUP BY process_id) entries;
+  SELECT EXISTS(SELECT 1 FROM public.production_order_processes WHERE production_order_id=v_order_id AND is_required) INTO v_has_required_process;
+  IF v_has_required_process THEN
+    SELECT COALESCE(min(COALESCE(entry_qty.sum_qty,0)),0) INTO v_qty
+    FROM public.production_order_processes process
+    LEFT JOIN (SELECT process_id,sum(quantity) sum_qty FROM public.production_entries WHERE production_order_item_id=p_item_id GROUP BY process_id) entry_qty ON entry_qty.process_id=process.process_id
+    WHERE process.production_order_id=v_order_id AND process.is_required;
+  ELSE
+    SELECT COALESCE(min(sum_qty),0) INTO v_qty FROM (SELECT process_id,sum(quantity) sum_qty FROM public.production_entries WHERE production_order_item_id=p_item_id GROUP BY process_id) entries;
+  END IF;
   UPDATE public.production_order_items SET produced_quantity=v_qty,updated_at=now() WHERE id=p_item_id;
   UPDATE public.production_orders SET consolidated_quantity=COALESCE((SELECT produced_quantity FROM public.production_order_items WHERE production_order_id=v_order_id ORDER BY created_at,id LIMIT 1),0),updated_at=now() WHERE id=v_order_id;
 END; $$;
+
+-- O apontamento é a fonte de verdade do produzido. Esses triggers cobrem UI,
+-- outro cliente, RPCs e integrações futuras; não movimentam estoque nem
+-- concluem OPs e não recursam porque a função não grava production_entries.
+CREATE OR REPLACE FUNCTION public.sync_production_order_item_produced_quantity()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+  IF TG_OP='DELETE' THEN
+    PERFORM public.recalculate_production_order_item(OLD.production_order_item_id);
+    RETURN OLD;
+  END IF;
+  IF TG_OP='UPDATE' AND OLD.production_order_item_id IS DISTINCT FROM NEW.production_order_item_id THEN
+    PERFORM public.recalculate_production_order_item(OLD.production_order_item_id);
+  END IF;
+  PERFORM public.recalculate_production_order_item(NEW.production_order_item_id);
+  RETURN NEW;
+END; $$;
+DROP TRIGGER IF EXISTS production_entries_sync_produced_quantity ON public.production_entries;
+CREATE TRIGGER production_entries_sync_produced_quantity
+  AFTER INSERT OR UPDATE OF production_order_item_id,process_id,quantity OR DELETE ON public.production_entries
+  FOR EACH ROW EXECUTE FUNCTION public.sync_production_order_item_produced_quantity();
 
 -- Conclusão multi-item: consolida todos os componentes de todos os itens,
 -- bloqueia e pré-valida integralmente antes da primeira baixa, e gera uma
