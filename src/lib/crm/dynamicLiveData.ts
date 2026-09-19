@@ -26,8 +26,12 @@ export function getUnsupportedCrmLiveDataRequirement(
   const text = normalize(String(message ?? '').trim());
   if (!text) return null;
 
-  if (/\b(preco|valor|quanto custa|quanto sai|tabela de preco|tabela de valor)\b/.test(text)) {
-    return { kind: 'current_price', reason: 'Preço/valor vigente deve vir da fonte comercial viva.' };
+  // Casos específicos vêm antes de termos genéricos como "valor".
+  if (/\b(frete|valor do frete|custo do frete|quanto fica o frete|quanto sai o frete)\b/.test(text)) {
+    return { kind: 'current_freight', reason: 'Frete atual depende da cotação/fonte logística viva.' };
+  }
+  if (/\b(prazo de entrega|previsao de entrega|quando chega|quando entrega|chega quando|entrega quando)\b/.test(text)) {
+    return { kind: 'current_delivery_eta', reason: 'Previsão/prazo operacional atual deve vir da fonte logística viva.' };
   }
   if (/\b(estoque|disponibilidade|disponivel|tem pronta entrega|pronta entrega|tem agora)\b/.test(text)) {
     return { kind: 'current_stock', reason: 'Estoque/disponibilidade atual deve vir da fonte de estoque viva.' };
@@ -35,11 +39,8 @@ export function getUnsupportedCrmLiveDataRequirement(
   if (/\b(desconto|promocao|oferta|condicao especial)\b/.test(text)) {
     return { kind: 'current_discount', reason: 'Desconto/condição comercial atual deve vir da fonte comercial viva.' };
   }
-  if (/\b(frete|valor do frete|custo do frete|quanto fica o frete|quanto sai o frete)\b/.test(text)) {
-    return { kind: 'current_freight', reason: 'Frete atual depende da cotação/fonte logística viva.' };
-  }
-  if (/\b(prazo de entrega|previsao de entrega|quando chega|quando entrega|chega quando|entrega quando)\b/.test(text)) {
-    return { kind: 'current_delivery_eta', reason: 'Previsão/prazo operacional atual deve vir da fonte logística viva.' };
+  if (/\b(preco|valor|quanto custa|quanto sai|tabela de preco|tabela de valor)\b/.test(text)) {
+    return { kind: 'current_price', reason: 'Preço/valor vigente deve vir da fonte comercial viva.' };
   }
 
   return null;
