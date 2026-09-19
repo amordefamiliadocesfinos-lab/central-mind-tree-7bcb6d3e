@@ -76,14 +76,19 @@ export function deriveCommercialSignals(context: CrmAiContext, resultCode: strin
     : 'none';
   const postSaleCodes = new Set(['CRM-RES-023', 'CRM-RES-024', 'CRM-RES-025', 'CRM-RES-026', 'CRM-RES-027', 'CRM-RES-028', 'CRM-RES-029']);
   const repurchaseIntent = hasPriorPurchase && /\b(novo pedido|quero pedir|quero comprar|repor|reposicao|mais \d+)\b/.test(text);
+  const explicitInformationRequest = /\b(quanto custa|qual o preco|qual valor|tem disponivel|tem disponibilidade|como funciona|qual o prazo|qual prazo|quando entrega|quando chega)\b/.test(text);
   const commercialIntent: CrmCommercialIntent = code === 'CRM-RES-033' ? 'restriction'
     : code === 'CRM-RES-002' || code === 'CRM-RES-015' ? 'refusal'
     : paymentState !== 'none' ? 'payment'
     : repurchaseIntent || code === 'CRM-RES-032' ? 'repurchase'
     : postSaleCodes.has(code ?? '') ? 'post_sale'
     : code === 'CRM-RES-013' || code === 'CRM-RES-014' || /\b(vou pensar|depois decido|te retorno)\b/.test(text) ? 'deferred_decision'
-    : code === 'CRM-RES-010' || code === 'CRM-RES-012' || /\b(caro|preco|prazo|quantidade|entrega|condicao|disponibilidade)\b/.test(text) ? 'objection'
-    : /\b(quanto custa|qual o preco|tem disponivel|como funciona|qual o prazo)\b/.test(text) ? 'information_request'
+    // Resultado canônico de objeção continua soberano. Sem ele, perguntas
+    // explícitas de preço/prazo/disponibilidade são dúvidas informativas, não
+    // objeções presumidas apenas por conterem palavras temáticas amplas.
+    : code === 'CRM-RES-010' || code === 'CRM-RES-012' ? 'objection'
+    : explicitInformationRequest ? 'information_request'
+    : /\b(caro|preco|prazo|quantidade|entrega|condicao|disponibilidade)\b/.test(text) ? 'objection'
     : code === 'CRM-RES-001' || /\b(quero fechar|quero comprar|me manda proposta|preciso de|tenho interesse)\b/.test(text) ? 'interest'
     : 'unknown';
   return { commercialIntent, paymentState, hasPriorPurchase };
