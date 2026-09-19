@@ -105,6 +105,7 @@ export function PurchaseFinancialConditionDialog({
   };
 
   const enteredTotal = rows.reduce((sum, row) => sum + parseMoney(row.value), 0);
+  const totalsMatch = Math.round(enteredTotal * 100) === Math.round(total * 100);
 
   return (
     <ResponsiveDialog
@@ -116,7 +117,7 @@ export function PurchaseFinancialConditionDialog({
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm">
             <p>Total comercial: <strong>{formatCurrency(total)}</strong></p>
-            <p className={Math.abs(enteredTotal - total) > 0.01 ? 'text-destructive' : 'text-muted-foreground'}>
+            <p className={totalsMatch ? 'text-muted-foreground' : 'text-destructive'}>
               Soma das parcelas: {formatCurrency(enteredTotal)}
             </p>
           </div>
