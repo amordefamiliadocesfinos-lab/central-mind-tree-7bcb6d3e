@@ -15,7 +15,7 @@ export interface MaterialNeed {
   unit: string; total_needed: number; stock_available: number; shortage: number; orders_affected: string[];
 }
 type InventoryRow = { product_id: string; variant_id: string | null; quantity: number | null };
-type ProductionOrderRow = { product_id: string | null; variant_id: string | null; target_quantity: number | null; status: string };
+type ProductionOrderRow = { product_id: string | null; variant_id: string | null; target_quantity: number | null; status: string; items?: Array<{ product_id: string; variant_id: string | null; planned_quantity: number | null }> };
 
 function sumInventory(rows: InventoryRow[]) {
   return rows.reduce<Record<string, number>>((totals, row) => {
@@ -27,8 +27,11 @@ function sumInventory(rows: InventoryRow[]) {
 function sumProgrammedProduction(rows: ProductionOrderRow[]) {
   return rows.reduce<Record<string, number>>((totals, row) => {
     if (!row.product_id || !['aberto', 'producao'].includes(row.status)) return totals;
-    const key = physicalIdentityKey(row.product_id, row.variant_id);
-    totals[key] = (totals[key] || 0) + Number(row.target_quantity || 0);
+    const items = row.items?.length ? row.items : [{ product_id: row.product_id, variant_id: row.variant_id, planned_quantity: row.target_quantity }];
+    for (const item of items) {
+      const key = physicalIdentityKey(item.product_id, item.variant_id);
+      totals[key] = (totals[key] || 0) + Number(item.planned_quantity || 0);
+    }
     return totals;
   }, {});
 }
@@ -71,7 +74,7 @@ export function useMRP() {
     const productIds = [...new Set(demandRows.map(row => row.product_id))];
     const [{ data: inventory }, { data: productionOrders }] = await Promise.all([
       supabase.from('inventory').select('product_id, variant_id, quantity').in('product_id', productIds),
-      supabase.from('production_orders').select('product_id, variant_id, target_quantity, status').in('status', ['aberto', 'producao']),
+      supabase.from('production_orders').select('product_id, variant_id, target_quantity, status, items:production_order_items(product_id,variant_id,planned_quantity)').in('status', ['aberto', 'producao']),
     ]);
     return calculateMrpProductionNeeds(demandRows, (inventory || []) as InventoryRow[], (productionOrders || []) as ProductionOrderRow[])
       .sort((a, b) => b.shortage - a.shortage || a.product_name.localeCompare(b.product_name));

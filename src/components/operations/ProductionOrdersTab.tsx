@@ -73,6 +73,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     scheduled_date: new Date().toISOString().split('T')[0],
     selectedProcesses: [] as { process_id: string; is_required: boolean }[],
   });
+  const [newOrderItems, setNewOrderItems] = useState<Array<{ id: string; product_id: string; variant_id: string; planned_quantity: number; variants: { id: string; variant_name: string; sku: string; unit: string | null }[] }>>([
+    { id: crypto.randomUUID(), product_id: '', variant_id: '', planned_quantity: 0, variants: [] },
+  ]);
   const [productVariants, setProductVariants] = useState<{ id: string; variant_name: string; sku: string; unit: string | null }[]>([]);
 
   useEffect(() => {
@@ -92,6 +95,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
   // Entry form state
   const [newEntry, setNewEntry] = useState({
+    production_order_item_id: '',
     process_id: '',
     employee_name: '',
     date: new Date().toISOString().split('T')[0],
@@ -101,16 +105,16 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
   });
 
   const handleCreateOrder = async () => {
-    if (!newOrder.product_id || newOrder.selectedProcesses.length === 0) return;
-    if (productVariants.length > 0 && !newOrder.variant_id) {
-      toast.error('Selecione a variante final para este produto');
-      return;
+    if (!newOrderItems.length || newOrder.selectedProcesses.length === 0) return;
+    for (const item of newOrderItems) {
+      const product = products.find(candidate => candidate.id === item.product_id);
+      if (!product || item.planned_quantity <= 0) { toast.error('Informe produto e quantidade planejada em todos os itens.'); return; }
+      if (product.variation_mode === 'variacoes_fisicas' && !item.variant_id) { toast.error(`Selecione a variante física de ${product.name}.`); return; }
     }
 
     await createOrder(
       {
-        product_id: newOrder.product_id,
-        variant_id: newOrder.variant_id || null,
+        items: newOrderItems.map(item => ({ product_id: item.product_id, variant_id: item.variant_id || null, planned_quantity: item.planned_quantity })),
         batch_code: newOrder.batch_code || null,
         target_quantity: newOrder.target_quantity,
         notes: newOrder.notes || null,
@@ -129,6 +133,12 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
       scheduled_date: new Date().toISOString().split('T')[0],
       selectedProcesses: [],
     });
+    setNewOrderItems([{ id: crypto.randomUUID(), product_id: '', variant_id: '', planned_quantity: 0, variants: [] }]);
+  };
+
+  const changeNewOrderItemProduct = async (itemId: string, productId: string) => {
+    const { data } = await supabase.from('product_variants').select('id,variant_name,sku,unit').eq('product_id', productId).eq('is_active', true).order('variant_name');
+    setNewOrderItems(current => current.map(item => item.id === itemId ? { ...item, product_id: productId, variant_id: '', variants: data ?? [] } : item));
   };
 
 
@@ -143,12 +153,13 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
   }, [orders]);
 
   const handleCreateEntry = async () => {
-    if (!selectedOrder || !newEntry.process_id || !newEntry.employee_name || newEntry.quantity <= 0) return;
+    if (!selectedOrder || !newEntry.process_id || !newEntry.employee_name || newEntry.quantity <= 0 || ((selectedOrder.items?.length ?? 0) > 1 && !newEntry.production_order_item_id)) return;
 
     const process = processes.find(p => p.id === newEntry.process_id);
     
     await createEntry({
       production_order_id: selectedOrder.id,
+      production_order_item_id: newEntry.production_order_item_id || null,
       process_id: newEntry.process_id,
       employee_name: newEntry.employee_name,
       date: newEntry.date,
@@ -162,6 +173,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
     setShowNewEmployee(false);
     setNewEmployeeName('');
     setNewEntry({
+      production_order_item_id: '',
       process_id: '',
       employee_name: '',
       date: new Date().toISOString().split('T')[0],
@@ -349,12 +361,9 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="space-y-1 text-sm text-muted-foreground">
                         <Package className="h-4 w-4 shrink-0" />
-                        <span className="truncate">
-                          <span className="font-medium text-foreground">{order.target_quantity} {getOrderUnit(order)}</span>{' '}
-                          {order.product?.name || 'Produto não definido'}{order.variant ? ` · ${order.variant.variant_name}` : ''}
-                        </span>
+                        {(order.items?.length ? order.items : [{ id: 'legacy', product: order.product, variant: order.variant, planned_quantity: order.target_quantity }]).map(item => <div key={item.id} className="pl-6"><span className="font-medium text-foreground">{item.planned_quantity} {getPhysicalIdentityUnit(item.product, item.variant)}</span>{' '}{item.product?.name || 'Produto não definido'}{item.variant ? ` · ${item.variant.variant_name}` : ''}</div>)}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         {order.scheduled_date && (
@@ -427,31 +436,10 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
               </Select>
             </div>
 
-            <div>
-              <Label>Produto *</Label>
-              <Select
-                value={newOrder.product_id}
-                onValueChange={(v) => setNewOrder({ ...newOrder, product_id: v, variant_id: '' })}
-              >
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Selecione o produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {productVariants.length > 0 && (
-              <div>
-                <Label>Variante final *</Label>
-                <Select value={newOrder.variant_id} onValueChange={(v) => setNewOrder({ ...newOrder, variant_id: v })}>
-                  <SelectTrigger className="h-12"><SelectValue placeholder="Selecione a variante produzida" /></SelectTrigger>
-                  <SelectContent>{productVariants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name} ({variant.sku})</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            )}
+            <section className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-center justify-between"><Label>Itens produzidos *</Label><Button type="button" variant="outline" size="sm" onClick={() => setNewOrderItems(current => [...current, { id: crypto.randomUUID(), product_id: '', variant_id: '', planned_quantity: 0, variants: [] }])}><Plus className="mr-1 h-4 w-4" />Adicionar item</Button></div>
+              {newOrderItems.map((item, index) => { const product = products.find(candidate => candidate.id === item.product_id); const needsVariant = product?.variation_mode === 'variacoes_fisicas'; const unit = getPhysicalIdentityUnit(product, item.variants.find(variant => variant.id === item.variant_id)); return <div key={item.id} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_140px_auto] sm:items-end"><div><Label className="text-xs">Produto</Label><Select value={item.product_id} onValueChange={value => void changeNewOrderItemProduct(item.id, value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{products.map(candidate => <SelectItem key={candidate.id} value={candidate.id}>{candidate.name}</SelectItem>)}</SelectContent></Select></div>{needsVariant ? <div><Label className="text-xs">Variante física *</Label><Select value={item.variant_id} onValueChange={value => setNewOrderItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, variant_id: value } : currentItem))}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{item.variants.map(variant => <SelectItem key={variant.id} value={variant.id}>{variant.variant_name}</SelectItem>)}</SelectContent></Select></div> : <div className="text-xs text-muted-foreground">Produto simples</div>}<div><Label className="text-xs">Planejado {unit ? `(${unit})` : ''}</Label><Input type="number" min="0" value={item.planned_quantity || ''} onChange={event => setNewOrderItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, planned_quantity: Number(event.target.value) || 0 } : currentItem))} /></div><Button type="button" variant="ghost" size="icon" disabled={newOrderItems.length === 1} onClick={() => setNewOrderItems(current => current.filter(currentItem => currentItem.id !== item.id))}><Trash2 className="h-4 w-4" /></Button></div>; })}
+            </section>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -461,15 +449,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                   value={newOrder.batch_code}
                   onChange={(e) => setNewOrder({ ...newOrder, batch_code: e.target.value })}
                   placeholder="Código do lote"
-                />
-              </div>
-              <div>
-                <Label>Meta de Produção ({newOrderUnit})</Label>
-                <Input
-                  type="number"
-                  className="h-12"
-                  value={newOrder.target_quantity}
-                  onChange={(e) => setNewOrder({ ...newOrder, target_quantity: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
@@ -528,7 +507,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
             <Button 
               className="w-full h-12" 
               onClick={handleCreateOrder}
-              disabled={!newOrder.product_id || newOrder.selectedProcesses.length === 0}
+              disabled={!newOrderItems.length || newOrder.selectedProcesses.length === 0}
             >
               Criar Ordem de Produção
             </Button>
@@ -567,16 +546,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                 <TabsContent value="info" className="space-y-4">
                   <Card>
                     <CardContent className="pt-4 space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Produto:</span>
-                        <span className="font-medium">{selectedOrder.product?.name}</span>
-                      </div>
-                      {selectedOrder.variant && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Variante Física:</span>
-                          <span className="font-medium">{selectedOrder.variant.variant_name}</span>
-                        </div>
-                      )}
+                      <div className="space-y-2"><span className="text-muted-foreground">Itens da OP:</span>{(selectedOrder.items?.length ? selectedOrder.items : [{ id: 'legacy', product: selectedOrder.product, variant: selectedOrder.variant, planned_quantity: selectedOrder.target_quantity, produced_quantity: calculateConsolidation(selectedOrder) }]).map(item => <div key={item.id} className="rounded border p-2 text-sm"><p className="font-medium">{item.product?.name}{item.variant ? ` · ${item.variant.variant_name}` : ''}</p><p className="text-muted-foreground">Planejado: {item.planned_quantity} {getPhysicalIdentityUnit(item.product, item.variant)} · Apontado: {item.produced_quantity}</p></div>)}</div>
                       <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Origem:</span>
                         <span className="font-medium text-right">{selectedOrder.source_order
@@ -803,6 +773,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
         title="Novo Lançamento"
       >
         <div className="space-y-4 p-4 sm:p-0">
+          {(selectedOrder?.items?.length ?? 0) > 1 && <div><Label>Item produzido *</Label><Select value={newEntry.production_order_item_id} onValueChange={value => setNewEntry({ ...newEntry, production_order_item_id: value })}><SelectTrigger className="h-12"><SelectValue placeholder="Selecione o item" /></SelectTrigger><SelectContent>{selectedOrder?.items?.map(item => <SelectItem key={item.id} value={item.id}>{item.product?.name ?? 'Produto'}{item.variant ? ` · ${item.variant.variant_name}` : ''} · planejado {item.planned_quantity}</SelectItem>)}</SelectContent></Select></div>}
           <div>
             <Label>Processo *</Label>
               <Select
@@ -919,7 +890,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
           <Button 
             className="w-full h-12" 
             onClick={handleCreateEntry}
-            disabled={!newEntry.process_id || !newEntry.employee_name || newEntry.quantity <= 0}
+            disabled={!newEntry.process_id || !newEntry.employee_name || newEntry.quantity <= 0 || ((selectedOrder?.items?.length ?? 0) > 1 && !newEntry.production_order_item_id)}
           >
             Registrar Lançamento
           </Button>
