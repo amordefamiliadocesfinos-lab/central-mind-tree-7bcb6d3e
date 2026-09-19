@@ -17,6 +17,7 @@ import {
   type CrmCommunicationDecision,
   type CrmCommunicationDraft,
 } from './communication';
+import { getUnsupportedCrmLiveDataRequirement } from './dynamicLiveData';
 import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 
@@ -105,6 +106,25 @@ export async function suggestCrmReplyFromContext(
       message: null,
       reason: 'Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.',
       rationale: 'Contato em opt-out comercial e sem mensagem recente do cliente: nova abordagem não é permitida.',
+      tone: null,
+      intent: 'none',
+      length: 'short',
+    };
+  }
+
+  // F2-B: se a última pergunta exige um fato vivo que este contexto ainda não
+  // transporta, não chamamos a IA para preencher a lacuna. O operador recebe a
+  // explicação da fonte necessária e consulta o módulo canônico correspondente.
+  const unsupportedLiveData = lastIsInbound
+    ? getUnsupportedCrmLiveDataRequirement(lastMessage?.content)
+    : null;
+  if (unsupportedLiveData) {
+    const reason = `${unsupportedLiveData.reason} O Assistente não sugere esse dado sem fonte viva disponível.`;
+    return {
+      reply: null,
+      message: null,
+      reason,
+      rationale: reason,
       tone: null,
       intent: 'none',
       length: 'short',
