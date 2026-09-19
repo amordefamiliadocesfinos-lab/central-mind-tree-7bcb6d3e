@@ -98,13 +98,11 @@ export function calculateRepurchaseSignal(
     };
   }
 
-  // Pós-venda e campanha sem resposta não são iniciativa comercial nova.
-  const postSale = ['CRM-RES-023', 'CRM-RES-024', 'CRM-RES-025', 'CRM-RES-026', 'CRM-RES-027', 'CRM-RES-028', 'CRM-RES-029']
-    .includes(context.lastResult?.code ?? '');
-  if (postSale || context.campaign?.responded === false) {
-    return noneFrom(paid, now, postSale
-      ? 'Pós-venda sem nova intenção concreta não caracteriza recompra.'
-      : 'Envio de campanha sem resposta não é evidência de recompra.');
+  // Campanha sem resposta não é iniciativa comercial nova. Um Resultado de
+  // pós-venda também não cria recompra por si só, mas não pode bloquear para
+  // sempre uma oportunidade sustentada independentemente pelo histórico.
+  if (context.campaign?.responded === false) {
+    return noneFrom(paid, now, 'Envio de campanha sem resposta não é evidência de recompra.');
   }
 
   // Uma ou duas compras são histórico, não padrão suficiente para sugestão proativa.
