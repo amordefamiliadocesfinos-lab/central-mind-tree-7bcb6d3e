@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
 
   const { data: conv } = await supabase
     .from('service_conversations')
-    .select('id, contact_id, contact_handle, last_inbound_at, funnel_stage')
+    .select('id, contact_id, contact_handle, last_inbound_at, last_outbound_at, attendance_state, return_at, funnel_stage')
     .eq('id', conversationId)
     .maybeSingle();
   if (!conv) return json({ error: 'Conversa não encontrada' }, 404);
@@ -180,6 +180,24 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode: 'campaign', message_id: pending.id, external_message_id: result.externalMessageId ?? null });
   }
 
+  // O estado anterior ao envio determina se esta mensagem é uma tentativa real
+  // de follow-up. Esta decisão precisa acontecer antes de sobrescrever os campos
+  // temporais da conversa.
+  const waitingStates = new Set(['aguardando_cliente', 'aguardando_resposta', 'retornar_em', 'awaiting_response', 'waiting_customer']);
+  const normalizedAttendanceState = String(conv.attendance_state ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const previousReturnAt = conv.return_at ? Date.parse(conv.return_at) : Number.NaN;
+  const previousLastInboundAt = conv.last_inbound_at ? Date.parse(conv.last_inbound_at) : Number.NaN;
+  const previousLastOutboundAt = conv.last_outbound_at ? Date.parse(conv.last_outbound_at) : 0;
+  const currentSendIsRealFollowUp = waitingStates.has(normalizedAttendanceState)
+    && Number.isFinite(previousReturnAt)
+    && previousReturnAt <= Date.now()
+    && (!Number.isFinite(previousLastInboundAt) || previousLastInboundAt <= previousLastOutboundAt);
+
   await supabase
     .from('service_conversations')
     .update({
@@ -192,6 +210,7 @@ Deno.serve(async (req) => {
     })
     .eq('id', conversationId);
 
+  let automaticFollowUpScheduled: boolean | null = null;
   if (conv.contact_id) {
     const { data: contact } = await supabase
       .from('contacts')
@@ -214,7 +233,9 @@ Deno.serve(async (req) => {
       supabase,
       conv.contact_id,
       conv.last_inbound_at,
+      currentSendIsRealFollowUp,
     );
+    automaticFollowUpScheduled = canScheduleFollowUp;
     if (canScheduleFollowUp) {
       await setOfficialCrmNextAction(supabase, {
         contactId: conv.contact_id,
@@ -224,8 +245,9 @@ Deno.serve(async (req) => {
         taskTime: '09:00',
       });
     } else {
-      // A terceira obrigação acabou de ser consumida por este envio. Mantemos
-      // o atendimento aguardando o cliente, mas não criamos 4º retorno/tarefa.
+      // Se o envio atual é o 3º follow-up real, ele já é considerado aqui,
+      // mesmo antes de o frontend registrar o evento 3/3. A obrigação atual é
+      // consumida e nenhuma 4ª tarefa/return_at pode nascer.
       await clearOfficialCrmNextAction(supabase, { contactId: conv.contact_id, conversationId });
     }
     if (message.length >= 24) {
@@ -238,5 +260,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, message_id: pending.id, external_message_id: result.externalMessageId ?? null });
+  return json({
+    ok: true,
+    message_id: pending.id,
+    external_message_id: result.externalMessageId ?? null,
+    automatic_follow_up_scheduled: automaticFollowUpScheduled,
+  });
 });
