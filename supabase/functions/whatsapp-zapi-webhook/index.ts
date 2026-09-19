@@ -3,6 +3,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/zapi-connector.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
+import { applyInboundTemporalAuthority } from '../_shared/crm/temporal-authority-inbound.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -35,7 +36,6 @@ async function syncWhatsAppPhoto(
   const lastSync = contact?.whatsapp_photo_synced_at ? Date.parse(contact.whatsapp_photo_synced_at) : 0;
   if (lastSync && Date.now() - lastSync < PHOTO_SYNC_INTERVAL_MS) return;
 
-  // Marca a tentativa antes de executar (evita repetição em caso de falha)
   await supabase
     .from('contacts')
     .update({ whatsapp_photo_synced_at: new Date().toISOString() })
@@ -81,13 +81,6 @@ async function syncWhatsAppPhoto(
       .from('service_conversations')
       .update({ contact_avatar_url: publicUrl })
       .eq('id', conversationId);
-
-    await refreshLiveContextAfterEvent(supabase, {
-      contactId,
-      type: inbound ? 'inbound' : 'outbound',
-      occurredAt: nowIso,
-      summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
-    });
   }
 }
 
@@ -121,7 +114,6 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
-  // Estado da integração (sem credenciais)
   if (evt.providerInstanceRef) {
     await supabase.from('whatsapp_integrations').upsert(
       {
@@ -137,7 +129,6 @@ Deno.serve(async (req) => {
 
   if (!evt.accepted) return json({ ignored: true, reason: evt.ignoredReason });
 
-  // Deduplicação
   const dedupKey = evt.deduplicationKey!;
   const { error: dedupError } = await supabase
     .from('integration_webhook_receipts')
@@ -168,7 +159,6 @@ Deno.serve(async (req) => {
       return json({ ignored: true, reason: 'telefone inválido' });
     }
 
-    // Localiza contato — não associa se houver ambiguidade
     const { data: matches } = await supabase
       .from('contacts')
       .select('id, name')
@@ -199,7 +189,6 @@ Deno.serve(async (req) => {
       contactName = created.name;
     }
 
-    // Conversa WhatsApp
     let conversationId: string | null = null;
     if (contactId) {
       const { data: conv } = await supabase
@@ -250,8 +239,6 @@ Deno.serve(async (req) => {
       message_type: evt.messageType ?? 'text',
       delivery_status: inbound ? 'received' : 'sent',
       provider_timestamp: evt.providerTimestamp,
-      // A origem é definida também neste limite de persistência para não depender
-      // de versões anteriores do normalizador em eventos enviados pelo aparelho.
       source: inbound ? 'provider' : 'mobile',
       provider_name: evt.providerName,
       provider_instance_ref: evt.providerInstanceRef,
@@ -260,19 +247,27 @@ Deno.serve(async (req) => {
     if (msgErr && msgErr.code !== '23505') throw new Error(`mensagem: ${msgErr.message}`);
 
     const preview = (evt.content ?? '').slice(0, 100);
-    await supabase
+    const { error: conversationError } = await supabase
       .from('service_conversations')
       .update({
         last_message_at: nowIso,
         last_message_preview: preview,
         needs_reply: inbound,
         ...(inbound
-          ? { last_inbound_at: nowIso, status: 'open', resolved_at: null, attendance_state: null }
+          ? { last_inbound_at: nowIso, status: 'open', resolved_at: null, attendance_state: 'responder' }
           : { last_outbound_at: nowIso }),
       })
       .eq('id', conversationId);
+    if (conversationError) throw conversationError;
 
-    // Sincronização da foto de perfil (não bloqueia o processamento)
+    if (inbound) {
+      await applyInboundTemporalAuthority(supabase, {
+        contactId,
+        conversationId,
+        occurredAt: nowIso,
+      });
+    }
+
     if (contactId) {
       try {
         await syncWhatsAppPhoto(supabase, connector, contactId, phone, conversationId);
@@ -280,6 +275,13 @@ Deno.serve(async (req) => {
         console.error('photo sync failed', (e as Error).message);
       }
     }
+
+    await refreshLiveContextAfterEvent(supabase, {
+      contactId,
+      type: inbound ? 'inbound' : 'outbound',
+      occurredAt: nowIso,
+      summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
+    });
 
     await finish('processed');
     return json({ ok: true, duplicate_message: msgErr?.code === '23505' });
