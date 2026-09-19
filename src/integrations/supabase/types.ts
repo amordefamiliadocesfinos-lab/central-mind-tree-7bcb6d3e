@@ -640,6 +640,60 @@ export type Database = {
           },
         ]
       }
+      commercial_presentations: {
+        Row: {
+          commercial_unit_label: string
+          conversion_factor: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          commercial_unit_label: string
+          conversion_factor: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          commercial_unit_label?: string
+          conversion_factor?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_presentations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_presentations_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_activities: {
         Row: {
           activity_type: string
@@ -6215,6 +6269,10 @@ export type Database = {
       }
       normalize_br_phone: { Args: { _raw: string }; Returns: string }
       owns_campaign: { Args: { _campaign_id: string }; Returns: boolean }
+      physical_identity_has_operational_usage: {
+        Args: { p_product_id: string; p_variant_id: string }
+        Returns: boolean
+      }
       recalculate_purchase_order_receiving_status: {
         Args: { p_purchase_order_id: string }
         Returns: string
