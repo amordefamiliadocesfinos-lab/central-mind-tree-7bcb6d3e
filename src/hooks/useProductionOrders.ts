@@ -21,6 +21,7 @@ export interface ProductionOrderProcess {
 export interface ProductionEntry {
   id: string;
   production_order_id: string;
+  production_order_item_id?: string | null;
   process_id: string;
   employee_name: string;
   date: string;
@@ -35,6 +36,17 @@ export interface ProductionEntry {
     id: string;
     name: string;
   };
+}
+
+export interface ProductionOrderItem {
+  id: string;
+  production_order_id: string;
+  product_id: string;
+  variant_id: string | null;
+  planned_quantity: number;
+  produced_quantity: number;
+  product?: { id: string; name: string; sku: string; unit: string } | null;
+  variant?: { id: string; variant_name: string; sku: string; unit: string | null } | null;
 }
 
 export interface ProductionOrder {
@@ -74,6 +86,7 @@ export interface ProductionOrder {
   } | null;
   processes?: ProductionOrderProcess[];
   entries?: ProductionEntry[];
+  items?: ProductionOrderItem[];
 }
 
 
@@ -105,7 +118,8 @@ export function useProductionOrders() {
         entries:production_entries(
           *,
           process:processes(id, name)
-        )
+        ),
+        items:production_order_items(*, product:products(id,name,sku,unit), variant:product_variants(id,variant_name,sku,unit))
       `)
       .order('created_at', { ascending: false });
 
@@ -120,25 +134,36 @@ export function useProductionOrders() {
   }, []);
 
   const createOrder = useCallback(async (
-    order: Partial<ProductionOrder>,
+    order: Partial<ProductionOrder> & { items?: Array<Pick<ProductionOrderItem, 'product_id' | 'variant_id' | 'planned_quantity'>> },
     processIds: { process_id: string; is_required: boolean }[]
   ) => {
     try {
-      if (!order.product_id) throw new PhysicalIdentityError('Selecione o produto a produzir.');
-      await resolvePhysicalIdentity(order.product_id, order.variant_id);
+      const items = order.items?.length ? order.items : order.product_id ? [{ product_id: order.product_id, variant_id: order.variant_id ?? null, planned_quantity: order.target_quantity ?? 0 }] : [];
+      if (!items.length || items.some(item => !item.product_id || item.planned_quantity <= 0)) throw new PhysicalIdentityError('Informe ao menos um item e uma quantidade planejada maior que zero.');
+      await Promise.all(items.map(item => resolvePhysicalIdentity(item.product_id, item.variant_id)));
     } catch (error) {
       toast.error(error instanceof PhysicalIdentityError ? error.message : 'Identidade física inválida.');
       return null;
     }
+    const items = order.items?.length ? order.items : [{ product_id: order.product_id!, variant_id: order.variant_id ?? null, planned_quantity: order.target_quantity ?? 0 }];
+    const primary = items[0];
+    const { items: _items, ...header } = order;
     const { data, error } = await supabase
       .from('production_orders')
-      .insert(order)
+      .insert({ ...header, product_id: primary.product_id, variant_id: primary.variant_id, target_quantity: primary.planned_quantity })
       .select()
       .single();
 
     if (error) {
       console.error('Error creating production order:', error);
       toast.error('Erro ao criar ordem de produção');
+      return null;
+    }
+
+    const { error: itemsError } = await (supabase as any).from('production_order_items').insert(items.map(item => ({ ...item, production_order_id: data.id })));
+    if (itemsError) {
+      console.error('Error adding production items:', itemsError);
+      toast.error('A OP foi criada, mas seus itens não puderam ser registrados.');
       return null;
     }
 
@@ -218,6 +243,14 @@ export function useProductionOrders() {
     const allQuantities = Object.values(entriesByProcess);
     return allQuantities.length > 0 ? Math.min(...allQuantities) : 0;
   }, []);
+  const calculateItemConsolidation = useCallback((order: ProductionOrder, itemId: string) => {
+    const entries = (order.entries || []).filter(entry => entry.production_order_item_id === itemId);
+    if (!entries.length) return 0;
+    const byProcess: Record<string, number> = {};
+    entries.forEach(entry => { byProcess[entry.process_id] = (byProcess[entry.process_id] || 0) + entry.quantity; });
+    const required = order.processes?.filter(process => process.is_required) || [];
+    return required.length ? Math.min(...required.map(process => byProcess[process.process_id] || 0)) : Math.min(...Object.values(byProcess));
+  }, []);
 
   // Add production entry
   const createEntry = useCallback(async (entry: Omit<ProductionEntry, 'id' | 'created_at' | 'updated_at' | 'total_value' | 'process'>) => {
@@ -235,23 +268,25 @@ export function useProductionOrders() {
 
     toast.success('Lançamento registrado');
     
-    // Recalculate consolidated quantity
+    // Apontamentos são sempre consolidados no item físico correspondente.
     const order = orders.find(o => o.id === entry.production_order_id);
     if (order) {
       const updatedOrder = {
         ...order,
         entries: [...(order.entries || []), data],
       };
-      const consolidated = calculateConsolidation(updatedOrder);
-      await supabase
-        .from('production_orders')
-        .update({ consolidated_quantity: consolidated })
-        .eq('id', entry.production_order_id);
+      if (data.production_order_item_id) {
+        const produced = calculateItemConsolidation(updatedOrder, data.production_order_item_id);
+        await (supabase as any).from('production_order_items').update({ produced_quantity: produced }).eq('id', data.production_order_item_id);
+      } else {
+        const consolidated = calculateConsolidation(updatedOrder);
+        await supabase.from('production_orders').update({ consolidated_quantity: consolidated }).eq('id', entry.production_order_id);
+      }
     }
     
     fetchOrders();
     return data;
-  }, [orders, calculateConsolidation, fetchOrders]);
+  }, [orders, calculateConsolidation, calculateItemConsolidation, fetchOrders]);
 
   // Recalcula e persiste a quantidade consolidada da OP a partir dos lançamentos atuais
   const recalcConsolidation = useCallback(async (productionOrderId: string) => {
@@ -269,12 +304,20 @@ export function useProductionOrders() {
       .eq('id', productionOrderId);
   }, [calculateConsolidation]);
 
+  const recalcItemConsolidation = useCallback(async (productionOrderId: string, itemId: string | null | undefined) => {
+    if (!itemId) return recalcConsolidation(productionOrderId);
+    const { data: fresh } = await supabase.from('production_orders').select('id,entries:production_entries(*),processes:production_order_processes(*)').eq('id', productionOrderId).maybeSingle();
+    if (!fresh) return;
+    const produced = calculateItemConsolidation(fresh as unknown as ProductionOrder, itemId);
+    await (supabase as any).from('production_order_items').update({ produced_quantity: produced }).eq('id', itemId);
+  }, [calculateItemConsolidation, recalcConsolidation]);
+
   const updateEntry = useCallback(async (id: string, updates: Partial<ProductionEntry>) => {
     const { data, error } = await supabase
       .from('production_entries')
       .update(updates)
       .eq('id', id)
-      .select('production_order_id')
+      .select('production_order_id,production_order_item_id')
       .maybeSingle();
 
     if (error) {
@@ -283,17 +326,17 @@ export function useProductionOrders() {
       return false;
     }
 
-    if (data?.production_order_id) await recalcConsolidation(data.production_order_id);
+    if (data?.production_order_id) await recalcItemConsolidation(data.production_order_id, data.production_order_item_id);
 
     toast.success('Lançamento atualizado');
     fetchOrders();
     return true;
-  }, [fetchOrders, recalcConsolidation]);
+  }, [fetchOrders, recalcItemConsolidation]);
 
   const deleteEntry = useCallback(async (id: string) => {
     const { data: existing } = await supabase
       .from('production_entries')
-      .select('production_order_id')
+      .select('production_order_id,production_order_item_id')
       .eq('id', id)
       .maybeSingle();
 
@@ -308,12 +351,12 @@ export function useProductionOrders() {
       return false;
     }
 
-    if (existing?.production_order_id) await recalcConsolidation(existing.production_order_id);
+    if (existing?.production_order_id) await recalcItemConsolidation(existing.production_order_id, existing.production_order_item_id);
 
     toast.success('Lançamento excluído');
     fetchOrders();
     return true;
-  }, [fetchOrders, recalcConsolidation]);
+  }, [fetchOrders, recalcItemConsolidation]);
 
 
   // Check BOM shortages for an order

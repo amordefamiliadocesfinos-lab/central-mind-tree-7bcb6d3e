@@ -80,6 +80,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [supplierId, setSupplierId] = useState('');
   const [expectedAt, setExpectedAt] = useState('');
   const [notes, setNotes] = useState('');
+  const [freight, setFreight] = useState('0');
   const [lines, setLines] = useState<PurchaseDraftLine[]>([]);
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, PurchasePresentationOption[]>>({});
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
@@ -94,7 +95,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     [purchases.orders, statusFilter],
   );
   const editingHasConfirmedReceipts = Boolean(editingOrder?.receipts?.some(receipt => receipt.status === 'confirmed'));
-  const total = useMemo(
+  const itemsTotal = useMemo(
     () => lines.reduce((sum, line) => {
       const qty = parsePurchaseNumber(line.qty)?.number ?? 0;
       const price = parsePurchaseNumber(line.price)?.number ?? 0;
@@ -102,6 +103,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     }, 0),
     [lines],
   );
+  const freightAmount = parsePurchaseNumber(freight)?.number ?? 0;
+  const total = itemsTotal + freightAmount;
 
   const updateLine = (lineId: string, nextLine: PurchaseDraftLine) => {
     setLines(current => current.map(line => line.id === lineId ? nextLine : line));
@@ -159,6 +162,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setSupplierId('');
     setExpectedAt('');
     setNotes('');
+    setFreight('0');
     setLines([]);
     setEditingOrder(null);
   };
@@ -174,6 +178,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setSupplierId(order.supplier_contact_id);
     setExpectedAt(order.expected_at ?? '');
     setNotes(order.notes ?? '');
+    setFreight(String(order.freight_amount ?? 0));
     if (hasConfirmedReceipts) {
       setLines([]);
     } else {
@@ -257,6 +262,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         ...(hasConfirmedReceipts ? {} : { supplier_contact_id: supplierId }),
         expected_at: expectedAt || null,
         notes: notes || null,
+        freight_amount: requirePurchaseNumber(freight || '0', 'o frete'),
       };
       if (editingOrder) {
         await purchases.updatePurchase(editingOrder.id, header, hasConfirmedReceipts ? undefined : items);
@@ -422,6 +428,10 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             <div className="space-y-2">
               <Label>Previsão</Label>
               <Input type="date" value={expectedAt} onChange={event => setExpectedAt(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Frete da compra</Label>
+              <Input inputMode="decimal" value={freight} onChange={event => setFreight(event.target.value)} placeholder="0,00" />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Observação</Label>

@@ -4767,6 +4767,7 @@ export type Database = {
         Row: {
           created_at: string
           expected_at: string | null
+          freight_amount: number
           id: string
           internal_purchase_number: string | null
           notes: string | null
@@ -4778,6 +4779,7 @@ export type Database = {
         Insert: {
           created_at?: string
           expected_at?: string | null
+          freight_amount?: number
           id?: string
           internal_purchase_number?: string | null
           notes?: string | null
@@ -4789,6 +4791,7 @@ export type Database = {
         Update: {
           created_at?: string
           expected_at?: string | null
+          freight_amount?: number
           id?: string
           internal_purchase_number?: string | null
           notes?: string | null
