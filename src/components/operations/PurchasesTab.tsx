@@ -60,6 +60,8 @@ function createDraftLine(): PurchaseDraftLine {
     presentationOverridden: false,
     variants: [],
     presentations: [],
+    planning_source: null,
+    planning_context: null,
   };
 }
 
@@ -132,6 +134,10 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   };
 
   const loadVariants = async (lineId: string, productId: string) => {
+    const currentLine = lines.find(line => line.id === lineId);
+    const identityChanged = Boolean(currentLine && currentLine.product_id !== productId);
+    if (identityChanged && currentLine?.planning_source === 'mrp') setMrpContext(null);
+
     const { data, error } = await db
       .from('product_variants')
       .select('id,variant_name,unit')
@@ -147,6 +153,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       presentationOverridden: false,
       variants: (data ?? []) as PurchaseVariantOption[],
       presentations: [],
+      ...(line.product_id !== productId ? { planning_source: null, planning_context: null } : {}),
     } : line));
   };
 
@@ -168,6 +175,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const changeVariant = async (lineId: string, variantId: string) => {
     const line = lines.find(item => item.id === lineId);
     if (!line) return;
+    const identityChanged = line.variant_id !== variantId;
+    if (identityChanged && line.planning_source === 'mrp') setMrpContext(null);
     const product = products.find(item => item.id === line.product_id);
     setLines(current => current.map(item => item.id === lineId ? {
       ...item,
@@ -175,6 +184,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       presentation: directPresentation(product, line.variants.find(item => item.id === variantId)),
       presentationOverridden: false,
       presentations: [],
+      ...(identityChanged ? { planning_source: null, planning_context: null } : {}),
     } : item));
     await loadPresentations(lineId, line.product_id, variantId);
   };
@@ -224,6 +234,9 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       const selectedVariantId = mrpVariantId && variants.some(variant => variant.id === mrpVariantId)
         ? mrpVariantId
         : null;
+      const operationalUnit = mrpUnit || getPhysicalIdentityUnit(product, variants.find(variant => variant.id === selectedVariantId));
+      const ordersAffected = (mrpOrders || '').split('|').filter(Boolean);
+      const operationalQty = Number(mrpNeedQty || 0);
 
       setSupplierId('');
       setExpectedAt('');
@@ -240,12 +253,18 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         presentationOverridden: false,
         variants,
         presentations: [],
+        planning_source: 'mrp',
+        planning_context: {
+          operational_qty: operationalQty,
+          unit: operationalUnit,
+          orders_affected: ordersAffected,
+        },
       }]);
       setMrpContext({
         product_name: mrpName || product.name,
         operational_qty: mrpNeedQty || '0',
-        unit: mrpUnit || getPhysicalIdentityUnit(product, variants.find(variant => variant.id === selectedVariantId)),
-        orders_affected: (mrpOrders || '').split('|').filter(Boolean),
+        unit: operationalUnit,
+        orders_affected: ordersAffected,
       });
       setEditorOpen(true);
       setSearchParams({ tab: 'purchases' }, { replace: true });
@@ -272,6 +291,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           const { data } = await db.from('product_variants').select('id,variant_name,unit').eq('product_id', item.product_id).eq('is_active', true);
           variants = (data ?? []) as PurchaseVariantOption[];
         }
+        const planningSource = (item as any).planning_source === 'mrp' ? 'mrp' : null;
+        const planningContext = planningSource ? (item as any).planning_context ?? null : null;
         return {
           id: item.id,
           product_id: item.product_id,
@@ -290,6 +311,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           presentationOverridden: false,
           variants,
           presentations: [],
+          planning_source: planningSource,
+          planning_context: planningContext,
         } satisfies PurchaseDraftLine;
       }));
       setLines(restoredLines);
@@ -339,6 +362,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             is_approximate: presentation.is_approximate,
             notes: presentation.notes || null,
           },
+          planning_source: line.planning_source,
+          planning_context: line.planning_context,
         };
       });
 

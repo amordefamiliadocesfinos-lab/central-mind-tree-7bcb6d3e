@@ -22,6 +22,11 @@ export interface PurchasePresentationOption {
   is_approximate: boolean;
   notes?: string | null;
 }
+export interface PurchasePlanningContext {
+  operational_qty: number;
+  unit: string;
+  orders_affected: string[];
+}
 export interface PurchaseDraftLine {
   id: string;
   product_id: string;
@@ -32,6 +37,8 @@ export interface PurchaseDraftLine {
   presentationOverridden: boolean;
   variants: PurchaseVariantOption[];
   presentations: PurchasePresentationOption[];
+  planning_source: 'mrp' | null;
+  planning_context: PurchasePlanningContext | null;
 }
 
 interface Props {
