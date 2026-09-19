@@ -46,10 +46,12 @@ export function CrmAssistantCard({
   const nextAction = analysis?.nextAction ?? null;
   const reply = analysis?.reply ?? null;
   const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
+  const tentativeResult = result?.tentativeCode ? result : null;
   // Uma abstenção explicada pelo Assistente também é informação operacional.
   // Ex.: F2-B bloqueia preço/estoque/frete sem fonte viva e devolve reply=null
-  // com um motivo útil. Esse estado não pode cair no vazio genérico do card.
-  const hasAnything = Boolean(result?.code || nextAction || reply?.reply || reply?.reason || repurchase);
+  // com um motivo útil. F2-F também preserva hipótese de baixa confiança apenas
+  // para leitura, sem permitir que ela dirija ação operacional.
+  const hasAnything = Boolean(result?.code || tentativeResult || nextAction || reply?.reply || reply?.reason || repurchase);
 
   return (
     <div className="rounded-md border bg-muted/30 px-2.5 py-2 text-[11px] space-y-1.5">
@@ -98,6 +100,15 @@ export function CrmAssistantCard({
             <div>
               <div className="font-medium text-foreground">{result.label}</div>
               <div className="text-muted-foreground">Confiança {Math.round(result.confidence * 100)}%</div>
+            </div>
+          )}
+
+          {tentativeResult && (
+            <div className="rounded border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+              <div className="font-medium">Hipótese de Resultado: {tentativeResult.tentativeLabel}</div>
+              <div className="text-[10px] text-amber-900/80 dark:text-amber-200/80">
+                Confiança {Math.round(tentativeResult.confidence * 100)}% · baixa confiança, não aplicada e sem Próxima Ação derivada.
+              </div>
             </div>
           )}
 

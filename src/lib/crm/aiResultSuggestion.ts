@@ -11,10 +11,20 @@ import { buildCrmAiContext, buildCrmAiRequestContext, isCrmAiPerformanceLoggingE
 import { getCanonicalResult } from './canonical/results';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 
+/**
+ * Limiar operacional já usado pela decisão de comunicação para marcar
+ * `low_result_confidence`. Abaixo dele, a classificação continua visível como
+ * hipótese, mas não pode dirigir Próxima Ação nem ser aplicada diretamente.
+ */
+export const CRM_RESULT_ACTIONABLE_CONFIDENCE = 0.55;
+
 export interface CrmResultSuggestion {
-  /** null = a IA não tem informação suficiente para sugerir com segurança. */
+  /** null = não há Resultado confiável o bastante para dirigir ação operacional. */
   code: string | null;
   label: string | null;
+  /** Hipótese preservada apenas para leitura quando a confiança é baixa. */
+  tentativeCode?: string | null;
+  tentativeLabel?: string | null;
   /** Normalizada em 0–1. */
   confidence: number;
   reason: string;
@@ -36,7 +46,30 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
     // Código fora do catálogo canônico: descartado, nunca propagado à Inbox.
     return { code: null, label: null, confidence: 0, reason: 'A IA retornou um resultado fora do catálogo canônico.' };
   }
-  return { code: canonical?.code ?? null, label: canonical?.label ?? null, confidence: canonical ? confidence : 0, reason };
+
+  if (canonical && confidence < CRM_RESULT_ACTIONABLE_CONFIDENCE) {
+    // F2-F: preserva a leitura da IA para o operador, mas não propaga o código
+    // como Resultado acionável. Assim nenhuma Próxima Ação é derivada dele e o
+    // fluxo de registro não recebe uma classificação abaixo do limiar já usado
+    // pela própria decisão operacional do Assistente.
+    return {
+      code: null,
+      label: null,
+      tentativeCode: canonical.code,
+      tentativeLabel: canonical.label,
+      confidence,
+      reason,
+    };
+  }
+
+  return {
+    code: canonical?.code ?? null,
+    label: canonical?.label ?? null,
+    tentativeCode: null,
+    tentativeLabel: null,
+    confidence: canonical ? confidence : 0,
+    reason,
+  };
 }
 
 /** Sugere o Resultado a partir de um contexto já montado (reuso na F4.3). */
