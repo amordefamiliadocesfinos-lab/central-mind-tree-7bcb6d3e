@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,13 @@ import {
 const db = supabase as any;
 const RECEIVABLE_STATUSES: PurchaseStatus[] = ['confirmado', 'em_transito', 'parcialmente_recebido'];
 
+interface MrpPurchaseContext {
+  product_name: string;
+  operational_qty: string;
+  unit: string;
+  orders_affected: string[];
+}
+
 function createDraftLine(): PurchaseDraftLine {
   return {
     id: crypto.randomUUID(),
@@ -77,6 +85,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const purchases = usePurchases();
   const { contacts } = useContacts();
   const { locations } = useStorageLocations();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
@@ -89,6 +98,14 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, PurchasePresentationOption[]>>({});
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [mrpContext, setMrpContext] = useState<MrpPurchaseContext | null>(null);
+
+  const mrpProductId = searchParams.get('mrpProductId');
+  const mrpVariantId = searchParams.get('mrpVariantId');
+  const mrpNeedQty = searchParams.get('mrpNeedQty');
+  const mrpUnit = searchParams.get('mrpUnit');
+  const mrpName = searchParams.get('mrpName');
+  const mrpOrders = searchParams.get('mrpOrders');
 
   const suppliers = useMemo(
     () => contacts.filter(contact => contact.is_active && (contact.type === 'fornecedor' || contact.type === 'ambos')),
@@ -169,6 +186,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setFreight('0');
     setLines([]);
     setEditingOrder(null);
+    setMrpContext(null);
   };
 
   const openEditor = () => {
@@ -176,8 +194,70 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setEditorOpen(true);
   };
 
+  useEffect(() => {
+    if (!mrpProductId || !products.length) return;
+    let cancelled = false;
+
+    const prepareFromMrp = async () => {
+      const product = products.find(item => item.id === mrpProductId);
+      if (!product) {
+        toastError('O material indicado pelo MRP não foi encontrado no catálogo de produtos.');
+        setSearchParams({ tab: 'purchases' }, { replace: true });
+        return;
+      }
+
+      let variants: PurchaseVariantOption[] = [];
+      if (product.variation_mode === 'variacoes_fisicas') {
+        const { data, error } = await db
+          .from('product_variants')
+          .select('id,variant_name,unit')
+          .eq('product_id', mrpProductId)
+          .eq('is_active', true);
+        if (error) {
+          toastError(errorMessage(error, 'Não foi possível carregar a variante indicada pelo MRP.'));
+          return;
+        }
+        variants = (data ?? []) as PurchaseVariantOption[];
+      }
+      if (cancelled) return;
+
+      const selectedVariantId = mrpVariantId && variants.some(variant => variant.id === mrpVariantId)
+        ? mrpVariantId
+        : null;
+
+      setSupplierId('');
+      setExpectedAt('');
+      setNotes('');
+      setFreight('0');
+      setEditingOrder(null);
+      setLines([{
+        id: crypto.randomUUID(),
+        product_id: mrpProductId,
+        variant_id: selectedVariantId,
+        qty: '',
+        price: '',
+        presentation: null,
+        presentationOverridden: false,
+        variants,
+        presentations: [],
+      }]);
+      setMrpContext({
+        product_name: mrpName || product.name,
+        operational_qty: mrpNeedQty || '0',
+        unit: mrpUnit || getPhysicalIdentityUnit(product, variants.find(variant => variant.id === selectedVariantId)),
+        orders_affected: (mrpOrders || '').split('|').filter(Boolean),
+      });
+      setEditorOpen(true);
+      setSearchParams({ tab: 'purchases' }, { replace: true });
+    };
+
+    void prepareFromMrp();
+    return () => { cancelled = true; };
+  }, [mrpProductId, mrpVariantId, mrpNeedQty, mrpUnit, mrpName, mrpOrders, products, setSearchParams]);
+
   const openEdit = async (order: PurchaseOrder) => {
     const hasConfirmedReceipts = (order.receipts ?? []).some(receipt => receipt.status === 'confirmed');
+    setMrpContext(null);
     setEditingOrder(order);
     setSupplierId(order.supplier_contact_id);
     setExpectedAt(order.expected_at ?? '');
@@ -439,6 +519,17 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         )}
       >
         <div className="space-y-5">
+          {mrpContext && !editingOrder && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Preparado pelo MRP:</strong> necessidade física de <strong>{mrpContext.operational_qty} {mrpContext.unit}</strong> de {mrpContext.product_name}.
+                {' '}Escolha fornecedor, forma de compra, quantidade comercial e preço. O MRP não tomou essas decisões.
+                {mrpContext.orders_affected.length > 0 && <span className="mt-1 block">Demanda relacionada: {mrpContext.orders_affected.join(', ')}.</span>}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label>Fornecedor</Label>
