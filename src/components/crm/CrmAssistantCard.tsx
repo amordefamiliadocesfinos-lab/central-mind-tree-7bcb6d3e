@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import type { CrmResultSuggestion } from '@/lib/crm/aiResultSuggestion';
 import type { CrmNextActionRecommendation } from '@/lib/crm/aiNextActionRecommendation';
 import type { CrmReplySuggestion } from '@/lib/crm/aiReplySuggestion';
+import type { PostSaleEligibilitySignal } from '@/lib/crm/postSale';
 import type { RepurchaseSignal } from '@/lib/crm/repurchase';
 
 /**
@@ -16,6 +17,7 @@ export interface CrmAssistantAnalysis {
   result: CrmResultSuggestion | null;
   nextAction: CrmNextActionRecommendation | null;
   reply: CrmReplySuggestion | null;
+  postSale: PostSaleEligibilitySignal | null;
   repurchase: RepurchaseSignal | null;
 }
 
@@ -45,13 +47,14 @@ export function CrmAssistantCard({
   const result = analysis?.result ?? null;
   const nextAction = analysis?.nextAction ?? null;
   const reply = analysis?.reply ?? null;
+  const postSale = analysis?.postSale ?? null;
   const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
   const tentativeResult = result?.tentativeCode ? result : null;
   // Uma abstenção explicada pelo Assistente também é informação operacional.
   // Ex.: F2-B bloqueia preço/estoque/frete sem fonte viva e devolve reply=null
   // com um motivo útil. F2-F também preserva hipótese de baixa confiança apenas
   // para leitura, sem permitir que ela dirija ação operacional.
-  const hasAnything = Boolean(result?.code || tentativeResult || nextAction || reply?.reply || reply?.reason || repurchase);
+  const hasAnything = Boolean(result?.code || tentativeResult || nextAction || reply?.reply || reply?.reason || postSale || repurchase);
 
   return (
     <div className="rounded-md border bg-muted/30 px-2.5 py-2 text-[11px] space-y-1.5">
@@ -133,6 +136,18 @@ export function CrmAssistantCard({
             <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
               <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Orientação do Assistente</div>
               <p className="text-foreground/90">{reply.reason}</p>
+            </div>
+          )}
+
+          {postSale && (
+            <div className="rounded border border-sky-200 bg-sky-50/70 px-2 py-1.5 text-sky-950 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-100">
+              <div className="font-medium">Pós-venda elegível</div>
+              <p className="mt-0.5 text-sky-900/80 dark:text-sky-200/80">{postSale.reason}</p>
+              {postSale.deliveryDate && (
+                <p className="mt-1 text-[10px] text-sky-900/75 dark:text-sky-200/75">
+                  Entrega registrada em {new Date(`${postSale.deliveryDate}T12:00:00`).toLocaleDateString('pt-BR')} · acompanhamento sugerido, sem ação automática.
+                </p>
+              )}
             </div>
           )}
 
