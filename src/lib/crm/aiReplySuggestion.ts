@@ -112,6 +112,28 @@ export async function suggestCrmReplyFromContext(
     };
   }
 
+  // F2-D: uma intenção de recompra não pode transformar automaticamente um
+  // atendimento que está aguardando o cliente em nova abordagem outbound.
+  // Mesmo que um chamador monte decision.shouldReply=true para preparar uma
+  // mensagem, o estado canônico aguardando_cliente continua soberano enquanto
+  // não houver novo inbound do cliente.
+  if (
+    options?.decision?.commercialIntent === 'repurchase'
+    && context.conversation?.state === 'aguardando_cliente'
+    && !lastIsInbound
+  ) {
+    const reason = 'O atendimento está aguardando o cliente. A oportunidade de recompra pode permanecer visível, mas não deve gerar nova abordagem enquanto esse estado estiver ativo.';
+    return {
+      reply: null,
+      message: null,
+      reason,
+      rationale: reason,
+      tone: null,
+      intent: 'none',
+      length: 'short',
+    };
+  }
+
   // F2-B: se a última pergunta exige um fato vivo que este contexto ainda não
   // transporta, não chamamos a IA para preencher a lacuna. O operador recebe a
   // explicação da fonte necessária e consulta o módulo canônico correspondente.
