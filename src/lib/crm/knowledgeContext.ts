@@ -30,12 +30,24 @@ export type CrmKnowledgeFetcher = (platformId?: string | null) => Promise<CrmKno
 const EMPTY_CONTEXT: CrmKnowledgeContext = { items: [], matched: false, authoritativeAnswer: null };
 
 // Informações dinâmicas continuam exclusivamente nas fontes canônicas.
-const DYNAMIC_ONLY = /\b(estoque|disponibilidade|disponivel|preco|quanto custa|desconto|pedido|pagamento confirmado|ja foi pago|já foi pago|prazo hoje)\b/i;
+// A barreira é deliberadamente conservadora: se a pergunta depender do estado
+// atual da operação, a FAQ estática não pode virar resposta autoritativa.
+const DYNAMIC_ONLY = /\b(estoque|disponibilidade|disponivel|disponiveis|preco|valor atual|quanto custa|quanto fica|quanto sai|desconto|pedido|status do pedido|meu pedido|pagamento confirmado|pagamento aprovado|ja foi pago|foi pago|pago|prazo hoje|prazo de entrega|prazo para entrega|previsao de entrega|quando chega|quando entrega|quando envia|valor do frete|custo do frete|quanto(?: fica| custa| sai)? o frete)\b/i;
 const STABLE_HINTS = /\b(quantos|quantidade|caixa|validade|sabores?|sabor|embalagem|pix|chave|retir\w*|entrega|envio|dados|frete|uber|motorista|transportadora|shopee|evento|formas? de pagamento|pagamento|catalogo|catálogo|endereco|endereço|link|politica|política)\b/i;
 const FACTUAL_REQUEST = /\?|\b(qual|quais|quanto|quantos|como|onde|manda|envi[ae]|preciso|pode|aceita|tem)\b/i;
 
 function normalize(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/**
+ * Verdade única para separar pergunta de conhecimento estável de pergunta que
+ * exige fonte viva. Exportada para permitir a mesma guarda em outros pontos do
+ * Assistente sem duplicar listas de termos.
+ */
+export function isDynamicCrmKnowledgeQuestion(message: string | null | undefined): boolean {
+  const text = normalize(String(message ?? '').trim());
+  return Boolean(text) && DYNAMIC_ONLY.test(text);
 }
 
 function tokens(value: string): string[] {
@@ -47,7 +59,7 @@ function tokens(value: string): string[] {
 /** Evita uma consulta quando a mensagem não pede conhecimento factual estável. */
 export function shouldQueryCrmKnowledge(message: string | null | undefined): boolean {
   const text = String(message ?? '').trim();
-  if (!text || DYNAMIC_ONLY.test(normalize(text))) return false;
+  if (!text || isDynamicCrmKnowledgeQuestion(text)) return false;
   return STABLE_HINTS.test(normalize(text)) && FACTUAL_REQUEST.test(normalize(text));
 }
 
