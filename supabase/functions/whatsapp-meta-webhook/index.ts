@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
+import { applyInboundTemporalAuthority } from '../_shared/crm/temporal-authority-inbound.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -103,20 +104,20 @@ Deno.serve(async (req) => {
         if (error) throw error; contact = data;
       }
 
-      let conversation: { id: string; unread_count?: number | null } | null = null;
+      let conversation: { id: string; unread_count?: number | null; contact_id?: string | null } | null = null;
       if (contact) {
-        const result = await supabase.from('service_conversations').select('id,unread_count').eq('contact_id', contact.id).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+        const result = await supabase.from('service_conversations').select('id,unread_count,contact_id').eq('contact_id', contact.id).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
         conversation = result.data;
       }
       if (!conversation) {
-        const result = await supabase.from('service_conversations').select('id,unread_count').eq('contact_handle', phone).limit(1).maybeSingle();
+        const result = await supabase.from('service_conversations').select('id,unread_count,contact_id').eq('contact_handle', phone).limit(1).maybeSingle();
         conversation = result.data;
       }
       if (!conversation) {
         const result = await supabase.from('service_conversations').insert({
           contact_id: contact?.id ?? null, contact_name: contact?.name ?? evt.contactName ?? null,
           contact_handle: phone, status: 'open', funnel_stage: 'novo_lead', channel: 'whatsapp',
-        }).select('id').single();
+        }).select('id,contact_id').single();
         if (result.error) throw result.error; conversation = result.data;
       }
 
@@ -136,7 +137,6 @@ Deno.serve(async (req) => {
           if (uploadError) throw uploadError;
           mediaUrl = supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
         } catch (mediaError) {
-          // Never discard the message when Meta media download is temporarily unavailable.
           console.error('meta media persistence failed', (mediaError as Error).message);
         }
       }
@@ -158,13 +158,12 @@ Deno.serve(async (req) => {
         last_message_preview: (evt.content ?? '').slice(0, 100),
       }).eq('id', conversation!.id);
       if (conversationError) throw conversationError;
-      if (contact && inbound) {
-        await supabase.from('contacts').update({
-          next_action_text: 'Responder cliente no WhatsApp',
-          next_action_date: now,
-          next_contact_date: now,
-          updated_at: new Date().toISOString(),
-        }).eq('id', contact.id);
+      if (inbound) {
+        await applyInboundTemporalAuthority(supabase, {
+          contactId: conversation?.contact_id ?? contact?.id ?? null,
+          conversationId: conversation!.id,
+          occurredAt: now,
+        });
       }
       await refreshLiveContextAfterEvent(supabase, {
         contactId: conversation?.contact_id ?? contact?.id,
