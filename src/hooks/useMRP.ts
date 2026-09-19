@@ -64,6 +64,9 @@ export function sumOpenPurchaseOperationalQty(
     const receivedCommercialQty = receivedByItem[item.id] || 0;
     const pendingCommercialQty = Math.max(0, orderedCommercialQty - receivedCommercialQty);
     const conversionFactor = Number(item.conversion_factor || 0);
+    if (!Number.isFinite(conversionFactor) || conversionFactor <= 0) {
+      throw new Error(`Item de compra ${item.id} possui fator de conversão inválido para o MRP.`);
+    }
     const key = physicalIdentityKey(item.product_id, item.variant_id);
     totals[key] = (totals[key] || 0) + pendingCommercialQty * conversionFactor;
     return totals;
@@ -117,11 +120,12 @@ export function useMRP() {
   const calculateMaterialNeeds = useCallback(async (): Promise<MaterialNeed[]> => {
     const productionNeeds = (await calculateProductionNeeds()).filter(need => need.shortage > 0);
     if (!productionNeeds.length) return [];
-    const { data: components } = await supabase.from('product_components').select(`
+    const { data: components, error: componentsError } = await supabase.from('product_components').select(`
       product_id, product_variant_id, component_id, variant_id, qty_per_unit,
       component:products!product_components_component_id_fkey(id, name, sku, unit),
       variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit)
     `).in('product_id', [...new Set(productionNeeds.map(need => need.product_id))]);
+    if (componentsError) { console.error('Error fetching MRP components:', componentsError); return []; }
     if (!components?.length) return [];
 
     const materialMap = new Map<string, MaterialNeed>();
@@ -137,11 +141,12 @@ export function useMRP() {
       materialMap.set(key, existing);
     }
     const componentIds = [...new Set([...materialMap.values()].map(need => need.component_id))];
-    const [{ data: inventory }, { data: openOrders, error: openOrdersError }] = await Promise.all([
+    const [{ data: inventory, error: inventoryError }, { data: openOrders, error: openOrdersError }] = await Promise.all([
       supabase.from('inventory').select('product_id, variant_id, quantity').in('product_id', componentIds),
       supabase.from('purchase_orders').select('id,status').in('status', [...OPEN_PURCHASE_STATUSES]),
     ]);
-    if (openOrdersError) console.error('Error fetching open purchase orders for MRP:', openOrdersError);
+    if (inventoryError) { console.error('Error fetching material inventory for MRP:', inventoryError); return []; }
+    if (openOrdersError) { console.error('Error fetching open purchase orders for MRP:', openOrdersError); return []; }
 
     let openPurchaseByIdentity: Record<string, number> = {};
     const openOrderIds = (openOrders || []).map(order => order.id);
@@ -151,7 +156,7 @@ export function useMRP() {
         .select('id,purchase_order_id,product_id,variant_id,ordered_purchase_qty,conversion_factor')
         .in('purchase_order_id', openOrderIds)
         .in('product_id', componentIds);
-      if (purchaseItemsError) console.error('Error fetching open purchase items for MRP:', purchaseItemsError);
+      if (purchaseItemsError) { console.error('Error fetching open purchase items for MRP:', purchaseItemsError); return []; }
 
       const typedPurchaseItems = (purchaseItems || []) as OpenPurchaseItemRow[];
       const purchaseItemIds = typedPurchaseItems.map(item => item.id);
@@ -161,7 +166,7 @@ export function useMRP() {
           .from('purchase_receipt_items')
           .select('purchase_order_item_id,received_purchase_qty,purchase_receipt_id')
           .in('purchase_order_item_id', purchaseItemIds);
-        if (receiptItemsError) console.error('Error fetching purchase receipts for MRP:', receiptItemsError);
+        if (receiptItemsError) { console.error('Error fetching purchase receipts for MRP:', receiptItemsError); return []; }
 
         const receiptIds = [...new Set((receiptItems || []).map(row => row.purchase_receipt_id))];
         if (receiptIds.length) {
@@ -170,7 +175,7 @@ export function useMRP() {
             .select('id')
             .in('id', receiptIds)
             .eq('status', 'confirmed');
-          if (confirmedReceiptsError) console.error('Error validating confirmed purchase receipts for MRP:', confirmedReceiptsError);
+          if (confirmedReceiptsError) { console.error('Error validating confirmed purchase receipts for MRP:', confirmedReceiptsError); return []; }
           const confirmedReceiptIds = new Set((confirmedReceipts || []).map(receipt => receipt.id));
           confirmedReceiptRows = (receiptItems || [])
             .filter(row => confirmedReceiptIds.has(row.purchase_receipt_id))
@@ -180,7 +185,12 @@ export function useMRP() {
             }));
         }
       }
-      openPurchaseByIdentity = sumOpenPurchaseOperationalQty(typedPurchaseItems, confirmedReceiptRows);
+      try {
+        openPurchaseByIdentity = sumOpenPurchaseOperationalQty(typedPurchaseItems, confirmedReceiptRows);
+      } catch (error) {
+        console.error('Invalid open purchase conversion for MRP:', error);
+        return [];
+      }
     }
 
     const stock = sumInventory((inventory || []) as InventoryRow[]);
