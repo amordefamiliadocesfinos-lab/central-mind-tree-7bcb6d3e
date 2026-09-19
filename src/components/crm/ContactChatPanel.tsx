@@ -19,6 +19,7 @@ import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from '@/lib/crm/communication';
 import { calculateRepurchaseSignal, hasFutureCrmReactivation, loadRepurchaseOrders } from '@/lib/crm/repurchase';
 import { loadPostSaleEligibility } from '@/lib/crm/postSale';
+import { evaluatePostSaleApproach } from '@/lib/crm/postSaleApproach';
 import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
 
 
@@ -474,6 +475,43 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           }}
           onDismiss={dismissAnalysis}
           onRetry={handleAnalyze}
+          onPreparePostSale={async () => {
+            try {
+              const [context, postSale] = await Promise.all([
+                buildCrmAiContext(contactId, conversationId),
+                loadPostSaleEligibility(contactId),
+              ]);
+              const approach = evaluatePostSaleApproach(postSale, {
+                optOut: context.contact.optOut,
+                conversationState: context.conversation?.state ?? null,
+                needsReply: Boolean(context.conversation?.needsReply),
+                lastInboundAt: context.conversation?.lastInboundAt ?? null,
+                lastOutboundAt: context.conversation?.lastOutboundAt ?? null,
+              });
+              if (!approach.allowed) {
+                toast.message(approach.reason);
+                return;
+              }
+              const decision = {
+                ...buildCrmCommunicationDecision(context, null, null),
+                commercialIntent: 'post_sale' as const,
+                responsibility: 'operator' as const,
+                decisionState: 'action_required' as const,
+                shouldReply: true,
+                reason: postSale?.reason ?? approach.reason,
+              };
+              const reply = await suggestCrmReplyFromContext(context, { decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
+              if (!reply.reply) {
+                toast.message(reply.reason || 'Não há uma mensagem adequada para sugerir agora.');
+                return;
+              }
+              setText(reply.reply);
+              toast.success('Mensagem de pós-venda no campo — revise antes de enviar');
+            } catch (error) {
+              console.warn('Não foi possível preparar sugestão de pós-venda:', error);
+              toast.error('Não foi possível preparar a mensagem agora.');
+            }
+          }}
           onPrepareRepurchase={async () => {
             try {
               const context = await buildCrmAiContext(contactId, conversationId);
