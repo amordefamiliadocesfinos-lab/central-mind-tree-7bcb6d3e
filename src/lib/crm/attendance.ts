@@ -9,6 +9,7 @@ import { getCrmTransition } from '@/lib/crm/canonical/transitions';
 import { resolveFunnelStageFromCanonicalResult } from '@/lib/crm/canonical/funnelProgression';
 import { shouldAwaitCustomerAfterCanonicalResult } from '@/lib/crm/canonical/operationalResponsibility';
 import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
+import { classifyTemporalFact, getTemporalInvalidations } from '@/lib/crm/temporalAuthority';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
 export type AttendanceOutcome =
@@ -92,6 +93,24 @@ export async function applyCanonicalAttendanceResult(input: {
     .eq('contact_id', input.contactId)
     .maybeSingle();
   if (conversationError || !conversation) throw conversationError || new Error('Conversa não encontrada para este contato');
+
+  // O Resultado canônico substitui a programação dependente anterior. A F4-A
+  // decide isso antes de qualquer escrita; a materialização continua no writer
+  // único abaixo, sem executar uma limpeza separada depois do novo Resultado.
+  const previousTemporalSnapshot = {
+    returnAt: conversation.return_at,
+    nextActionAt: contact.next_action_date,
+  };
+  const temporalInvalidations = getTemporalInvalidations(
+    classifyTemporalFact({ isCanonicalResult: true, occurredAt: now }),
+    [
+      { kind: 'return_at', dependency: 'conversation_context', scheduledAt: previousTemporalSnapshot.returnAt },
+      { kind: 'next_action', dependency: 'waiting_customer', scheduledAt: previousTemporalSnapshot.nextActionAt },
+      { kind: 'crm_next_action', dependency: 'waiting_customer', scheduledAt: previousTemporalSnapshot.nextActionAt },
+      { kind: 'follow_up_cycle', dependency: 'conversation_context' },
+      { kind: 'crm_reactivation', dependency: 'independent' },
+    ],
+  );
 
   const scheduledAt = scheduledDateAt(input.scheduledFor);
   const decision = getCrmTransition({
@@ -194,6 +213,9 @@ export async function applyCanonicalAttendanceResult(input: {
       return_at: returnAt,
       operational_state: decision.desiredOperationalState,
       handoff_required: decision.handoff.required,
+      previous_return_at: previousTemporalSnapshot.returnAt,
+      temporal_reassessment: temporalInvalidations.reassessNextAction,
+      reactivation_preserved: temporalInvalidations.preserveReactivation,
     },
     description: `Resultado: ${canonicalResult.label}`,
     interaction_date: now,
