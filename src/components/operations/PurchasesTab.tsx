@@ -20,6 +20,7 @@ import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { parseDecimalInput } from '@/lib/decimal';
+import type { PurchaseFinancialInstallment } from '@/lib/purchases/purchaseFinancialCondition';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -30,6 +31,7 @@ import {
   type PurchaseVariantOption,
 } from './purchases/PurchaseOrderItemEditor';
 import { PurchaseOrderCard } from './purchases/PurchaseOrderCard';
+import { PurchaseFinancialConditionDialog } from './purchases/PurchaseFinancialConditionDialog';
 import {
   PurchaseReceiptDialog,
   type PurchaseReceiptDraftLine,
@@ -77,6 +79,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
+  const [financialConditionOrder, setFinancialConditionOrder] = useState<PurchaseOrder | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [expectedAt, setExpectedAt] = useState('');
   const [notes, setNotes] = useState('');
@@ -291,6 +294,11 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     }
   };
 
+  const validateFinancialCondition = (installments: PurchaseFinancialInstallment[]) => {
+    toastSuccess(`Condição financeira validada em ${installments.length} parcela(s). A compra permanece em rascunho até a integração 02C.`);
+    setFinancialConditionOrder(null);
+  };
+
   const deleteDraft = async (order: PurchaseOrder) => {
     if (!window.confirm('Excluir este rascunho de compra?')) return;
     try {
@@ -388,7 +396,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
               key={order.id}
               order={order}
               busy={busyAction === order.id}
-              onConfirm={current => changeStatus(current, 'confirmado')}
+              onConfirm={setFinancialConditionOrder}
               onMarkInTransit={current => changeStatus(current, 'em_transito')}
               onReceive={setReceiptOrder}
               onEdit={order => void openEdit(order)}
@@ -474,6 +482,13 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           </section>}
         </div>
       </ResponsiveDialog>
+
+      <PurchaseFinancialConditionDialog
+        order={financialConditionOrder}
+        open={Boolean(financialConditionOrder)}
+        onOpenChange={open => !open && setFinancialConditionOrder(null)}
+        onValidated={validateFinancialCondition}
+      />
 
       <PurchaseReceiptDialog
         order={receiptOrder}
