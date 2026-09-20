@@ -20,6 +20,7 @@ export interface PostSaleOrderFact {
 export interface PostSaleHistoryFact {
   interactionDate: string | null;
   resultCode: string | null;
+  postSaleOrderId?: string | null;
 }
 
 export interface PostSaleEligibilitySignal {
@@ -49,7 +50,8 @@ function startOfLocalDay(value: Date) {
  * - só considera pedido operacionalmente finalizado;
  * - exige `delivery_date` válida e já atingida;
  * - usa apenas o pedido elegível mais recente;
- * - se já houve Resultado canônico de pós-venda após a entrega, não abre novo sinal.
+ * - identidade explícita de pedido prevalece sobre inferência temporal;
+ * - histórico legado sem identidade mantém o fallback temporal anterior.
  *
  * Este cálculo não cria tarefa, não envia mensagem e não altera etapa/estado.
  */
@@ -72,7 +74,12 @@ export function calculatePostSaleEligibility(
   const hasPostSaleAfterDelivery = history.some(event => {
     if (!event.interactionDate || !POST_SALE_RESULTS.has(event.resultCode ?? '')) return false;
     const occurredAt = Date.parse(event.interactionDate);
-    return Number.isFinite(occurredAt) && occurredAt >= deliveredAt;
+    if (!Number.isFinite(occurredAt) || occurredAt < deliveredAt) return false;
+
+    const identifiedOrderId = event.postSaleOrderId?.trim();
+    if (identifiedOrderId) return identifiedOrderId === latest.id;
+
+    return true;
   });
 
   if (hasPostSaleAfterDelivery) {
@@ -129,6 +136,9 @@ export async function loadPostSaleEligibility(contactId: string, now = new Date(
     (history ?? []).map((event: any) => ({
       interactionDate: event.interaction_date ?? null,
       resultCode: typeof event.event_metadata?.result_code === 'string' ? event.event_metadata.result_code : null,
+      postSaleOrderId: typeof event.event_metadata?.post_sale_order_id === 'string'
+        ? event.event_metadata.post_sale_order_id
+        : null,
     })),
     now,
   );
