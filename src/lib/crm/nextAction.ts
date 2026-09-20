@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { refreshCrmLiveContext } from './liveContext';
+import { classifyTemporalFact, evaluateTemporalAuthority } from './temporalAuthority';
 
 const CRM_ROOT_NODE_ID = 'd7c76db8-b7e0-4ce1-87ca-21275c346326';
 export const CRM_TASK_SOURCE = 'crm_next_action';
@@ -120,6 +121,13 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
   if (currentContactError) throw currentContactError;
   const previousDueAt = currentContact?.next_action_date ?? currentContact?.next_contact_date ?? null;
   const previousTitle = currentContact?.next_action_text ?? null;
+  const isReschedule = Boolean(previousDueAt && (previousDueAt !== dueAt || previousTitle !== title));
+  const temporalDecision = isReschedule
+    ? evaluateTemporalAuthority(
+        classifyTemporalFact({ eventCode: 'next_action_rescheduled' }),
+        { kind: 'next_action', dependency: 'conversation_context', scheduledAt: previousDueAt },
+      )
+    : null;
   const { error: contactError } = await supabase.from('contacts').update({
     next_action_text: title,
     next_action_date: dueAt,
@@ -133,7 +141,7 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
 
   // A substituição já é segura pela tarefa única; o histórico torna o
   // reagendamento explicável sem criar uma segunda obrigação pendente.
-  if (previousDueAt && (previousDueAt !== dueAt || previousTitle !== title)) {
+  if (isReschedule) {
     const { error: historyError } = await supabase.from('contact_history').insert({
       contact_id: input.contactId,
       event_type: 'follow_up',
@@ -146,6 +154,8 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
         previous_due_at: previousDueAt,
         next_title: title,
         next_due_at: dueAt,
+        temporal_fact: 'next_action_rescheduled',
+        temporal_decision: temporalDecision?.decision ?? null,
       },
     });
     if (historyError) throw historyError;
