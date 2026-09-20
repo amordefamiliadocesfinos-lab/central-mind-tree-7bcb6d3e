@@ -19,13 +19,54 @@ describe('F5-B1a — ingestão pura de fato externo', () => {
     },
   );
 
-  it('aceita post_sale_issue com metadata estruturada', () => {
+  it('aceita post_sale_issue com occurrenceId', () => {
     const result = ingestExternalCrmFact({
       ...baseFact('post_sale_issue'),
+      externalId: undefined,
       metadata: { occurrenceId: 'occ-1', category: 'delivery' },
     });
 
     expect(result.status).toBe('accepted');
+  });
+
+  it('aceita post_sale_issue com externalId e metadata mínima', () => {
+    const result = ingestExternalCrmFact({
+      ...baseFact('post_sale_issue'),
+      externalId: 'occ-external-1',
+      metadata: { category: 'delivery' },
+    });
+
+    expect(result.status).toBe('accepted');
+  });
+
+  it('rejeita post_sale_issue apenas com category', () => {
+    const result = ingestExternalCrmFact({
+      ...baseFact('post_sale_issue'),
+      externalId: undefined,
+      metadata: { category: 'delivery' },
+    });
+
+    expect(result).toEqual({ status: 'invalid', reason: 'missing_structured_issue_identity' });
+  });
+
+  it('rejeita post_sale_issue apenas com flag booleana genérica', () => {
+    const result = ingestExternalCrmFact({
+      ...baseFact('post_sale_issue'),
+      externalId: undefined,
+      metadata: { urgent: true },
+    });
+
+    expect(result).toEqual({ status: 'invalid', reason: 'missing_structured_issue_identity' });
+  });
+
+  it('rejeita post_sale_issue sem identificador', () => {
+    const result = ingestExternalCrmFact({
+      ...baseFact('post_sale_issue'),
+      externalId: undefined,
+      metadata: undefined,
+    });
+
+    expect(result).toEqual({ status: 'invalid', reason: 'missing_structured_issue_identity' });
   });
 
   it('rejeita fato operacional sem contactId', () => {
@@ -70,10 +111,5 @@ describe('F5-B1a — ingestão pura de fato externo', () => {
     expect(result.status).toBe('accepted');
     expect(input).toEqual(snapshot);
     if (result.status === 'accepted') expect(result.fact.contactId).toBe('contact-123');
-  });
-
-  it('rejeita post_sale_issue sem metadata estruturada', () => {
-    const result = ingestExternalCrmFact({ ...baseFact('post_sale_issue'), metadata: undefined });
-    expect(result).toEqual({ status: 'invalid', reason: 'missing_structured_issue_metadata' });
   });
 });
