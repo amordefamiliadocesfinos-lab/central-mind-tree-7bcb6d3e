@@ -17,14 +17,11 @@ function isValidTimestamp(value: string): boolean {
   return value.trim().length > 0 && !Number.isNaN(Date.parse(value));
 }
 
-function hasStructuredIssueMetadata(metadata: Record<string, unknown> | undefined): boolean {
-  if (!metadata) return false;
+function hasStructuredIssueIdentity(input: CrmNewFact): boolean {
+  if (input.externalId?.trim()) return true;
 
-  return Object.entries(metadata).some(([key, value]) => {
-    if (!key.trim() || value === null || value === undefined) return false;
-    if (typeof value === 'string') return value.trim().length > 0;
-    return typeof value === 'number' || typeof value === 'boolean';
-  });
+  const occurrenceId = input.metadata?.occurrenceId;
+  return typeof occurrenceId === 'string' && occurrenceId.trim().length > 0;
 }
 
 /**
@@ -47,8 +44,8 @@ export function ingestExternalCrmFact(input: CrmNewFact): ExternalFactIngestionR
     return { status: 'invalid', reason: 'missing_contact_id' };
   }
 
-  if (input.eventType === 'post_sale_issue' && !hasStructuredIssueMetadata(input.metadata)) {
-    return { status: 'invalid', reason: 'missing_structured_issue_metadata' };
+  if (input.eventType === 'post_sale_issue' && !hasStructuredIssueIdentity(input)) {
+    return { status: 'invalid', reason: 'missing_structured_issue_identity' };
   }
 
   const fact: CrmNewFact = {
