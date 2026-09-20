@@ -30,7 +30,30 @@ describe('calculatePostSaleEligibility', () => {
     expect(signal.eligible).toBe(false);
   });
 
-  it('considera atendido quando há Resultado pós-venda posterior à entrega', () => {
+  it('considera atendido quando Resultado identificado pertence ao mesmo pedido', () => {
+    const signal = calculatePostSaleEligibility([
+      { id: 'order-1', deliveryDate: '2026-09-18', operationalStatus: 'finalized', status: 'concluido' },
+    ], [
+      { interactionDate: '2026-09-18T15:00:00-03:00', resultCode: 'CRM-RES-026', postSaleOrderId: 'order-1' },
+    ], now);
+
+    expect(signal.eligible).toBe(false);
+    expect(signal.orderId).toBe('order-1');
+  });
+
+  it('não deixa Resultado identificado de outro pedido encerrar o pedido atual', () => {
+    const signal = calculatePostSaleEligibility([
+      { id: 'order-b', deliveryDate: '2026-09-11', operationalStatus: 'finalized', status: 'concluido' },
+      { id: 'order-a', deliveryDate: '2026-09-10', operationalStatus: 'finalized', status: 'concluido' },
+    ], [
+      { interactionDate: '2026-09-12T10:00:00-03:00', resultCode: 'CRM-RES-026', postSaleOrderId: 'order-a' },
+    ], now);
+
+    expect(signal.eligible).toBe(true);
+    expect(signal.orderId).toBe('order-b');
+  });
+
+  it('preserva fallback temporal para Resultado legado sem identidade do pedido', () => {
     const signal = calculatePostSaleEligibility([
       { id: 'order-1', deliveryDate: '2026-09-18', operationalStatus: 'finalized', status: 'concluido' },
     ], [
