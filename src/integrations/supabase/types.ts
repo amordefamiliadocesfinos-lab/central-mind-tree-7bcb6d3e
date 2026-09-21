@@ -2124,6 +2124,8 @@ export type Database = {
       financial_entries: {
         Row: {
           account_id: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
           category_id: string | null
           channel_account_id: string | null
           competence_date: string | null
@@ -2143,6 +2145,7 @@ export type Database = {
           imported_by: string | null
           is_conciliated: boolean
           issue_date: string | null
+          lifecycle_status: string
           marketplace_account: string | null
           notes: string | null
           order_id: string | null
@@ -2151,6 +2154,8 @@ export type Database = {
           payment_date: string | null
           payment_method: string | null
           platform_id: string | null
+          purchase_installment_number: number | null
+          purchase_order_id: string | null
           recurrence_day: number | null
           recurrence_end_date: string | null
           recurrence_sequence: number | null
@@ -2165,6 +2170,8 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
           category_id?: string | null
           channel_account_id?: string | null
           competence_date?: string | null
@@ -2184,6 +2191,7 @@ export type Database = {
           imported_by?: string | null
           is_conciliated?: boolean
           issue_date?: string | null
+          lifecycle_status?: string
           marketplace_account?: string | null
           notes?: string | null
           order_id?: string | null
@@ -2192,6 +2200,8 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string | null
           platform_id?: string | null
+          purchase_installment_number?: number | null
+          purchase_order_id?: string | null
           recurrence_day?: number | null
           recurrence_end_date?: string | null
           recurrence_sequence?: number | null
@@ -2206,6 +2216,8 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
           category_id?: string | null
           channel_account_id?: string | null
           competence_date?: string | null
@@ -2225,6 +2237,7 @@ export type Database = {
           imported_by?: string | null
           is_conciliated?: boolean
           issue_date?: string | null
+          lifecycle_status?: string
           marketplace_account?: string | null
           notes?: string | null
           order_id?: string | null
@@ -2233,6 +2246,8 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string | null
           platform_id?: string | null
+          purchase_installment_number?: number | null
+          purchase_order_id?: string | null
           recurrence_day?: number | null
           recurrence_end_date?: string | null
           recurrence_sequence?: number | null
@@ -2293,6 +2308,13 @@ export type Database = {
             columns: ["platform_id"]
             isOneToOne: false
             referencedRelation: "digital_platforms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -4751,12 +4773,77 @@ export type Database = {
           },
         ]
       }
+      purchase_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          purchase_order_id: string
+          purchase_receipt_id: string | null
+          source: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          purchase_order_id: string
+          purchase_receipt_id?: string | null
+          source?: string
+          storage_bucket?: string
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          purchase_order_id?: string
+          purchase_receipt_id?: string | null
+          source?: string
+          storage_bucket?: string
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_documents_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_documents_purchase_receipt_id_fkey"
+            columns: ["purchase_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_order_items: {
         Row: {
           conversion_factor: number
           created_at: string
           id: string
           ordered_purchase_qty: number
+          planning_context: Json | null
+          planning_source: string | null
           presentation_snapshot: Json
           product_id: string
           purchase_order_id: string
@@ -4772,6 +4859,8 @@ export type Database = {
           created_at?: string
           id?: string
           ordered_purchase_qty: number
+          planning_context?: Json | null
+          planning_source?: string | null
           presentation_snapshot: Json
           product_id: string
           purchase_order_id: string
@@ -4787,6 +4876,8 @@ export type Database = {
           created_at?: string
           id?: string
           ordered_purchase_qty?: number
+          planning_context?: Json | null
+          planning_source?: string | null
           presentation_snapshot?: Json
           product_id?: string
           purchase_order_id?: string
@@ -6230,6 +6321,10 @@ export type Database = {
         Args: { p_context: string; p_product_id: string; p_variant_id: string }
         Returns: undefined
       }
+      cancel_purchase_with_financial_entries: {
+        Args: { p_purchase_order_id: string; p_reason?: string }
+        Returns: Json
+      }
       complete_campaign: {
         Args: { _campaign_id: string }
         Returns: {
@@ -6284,6 +6379,10 @@ export type Database = {
       }
       confirm_purchase_receipt: {
         Args: { p_receipt_id: string }
+        Returns: Json
+      }
+      confirm_purchase_with_financial_entries: {
+        Args: { p_installments: Json; p_purchase_order_id: string }
         Returns: Json
       }
       create_unified_sale: {
