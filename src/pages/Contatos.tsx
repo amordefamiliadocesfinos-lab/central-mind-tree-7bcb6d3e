@@ -156,32 +156,6 @@ function daysSince(value?: string | null) {
   return differenceInDays(startOfDay(new Date()), startOfDay(date));
 }
 
-const getStageNextAction = (stage: string): Partial<Contact> => {
-  const actionByStage: Record<string, { text: string; days: number }> = {
-    novo_lead: { text: 'Fazer primeiro contato', days: 0 },
-    contato_realizado: { text: 'Verificar resposta do cliente', days: 1 },
-    proposta_enviada: { text: 'Fazer follow-up da proposta', days: 2 },
-    negociacao: { text: 'Conduzir negociação para fechamento', days: 1 },
-    fechado: { text: 'Confirmar entrega e satisfação', days: 3 },
-    pos_venda: { text: 'Realizar contato de pós-venda', days: 7 },
-    cadencia: { text: 'Realizar próximo contato da cadência', days: 3 },
-  };
-
-  const action = actionByStage[stage];
-  if (!action) {
-    return { next_action_text: null, next_action_date: null } as Partial<Contact>;
-  }
-
-  const dueAt = new Date();
-  dueAt.setDate(dueAt.getDate() + action.days);
-  dueAt.setHours(9, 0, 0, 0);
-
-  return {
-    next_action_text: action.text,
-    next_action_date: dueAt.toISOString(),
-  };
-};
-
 const SALES_FUNNEL_STAGES = [
   { key: 'orcamento', label: 'Orçamento', emoji: '🟡', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgLight: 'bg-yellow-50/80 border-yellow-200', headerBg: 'bg-gradient-to-r from-yellow-500 to-yellow-400' },
   { key: 'em_atendimento', label: 'Em atendimento', emoji: '🔵', color: 'bg-blue-500', textColor: 'text-blue-700', bgLight: 'bg-blue-50/80 border-blue-200', headerBg: 'bg-gradient-to-r from-blue-500 to-blue-400' },
@@ -787,8 +761,7 @@ export default function Contatos() {
     newStatus = normalizeCrmStage(newStatus);
     const oldStage = FUNNEL_STAGES.find(s => s.key === contact.funnel_status);
     const newStage = FUNNEL_STAGES.find(s => s.key === newStatus);
-    const suggestedAction = getStageNextAction(newStatus);
-    const updates: Partial<Contact> = { funnel_status: newStatus, ...suggestedAction, ...extra };
+    const updates: Partial<Contact> = { funnel_status: newStatus, ...extra };
     if (newStatus === 'fechado' && contact.funnel_status !== 'fechado') {
       updates.converted_at = new Date().toISOString();
       await addEntry(contact.id, 'conversion', 'Negócio fechado!', new Date().toISOString(), CRM_EVENT_CODES.SALE_WON);
@@ -803,16 +776,7 @@ export default function Contatos() {
         { old_stage: contact.funnel_status, new_stage: newStatus },
       );
     }
-    const { next_action_text, next_action_date, next_contact_date, ...contactUpdates } = updates;
-    await updateContact(contact.id, contactUpdates);
-    if (next_action_text && (next_action_date || next_contact_date)) {
-      await setCrmNextAction({ contactId: contact.id, title: next_action_text, dueAt: next_action_date || next_contact_date });
-    } else {
-      await clearCrmNextAction(contact.id);
-    }
-    if (suggestedAction.next_action_text) {
-      toast.success(`Próxima ação criada: ${suggestedAction.next_action_text}`);
-    }
+    await updateContact(contact.id, updates);
   };
 
   const handleStatusChange = async (contact: Contact, newStatus: string) => {
@@ -1033,7 +997,8 @@ export default function Contatos() {
 
     if (isClient) {
       return {
-        message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nEstamos com produção aberta essa semana, deseja fazer um novo pedido? 😊`,
+        message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
+Estamos com produção aberta essa semana, deseja fazer um novo pedido? 😊`,
         approach: 'Reativação de cliente ativo',
       };
     }
@@ -1041,20 +1006,23 @@ export default function Contatos() {
     if (nrInfo) {
       if (nrInfo.status === 'lead_esfriando' || nrInfo.status === 'follow_up_urgente') {
         return {
-          message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nQueria saber se ainda tem interesse, posso te ajudar a finalizar 😊`,
+          message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
+Queria saber se ainda tem interesse, posso te ajudar a finalizar 😊`,
           approach: `Follow-up urgente (${nrInfo.daysSince}d sem resposta)`,
         };
       }
       if (nrInfo.status === 'sem_resposta') {
         return {
-          message: `Oi${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nSó passando para saber se conseguiu analisar o que conversamos 😊`,
+          message: `Oi${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
+Só passando para saber se conseguiu analisar o que conversamos 😊`,
           approach: `Follow-up leve (${nrInfo.daysSince}d sem resposta)`,
         };
       }
     }
 
     return {
-      message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nEstou entrando em contato para entender melhor seu pedido 😊`,
+      message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
+Estou entrando em contato para entender melhor seu pedido 😊`,
       approach: 'Primeiro contato / Lead novo',
     };
   }, [getNoResponseInfo, hasOrders]);
