@@ -21,6 +21,7 @@ import { calculateRepurchaseSignal, hasFutureCrmReactivation, loadRepurchaseOrde
 import { loadPostSaleEligibility } from '@/lib/crm/postSale';
 import { evaluatePostSaleApproach } from '@/lib/crm/postSaleApproach';
 import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
+import { clearPostSaleOrderContext, setPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
 
 
 interface Message {
@@ -114,6 +115,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setText('');
     setAttachment(null);
     setFollowUpCycle(null);
+    clearPostSaleOrderContext();
   }, [contactId]);
 
 
@@ -501,6 +503,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
               if (!reply.reply) {
                 toast.message('Não há uma mensagem adequada para sugerir agora.');
                 return;
+              }
+              const postSaleOrderId = analysis?.postSale?.orderId?.trim();
+              if (postSaleOrderId && conversationId) {
+                setPostSaleOrderContext({ contactId, conversationId, orderId: postSaleOrderId });
               }
               setText(reply.reply);
               toast.success('Mensagem de pós-venda no campo — revise antes de enviar');

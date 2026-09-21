@@ -10,6 +10,7 @@ import { resolveFunnelStageFromCanonicalResult } from '@/lib/crm/canonical/funne
 import { shouldAwaitCustomerAfterCanonicalResult } from '@/lib/crm/canonical/operationalResponsibility';
 import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
 import { classifyTemporalFact, getTemporalInvalidations, type TemporalSchedule } from '@/lib/crm/temporalAuthority';
+import { clearPostSaleOrderContext, getMatchingPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 
 export type AttendanceOutcome =
@@ -210,6 +211,12 @@ export async function applyCanonicalAttendanceResult(input: {
   }).eq('id', input.conversationId);
   if (conversationUpdateError) throw conversationUpdateError;
 
+  const postSaleOrderContext = getMatchingPostSaleOrderContext({
+    contactId: input.contactId,
+    conversationId: input.conversationId,
+    resultCode: input.resultCode,
+  });
+
   const historyRows: { contact_id: string; description: string; [key: string]: unknown }[] = [{
     contact_id: input.contactId,
     event_type: 'contact',
@@ -223,6 +230,7 @@ export async function applyCanonicalAttendanceResult(input: {
       return_at: returnAt,
       operational_state: decision.desiredOperationalState,
       handoff_required: decision.handoff.required,
+      ...(postSaleOrderContext ? { post_sale_order_id: postSaleOrderContext.orderId } : {}),
       ...(previousTemporalSnapshot.returnAt ? { previous_return_at: previousTemporalSnapshot.returnAt } : {}),
       ...(temporalInvalidations.reassessNextAction ? { temporal_reassessment: true } : {}),
     },
@@ -254,6 +262,11 @@ export async function applyCanonicalAttendanceResult(input: {
     occurredAt: new Date().toISOString(),
     summary: `Resultado registrado: ${canonicalResult.label}.`,
   });
+
+  // O vínculo temporário só é consumido depois que o Resultado foi
+  // materializado com sucesso. Se qualquer etapa anterior falhar, ele permanece
+  // disponível para nova tentativa no mesmo atendimento.
+  if (postSaleOrderContext) clearPostSaleOrderContext();
 
   return {
     label: canonicalResult.label,
