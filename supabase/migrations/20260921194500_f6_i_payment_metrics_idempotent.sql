@@ -107,7 +107,10 @@ BEGIN
     PERFORM public.recalculate_contact_payment_metrics(v_old_contact_id);
   END IF;
 
-  RETURN COALESCE(NEW, OLD);
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $function$;
 
