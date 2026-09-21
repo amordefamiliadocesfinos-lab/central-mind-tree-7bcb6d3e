@@ -997,8 +997,7 @@ export default function Contatos() {
 
     if (isClient) {
       return {
-        message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
-Estamos com produção aberta essa semana, deseja fazer um novo pedido? 😊`,
+        message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nEstamos com produção aberta essa semana, deseja fazer um novo pedido? 😊`,
         approach: 'Reativação de cliente ativo',
       };
     }
@@ -1006,23 +1005,20 @@ Estamos com produção aberta essa semana, deseja fazer um novo pedido? 😊`,
     if (nrInfo) {
       if (nrInfo.status === 'lead_esfriando' || nrInfo.status === 'follow_up_urgente') {
         return {
-          message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
-Queria saber se ainda tem interesse, posso te ajudar a finalizar 😊`,
+          message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nQueria saber se ainda tem interesse, posso te ajudar a finalizar 😊`,
           approach: `Follow-up urgente (${nrInfo.daysSince}d sem resposta)`,
         };
       }
       if (nrInfo.status === 'sem_resposta') {
         return {
-          message: `Oi${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
-Só passando para saber se conseguiu analisar o que conversamos 😊`,
+          message: `Oi${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nSó passando para saber se conseguiu analisar o que conversamos 😊`,
           approach: `Follow-up leve (${nrInfo.daysSince}d sem resposta)`,
         };
       }
     }
 
     return {
-      message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\
-Estou entrando em contato para entender melhor seu pedido 😊`,
+      message: `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}! Tudo bem?\nEstou entrando em contato para entender melhor seu pedido 😊`,
       approach: 'Primeiro contato / Lead novo',
     };
   }, [getNoResponseInfo, hasOrders]);
