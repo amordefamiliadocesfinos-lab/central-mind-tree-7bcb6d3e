@@ -44,6 +44,37 @@ export function useContactHistory() {
     setLoading(false);
   }, []);
 
+  const syncUltimoContatoFromHistory = useCallback(async (contactId: string) => {
+    const { data, error } = await supabase
+      .from('contact_history')
+      .select('interaction_date')
+      .eq('contact_id', contactId)
+      .order('interaction_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao recalcular ultimo_contato:', error);
+      return false;
+    }
+
+    const ultimoContato = data?.interaction_date
+      ? new Date(data.interaction_date).toISOString().split('T')[0]
+      : null;
+
+    const { error: contactError } = await supabase
+      .from('contacts')
+      .update({ ultimo_contato: ultimoContato })
+      .eq('id', contactId);
+
+    if (contactError) {
+      console.error('Erro ao sincronizar ultimo_contato:', contactError);
+      return false;
+    }
+
+    return true;
+  }, []);
+
   const addEntry = useCallback(async (
     contactId: string,
     interactionType: string,
@@ -63,14 +94,11 @@ export function useContactHistory() {
     });
     if (error) { toast.error('Erro ao adicionar'); return; }
 
-    // Auto-update ultimo_contato on contact
-    await supabase.from('contacts').update({
-      ultimo_contato: new Date(interactionDate).toISOString().split('T')[0],
-    }).eq('id', contactId);
+    await syncUltimoContatoFromHistory(contactId);
 
     toast.success('Interação registrada');
     await fetchHistory(contactId);
-  }, [fetchHistory]);
+  }, [fetchHistory, syncUltimoContatoFromHistory]);
 
   const updateEntry = useCallback(async (
     id: string,
@@ -87,16 +115,22 @@ export function useContactHistory() {
 
     const { error } = await supabase.from('contact_history').update(updateData).eq('id', id);
     if (error) { toast.error('Erro ao atualizar'); return; }
+
+    await syncUltimoContatoFromHistory(contactId);
+
     toast.success('Interação atualizada');
     await fetchHistory(contactId);
-  }, [fetchHistory]);
+  }, [fetchHistory, syncUltimoContatoFromHistory]);
 
   const deleteEntry = useCallback(async (id: string, contactId: string) => {
     const { error } = await supabase.from('contact_history').delete().eq('id', id);
     if (error) { toast.error('Erro ao excluir'); return; }
+
+    await syncUltimoContatoFromHistory(contactId);
+
     toast.success('Interação excluída');
     await fetchHistory(contactId);
-  }, [fetchHistory]);
+  }, [fetchHistory, syncUltimoContatoFromHistory]);
 
   return { entries, loading, fetchHistory, addEntry, updateEntry, deleteEntry };
 }
