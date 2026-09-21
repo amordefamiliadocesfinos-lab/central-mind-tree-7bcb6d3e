@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfMonth, endOfMonth, format, isBefore, startOfDay, parseISO, addDays, addWeeks, addMonths, addYears, isWeekend } from 'date-fns';
 import { buildRecurrenceDueDates } from '@/lib/financial/recurrence';
+import { executeExternalCrmFact } from '@/lib/crm/externalFactExecutor';
 
 export interface FinancialCategory {
   id: string;
@@ -393,7 +394,10 @@ export function useFinancial() {
   const registerPayment = async (entryId: string, value: number, accountId?: string, notes?: string, paymentDate?: string) => {
     if (!accountId) throw new Error('Selecione a conta financeira da baixa.');
     const { data: current, error: currentError } = await supabase
-      .from('financial_entries').select('value,value_paid').eq('id', entryId).single();
+      .from('financial_entries')
+      .select('value,value_paid,type,contact_id,order_id')
+      .eq('id', entryId)
+      .single();
     if (currentError) throw currentError;
     const remaining = Number(current.value) - Number(current.value_paid || 0);
     if (value <= 0 || value > remaining + 0.005) throw new Error(`A baixa não pode superar o saldo de ${remaining.toFixed(2)}.`);
@@ -413,12 +417,39 @@ export function useFinancial() {
       throw error;
     }
 
+    const fullyPaid = Number(current.value_paid || 0) + value >= Number(current.value) - 0.005;
+
     // Update payment_date if fully paid
-    if (Number(current.value_paid || 0) + value >= Number(current.value) - 0.005) {
+    if (fullyPaid) {
       await supabase
         .from('financial_entries')
         .update({ payment_date: movementDate })
         .eq('id', entryId);
+    }
+
+    // F6-I: o Financeiro produz o fato; somente o motor canônico F5 decide/materializa CRM.
+    if (fullyPaid && current.type === 'receber' && current.contact_id && current.order_id) {
+      try {
+        const factResult = await executeExternalCrmFact({
+          source: 'frontend',
+          eventType: 'payment_confirmed',
+          timestamp: new Date(`${movementDate}T12:00:00`).toISOString(),
+          contactId: current.contact_id,
+          externalId: `financial-entry:${entryId}:paid`,
+          metadata: {
+            financialEntryId: entryId,
+            orderId: current.order_id,
+            paymentDate: movementDate,
+            amount: Number(current.value),
+          },
+        });
+        if (factResult.status !== 'applied') {
+          console.warn('F6-I: payment_confirmed não materializado no CRM', factResult);
+        }
+      } catch (factError) {
+        // A baixa financeira já aconteceu; não desfazer o fato financeiro por falha de projeção CRM.
+        console.error('F6-I: falha ao materializar payment_confirmed no CRM', factError);
+      }
     }
 
     fetchEntries();
