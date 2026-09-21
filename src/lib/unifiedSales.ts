@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolvePhysicalIdentity } from '@/lib/products/physicalIdentity';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
+import { executeExternalCrmFact } from '@/lib/crm/externalFactExecutor';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 
 export type SalePaymentStatus = 'pendente' | 'pago' | 'parcial';
@@ -44,7 +45,7 @@ export interface UnifiedSaleInput {
   sale_origin?: string | null;
   /** Chave opcional para retries/dobro clique do mesmo comando comercial. */
   sale_request_key?: string | null;
-  /** Quando a venda nasce no CRM, registra o fato canônico Pedido confirmado. */
+  /** Quando a venda nasce no CRM, produz o fato canônico Pedido confirmado. */
   crm_order_confirmed?: boolean;
   /** Destino operacional canônico do pedido, separado do status comercial. */
   operational_destination?: OperationalDestination | null;
@@ -58,6 +59,50 @@ export interface UnifiedSaleResult {
   financial_entry_id: string;
   total_value: number;
   already_registered?: boolean;
+}
+
+async function emitCrmSaleFacts(order: UnifiedSaleInput, result: UnifiedSaleResult) {
+  if (!order.contact_id || result.already_registered) return;
+
+  const occurredAt = new Date().toISOString();
+  const commonMetadata = {
+    orderId: result.order_id,
+    orderNumber: result.order_number,
+    financialEntryId: result.financial_entry_id,
+    saleOrigin: order.sale_origin || 'operacoes',
+  };
+
+  if (order.crm_order_confirmed) {
+    const orderFact = await executeExternalCrmFact({
+      source: 'frontend',
+      eventType: 'order_confirmed',
+      timestamp: occurredAt,
+      contactId: order.contact_id,
+      externalId: result.order_id,
+      metadata: commonMetadata,
+    });
+    if (orderFact.status !== 'applied') {
+      console.warn('F6-J: order_confirmed não materializado no CRM', orderFact);
+    }
+  }
+
+  if (order.payment_status === 'pago') {
+    const paymentFact = await executeExternalCrmFact({
+      source: 'frontend',
+      eventType: 'payment_confirmed',
+      timestamp: occurredAt,
+      contactId: order.contact_id,
+      externalId: `financial-entry:${result.financial_entry_id}:paid`,
+      metadata: {
+        ...commonMetadata,
+        paymentDate: order.payment_date || occurredAt.slice(0, 10),
+        amount: result.total_value,
+      },
+    });
+    if (paymentFact.status !== 'applied') {
+      console.warn('F6-I: payment_confirmed da venda unificada não materializado no CRM', paymentFact);
+    }
+  }
 }
 
 export async function createUnifiedSale(order: UnifiedSaleInput, items: UnifiedSaleItem[]) {
@@ -76,6 +121,15 @@ export async function createUnifiedSale(order: UnifiedSaleInput, items: UnifiedS
   });
   if (error) throw error;
   const result = data as UnifiedSaleResult;
+
+  try {
+    await emitCrmSaleFacts(order, result);
+  } catch (factError) {
+    // A venda já foi confirmada transacionalmente. Não fabricar rollback lógico.
+    // O erro fica explícito para observação/reprocessamento sem reintroduzir writer paralelo no banco.
+    console.error('Não foi possível materializar fato CRM da venda unificada', factError);
+  }
+
   if (order.contact_id) {
     refreshCrmLiveContext({
       contactId: order.contact_id,
