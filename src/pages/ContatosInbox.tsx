@@ -1172,6 +1172,7 @@ export default function ContatosInbox() {
                     contactHandle={selected.whatsapp || selected.phone}
                     contactAvatar={selected.photo_url}
                     funnelStage={selected.funnel_status}
+                    knownConversationId={selected.conversation_id || null}
                     heightClassName="min-h-0 flex-1"
                     onMessageSent={() => setSendConfirmation(true)}
                     onUseSuggestedResult={setSuggestedResultCode}
