@@ -130,6 +130,28 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     clearPostSaleOrderContext();
   }, [contactId]);
 
+  // Quando o consumidor já sabe qual conversa exibir, pula a consulta de
+  // descoberta. Limpa mensagens/metadados imediatamente para não exibir o
+  // histórico da conversa anterior durante a troca de contato.
+  useEffect(() => {
+    setMessages([]);
+    setConversationMeta(null);
+    setLoading(true);
+    if (knownConversationId) {
+      setConversationId(knownConversationId);
+      // Mantém a etapa canônica sincronizada sem criar uma waterfall:
+      // o carregamento de mensagens continua independentemente.
+      const canonicalStage = normalizeCrmStage(funnelStage);
+      if (canonicalStage) {
+        void supabase
+          .from('service_conversations')
+          .update({ funnel_stage: canonicalStage })
+          .eq('id', knownConversationId);
+      }
+    } else {
+      setConversationId(null);
+    }
+  }, [contactId, knownConversationId, funnelStage]);
 
   useEffect(() => {
     let cancelled = false;
