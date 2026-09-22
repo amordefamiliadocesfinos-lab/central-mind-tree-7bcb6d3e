@@ -129,6 +129,7 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
     tentativeLabel: null,
     confidence: canonical ? confidence : 0,
     reason,
+    evidenceQuotes,
   };
 }
 
