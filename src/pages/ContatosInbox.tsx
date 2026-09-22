@@ -1019,11 +1019,17 @@ export default function ContatosInbox() {
                           Fornecedor
                         </Badge>
                       )}
-                      {item.attendance_state && (
+                      {item.attendance_state &&
+                        !(
+                          (item.attendance_state === 'responder' && priority.reason === 'needs_reply') ||
+                          (priority.reason === 'waiting_customer' &&
+                            ['aguardando_cliente', 'aguardando_resposta', 'awaiting_response', 'waiting_customer'].includes(item.attendance_state))
+                        ) && (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
                           {ATTENDANCE_STATE_LABELS[item.attendance_state] || item.attendance_state}
                         </Badge>
                       )}
+
                       {priority.reason && (
                         <Badge variant={priority.level === 'P0' ? 'destructive' : 'secondary'} className="text-[9px] h-4 px-1.5">
                           {priority.label}
