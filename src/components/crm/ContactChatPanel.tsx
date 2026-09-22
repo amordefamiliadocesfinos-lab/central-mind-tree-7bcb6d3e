@@ -64,7 +64,7 @@ const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
