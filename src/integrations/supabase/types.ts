@@ -6440,10 +6440,6 @@ export type Database = {
         Args: { p_product_id: string; p_variant_id: string }
         Returns: boolean
       }
-      recalculate_contact_payment_metrics: {
-        Args: { p_contact_id: string }
-        Returns: undefined
-      }
       recalculate_production_order_item: {
         Args: { p_item_id: string }
         Returns: undefined
