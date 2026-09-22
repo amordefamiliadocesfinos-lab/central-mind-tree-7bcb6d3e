@@ -158,7 +158,8 @@ export function validateSuggestion(raw: any, catalog: CatalogItem[], allowedMess
   const reason = typeof raw.reason === "string" && raw.reason.trim()
     ? raw.reason.trim().slice(0, 280)
     : (suggested ? "Sugestão baseada no contexto do atendimento." : "Ainda aguardando resposta do cliente.");
-  return { suggested_result_code: suggested, confidence, reason };
+  const evidence_quotes = filterEvidenceQuotes(raw.evidence_quotes, allowedMessages);
+  return { suggested_result_code: suggested, confidence, reason, evidence_quotes };
 }
 
 function parseAiJson(content: string): any {
