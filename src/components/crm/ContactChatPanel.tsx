@@ -47,6 +47,8 @@ interface ContactChatPanelProps {
   contactHandle?: string | null;
   contactAvatar?: string | null;
   funnelStage?: string | null;
+  /** ID de conversa já conhecido pelo consumidor (ex: Inbox). Evita a consulta de descoberta. */
+  knownConversationId?: string | null;
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
   onMessageSent?: (content: string) => void | Promise<void>;
