@@ -118,6 +118,7 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
       tentativeLabel: canonical.label,
       confidence,
       reason,
+      evidenceQuotes,
     };
   }
 
