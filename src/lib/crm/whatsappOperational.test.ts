@@ -22,6 +22,10 @@ assert(
   'telefone brasileiro sem DDI deve receber 55.',
 );
 assert(
+  getWhatsAppContactUrl('(55) 99999-8888') === 'https://wa.me/5555999998888',
+  'DDD 55 não pode ser confundido com o DDI Brasil.',
+);
+assert(
   getWhatsAppContactUrl('+55 51 99999-8888') === 'https://wa.me/5551999998888',
   'telefone já normalizado não pode duplicar o DDI.',
 );
