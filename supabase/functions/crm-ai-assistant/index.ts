@@ -76,9 +76,10 @@ Regras OBRIGATÓRIAS:
 - Resposta de campanha usa o contexto normalmente; não existe Resultado especial de campanha.
 - Opt-out é apenas informação de contexto; não muda a análise.
 - confidence é um número entre 0 e 1.
-- reason: uma frase curta, operacional, em português.
+- reason: uma frase curta, operacional, em português (explicação sua, não evidência).
+- evidence_quotes: no máximo 3 trechos CURTOS copiados LITERALMENTE de mensagens do contexto recente que sustentam o Resultado. Cópia exata, caractere por caractere, sem parafrasear, sem traduzir, sem corrigir, sem juntar trechos de mensagens diferentes. Se não houver evidência textual direta, use [].
 
-Responda APENAS com JSON puro: {"suggested_result_code": "CRM-RES-0XX" ou null, "confidence": 0.0-1.0, "reason": "..."}`;
+Responda APENAS com JSON puro: {"suggested_result_code": "CRM-RES-0XX" ou null, "confidence": 0.0-1.0, "reason": "...", "evidence_quotes": ["..."]}`;
 
 /** Compilador enxuto: fatos soberanos → tarefa → recente → memória. */
 function compactContext(ctx: any) {
@@ -114,8 +115,34 @@ function compactContext(ctx: any) {
   ].join("\n");
 }
 
+/**
+ * D2 — Evidência rastreável: só é aceita citação que seja cópia literal de uma
+ * mensagem real do atendimento. Paráfrase e texto inventado são descartados em
+ * silêncio, sem alterar Resultado, confiança ou qualquer regra comercial.
+ */
+export function filterEvidenceQuotes(raw: any, allowedMessages: any[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const haystacks = (Array.isArray(allowedMessages) ? allowedMessages : [])
+    .map((message: any) => String(message?.content ?? ''))
+    .filter((content) => content.trim().length > 0);
+  if (!haystacks.length) return [];
+  const accepted: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (accepted.length >= 3) break;
+    if (typeof item !== 'string') continue;
+    const quote = item.trim();
+    if (quote.length < 4 || quote.length > 180) continue;
+    if (seen.has(quote)) continue;
+    if (!haystacks.some((content) => content.includes(quote))) continue;
+    seen.add(quote);
+    accepted.push(quote);
+  }
+  return accepted;
+}
+
 /** Validação server-side: código canônico existente + confiança normalizada. */
-export function validateSuggestion(raw: any, catalog: CatalogItem[]) {
+export function validateSuggestion(raw: any, catalog: CatalogItem[], allowedMessages: any[] = []) {
   if (!raw || typeof raw !== "object") return null;
   const codes = new Set(catalog.map((item) => item.code));
   const code = raw.suggested_result_code;
@@ -131,7 +158,8 @@ export function validateSuggestion(raw: any, catalog: CatalogItem[]) {
   const reason = typeof raw.reason === "string" && raw.reason.trim()
     ? raw.reason.trim().slice(0, 280)
     : (suggested ? "Sugestão baseada no contexto do atendimento." : "Ainda aguardando resposta do cliente.");
-  return { suggested_result_code: suggested, confidence, reason };
+  const evidence_quotes = filterEvidenceQuotes(raw.evidence_quotes, allowedMessages);
+  return { suggested_result_code: suggested, confidence, reason, evidence_quotes };
 }
 
 function parseAiJson(content: string): any {
@@ -391,7 +419,9 @@ Deno.serve(async (req) => {
 
     const data = await aiResp.json();
     const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
-    let validated = validateSuggestion(parsed, catalog);
+    // Somente as mensagens reais do contexto podem sustentar uma evidência.
+    const evidenceMessages = Array.isArray(context?.messages) ? context.messages : [];
+    let validated = validateSuggestion(parsed, catalog, evidenceMessages);
     const escalationReasons = requestEscalationReasons(body);
     if (!validated || validated.confidence < LOW_CONFIDENCE_THRESHOLD) {
       escalationReasons.push('low_confidence');
@@ -403,7 +433,7 @@ Deno.serve(async (req) => {
       if (strong.ok) {
         const strongData = await strong.json();
         const strongParsed = parseAiJson(String(strongData?.choices?.[0]?.message?.content ?? ''));
-        const strongValidated = validateSuggestion(strongParsed, catalog);
+        const strongValidated = validateSuggestion(strongParsed, catalog, evidenceMessages);
         if (strongValidated) {
           validated = strongValidated;
           modelUsed = STRONG_MODEL;
@@ -415,7 +445,7 @@ Deno.serve(async (req) => {
     }
     if (!validated) {
       // Resposta malformada ou código inexistente: erro controlado, nunca quebra a Inbox.
-      return json({ suggested_result_code: null, confidence: 0, reason: "Não foi possível interpretar a análise da IA com segurança.", invalid: true });
+      return json({ suggested_result_code: null, confidence: 0, reason: "Não foi possível interpretar a análise da IA com segurança.", evidence_quotes: [], invalid: true });
     }
 
     return json({ ...validated, model_used: modelUsed, escalation_reasons: [...new Set(escalationReasons)] });

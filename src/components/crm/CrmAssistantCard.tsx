@@ -109,6 +109,16 @@ export function CrmAssistantCard({
               {result.reason && (
                 <p className="text-muted-foreground"><span className="font-medium text-foreground/80">Por quê:</span> {result.reason}</p>
               )}
+              {result.evidenceQuotes?.length > 0 && (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Evidência no atendimento:</span>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {result.evidenceQuotes.slice(0, 3).map((quote, index) => (
+                      <li key={`${index}-${quote}`} className="italic">“{quote}”</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

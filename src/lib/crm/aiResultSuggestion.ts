@@ -29,6 +29,27 @@ export interface CrmResultSuggestion {
   /** Normalizada em 0–1. */
   confidence: number;
   reason: string;
+  /**
+   * D2 — trechos literais de mensagens do atendimento que sustentam a leitura.
+   * A validação literal é feita no servidor; aqui só normalizamos a forma.
+   */
+  evidenceQuotes: string[];
+}
+
+/** Aceita apenas array de strings, com trim, deduplicação, 180 chars e máximo 3. */
+function normalizeEvidenceQuotes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const quotes: string[] = [];
+  for (const item of raw) {
+    if (quotes.length >= 3) break;
+    if (typeof item !== 'string') continue;
+    const quote = item.trim().slice(0, 180);
+    if (!quote || seen.has(quote)) continue;
+    seen.add(quote);
+    quotes.push(quote);
+  }
+  return quotes;
 }
 
 function operationalDateKey(value: string | null | undefined): string | null {
@@ -78,10 +99,11 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
   const reason = typeof raw?.reason === 'string' && raw.reason.trim()
     ? raw.reason.trim()
     : 'Ainda aguardando resposta do cliente.';
+  const evidenceQuotes = normalizeEvidenceQuotes(raw?.evidence_quotes);
 
   if (rawCode && !canonical) {
     // Código fora do catálogo canônico: descartado, nunca propagado à Inbox.
-    return { code: null, label: null, confidence: 0, reason: 'A IA retornou um resultado fora do catálogo canônico.' };
+    return { code: null, label: null, confidence: 0, reason: 'A IA retornou um resultado fora do catálogo canônico.', evidenceQuotes: [] };
   }
 
   if (canonical && confidence < CRM_RESULT_ACTIONABLE_CONFIDENCE) {
@@ -96,6 +118,7 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
       tentativeLabel: canonical.label,
       confidence,
       reason,
+      evidenceQuotes,
     };
   }
 
@@ -106,6 +129,7 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
     tentativeLabel: null,
     confidence: canonical ? confidence : 0,
     reason,
+    evidenceQuotes,
   };
 }
 
