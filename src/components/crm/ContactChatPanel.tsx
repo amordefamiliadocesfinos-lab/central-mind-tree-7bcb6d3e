@@ -47,6 +47,8 @@ interface ContactChatPanelProps {
   contactHandle?: string | null;
   contactAvatar?: string | null;
   funnelStage?: string | null;
+  /** ID de conversa já conhecido pelo consumidor (ex: Inbox). Evita a consulta de descoberta. */
+  knownConversationId?: string | null;
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
   onMessageSent?: (content: string) => void | Promise<void>;
@@ -62,7 +64,7 @@ const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -128,6 +130,28 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     clearPostSaleOrderContext();
   }, [contactId]);
 
+  // Quando o consumidor já sabe qual conversa exibir, pula a consulta de
+  // descoberta. Limpa mensagens/metadados imediatamente para não exibir o
+  // histórico da conversa anterior durante a troca de contato.
+  useEffect(() => {
+    setMessages([]);
+    setConversationMeta(null);
+    setLoading(true);
+    if (knownConversationId) {
+      setConversationId(knownConversationId);
+      // Mantém a etapa canônica sincronizada sem criar uma waterfall:
+      // o carregamento de mensagens continua independentemente.
+      const canonicalStage = normalizeCrmStage(funnelStage);
+      if (canonicalStage) {
+        void supabase
+          .from('service_conversations')
+          .update({ funnel_stage: canonicalStage })
+          .eq('id', knownConversationId);
+      }
+    } else {
+      setConversationId(null);
+    }
+  }, [contactId, knownConversationId, funnelStage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,8 +170,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     });
   };
 
-  // Localiza ou cria a conversa para este contato
+  // Localiza ou cria a conversa para este contato (fallback quando o
+  // consumidor não fornece um conversationId conhecido).
   useEffect(() => {
+    if (knownConversationId || conversationId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -199,7 +225,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       }
     })();
     return () => { cancelled = true; };
-  }, [contactId, contactName, contactHandle, contactAvatar, funnelStage]);
+  }, [knownConversationId, conversationId, contactId, contactName, contactHandle, contactAvatar, funnelStage]);
 
   // Carrega mensagens e realtime
   useEffect(() => {
