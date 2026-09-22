@@ -65,6 +65,7 @@ interface InboxItem {
   return_at: string | null;
   next_action_date: string | null;
   next_contact_date: string | null;
+  commercial_opt_out: boolean;
   reactivation_at: string | null;
   last_result_at: string | null;
 }
