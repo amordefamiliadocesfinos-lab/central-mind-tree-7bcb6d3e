@@ -99,10 +99,11 @@ export function normalizeSuggestionResponse(raw: any): CrmResultSuggestion {
   const reason = typeof raw?.reason === 'string' && raw.reason.trim()
     ? raw.reason.trim()
     : 'Ainda aguardando resposta do cliente.';
+  const evidenceQuotes = normalizeEvidenceQuotes(raw?.evidence_quotes);
 
   if (rawCode && !canonical) {
     // Código fora do catálogo canônico: descartado, nunca propagado à Inbox.
-    return { code: null, label: null, confidence: 0, reason: 'A IA retornou um resultado fora do catálogo canônico.' };
+    return { code: null, label: null, confidence: 0, reason: 'A IA retornou um resultado fora do catálogo canônico.', evidenceQuotes: [] };
   }
 
   if (canonical && confidence < CRM_RESULT_ACTIONABLE_CONFIDENCE) {
