@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, Loader2, Send, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video, BrainCircuit } from 'lucide-react';
+import { FileText, Loader2, Send, MessageCircle, AArrowDown, AArrowUp, Paperclip, X, Mic, Video, BrainCircuit, ExternalLink } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ import { loadPostSaleEligibility } from '@/lib/crm/postSale';
 import { evaluatePostSaleApproach } from '@/lib/crm/postSaleApproach';
 import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
 import { clearPostSaleOrderContext, setPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
+import { getWhatsAppContactUrl, isMetaCustomerServiceWindowOpen } from '@/lib/crm/whatsappOperational';
 
 
 interface Message {
@@ -80,6 +81,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [analysis, setAnalysis] = useState<CrmAssistantAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState(false);
   const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -91,6 +93,14 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
   const outboundBlocked = commercialOptOut && !isCustomerReply;
+  const whatsappUrl = getWhatsAppContactUrl(contactHandle);
+  const metaWindowClosed = Boolean(conversationMeta)
+    && !isMetaCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setClockNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   // F4.5 — assinatura do contexto atual: contato, conversa e última mensagem.
   // Se mudar (nova mensagem, troca de contato, Resultado registrado que recarrega
@@ -199,14 +209,30 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       // Conversas longas ultrapassam o teto padrão de linhas da API. Buscamos as
       // mensagens mais recentes (desc) e reordenamos, garantindo que o último
       // envio (inclusive de campanha) sempre apareça na conversa.
-      const { data } = await supabase
-        .from('service_messages')
-        .select('id, conversation_id, sender, content, is_ai_suggested, created_at, source, delivery_status, message_type, media_url, media_mime_type, media_filename, media_caption')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: false })
-        .limit(200);
+      const [{ data }, { data: freshConversation }] = await Promise.all([
+        supabase
+          .from('service_messages')
+          .select('id, conversation_id, sender, content, is_ai_suggested, created_at, source, delivery_status, message_type, media_url, media_mime_type, media_filename, media_caption')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('service_conversations')
+          .select('attendance_state,return_at,last_inbound_at,last_outbound_at')
+          .eq('id', conversationId)
+          .maybeSingle(),
+      ]);
       if (!cancelled) {
         setMessages(((data || []) as Message[]).slice().reverse());
+        if (freshConversation) {
+          setConversationMeta({
+            attendance_state: freshConversation.attendance_state ?? null,
+            return_at: freshConversation.return_at ?? null,
+            last_inbound_at: freshConversation.last_inbound_at ?? null,
+            last_outbound_at: freshConversation.last_outbound_at ?? null,
+          });
+          setClockNow(Date.now());
+        }
         setLoading(false);
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
@@ -240,6 +266,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       toast.error('Este contato marcou que não deseja receber contato comercial. Remova o opt-out conscientemente antes de iniciar uma nova abordagem.');
       return;
     }
+    if (metaWindowClosed) {
+      toast.error('A janela de atendimento de 24 horas está encerrada. Abra o WhatsApp do contato ou use um template aprovado pela Meta.');
+      return;
+    }
     setSending(true);
     const content = text.trim();
     try {
@@ -266,8 +296,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: { conversation_id: conversationId, message: content, ...mediaPayload },
       });
+      const response = data as { error?: string; automatic_follow_up_scheduled?: boolean | null } | null;
       const errMsg =
-        (data as { error?: string } | null)?.error ??
+        response?.error ??
         (error ? 'Não foi possível enviar a mensagem pelo WhatsApp' : null);
       if (errMsg) {
         toast.error(errMsg);
@@ -308,7 +339,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       }
       setText('');
       setAttachment(null);
-      await onMessageSent?.(content);
+      if (response?.automatic_follow_up_scheduled === true) {
+        await onMessageSent?.(content);
+      } else if (response?.automatic_follow_up_scheduled === false) {
+        toast.success('Mensagem enviada · nenhum novo retorno automático foi criado.');
+      } else {
+        toast.success('Mensagem enviada.');
+      }
     } catch {
       toast.error('Não foi possível enviar a mensagem pelo WhatsApp');
     } finally {
@@ -409,6 +446,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           messages.map((m) => {
             const isAgent = m.sender === 'agent';
             const isAi = m.sender === 'ai_suggestion';
+            const isMediaMessage = ['image', 'audio', 'video', 'document'].includes(m.message_type);
             return (
               <div key={m.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -440,6 +478,16 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                     <a href={m.media_url} target="_blank" rel="noreferrer" className="mb-1 flex items-center gap-1 underline underline-offset-2">
                       <FileText className="h-4 w-4" /> {m.media_filename || 'Abrir anexo'}
                     </a>
+                  )}
+                  {!m.media_url && isMediaMessage && (
+                    <div className="mb-1 rounded border border-dashed border-current/25 px-2 py-1.5 text-[11px] opacity-85">
+                      <div>Mídia recebida, mas o arquivo não está disponível no CRM.</div>
+                      {whatsappUrl && (
+                        <a href={whatsappUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 underline underline-offset-2">
+                          <ExternalLink className="h-3 w-3" /> Abrir este contato no WhatsApp
+                        </a>
+                      )}
+                    </div>
                   )}
                   {(!m.media_url || Boolean(m.media_caption)) && <div>{m.media_caption || m.content}</div>}
                   {isAgent && (
@@ -564,6 +612,16 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
               : 'Este contato não deseja contato comercial. Remova o opt-out no detalhe antes de iniciar nova abordagem.'}
           </p>
         )}
+        {metaWindowClosed && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <span>Janela Meta de 24h encerrada · mensagem livre pelo CRM está bloqueada.</span>
+            {whatsappUrl && (
+              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                <ExternalLink className="h-3 w-3" /> Abrir WhatsApp
+              </a>
+            )}
+          </div>
+        )}
         {attachment && (
           <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs">
             {attachment.type.startsWith('audio/') ? <Mic className="h-3.5 w-3.5" /> : attachment.type.startsWith('video/') ? <Video className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
@@ -574,7 +632,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         )}
         <div className="flex items-end gap-1">
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(event) => setAttachment(event.target.files?.[0] || null)} />
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked || metaWindowClosed} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
+          {whatsappUrl && (
+            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" asChild title="Abrir este contato no WhatsApp">
+              <a href={whatsappUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+            </Button>
+          )}
           {/* F4.4 — Assistente CRM único: Resultado + Próxima Ação + Resposta sugerida. */}
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleAnalyze} disabled={analyzing} title="Assistente CRM (resultado, próxima ação e resposta sugerida)">
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
@@ -596,7 +659,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           />
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(-1)} disabled={fontSize <= MIN_FONT} title="Diminuir texto das mensagens"><AArrowDown className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(1)} disabled={fontSize >= MAX_FONT} title="Aumentar texto das mensagens"><AArrowUp className="h-4 w-4" /></Button>
-          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || outboundBlocked || (!text.trim() && !attachment) || !conversationId} title="Enviar">
+          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || outboundBlocked || metaWindowClosed || (!text.trim() && !attachment) || !conversationId} title={metaWindowClosed ? 'Janela Meta de 24h encerrada' : 'Enviar'}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
