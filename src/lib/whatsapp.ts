@@ -9,9 +9,11 @@ export function normalizeBRPhone(phone: string | null | undefined): string | nul
   if (!phone) return null;
   const clean = phone.replace(/\D/g, '');
   if (!clean) return null;
-  // Se já vier com DDI (qualquer país), respeita; senão assume Brasil (55).
-  if (clean.length >= 12) return clean;
-  return clean.startsWith('55') ? clean : `55${clean}`;
+  // Número nacional brasileiro possui 10 ou 11 dígitos. Isso evita confundir
+  // telefones do DDD 55 com números que já chegaram acompanhados do DDI +55.
+  if (clean.length === 10 || clean.length === 11) return `55${clean}`;
+  // Se já vier com DDI (Brasil ou outro país), respeita a identidade recebida.
+  return clean;
 }
 
 export function buildWhatsAppUrl(phone: string | null | undefined, message?: string): string | null {
