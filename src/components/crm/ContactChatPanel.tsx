@@ -77,7 +77,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   } | null>(null);
   const [followUpCycle, setFollowUpCycle] = useState<FollowUpCycleState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [commercialOptOut, setCommercialOptOut] = useState(false);
+  const [commercialOptOut, setCommercialOptOut] = useState(() => knownCommercialOptOut ?? false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -146,14 +146,23 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     }
   }, [contactId, knownConversationId]);
 
+  // Se o consumidor já forneceu o opt-out em lote, atualiza o estado local
+  // diretamente e evita a consulta isolada em contacts.
   useEffect(() => {
+    if (knownCommercialOptOut !== undefined) {
+      setCommercialOptOut(knownCommercialOptOut);
+    }
+  }, [contactId, knownCommercialOptOut]);
+
+  useEffect(() => {
+    if (knownCommercialOptOut !== undefined) return;
     let cancelled = false;
     supabase.from('contacts').select('commercial_opt_out').eq('id', contactId).maybeSingle()
       .then(({ data, error }) => {
         if (!cancelled && !error) setCommercialOptOut(Boolean(data?.commercial_opt_out));
       });
     return () => { cancelled = true; };
-  }, [contactId]);
+  }, [contactId, knownCommercialOptOut]);
 
   const changeFont = (delta: number) => {
     setFontSize((prev) => {
