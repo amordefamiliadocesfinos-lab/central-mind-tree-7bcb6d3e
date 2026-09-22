@@ -792,8 +792,9 @@ export default function ContatosInbox() {
       const conversationSummary = result.conversationResolved ? 'Conversa encerrada' : 'Conversa mantida aberta';
       toast.success('Resultado registrado', { description: `${result.label} · ${stageSummary} · ${nextActionSummary} · ${conversationSummary}` });
       setSendConfirmation(false);
-      await load();
-      if (attendanceQueueScope.length > 0) await nextAttendance();
+      const refreshedItems = await load();
+      if (refreshedItems === null) return;
+      if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível registrar o resultado do atendimento.');
