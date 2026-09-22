@@ -17,6 +17,7 @@ import { getCrmAiEscalationReasons } from './aiModelRouting';
  * hipótese, mas não pode dirigir Próxima Ação nem ser aplicada diretamente.
  */
 export const CRM_RESULT_ACTIONABLE_CONFIDENCE = 0.55;
+const CRM_OPERATION_TIME_ZONE = 'America/Sao_Paulo';
 
 export interface CrmResultSuggestion {
   /** null = não há Resultado confiável o bastante para dirigir ação operacional. */
@@ -28,6 +29,42 @@ export interface CrmResultSuggestion {
   /** Normalizada em 0–1. */
   confidence: number;
   reason: string;
+}
+
+function operationalDateKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: CRM_OPERATION_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+/**
+ * Uso real 21/09/2026: a fila classificava corretamente `return_at` como
+ * "Retorno hoje", enquanto a explicação livre da IA chamou o mesmo instante
+ * de "data futura" por observar apenas o timestamp. A fila continua soberana;
+ * esta guarda corrige somente a linguagem apresentada pelo Assistente.
+ */
+export function normalizeSuggestionTemporalReason(
+  suggestion: CrmResultSuggestion,
+  context: Pick<CrmAiContext, 'generatedAt' | 'conversation'>,
+): CrmResultSuggestion {
+  const returnDay = operationalDateKey(context.conversation?.returnAt);
+  const generatedDay = operationalDateKey(context.generatedAt);
+  if (!returnDay || !generatedDay || returnDay !== generatedDay) return suggestion;
+  if (!/\bfutur[ao]\b/i.test(suggestion.reason)) return suggestion;
+  return {
+    ...suggestion,
+    reason: 'Retorno programado para hoje; não deve ser tratado como data futura.',
+  };
 }
 
 /** Valida a resposta da IA no cliente: código canônico e confiança normalizada. */
@@ -97,7 +134,7 @@ export async function suggestCrmResultFromContext(
   });
   const raw = await invoke(context);
   if (raw?.error) throw new Error(String(raw.error));
-  return normalizeSuggestionResponse(raw);
+  return normalizeSuggestionTemporalReason(normalizeSuggestionResponse(raw), context);
 }
 
 export async function suggestCrmResult(
