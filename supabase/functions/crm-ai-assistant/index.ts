@@ -419,7 +419,9 @@ Deno.serve(async (req) => {
 
     const data = await aiResp.json();
     const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
-    let validated = validateSuggestion(parsed, catalog);
+    // Somente as mensagens reais do contexto podem sustentar uma evidência.
+    const evidenceMessages = Array.isArray(context?.messages) ? context.messages : [];
+    let validated = validateSuggestion(parsed, catalog, evidenceMessages);
     const escalationReasons = requestEscalationReasons(body);
     if (!validated || validated.confidence < LOW_CONFIDENCE_THRESHOLD) {
       escalationReasons.push('low_confidence');
