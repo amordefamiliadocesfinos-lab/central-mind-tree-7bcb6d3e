@@ -76,9 +76,10 @@ Regras OBRIGATÓRIAS:
 - Resposta de campanha usa o contexto normalmente; não existe Resultado especial de campanha.
 - Opt-out é apenas informação de contexto; não muda a análise.
 - confidence é um número entre 0 e 1.
-- reason: uma frase curta, operacional, em português.
+- reason: uma frase curta, operacional, em português (explicação sua, não evidência).
+- evidence_quotes: no máximo 3 trechos CURTOS copiados LITERALMENTE de mensagens do contexto recente que sustentam o Resultado. Cópia exata, caractere por caractere, sem parafrasear, sem traduzir, sem corrigir, sem juntar trechos de mensagens diferentes. Se não houver evidência textual direta, use [].
 
-Responda APENAS com JSON puro: {"suggested_result_code": "CRM-RES-0XX" ou null, "confidence": 0.0-1.0, "reason": "..."}`;
+Responda APENAS com JSON puro: {"suggested_result_code": "CRM-RES-0XX" ou null, "confidence": 0.0-1.0, "reason": "...", "evidence_quotes": ["..."]}`;
 
 /** Compilador enxuto: fatos soberanos → tarefa → recente → memória. */
 function compactContext(ctx: any) {
