@@ -51,6 +51,7 @@ export function CrmAssistantCard({
   const postSale = analysis?.postSale ?? null;
   const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
   const tentativeResult = result?.tentativeCode ? result : null;
+  const nextActionReason = nextAction?.aiExplanation || nextAction?.reason || null;
   // Uma abstenção explicada pelo Assistente também é informação operacional.
   // Ex.: F2-B bloqueia preço/estoque/frete sem fonte viva e devolve reply=null
   // com um motivo útil. F2-F também preserva hipótese de baixa confiança apenas
@@ -101,9 +102,13 @@ export function CrmAssistantCard({
       {!analyzing && !error && analysis && hasAnything && (
         <div className="space-y-1.5">
           {result?.code && (
-            <div>
+            <div className="space-y-0.5">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Resultado provável</div>
               <div className="font-medium text-foreground">{result.label}</div>
               <div className="text-muted-foreground">Confiança {Math.round(result.confidence * 100)}%</div>
+              {result.reason && (
+                <p className="text-muted-foreground"><span className="font-medium text-foreground/80">Por quê:</span> {result.reason}</p>
+              )}
             </div>
           )}
 
@@ -117,11 +122,16 @@ export function CrmAssistantCard({
           )}
 
           {nextAction && (
-            <div className="text-foreground/90">
-              <span className="text-muted-foreground">Próxima ação: </span>
-              {nextAction.noImmediateAction ? 'nenhuma ação imediata' : nextAction.nextActionLabel}
-              {nextAction.requiresDate && (
-                <span className="ml-1 text-amber-600 dark:text-amber-400">· data necessária</span>
+            <div className="space-y-0.5 text-foreground/90">
+              <div>
+                <span className="text-muted-foreground">Próxima ação: </span>
+                {nextAction.noImmediateAction ? 'nenhuma ação imediata' : nextAction.nextActionLabel}
+                {nextAction.requiresDate && (
+                  <span className="ml-1 text-amber-600 dark:text-amber-400">· data necessária</span>
+                )}
+              </div>
+              {nextActionReason && (
+                <p className="text-muted-foreground"><span className="font-medium text-foreground/80">Motivo:</span> {nextActionReason}</p>
               )}
             </div>
           )}
@@ -184,12 +194,6 @@ export function CrmAssistantCard({
                 </Button>
               </div>
             </div>
-          )}
-
-          {(result?.reason || nextAction?.aiExplanation || nextAction?.reason) && (
-            <p className="text-muted-foreground">
-              {result?.reason || nextAction?.aiExplanation || nextAction?.reason}
-            </p>
           )}
 
           <div className="flex flex-wrap justify-end gap-1.5 pt-0.5">
