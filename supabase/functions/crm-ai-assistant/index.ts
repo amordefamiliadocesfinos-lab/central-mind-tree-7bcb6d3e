@@ -433,7 +433,7 @@ Deno.serve(async (req) => {
       if (strong.ok) {
         const strongData = await strong.json();
         const strongParsed = parseAiJson(String(strongData?.choices?.[0]?.message?.content ?? ''));
-        const strongValidated = validateSuggestion(strongParsed, catalog);
+        const strongValidated = validateSuggestion(strongParsed, catalog, evidenceMessages);
         if (strongValidated) {
           validated = strongValidated;
           modelUsed = STRONG_MODEL;
