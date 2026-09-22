@@ -1,65 +1,68 @@
+# Auditoria somente leitura — Bloco C (fluidez/UX do CRM)
 
-# Centro de Automação do CRM — Unificação Frontend
+Nada foi alterado. Diagnóstico factual com localização de código.
 
-## Problema atual
-Hoje o usuário vê dois blocos separados na página `/contatos`:
-1. Painel amarelo **"Leads que precisam de contato"** (ações urgentes).
-2. **Barra de filtros** (busca, tipo, status, classificação, tag, origem, temperatura, ação, contato p/ hoje, ordenação).
+## 1) Busca literal por Y2 / Y3 / Y2- / Y3- / Y2_ / Y3_ em `src/`
 
-Eles não conversam: o usuário não sabe se deve filtrar primeiro, agir no painel, ou o que fazer depois. A experiência é fragmentada.
+Nenhuma ocorrência relacionada à Inbox ou ao CRM. As únicas linhas com essas letras são variáveis de recorte de imagem, sem relação com rótulos de interface:
 
-## Objetivo
-Fundir os dois blocos em um único **Centro de Automação do CRM** — uma faixa sequencial no topo da página que guia o usuário do diagnóstico à ação, de forma clara e automática. Sem alterar nenhum dado, hook, tabela ou backend.
+- `src/components/financial/ContactFormDialog.tsx:281` — `const paddedY2 = clamp01(y2 + bboxPadY);`
+- `src/components/financial/ContactFormDialog.tsx:286` — uso de `paddedY2` no cálculo de altura
+- `src/components/financial/ContactFormDialog.tsx:438` — uso de `paddedY2` no recorte normalizado
 
-## Estrutura proposta (frontend apenas)
+Conclusão: não existe prefixo `Y2`/`Y3` no código. Se algo assim aparece na tela, vem de dado gravado (nome de contato, resumo, tag ou anotação), não de rótulo programado.
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🤖 Centro de Automação do CRM                                   │
-│─────────────────────────────────────────────────────────────────│
-│ PASSO 1 — O QUE EXIGE ATENÇÃO HOJE                              │
-│  [🔴 12 Urgentes] [🟡 8 Follow-up] [📅 5 Hoje] [❄ 3 Esfriando]  │
-│  (chips clicáveis = aplicam filtro automaticamente)             │
-│─────────────────────────────────────────────────────────────────│
-│ PASSO 2 — REFINAR (opcional, recolhível)                        │
-│  🔎 buscar…  Tipo ▾  Status ▾  Classif ▾  Tag ▾  Origem ▾       │
-│  Temperatura: [Frio][Morno][Quente]   Ordenar ▾                 │
-│─────────────────────────────────────────────────────────────────│
-│ PASSO 3 — AGIR (aparece quando há resultado)                    │
-│  N leads selecionados · [📱 Disparar WhatsApp em fila]          │
-│                          [✅ Marcar contato feito] [Limpar]     │
-└─────────────────────────────────────────────────────────────────┘
-```
+## 2) Rótulos que realmente aparecem na Inbox
 
-### Comportamento
-- **Passo 1 (Diagnóstico automático):** chips inteligentes derivados dos mesmos dados que já alimentam `LeadsNeedContactPanel` + filtros existentes. Clicar num chip aplica o filtro correspondente e rola para a lista. Um chip ativo fica destacado; clicar de novo limpa.
-- **Passo 2 (Refinar):** a barra atual, agrupada e recolhível ("Mostrar filtros avançados"). Fica fechada por padrão quando um chip do passo 1 está ativo.
-- **Passo 3 (Agir):** o modo de seleção múltipla e o botão "Disparar fila" (hoje escondidos dentro do painel amarelo) sobem para uma barra de ação contextual que aparece só quando há leads visíveis + seleção. Reaproveita o `onBulkDispatch` e `handleWhatsApp` já existentes.
-- **Nudge sequencial:** um pequeno texto guia ("1. Veja o que precisa de atenção → 2. Refine se quiser → 3. Aja em lote") aparece apenas quando nenhum passo foi tocado, e some no primeiro clique.
+Prioridade — `src/lib/crm/priority.ts:54-70` (`LABELS`):
+Precisa responder, Registrar resultado, Retorno vencido, Ação atrasada, Retorno hoje, Ação hoje, Reativação comercial atrasada, Reativação comercial, Follow-up urgente, Esfriando, Fila normal, Ação futura, Aguardando cliente, Conversa resolvida. Níveis P0–P4 em `priority.ts:3`.
 
-### Nada muda no backend
-- Reuso integral de `useContacts`, `useNoResponseDetection`, `handleWhatsApp`, `openContactForm`, `bulkDispatchContacts`, `getUrgencyLevel`, `FUNNEL_STAGES`, etc.
-- Sem migrations, sem edge functions, sem alteração em `contacts` ou `contact_history`.
-- Todos os filtros existentes continuam funcionando; apenas ganham entrada guiada pelos chips.
+Estado do atendimento — `src/lib/crm/attendance.ts:29-32` (`ATTENDANCE_STATE_LABELS`): Responder, Em atendimento, Aguardando resposta, Retomar em…, Concluído.
 
-## Arquivos afetados
-- `src/pages/Contatos.tsx` — substituir o bloco atual (linhas ~994–1200) pelo novo componente `CrmAutomationHub`.
-- `src/components/crm/CrmAutomationHub.tsx` — **novo**. Recebe por props o que já está no Contatos.tsx (contacts, filtros e setters, handlers). Renderiza os 3 passos.
-- `src/components/crm/LeadsNeedContactPanel.tsx` — mantido como componente interno usado no passo 3 (modo lista compacta) ou aposentado se o novo hub cobrir tudo. Decisão: manter e reusar dentro do hub para não perder features de seleção múltipla.
+Resultado (Próxima Ação derivada) — `src/lib/crm/attendance.ts:14-24` e `CONFIG` a partir da linha 34: Atendimento realizado — aguardando resposta, Proposta enviada, Cliente em negociação, Venda fechada, Pós-venda realizado, Cliente respondeu, Telefone inválido, Sem interesse, Apenas registrar.
 
-## Detalhes técnicos
-- Chips do passo 1 calculados via `useMemo` sobre `contacts` + `noResponseMap` (já disponíveis).
-- Estado local do hub: `activeChip`, `filtersExpanded`. Filtros permanecem controlados pelo `Contatos.tsx` (levantados via props) para não quebrar `filteredContacts`.
-- Sem novas dependências. Usa `Card`, `Button`, `Badge`, `Collapsible` (shadcn já instalado).
-- Mobile: chips com scroll horizontal; filtros avançados recolhidos por padrão.
+Etapa comercial — `getCrmStageLabel` usado em `ContatosInbox.tsx:1010`, `:1078`, `:1223`.
 
-## Fora do escopo
-- Não altera Kanban, drawer de contato, timeline, automações do funil, WhatsApp templates.
-- Não altera Assistente/IA/edge functions.
-- Não muda schema, RLS, ou qualquer hook de dados.
+Origem/canal — `ContatosInbox.tsx:1013` e `:1078` (`platform_icon` + `platform_name` ou `channel`, com fallback "Canal não informado"); origem de campanha em `:1081-1084`.
 
-## Resultado esperado
-Usuário abre `/contatos` → vê imediatamente **o que precisa fazer hoje** (chips) → clica → lista já filtrada → **age em lote** na mesma tela, tudo em 3 passos visuais.
+Filtros do topo — `ContatosInbox.tsx:908-913` e `:945` (Prioridade, Responder, Hoje, Atrasados, Esfriando, Aguardando cliente) mais os seletores de escopo, etapa, responsável e tag (`:919-966`).
 
----
-Aguardando aprovação para implementar.
+## 3) Coluna lateral (lista) — `ContatosInbox.tsx:988-1042`
+
+Por contato são renderizadas até 4 linhas visuais: avatar + nome + data (`:996-1005`), resumo da última mensagem (`:1006-1007`) e uma faixa com até 8 selos (`:1008-1041`):
+
+| # | Selo | Linha | Classificação |
+|---|---|---|---|
+| 1 | Etapa comercial | 1009-1011 | depende de uso real |
+| 2 | Canal/plataforma (com fallback "Canal não informado") | 1012-1014 | redundante visual |
+| 3 | Fornecedor | 1016-1018 | depende de uso real (já existe o seletor de escopo Comercial/Fornecedores) |
+| 4 | Estado do atendimento | 1021-1023 | redundante visual quando coincide com o selo de prioridade |
+| 5 | Prioridade (P0 destrutivo) | 1026-1028 | necessário operacional |
+| 6 | Contador de não lidas | 1031-1033 | necessário operacional |
+| 7 | "Xd sem contato" (>7 dias) | 1036-1038 | redundante visual (sobrepõe "Esfriando"/"Follow-up urgente" e a data já mostrada) |
+| 8 | Janela Meta (`MetaWindowBadge`, compacto) | 1040 | necessário operacional apenas em WhatsApp; para outros canais é ruído |
+
+Sobreposições factuais: "Aguardando resposta" (selo 4) e "Aguardando cliente" (selo 5) descrevem o mesmo fato por fontes diferentes; "Responder" (selo 4) e "Precisa responder" (selo 5) idem; a data em `:1002` e o selo 7 medem o mesmo intervalo.
+
+## 4) Painel direito "Detalhes do lead" — `ContatosInbox.tsx:1212-1235`
+
+| Bloco | Linha | Já aparece em | Classificação |
+|---|---|---|---|
+| Avatar + nome + telefone | 1218-1221 | cabeçalho do chat (`:1074-1079`) | redundante visual |
+| Etapa comercial | 1223 | cabeçalho (`:1078`) e selo 1 da lista | redundante visual |
+| Estado do atendimento | 1224 | selo 4 da lista | depende de uso real (único lugar com o estado no contato aberto) |
+| Última interação | 1225 | data na lista (`:1002`) | redundante visual |
+| Anotação rápida + agendar retorno (`InboxNoteBlock`) | 1226 | ação de adiar existe também na barra de atendimento (`:1193`) | necessário operacional (grava histórico), com sobreposição parcial de agendamento |
+| Observações do cadastro (line-clamp-6) | 1227 | só aqui | necessário operacional |
+| Botão "Editar dados" | 1229-1231 | ícone de lápis no cabeçalho (`:1147-1155`) | redundante visual |
+| Botão "Abrir cadastro completo" | 1232 | ícone de link externo no cabeçalho (`:1156-1160`) | redundante visual |
+
+Observação adicional: o cabeçalho do chat concentra 10 botões (`:1086-1161`), o que compete visualmente com o painel direito quando ambos estão abertos.
+
+## 5) Resumo da classificação
+
+- Necessário operacional: prioridade, não lidas, janela Meta em WhatsApp, anotação/observações, estado do atendimento no contato aberto.
+- Redundante visual: canal na lista, dias sem contato, avatar/nome/telefone/etapa/última interação repetidos no painel direito, botões Editar e Abrir cadastro duplicados.
+- Depende de uso real: etapa comercial na lista, selo Fornecedor, estado do atendimento na lista.
+
+Nenhuma alteração proposta nesta rodada.
