@@ -1,9 +1,10 @@
 /**
  * FRENTE 4.3 — Inteligência Assistida CRM: Próxima Ação recomendada.
  *
- * Autoridade: `getCrmTransition()`. A IA NUNCA cria uma Próxima Ação: ela só
- * pode (a) explicar a decisão determinística e (b) escolher entre as opções
- * canônicas que o próprio motor já admite para aquele Resultado.
+ * Autoridade: `getCrmTransition()`. A IA NUNCA cria nem escolhe uma Próxima
+ * Ação: ela apenas explica a decisão determinística ou a ambiguidade legítima.
+ * Opções canônicas continuam visíveis como possibilidades, mas só fatos
+ * operacionais adicionais podem fazer o motor selecionar uma delas.
  *
  * Camada de leitura pura: não registra Resultado, não cria tarefa nem
  * return_at, não altera funil/prioridade e não envia mensagem. Datas nunca são
@@ -20,10 +21,10 @@ import type { CrmNextActionCode, CrmResultCode } from './canonical/types';
 export interface CrmNextActionRecommendation {
   resultCode: CrmResultCode;
   resultLabel: string | null;
-  /** null = ausência legítima de próxima ação (decisão do motor). */
+  /** null = ausência legítima ou ambiguidade ainda sem fato suficiente. */
   nextActionCode: CrmNextActionCode | null;
   nextActionLabel: string | null;
-  /** true quando o motor conclui que nenhuma ação imediata é necessária. */
+  /** true quando ainda não existe uma ação canônica executável agora. */
   noImmediateAction: boolean;
   /** true quando a ação exige data — o operador escolhe no fluxo atual. */
   requiresDate: boolean;
@@ -33,9 +34,9 @@ export interface CrmNextActionRecommendation {
   reason: string;
   /** Explicação curta da IA, quando solicitada. Nunca substitui o código. */
   aiExplanation: string | null;
-  /** Opções canônicas admissíveis para o Resultado (limite duro da IA). */
+  /** Opções canônicas possíveis enquanto falta fato operacional para decidir. */
   candidates: { code: CrmNextActionCode; label: string }[];
-  /** true quando a escolha entre candidatos veio da IA dentro do permitido. */
+  /** Mantido por compatibilidade; D3 torna esta flag sempre false. */
   chosenByAi: boolean;
 }
 
@@ -67,7 +68,7 @@ function candidatesFor(result: CrmResultCode) {
 }
 
 export interface RecommendNextActionOptions {
-  /** Solicita à IA apenas explicação (e desempate entre candidatos permitidos). */
+  /** Solicita à IA somente explicação da decisão/ambiguidade canônica. */
   explain?: boolean;
   invoke?: (payload: unknown) => Promise<any>;
 }
@@ -83,13 +84,12 @@ export async function recommendCrmNextAction(
   const result = canonicalResult.code as CrmResultCode;
   const decision = getCrmTransition(buildTransitionContextFromAiContext(context, result));
   const candidates = candidatesFor(result);
-
-  let nextActionCode = decision.nextAction.value;
-  let chosenByAi = false;
+  const nextActionCode = decision.nextAction.value;
   let aiExplanation: string | null = null;
 
-  // A IA só entra quando (a) foi pedida explicação ou (b) o motor deixou uma
-  // ambiguidade legítima (nenhuma ação clara, mas alternativas canônicas).
+  // D3 — a IA pode explicar tanto uma decisão clara quanto uma ambiguidade,
+  // mas nunca transforma um candidato em Próxima Ação. Só o motor canônico,
+  // alimentado por fatos operacionais reais, tem essa autoridade.
   const ambiguous = nextActionCode === null && candidates.length > 1;
   if (options?.explain) {
     const invoke = options.invoke ?? (async (payload: unknown) => {
@@ -121,13 +121,8 @@ export async function recommendCrmNextAction(
       if (raw && !raw.error) {
         const explanation = typeof raw.explanation === 'string' ? raw.explanation.trim() : '';
         if (explanation) aiExplanation = explanation.slice(0, 280);
-        const chosen = typeof raw.chosen_next_action_code === 'string' ? raw.chosen_next_action_code.trim() : '';
-        // Limite duro: a escolha da IA só vale em ambiguidade legítima e dentro
-        // dos candidatos canônicos. O determinístico nunca é substituído.
-        if (ambiguous && chosen && candidates.some(item => item.code === chosen)) {
-          nextActionCode = chosen as CrmNextActionCode;
-          chosenByAi = true;
-        }
+        // Defesa em profundidade: `chosen_next_action_code` é deliberadamente
+        // ignorado, inclusive quando aponta para um candidato canônico válido.
       }
     } catch (error) {
       console.error('crm-ai-assistant (next_action):', error);
@@ -147,6 +142,6 @@ export async function recommendCrmNextAction(
     reason: decision.nextAction.reason,
     aiExplanation,
     candidates,
-    chosenByAi,
+    chosenByAi: false,
   };
 }
