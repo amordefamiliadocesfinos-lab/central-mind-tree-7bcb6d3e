@@ -52,6 +52,10 @@ export function CrmAssistantCard({
   const repurchase = !repurchaseDismissed ? analysis?.repurchase ?? null : null;
   const tentativeResult = result?.tentativeCode ? result : null;
   const nextActionReason = nextAction?.aiExplanation || nextAction?.reason || null;
+  // D3 — ambiguidade de Próxima Ação: a IA nunca escolhe entre candidatos;
+  // exibimos espera de fato adicional e as possibilidades canônicas apenas
+  // como leitura, sem botão, escolha ou aplicação.
+  const isAmbiguousNextAction = Boolean(nextAction && !nextAction.nextActionCode && nextAction.candidates.length > 1);
   // Uma abstenção explicada pelo Assistente também é informação operacional.
   // Ex.: F2-B bloqueia preço/estoque/frete sem fonte viva e devolve reply=null
   // com um motivo útil. F2-F também preserva hipótese de baixa confiança apenas
@@ -135,11 +139,21 @@ export function CrmAssistantCard({
             <div className="space-y-0.5 text-foreground/90">
               <div>
                 <span className="text-muted-foreground">Próxima ação: </span>
-                {nextAction.noImmediateAction ? 'nenhuma ação imediata' : nextAction.nextActionLabel}
+                {isAmbiguousNextAction
+                  ? 'aguardando fato adicional'
+                  : nextAction.noImmediateAction
+                    ? 'nenhuma ação imediata'
+                    : nextAction.nextActionLabel}
                 {nextAction.requiresDate && (
                   <span className="ml-1 text-amber-600 dark:text-amber-400">· data necessária</span>
                 )}
               </div>
+              {isAmbiguousNextAction && (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Possibilidades canônicas:</span>{' '}
+                  {nextAction.candidates.map((candidate) => candidate.label).join(' · ')}
+                </div>
+              )}
               {nextActionReason && (
                 <p className="text-muted-foreground"><span className="font-medium text-foreground/80">Motivo:</span> {nextActionReason}</p>
               )}
