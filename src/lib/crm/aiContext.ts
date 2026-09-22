@@ -132,16 +132,16 @@ const REQUEST_LIMITS = {
   memoryItems: 6,
 } as const;
 
-function truncateRequestText(value: unknown, limit = REQUEST_LIMITS.text): string {
+function truncateRequestText(value: unknown, limit: number = REQUEST_LIMITS.text): string {
   return String(value ?? '').slice(0, limit);
 }
 
 function compactLiveMemory(liveContext: CrmContactLiveContext | null): CrmContactLiveContext | null {
   if (!liveContext) return null;
   const memory = liveContext.memory ?? {};
-  const compactCollection = (value: unknown) => Array.isArray(value)
+  const compactCollection = (value: unknown): string[] | undefined => Array.isArray(value)
     ? value.slice(0, REQUEST_LIMITS.memoryItems).map((item) => truncateRequestText(item, 180))
-    : value;
+    : undefined;
 
   return {
     ...liveContext,

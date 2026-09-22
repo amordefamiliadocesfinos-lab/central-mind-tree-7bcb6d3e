@@ -905,7 +905,7 @@ export default function Contatos() {
       source: 'crm_card',
       skipOpen: true,
     });
-    if (registered) markContactedOptimistically(contact.id, whatsappPatch(registered));
+    if (registered && typeof registered === 'object') markContactedOptimistically(contact.id, whatsappPatch(registered));
     setTimeout(refreshContactSignals, 500);
 
   };
@@ -1044,7 +1044,7 @@ export default function Contatos() {
       source: 'crm_smart_attend',
       skipOpen: true,
     });
-    if (registered) markContactedOptimistically(contact.id, whatsappPatch(registered));
+    if (registered && typeof registered === 'object') markContactedOptimistically(contact.id, whatsappPatch(registered));
     setTimeout(refreshContactSignals, 500);
 
     toast.success(`⚡ Atendimento inteligente: ${approach}`);

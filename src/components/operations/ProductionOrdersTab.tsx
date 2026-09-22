@@ -114,7 +114,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
     await createOrder(
       {
-        items: newOrderItems.map(item => ({ product_id: item.product_id, variant_id: item.variant_id || null, planned_quantity: item.planned_quantity })),
+        items: newOrderItems.map(item => ({ product_id: item.product_id, variant_id: item.variant_id || null, planned_quantity: item.planned_quantity })) as Array<Pick<ProductionOrderItem, 'product_id' | 'variant_id' | 'planned_quantity'>>,
         batch_code: newOrder.batch_code || null,
         target_quantity: newOrder.target_quantity,
         notes: newOrder.notes || null,

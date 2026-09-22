@@ -518,7 +518,7 @@ export default function Operacoes() {
       if (!items[index]) return current;
       const next = { ...items[index] };
       if (field === '_unit_price_text' && value === null) delete next._unit_price_text;
-      else (next as Record<string, string | number | null | undefined>)[field] = value;
+      else (next as Record<string, unknown>)[field] = value;
 
       if (field === 'product_id') {
         const product = rawProducts.find(p => p.id === value);
