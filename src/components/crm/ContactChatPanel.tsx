@@ -275,7 +275,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       .subscribe();
 
     return () => { cancelled = true; supabase.removeChannel(ch); };
-  }, [conversationId]);
+  }, [conversationId, funnelStage]);
 
   // F5.2.1 — contador do ciclo atual (somente leitura, não altera prioridade).
   useEffect(() => {
