@@ -31,9 +31,28 @@ async function run() {
   const broken = normalizeSuggestionResponse({ nonsense: true });
   assert(broken.code === null && broken.confidence === 0, 'resposta malformada não pode quebrar a Inbox.');
 
+  // D2 — evidência rastreável: normalizada, deduplicada e limitada a 3 trechos.
+  const withEvidence = normalizeSuggestionResponse({
+    suggested_result_code: 'CRM-RES-020',
+    confidence: 0.9,
+    reason: 'ok',
+    evidence_quotes: ['  vou pagar hoje  ', 'vou pagar hoje', 'pode separar', 12, 'já fiz o pix', 'mais um trecho'],
+  });
+  assert(withEvidence.evidenceQuotes.length === 3, 'evidências devem ser limitadas a 3.');
+  assert(withEvidence.evidenceQuotes[0] === 'vou pagar hoje', 'evidência deve ser aparada e deduplicada.');
+  assert(withEvidence.evidenceQuotes.every(quote => quote.length <= 180), 'evidência deve respeitar 180 caracteres.');
+
+  // Ausência ou formato inválido do campo gera lista vazia (respostas antigas).
+  assert(normalizeSuggestionResponse({ suggested_result_code: 'CRM-RES-020', confidence: 0.9, reason: 'ok' }).evidenceQuotes.length === 0, 'resposta sem evidências deve gerar [].');
+  assert(normalizeSuggestionResponse({ suggested_result_code: 'CRM-RES-020', confidence: 0.9, reason: 'ok', evidence_quotes: 'texto' }).evidenceQuotes.length === 0, 'evidência fora de array deve ser descartada.');
+
+  // Baixa confiança (hipótese) preserva as evidências para leitura.
+  const tentative = normalizeSuggestionResponse({ suggested_result_code: 'CRM-RES-020', confidence: 0.3, reason: 'ok', evidence_quotes: ['vou pensar'] });
+  assert(tentative.code === null && tentative.tentativeCode === 'CRM-RES-020' && tentative.evidenceQuotes.length === 1, 'hipótese de baixa confiança deve preservar evidências.');
+
   // Uso real: um horário posterior no mesmo dia operacional não pode ser descrito como "data futura".
   const sameOperationalDay = normalizeSuggestionTemporalReason(
-    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.' },
+    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.', evidenceQuotes: [] },
     {
       generatedAt: '2026-09-21T23:00:00.000Z',
       conversation: {
