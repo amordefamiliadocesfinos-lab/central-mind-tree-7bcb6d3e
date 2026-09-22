@@ -1009,9 +1009,11 @@ export default function ContatosInbox() {
                       <Badge variant="outline" className="text-[9px] h-4 px-1.5">
                         {getCrmStageLabel(item.funnel_status)}
                       </Badge>
-                      <Badge variant="outline" className="text-[9px] h-4 px-1.5">
-                        {[item.platform_icon, item.platform_name || item.channel || 'Canal não informado'].filter(Boolean).join(' ')}
-                      </Badge>
+                      {(item.platform_name || item.channel) && (
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                          {[item.platform_icon, item.platform_name || item.channel].filter(Boolean).join(' ')}
+                        </Badge>
+                      )}
                       {isPureSupplier(item) && (
                         <Badge variant="outline" className="text-[9px] h-4 px-1.5">
                           Fornecedor
@@ -1032,12 +1034,10 @@ export default function ContatosInbox() {
                           {item.unread_count}
                         </Badge>
                       )}
-                      {item.last_date && item.unread_days > 7 && (
-                        <Badge variant="destructive" className="text-[9px] h-4 px-1.5">
-                          {item.unread_days}d sem contato
-                        </Badge>
+                      {(item.channel?.toLowerCase() === 'whatsapp' || item.platform_name?.toLowerCase().includes('whatsapp')) && (
+                        <MetaWindowBadge lastInboundAt={item.last_inbound_at} compact />
                       )}
-                      <MetaWindowBadge lastInboundAt={item.last_inbound_at} compact />
+
                     </div>
                   </div>
                 </button>
