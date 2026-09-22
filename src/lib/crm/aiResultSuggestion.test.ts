@@ -1,4 +1,4 @@
-import { normalizeSuggestionResponse, suggestCrmResult } from './aiResultSuggestion';
+import { normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult } from './aiResultSuggestion';
 import type { CrmAiContextSources } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -30,6 +30,31 @@ async function run() {
   assert(normalizeSuggestionResponse({ suggested_result_code: 'CRM-RES-008', confidence: 80, reason: 'r' }).confidence === 0.8, 'confiança em 0–100 deve ser normalizada.');
   const broken = normalizeSuggestionResponse({ nonsense: true });
   assert(broken.code === null && broken.confidence === 0, 'resposta malformada não pode quebrar a Inbox.');
+
+  // Uso real: um horário posterior no mesmo dia operacional não pode ser descrito como "data futura".
+  const sameOperationalDay = normalizeSuggestionTemporalReason(
+    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.' },
+    {
+      generatedAt: '2026-09-21T23:00:00.000Z',
+      conversation: {
+        id: 'conv1', platformId: null, state: 'aguardando_cliente', status: 'open', needsReply: false,
+        returnAt: '2026-09-22T00:30:00.000Z', lastInboundAt: null, lastOutboundAt: null,
+      },
+    },
+  );
+  assert(sameOperationalDay.reason.includes('programado para hoje'), 'retorno no mesmo dia de São Paulo deve ser apresentado como hoje.');
+
+  const nextOperationalDay = normalizeSuggestionTemporalReason(
+    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.' },
+    {
+      generatedAt: '2026-09-21T20:00:00.000Z',
+      conversation: {
+        id: 'conv1', platformId: null, state: 'aguardando_cliente', status: 'open', needsReply: false,
+        returnAt: '2026-09-22T15:00:00.000Z', lastInboundAt: null, lastOutboundAt: null,
+      },
+    },
+  );
+  assert(nextOperationalDay.reason.includes('data futura'), 'retorno em outro dia deve preservar a classificação futura.');
 
   // Fluxo completo com invoke simulado
   const suggestion = await suggestCrmResult('c1', 'conv1', {
