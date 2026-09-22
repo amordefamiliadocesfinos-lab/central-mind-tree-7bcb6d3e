@@ -170,20 +170,22 @@ function parseAiJson(content: string): any {
   try { return JSON.parse(match[0]); } catch { return null; }
 }
 
-// FRENTE 4.3 — modo "next_action": a IA NÃO decide a Próxima Ação. O motor
-// canônico (getCrmTransition) já decidiu no frontend; aqui a IA só explica e,
-// em ambiguidade legítima, escolhe entre os candidatos canônicos enviados.
+// FRENTE 4.3 + D3 — modo "next_action": a IA NÃO decide a Próxima Ação em
+// nenhuma hipótese. O motor canônico (getCrmTransition) já decidiu no frontend;
+// aqui a IA apenas explica a decisão determinística ou, em ambiguidade,
+// explica qual fato/contexto ainda falta para o motor escolher. A escolha entre
+// candidatos exige fato operacional adicional — nunca a IA.
 const NEXT_ACTION_SYSTEM_PROMPT = `Você é um analista de CRM brasileiro. A Próxima Ação já foi decidida por um motor determinístico canônico.
 
 Regras OBRIGATÓRIAS:
+- Você NUNCA escolhe uma próxima ação. chosen_next_action_code é SEMPRE null, em qualquer situação.
 - NUNCA invente uma próxima ação. Nunca escreva texto livre no lugar de um código CRM-PA-xxx.
-- Se o motor já indicou uma próxima ação, apenas explique em uma frase curta por que ela faz sentido. Nesse caso chosen_next_action_code deve ser null.
-- Se o motor indicou ausência de próxima ação e o campo "ambiguo" for true, você pode escolher UM código da lista de candidatos enviada, ou null se nenhuma ação imediata for necessária.
-- Se "ambiguo" for false, chosen_next_action_code é obrigatoriamente null.
+- Se o motor já indicou uma próxima ação, apenas explique em uma frase curta por que ela faz sentido.
+- Se "ambiguo" for true (ausência de próxima ação com mais de um candidato canônico), NÃO escolha entre os candidatos: explique em uma frase curta qual fato ou contexto do atendimento ainda falta para que o motor possa definir a Próxima Ação.
 - Nunca sugira data, prazo ou agendamento.
 - explanation: uma frase curta, operacional, em português.
 
-Responda APENAS com JSON puro: {"explanation": "...", "chosen_next_action_code": "CRM-PA-0XX" ou null}`;
+Responda APENAS com JSON puro: {"explanation": "...", "chosen_next_action_code": null}`;
 
 function handleNextActionMode(body: any, apiKey: string) {
   const context = body?.context;
@@ -220,9 +222,13 @@ function handleNextActionMode(body: any, apiKey: string) {
     const data = await aiResp.json();
     const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
     const explanation = typeof parsed?.explanation === "string" ? parsed.explanation.trim().slice(0, 280) : "";
-    const rawChoice = typeof parsed?.chosen_next_action_code === "string" ? parsed.chosen_next_action_code.trim() : "";
-    // Validação server-side: escolha só é aceita em ambiguidade e dentro do catálogo permitido.
-    const chosen = ambiguous && rawChoice && allowed.has(rawChoice) ? rawChoice : null;
+    // D3 — defesa server-side: o modelo jamais é fonte do código. Ignoramos
+    // parsed.chosen_next_action_code por completo e derivamos somente da
+    // decisão canônica já recebida: em ambiguidade (ou sem decisão
+    // determinística) é null; com decisão, só devolvemos o próprio código se
+    // ele estiver entre os candidatos enviados.
+    const canonicalCode = typeof decision.nextActionCode === "string" ? decision.nextActionCode : null;
+    const chosen = !ambiguous && canonicalCode && allowed.has(canonicalCode) ? canonicalCode : null;
     return json({ explanation, chosen_next_action_code: chosen });
   });
 }

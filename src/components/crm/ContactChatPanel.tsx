@@ -417,8 +417,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
       // O motor canônico é imediato e fornece a base para a resposta. A
       // explicação roda em paralelo com a resposta quando a ação já é
-      // determinística. Em ambiguidade legítima, a escolha permitida da IA é
-      // resolvida antes para que a resposta conserve o contexto completo.
+      // determinística. Em ambiguidade legítima, a IA apenas EXPLICA qual fato
+      // ainda falta (barreira D3 no servidor): a Próxima Ação permanece null
+      // até existir fato operacional adicional.
       const deterministicRecommendation = suggestion.code
         ? await recommendCrmNextAction(context, suggestion.code, { explain: false })
         : null;
