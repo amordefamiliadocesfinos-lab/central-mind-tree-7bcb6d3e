@@ -64,7 +64,7 @@ async function run() {
   assert(sameOperationalDay.reason.includes('programado para hoje'), 'retorno no mesmo dia de São Paulo deve ser apresentado como hoje.');
 
   const nextOperationalDay = normalizeSuggestionTemporalReason(
-    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.' },
+    { code: null, label: null, confidence: 0, reason: 'Existe retorno para uma data futura.', evidenceQuotes: [] },
     {
       generatedAt: '2026-09-21T20:00:00.000Z',
       conversation: {
