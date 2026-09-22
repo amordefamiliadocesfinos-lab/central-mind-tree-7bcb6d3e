@@ -1192,7 +1192,7 @@ export default function ContatosInbox() {
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
-                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" onClick={nextAttendance}>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" onClick={() => nextAttendance()}>
                           Próximo atendimento <ArrowRight className="h-3 w-3" />
                         </Button>
                       </div>
