@@ -115,8 +115,34 @@ function compactContext(ctx: any) {
   ].join("\n");
 }
 
+/**
+ * D2 — Evidência rastreável: só é aceita citação que seja cópia literal de uma
+ * mensagem real do atendimento. Paráfrase e texto inventado são descartados em
+ * silêncio, sem alterar Resultado, confiança ou qualquer regra comercial.
+ */
+export function filterEvidenceQuotes(raw: any, allowedMessages: any[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const haystacks = (Array.isArray(allowedMessages) ? allowedMessages : [])
+    .map((message: any) => String(message?.content ?? ''))
+    .filter((content) => content.trim().length > 0);
+  if (!haystacks.length) return [];
+  const accepted: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (accepted.length >= 3) break;
+    if (typeof item !== 'string') continue;
+    const quote = item.trim();
+    if (quote.length < 4 || quote.length > 180) continue;
+    if (seen.has(quote)) continue;
+    if (!haystacks.some((content) => content.includes(quote))) continue;
+    seen.add(quote);
+    accepted.push(quote);
+  }
+  return accepted;
+}
+
 /** Validação server-side: código canônico existente + confiança normalizada. */
-export function validateSuggestion(raw: any, catalog: CatalogItem[]) {
+export function validateSuggestion(raw: any, catalog: CatalogItem[], allowedMessages: any[] = []) {
   if (!raw || typeof raw !== "object") return null;
   const codes = new Set(catalog.map((item) => item.code));
   const code = raw.suggested_result_code;
