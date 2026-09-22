@@ -78,9 +78,10 @@ async function run() {
   // Fluxo completo com invoke simulado
   const suggestion = await suggestCrmResult('c1', 'conv1', {
     sources,
-    invoke: async () => ({ suggested_result_code: 'CRM-RES-019', confidence: 0.7, reason: 'Cliente informou o pagamento.' }),
+    invoke: async () => ({ suggested_result_code: 'CRM-RES-019', confidence: 0.7, reason: 'Cliente informou o pagamento.', evidence_quotes: ['já fiz o pix'] }),
   });
   assert(suggestion.code === 'CRM-RES-019' && suggestion.label === 'Pagamento informado', 'a sugestão deve trazer código e label canônicos.');
+  assert(suggestion.evidenceQuotes.length === 1 && suggestion.evidenceQuotes[0] === 'já fiz o pix', 'o fluxo completo deve preservar a evidência rastreável.');
 
   // Erro controlado da função
   let failed = false;
