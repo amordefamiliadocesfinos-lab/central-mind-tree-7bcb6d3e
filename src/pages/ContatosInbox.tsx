@@ -744,16 +744,18 @@ export default function ContatosInbox() {
     toast.success('Fila de hoje concluída.');
   };
 
-  const nextAttendance = async () => {
+  const nextAttendance = async (refreshedItems?: InboxItem[] | null) => {
     if (!selected || attendanceQueueScope.length === 0) return;
 
     // A lista salva apenas delimita o escopo inicial. A decisão é feita com os
     // dados recém-carregados, para não reabrir atendimento já concluído ou adiado.
-    const refreshedItems = await load();
-    if (refreshedItems === null) return;
+    // Quem já executou load() (ex: após registrar Resultado) pode reutilizar os
+    // dados e evitar uma segunda recarga completa consecutiva.
+    const itemsToUse = refreshedItems !== undefined ? refreshedItems : await load();
+    if (itemsToUse === null) return;
     const scope = new Set(attendanceQueueScope);
     const now = new Date();
-    const next = refreshedItems
+    const next = itemsToUse
       .filter((item) => scope.has(item.id) && item.id !== selected.id && getCrmPriority(toCrmPriorityInput(item), now).operational)
       .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a), toCrmPriorityInput(b), now))[0];
 
