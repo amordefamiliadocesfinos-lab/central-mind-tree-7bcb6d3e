@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
     }
     if (!validated) {
       // Resposta malformada ou código inexistente: erro controlado, nunca quebra a Inbox.
-      return json({ suggested_result_code: null, confidence: 0, reason: "Não foi possível interpretar a análise da IA com segurança.", invalid: true });
+      return json({ suggested_result_code: null, confidence: 0, reason: "Não foi possível interpretar a análise da IA com segurança.", evidence_quotes: [], invalid: true });
     }
 
     return json({ ...validated, model_used: modelUsed, escalation_reasons: [...new Set(escalationReasons)] });
