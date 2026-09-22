@@ -1,3 +1,5 @@
+import { buildWhatsAppUrl } from '@/lib/whatsapp';
+
 export const META_CUSTOMER_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -17,17 +19,9 @@ export function isMetaCustomerServiceWindowOpen(
 }
 
 /**
- * Fallback operacional para desktop/celular sem pesquisa manual de telefone.
- * O CRM continua sendo o cockpit; o WhatsApp externo é aberto somente quando
- * o operador realmente precisa do canal original.
+ * Alias operacional do CRM. A identidade/normalização do telefone permanece
+ * sob a fonte canônica compartilhada em `@/lib/whatsapp`.
  */
 export function getWhatsAppContactUrl(handle: string | null | undefined): string | null {
-  const digits = String(handle ?? '').replace(/\D/g, '');
-  if (!digits) return null;
-  // Número nacional brasileiro possui 10 ou 11 dígitos. Isso evita confundir
-  // um telefone do DDD 55 com um número que já contém o DDI +55.
-  const normalized = digits.length === 10 || digits.length === 11
-    ? `55${digits}`
-    : digits;
-  return `https://wa.me/${normalized}`;
+  return buildWhatsAppUrl(handle);
 }
