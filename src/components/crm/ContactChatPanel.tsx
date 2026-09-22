@@ -49,6 +49,8 @@ interface ContactChatPanelProps {
   funnelStage?: string | null;
   /** ID de conversa já conhecido pelo consumidor (ex: Inbox). Evita a consulta de descoberta. */
   knownConversationId?: string | null;
+  /** Opt-out comercial já conhecido pelo consumidor (ex: Inbox). Evita uma consulta isolada em contacts. */
+  knownCommercialOptOut?: boolean;
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
   onMessageSent?: (content: string) => void | Promise<void>;
@@ -64,7 +66,7 @@ const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{

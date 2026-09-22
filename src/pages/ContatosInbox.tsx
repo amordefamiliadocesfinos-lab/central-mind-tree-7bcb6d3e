@@ -65,6 +65,7 @@ interface InboxItem {
   return_at: string | null;
   next_action_date: string | null;
   next_contact_date: string | null;
+  commercial_opt_out: boolean;
   reactivation_at: string | null;
   last_result_at: string | null;
 }
@@ -179,7 +180,7 @@ export default function ContatosInbox() {
 
     // Busca/estágio consultam o banco inteiro: leads antigos do Kanban não
     // podem ficar invisíveis só porque estão fora da janela recente da fila.
-    const CONTACT_FIELDS = 'id,name,type,whatsapp,phone,photo_url,funnel_status,temperatura_lead,ultimo_contato,next_action_date,next_contact_date,is_active';
+    const CONTACT_FIELDS = 'id,name,type,whatsapp,phone,photo_url,funnel_status,temperatura_lead,ultimo_contato,next_action_date,next_contact_date,commercial_opt_out,is_active';
     let scopedContactIds: string[] | null = null;
     let scopedContacts: any[] = [];
     if (term || stageFilter !== 'all') {
@@ -325,6 +326,7 @@ export default function ContatosInbox() {
         return_at: conversation.return_at,
         next_action_date: officialNextActionByContact.get(conversation.contact_id) || null,
         next_contact_date: null,
+        commercial_opt_out: Boolean(contact?.commercial_opt_out),
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
         last_result_at: lastResultByContact.get(conversation.contact_id) || null,
       });
@@ -365,6 +367,7 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contact.id) || null,
         next_contact_date: null,
+        commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contact.id) || null,
         last_result_at: null,
       });
@@ -412,6 +415,7 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contactId) || null,
         next_contact_date: null,
+        commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contactId) || null,
         last_result_at: null,
       });
@@ -1182,6 +1186,7 @@ export default function ContatosInbox() {
                     contactAvatar={selected.photo_url}
                     funnelStage={selected.funnel_status}
                     knownConversationId={selected.conversation_id || null}
+                    knownCommercialOptOut={selected.commercial_opt_out}
                     heightClassName="min-h-0 flex-1"
                     onMessageSent={() => setSendConfirmation(true)}
                     onUseSuggestedResult={setSuggestedResultCode}
