@@ -170,8 +170,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     });
   };
 
-  // Localiza ou cria a conversa para este contato
+  // Localiza ou cria a conversa para este contato (fallback quando o
+  // consumidor não fornece um conversationId conhecido).
   useEffect(() => {
+    if (knownConversationId || conversationId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -223,7 +225,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       }
     })();
     return () => { cancelled = true; };
-  }, [contactId, contactName, contactHandle, contactAvatar, funnelStage]);
+  }, [knownConversationId, conversationId, contactId, contactName, contactHandle, contactAvatar, funnelStage]);
 
   // Carrega mensagens e realtime
   useEffect(() => {
