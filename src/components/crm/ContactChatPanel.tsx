@@ -139,19 +139,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setLoading(true);
     if (knownConversationId) {
       setConversationId(knownConversationId);
-      // Mantém a etapa canônica sincronizada sem criar uma waterfall:
-      // o carregamento de mensagens continua independentemente.
-      const canonicalStage = normalizeCrmStage(funnelStage);
-      if (canonicalStage) {
-        void supabase
-          .from('service_conversations')
-          .update({ funnel_stage: canonicalStage })
-          .eq('id', knownConversationId);
-      }
     } else {
       setConversationId(null);
     }
-  }, [contactId, knownConversationId, funnelStage]);
+  }, [contactId, knownConversationId]);
 
   useEffect(() => {
     let cancelled = false;
