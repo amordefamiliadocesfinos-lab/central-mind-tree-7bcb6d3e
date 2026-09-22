@@ -24,6 +24,10 @@ export function isMetaCustomerServiceWindowOpen(
 export function getWhatsAppContactUrl(handle: string | null | undefined): string | null {
   const digits = String(handle ?? '').replace(/\D/g, '');
   if (!digits) return null;
-  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  // Número nacional brasileiro possui 10 ou 11 dígitos. Isso evita confundir
+  // um telefone do DDD 55 com um número que já contém o DDI +55.
+  const normalized = digits.length === 10 || digits.length === 11
+    ? `55${digits}`
+    : digits;
   return `https://wa.me/${normalized}`;
 }
