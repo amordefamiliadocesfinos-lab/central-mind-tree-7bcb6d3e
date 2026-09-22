@@ -235,7 +235,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           .limit(200),
         supabase
           .from('service_conversations')
-          .select('attendance_state,return_at,last_inbound_at,last_outbound_at')
+          .select('funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
           .eq('id', conversationId)
           .maybeSingle(),
       ]);
@@ -249,6 +249,15 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
             last_outbound_at: freshConversation.last_outbound_at ?? null,
           });
           setClockNow(Date.now());
+          // Sincroniza etapa canônica sem criar uma waterfall: o update é
+          // disparado apenas se divergir e não bloqueia a UI.
+          const canonicalStage = normalizeCrmStage(funnelStage);
+          if (canonicalStage && freshConversation.funnel_stage !== canonicalStage) {
+            void supabase
+              .from('service_conversations')
+              .update({ funnel_stage: canonicalStage })
+              .eq('id', conversationId);
+          }
         }
         setLoading(false);
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
