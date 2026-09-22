@@ -134,7 +134,7 @@ export function useProductionOrders() {
   }, []);
 
   const createOrder = useCallback(async (
-    order: Partial<ProductionOrder> & { items?: Array<Pick<ProductionOrderItem, 'product_id' | 'variant_id' | 'planned_quantity'>> },
+    order: Omit<Partial<ProductionOrder>, 'items'> & { items?: Array<Pick<ProductionOrderItem, 'product_id' | 'variant_id' | 'planned_quantity'>> },
     processIds: { process_id: string; is_required: boolean }[]
   ) => {
     try {

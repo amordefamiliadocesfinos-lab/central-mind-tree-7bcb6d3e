@@ -189,7 +189,7 @@ export function ContactOrderHistory({ open, onOpenChange, contact }: ContactOrde
       order.items.forEach(item => {
         if (!item.product) return;
         const existing = productMap.get(item.product.id);
-        const itemValue = (item.commercial_quantity ?? item.quantity ?? 0) * (item.unit_price || 0);
+        const itemValue = (item.quantity ?? 0) * (item.unit_price || 0);
         if (existing) {
           existing.totalQty += item.quantity || 0;
           existing.totalValue += itemValue;
