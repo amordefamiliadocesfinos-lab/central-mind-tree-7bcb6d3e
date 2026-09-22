@@ -139,19 +139,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setLoading(true);
     if (knownConversationId) {
       setConversationId(knownConversationId);
-      // Mantém a etapa canônica sincronizada sem criar uma waterfall:
-      // o carregamento de mensagens continua independentemente.
-      const canonicalStage = normalizeCrmStage(funnelStage);
-      if (canonicalStage) {
-        void supabase
-          .from('service_conversations')
-          .update({ funnel_stage: canonicalStage })
-          .eq('id', knownConversationId);
-      }
     } else {
       setConversationId(null);
     }
-  }, [contactId, knownConversationId, funnelStage]);
+  }, [contactId, knownConversationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,7 +235,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           .limit(200),
         supabase
           .from('service_conversations')
-          .select('attendance_state,return_at,last_inbound_at,last_outbound_at')
+          .select('funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
           .eq('id', conversationId)
           .maybeSingle(),
       ]);
@@ -258,6 +249,15 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
             last_outbound_at: freshConversation.last_outbound_at ?? null,
           });
           setClockNow(Date.now());
+          // Sincroniza etapa canônica sem criar uma waterfall: o update é
+          // disparado apenas se divergir e não bloqueia a UI.
+          const canonicalStage = normalizeCrmStage(funnelStage);
+          if (canonicalStage && freshConversation.funnel_stage !== canonicalStage) {
+            void supabase
+              .from('service_conversations')
+              .update({ funnel_stage: canonicalStage })
+              .eq('id', conversationId);
+          }
         }
         setLoading(false);
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
@@ -275,7 +275,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       .subscribe();
 
     return () => { cancelled = true; supabase.removeChannel(ch); };
-  }, [conversationId]);
+  }, [conversationId, funnelStage]);
 
   // F5.2.1 — contador do ciclo atual (somente leitura, não altera prioridade).
   useEffect(() => {
