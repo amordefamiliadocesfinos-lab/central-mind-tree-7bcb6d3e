@@ -111,6 +111,9 @@ export default function ContatosInbox() {
   const deepLinkHandled = useRef<string | null>(null);
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Uso real: refresh de realtime/Resultado não pode apagar a fila inteira.
+  // O estado "Carregando..." pertence somente à primeira carga desta tela.
+  const hasLoadedInboxRef = useRef(false);
   const [search, setSearch] = useState('');
   const [inboxFilter, setInboxFilter] = useState<InboxFilter>('priority');
   const [conversationScope, setConversationScope] = useState<ConversationScope>('commercial');
@@ -170,7 +173,7 @@ export default function ContatosInbox() {
 
 
   const load = useCallback(async (): Promise<InboxItem[] | null> => {
-    setLoading(true);
+    if (!hasLoadedInboxRef.current) setLoading(true);
     const CONVERSATION_FIELDS = 'id,contact_id,contact_name,contact_handle,contact_avatar_url,last_message_preview,last_message_at,last_inbound_at,last_outbound_at,return_at,unread_count,needs_reply,attendance_state,assigned_to,funnel_stage,status,channel,platform_id,updated_at,platform:digital_platforms(name,icon)';
     const term = deferredSearch.trim();
 
@@ -201,6 +204,7 @@ export default function ContatosInbox() {
 
     if (scopedContactIds?.length === 0) {
       setItems([]);
+      hasLoadedInboxRef.current = true;
       setLoading(false);
       return [];
     }
@@ -414,6 +418,7 @@ export default function ContatosInbox() {
     }
 
     setItems(merged);
+    hasLoadedInboxRef.current = true;
     setLoading(false);
     return merged;
 
