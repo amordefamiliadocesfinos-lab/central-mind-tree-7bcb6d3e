@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useProductionOrders, ProductionOrder, ProductionEntry, PRODUCTION_ORDER_STATUS } from '@/hooks/useProductionOrders';
+import { useProductionOrders, ProductionOrder, ProductionOrderItem, ProductionEntry, PRODUCTION_ORDER_STATUS } from '@/hooks/useProductionOrders';
 import { useProcesses, Process } from '@/hooks/useProcesses';
 import { useOrders, Product } from '@/hooks/useOrders';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
