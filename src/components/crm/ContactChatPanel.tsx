@@ -23,6 +23,7 @@ import { evaluatePostSaleApproach } from '@/lib/crm/postSaleApproach';
 import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
 import { clearPostSaleOrderContext, setPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
 import { getWhatsAppContactUrl, isMetaCustomerServiceWindowOpen } from '@/lib/crm/whatsappOperational';
+import { isInstagramCustomerServiceWindowOpen } from '../../../supabase/functions/_shared/instagram/message-window';
 
 
 interface Message {
@@ -100,8 +101,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const outboundBlocked = commercialOptOut && !isCustomerReply;
   const isInstagramConversation = conversationMeta?.channel === 'instagram';
   const whatsappUrl = isInstagramConversation ? null : getWhatsAppContactUrl(contactHandle);
-  const metaWindowClosed = !isInstagramConversation && Boolean(conversationMeta)
-    && !isMetaCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow);
+  const metaWindowClosed = Boolean(conversationMeta) && !(isInstagramConversation
+    ? isInstagramCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow)
+    : isMetaCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow));
 
   useEffect(() => {
     const interval = window.setInterval(() => setClockNow(Date.now()), 60_000);
@@ -308,7 +310,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       return;
     }
     if (metaWindowClosed) {
-      toast.error('A janela de atendimento de 24 horas está encerrada. Abra o WhatsApp do contato ou use um template aprovado pela Meta.');
+      toast.error(isInstagramConversation
+        ? 'A janela de atendimento do Instagram está encerrada. Aguarde uma nova mensagem do cliente para responder.'
+        : 'A janela de atendimento de 24 horas está encerrada. Abra o WhatsApp do contato ou use um template aprovado pela Meta.');
       return;
     }
     if (isInstagramConversation && attachment) {
@@ -660,7 +664,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         )}
         {metaWindowClosed && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-            <span>Janela Meta de 24h encerrada · mensagem livre pelo CRM está bloqueada.</span>
+            <span>{isInstagramConversation
+              ? 'A janela de atendimento do Instagram está encerrada. Aguarde uma nova mensagem do cliente para responder.'
+              : 'Janela Meta de 24h encerrada · mensagem livre pelo CRM está bloqueada.'}</span>
             {whatsappUrl && (
               <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
                 <ExternalLink className="h-3 w-3" /> Abrir WhatsApp

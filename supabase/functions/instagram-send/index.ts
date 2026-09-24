@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { parseInstagramConversationHandle, sendInstagramText } from '../_shared/instagram/meta-connector.ts';
+import { isInstagramCustomerServiceWindowOpen } from '../_shared/instagram/message-window.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -20,9 +21,12 @@ Deno.serve(async (request) => {
   if (!conversationId || !messageText) return json({ error: 'Conversa e mensagem são obrigatórias' }, 400);
   if (messageText.length > 1000) return json({ error: 'Mensagem muito longa para Instagram' }, 400);
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-  const result = await supabase.from('service_conversations').select('id,contact_id,contact_handle,channel,needs_reply').eq('id', conversationId).maybeSingle();
+  const result = await supabase.from('service_conversations').select('id,contact_id,contact_handle,channel,needs_reply,last_inbound_at').eq('id', conversationId).maybeSingle();
   if (result.error) return json({ error: result.error.message }, 500);
   if (!result.data || result.data.channel !== 'instagram') return json({ error: 'Conversa Instagram não encontrada' }, 404);
+  if (!isInstagramCustomerServiceWindowOpen(result.data.last_inbound_at)) {
+    return json({ error: 'A janela de atendimento do Instagram está encerrada. Aguarde uma nova mensagem do cliente para responder.', code: 'instagram_window_closed' }, 409);
+  }
   const identity = parseInstagramConversationHandle(result.data.contact_handle);
   if (!identity) return json({ error: 'Identidade externa Instagram inválida' }, 400);
   const configuredAccountId = Deno.env.get('META_INSTAGRAM_ACCOUNT_ID') ?? '';
