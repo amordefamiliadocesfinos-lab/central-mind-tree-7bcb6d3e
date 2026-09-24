@@ -1,4 +1,5 @@
 import {
+  getInstagramSendUrl,
   instagramConversationHandle,
   normalizeInstagramWebhooks,
   parseInstagramConversationHandle,
@@ -55,4 +56,10 @@ Deno.test('degrada attachment sem URL como evento explícito e ignora payload fo
   }));
   if (!attachment || attachment.content !== 'Imagem recebida' || attachment.messageType !== 'image') throw new Error('Attachment não foi degradado explicitamente');
   if (normalizeInstagramWebhooks({ object: 'page', entry: [] }).length !== 0) throw new Error('Payload de outro canal não foi ignorado');
+});
+
+Deno.test('sender Instagram usa exclusivamente graph.instagram.com', () => {
+  const url = getInstagramSendUrl('v26.0', accountId);
+  if (url !== `https://graph.instagram.com/v26.0/${accountId}/messages`) throw new Error('Endpoint de envio Instagram incorreto');
+  if (url.includes('graph.facebook.com')) throw new Error('Fluxo Instagram não pode usar graph.facebook.com');
 });

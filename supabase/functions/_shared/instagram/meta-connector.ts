@@ -60,6 +60,10 @@ export function parseInstagramConversationHandle(handle: string | null | undefin
   return match ? { accountId: match[1], scopedUserId: match[2] } : null;
 }
 
+export function getInstagramSendUrl(graphVersion: string, accountId: string) {
+  return `https://graph.instagram.com/${graphVersion}/${encodeURIComponent(accountId)}/messages`;
+}
+
 export function normalizeInstagramWebhooks(payload: unknown): InstagramWebhookEvent[] {
   const root = (payload ?? {}) as Record<string, unknown>;
   if (root.object !== 'instagram') return [];
@@ -111,7 +115,7 @@ export async function sendInstagramText(input: { accountId: string; scopedUserId
   const graphVersion = Deno.env.get('META_GRAPH_API_VERSION') ?? '';
   if (!accessToken || !graphVersion) return { ok: false, errorCode: 'not_configured', errorMessage: 'Instagram Messaging não configurado' };
   try {
-    const response = await fetch(`https://graph.facebook.com/${graphVersion}/${encodeURIComponent(input.accountId)}/messages`, {
+    const response = await fetch(getInstagramSendUrl(graphVersion, input.accountId), {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipient: { id: input.scopedUserId }, message: { text: input.message } }),
