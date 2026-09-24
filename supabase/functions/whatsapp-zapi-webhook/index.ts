@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
       .eq('id', conversationId);
     if (conversationError) throw conversationError;
 
-    if (inbound && conversationId) {
+    if (inbound) {
       await applyInboundTemporalAuthority(supabase, {
         contactId,
         conversationId,
