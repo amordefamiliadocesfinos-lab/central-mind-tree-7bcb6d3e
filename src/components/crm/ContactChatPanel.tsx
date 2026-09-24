@@ -23,6 +23,7 @@ import { evaluatePostSaleApproach } from '@/lib/crm/postSaleApproach';
 import { resolveCrmLifecycleOpportunity } from '@/lib/crm/lifecycleOpportunity';
 import { clearPostSaleOrderContext, setPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
 import { getWhatsAppContactUrl, isMetaCustomerServiceWindowOpen } from '@/lib/crm/whatsappOperational';
+import { isInstagramCustomerServiceWindowOpen } from '../../../supabase/functions/_shared/instagram/message-window';
 
 
 interface Message {
@@ -70,6 +71,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
+    channel: string;
     attendance_state: string | null;
     return_at: string | null;
     last_inbound_at: string | null;
@@ -97,9 +99,11 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
   const outboundBlocked = commercialOptOut && !isCustomerReply;
-  const whatsappUrl = getWhatsAppContactUrl(contactHandle);
-  const metaWindowClosed = Boolean(conversationMeta)
-    && !isMetaCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow);
+  const isInstagramConversation = conversationMeta?.channel === 'instagram';
+  const whatsappUrl = isInstagramConversation ? null : getWhatsAppContactUrl(contactHandle);
+  const metaWindowClosed = Boolean(conversationMeta) && !(isInstagramConversation
+    ? isInstagramCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow)
+    : isMetaCustomerServiceWindowOpen(conversationMeta?.last_inbound_at, clockNow));
 
   useEffect(() => {
     const interval = window.setInterval(() => setClockNow(Date.now()), 60_000);
@@ -181,7 +185,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       setLoading(true);
       const { data: existing } = await supabase
         .from('service_conversations')
-        .select('id,funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
+        .select('id,channel,funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
         .eq('contact_id', contactId)
         .order('last_message_at', { ascending: false })
         .limit(1)
@@ -190,6 +194,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       if (existing?.id) {
         setConversationId(existing.id);
         setConversationMeta({
+          channel: existing.channel ?? 'whatsapp',
           attendance_state: existing.attendance_state ?? null,
           return_at: existing.return_at ?? null,
           last_inbound_at: existing.last_inbound_at ?? null,
@@ -222,7 +227,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         }
         if (!cancelled) {
           setConversationId(created.id);
-          setConversationMeta({ attendance_state: null, return_at: null, last_inbound_at: null, last_outbound_at: null });
+          setConversationMeta({ channel: 'whatsapp', attendance_state: null, return_at: null, last_inbound_at: null, last_outbound_at: null });
         }
       }
     })();
@@ -246,7 +251,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           .limit(200),
         supabase
           .from('service_conversations')
-          .select('funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
+          .select('channel,funnel_stage,attendance_state,return_at,last_inbound_at,last_outbound_at')
           .eq('id', conversationId)
           .maybeSingle(),
       ]);
@@ -254,6 +259,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         setMessages(((data || []) as Message[]).slice().reverse());
         if (freshConversation) {
           setConversationMeta({
+            channel: freshConversation.channel ?? 'whatsapp',
             attendance_state: freshConversation.attendance_state ?? null,
             return_at: freshConversation.return_at ?? null,
             last_inbound_at: freshConversation.last_inbound_at ?? null,
@@ -304,7 +310,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       return;
     }
     if (metaWindowClosed) {
-      toast.error('A janela de atendimento de 24 horas está encerrada. Abra o WhatsApp do contato ou use um template aprovado pela Meta.');
+      toast.error(isInstagramConversation
+        ? 'A janela de atendimento do Instagram está encerrada. Aguarde uma nova mensagem do cliente para responder.'
+        : 'A janela de atendimento de 24 horas está encerrada. Abra o WhatsApp do contato ou use um template aprovado pela Meta.');
+      return;
+    }
+    if (isInstagramConversation && attachment) {
+      toast.error('O envio de anexos pelo Instagram ainda não está disponível nesta V1.');
       return;
     }
     setSending(true);
@@ -330,13 +342,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           media_mime_type: attachment.type, media_filename: attachment.name,
         };
       }
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+      const { data, error } = await supabase.functions.invoke(isInstagramConversation ? 'instagram-send' : 'whatsapp-send', {
         body: { conversation_id: conversationId, message: content, ...mediaPayload },
       });
       const response = data as { error?: string; automatic_follow_up_scheduled?: boolean | null } | null;
       const errMsg =
         response?.error ??
-        (error ? 'Não foi possível enviar a mensagem pelo WhatsApp' : null);
+        (error ? `Não foi possível enviar a mensagem pelo ${isInstagramConversation ? 'Instagram' : 'WhatsApp'}` : null);
       if (errMsg) {
         toast.error(errMsg);
         return;
@@ -534,7 +546,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                         ? 'Enviado pelo celular'
                         : m.source === 'crm'
                         ? 'Enviado pelo CRM'
-                        : 'Enviado pelo WhatsApp'}
+                        : `Enviado pelo ${isInstagramConversation ? 'Instagram' : 'WhatsApp'}`}
                       {m.delivery_status === 'failed' ? ' · Falhou' : m.delivery_status === 'pending' ? ' · Enviando' : ''}
                     </div>
                   )}
@@ -652,7 +664,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         )}
         {metaWindowClosed && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-            <span>Janela Meta de 24h encerrada · mensagem livre pelo CRM está bloqueada.</span>
+            <span>{isInstagramConversation
+              ? 'A janela de atendimento do Instagram está encerrada. Aguarde uma nova mensagem do cliente para responder.'
+              : 'Janela Meta de 24h encerrada · mensagem livre pelo CRM está bloqueada.'}</span>
             {whatsappUrl && (
               <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
                 <ExternalLink className="h-3 w-3" /> Abrir WhatsApp
@@ -670,7 +684,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         )}
         <div className="flex items-end gap-1">
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(event) => setAttachment(event.target.files?.[0] || null)} />
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked || metaWindowClosed} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>
+          {!isInstagramConversation && <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={sending || !conversationId || outboundBlocked || metaWindowClosed} title="Anexar imagem, áudio, vídeo ou documento"><Paperclip className="h-4 w-4" /></Button>}
           {whatsappUrl && (
             <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" asChild title="Abrir este contato no WhatsApp">
               <a href={whatsappUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
