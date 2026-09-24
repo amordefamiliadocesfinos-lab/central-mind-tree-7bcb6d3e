@@ -39,6 +39,14 @@ function normalizeName(value: string | null | undefined) {
   return String(value ?? '').trim().toLocaleLowerCase('pt-BR');
 }
 
+async function validSignature(raw: string, signature: string | null, secret: string) {
+  if (!signature?.startsWith('sha256=')) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const bytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw));
+  const expected = `sha256=${Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+  return constantTimeEqual(expected, signature);
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const verifyToken = Deno.env.get('META_WHATSAPP_VERIFY_TOKEN') ?? '';
