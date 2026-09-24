@@ -9,6 +9,14 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status, headers: { 'Content-Type': 'application/json' },
 });
 
+type ContactMatch = {
+  id: string;
+  name: string | null;
+  funnel_status: string | null;
+  type: string | null;
+  is_active: boolean | null;
+};
+
 function constantTimeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -25,6 +33,10 @@ function mediaExtension(mimeType?: string, filename?: string) {
     'video/mp4': 'mp4', 'application/pdf': 'pdf',
   };
   return extensions[String(mimeType ?? '').split(';')[0]] ?? 'bin';
+}
+
+function normalizeName(value: string | null | undefined) {
+  return String(value ?? '').trim().toLocaleLowerCase('pt-BR');
 }
 
 async function validSignature(raw: string, signature: string | null, secret: string) {
@@ -94,31 +106,119 @@ Deno.serve(async (req) => {
 
       const phone = normalizeBrPhone(evt.contactPhoneRaw);
       if (!phone) { await finish('ignored', 'telefone inválido'); continue; }
-      const { data: matches } = await supabase.from('contacts').select('id,name').eq('phone_normalized', phone).limit(2);
-      let contact = matches?.length === 1 ? matches[0] : null;
-      if (!contact && (!matches || matches.length === 0)) {
-        const { data, error } = await supabase.from('contacts').insert({
-          name: evt.contactName?.trim() || `Contato WhatsApp ${phone.slice(-4)}`,
-          whatsapp: phone, origem_lead: 'WhatsApp', funnel_status: 'novo_lead', is_active: true,
-        }).select('id,name').single();
-        if (error) throw error; contact = data;
+      const inbound = evt.direction !== 'outbound';
+
+      // Primeiro respeita um vínculo de conversa já existente para este número.
+      // Isso é a autoridade mais forte quando há contatos duplicados no cadastro.
+      let conversation: { id: string; unread_count?: number | null; contact_id?: string | null } | null = null;
+      const byHandle = await supabase
+        .from('service_conversations')
+        .select('id,unread_count,contact_id')
+        .eq('contact_handle', phone)
+        .order('last_message_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (byHandle.error) throw byHandle.error;
+      conversation = byHandle.data;
+
+      let contact: ContactMatch | null = null;
+      if (conversation?.contact_id) {
+        const existingContact = await supabase
+          .from('contacts')
+          .select('id,name,funnel_status,type,is_active')
+          .eq('id', conversation.contact_id)
+          .maybeSingle();
+        if (existingContact.error) throw existingContact.error;
+        contact = existingContact.data as ContactMatch | null;
       }
 
-      let conversation: { id: string; unread_count?: number | null; contact_id?: string | null } | null = null;
-      if (contact) {
-        const result = await supabase.from('service_conversations').select('id,unread_count,contact_id').eq('contact_id', contact.id).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
-        conversation = result.data;
+      if (!contact) {
+        const matchResult = await supabase
+          .from('contacts')
+          .select('id,name,funnel_status,type,is_active')
+          .eq('phone_normalized', phone)
+          .limit(5);
+        if (matchResult.error) throw matchResult.error;
+        const matches = (matchResult.data ?? []) as ContactMatch[];
+
+        if (matches.length === 1) {
+          contact = matches[0];
+        } else if (matches.length > 1) {
+          // Em duplicidade, tenta uma resolução inequívoca antes de desistir.
+          // Nunca cria conversa órfã silenciosamente.
+          const eventName = normalizeName(evt.contactName);
+          const sameName = eventName
+            ? matches.filter((candidate) => normalizeName(candidate.name) === eventName)
+            : [];
+          if (sameName.length === 1) {
+            contact = sameName[0];
+          } else {
+            const staged = matches.filter((candidate) => candidate.is_active !== false && candidate.type !== 'fornecedor' && Boolean(candidate.funnel_status));
+            if (staged.length === 1) {
+              contact = staged[0];
+            } else {
+              const active = matches.filter((candidate) => candidate.is_active !== false);
+              if (active.length === 1) contact = active[0];
+            }
+          }
+          if (!contact) throw new Error('identidade WhatsApp ambígua: múltiplos contatos para o mesmo telefone');
+        } else {
+          const created = await supabase.from('contacts').insert({
+            name: evt.contactName?.trim() || `Contato WhatsApp ${phone.slice(-4)}`,
+            whatsapp: phone, origem_lead: 'WhatsApp', funnel_status: 'novo_lead', is_active: true,
+          }).select('id,name,funnel_status,type,is_active').single();
+          if (created.error) throw created.error;
+          contact = created.data as ContactMatch;
+        }
       }
-      if (!conversation) {
-        const result = await supabase.from('service_conversations').select('id,unread_count,contact_id').eq('contact_handle', phone).limit(1).maybeSingle();
+
+      // Inbound real reativa o contato e, quando ele ainda nunca entrou no CRM,
+      // inicia a etapa canônica de Novo Lead. Etapas já existentes são preservadas.
+      if (inbound && contact) {
+        const contactPatch: Record<string, unknown> = {};
+        if (contact.is_active === false) contactPatch.is_active = true;
+        if (!contact.funnel_status && contact.type !== 'fornecedor') contactPatch.funnel_status = 'novo_lead';
+        if (Object.keys(contactPatch).length > 0) {
+          const updated = await supabase.from('contacts').update(contactPatch).eq('id', contact.id);
+          if (updated.error) throw updated.error;
+          contact = {
+            ...contact,
+            is_active: contactPatch.is_active === true ? true : contact.is_active,
+            funnel_status: typeof contactPatch.funnel_status === 'string' ? contactPatch.funnel_status : contact.funnel_status,
+          };
+        }
+      }
+
+      // Repara conversa antiga sem contact_id quando o número agora pôde ser
+      // resolvido de forma inequívoca.
+      if (conversation && contact && conversation.contact_id !== contact.id) {
+        const linked = await supabase.from('service_conversations').update({
+          contact_id: contact.id,
+          contact_name: contact.name ?? evt.contactName ?? null,
+          ...(contact.funnel_status ? { funnel_stage: contact.funnel_status } : {}),
+        }).eq('id', conversation.id);
+        if (linked.error) throw linked.error;
+        conversation = { ...conversation, contact_id: contact.id };
+      }
+
+      if (!conversation && contact) {
+        const result = await supabase
+          .from('service_conversations')
+          .select('id,unread_count,contact_id')
+          .eq('contact_id', contact.id)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (result.error) throw result.error;
         conversation = result.data;
       }
       if (!conversation) {
         const result = await supabase.from('service_conversations').insert({
-          contact_id: contact?.id ?? null, contact_name: contact?.name ?? evt.contactName ?? null,
-          contact_handle: phone, status: 'open', funnel_stage: 'novo_lead', channel: 'whatsapp',
+          contact_id: contact!.id, contact_name: contact!.name ?? evt.contactName ?? null,
+          contact_handle: phone, status: 'open', funnel_stage: contact!.funnel_status ?? 'novo_lead', channel: 'whatsapp',
         }).select('id,contact_id').single();
-        if (result.error) throw result.error; conversation = result.data;
+        if (result.error) throw result.error;
+        conversation = result.data;
       }
 
       const now = evt.providerTimestamp ?? new Date().toISOString();
@@ -140,7 +240,6 @@ Deno.serve(async (req) => {
           console.error('meta media persistence failed', (mediaError as Error).message);
         }
       }
-      const inbound = evt.direction !== 'outbound';
       const { error: messageError } = await supabase.from('service_messages').insert({
         conversation_id: conversation!.id, sender: inbound ? 'customer' : 'agent', content: evt.content ?? 'Mensagem não suportada',
         is_ai_suggested: false, external_message_id: evt.externalMessageId, direction: evt.direction ?? 'inbound',
@@ -152,6 +251,7 @@ Deno.serve(async (req) => {
       if (messageError && messageError.code !== '23505') throw messageError;
       const { error: conversationError } = await supabase.from('service_conversations').update({
         last_message_at: now,
+        ...(contact?.funnel_status ? { funnel_stage: contact.funnel_status } : {}),
         ...(inbound
           ? { last_inbound_at: now, needs_reply: true, status: 'open', resolved_at: null, attendance_state: 'responder', unread_count: (conversation!.unread_count ?? 0) + 1 }
           : { last_outbound_at: now, needs_reply: false, attendance_state: 'aguardando_cliente' }),
