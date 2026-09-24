@@ -6,7 +6,7 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/list-contacts.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z } from "npm:zod@^3.25.76";
 function sb(ctx) {
@@ -40,7 +40,7 @@ var list_contacts_default = defineTool({
 });
 
 // src/lib/mcp/tools/get-contact.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z2 } from "npm:zod@^3.25.76";
 function sb2(ctx) {
@@ -71,7 +71,7 @@ var get_contact_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-orders.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
 function sb3(ctx) {
@@ -106,7 +106,7 @@ var list_orders_default = defineTool3({
 });
 
 // src/lib/mcp/tools/list-tasks.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z4 } from "npm:zod@^3.25.76";
 function sb4(ctx) {
@@ -141,7 +141,7 @@ var list_tasks_default = defineTool4({
 });
 
 // src/lib/mcp/tools/create-task.ts
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z5 } from "npm:zod@^3.25.76";
 var ROOT_NODE = "d7c76db8-b7e0-4ce1-87ca-21275c346326";
@@ -184,7 +184,7 @@ var create_task_default = defineTool5({
 });
 
 // src/lib/mcp/tools/financial-summary.ts
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.117.1";
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@2.86.0";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z6 } from "npm:zod@^3.25.76";
 function sb6(ctx) {
