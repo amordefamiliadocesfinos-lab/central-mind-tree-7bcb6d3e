@@ -710,6 +710,10 @@ export default function ContatosInbox() {
     if (!selected) return;
     const confirmed = window.confirm(`Arquivar a conversa de "${selected.name}"? O contato, histórico e demais vínculos serão preservados.`);
     if (!confirmed) return;
+    // C2: captura o próximo item visível/priorizado antes de arquivar, para
+    // manter a continuidade operacional sem criar nova regra de prioridade.
+    const currentContactId = selected.id;
+    const fallbackNextId = prioritized.find(({ item }) => item.id !== currentContactId)?.item.id ?? null;
     setAttendanceBusy(true);
     try {
       const now = new Date().toISOString();
@@ -722,10 +726,33 @@ export default function ContatosInbox() {
         return_at: null,
       }).eq('id', selected.conversation_id);
       if (error) throw error;
-      setSelectedId(null);
       setLeadPanelOpen(false);
       setLeadEditOpen(false);
-      await load();
+      const refreshedItems = await load();
+      if (refreshedItems === null) {
+        setSelectedId(null);
+        toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
+        return;
+      }
+      let next: InboxItem | undefined;
+      if (attendanceQueueScope.length > 0) {
+        const scope = new Set(attendanceQueueScope);
+        const nowDate = new Date();
+        next = refreshedItems
+          .filter((item) => scope.has(item.id) && item.id !== currentContactId && getCrmPriority(toCrmPriorityInput(item), nowDate).operational)
+          .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a), toCrmPriorityInput(b), nowDate))[0];
+        if (!next) {
+          setAttendanceQueueScope([]);
+          sessionStorage.removeItem('crm-attendance-queue');
+        }
+      } else if (fallbackNextId) {
+        next = refreshedItems.find((item) => item.id === fallbackNextId);
+      }
+      if (next) {
+        await openConversation(next);
+      } else {
+        setSelectedId(null);
+      }
       toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
     } catch (error) {
       console.error(error);
