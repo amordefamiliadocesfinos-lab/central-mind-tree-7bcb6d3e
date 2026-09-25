@@ -1042,7 +1042,7 @@ export default function ContatosInbox() {
                       </Badge>
                       {(item.platform_name || item.channel) && (
                         <Badge variant="outline" className="text-[9px] h-4 px-1.5">
-                          {[item.platform_icon, item.platform_name || item.channel].filter(Boolean).join(' ')}
+                          {item.platform_name || item.channel}
                         </Badge>
                       )}
                       {isPureSupplier(item) && (
@@ -1111,7 +1111,7 @@ export default function ContatosInbox() {
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate">{selected.name}</div>
                   <div className="text-[11px] text-muted-foreground truncate">
-                    {selected.whatsapp || selected.phone || 'Sem telefone'} · {getCrmStageLabel(selected.funnel_status)} · {[selected.platform_icon, selected.platform_name || selected.channel || 'Canal não informado'].filter(Boolean).join(' ')}
+                    {selected.whatsapp || selected.phone || 'Sem telefone'} · {getCrmStageLabel(selected.funnel_status)} · {selected.platform_name || selected.channel || 'Canal não informado'}
                   </div>
                   {campaignContext && (
                     <div className="text-[10px] text-muted-foreground/80 truncate">
