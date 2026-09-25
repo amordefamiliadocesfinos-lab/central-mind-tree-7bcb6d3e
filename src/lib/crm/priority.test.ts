@@ -50,11 +50,18 @@ assert(overdueAction.operational,
 
 const residualAction = getCrmPriority({
   ...waitingBase,
-  next_action_date: '2026-08-27T12:00:00.000Z',
   next_contact_date: '2026-08-27T12:00:00.000Z',
 }, now);
 assert(residualAction.level === 'P4' && !residualAction.operational,
-  'datas residuais anteriores ao início da espera não podem reativar a Prioridade.');
+  'data legada residual anterior ao início da espera não pode reativar a Prioridade.');
+
+const canonicalPendingTaskWhileWaiting = getCrmPriority({
+  ...waitingBase,
+  needs_reply: false,
+  next_action_date: '2026-08-27T12:00:00.000Z',
+}, now);
+assert(canonicalPendingTaskWhileWaiting.operational && canonicalPendingTaskWhileWaiting.reason === 'next_action_today',
+  'Próxima Ação canônica pendente não pode ser ocultada só porque houve estado de espera posterior.');
 
 const pendingResult = getCrmPriority({ ...waitingBase, needs_reply: false, last_result_at: null }, now);
 assert(pendingResult.operational && pendingResult.reason === 'pending_result',

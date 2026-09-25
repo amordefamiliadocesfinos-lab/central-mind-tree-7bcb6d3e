@@ -121,8 +121,12 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   const { start, end } = dayBounds(now);
 
   const returnAt = asTime(input.return_at);
-  // A data canônica tem precedência; a legada serve somente como fallback.
-  const nextActionAt = asTime(input.next_action_date) ?? asTime(input.next_contact_date);
+  // Próxima Ação canônica (next_action_date) representa obrigação oficial.
+  // next_contact_date é apenas compatibilidade legada e pode ser descartada
+  // quando ficou anterior a um novo estado de espera.
+  const canonicalNextActionAt = asTime(input.next_action_date);
+  const legacyNextContactAt = asTime(input.next_contact_date);
+  const nextActionAt = canonicalNextActionAt ?? legacyNextContactAt;
   const reactivationAt = asTime(input.reactivation_at);
   const reactivationOverdue = reactivationAt !== null && reactivationAt < start;
   const reactivationToday = reactivationAt !== null && reactivationAt >= start && reactivationAt < end;
@@ -143,8 +147,11 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   const validReturn = returnAt !== null
     && (lastInboundAt === null || lastInboundAt <= returnAt)
     && (!waitingCustomer || returnAt >= waitingBoundary);
+  // Uma obrigação canônica pendente não pode ser escondida pela Inbox como
+  // "resíduo". Se ficou obsoleta, o writer deve concluí-la/substituí-la.
+  // Somente a data legada continua sujeita ao corte pelo início da espera.
   const validNextAction = nextActionAt !== null
-    && (!waitingCustomer || nextActionAt >= waitingBoundary);
+    && (canonicalNextActionAt !== null || !waitingCustomer || nextActionAt >= waitingBoundary);
 
   // Regra soberana da fila: marcadores antigos não mantêm uma conversa em
   // Prioridade enquanto a iniciativa está com o cliente. Somente uma entrada
@@ -186,8 +193,9 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
     return result('P4', 'waiting_customer', validReturn ? returnAt : validNextAction ? nextActionAt : waitingBoundary || lastMessageAt, false);
   }
 
-  // Enquanto aguardamos o cliente, datas anteriores à nossa última mensagem
-  // são resíduo: não representam ação humana exigida agora.
+  // Enquanto aguardamos o cliente, datas legadas anteriores à nossa última
+  // mensagem são resíduo. Uma Próxima Ação canônica pendente continua valendo
+  // até o writer concluí-la ou substituí-la.
   const returnCounts = validReturn;
   const nextActionCounts = validNextAction;
 
