@@ -53,6 +53,18 @@ declare
   v_count integer;
   v_attempt_id uuid;
 begin
+  if p_attempt_key is null or length(trim(p_attempt_key)) < 16 then
+    raise exception 'invalid review attempt key';
+  end if;
+  if p_max_attempts is null or p_max_attempts < 1 or p_max_attempts > 10 then
+    raise exception 'invalid review attempt limit';
+  end if;
+  if p_window_seconds is null or p_window_seconds < 60 or p_window_seconds > 3600 then
+    raise exception 'invalid review attempt window';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('shopee-review:' || p_attempt_key));
+
   select count(*) into v_count
   from public.shopee_review_login_attempts
   where attempt_key = p_attempt_key
