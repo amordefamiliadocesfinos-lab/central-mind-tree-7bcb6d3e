@@ -7,7 +7,8 @@ export function isAllowedReviewOrigin(origin: string | null) {
 }
 
 export function isPortalEnabled(control: ReviewControl | null, now = Date.now()) {
-  return Boolean(control?.enabled) && (!control.expires_at || Date.parse(control.expires_at) > now);
+  if (!control?.enabled) return false;
+  return !control.expires_at || Date.parse(control.expires_at) > now;
 }
 
 export function reviewAttemptIdentifier(address: string | null, username: string) {

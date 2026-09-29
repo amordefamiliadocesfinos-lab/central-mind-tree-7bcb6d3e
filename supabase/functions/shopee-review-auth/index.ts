@@ -28,8 +28,8 @@ function responseHeaders(request: Request) {
 const json = (request: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: responseHeaders(request) });
 
 async function activeSession(db: any, sessionId: string, version: number) {
-  const { data, error } = await db.from('shopee_review_sessions').select('id,expires_at,revoked_at,session_version').eq('id', sessionId).maybeSingle<ReviewSession>();
-  return !error && isPersistedReviewSessionActive(data, version);
+  const { data, error } = await db.from('shopee_review_sessions').select('id,expires_at,revoked_at,session_version').eq('id', sessionId).maybeSingle();
+  return !error && isPersistedReviewSessionActive(data as ReviewSession | null, version);
 }
 
 Deno.serve(async (request) => {
@@ -52,7 +52,7 @@ Deno.serve(async (request) => {
   try { input = await request.json(); } catch { return json(request, { error: 'JSON inválido' }, 400); }
   const db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: control, error: controlError } = await db.from('shopee_review_portal_control').select('enabled,expires_at,session_version').eq('id', true).maybeSingle<ReviewControl>();
-  if (controlError || !isPortalEnabled(control)) return json(request, { error: 'Portal de revisão indisponível' }, 403);
+  if (controlError || !control || !isPortalEnabled(control)) return json(request, { error: 'Portal de revisão indisponível' }, 403);
 
   if (input.action === 'verify' || input.action === 'logout') {
     const token = readSession(request);

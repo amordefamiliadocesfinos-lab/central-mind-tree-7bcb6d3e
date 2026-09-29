@@ -72,7 +72,7 @@ export async function verifyReviewSession(token: string, secret: string, version
     const payload = JSON.parse(new TextDecoder().decode(base64urlDecode(encodedPayload))) as ReviewSessionPayload;
     const currentSeconds = Math.floor(now / 1000);
     if (payload.aud !== REVIEW_SESSION_AUDIENCE || payload.sub !== 'shopee-review' || payload.version !== version || !payload.jti) return null;
-    if (!Number.isInteger(payload.exp) || !Number.isInteger(payload.iat) || payload.exp < currentSeconds || payload.exp - payload.iat > REVIEW_SESSION_TTL_SECONDS) return null;
+    if (!Number.isInteger(payload.exp) || !Number.isInteger(payload.iat) || payload.exp <= currentSeconds || payload.exp - payload.iat > REVIEW_SESSION_TTL_SECONDS) return null;
     return payload;
   } catch {
     return null;
