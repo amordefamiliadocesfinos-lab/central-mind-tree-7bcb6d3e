@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import type { ReactNode } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -52,6 +53,9 @@ import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
 import { ActiveUserPicker } from "@/components/ActiveUserPicker";
 import { useScheduledTaskPromotion } from "./hooks/useScheduledTaskPromotion";
 import { useKeyboardAware } from "./hooks/useKeyboardAware";
+import ShopeeReviewLogin from "./pages/ShopeeReviewLogin";
+import ShopeeReviewPortal from "./pages/ShopeeReviewPortal";
+import { ReviewSessionProvider, useReviewSession } from "@/shopee-review/ReviewSessionContext";
 
 const queryClient = new QueryClient();
 
@@ -152,11 +156,10 @@ function AuthenticatedShell() {
   );
 }
 
-function AppContent() {
+function InternalApp() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <AuthProvider>
+      <Routes>
           {/* Rotas públicas */}
           <Route path="/login" element={<Login />} />
           <Route path="/auth" element={<Navigate to="/login" replace />} />
@@ -171,8 +174,27 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
+      </Routes>
+    </AuthProvider>
+  );
+}
+
+function ShopeeReviewRoute({ children }: { children: ReactNode }) {
+  const { expiresAt, loading } = useReviewSession();
+  if (loading) return <div className="min-h-screen bg-slate-950" />;
+  return expiresAt ? <>{children}</> : <Navigate to="/shopee-review/login" replace />;
+}
+
+function AppContent() {
+  return (
+    <BrowserRouter>
+      <ReviewSessionProvider>
+        <Routes>
+          <Route path="/shopee-review/login" element={<ShopeeReviewLogin />} />
+          <Route path="/shopee-review" element={<ShopeeReviewRoute><ShopeeReviewPortal /></ShopeeReviewRoute>} />
+          <Route path="*" element={<InternalApp />} />
         </Routes>
-      </AuthProvider>
+      </ReviewSessionProvider>
     </BrowserRouter>
   );
 }
