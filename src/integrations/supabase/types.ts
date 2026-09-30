@@ -5912,6 +5912,75 @@ export type Database = {
           },
         ]
       }
+      shopee_review_login_attempts: {
+        Row: {
+          attempt_key: string
+          id: string
+          occurred_at: string
+          outcome: string
+        }
+        Insert: {
+          attempt_key: string
+          id?: string
+          occurred_at?: string
+          outcome?: string
+        }
+        Update: {
+          attempt_key?: string
+          id?: string
+          occurred_at?: string
+          outcome?: string
+        }
+        Relationships: []
+      }
+      shopee_review_portal_control: {
+        Row: {
+          enabled: boolean
+          expires_at: string | null
+          id: boolean
+          session_version: number
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          expires_at?: string | null
+          id?: boolean
+          session_version?: number
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          expires_at?: string | null
+          id?: boolean
+          session_version?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shopee_review_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          session_version: number
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          session_version: number
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          session_version?: number
+        }
+        Relationships: []
+      }
       storage_locations: {
         Row: {
           created_at: string
@@ -6356,6 +6425,10 @@ export type Database = {
         Args: { p_finished_location?: string; p_production_order_id: string }
         Returns: Json
       }
+      complete_shopee_review_login_attempt: {
+        Args: { p_attempt_id: string; p_outcome: string }
+        Returns: undefined
+      }
       confirm_campaign_execution: {
         Args: { _execution_id: string }
         Returns: {
@@ -6383,6 +6456,14 @@ export type Database = {
       }
       confirm_purchase_with_financial_entries: {
         Args: { p_installments: Json; p_purchase_order_id: string }
+        Returns: Json
+      }
+      consume_shopee_review_login_attempt: {
+        Args: {
+          p_attempt_key: string
+          p_max_attempts: number
+          p_window_seconds: number
+        }
         Returns: Json
       }
       create_unified_sale: {
