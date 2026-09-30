@@ -22,6 +22,10 @@ O portal `/shopee-review` não usa `AuthProvider`, `signInWithPassword`, o clien
 
 O backend dedicado é inicializado desativado e exige segredo de credencial, segredo de sessão e controle explícito antes de qualquer ativação. A migration de suporte permanece somente versionada na branch até autorização de aplicação.
 
+### Origem de tentativas de login do portal
+
+O rate limit do portal de revisão usa somente o cabeçalho `cf-connecting-ip`, documentado pelo Supabase como endereço do solicitante capturado no gateway/API Edge. O valor é combinado ao identificador de revisão antes de HMAC com o segredo de auditoria; o IP puro não é persistido. `x-forwarded-for` não é aceito porque pode ser controlado pelo cliente. Caso o cabeçalho documentado não esteja disponível, o bucket usa o marcador estável `edge-address-unavailable` junto ao identificador de revisão, mantendo o limite conservador sem registrar um endereço bruto.
+
 ## Plano posterior obrigatório
 
 Criar uma frente transversal de autorização para:

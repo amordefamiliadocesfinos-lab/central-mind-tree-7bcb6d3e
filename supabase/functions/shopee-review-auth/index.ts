@@ -1,16 +1,14 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { constantTimeEqual, createReviewSession, derivePasswordHash, hashAuditIdentifier, verifyReviewSession } from '../_shared/shopee-review/auth.ts';
+import { isAllowedReviewOrigin, isPersistedReviewSessionActive, isPortalEnabled, revokeReviewSession, reviewAttemptIdentifier, REVIEW_ORIGIN, type ReviewControl } from '../_shared/shopee-review/security.ts';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_ATTEMPTS = 5;
 const WINDOW_SECONDS = 15 * 60;
-const REVIEW_ORIGIN = 'https://central-mind-tree.lovable.app';
-
-type Control = { enabled: boolean; expires_at: string | null; session_version: number };
 type ReviewSession = { id: string; expires_at: string; revoked_at: string | null; session_version: number };
 
 function clientAddress(request: Request) {
-  return request.headers.get('cf-connecting-ip') ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  return request.headers.get('cf-connecting-ip');
 }
 
 function readSession(request: Request) {
@@ -29,16 +27,13 @@ function responseHeaders(request: Request) {
 
 const json = (request: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: responseHeaders(request) });
 
-function isEnabled(control: Control | null) {
-  return Boolean(control?.enabled) && (!control.expires_at || Date.parse(control.expires_at) > Date.now());
-}
-
 async function activeSession(db: any, sessionId: string, version: number) {
-  const { data, error } = await db.from('shopee_review_sessions').select('id,expires_at,revoked_at,session_version').eq('id', sessionId).maybeSingle<ReviewSession>();
-  return !error && Boolean(data) && data.revoked_at === null && data.session_version === version && Date.parse(data.expires_at) > Date.now();
+  const { data, error } = await db.from('shopee_review_sessions').select('id,expires_at,revoked_at,session_version').eq('id', sessionId).maybeSingle();
+  return !error && isPersistedReviewSessionActive(data as ReviewSession | null, version);
 }
 
 Deno.serve(async (request) => {
+  if (!isAllowedReviewOrigin(request.headers.get('origin'))) return json(request, { error: 'Origem não autorizada' }, 403);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...responseHeaders(request), 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, X-Shopee-Review-Session', 'Access-Control-Max-Age': '600' } });
   if (request.method !== 'POST') return json(request, { error: 'Method not allowed' }, 405);
   const contentLength = Number(request.headers.get('content-length') ?? 0);
@@ -56,19 +51,25 @@ Deno.serve(async (request) => {
   let input: { action?: string; username?: string; password?: string };
   try { input = await request.json(); } catch { return json(request, { error: 'JSON inválido' }, 400); }
   const db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: control, error: controlError } = await db.from('shopee_review_portal_control').select('enabled,expires_at,session_version').eq('id', true).maybeSingle<Control>();
-  if (controlError || !isEnabled(control)) return json(request, { error: 'Portal de revisão indisponível' }, 403);
+  const { data: control, error: controlError } = await db.from('shopee_review_portal_control').select('enabled,expires_at,session_version').eq('id', true).maybeSingle<ReviewControl>();
+  if (controlError || !control || !isPortalEnabled(control)) return json(request, { error: 'Portal de revisão indisponível' }, 403);
 
   if (input.action === 'verify' || input.action === 'logout') {
     const token = readSession(request);
     const session = token ? await verifyReviewSession(token, sessionSecret, control.session_version) : null;
     if (!session || !await activeSession(db, session.jti, control.session_version)) return json(request, { error: 'Sessão de revisão inválida ou expirada' }, 401);
-    if (input.action === 'logout') await db.from('shopee_review_sessions').update({ revoked_at: new Date().toISOString() }).eq('id', session.jti).is('revoked_at', null);
+    if (input.action === 'logout') {
+      const revoked = await revokeReviewSession({ revoke: async (sessionId) => {
+        const { data, error } = await db.from('shopee_review_sessions').update({ revoked_at: new Date().toISOString() }).eq('id', sessionId).is('revoked_at', null).select('id').maybeSingle();
+        return !error && Boolean(data?.id);
+      } }, session.jti);
+      if (!revoked) return json(request, { error: 'Não foi possível encerrar a sessão de revisão' }, 503);
+    }
     return json(request, { ok: true, expires_at: new Date(session.exp * 1000).toISOString() });
   }
 
   if (input.action !== 'login' || typeof input.username !== 'string' || typeof input.password !== 'string') return json(request, { error: 'Solicitação inválida' }, 400);
-  const attemptKey = await hashAuditIdentifier(clientAddress(request), auditSecret);
+  const attemptKey = await hashAuditIdentifier(reviewAttemptIdentifier(clientAddress(request), input.username), auditSecret);
   const { data: attempt, error: attemptError } = await db.rpc('consume_shopee_review_login_attempt', { p_attempt_key: attemptKey, p_max_attempts: MAX_ATTEMPTS, p_window_seconds: WINDOW_SECONDS });
   if (attemptError || !attempt?.allowed) return json(request, { error: 'Muitas tentativas. Aguarde antes de tentar novamente.' }, 429);
 
