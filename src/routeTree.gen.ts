@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as ShopeeReviewRouteImport } from './routes/shopee-review'
-import { Route as ApiShopeeReviewCookieTestRouteImport } from './routes/api/shopee-review/cookie-test'
+import { Route as ApiShopeeReviewDataRouteImport } from './routes/api/shopee-review/data'
 import { Route as ApiShopeeReviewHealthRouteImport } from './routes/api/shopee-review/health'
+import { Route as ApiShopeeReviewLoginRouteImport } from './routes/api/shopee-review/login'
+import { Route as ApiShopeeReviewLogoutRouteImport } from './routes/api/shopee-review/logout'
+import { Route as ApiShopeeReviewSessionRouteImport } from './routes/api/shopee-review/session'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,15 +33,29 @@ const ShopeeReviewRoute = ShopeeReviewRouteImport.update({
   path: '/shopee-review',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiShopeeReviewCookieTestRoute =
-  ApiShopeeReviewCookieTestRouteImport.update({
-    id: '/api/shopee-review/cookie-test',
-    path: '/api/shopee-review/cookie-test',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const ApiShopeeReviewDataRoute = ApiShopeeReviewDataRouteImport.update({
+  id: '/api/shopee-review/data',
+  path: '/api/shopee-review/data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiShopeeReviewHealthRoute = ApiShopeeReviewHealthRouteImport.update({
   id: '/api/shopee-review/health',
   path: '/api/shopee-review/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShopeeReviewLoginRoute = ApiShopeeReviewLoginRouteImport.update({
+  id: '/api/shopee-review/login',
+  path: '/api/shopee-review/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShopeeReviewLogoutRoute = ApiShopeeReviewLogoutRouteImport.update({
+  id: '/api/shopee-review/logout',
+  path: '/api/shopee-review/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShopeeReviewSessionRoute = ApiShopeeReviewSessionRouteImport.update({
+  id: '/api/shopee-review/session',
+  path: '/api/shopee-review/session',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -46,23 +63,32 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/shopee-review': typeof ShopeeReviewRoute
-  '/api/shopee-review/cookie-test': typeof ApiShopeeReviewCookieTestRoute
+  '/api/shopee-review/data': typeof ApiShopeeReviewDataRoute
   '/api/shopee-review/health': typeof ApiShopeeReviewHealthRoute
+  '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
+  '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
+  '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/shopee-review': typeof ShopeeReviewRoute
-  '/api/shopee-review/cookie-test': typeof ApiShopeeReviewCookieTestRoute
+  '/api/shopee-review/data': typeof ApiShopeeReviewDataRoute
   '/api/shopee-review/health': typeof ApiShopeeReviewHealthRoute
+  '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
+  '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
+  '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/shopee-review': typeof ShopeeReviewRoute
-  '/api/shopee-review/cookie-test': typeof ApiShopeeReviewCookieTestRoute
+  '/api/shopee-review/data': typeof ApiShopeeReviewDataRoute
   '/api/shopee-review/health': typeof ApiShopeeReviewHealthRoute
+  '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
+  '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
+  '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -70,30 +96,42 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/shopee-review'
-    | '/api/shopee-review/cookie-test'
+    | '/api/shopee-review/data'
     | '/api/shopee-review/health'
+    | '/api/shopee-review/login'
+    | '/api/shopee-review/logout'
+    | '/api/shopee-review/session'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$'
     | '/shopee-review'
-    | '/api/shopee-review/cookie-test'
+    | '/api/shopee-review/data'
     | '/api/shopee-review/health'
+    | '/api/shopee-review/login'
+    | '/api/shopee-review/logout'
+    | '/api/shopee-review/session'
   id:
     | '__root__'
     | '/'
     | '/$'
     | '/shopee-review'
-    | '/api/shopee-review/cookie-test'
+    | '/api/shopee-review/data'
     | '/api/shopee-review/health'
+    | '/api/shopee-review/login'
+    | '/api/shopee-review/logout'
+    | '/api/shopee-review/session'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   ShopeeReviewRoute: typeof ShopeeReviewRoute
-  ApiShopeeReviewCookieTestRoute: typeof ApiShopeeReviewCookieTestRoute
+  ApiShopeeReviewDataRoute: typeof ApiShopeeReviewDataRoute
   ApiShopeeReviewHealthRoute: typeof ApiShopeeReviewHealthRoute
+  ApiShopeeReviewLoginRoute: typeof ApiShopeeReviewLoginRoute
+  ApiShopeeReviewLogoutRoute: typeof ApiShopeeReviewLogoutRoute
+  ApiShopeeReviewSessionRoute: typeof ApiShopeeReviewSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -119,11 +157,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopeeReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/shopee-review/cookie-test': {
-      id: '/api/shopee-review/cookie-test'
-      path: '/api/shopee-review/cookie-test'
-      fullPath: '/api/shopee-review/cookie-test'
-      preLoaderRoute: typeof ApiShopeeReviewCookieTestRouteImport
+    '/api/shopee-review/data': {
+      id: '/api/shopee-review/data'
+      path: '/api/shopee-review/data'
+      fullPath: '/api/shopee-review/data'
+      preLoaderRoute: typeof ApiShopeeReviewDataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/shopee-review/health': {
@@ -133,6 +171,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopeeReviewHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/shopee-review/login': {
+      id: '/api/shopee-review/login'
+      path: '/api/shopee-review/login'
+      fullPath: '/api/shopee-review/login'
+      preLoaderRoute: typeof ApiShopeeReviewLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shopee-review/logout': {
+      id: '/api/shopee-review/logout'
+      path: '/api/shopee-review/logout'
+      fullPath: '/api/shopee-review/logout'
+      preLoaderRoute: typeof ApiShopeeReviewLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shopee-review/session': {
+      id: '/api/shopee-review/session'
+      path: '/api/shopee-review/session'
+      fullPath: '/api/shopee-review/session'
+      preLoaderRoute: typeof ApiShopeeReviewSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -140,8 +199,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   ShopeeReviewRoute: ShopeeReviewRoute,
-  ApiShopeeReviewCookieTestRoute: ApiShopeeReviewCookieTestRoute,
+  ApiShopeeReviewDataRoute: ApiShopeeReviewDataRoute,
   ApiShopeeReviewHealthRoute: ApiShopeeReviewHealthRoute,
+  ApiShopeeReviewLoginRoute: ApiShopeeReviewLoginRoute,
+  ApiShopeeReviewLogoutRoute: ApiShopeeReviewLogoutRoute,
+  ApiShopeeReviewSessionRoute: ApiShopeeReviewSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
