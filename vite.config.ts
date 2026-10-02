@@ -18,4 +18,9 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom"],
   },
+  // A hospedagem publicada não resolve pacotes em tempo de execução:
+  // o servidor precisa sair com todas as dependências embutidas.
+  ssr: {
+    noExternal: true,
+  },
 }));
