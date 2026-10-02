@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, command }) => ({
   server: {
     host: "::",
     port: 8080,
@@ -19,8 +19,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom"],
   },
   // A hospedagem publicada não resolve pacotes em tempo de execução:
-  // o servidor precisa sair com todas as dependências embutidas.
-  ssr: {
-    noExternal: true,
-  },
+  // no build o servidor precisa sair com todas as dependências embutidas.
+  // Em desenvolvimento o Vite resolve os pacotes normalmente.
+  ...(command === "build" ? { ssr: { noExternal: true } } : {}),
 }));
