@@ -62,8 +62,10 @@ CREATE TABLE public.production_fact_consumptions (
   production_fact_id uuid NOT NULL REFERENCES public.production_facts(id) ON DELETE RESTRICT,
   component_id uuid NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
   variant_id uuid NULL REFERENCES public.product_variants(id) ON DELETE RESTRICT,
-  qty_per_unit_snapshot numeric NOT NULL CHECK (qty_per_unit_snapshot > 0),
-  quantity_consumed numeric NOT NULL CHECK (quantity_consumed > 0),
+  -- Há BOMs históricas com linhas auxiliares em zero. O snapshot preserva a
+  -- configuração encontrada, mas zero nunca produz movimento físico.
+  qty_per_unit_snapshot numeric NOT NULL CHECK (qty_per_unit_snapshot >= 0),
+  quantity_consumed numeric NOT NULL CHECK (quantity_consumed >= 0),
   unit_snapshot text NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
