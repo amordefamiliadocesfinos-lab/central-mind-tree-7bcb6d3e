@@ -4,7 +4,7 @@ import { handleShopeeReviewBff } from "../../../server/shopeeReviewBff";
 export const Route = createFileRoute("/api/shopee-review/session")({
   server: {
     handlers: {
-      GET: ({ request }) => handleShopeeReviewBff(request, "session"),
+      ANY: ({ request }) => handleShopeeReviewBff(request, "session"),
     },
   },
 });

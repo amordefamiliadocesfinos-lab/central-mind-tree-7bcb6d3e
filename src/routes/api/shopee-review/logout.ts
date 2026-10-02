@@ -4,7 +4,7 @@ import { handleShopeeReviewBff } from "../../../server/shopeeReviewBff";
 export const Route = createFileRoute("/api/shopee-review/logout")({
   server: {
     handlers: {
-      POST: ({ request }) => handleShopeeReviewBff(request, "logout"),
+      ANY: ({ request }) => handleShopeeReviewBff(request, "logout"),
     },
   },
 });
