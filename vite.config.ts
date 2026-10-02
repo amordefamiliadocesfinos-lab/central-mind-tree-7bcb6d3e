@@ -12,6 +12,14 @@ export default defineConfig(({ mode, command }) => ({
     port: 8080,
   },
   plugins: [tanstackStart(), react(), mcpPlugin(), mode === "development" && componentTagger()].filter(Boolean),
+  environments: {
+    ssr: {
+      build: {
+        // Keep internal shared exports out of the public Worker entrypoint.
+        rollupOptions: { preserveEntrySignatures: "strict" },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
