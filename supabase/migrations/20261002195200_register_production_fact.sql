@@ -90,7 +90,6 @@ BEGIN
     v_operator_name := NULLIF(btrim(p_operator_name), '');
   END IF;
 
-  -- Vínculo explícito: só aceita OP do novo contrato físico e com item compatível.
   IF v_resolved_order_id IS NOT NULL THEN
     SELECT physical_flow_mode, status
     INTO v_order_mode, v_order_status
@@ -120,16 +119,17 @@ BEGIN
       RETURN jsonb_build_object('success', false, 'reason', 'production_order_item_mismatch');
     END IF;
   ELSE
-    -- Associação automática somente quando for determinística: exatamente uma
-    -- OP ativa, do novo modo, contém a mesma identidade física.
-    SELECT count(DISTINCT po.id), min(po.id)
+    SELECT count(*), max(candidate.id::text)::uuid
     INTO v_candidate_count, v_resolved_order_id
-    FROM public.production_orders po
-    JOIN public.production_order_items poi ON poi.production_order_id = po.id
-    WHERE po.physical_flow_mode = 'production_facts'
-      AND po.status IN ('aberto', 'producao')
-      AND poi.product_id = p_product_id
-      AND poi.variant_id IS NOT DISTINCT FROM p_variant_id;
+    FROM (
+      SELECT DISTINCT po.id
+      FROM public.production_orders po
+      JOIN public.production_order_items poi ON poi.production_order_id = po.id
+      WHERE po.physical_flow_mode = 'production_facts'
+        AND po.status IN ('aberto', 'producao')
+        AND poi.product_id = p_product_id
+        AND poi.variant_id IS NOT DISTINCT FROM p_variant_id
+    ) candidate;
 
     IF v_candidate_count <> 1 THEN
       v_resolved_order_id := NULL;
@@ -145,7 +145,6 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'missing_bom');
   END IF;
 
-  -- Trava e valida todo estoque necessário antes de qualquer transformação.
   FOR v_component IN
     SELECT
       pc.component_id,
@@ -200,7 +199,6 @@ BEGIN
     );
   END IF;
 
-  -- A UNIQUE(event_key) é a autoridade final contra corridas de requisições.
   INSERT INTO public.production_facts(
     product_id,
     variant_id,
@@ -252,7 +250,6 @@ BEGIN
     );
   END IF;
 
-  -- Congela a BOM efetivamente usada nesse fato.
   INSERT INTO public.production_fact_consumptions(
     production_fact_id,
     component_id,
@@ -277,7 +274,6 @@ BEGIN
 
   GET DIAGNOSTICS v_consumption_count = ROW_COUNT;
 
-  -- Consome componentes físicos. As linhas já estão protegidas por FOR UPDATE.
   FOR v_component IN
     SELECT component_id, variant_id, quantity_consumed
     FROM public.production_fact_consumptions
@@ -334,7 +330,6 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- Credita o produto acabado no local físico informado.
   INSERT INTO public.inventory(
     product_id,
     variant_id,
