@@ -42,6 +42,11 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'missing_event_key');
   END IF;
 
+  -- Serializa requisições com a mesma chave antes de olhar saldo/BOM. Assim,
+  -- uma repetição concorrente espera a primeira transação e depois devolve o
+  -- fato já criado, em vez de revalidar estoque já consumido.
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_event_key, 0));
+
   SELECT * INTO v_existing
   FROM public.production_facts
   WHERE event_key = p_event_key;
@@ -161,6 +166,7 @@ BEGIN
     WHERE pc.product_id = p_product_id
       AND pc.product_variant_id IS NOT DISTINCT FROM p_variant_id
     GROUP BY pc.component_id, pc.variant_id, p.name, pv.variant_name, p.sku, pv.sku, p.unit, pv.unit
+    ORDER BY pc.component_id, pc.variant_id
   LOOP
     v_available := 0;
 
@@ -169,6 +175,7 @@ BEGIN
       FROM public.inventory
       WHERE product_id = v_component.component_id
         AND variant_id IS NOT DISTINCT FROM v_component.variant_id
+      ORDER BY id
       FOR UPDATE
     LOOP
       v_available := v_available + v_inventory.quantity;
@@ -288,7 +295,7 @@ BEGIN
       WHERE product_id = v_component.component_id
         AND variant_id IS NOT DISTINCT FROM v_component.variant_id
         AND quantity > 0
-      ORDER BY quantity DESC, id
+      ORDER BY id
       FOR UPDATE
     LOOP
       EXIT WHEN v_remaining <= 0;
