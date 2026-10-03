@@ -80,8 +80,8 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'production_fact_not_found');
   END IF;
 
-  SELECT pr.*, COALESCE(pp.cost_per_unit, pr.value_per_unit, 0)
-  INTO v_process, v_value_per_unit
+  SELECT pr.*
+  INTO v_process
   FROM public.processes pr
   JOIN public.product_processes pp
     ON pp.process_id = pr.id
@@ -94,6 +94,14 @@ BEGIN
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'reason', 'process_not_configured_for_product');
   END IF;
+
+  SELECT COALESCE(pp.cost_per_unit, v_process.value_per_unit, 0)
+  INTO v_value_per_unit
+  FROM public.product_processes pp
+  WHERE pp.product_id = v_fact.product_id
+    AND pp.process_id = p_process_id
+    AND pp.is_active = true
+  LIMIT 1;
 
   IF p_operator_user_id IS NOT NULL THEN
     SELECT name INTO v_operator_name
@@ -115,8 +123,8 @@ BEGIN
     quantity, value_per_unit_snapshot, total_value, occurred_at, updated_at
   ) VALUES (
     v_fact.id, v_process.id, p_operator_user_id, v_operator_name,
-    v_fact.quantity, v_value_per_unit,
-    v_fact.quantity * v_value_per_unit, v_fact.occurred_at, now()
+    v_fact.quantity, COALESCE(v_value_per_unit, 0),
+    v_fact.quantity * COALESCE(v_value_per_unit, 0), v_fact.occurred_at, now()
   )
   ON CONFLICT (production_fact_id, process_id)
   DO UPDATE SET
@@ -134,7 +142,7 @@ BEGIN
     'process_id', v_process.id,
     'operator_name', v_operator_name,
     'quantity', v_fact.quantity,
-    'value_per_unit', v_value_per_unit
+    'value_per_unit', COALESCE(v_value_per_unit, 0)
   );
 END;
 $function$;
