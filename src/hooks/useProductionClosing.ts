@@ -135,13 +135,23 @@ export function useProductionClosing() {
   }, [fetchClosings]);
 
   const deleteClosing = useCallback(async (id: string) => {
-    const { error } = await supabase.from('production_closings').delete().eq('id', id);
+    const { data, error } = await (supabase.rpc as any)('delete_production_closing', {
+      p_closing_id: id,
+    });
     if (error) {
-      toast.error(error.message?.includes('financialized_production_closing')
-        ? 'Fechamento já enviado ao Financeiro não pode ser excluído.'
-        : 'Erro ao excluir fechamento');
+      toast.error(error.message || 'Erro ao excluir fechamento');
       return false;
     }
+
+    const result = data as { success?: boolean; reason?: string } | null;
+    if (!result?.success) {
+      if (result?.reason === 'financialized_production_closing') toast.error('Fechamento já enviado ao Financeiro não pode ser excluído.');
+      else if (result?.reason === 'closing_not_open') toast.error('Somente fechamento em preparação pode ser excluído.');
+      else if (result?.reason === 'closing_not_found') toast.error('Fechamento não encontrado.');
+      else toast.error('Erro ao excluir fechamento');
+      return false;
+    }
+
     toast.success('Fechamento excluído. Os apontamentos voltaram a ficar disponíveis.');
     setClosings(prev => prev.filter(c => c.id !== id));
     return true;
