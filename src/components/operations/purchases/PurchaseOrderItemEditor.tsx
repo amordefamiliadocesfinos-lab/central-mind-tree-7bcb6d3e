@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,11 @@ export interface PurchasePlanningContext {
   operational_qty: number;
   unit: string;
   orders_affected: string[];
+  suggested_purchase_qty?: number;
+  planned_purchase_qty?: number;
+  planned_operational_qty?: number;
+  conversion_factor?: number;
+  purchase_unit_label?: string;
 }
 export interface PurchaseDraftLine {
   id: string;
@@ -39,6 +44,7 @@ export interface PurchaseDraftLine {
   presentations: PurchasePresentationOption[];
   planning_source: 'mrp' | null;
   planning_context: PurchasePlanningContext | null;
+  planning_qty_overridden?: boolean;
 }
 
 interface Props {
@@ -61,6 +67,16 @@ function parsePurchaseNumber(value: string) {
   return parseDecimalInput(value, { min: 0, maxDecimals: 10, locale: 'pt-BR' })?.number ?? 0;
 }
 
+export function calculateSuggestedPurchaseQty(operationalQty: number, conversionFactor: number) {
+  if (!Number.isFinite(operationalQty) || operationalQty <= 0 || !Number.isFinite(conversionFactor) || conversionFactor <= 0) return 0;
+  return Number((operationalQty / conversionFactor).toFixed(10));
+}
+
+function formatQtyInput(value: number) {
+  if (!Number.isFinite(value)) return '';
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 10, useGrouping: false });
+}
+
 export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, onProductChange, onVariantChange, onLoadPresentations, onRemove }: Props) {
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
@@ -69,7 +85,26 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
   const canonicalUnit = getPhysicalIdentityUnit(product, selectedVariant);
   const presentation = line.presentation;
   const subtotal = parsePurchaseNumber(line.qty) * parsePurchaseNumber(line.price);
-  const setPresentation = (next: PurchasePresentationOption, overridden = false) => onChange({ ...line, presentation: next, presentationOverridden: overridden });
+  const operationalNeed = Number(line.planning_context?.operational_qty || 0);
+  const suggestedQty = presentation ? calculateSuggestedPurchaseQty(operationalNeed, Number(presentation.conversion_factor)) : 0;
+  const plannedCoverage = presentation ? parsePurchaseNumber(line.qty) * Number(presentation.conversion_factor || 0) : 0;
+  const coverageDifference = plannedCoverage - operationalNeed;
+
+  const setPresentation = (next: PurchasePresentationOption, overridden = false) => {
+    const suggestion = calculateSuggestedPurchaseQty(operationalNeed, Number(next.conversion_factor));
+    const shouldSuggest = line.planning_source === 'mrp' && !line.planning_qty_overridden && suggestion > 0;
+    onChange({
+      ...line,
+      presentation: next,
+      presentationOverridden: overridden,
+      ...(shouldSuggest ? { qty: formatQtyInput(suggestion) } : {}),
+    });
+  };
+
+  const reapplyPlanningSuggestion = () => {
+    if (!presentation || suggestedQty <= 0) return;
+    onChange({ ...line, qty: formatQtyInput(suggestedQty), planning_qty_overridden: false });
+  };
 
   return (
     <Card>
@@ -110,7 +145,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
                 {line.presentations.map(item => <SelectItem key={item.id} value={item.id!}>{item.name}{item.is_approximate ? ' (aproximada)' : ''}</SelectItem>)}
               </SelectContent>
             </Select>
-            {identityResolved && <p className="text-xs text-muted-foreground">Apresentações são referências. O ajuste abaixo vale somente para esta compra.</p>}
+            {identityResolved && <p className="text-xs text-muted-foreground">A forma de compra converte a necessidade física em quantidade comercial. Trocar a apresentação recalcula a sugestão enquanto você não substituir a quantidade manualmente.</p>}
           </div>
 
           {presentation && identityResolved && <div className="space-y-3 rounded-md border p-3 sm:col-span-2">
@@ -127,6 +162,24 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
             </div>}
           </div>}
 
+          {line.planning_source === 'mrp' && line.planning_context && presentation && <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 sm:col-span-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Sugestão automática do Planejamento</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Necessidade: <strong className="text-foreground">{operationalNeed.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {line.planning_context.unit}</strong>
+                  {' '}÷ {Number(presentation.conversion_factor).toLocaleString('pt-BR', { maximumFractionDigits: 10 })} =
+                  {' '}<strong className="text-foreground">{suggestedQty.toLocaleString('pt-BR', { maximumFractionDigits: 10 })} {presentation.purchase_unit_label}</strong>.
+                </p>
+                {parsePurchaseNumber(line.qty) > 0 && <p className="mt-1 text-xs text-muted-foreground">
+                  Quantidade escolhida cobre <strong className="text-foreground">{plannedCoverage.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {line.planning_context.unit}</strong>
+                  {Math.abs(coverageDifference) > 0.0000001 && <> · diferença {coverageDifference > 0 ? '+' : ''}{coverageDifference.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</>}.
+                </p>}
+              </div>
+              {line.planning_qty_overridden && <Button type="button" size="sm" variant="outline" onClick={reapplyPlanningSuggestion}><RefreshCw className="mr-1 h-3.5 w-3.5" />Reaplicar sugestão</Button>}
+            </div>
+          </div>}
+
           <div className="space-y-2">
             <Label>Quantidade</Label>
             <DecimalInput
@@ -134,7 +187,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
               maxDecimals={10}
               locale="pt-BR"
               value={line.qty}
-              onValueChange={value => onChange({ ...line, qty: value })}
+              onValueChange={value => onChange({ ...line, qty: value, ...(line.planning_source === 'mrp' ? { planning_qty_overridden: true } : {}) })}
               placeholder="Ex.: 8.742 ou 8.742,5"
             />
           </div>
