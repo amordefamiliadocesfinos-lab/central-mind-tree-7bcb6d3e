@@ -14,7 +14,6 @@ import { useMRP } from '@/hooks/useMRP';
 import type { OperationsTab } from './OperationsBottomNav';
 
 const db = supabase as any;
-const ACTIVE_ORDER_STATUSES = ['todo', 'preparing'];
 const OPEN_PURCHASE_STATUSES = ['confirmado', 'em_transito', 'parcialmente_recebido'];
 const OPEN_SEPARATION_STATUSES = ['todo', 'preparing'];
 const SAO_PAULO_TZ = 'America/Sao_Paulo';
@@ -22,30 +21,25 @@ const SAO_PAULO_TZ = 'America/Sao_Paulo';
 function operationalDay(value: string | Date = new Date()) {
   const date = value instanceof Date ? value : new Date(value);
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SAO_PAULO_TZ,
-    year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: SAO_PAULO_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(date);
   const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
 function isBeforeToday(value?: string | null) {
-  if (!value) return false;
-  return value.slice(0, 10) < operationalDay();
+  return !!value && value.slice(0, 10) < operationalDay();
 }
 
 function hoursSince(value?: string | null) {
   if (!value) return 0;
   const time = new Date(value).getTime();
-  if (!Number.isFinite(time)) return 0;
-  return (Date.now() - time) / 3_600_000;
+  return Number.isFinite(time) ? (Date.now() - time) / 3_600_000 : 0;
 }
 
 type Snapshot = {
   productionNeeds: number;
-  productionUnits: number;
   purchaseNeeds: number;
-  purchaseUnits: number;
   activeOrders: number;
   riskyOrders: number;
   separationBacklog: number;
@@ -70,13 +64,12 @@ export function OperationalIntelligencePanel({ onNavigate }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     const today = operationalDay();
     const recentSince = new Date(Date.now() - 48 * 3_600_000).toISOString();
 
     const [plan, ordersResult, separationResult, purchasesResult, factsResult, processResult, consumptionsResult, closingsResult] = await Promise.all([
       calculateOperationalPlan(),
-      db.from('orders').select('id,status,operational_status,due_date,delivery_date').is('deleted_at', null),
+      db.from('orders').select('id,order_number,internal_order_number,status,operational_status,due_date,delivery_date').is('deleted_at', null),
       db.from('order_separation').select('id,separation_status,created_at,updated_at'),
       db.from('purchase_orders').select('id,status,expected_at'),
       db.from('production_facts').select('id,quantity,occurred_at,status').eq('status', 'confirmed').gte('occurred_at', recentSince),
@@ -95,11 +88,19 @@ export function OperationalIntelligencePanel({ onNavigate }: Props) {
 
     const productionShortages = plan.production.filter(need => need.shortage > 0);
     const purchaseShortages = plan.materials.filter(need => need.shortage > 0);
+    const shortageReferences = new Set<string>();
+    [...productionShortages, ...purchaseShortages].forEach(need => need.orders_affected.forEach(reference => shortageReferences.add(reference)));
+
     const activeOrders = (ordersResult.data ?? []).filter((row: any) =>
       !['cancelado', 'concluido', 'entregue'].includes(row.status) &&
       !['finalized', 'finalizado', 'concluido', 'cancelado'].includes(row.operational_status || '')
     );
-    const riskyOrders = activeOrders.filter((row: any) => isBeforeToday(row.due_date ?? row.delivery_date));
+    const riskyOrderIds = new Set<string>();
+    activeOrders.forEach((row: any) => {
+      const reference = row.internal_order_number || row.order_number || row.id.slice(0, 8);
+      if (isBeforeToday(row.due_date ?? row.delivery_date) || shortageReferences.has(reference)) riskyOrderIds.add(row.id);
+    });
+
     const separation = (separationResult.data ?? []).filter((row: any) => OPEN_SEPARATION_STATUSES.includes(row.separation_status));
     const purchases = (purchasesResult.data ?? []).filter((row: any) => OPEN_PURCHASE_STATUSES.includes(row.status));
     const todayFacts = (factsResult.data ?? []).filter((row: any) => operationalDay(row.occurred_at) === today);
@@ -115,11 +116,9 @@ export function OperationalIntelligencePanel({ onNavigate }: Props) {
 
     setSnapshot({
       productionNeeds: productionShortages.length,
-      productionUnits: productionShortages.reduce((sum, need) => sum + Number(need.shortage || 0), 0),
       purchaseNeeds: purchaseShortages.length,
-      purchaseUnits: purchaseShortages.reduce((sum, need) => sum + Number(need.shortage || 0), 0),
       activeOrders: activeOrders.length,
-      riskyOrders: riskyOrders.length,
+      riskyOrders: riskyOrderIds.size,
       separationBacklog: separation.length,
       separationOver24h: separation.filter((row: any) => hoursSince(row.updated_at ?? row.created_at) > 24).length,
       inboundPurchases: purchases.length,
@@ -138,71 +137,25 @@ export function OperationalIntelligencePanel({ onNavigate }: Props) {
   const actionCards = useMemo(() => {
     if (!snapshot) return [];
     return [
-      {
-        key: 'produce', title: 'Produzir agora', value: snapshot.productionNeeds,
-        detail: snapshot.productionNeeds > 0 ? `${snapshot.productionUnits} un. ainda sem cobertura` : 'Nenhuma falta líquida para produzir',
-        badge: snapshot.productionNeeds > 0 ? 'Ação' : null, tab: 'mrp' as OperationsTab, icon: Factory,
-      },
-      {
-        key: 'buy', title: 'Comprar agora', value: snapshot.purchaseNeeds,
-        detail: snapshot.purchaseNeeds > 0 ? `${snapshot.purchaseUnits} em unidades operacionais ainda sem cobertura` : 'Nenhuma necessidade líquida de compra',
-        badge: snapshot.purchaseNeeds > 0 ? 'Ação' : null, tab: 'mrp' as OperationsTab, icon: Truck,
-      },
-      {
-        key: 'orders', title: 'Pedidos em risco', value: snapshot.riskyOrders,
-        detail: snapshot.riskyOrders > 0 ? `${snapshot.riskyOrders} vencido(s) entre ${snapshot.activeOrders} ativo(s)` : `${snapshot.activeOrders} pedido(s) ativo(s), nenhum vencido`,
-        badge: snapshot.riskyOrders > 0 ? 'Prazo' : null, tab: 'orders' as OperationsTab, icon: ShoppingCart,
-      },
-      {
-        key: 'separation', title: 'Separação', value: snapshot.separationBacklog,
-        detail: snapshot.separationOver24h > 0 ? `${snapshot.separationOver24h} parado(s) há mais de 24h` : 'Fila sem item parado há mais de 24h',
-        badge: snapshot.separationOver24h > 0 ? '+24h' : null, tab: 'separation' as OperationsTab, icon: PackageCheck,
-      },
-      {
-        key: 'purchases', title: 'Compras em trânsito', value: snapshot.inboundPurchases,
-        detail: snapshot.overduePurchases > 0 ? `${snapshot.overduePurchases} compra(s) após a previsão` : 'Nenhuma compra em trânsito vencida',
-        badge: snapshot.overduePurchases > 0 ? 'Atraso' : null, tab: 'purchases' as OperationsTab, icon: ClipboardCheck,
-      },
-      {
-        key: 'closing', title: 'Fechamentos abertos', value: snapshot.openClosings,
-        detail: 'Financeiro ainda será conectado na F06',
-        badge: null, tab: 'production' as OperationsTab, icon: WalletCards,
-      },
+      { key: 'produce', title: 'Produzir agora', value: snapshot.productionNeeds, detail: snapshot.productionNeeds > 0 ? 'identidade(s) fabricada(s) ainda sem cobertura' : 'Nenhuma falta líquida para produzir', badge: snapshot.productionNeeds > 0 ? 'Ação' : null, tab: 'mrp' as OperationsTab, icon: Factory },
+      { key: 'buy', title: 'Comprar agora', value: snapshot.purchaseNeeds, detail: snapshot.purchaseNeeds > 0 ? 'identidade(s) comprada(s) ainda sem cobertura' : 'Nenhuma necessidade líquida de compra', badge: snapshot.purchaseNeeds > 0 ? 'Ação' : null, tab: 'mrp' as OperationsTab, icon: Truck },
+      { key: 'orders', title: 'Pedidos em risco', value: snapshot.riskyOrders, detail: snapshot.riskyOrders > 0 ? `entre ${snapshot.activeOrders} pedido(s) ativo(s): prazo vencido ou necessidade sem cobertura` : `${snapshot.activeOrders} pedido(s) ativo(s), nenhum risco detectado`, badge: snapshot.riskyOrders > 0 ? 'Risco' : null, tab: 'orders' as OperationsTab, icon: ShoppingCart },
+      { key: 'separation', title: 'Separação', value: snapshot.separationBacklog, detail: snapshot.separationOver24h > 0 ? `${snapshot.separationOver24h} parado(s) há mais de 24h` : 'Fila sem item parado há mais de 24h', badge: snapshot.separationOver24h > 0 ? '+24h' : null, tab: 'separation' as OperationsTab, icon: PackageCheck },
+      { key: 'purchases', title: 'Compras em trânsito', value: snapshot.inboundPurchases, detail: snapshot.overduePurchases > 0 ? `${snapshot.overduePurchases} compra(s) após a previsão` : 'Nenhuma compra em trânsito vencida', badge: snapshot.overduePurchases > 0 ? 'Atraso' : null, tab: 'purchases' as OperationsTab, icon: ClipboardCheck },
+      { key: 'closing', title: 'Fechamentos abertos', value: snapshot.openClosings, detail: 'Financeiro será conectado na F06; aqui mostramos apenas o estado comprovado', badge: null, tab: 'production' as OperationsTab, icon: WalletCards },
     ];
   }, [snapshot]);
 
-  if (loading) {
-    return <div className="space-y-4"><Skeleton className="h-8 w-64" /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0,1,2,3,4,5].map(i => <Skeleton key={i} className="h-32" />)}</div></div>;
-  }
+  if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-64" /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0,1,2,3,4,5].map(i => <Skeleton key={i} className="h-32" />)}</div></div>;
 
-  if (error || !snapshot) {
-    return <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription className="flex items-center justify-between gap-2"><span>{error ?? 'Dashboard indisponível.'}</span><Button size="sm" variant="outline" onClick={() => void load()}><RefreshCw className="mr-1 h-4 w-4" />Tentar novamente</Button></AlertDescription></Alert>;
-  }
+  if (error || !snapshot) return <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription className="flex items-center justify-between gap-2"><span>{error ?? 'Dashboard indisponível.'}</span><Button size="sm" variant="outline" onClick={() => void load()}><RefreshCw className="mr-1 h-4 w-4" />Tentar novamente</Button></AlertDescription></Alert>;
 
   const hasAction = snapshot.productionNeeds + snapshot.purchaseNeeds + snapshot.riskyOrders + snapshot.separationOver24h + snapshot.overduePurchases > 0;
 
   return <div className="space-y-4">
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg"><Boxes className="h-5 w-5" />O que precisa de atenção hoje</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Exceções acionáveis. Cada card leva para a engrenagem responsável.</p>
-          </div>
-          <div className="flex items-center gap-2"><Badge variant={hasAction ? 'destructive' : 'secondary'}>{hasAction ? 'Há ações pendentes' : 'Operação sem alerta crítico'}</Badge><Button size="icon" variant="ghost" onClick={() => void load()} aria-label="Atualizar Dashboard"><RefreshCw className="h-4 w-4" /></Button></div>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {actionCards.map(item => {
-          const Icon = item.icon;
-          return <button type="button" key={item.key} onClick={() => onNavigate(item.tab)} className="rounded-xl border p-4 text-left transition-colors hover:bg-muted/50">
-            <div className="flex items-start justify-between gap-2"><Icon className="h-5 w-5 text-muted-foreground" />{item.badge && <Badge variant="destructive" className="text-[10px]">{item.badge}</Badge>}</div>
-            <p className="mt-3 text-3xl font-bold">{item.value}</p>
-            <p className="text-sm font-semibold">{item.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-          </button>;
-        })}
-      </CardContent>
+      <CardHeader className="pb-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><CardTitle className="flex items-center gap-2 text-lg"><Boxes className="h-5 w-5" />O que precisa de atenção hoje</CardTitle><p className="mt-1 text-xs text-muted-foreground">Exceções acionáveis. Cada card leva para a engrenagem responsável.</p></div><div className="flex items-center gap-2"><Badge variant={hasAction ? 'destructive' : 'secondary'}>{hasAction ? 'Há ações pendentes' : 'Operação sem alerta crítico'}</Badge><Button size="icon" variant="ghost" onClick={() => void load()} aria-label="Atualizar Dashboard"><RefreshCw className="h-4 w-4" /></Button></div></div></CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{actionCards.map(item => { const Icon = item.icon; return <button type="button" key={item.key} onClick={() => onNavigate(item.tab)} className="rounded-xl border p-4 text-left transition-colors hover:bg-muted/50"><div className="flex items-start justify-between gap-2"><Icon className="h-5 w-5 text-muted-foreground" />{item.badge && <Badge variant="destructive" className="text-[10px]">{item.badge}</Badge>}</div><p className="mt-3 text-3xl font-bold">{item.value}</p><p className="text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.detail}</p></button>; })}</CardContent>
     </Card>
 
     <Card>
