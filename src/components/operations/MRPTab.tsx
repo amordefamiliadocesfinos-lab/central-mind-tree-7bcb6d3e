@@ -1,35 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Check, Download, Factory, Package, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Factory, RefreshCw, ShoppingCart, TrendingDown } from 'lucide-react';
 import { useMRP, MaterialNeed, ProductionNeed } from '@/hooks/useMRP';
 import { useProductionOrders } from '@/hooks/useProductionOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-function downloadCsv(filename: string, headers: string[], rows: string[][]) {
-  const csv = [headers, ...rows].map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
-}
-
 export function MRPTab() {
-  const { calculateProductionNeeds, calculateMaterialNeeds } = useMRP();
+  const { calculateOperationalPlan } = useMRP();
   const { createOrder } = useProductionOrders();
   const [, setSearchParams] = useSearchParams();
   const [productionNeeds, setProductionNeeds] = useState<ProductionNeed[]>([]);
-  const [materialNeeds, setMaterialNeeds] = useState<MaterialNeed[]>([]);
+  const [purchaseNeeds, setPurchaseNeeds] = useState<MaterialNeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedNeed, setSelectedNeed] = useState<ProductionNeed | null>(null);
   const [creating, setCreating] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
-    const [production, materials] = await Promise.all([calculateProductionNeeds(), calculateMaterialNeeds()]);
-    setProductionNeeds(production); setMaterialNeeds(materials); setLoading(false);
+    const plan = await calculateOperationalPlan();
+    setProductionNeeds(plan.production);
+    setPurchaseNeeds(plan.materials);
+    setLoading(false);
   };
   useEffect(() => { void loadData(); }, []);
 
@@ -37,48 +34,105 @@ export function MRPTab() {
     if (!selectedNeed) return;
     setCreating(true);
     const created = await createOrder({
-      product_id: selectedNeed.product_id, variant_id: selectedNeed.variant_id, target_quantity: selectedNeed.shortage,
-      scheduled_date: new Date().toISOString().slice(0, 10), status: 'aberto',
-      notes: `Planejado pelo MRP para demanda: ${selectedNeed.orders_affected.join(', ')}`,
+      product_id: selectedNeed.product_id,
+      variant_id: selectedNeed.variant_id,
+      target_quantity: selectedNeed.shortage,
+      scheduled_date: new Date().toISOString().slice(0, 10),
+      status: 'aberto',
+      notes: `Planejamento operacional — necessidade consolidada de: ${selectedNeed.orders_affected.join(', ')}`,
     }, []);
     setCreating(false);
-    if (created) { toast.success('OP criada a partir do planejamento. Nenhum estoque foi movimentado.'); setSelectedNeed(null); await loadData(); }
+    if (created) {
+      toast.success('OP criada. O estoque não foi movimentado.');
+      setSelectedNeed(null);
+      await loadData();
+    }
   };
 
   const preparePurchase = (need: MaterialNeed) => {
     if (need.shortage <= 0) return;
     const params = new URLSearchParams({
-      tab: 'purchases',
-      mrpProductId: need.component_id,
-      mrpNeedQty: String(need.shortage),
-      mrpUnit: need.unit,
-      mrpName: need.component_name,
+      tab: 'purchases', mrpProductId: need.component_id, mrpNeedQty: String(need.shortage),
+      mrpUnit: need.unit, mrpName: need.component_name,
     });
     if (need.variant_id) params.set('mrpVariantId', need.variant_id);
     if (need.orders_affected.length) params.set('mrpOrders', need.orders_affected.join('|'));
     setSearchParams(params, { replace: true });
   };
 
-  const exportPlan = () => {
-    downloadCsv(`mrp-planejamento-${new Date().toISOString().slice(0, 10)}.csv`, ['Produto', 'Variante', 'Demanda', 'Estoque disponível', 'OPs abertas/em produção', 'Falta produzir', 'Pedidos'], productionNeeds.map(need => [need.product_name, need.variant_name || 'Produto simples', String(need.demand), String(need.stock_available), String(need.production_programmed), String(need.shortage), need.orders_affected.join('; ')]));
-    toast.success('Planejamento exportado.');
-  };
-  if (loading) return <div className="flex items-center justify-center py-8"><p className="text-muted-foreground">Calculando planejamento...</p></div>;
-  const productionShortages = productionNeeds.filter(need => need.shortage > 0);
-  const materialShortages = materialNeeds.filter(need => need.shortage > 0);
+  const productionShortages = useMemo(() => productionNeeds.filter(n => n.shortage > 0), [productionNeeds]);
+  const purchaseShortages = useMemo(() => purchaseNeeds.filter(n => n.shortage > 0), [purchaseNeeds]);
+  const riskyIdentities = productionShortages.length + purchaseShortages.length;
+
+  if (loading) return <div className="flex items-center justify-center py-10"><p className="text-muted-foreground">Calculando necessidade líquida...</p></div>;
 
   return <div className="space-y-4">
-    <div className="grid grid-cols-2 gap-3">
-      <Card className={cn(productionShortages.length > 0 && 'border-amber-500/50')}><CardContent className="pt-4 text-center"><p className="text-3xl font-bold">{productionShortages.length}</p><p className="text-xs text-muted-foreground">Itens a produzir</p></CardContent></Card>
-      <Card className={cn(materialShortages.length > 0 && 'border-amber-500/50')}><CardContent className="pt-4 text-center"><p className="text-3xl font-bold">{materialShortages.length}</p><p className="text-xs text-muted-foreground">Materiais a comprar</p></CardContent></Card>
-    </div>
-    <div className="flex gap-2"><Button variant="outline" onClick={() => void loadData()} className="flex-1"><RefreshCw className="h-4 w-4 mr-2" />Atualizar</Button><Button variant="outline" size="icon" onClick={exportPlan}><Download className="h-4 w-4" /></Button></div>
-    <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Factory className="h-4 w-4" />Necessidade de Produção</CardTitle><p className="text-xs text-muted-foreground">Planejamento: demanda comercial menos estoque acabado e OPs abertas/em produção.</p></CardHeader><CardContent className="p-0">
-      {productionNeeds.length === 0 ? <div className="text-center py-8 px-4"><Check className="h-12 w-12 mx-auto text-green-500 mb-2" /><p className="text-sm text-muted-foreground">Não há demanda comercial pendente para planejar.</p></div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Produto / variante</TableHead><TableHead className="text-right">Demanda</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Programado</TableHead><TableHead className="text-right">Falta produzir</TableHead><TableHead /></TableRow></TableHeader><TableBody>{productionNeeds.map(need => <TableRow key={`${need.product_id}:${need.variant_id || 'simple'}`}><TableCell><span className="font-medium">{need.product_name}</span><span className="text-xs text-muted-foreground block">{need.variant_name || 'Produto simples'}{need.variant_sku || need.product_sku ? ` · ${need.variant_sku || need.product_sku}` : ''}</span></TableCell><TableCell className="text-right font-mono">{need.demand} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.stock_available} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.production_programmed} {need.unit}</TableCell><TableCell className={cn('text-right font-mono font-bold', need.shortage > 0 ? 'text-red-500' : 'text-green-500')}>{need.shortage} {need.unit}</TableCell><TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => setSelectedNeed(need)}>Criar OP</Button>}</TableCell></TableRow>)}</TableBody></Table></div>}
-    </CardContent></Card>
-    <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" />Necessidade de Materiais</CardTitle><p className="text-xs text-muted-foreground">Compra necessária = material necessário − estoque físico − compras confirmadas ainda a receber. Não movimenta estoque.</p></CardHeader><CardContent className="p-0">
-      {materialNeeds.length === 0 ? <div className="text-center py-8 px-4"><Check className="h-12 w-12 mx-auto text-green-500 mb-2" /><p className="text-sm text-muted-foreground">Nenhum material adicional é necessário para a produção planejada.</p></div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Componente</TableHead><TableHead className="text-right">Necessário</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Já comprado / A receber</TableHead><TableHead className="text-right">Comprar</TableHead><TableHead /></TableRow></TableHeader><TableBody>{materialNeeds.map(need => <TableRow key={`${need.component_id}:${need.variant_id || 'simple'}`}><TableCell><div className="flex items-center gap-2">{need.shortage > 0 && <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />}<div><span className="font-medium">{need.component_name}</span><span className="text-xs text-muted-foreground block">{need.component_sku}</span></div></div></TableCell><TableCell className="text-right font-mono">{need.total_needed} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.stock_available} {need.unit}</TableCell><TableCell className="text-right font-mono">{need.open_purchase_qty} {need.unit}</TableCell><TableCell className={cn('text-right font-mono font-bold', need.shortage > 0 ? 'text-red-500' : 'text-green-500')}>{need.shortage} {need.unit}</TableCell><TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => preparePurchase(need)}>Preparar compra</Button>}</TableCell></TableRow>)}</TableBody></Table></div>}
-    </CardContent></Card>
-    <ResponsiveDialog open={!!selectedNeed} onOpenChange={open => !open && setSelectedNeed(null)} title="Criar OP a partir do MRP">{selectedNeed && <div className="space-y-4 p-4"><p className="text-sm">A OP nasce <strong>aberta</strong>; ela não movimenta estoque nem altera o pedido.</p><div className="rounded-lg bg-muted p-3 text-sm space-y-1"><p className="font-medium">{selectedNeed.product_name}{selectedNeed.variant_name ? ` · ${selectedNeed.variant_name}` : ''}</p><p>Quantidade sugerida: <strong>{selectedNeed.shortage} {selectedNeed.unit}</strong></p><p>Referência: {selectedNeed.orders_affected.join(', ')}</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedNeed(null)}>Cancelar</Button><Button disabled={creating} onClick={() => void createProductionOrder()}>{creating ? 'Criando...' : 'Confirmar criação da OP'}</Button></div></div>}</ResponsiveDialog>
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg">Planejamento Operacional</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Pedido é demanda. Estoque é realidade física. O planejamento calcula o que falta produzir ou comprar sem movimentar estoque.</p>
+          </div>
+          <Button variant="outline" size="icon" onClick={() => void loadData()} aria-label="Atualizar planejamento"><RefreshCw className="h-4 w-4" /></Button>
+        </div>
+      </CardHeader>
+      <CardContent className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border p-3 text-center"><p className="text-2xl font-bold">{productionShortages.length}</p><p className="text-[11px] text-muted-foreground">Produzir</p></div>
+        <div className="rounded-lg border p-3 text-center"><p className="text-2xl font-bold">{purchaseShortages.length}</p><p className="text-[11px] text-muted-foreground">Comprar</p></div>
+        <div className={cn('rounded-lg border p-3 text-center', riskyIdentities > 0 && 'border-amber-500/50')}><p className="text-2xl font-bold">{riskyIdentities}</p><p className="text-[11px] text-muted-foreground">Exigem ação</p></div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Factory className="h-4 w-4" />Planejamento de produção</CardTitle><p className="text-xs text-muted-foreground">Físico − comprometido + produção programada. O mínimo do produto simples entra como alvo; variantes ainda ficam orientadas pela demanda real.</p></CardHeader>
+      <CardContent className="p-0">
+        {productionNeeds.length === 0 ? <Empty text="Nenhum produto fabricado possui demanda pendente." /> : <div className="overflow-x-auto"><Table>
+          <TableHeader><TableRow><TableHead>Produto / variante</TableHead><TableHead className="text-right">Físico</TableHead><TableHead className="text-right">Comprometido</TableHead><TableHead className="text-right">Disponível agora</TableHead><TableHead className="text-right">Programado</TableHead><TableHead className="text-right">Projetado</TableHead><TableHead className="text-right">Falta</TableHead><TableHead /></TableRow></TableHeader>
+          <TableBody>{productionNeeds.map(need => <TableRow key={`${need.product_id}:${need.variant_id || 'simple'}`}>
+            <TableCell><div className="font-medium">{need.product_name}</div><div className="text-xs text-muted-foreground">{need.variant_name || 'Produto simples'} · {need.orders_affected.length} pedido(s)</div></TableCell>
+            <Num value={need.stock_available} unit={need.unit} />
+            <Num value={need.stock_committed} unit={need.unit} />
+            <Num value={need.available_now} unit={need.unit} danger={need.available_now < 0} />
+            <Num value={need.production_programmed} unit={need.unit} />
+            <Num value={need.projected_balance} unit={need.unit} danger={need.projected_balance < need.stock_target} />
+            <TableCell className="text-right"><Badge variant={need.shortage > 0 ? 'destructive' : 'secondary'}>{need.shortage} {need.unit}</Badge></TableCell>
+            <TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => setSelectedNeed(need)}>Planejar produção</Button>}</TableCell>
+          </TableRow>)}</TableBody>
+        </Table></div>}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><ShoppingCart className="h-4 w-4" />Planejamento de compras</CardTitle><p className="text-xs text-muted-foreground">Une demanda direta de produtos comprados com matéria-prima necessária para cobrir a produção faltante, descontando estoque e compras ainda a receber.</p></CardHeader>
+      <CardContent className="p-0">
+        {purchaseNeeds.length === 0 ? <Empty text="Nenhum produto comprado ou matéria-prima exige planejamento neste momento." /> : <div className="overflow-x-auto"><Table>
+          <TableHeader><TableRow><TableHead>Produto / material</TableHead><TableHead className="text-right">Físico</TableHead><TableHead className="text-right">Pedido direto</TableHead><TableHead className="text-right">Para produção</TableHead><TableHead className="text-right">A receber</TableHead><TableHead className="text-right">Projetado</TableHead><TableHead className="text-right">Comprar</TableHead><TableHead /></TableRow></TableHeader>
+          <TableBody>{purchaseNeeds.map(need => <TableRow key={`${need.component_id}:${need.variant_id || 'simple'}`}>
+            <TableCell><div className="flex items-start gap-2">{need.shortage > 0 && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}<div><div className="font-medium">{need.component_name}</div><div className="text-xs text-muted-foreground">{need.component_sku || 'Sem SKU'} · {need.orders_affected.length} pedido(s) relacionado(s)</div></div></div></TableCell>
+            <Num value={need.stock_available} unit={need.unit} />
+            <Num value={need.direct_demand} unit={need.unit} />
+            <Num value={need.production_requirement} unit={need.unit} />
+            <Num value={need.open_purchase_qty} unit={need.unit} />
+            <Num value={need.projected_balance} unit={need.unit} danger={need.projected_balance < need.stock_target} />
+            <TableCell className="text-right"><Badge variant={need.shortage > 0 ? 'destructive' : 'secondary'}>{need.shortage} {need.unit}</Badge></TableCell>
+            <TableCell className="text-right">{need.shortage > 0 && <Button size="sm" onClick={() => preparePurchase(need)}>Preparar compra</Button>}</TableCell>
+          </TableRow>)}</TableBody>
+        </Table></div>}
+      </CardContent>
+    </Card>
+
+    <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground flex gap-2"><TrendingDown className="h-4 w-4 shrink-0" /><span><strong>Disponível agora</strong> pode ficar negativo quando Pedidos ativos superam o estoque físico. <strong>Projetado</strong> considera OPs abertas ou compras confirmadas ainda não recebidas.</span></div>
+
+    <ResponsiveDialog open={!!selectedNeed} onOpenChange={open => !open && setSelectedNeed(null)} title="Planejar produção">
+      {selectedNeed && <div className="space-y-4 p-4"><p className="text-sm">A OP organiza a necessidade; não movimenta estoque e não altera os Pedidos de origem.</p><div className="rounded-lg bg-muted p-3 text-sm space-y-1"><p className="font-medium">{selectedNeed.product_name}{selectedNeed.variant_name ? ` · ${selectedNeed.variant_name}` : ''}</p><p>Físico: <strong>{selectedNeed.stock_available}</strong> · Comprometido: <strong>{selectedNeed.stock_committed}</strong></p><p>Programado: <strong>{selectedNeed.production_programmed}</strong> · Falta: <strong>{selectedNeed.shortage} {selectedNeed.unit}</strong></p><p className="text-xs text-muted-foreground">Origem: {selectedNeed.orders_affected.join(', ')}</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedNeed(null)}>Cancelar</Button><Button disabled={creating} onClick={() => void createProductionOrder()}>{creating ? 'Criando...' : 'Criar OP'}</Button></div></div>}
+    </ResponsiveDialog>
   </div>;
+}
+
+function Num({ value, unit, danger = false }: { value: number; unit: string; danger?: boolean }) {
+  return <TableCell className={cn('text-right font-mono whitespace-nowrap', danger && 'font-semibold text-red-500')}>{Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {unit}</TableCell>;
+}
+function Empty({ text }: { text: string }) {
+  return <div className="py-8 text-center px-4"><Check className="mx-auto mb-2 h-10 w-10 text-green-500" /><p className="text-sm text-muted-foreground">{text}</p></div>;
 }

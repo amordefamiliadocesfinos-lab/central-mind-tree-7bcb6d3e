@@ -9,22 +9,19 @@ export const physicalIdentityKey = (productId: string, variantId: string | null)
 export interface ProductionNeed {
   product_id: string; variant_id: string | null; product_name: string; variant_name: string | null;
   product_sku: string; variant_sku: string | null; unit: string; demand: number;
-  stock_available: number; production_programmed: number; shortage: number; orders_affected: string[];
+  stock_available: number; stock_committed: number; available_now: number; stock_target: number;
+  production_programmed: number; projected_balance: number; shortage: number; orders_affected: string[];
 }
 export interface MaterialNeed {
   component_id: string; variant_id: string | null; component_name: string; component_sku: string;
-  unit: string; total_needed: number; stock_available: number; open_purchase_qty: number; shortage: number; orders_affected: string[];
+  unit: string; total_needed: number; direct_demand: number; production_requirement: number; stock_target: number;
+  stock_available: number; available_now: number; open_purchase_qty: number; projected_balance: number;
+  shortage: number; orders_affected: string[];
 }
+
 type InventoryRow = { product_id: string; variant_id: string | null; quantity: number | null };
 type ProductionOrderRow = { product_id: string | null; variant_id: string | null; target_quantity: number | null; status: string; items?: Array<{ product_id: string; variant_id: string | null; planned_quantity: number | null }> };
-type OpenPurchaseItemRow = {
-  id: string;
-  purchase_order_id: string;
-  product_id: string;
-  variant_id: string | null;
-  ordered_purchase_qty: number | null;
-  conversion_factor: number | null;
-};
+type OpenPurchaseItemRow = { id: string; purchase_order_id: string; product_id: string; variant_id: string | null; ordered_purchase_qty: number | null; conversion_factor: number | null };
 type ConfirmedReceiptRow = { purchase_order_item_id: string; received_purchase_qty: number | null };
 
 function sumInventory(rows: InventoryRow[]) {
@@ -46,165 +43,180 @@ function sumProgrammedProduction(rows: ProductionOrderRow[]) {
   }, {});
 }
 
-/**
- * Converts only the commercial quantity that is still pending into the canonical
- * operational unit. Physical receipt divergence never becomes a fictitious open purchase.
- */
-export function sumOpenPurchaseOperationalQty(
-  purchaseItems: OpenPurchaseItemRow[],
-  confirmedReceipts: ConfirmedReceiptRow[],
-) {
+export function sumOpenPurchaseOperationalQty(purchaseItems: OpenPurchaseItemRow[], confirmedReceipts: ConfirmedReceiptRow[]) {
   const receivedByItem = confirmedReceipts.reduce<Record<string, number>>((totals, receipt) => {
     totals[receipt.purchase_order_item_id] = (totals[receipt.purchase_order_item_id] || 0) + Number(receipt.received_purchase_qty || 0);
     return totals;
   }, {});
-
   return purchaseItems.reduce<Record<string, number>>((totals, item) => {
-    const orderedCommercialQty = Number(item.ordered_purchase_qty || 0);
-    const receivedCommercialQty = receivedByItem[item.id] || 0;
-    const pendingCommercialQty = Math.max(0, orderedCommercialQty - receivedCommercialQty);
+    const pendingCommercialQty = Math.max(0, Number(item.ordered_purchase_qty || 0) - (receivedByItem[item.id] || 0));
     const conversionFactor = Number(item.conversion_factor || 0);
-    if (!Number.isFinite(conversionFactor) || conversionFactor <= 0) {
-      throw new Error(`Item de compra ${item.id} possui fator de conversão inválido para o MRP.`);
-    }
+    if (!Number.isFinite(conversionFactor) || conversionFactor <= 0) throw new Error(`Item de compra ${item.id} possui fator de conversão inválido para o planejamento.`);
     const key = physicalIdentityKey(item.product_id, item.variant_id);
     totals[key] = (totals[key] || 0) + pendingCommercialQty * conversionFactor;
     return totals;
   }, {});
 }
 
-/** Pure planning calculation. It never writes inventory, reservations, orders or OP completion. */
-export function calculateMrpProductionNeeds(
-  demandRows: Array<{ product_id: string; variant_id: string | null; quantity: number; product_name: string; variant_name: string | null; product_sku: string; variant_sku: string | null; unit: string; order_reference: string }>,
-  inventoryRows: InventoryRow[], productionOrders: ProductionOrderRow[],
-): ProductionNeed[] {
-  const demand = new Map<string, ProductionNeed>();
-  for (const row of demandRows) {
-    const key = physicalIdentityKey(row.product_id, row.variant_id);
-    const current = demand.get(key) ?? { product_id: row.product_id, variant_id: row.variant_id, product_name: row.product_name, variant_name: row.variant_name, product_sku: row.product_sku, variant_sku: row.variant_sku, unit: row.unit, demand: 0, stock_available: 0, production_programmed: 0, shortage: 0, orders_affected: [] };
-    current.demand += Number(row.quantity || 0);
-    if (!current.orders_affected.includes(row.order_reference)) current.orders_affected.push(row.order_reference);
-    demand.set(key, current);
-  }
-  const stock = sumInventory(inventoryRows);
-  const programmed = sumProgrammedProduction(productionOrders);
-  return [...demand.entries()].map(([key, need]) => ({ ...need, stock_available: stock[key] || 0, production_programmed: programmed[key] || 0, shortage: Math.max(0, need.demand - (stock[key] || 0) - (programmed[key] || 0)) }));
-}
-
 export function useMRP() {
-  const calculateProductionNeeds = useCallback(async (): Promise<ProductionNeed[]> => {
-    const { data: orders, error } = await supabase.from('orders').select(`
+  const calculateOperationalPlan = useCallback(async () => {
+    const { data: orders, error: ordersError } = await supabase.from('orders').select(`
       id, order_number, internal_order_number, status, operational_status,
-      items:order_items(product_id, variant_id, quantity, product:products!order_items_product_id_fkey(id, name, sku, unit), variant:product_variants!order_items_variant_id_fkey(id, variant_name, sku, unit))
+      items:order_items(product_id, variant_id, quantity,
+        product:products!order_items_product_id_fkey(id,name,sku,unit,min_stock,is_manufactured,is_purchased,variation_mode),
+        variant:product_variants!order_items_variant_id_fkey(id,variant_name,sku,unit))
     `).is('deleted_at', null);
-    if (error || !orders) { console.error('Error fetching MRP demand:', error); return []; }
+    if (ordersError || !orders) { console.error('Erro ao buscar demanda do planejamento:', ordersError); return { production: [] as ProductionNeed[], materials: [] as MaterialNeed[] }; }
 
-    const demandRows = orders
-      .filter((order: any) => !['cancelado', 'concluido', 'entregue'].includes(order.status) && !['finalizado', 'concluido', 'cancelado'].includes(order.operational_status || ''))
-      .flatMap((order: any) => (order.items || []).filter((item: any) => item.product_id).map((item: any) => ({
-        product_id: item.product_id, variant_id: item.variant_id || null, quantity: Number(item.quantity || 0),
-        product_name: item.product?.name || 'Produto não identificado', variant_name: item.variant?.variant_name || null,
-        product_sku: item.product?.sku || '', variant_sku: item.variant?.sku || null, unit: getPhysicalIdentityUnit(item.product, item.variant),
-        order_reference: order.internal_order_number || order.order_number || order.id.slice(0, 8),
-      })));
-    if (!demandRows.length) return [];
+    const activeOrders = (orders as any[]).filter(order =>
+      !['cancelado', 'concluido', 'entregue'].includes(order.status) &&
+      !['finalized', 'finalizado', 'concluido', 'cancelado'].includes(order.operational_status || '')
+    );
+
+    const demandRows = activeOrders.flatMap(order => (order.items || []).filter((item: any) => item.product_id).map((item: any) => ({
+      product_id: item.product_id,
+      variant_id: item.variant_id || null,
+      quantity: Number(item.quantity || 0),
+      product: item.product,
+      variant: item.variant,
+      order_reference: order.internal_order_number || order.order_number || order.id.slice(0, 8),
+    })));
+    if (!demandRows.length) return { production: [] as ProductionNeed[], materials: [] as MaterialNeed[] };
+
     const productIds = [...new Set(demandRows.map(row => row.product_id))];
-    const [{ data: inventory }, { data: productionOrders }] = await Promise.all([
-      supabase.from('inventory').select('product_id, variant_id, quantity').in('product_id', productIds),
-      supabase.from('production_orders').select('product_id, variant_id, target_quantity, status, items:production_order_items(product_id,variant_id,planned_quantity)').in('status', ['aberto', 'producao']),
-    ]);
-    return calculateMrpProductionNeeds(demandRows, (inventory || []) as InventoryRow[], (productionOrders || []) as ProductionOrderRow[])
-      .sort((a, b) => b.shortage - a.shortage || a.product_name.localeCompare(b.product_name));
-  }, []);
-
-  const calculateMaterialNeeds = useCallback(async (): Promise<MaterialNeed[]> => {
-    const productionNeeds = (await calculateProductionNeeds()).filter(need => need.shortage > 0);
-    if (!productionNeeds.length) return [];
-    const { data: components, error: componentsError } = await supabase.from('product_components').select(`
-      product_id, product_variant_id, component_id, variant_id, qty_per_unit,
-      component:products!product_components_component_id_fkey(id, name, sku, unit),
-      variant:product_variants!product_components_variant_id_fkey(id, variant_name, sku, unit)
-    `).in('product_id', [...new Set(productionNeeds.map(need => need.product_id))]);
-    if (componentsError) { console.error('Error fetching MRP components:', componentsError); return []; }
-    if (!components?.length) return [];
-
-    const materialMap = new Map<string, MaterialNeed>();
-    for (const need of productionNeeds) for (const component of components.filter((row: any) => row.product_id === need.product_id && (row.product_variant_id || null) === need.variant_id) as any[]) {
-      const key = physicalIdentityKey(component.component_id, component.variant_id || null);
-      const existing = materialMap.get(key) ?? {
-        component_id: component.component_id, variant_id: component.variant_id || null,
-        component_name: component.variant ? `${component.component?.name || 'Componente'} · ${component.variant.variant_name}` : component.component?.name || 'Componente não identificado',
-        component_sku: component.variant?.sku || component.component?.sku || '', unit: getPhysicalIdentityUnit(component.component, component.variant), total_needed: 0, stock_available: 0, open_purchase_qty: 0, shortage: 0, orders_affected: [],
-      };
-      existing.total_needed += Number(component.qty_per_unit || 0) * need.shortage;
-      for (const reference of need.orders_affected) if (!existing.orders_affected.includes(reference)) existing.orders_affected.push(reference);
-      materialMap.set(key, existing);
-    }
-    const componentIds = [...new Set([...materialMap.values()].map(need => need.component_id))];
-    const [{ data: inventory, error: inventoryError }, { data: openOrders, error: openOrdersError }] = await Promise.all([
-      supabase.from('inventory').select('product_id, variant_id, quantity').in('product_id', componentIds),
+    const [{ data: inventory }, { data: productionOrders }, { data: openOrders }] = await Promise.all([
+      supabase.from('inventory').select('product_id,variant_id,quantity').in('product_id', productIds),
+      supabase.from('production_orders').select('product_id,variant_id,target_quantity,status,items:production_order_items(product_id,variant_id,planned_quantity)').in('status', ['aberto', 'producao']),
       supabase.from('purchase_orders').select('id,status').in('status', [...OPEN_PURCHASE_STATUSES]),
     ]);
-    if (inventoryError) { console.error('Error fetching material inventory for MRP:', inventoryError); return []; }
-    if (openOrdersError) { console.error('Error fetching open purchase orders for MRP:', openOrdersError); return []; }
+
+    const stock = sumInventory((inventory || []) as InventoryRow[]);
+    const programmed = sumProgrammedProduction((productionOrders || []) as ProductionOrderRow[]);
 
     let openPurchaseByIdentity: Record<string, number> = {};
-    const openOrderIds = (openOrders || []).map(order => order.id);
+    const openOrderIds = (openOrders || []).map((row: any) => row.id);
     if (openOrderIds.length) {
-      const { data: purchaseItems, error: purchaseItemsError } = await supabase
-        .from('purchase_order_items')
+      const { data: purchaseItems } = await supabase.from('purchase_order_items')
         .select('id,purchase_order_id,product_id,variant_id,ordered_purchase_qty,conversion_factor')
-        .in('purchase_order_id', openOrderIds)
-        .in('product_id', componentIds);
-      if (purchaseItemsError) { console.error('Error fetching open purchase items for MRP:', purchaseItemsError); return []; }
-
-      const typedPurchaseItems = (purchaseItems || []) as OpenPurchaseItemRow[];
-      const purchaseItemIds = typedPurchaseItems.map(item => item.id);
-      let confirmedReceiptRows: ConfirmedReceiptRow[] = [];
-      if (purchaseItemIds.length) {
-        const { data: receiptItems, error: receiptItemsError } = await supabase
-          .from('purchase_receipt_items')
-          .select('purchase_order_item_id,received_purchase_qty,purchase_receipt_id')
-          .in('purchase_order_item_id', purchaseItemIds);
-        if (receiptItemsError) { console.error('Error fetching purchase receipts for MRP:', receiptItemsError); return []; }
-
-        const receiptIds = [...new Set((receiptItems || []).map(row => row.purchase_receipt_id))];
+        .in('purchase_order_id', openOrderIds);
+      const typedItems = (purchaseItems || []) as OpenPurchaseItemRow[];
+      const itemIds = typedItems.map(item => item.id);
+      let confirmedRows: ConfirmedReceiptRow[] = [];
+      if (itemIds.length) {
+        const { data: receiptItems } = await supabase.from('purchase_receipt_items')
+          .select('purchase_order_item_id,received_purchase_qty,purchase_receipt_id').in('purchase_order_item_id', itemIds);
+        const receiptIds = [...new Set((receiptItems || []).map((row: any) => row.purchase_receipt_id))];
         if (receiptIds.length) {
-          const { data: confirmedReceipts, error: confirmedReceiptsError } = await supabase
-            .from('purchase_receipts')
-            .select('id')
-            .in('id', receiptIds)
-            .eq('status', 'confirmed');
-          if (confirmedReceiptsError) { console.error('Error validating confirmed purchase receipts for MRP:', confirmedReceiptsError); return []; }
-          const confirmedReceiptIds = new Set((confirmedReceipts || []).map(receipt => receipt.id));
-          confirmedReceiptRows = (receiptItems || [])
-            .filter(row => confirmedReceiptIds.has(row.purchase_receipt_id))
-            .map(row => ({
-              purchase_order_item_id: row.purchase_order_item_id,
-              received_purchase_qty: Number(row.received_purchase_qty || 0),
-            }));
+          const { data: receipts } = await supabase.from('purchase_receipts').select('id').in('id', receiptIds).eq('status', 'confirmed');
+          const confirmedIds = new Set((receipts || []).map((row: any) => row.id));
+          confirmedRows = (receiptItems || []).filter((row: any) => confirmedIds.has(row.purchase_receipt_id)).map((row: any) => ({ purchase_order_item_id: row.purchase_order_item_id, received_purchase_qty: row.received_purchase_qty }));
         }
       }
-      try {
-        openPurchaseByIdentity = sumOpenPurchaseOperationalQty(typedPurchaseItems, confirmedReceiptRows);
-      } catch (error) {
-        console.error('Invalid open purchase conversion for MRP:', error);
-        return [];
+      try { openPurchaseByIdentity = sumOpenPurchaseOperationalQty(typedItems, confirmedRows); }
+      catch (error) { console.error(error); }
+    }
+
+    const demandMap = new Map<string, any>();
+    for (const row of demandRows) {
+      const key = physicalIdentityKey(row.product_id, row.variant_id);
+      const current = demandMap.get(key) ?? { ...row, demand: 0, orders_affected: [] as string[] };
+      current.demand += row.quantity;
+      if (!current.orders_affected.includes(row.order_reference)) current.orders_affected.push(row.order_reference);
+      demandMap.set(key, current);
+    }
+
+    const production: ProductionNeed[] = [];
+    const materialsMap = new Map<string, MaterialNeed>();
+
+    for (const [key, row] of demandMap.entries()) {
+      const product = row.product || {};
+      const variant = row.variant || null;
+      const physical = stock[key] || 0;
+      const target = row.variant_id ? 0 : Number(product.min_stock || 0);
+      const productionProgrammed = programmed[key] || 0;
+      const availableNow = physical - row.demand;
+
+      if (product.is_manufactured) {
+        const shortage = Math.max(0, row.demand + target - physical - productionProgrammed);
+        production.push({
+          product_id: row.product_id, variant_id: row.variant_id,
+          product_name: product.name || 'Produto não identificado', variant_name: variant?.variant_name || null,
+          product_sku: product.sku || '', variant_sku: variant?.sku || null,
+          unit: getPhysicalIdentityUnit(product, variant), demand: row.demand,
+          stock_available: physical, stock_committed: row.demand, available_now: availableNow,
+          stock_target: target, production_programmed: productionProgrammed,
+          projected_balance: physical + productionProgrammed - row.demand,
+          shortage, orders_affected: row.orders_affected,
+        });
+      }
+
+      if (product.is_purchased && !product.is_manufactured) {
+        const existing = materialsMap.get(key) ?? {
+          component_id: row.product_id, variant_id: row.variant_id,
+          component_name: variant ? `${product.name} · ${variant.variant_name}` : product.name,
+          component_sku: variant?.sku || product.sku || '', unit: getPhysicalIdentityUnit(product, variant),
+          total_needed: 0, direct_demand: 0, production_requirement: 0, stock_target: target,
+          stock_available: physical, available_now: 0, open_purchase_qty: openPurchaseByIdentity[key] || 0,
+          projected_balance: 0, shortage: 0, orders_affected: [] as string[],
+        };
+        existing.direct_demand += row.demand;
+        for (const ref of row.orders_affected) if (!existing.orders_affected.includes(ref)) existing.orders_affected.push(ref);
+        materialsMap.set(key, existing);
       }
     }
 
-    const stock = sumInventory((inventory || []) as InventoryRow[]);
-    return [...materialMap.entries()].map(([key, need]) => {
-      const stockAvailable = stock[key] || 0;
-      const openPurchaseQty = openPurchaseByIdentity[key] || 0;
-      return {
-        ...need,
-        stock_available: stockAvailable,
-        open_purchase_qty: openPurchaseQty,
-        shortage: Math.max(0, need.total_needed - stockAvailable - openPurchaseQty),
-      };
-    }).sort((a, b) => b.shortage - a.shortage || a.component_name.localeCompare(b.component_name));
-  }, [calculateProductionNeeds]);
+    const productionShortages = production.filter(need => need.shortage > 0);
+    if (productionShortages.length) {
+      const manufacturedIds = [...new Set(productionShortages.map(need => need.product_id))];
+      const { data: components } = await supabase.from('product_components').select(`
+        product_id,product_variant_id,component_id,variant_id,qty_per_unit,
+        component:products!product_components_component_id_fkey(id,name,sku,unit,min_stock,is_purchased),
+        variant:product_variants!product_components_variant_id_fkey(id,variant_name,sku,unit)
+      `).in('product_id', manufacturedIds);
 
-  return { calculateProductionNeeds, calculateMaterialNeeds };
+      const componentIds = [...new Set((components || []).map((row: any) => row.component_id))];
+      let componentStock: Record<string, number> = {};
+      if (componentIds.length) {
+        const { data: componentInventory } = await supabase.from('inventory').select('product_id,variant_id,quantity').in('product_id', componentIds);
+        componentStock = sumInventory((componentInventory || []) as InventoryRow[]);
+      }
+
+      for (const need of productionShortages) {
+        for (const component of (components || []).filter((row: any) => row.product_id === need.product_id && (row.product_variant_id || null) === need.variant_id) as any[]) {
+          if (component.component?.is_purchased === false) continue;
+          const key = physicalIdentityKey(component.component_id, component.variant_id || null);
+          const product = component.component || {};
+          const variant = component.variant || null;
+          const target = component.variant_id ? 0 : Number(product.min_stock || 0);
+          const existing = materialsMap.get(key) ?? {
+            component_id: component.component_id, variant_id: component.variant_id || null,
+            component_name: variant ? `${product.name || 'Componente'} · ${variant.variant_name}` : product.name || 'Componente não identificado',
+            component_sku: variant?.sku || product.sku || '', unit: getPhysicalIdentityUnit(product, variant),
+            total_needed: 0, direct_demand: 0, production_requirement: 0, stock_target: target,
+            stock_available: componentStock[key] || 0, available_now: 0, open_purchase_qty: openPurchaseByIdentity[key] || 0,
+            projected_balance: 0, shortage: 0, orders_affected: [] as string[],
+          };
+          existing.production_requirement += Number(component.qty_per_unit || 0) * need.shortage;
+          for (const ref of need.orders_affected) if (!existing.orders_affected.includes(ref)) existing.orders_affected.push(ref);
+          materialsMap.set(key, existing);
+        }
+      }
+    }
+
+    const materials = [...materialsMap.values()].map(need => {
+      const totalNeeded = need.direct_demand + need.production_requirement + need.stock_target;
+      const availableNow = need.stock_available - need.direct_demand;
+      const projected = need.stock_available + need.open_purchase_qty - need.direct_demand - need.production_requirement;
+      return { ...need, total_needed: totalNeeded, available_now: availableNow, projected_balance: projected, shortage: Math.max(0, totalNeeded - need.stock_available - need.open_purchase_qty) };
+    });
+
+    production.sort((a, b) => b.shortage - a.shortage || a.product_name.localeCompare(b.product_name));
+    materials.sort((a, b) => b.shortage - a.shortage || a.component_name.localeCompare(b.component_name));
+    return { production, materials };
+  }, []);
+
+  const calculateProductionNeeds = useCallback(async () => (await calculateOperationalPlan()).production, [calculateOperationalPlan]);
+  const calculateMaterialNeeds = useCallback(async () => (await calculateOperationalPlan()).materials, [calculateOperationalPlan]);
+
+  return { calculateOperationalPlan, calculateProductionNeeds, calculateMaterialNeeds };
 }
