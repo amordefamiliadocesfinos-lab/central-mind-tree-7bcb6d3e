@@ -22,8 +22,14 @@ export function ProductionTab({ products }: ProductionTabProps) {
   return (
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-7">
-          <TabsTrigger value="produce" className="min-h-11 gap-1 px-1"><Factory className="h-4 w-4" /><span className="hidden sm:inline">Produzir</span></TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-8 sm:grid-cols-7">
+          <TabsTrigger
+            value="produce"
+            className="col-span-2 min-h-14 gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black uppercase tracking-wide text-white shadow-sm hover:bg-emerald-700 data-[state=active]:bg-emerald-700 data-[state=active]:text-white sm:col-span-1 sm:min-h-11 sm:gap-1 sm:px-1 sm:text-xs sm:font-semibold sm:normal-case sm:tracking-normal"
+          >
+            <Factory className="h-6 w-6 sm:h-4 sm:w-4" />
+            <span>Produzir</span>
+          </TabsTrigger>
           <TabsTrigger value="real" className="min-h-11 gap-1 px-1"><CalendarDays className="h-4 w-4" /><span className="hidden sm:inline">Produção Real</span></TabsTrigger>
           <TabsTrigger value="adjustments" className="min-h-11 gap-1 px-1"><AlertTriangle className="h-4 w-4" /><span className="hidden sm:inline">Ajustes</span></TabsTrigger>
           <TabsTrigger value="orders" className="min-h-11 gap-1 px-1"><ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">OPs</span></TabsTrigger>
