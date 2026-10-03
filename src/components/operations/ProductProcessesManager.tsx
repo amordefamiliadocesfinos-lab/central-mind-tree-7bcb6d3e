@@ -24,10 +24,21 @@ export function ProductProcessesManager({ products }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
-    supabase.from('processes').select('id,name,is_active').eq('is_active', true).order('name')
-      .then(({ data }) => setProcesses((data || []) as Process[]));
+    (async () => {
+      const [{ data: authData }, processRes] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('processes').select('id,name,is_active').eq('is_active', true).order('name'),
+      ]);
+      setProcesses((processRes.data || []) as Process[]);
+      if (!authData.user?.id) return;
+      const { data } = await supabase.from('app_users').select('role')
+        .eq('auth_user_id', authData.user.id).eq('is_active', true).maybeSingle();
+      const role = String(data?.role || '').toUpperCase();
+      setCanManage(role === 'ADMINISTRADOR' || role === 'LIDER PRODUÇÃO');
+    })();
   }, []);
 
   useEffect(() => {
@@ -43,21 +54,19 @@ export function ProductProcessesManager({ products }: Props) {
       .then(({ data, error }) => {
         if (!active) return;
         setLoading(false);
-        if (error) {
-          toast.error('Erro ao carregar processos do produto');
-          return;
-        }
+        if (error) { toast.error('Erro ao carregar processos do produto'); return; }
         setSelected(((data || []) as ProductProcess[]).map((row) => row.process_id));
       });
     return () => { active = false; };
   }, [productId]);
 
   const toggle = (id: string, checked: boolean) => {
+    if (!canManage) return;
     setSelected((current) => checked ? [...current, id] : current.filter((item) => item !== id));
   };
 
   const save = async () => {
-    if (!productId) return;
+    if (!productId || !canManage) return;
     setSaving(true);
     const { data, error } = await (supabase as any).rpc('set_product_processes', {
       p_product_id: productId,
@@ -67,7 +76,7 @@ export function ProductProcessesManager({ products }: Props) {
     setSaving(false);
     if (error || !data?.success) {
       console.error(error || data);
-      toast.error('Não foi possível salvar os processos do produto');
+      toast.error(data?.reason === 'forbidden' ? 'Sem permissão para alterar esta configuração' : 'Não foi possível salvar os processos do produto');
       return;
     }
     toast.success('Processos do produto atualizados');
@@ -76,10 +85,8 @@ export function ProductProcessesManager({ products }: Props) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <SlidersHorizontal className="h-5 w-5" /> Processos por produto
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">Defina uma vez. No lançamento, o operador verá somente estes processos.</p>
+        <CardTitle className="flex items-center gap-2 text-lg"><SlidersHorizontal className="h-5 w-5" /> Processos por produto</CardTitle>
+        <p className="text-sm text-muted-foreground">Defina uma vez. No lançamento, aparecem somente os processos deste produto.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -90,25 +97,20 @@ export function ProductProcessesManager({ products }: Props) {
           </Select>
         </div>
 
-        {productId && (
-          <div className="space-y-2">
-            {loading ? <p className="py-4 text-center text-sm text-muted-foreground">Carregando...</p> : processes.map((process) => {
-              const checked = selected.includes(process.id);
-              return (
-                <label key={process.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border p-3 hover:bg-muted/40">
-                  <Checkbox checked={checked} onCheckedChange={(value) => toggle(process.id, value === true)} />
-                  <span className="font-medium">{process.name}</span>
-                </label>
-              );
-            })}
-          </div>
-        )}
+        {productId && <div className="space-y-2">
+          {loading ? <p className="py-4 text-center text-sm text-muted-foreground">Carregando...</p> : processes.map((process) => {
+            const checked = selected.includes(process.id);
+            return <label key={process.id} className="flex min-h-12 items-center gap-3 rounded-xl border p-3">
+              <Checkbox checked={checked} disabled={!canManage} onCheckedChange={(value) => toggle(process.id, value === true)} />
+              <span className="font-medium">{process.name}</span>
+            </label>;
+          })}
+        </div>}
 
-        {productId && (
-          <Button className="h-12 w-full" onClick={save} disabled={saving || loading}>
-            <Save className="mr-2 h-4 w-4" />{saving ? 'Salvando...' : 'Salvar processos deste produto'}
-          </Button>
-        )}
+        {productId && canManage && <Button className="h-12 w-full" onClick={save} disabled={saving || loading}>
+          <Save className="mr-2 h-4 w-4" />{saving ? 'Salvando...' : 'Salvar processos deste produto'}
+        </Button>}
+        {productId && !canManage && <p className="text-xs text-muted-foreground">Somente Administrador ou Líder de Produção pode alterar os vínculos. Operadores apenas usam a configuração no lançamento.</p>}
       </CardContent>
     </Card>
   );
