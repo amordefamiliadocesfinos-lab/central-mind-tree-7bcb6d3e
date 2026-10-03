@@ -3256,6 +3256,102 @@ export type Database = {
           },
         ]
       }
+      operational_incidents: {
+        Row: {
+          applied_quantity: number
+          area: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_key: string | null
+          expected_quantity: number | null
+          id: string
+          incident_type: string
+          metadata: Json
+          pending_quantity: number
+          product_id: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source_id: string | null
+          source_item_id: string | null
+          source_type: string | null
+          status: string
+          title: string
+          unit: string | null
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          applied_quantity?: number
+          area: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_key?: string | null
+          expected_quantity?: number | null
+          id?: string
+          incident_type: string
+          metadata?: Json
+          pending_quantity?: number
+          product_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_id?: string | null
+          source_item_id?: string | null
+          source_type?: string | null
+          status?: string
+          title: string
+          unit?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          applied_quantity?: number
+          area?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_key?: string | null
+          expected_quantity?: number | null
+          id?: string
+          incident_type?: string
+          metadata?: Json
+          pending_quantity?: number
+          product_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_id?: string | null
+          source_item_id?: string | null
+          source_type?: string | null
+          status?: string
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_incidents_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_incidents_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_documents: {
         Row: {
           created_at: string
@@ -4315,28 +4411,73 @@ export type Database = {
           },
         ]
       }
+      production_closing_financial_entries: {
+        Row: {
+          closing_id: string
+          created_at: string
+          employee_name: string
+          financial_entry_id: string
+          id: string
+        }
+        Insert: {
+          closing_id: string
+          created_at?: string
+          employee_name: string
+          financial_entry_id: string
+          id?: string
+        }
+        Update: {
+          closing_id?: string
+          created_at?: string
+          employee_name?: string
+          financial_entry_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_closing_financial_entries_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "production_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_closing_financial_entries_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: true
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_closing_items: {
         Row: {
           closing_id: string
           employee_name: string
+          employee_user_id: string | null
           id: string
           process_id: string | null
+          process_name_snapshot: string | null
           total_quantity: number
           total_value: number
         }
         Insert: {
           closing_id: string
           employee_name: string
+          employee_user_id?: string | null
           id?: string
           process_id?: string | null
+          process_name_snapshot?: string | null
           total_quantity?: number
           total_value?: number
         }
         Update: {
           closing_id?: string
           employee_name?: string
+          employee_user_id?: string | null
           id?: string
           process_id?: string | null
+          process_name_snapshot?: string | null
           total_quantity?: number
           total_value?: number
         }
@@ -4349,7 +4490,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "production_closing_items_employee_user_id_fkey"
+            columns: ["employee_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "production_closing_items_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_closing_sources: {
+        Row: {
+          closing_id: string
+          created_at: string
+          employee_name: string
+          employee_user_id: string | null
+          id: string
+          process_id: string | null
+          process_name_snapshot: string
+          quantity: number
+          source_date: string
+          source_id: string
+          source_type: string
+          total_value: number
+        }
+        Insert: {
+          closing_id: string
+          created_at?: string
+          employee_name: string
+          employee_user_id?: string | null
+          id?: string
+          process_id?: string | null
+          process_name_snapshot: string
+          quantity?: number
+          source_date: string
+          source_id: string
+          source_type: string
+          total_value?: number
+        }
+        Update: {
+          closing_id?: string
+          created_at?: string
+          employee_name?: string
+          employee_user_id?: string | null
+          id?: string
+          process_id?: string | null
+          process_name_snapshot?: string
+          quantity?: number
+          source_date?: string
+          source_id?: string
+          source_type?: string
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_closing_sources_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "production_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_closing_sources_employee_user_id_fkey"
+            columns: ["employee_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_closing_sources_process_id_fkey"
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
@@ -4741,6 +4956,71 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_order_demands: {
+        Row: {
+          created_at: string
+          demand_quantity_snapshot: number
+          id: string
+          order_id: string
+          order_reference_snapshot: string | null
+          product_id: string
+          production_order_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          demand_quantity_snapshot: number
+          id?: string
+          order_id: string
+          order_reference_snapshot?: string | null
+          product_id: string
+          production_order_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          demand_quantity_snapshot?: number
+          id?: string
+          order_id?: string
+          order_reference_snapshot?: string | null
+          product_id?: string
+          production_order_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_order_demands_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_order_demands_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_order_demands_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_order_demands_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -5361,6 +5641,70 @@ export type Database = {
             columns: ["storage_location_id"]
             isOneToOne: false
             referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_replenishment_policies: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_preferred: boolean
+          lead_time_days: number
+          notes: string | null
+          product_id: string
+          safety_days: number
+          supplier_contact_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number
+          notes?: string | null
+          product_id: string
+          safety_days?: number
+          supplier_contact_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number
+          notes?: string | null
+          product_id?: string
+          safety_days?: number
+          supplier_contact_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_replenishment_policies_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_replenishment_policies_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_replenishment_policies_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -6626,10 +6970,12 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assert_operational_incident_manager: { Args: never; Returns: undefined }
       assert_physical_identity: {
         Args: { p_context: string; p_product_id: string; p_variant_id: string }
         Returns: undefined
       }
+      assert_production_closing_manager: { Args: never; Returns: undefined }
       attach_production_fact_process: {
         Args: {
           p_operator_name?: string
@@ -6703,6 +7049,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_production_closing: {
+        Args: { p_closing_id: string; p_due_date: string }
+        Returns: Json
+      }
       confirm_purchase_receipt: {
         Args: { p_receipt_id: string }
         Returns: Json
@@ -6717,6 +7067,10 @@ export type Database = {
           p_max_attempts: number
           p_window_seconds: number
         }
+        Returns: Json
+      }
+      create_production_closing: {
+        Args: { p_end_date: string; p_notes?: string; p_start_date: string }
         Returns: Json
       }
       create_unified_sale: {
@@ -6774,6 +7128,16 @@ export type Database = {
         Args: { p_product_id: string; p_variant_id: string }
         Returns: boolean
       }
+      plan_production_need: {
+        Args: {
+          p_order_demands?: Json
+          p_product_id: string
+          p_quantity: number
+          p_scheduled_date?: string
+          p_variant_id: string
+        }
+        Returns: Json
+      }
       recalculate_contact_payment_metrics: {
         Args: { p_contact_id: string }
         Returns: undefined
@@ -6790,9 +7154,17 @@ export type Database = {
         Args: { p_entry_ids: string[]; p_payload: Json }
         Returns: string
       }
+      reconcile_operational_incident: {
+        Args: { p_incident_id: string; p_resolution_note?: string }
+        Returns: Json
+      }
       reconcile_production_fact_materials: {
         Args: { p_production_fact_id: string }
         Returns: Json
+      }
+      refresh_production_closing_financial_status: {
+        Args: { p_closing_id: string }
+        Returns: string
       }
       register_production_fact: {
         Args: {
@@ -6805,6 +7177,23 @@ export type Database = {
           p_production_order_id?: string
           p_quantity: number
           p_variant_id: string
+        }
+        Returns: Json
+      }
+      report_operational_incident: {
+        Args: {
+          p_applied_quantity?: number
+          p_area: string
+          p_description?: string
+          p_expected_quantity?: number
+          p_incident_type: string
+          p_metadata?: Json
+          p_product_id?: string
+          p_source_id?: string
+          p_source_type?: string
+          p_title: string
+          p_unit?: string
+          p_variant_id?: string
         }
         Returns: Json
       }
@@ -6822,6 +7211,19 @@ export type Database = {
       }
       transition_order_status_with_stock: {
         Args: { p_order_id: string; p_status: string }
+        Returns: Json
+      }
+      upsert_purchase_replenishment_policy: {
+        Args: {
+          p_is_active?: boolean
+          p_is_preferred?: boolean
+          p_lead_time_days: number
+          p_notes?: string
+          p_product_id: string
+          p_safety_days: number
+          p_supplier_contact_id: string
+          p_variant_id: string
+        }
         Returns: Json
       }
     }
