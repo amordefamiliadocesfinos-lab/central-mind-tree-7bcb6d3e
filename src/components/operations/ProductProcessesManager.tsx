@@ -48,7 +48,6 @@ export function ProductProcessesManager({ products }: Props) {
     supabase.from('product_processes')
       .select('process_id,sort_order')
       .eq('product_id', productId)
-      .is('variant_id', null)
       .eq('is_active', true)
       .order('sort_order')
       .then(({ data, error }) => {
