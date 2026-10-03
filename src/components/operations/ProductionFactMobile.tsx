@@ -16,7 +16,6 @@ import { notifyInventoryChanged } from '@/hooks/useInventorySync';
 import type { Product } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ProductVariant = {
   id: string;
@@ -79,7 +78,18 @@ export function ProductionFactMobile({ products, onExit }: Props) {
   const manufactured = useMemo(
     () => products
       .filter((item) => item.is_active && item.is_manufactured)
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+      .sort((a, b) => {
+        const rank = (name: string) => {
+          const upper = name.toUpperCase();
+          if (upper.includes('ALFAJOR')) return 0;
+          if (upper.includes('TRUFA') && upper.includes('40')) return 1;
+          if (upper.includes('TRUFA') && upper.includes('30')) return 2;
+          return 3;
+        };
+        const diff = rank(a.name) - rank(b.name);
+        if (diff !== 0) return diff;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      }),
     [products],
   );
 
@@ -532,21 +542,43 @@ export function ProductionFactMobile({ products, onExit }: Props) {
               <h1 className="mx-auto mt-4 max-w-md text-4xl font-black leading-tight tracking-tight">{currentProcess.name}</h1>
               <div className="mx-auto mt-8 max-w-sm">
                 <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">Quem fez?</div>
-                <Select
-                  value={assignments[currentProcess.id] || ''}
-                  onValueChange={(operatorId) => {
-                    setAssignments((current) => ({ ...current, [currentProcess.id]: operatorId }));
-                    clearAttempt();
-                  }}
-                >
-                  <SelectTrigger className="h-20 rounded-3xl px-5 text-xl font-black">
-                    <SelectValue placeholder="Selecionar operador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operators.map((operator) => <SelectItem key={operator.id} value={operator.id} className="py-3 text-lg">{operator.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {currentOperatorName && <p className="mt-3 text-sm text-muted-foreground">Pré-selecionado: {currentOperatorName}</p>}
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={operators.length <= 1}
+                    onClick={() => {
+                      if (!currentProcess || operators.length === 0) return;
+                      const currentIndex = operators.findIndex((operator) => operator.id === assignments[currentProcess.id]);
+                      const previous = operators[(currentIndex - 1 + operators.length) % operators.length];
+                      setAssignments((current) => ({ ...current, [currentProcess.id]: previous.id }));
+                      clearAttempt();
+                    }}
+                    aria-label="Operador anterior"
+                  >
+                    <ChevronLeft className="h-8 w-8" />
+                  </Button>
+                  <div className="flex min-h-24 w-full max-w-[290px] items-center justify-center rounded-3xl border bg-card px-4 py-6 text-center text-3xl font-black leading-tight">
+                    {currentOperatorName || 'Sem operador'}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={operators.length <= 1}
+                    onClick={() => {
+                      if (!currentProcess || operators.length === 0) return;
+                      const currentIndex = operators.findIndex((operator) => operator.id === assignments[currentProcess.id]);
+                      const next = operators[(currentIndex + 1) % operators.length];
+                      setAssignments((current) => ({ ...current, [currentProcess.id]: next.id }));
+                      clearAttempt();
+                    }}
+                    aria-label="Próximo operador"
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
