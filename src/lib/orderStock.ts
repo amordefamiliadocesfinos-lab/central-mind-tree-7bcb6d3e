@@ -3,14 +3,16 @@ import { type OrderStockEvent } from './orderStockContract';
 
 export { getOrderStockEventForStatus, getOrderStockEventKey, getPhysicalStockEvent } from './orderStockContract';
 
+export interface OrderStockShortage { product_id: string; variant_id: string | null; product_name?: string; variant_name?: string | null; required_quantity: number; available_quantity?: number; applied_quantity?: number; missing_quantity: number; }
 export interface OrderStockEventResult {
   event: OrderStockEvent;
   applied: boolean;
   already_applied: boolean;
   movement_count: number;
+  adjustment_required?: boolean;
+  shortages?: OrderStockShortage[];
 }
 
-export interface OrderStockShortage { product_id: string; variant_id: string | null; product_name?: string; variant_name?: string | null; required_quantity: number; available_quantity: number; missing_quantity: number; }
 export class OrderStockShortageError extends Error {
   constructor(message: string, public readonly shortages: OrderStockShortage[]) { super(message); this.name = 'OrderStockShortageError'; }
 }

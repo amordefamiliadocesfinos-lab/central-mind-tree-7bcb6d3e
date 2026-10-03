@@ -4,7 +4,7 @@ import type { Product } from '@/hooks/useOrders';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductionFactMobile } from './ProductionFactMobile';
 import { ProductionRealHistory } from './ProductionRealHistory';
-import { ProductionMaterialPendingPanel } from './ProductionMaterialPendingPanel';
+import { OperationsIncidentsPanel } from './OperationsIncidentsPanel';
 import { ProductionOrdersTab } from './ProductionOrdersTab';
 import { ProductProcessesManager } from './ProductProcessesManager';
 import { ProcessesManager } from './ProcessesManager';
@@ -36,7 +36,7 @@ export function ProductionTab({ products }: ProductionTabProps) {
           <ProductionFactMobile products={products} onExit={() => setActiveSubTab('real')} />
         </TabsContent>
         <TabsContent value="real" className="mt-4"><ProductionRealHistory /></TabsContent>
-        <TabsContent value="adjustments" className="mt-4"><ProductionMaterialPendingPanel /></TabsContent>
+        <TabsContent value="adjustments" className="mt-4"><OperationsIncidentsPanel /></TabsContent>
         <TabsContent value="orders"><ProductionOrdersTab products={products} /></TabsContent>
         <TabsContent value="processes" className="space-y-4">
           <ProductProcessesManager products={products} />
