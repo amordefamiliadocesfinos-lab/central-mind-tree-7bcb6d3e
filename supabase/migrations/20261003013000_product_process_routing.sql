@@ -27,25 +27,29 @@ ON public.product_processes FOR SELECT TO authenticated USING (true);
 GRANT SELECT ON public.product_processes TO authenticated;
 GRANT ALL ON public.product_processes TO service_role;
 
--- Semeia somente relações comprovadas pelas OPs históricas: processo requerido da OP
--- ligado ao produto presente naquela mesma OP. A configuração nasce no nível do
--- produto, portanto vale para suas variantes salvo override futuro por variante.
+-- Semeia somente relações comprovadas pelas OPs históricas. Primeiro reduzimos o
+-- histórico a uma linha por Produto+Processo; depois ordenamos. Assim OPs repetidas
+-- não influenciam sort_order nem criam duplicidade semântica.
+WITH historical AS (
+  SELECT DISTINCT poi.product_id, pop.process_id, pr.name AS process_name
+  FROM public.production_order_items poi
+  JOIN public.production_order_processes pop
+    ON pop.production_order_id = poi.production_order_id
+  JOIN public.processes pr ON pr.id = pop.process_id
+  WHERE pop.is_required = true
+), ranked AS (
+  SELECT
+    product_id,
+    process_id,
+    row_number() OVER (
+      PARTITION BY product_id
+      ORDER BY lower(process_name), process_id
+    ) - 1 AS sort_order
+  FROM historical
+)
 INSERT INTO public.product_processes(product_id, variant_id, process_id, sort_order, is_required, is_active)
-SELECT DISTINCT
-  poi.product_id,
-  NULL::uuid,
-  pop.process_id,
-  row_number() OVER (
-    PARTITION BY poi.product_id
-    ORDER BY lower(pr.name), pop.process_id
-  ) - 1,
-  true,
-  true
-FROM public.production_order_items poi
-JOIN public.production_order_processes pop
-  ON pop.production_order_id = poi.production_order_id
-JOIN public.processes pr ON pr.id = pop.process_id
-WHERE pop.is_required = true
+SELECT product_id, NULL::uuid, process_id, sort_order, true, true
+FROM ranked
 ON CONFLICT (product_id, variant_id, process_id) DO NOTHING;
 
 -- Um fato físico agora aceita vários processos, um apontamento por processo.
