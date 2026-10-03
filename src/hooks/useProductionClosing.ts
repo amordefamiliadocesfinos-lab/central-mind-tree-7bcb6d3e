@@ -89,8 +89,8 @@ export function useProductionClosing() {
     const aggregated: Record<string, { employee_name: string; process_id: string | null; process_name: string; total_quantity: number; total_value: number }> = {};
     let grandTotal = 0;
 
-    const addEntry = (employeeName: string, processId: string | null, processName: string, quantity: number, totalValue: number) => {
-      const key = `${employeeName}|${processId || processName}`;
+    const addEntry = (employeeName: string, processId: string | null, processName: string, quantity: number, totalValue: number, keySuffix?: string) => {
+      const key = `${employeeName}|${processId || keySuffix || processName}`;
       if (!aggregated[key]) {
         aggregated[key] = {
           employee_name: employeeName,
@@ -114,7 +114,7 @@ export function useProductionClosing() {
     });
 
     legacyLogs.forEach((log: any) => {
-      addEntry(log.employee_name, null, `legacy-${log.process}`, log.quantity, 0);
+      addEntry(log.employee_name, null, log.process, log.quantity, 0, `legacy-${log.process}`);
     });
 
     const { data: closing, error: closingError } = await supabase
