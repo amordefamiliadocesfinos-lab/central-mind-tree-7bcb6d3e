@@ -49,6 +49,7 @@ export const CLOSING_STATUS = {
   parcialmente_pago: { label: 'Parcialmente pago', color: 'bg-orange-500' },
   pago: { label: 'Pago', color: 'bg-green-600' },
   revisao_financeira: { label: 'Revisar financeiro', color: 'bg-red-600' },
+  revisao_integridade: { label: 'Revisar integridade', color: 'bg-red-700' },
   fechado_sem_valor: { label: 'Fechado sem valor', color: 'bg-slate-500' },
 } as const;
 
@@ -123,6 +124,8 @@ export function useProductionClosing() {
       if (result?.reason === 'salary_category_missing') toast.error('Categoria financeira Salários não encontrada.');
       else if (result?.reason === 'due_date_required') toast.error('Informe o vencimento das contas a pagar.');
       else if (result?.reason === 'closing_not_open') toast.error('Este fechamento não está mais em preparação.');
+      else if (result?.reason === 'closing_sources_required') toast.error('Fechamento sem fontes canônicas. Revise a integridade antes de enviar ao Financeiro.');
+      else if (result?.reason === 'closing_source_total_mismatch' || result?.reason === 'closing_item_total_mismatch' || result?.reason === 'closing_integrity_mismatch') toast.error('Fontes, itens e total do fechamento não conferem. Revise a integridade antes de enviar ao Financeiro.');
       else toast.error('Não foi possível enviar o fechamento ao Financeiro.');
       return false;
     }
