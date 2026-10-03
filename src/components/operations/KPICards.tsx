@@ -26,100 +26,45 @@ interface KPICardsProps {
 export function KPICards({ kpis, stockValue, compact = false }: KPICardsProps) {
   const [, setSearchParams] = useSearchParams();
   const cards = [
-    {
-      label: 'Pedidos',
-      value: kpis.totalOrders,
-      format: (v: number) => v.toString(),
-      subtitle: undefined,
-      icon: ShoppingCart,
-      color: 'text-primary',
-    },
-    {
-      label: 'Valor dos Pedidos',
-      value: kpis.totalValue,
-      format: (v: number) => formatCurrency(v, { compact: true }),
-      subtitle: undefined,
-      icon: DollarSign,
-      color: 'text-emerald-600',
-    },
-    {
-      label: 'Ticket Médio',
-      value: kpis.avgTicket,
-      format: (v: number) => formatCurrency(v, { maxDecimals: 2 }),
-      subtitle: undefined,
-      icon: TrendingUp,
-      color: 'text-blue-600',
-    },
-    {
-      label: 'Estoque Baixo',
-      value: kpis.lowStock.length,
-      format: (v: number) => v.toString(),
-      subtitle: undefined,
-      icon: AlertTriangle,
-      color: kpis.lowStock.length > 0 ? 'text-amber-500' : 'text-muted-foreground',
-    },
+    { label: 'Pedidos', value: kpis.totalOrders, format: (v: number) => v.toString(), subtitle: undefined, icon: ShoppingCart, color: 'text-primary' },
+    { label: 'Valor dos Pedidos', value: kpis.totalValue, format: (v: number) => formatCurrency(v, { compact: true }), subtitle: undefined, icon: DollarSign, color: 'text-emerald-600' },
+    { label: 'Ticket Médio', value: kpis.avgTicket, format: (v: number) => formatCurrency(v, { maxDecimals: 2 }), subtitle: undefined, icon: TrendingUp, color: 'text-blue-600' },
+    { label: 'Estoque Baixo', value: kpis.lowStock.length, format: (v: number) => v.toString(), subtitle: undefined, icon: AlertTriangle, color: kpis.lowStock.length > 0 ? 'text-amber-500' : 'text-muted-foreground' },
   ];
 
   if (stockValue) {
     cards.push({
-      label: 'Valor em Estoque',
-      value: stockValue.totalStockValue,
+      label: 'Valor em Estoque', value: stockValue.totalStockValue,
       format: (v: number) => formatCurrency(v, { compact: true }),
-      subtitle: `${stockValue.totalStockQuantity} unidades`,
-      icon: Package,
-      color: 'text-violet-600',
+      subtitle: `${stockValue.totalStockQuantity} unidades`, icon: Package, color: 'text-violet-600',
     });
   }
 
   if (compact) {
-    return (
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.label} className="shrink-0 min-w-[100px]">
-              <CardContent className="p-3 flex items-center gap-2">
-                <Icon className={cn('h-4 w-4 shrink-0', card.color)} />
-                <div>
-                  <p className={cn('text-lg font-bold leading-none', card.color)}>{card.format(card.value)}</p>
-                  <p className="text-[10px] text-muted-foreground">{card.label}</p>
-                  {card.subtitle && <p className="text-[9px] text-muted-foreground/70">{card.subtitle}</p>}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    );
+    return <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+      {cards.map(card => {
+        const Icon = card.icon;
+        return <Card key={card.label} className="shrink-0 min-w-[100px]"><CardContent className="p-3 flex items-center gap-2"><Icon className={cn('h-4 w-4 shrink-0', card.color)} /><div><p className={cn('text-lg font-bold leading-none', card.color)}>{card.format(card.value)}</p><p className="text-[10px] text-muted-foreground">{card.label}</p>{card.subtitle && <p className="text-[9px] text-muted-foreground/70">{card.subtitle}</p>}</div></CardContent></Card>;
+      })}
+    </div>;
   }
 
-  const navigateOperational = (tab: OperationsTab) => {
-    setSearchParams({ tab }, { replace: true });
-  };
+  const navigateOperational = (tab: OperationsTab) => setSearchParams({ tab }, { replace: true });
 
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {cards.map((card) => {
+  return <div className="space-y-5">
+    <OperationalIntelligencePanel onNavigate={navigateOperational} />
+
+    <div className="space-y-2">
+      <div>
+        <h3 className="text-sm font-semibold">Indicadores gerais</h3>
+        <p className="text-xs text-muted-foreground">Contexto comercial e patrimonial. Não substitui as prioridades operacionais acima.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {cards.map(card => {
           const Icon = card.icon;
-          return (
-            <Card key={card.label}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn('p-2 rounded-lg bg-muted', card.color)}><Icon className="h-5 w-5" /></div>
-                  <div>
-                    <p className={cn('text-xl font-bold', card.color)}>{card.format(card.value)}</p>
-                    <p className="text-xs text-muted-foreground">{card.label}</p>
-                    {card.subtitle && <p className="text-[10px] text-muted-foreground/70">{card.subtitle}</p>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
+          return <Card key={card.label} className="bg-muted/20"><CardContent className="p-3"><div className="flex items-center gap-2"><Icon className={cn('h-4 w-4 shrink-0', card.color)} /><div className="min-w-0"><p className={cn('text-lg font-bold leading-none', card.color)}>{card.format(card.value)}</p><p className="mt-1 text-[11px] text-muted-foreground truncate">{card.label}</p>{card.subtitle && <p className="text-[10px] text-muted-foreground/70 truncate">{card.subtitle}</p>}</div></div></CardContent></Card>;
         })}
       </div>
-
-      <OperationalIntelligencePanel onNavigate={navigateOperational} />
     </div>
-  );
+  </div>;
 }
