@@ -2,14 +2,32 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export interface ProductionClosingFinancialEntry {
+  id: string;
+  closing_id: string;
+  employee_name: string;
+  financial_entry_id: string;
+  financial_entry?: {
+    id: string;
+    description: string;
+    value: number;
+    value_paid: number;
+    due_date: string;
+    payment_date: string | null;
+    lifecycle_status: string;
+  } | null;
+}
+
 export interface ProductionClosingItem {
   id: string;
   closing_id: string;
   employee_name: string;
+  employee_user_id?: string | null;
   process_id: string | null;
+  process_name_snapshot?: string | null;
   total_quantity: number;
   total_value: number;
-  process?: { id: string; name: string };
+  process?: { id: string; name: string } | null;
 }
 
 export interface ProductionClosing {
@@ -22,12 +40,17 @@ export interface ProductionClosing {
   created_at: string;
   closed_at: string | null;
   items?: ProductionClosingItem[];
+  financial_links?: ProductionClosingFinancialEntry[];
 }
 
 export const CLOSING_STATUS = {
-  aberto: { label: 'Aberto', color: 'bg-blue-500' },
-  pago: { label: 'Pago', color: 'bg-green-500' },
-};
+  aberto: { label: 'Em preparação', color: 'bg-blue-500' },
+  a_pagar: { label: 'A pagar', color: 'bg-amber-500' },
+  parcialmente_pago: { label: 'Parcialmente pago', color: 'bg-orange-500' },
+  pago: { label: 'Pago', color: 'bg-green-600' },
+  revisao_financeira: { label: 'Revisar financeiro', color: 'bg-red-600' },
+  fechado_sem_valor: { label: 'Fechado sem valor', color: 'bg-slate-500' },
+} as const;
 
 export function useProductionClosing() {
   const [closings, setClosings] = useState<ProductionClosing[]>([]);
@@ -35,163 +58,117 @@ export function useProductionClosing() {
 
   const fetchClosings = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('production_closings')
       .select(`
         *,
         items:production_closing_items(
           *,
           process:processes(id, name)
+        ),
+        financial_links:production_closing_financial_entries(
+          id,closing_id,employee_name,financial_entry_id,
+          financial_entry:financial_entries(
+            id,description,value,value_paid,due_date,payment_date,lifecycle_status
+          )
         )
       `)
       .order('created_at', { ascending: false });
 
     if (error) console.error('Error fetching closings:', error);
-    else setClosings(data || []);
+    else setClosings((data || []) as ProductionClosing[]);
     setLoading(false);
   }, []);
 
-  // Combina apontamentos de OP, Fato Real de Produção e legado.
   const createClosing = useCallback(async (startDate: string, endDate: string, notes?: string) => {
-    const [opRes, factRes, legacyRes] = await Promise.all([
-      supabase
-        .from('production_entries')
-        .select(`employee_name, process_id, quantity, total_value, process:processes(id, name)`)
-        .gte('date', startDate)
-        .lte('date', endDate),
-      (supabase as any)
-        .from('production_fact_process_entries')
-        .select(`operator_name, process_id, quantity, total_value, process:processes(id, name)`)
-        .gte('occurred_at', `${startDate}T00:00:00`)
-        .lte('occurred_at', `${endDate}T23:59:59.999`),
-      supabase
-        .from('production_logs')
-        .select(`employee_name, process, quantity`)
-        .gte('date', startDate)
-        .lte('date', endDate),
-    ]);
-
-    if (opRes.error || factRes.error || legacyRes.error) {
-      console.error('Erro ao buscar lançamentos para fechamento:', opRes.error || factRes.error || legacyRes.error);
-      toast.error('Erro ao buscar lançamentos');
-      return null;
-    }
-
-    const opEntries = opRes.data || [];
-    const factEntries = factRes.data || [];
-    const legacyLogs = legacyRes.data || [];
-
-    if (opEntries.length === 0 && factEntries.length === 0 && legacyLogs.length === 0) {
-      toast.error('Nenhum lançamento no período');
-      return null;
-    }
-
-    const aggregated: Record<string, { employee_name: string; process_id: string | null; process_name: string; total_quantity: number; total_value: number }> = {};
-    let grandTotal = 0;
-
-    const addEntry = (employeeName: string, processId: string | null, processName: string, quantity: number, totalValue: number, keySuffix?: string) => {
-      const key = `${employeeName}|${processId || keySuffix || processName}`;
-      if (!aggregated[key]) {
-        aggregated[key] = {
-          employee_name: employeeName,
-          process_id: processId,
-          process_name: processName,
-          total_quantity: 0,
-          total_value: 0,
-        };
-      }
-      aggregated[key].total_quantity += Number(quantity) || 0;
-      aggregated[key].total_value += Number(totalValue) || 0;
-      grandTotal += Number(totalValue) || 0;
-    };
-
-    opEntries.forEach((entry: any) => {
-      addEntry(entry.employee_name, entry.process_id, entry.process?.name || 'Processo', entry.quantity, entry.total_value || 0);
+    const { data, error } = await (supabase.rpc as any)('create_production_closing', {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_notes: notes || null,
     });
-
-    factEntries.forEach((entry: any) => {
-      addEntry(entry.operator_name, entry.process_id, entry.process?.name || 'Processo', entry.quantity, entry.total_value || 0);
-    });
-
-    legacyLogs.forEach((log: any) => {
-      addEntry(log.employee_name, null, log.process, log.quantity, 0, `legacy-${log.process}`);
-    });
-
-    const { data: closing, error: closingError } = await supabase
-      .from('production_closings')
-      .insert({ start_date: startDate, end_date: endDate, status: 'aberto', total_value: grandTotal, notes })
-      .select()
-      .single();
-
-    if (closingError) {
-      toast.error('Erro ao criar fechamento');
-      return null;
-    }
-
-    const items = Object.values(aggregated).map(item => ({
-      closing_id: closing.id,
-      employee_name: item.employee_name,
-      process_id: item.process_id,
-      total_quantity: item.total_quantity,
-      total_value: item.total_value,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from('production_closing_items')
-      .insert(items);
-
-    if (itemsError) console.error('Error inserting closing items:', itemsError);
-
-    toast.success('Fechamento criado');
-    fetchClosings();
-    return closing;
-  }, [fetchClosings]);
-
-  const markAsPaid = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from('production_closings')
-      .update({ status: 'pago', closed_at: new Date().toISOString() })
-      .eq('id', id);
 
     if (error) {
-      toast.error('Erro ao marcar como pago');
+      console.error('Erro ao criar fechamento:', error);
+      toast.error(error.message || 'Erro ao criar fechamento');
+      return null;
+    }
+
+    const result = data as { success?: boolean; reason?: string; closing_id?: string; source_count?: number; total_value?: number } | null;
+    if (!result?.success) {
+      if (result?.reason === 'no_unclosed_entries') toast.error('Nenhum apontamento ainda não fechado foi encontrado nesse período.');
+      else if (result?.reason === 'invalid_period') toast.error('Período inválido.');
+      else toast.error('Não foi possível gerar o fechamento.');
+      return null;
+    }
+
+    toast.success(`Fechamento criado com ${result.source_count || 0} apontamento(s).`);
+    await fetchClosings();
+    return result;
+  }, [fetchClosings]);
+
+  const confirmClosing = useCallback(async (id: string, dueDate: string) => {
+    const { data, error } = await (supabase.rpc as any)('confirm_production_closing', {
+      p_closing_id: id,
+      p_due_date: dueDate,
+    });
+
+    if (error) {
+      console.error('Erro ao confirmar fechamento:', error);
+      toast.error(error.message || 'Não foi possível confirmar o fechamento.');
       return false;
     }
 
-    toast.success('Fechamento marcado como pago');
-    fetchClosings();
+    const result = data as { success?: boolean; reason?: string; financial_entries?: number; already_confirmed?: boolean; status?: string } | null;
+    if (!result?.success) {
+      if (result?.reason === 'salary_category_missing') toast.error('Categoria financeira Salários não encontrada.');
+      else if (result?.reason === 'due_date_required') toast.error('Informe o vencimento das contas a pagar.');
+      else if (result?.reason === 'closing_not_open') toast.error('Este fechamento não está mais em preparação.');
+      else toast.error('Não foi possível enviar o fechamento ao Financeiro.');
+      return false;
+    }
+
+    if (result.already_confirmed) toast.success('Este fechamento já estava ligado ao Financeiro.');
+    else if ((result.financial_entries || 0) > 0) toast.success(`${result.financial_entries} conta(s) a pagar criada(s) no Financeiro.`);
+    else toast.success('Fechamento concluído sem valor financeiro.');
+    await fetchClosings();
     return true;
   }, [fetchClosings]);
 
   const deleteClosing = useCallback(async (id: string) => {
     const { error } = await supabase.from('production_closings').delete().eq('id', id);
     if (error) {
-      toast.error('Erro ao excluir fechamento');
+      toast.error(error.message?.includes('financialized_production_closing')
+        ? 'Fechamento já enviado ao Financeiro não pode ser excluído.'
+        : 'Erro ao excluir fechamento');
       return false;
     }
-    toast.success('Fechamento excluído');
+    toast.success('Fechamento excluído. Os apontamentos voltaram a ficar disponíveis.');
     setClosings(prev => prev.filter(c => c.id !== id));
     return true;
   }, []);
 
   const getClosingSummaryByEmployee = useCallback((closing: ProductionClosing) => {
-    const byEmployee: Record<string, { total: number; items: ProductionClosingItem[] }> = {};
+    const byEmployee: Record<string, { total: number; items: ProductionClosingItem[]; financial?: ProductionClosingFinancialEntry }> = {};
     (closing.items || []).forEach(item => {
-      if (!byEmployee[item.employee_name]) byEmployee[item.employee_name] = { total: 0, items: [] };
-      byEmployee[item.employee_name].total += item.total_value;
-      byEmployee[item.employee_name].items.push(item);
+      const key = item.employee_name.trim().toLocaleLowerCase('pt-BR');
+      if (!byEmployee[key]) {
+        const financial = (closing.financial_links || []).find(link => link.employee_name.trim().toLocaleLowerCase('pt-BR') === key);
+        byEmployee[key] = { total: 0, items: [], financial };
+      }
+      byEmployee[key].total += Number(item.total_value || 0);
+      byEmployee[key].items.push(item);
     });
     return byEmployee;
   }, []);
 
-  useEffect(() => { fetchClosings(); }, [fetchClosings]);
+  useEffect(() => { void fetchClosings(); }, [fetchClosings]);
 
   return {
     closings,
     loading,
     fetchClosings,
     createClosing,
-    markAsPaid,
+    confirmClosing,
     deleteClosing,
     getClosingSummaryByEmployee,
   };
