@@ -1,22 +1,46 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Factory, ImageOff, Loader2, PackageCheck, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ImageOff,
+  Loader2,
+  PackageCheck,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyInventoryChanged } from '@/hooks/useInventorySync';
 import type { Product } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type ProductVariant = { id: string; product_id: string; sku: string; variant_name: string; is_active: boolean };
+type ProductVariant = {
+  id: string;
+  product_id: string;
+  sku: string;
+  variant_name: string;
+  is_active: boolean;
+};
+
 type AppUser = { id: string; name: string };
 type RoutedProcess = { id: string; name: string; value_per_unit: number | string; sort_order: number };
-type Step = 'product' | 'variant' | 'quantity' | 'confirm' | 'success';
-type ProductionFactResult = { success?: boolean; reason?: string; production_fact_id?: string; material_adjustment_required?: boolean };
+type Screen = 'product' | 'variant' | 'quantity' | 'process' | 'confirm' | 'success';
+type ProductionFactResult = {
+  success?: boolean;
+  reason?: string;
+  production_fact_id?: string;
+  material_adjustment_required?: boolean;
+};
 
-interface Props { products: Product[] }
+interface Props {
+  products: Product[];
+  onExit?: () => void;
+}
+
 const QUICK_AMOUNTS = [30, 60, 120, 300];
 
 function errorMessage(result: ProductionFactResult) {
@@ -32,8 +56,11 @@ function errorMessage(result: ProductionFactResult) {
   return messages[result.reason || ''] || 'Não foi possível registrar a produção.';
 }
 
-export function ProductionFactMobile({ products }: Props) {
-  const [step, setStep] = useState<Step>('product');
+export function ProductionFactMobile({ products, onExit }: Props) {
+  const [screen, setScreen] = useState<Screen>('product');
+  const [productCursor, setProductCursor] = useState(0);
+  const [variantCursor, setVariantCursor] = useState(0);
+  const [processIndex, setProcessIndex] = useState(0);
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -50,9 +77,15 @@ export function ProductionFactMobile({ products }: Props) {
   const pendingEventKey = useRef<string | null>(null);
 
   const manufactured = useMemo(
-    () => products.filter((p) => p.is_active && p.is_manufactured).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    () => products
+      .filter((item) => item.is_active && item.is_manufactured)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
     [products],
   );
+
+  const visibleProduct = manufactured[productCursor] || null;
+  const visibleVariant = variants[variantCursor] || null;
+  const currentProcess = routedProcesses[processIndex] || null;
 
   useEffect(() => {
     let mounted = true;
@@ -65,13 +98,33 @@ export function ProductionFactMobile({ products }: Props) {
       const userList = (usersRes.data || []) as AppUser[];
       setOperators(userList);
       if (authData.user?.id) {
-        const { data } = await supabase.from('app_users').select('id,name')
-          .eq('auth_user_id', authData.user.id).eq('is_active', true).maybeSingle();
+        const { data } = await supabase
+          .from('app_users')
+          .select('id,name')
+          .eq('auth_user_id', authData.user.id)
+          .eq('is_active', true)
+          .maybeSingle();
         if (mounted && data) setCurrentOperator(data as AppUser);
       }
     })();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!product || routedProcesses.length === 0 || operators.length === 0) return;
+    setAssignments((current) => {
+      const next = { ...current };
+      routedProcesses.forEach((proc) => {
+        if (next[proc.id]) return;
+        const stored = typeof window !== 'undefined'
+          ? window.localStorage.getItem(`production:last-operator:${product.id}:${proc.id}`)
+          : null;
+        if (stored && operators.some((operator) => operator.id === stored)) next[proc.id] = stored;
+        else if (currentOperator) next[proc.id] = currentOperator.id;
+      });
+      return next;
+    });
+  }, [product, routedProcesses, operators, currentOperator]);
 
   const clearAttempt = () => {
     pendingEventKey.current = null;
@@ -81,7 +134,8 @@ export function ProductionFactMobile({ products }: Props) {
 
   const loadProcesses = async (selectedProduct: Product) => {
     setLoadingProcesses(true);
-    const { data, error } = await (supabase as any).from('product_processes')
+    const { data, error } = await (supabase as any)
+      .from('product_processes')
       .select('process_id,sort_order,cost_per_unit,process:processes(id,name,value_per_unit,is_active)')
       .eq('product_id', selectedProduct.id)
       .eq('is_active', true)
@@ -90,7 +144,7 @@ export function ProductionFactMobile({ products }: Props) {
     if (error) {
       setLoadingProcesses(false);
       toast.error('Não foi possível carregar os processos deste produto.');
-      return;
+      return false;
     }
 
     const mapped: RoutedProcess[] = (data || [])
@@ -114,66 +168,146 @@ export function ProductionFactMobile({ products }: Props) {
     setRoutedProcesses(mapped);
     setAssignments(nextAssignments);
     setLoadingProcesses(false);
+    return mapped.length > 0;
   };
 
   const reset = () => {
-    setStep('product'); setProduct(null); setVariant(null); setVariants([]); setQuantity('');
-    setRoutedProcesses([]); setAssignments({}); clearAttempt();
+    setScreen('product');
+    setProductCursor(0);
+    setVariantCursor(0);
+    setProcessIndex(0);
+    setProduct(null);
+    setVariant(null);
+    setVariants([]);
+    setQuantity('');
+    setRoutedProcesses([]);
+    setAssignments({});
+    clearAttempt();
   };
 
-  const chooseProduct = async (selected: Product) => {
-    setProduct(selected); setVariant(null); setQuantity(''); setRoutedProcesses([]); setAssignments({}); clearAttempt();
+  const chooseVisibleProduct = async () => {
+    if (!visibleProduct) return;
+    const selected = visibleProduct;
+    setProduct(selected);
+    setVariant(null);
+    setQuantity('');
+    setRoutedProcesses([]);
+    setAssignments({});
+    setProcessIndex(0);
+    clearAttempt();
+
     if (selected.variation_mode !== 'variacoes_fisicas') {
       setVariants([]);
       await loadProcesses(selected);
-      setStep('quantity');
+      setScreen('quantity');
       return;
     }
-    setStep('variant');
+
     setLoadingVariants(true);
-    const { data, error } = await supabase.from('product_variants')
+    const { data, error } = await supabase
+      .from('product_variants')
       .select('id,product_id,sku,variant_name,is_active')
-      .eq('product_id', selected.id).eq('is_active', true).order('variant_name');
+      .eq('product_id', selected.id)
+      .eq('is_active', true)
+      .order('variant_name');
     setLoadingVariants(false);
-    if (error) { toast.error('Não foi possível carregar os sabores/variantes.'); return; }
+
+    if (error) {
+      toast.error('Não foi possível carregar os sabores/variantes.');
+      return;
+    }
+
     const list = (data || []) as ProductVariant[];
     setVariants(list);
+    setVariantCursor(0);
+
     if (list.length === 1) {
       setVariant(list[0]);
       await loadProcesses(selected);
-      setStep('quantity');
+      setScreen('quantity');
+      return;
     }
+
+    setScreen('variant');
   };
 
-  const chooseVariant = async (selected: ProductVariant) => {
-    if (!product) return;
-    setVariant(selected); clearAttempt();
+  const chooseVisibleVariant = async () => {
+    if (!product || !visibleVariant) return;
+    setVariant(visibleVariant);
+    clearAttempt();
     await loadProcesses(product);
-    setStep('quantity');
+    setScreen('quantity');
   };
 
   const parsedQuantity = Number(quantity.replace(',', '.'));
   const validQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0;
   const allProcessesAssigned = routedProcesses.length > 0 && routedProcesses.every((proc) => !!assignments[proc.id]);
-  const canContinue = validQuantity && !loadingProcesses && allProcessesAssigned;
+  const canConfirm = validQuantity && !loadingProcesses && allProcessesAssigned;
 
-  const back = () => {
+  const goBack = () => {
     clearAttempt();
-    if (step === 'confirm') return setStep('quantity');
-    if (step === 'quantity' && product?.variation_mode === 'variacoes_fisicas' && variants.length > 1) {
-      setRoutedProcesses([]); setAssignments({}); setVariant(null); return setStep('variant');
+    if (screen === 'product') {
+      onExit?.();
+      return;
     }
-    setProduct(null); setVariant(null); setVariants([]); setRoutedProcesses([]); setAssignments({}); setStep('product');
+    if (screen === 'variant') {
+      setProduct(null);
+      setVariant(null);
+      setVariants([]);
+      setScreen('product');
+      return;
+    }
+    if (screen === 'quantity') {
+      if (product?.variation_mode === 'variacoes_fisicas' && variants.length > 1) {
+        setVariant(null);
+        setRoutedProcesses([]);
+        setAssignments({});
+        setScreen('variant');
+      } else {
+        setProduct(null);
+        setRoutedProcesses([]);
+        setAssignments({});
+        setScreen('product');
+      }
+      return;
+    }
+    if (screen === 'process') {
+      if (processIndex > 0) setProcessIndex((current) => current - 1);
+      else setScreen('quantity');
+      return;
+    }
+    if (screen === 'confirm') {
+      if (routedProcesses.length > 0) {
+        setProcessIndex(routedProcesses.length - 1);
+        setScreen('process');
+      } else setScreen('quantity');
+    }
   };
 
-  const prepareConfirmation = () => {
+  const goForwardFromQuantity = () => {
+    if (!validQuantity) return;
+    if (loadingProcesses) return;
+    if (routedProcesses.length === 0) {
+      toast.error('Este produto ainda não possui processos configurados.');
+      return;
+    }
+    setProcessIndex(0);
+    setScreen('process');
+  };
+
+  const goForwardFromProcess = () => {
+    if (!currentProcess || !assignments[currentProcess.id]) return;
+    if (processIndex < routedProcesses.length - 1) {
+      setProcessIndex((current) => current + 1);
+      return;
+    }
     clearAttempt();
     pendingEventKey.current = `production_fact:${crypto.randomUUID()}`;
-    setStep('confirm');
+    setScreen('confirm');
   };
 
   const confirm = async () => {
-    if (!product || !canContinue || submitting) return;
+    if (!product || !canConfirm || submitting) return;
     if (product.variation_mode === 'variacoes_fisicas' && !variant) return;
     if (!pendingEventKey.current) pendingEventKey.current = `production_fact:${crypto.randomUUID()}`;
     setSubmitting(true);
@@ -209,12 +343,14 @@ export function ProductionFactMobile({ products }: Props) {
       const operatorId = assignments[proc.id];
       const operator = operators.find((item) => item.id === operatorId);
       if (!operator) return false;
+
       const { data: attached, error: attachError } = await (supabase as any).rpc('attach_production_fact_process', {
         p_production_fact_id: rpcResult.production_fact_id,
         p_process_id: proc.id,
         p_operator_user_id: operator.id,
         p_operator_name: operator.name,
       });
+
       if (!attachError && attached?.success && typeof window !== 'undefined') {
         window.localStorage.setItem(`production:last-operator:${product.id}:${proc.id}`, operator.id);
       }
@@ -227,64 +363,268 @@ export function ProductionFactMobile({ products }: Props) {
       toast.warning('Produção registrada, mas algum processo precisa ser revisado.');
     }
     notifyInventoryChanged();
-    setStep('success');
+    setScreen('success');
   };
 
-  const title = product?.name || '';
-  const variantTitle = variant?.variant_name || '';
+  const totalSteps = 3 + (product?.variation_mode === 'variacoes_fisicas' && variants.length > 1 ? 1 : 0) + routedProcesses.length;
+  const currentStep = (() => {
+    if (screen === 'product') return 1;
+    if (screen === 'variant') return 2;
+    const hasVariantStep = product?.variation_mode === 'variacoes_fisicas' && variants.length > 1;
+    if (screen === 'quantity') return hasVariantStep ? 3 : 2;
+    if (screen === 'process') return (hasVariantStep ? 4 : 3) + processIndex;
+    if (screen === 'confirm') return totalSteps;
+    return totalSteps;
+  })();
 
-  return <div className="mx-auto w-full max-w-3xl space-y-4 pb-6">
-    {step !== 'product' && step !== 'success' && <Button variant="ghost" onClick={back} className="h-11 px-2 text-base"><ArrowLeft className="mr-2 h-5 w-5" />Voltar</Button>}
+  const productName = product?.name || '';
+  const variantName = variant?.variant_name || '';
+  const currentOperatorName = currentProcess
+    ? operators.find((operator) => operator.id === assignments[currentProcess.id])?.name
+    : '';
 
-    {step === 'product' && <div className="space-y-4">
-      <div><h2 className="text-2xl font-bold">O que você produziu?</h2><p className="text-sm text-muted-foreground">Toque no produto. Não precisa escolher OP.</p></div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{manufactured.map((item) => <button key={item.id} type="button" onClick={() => chooseProduct(item)} className="overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition active:scale-[0.98] hover:border-primary/50"><div className="aspect-square bg-muted">{item.cover_image_url ? <img src={item.cover_image_url} alt={item.name} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center text-muted-foreground"><ImageOff className="h-10 w-10" /></div>}</div><div className="p-3 text-base font-semibold leading-tight">{item.name}</div></button>)}</div>
-    </div>}
+  return (
+    <div className="fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
+      <div className="mx-auto flex h-full w-full max-w-lg flex-col px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))]">
+        {screen !== 'success' && (
+          <div className="flex shrink-0 items-center justify-between">
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full" onClick={goBack} aria-label="Voltar">
+              <ArrowLeft className="h-7 w-7" />
+            </Button>
+            <div className="text-center">
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Produção</div>
+              <div className="mt-1 text-sm font-medium text-muted-foreground">{Math.min(currentStep, totalSteps)} de {Math.max(totalSteps, 1)}</div>
+            </div>
+            <div className="h-12 w-12" />
+          </div>
+        )}
 
-    {step === 'variant' && <div className="space-y-4">
-      <div><p className="text-sm text-muted-foreground">{title}</p><h2 className="text-2xl font-bold">Qual sabor/variante?</h2></div>
-      {loadingVariants ? <div className="flex min-h-40 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{variants.map((item) => <button key={item.id} type="button" onClick={() => chooseVariant(item)} className="min-h-24 rounded-2xl border bg-card p-4 text-left text-lg font-semibold shadow-sm active:scale-[0.98]">{item.variant_name}</button>)}</div>}
-    </div>}
+        <main className="flex min-h-0 flex-1 items-center justify-center py-3">
+          {screen === 'product' && (
+            <div className="w-full text-center">
+              <h1 className="mb-5 text-3xl font-black tracking-tight sm:text-4xl">O que você produziu?</h1>
+              {visibleProduct ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={manufactured.length <= 1}
+                    onClick={() => setProductCursor((current) => (current - 1 + manufactured.length) % manufactured.length)}
+                    aria-label="Produto anterior"
+                  >
+                    <ChevronLeft className="h-8 w-8" />
+                  </Button>
 
-    {step === 'quantity' && <div className="space-y-5">
-      <div><p className="text-sm text-muted-foreground">{title}{variantTitle ? ` · ${variantTitle}` : ''}</p><h2 className="text-2xl font-bold">Quantas unidades ficaram prontas?</h2></div>
-      <Card><CardContent className="space-y-5 p-5">
-        <Input inputMode="decimal" value={quantity} onChange={(e) => { setQuantity(e.target.value.replace(/[^0-9.,]/g, '')); clearAttempt(); }} placeholder="0" className="h-20 text-center text-4xl font-bold" autoFocus />
-        <div className="grid grid-cols-4 gap-2">{QUICK_AMOUNTS.map((amount) => <Button key={amount} type="button" variant="outline" className="h-14 text-base font-semibold" onClick={() => { setQuantity(String((Number(quantity) || 0) + amount)); clearAttempt(); }}>+{amount}</Button>)}</div>
+                  <button
+                    type="button"
+                    onClick={chooseVisibleProduct}
+                    className="w-full max-w-[290px] overflow-hidden rounded-3xl border bg-card shadow-sm transition active:scale-[0.98]"
+                  >
+                    <div className="aspect-square max-h-[40dvh] bg-muted">
+                      {visibleProduct.cover_image_url ? (
+                        <img src={visibleProduct.cover_image_url} alt={visibleProduct.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground"><ImageOff className="h-16 w-16" /></div>
+                      )}
+                    </div>
+                    <div className="p-4 text-xl font-black leading-tight">{visibleProduct.name}</div>
+                  </button>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-2"><Users className="h-5 w-5" /><div><p className="font-semibold">Quem fez cada processo?</p><p className="text-xs text-muted-foreground">Os processos já vêm definidos pelo produto. Só ajuste o operador quando necessário.</p></div></div>
-          {loadingProcesses ? <div className="flex h-20 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : routedProcesses.length === 0 ?
-            <div className="rounded-xl border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-800"><div className="flex gap-2"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">Processos ainda não configurados para este produto.</p><p>O gestor deve vinculá-los uma vez em Produção → Processos.</p></div></div></div>
-            : routedProcesses.map((proc, index) => <div key={proc.id} className="rounded-xl border p-3">
-              <div className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold">{index + 1}</span><span className="font-semibold">{proc.name}</span></div>
-              <Label className="text-xs text-muted-foreground">Operador</Label>
-              <Select value={assignments[proc.id] || ''} onValueChange={(operatorId) => { setAssignments((current) => ({ ...current, [proc.id]: operatorId })); clearAttempt(); }}>
-                <SelectTrigger className="mt-1 h-12"><SelectValue placeholder="Selecionar operador" /></SelectTrigger>
-                <SelectContent>{operators.map((operator) => <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>)}
-        </div>
-        <Button className="h-16 w-full text-lg font-bold" disabled={!canContinue} onClick={prepareConfirmation}>Continuar</Button>
-      </CardContent></Card>
-    </div>}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={manufactured.length <= 1}
+                    onClick={() => setProductCursor((current) => (current + 1) % manufactured.length)}
+                    aria-label="Próximo produto"
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-lg text-muted-foreground">Nenhum produto fabricado ativo.</div>
+              )}
+              <p className="mt-4 text-sm text-muted-foreground">Toque no produto para continuar</p>
+            </div>
+          )}
 
-    {step === 'confirm' && <div className="space-y-5">
-      <div><h2 className="text-2xl font-bold">Confirmar produção</h2><p className="text-sm text-muted-foreground">Produto, quantidade e responsáveis pelos processos.</p></div>
-      <Card><CardHeader className="bg-muted/40 pb-3"><CardTitle className="flex items-center gap-2"><Factory className="h-5 w-5" />Produção pronta</CardTitle></CardHeader><CardContent className="space-y-4 p-5">
-        <div><p className="text-sm text-muted-foreground">Produto</p><p className="text-xl font-semibold">{title}{variantTitle ? ` · ${variantTitle}` : ''}</p></div>
-        <div><p className="text-sm text-muted-foreground">Quantidade</p><p className="text-4xl font-bold">{parsedQuantity}</p></div>
-        <div className="space-y-2 border-t pt-3">{routedProcesses.map((proc) => { const operator = operators.find((item) => item.id === assignments[proc.id]); return <div key={proc.id} className="flex justify-between gap-3 text-sm"><span className="text-muted-foreground">{proc.name}</span><span className="font-medium text-right">{operator?.name || '—'}</span></div>; })}</div>
-      </CardContent></Card>
-      <Button className="h-20 w-full text-xl font-bold" disabled={submitting} onClick={confirm}>{submitting ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <PackageCheck className="mr-2 h-6 w-6" />}{submitting ? 'Registrando...' : 'CONFIRMAR PRODUÇÃO'}</Button>
-    </div>}
+          {screen === 'variant' && (
+            <div className="w-full text-center">
+              <div className="mb-2 text-sm font-semibold text-muted-foreground">{productName}</div>
+              <h1 className="mb-8 text-3xl font-black tracking-tight sm:text-4xl">Qual variante?</h1>
+              {loadingVariants ? (
+                <Loader2 className="mx-auto h-10 w-10 animate-spin" />
+              ) : visibleVariant ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={variants.length <= 1}
+                    onClick={() => setVariantCursor((current) => (current - 1 + variants.length) % variants.length)}
+                  >
+                    <ChevronLeft className="h-8 w-8" />
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={chooseVisibleVariant}
+                    className="flex min-h-44 w-full max-w-[290px] items-center justify-center rounded-3xl border bg-card p-6 text-3xl font-black leading-tight shadow-sm active:scale-[0.98]"
+                  >
+                    {visibleVariant.variant_name}
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-14 w-14 shrink-0 rounded-full"
+                    disabled={variants.length <= 1}
+                    onClick={() => setVariantCursor((current) => (current + 1) % variants.length)}
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-lg text-muted-foreground">Nenhuma variante ativa.</div>
+              )}
+              <p className="mt-5 text-sm text-muted-foreground">Toque na variante para continuar</p>
+            </div>
+          )}
 
-    {step === 'success' && <Card className="border-emerald-500/30"><CardContent className="flex min-h-[420px] flex-col items-center justify-center gap-5 p-6 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10"><CheckCircle2 className="h-12 w-12 text-emerald-600" /></div>
-      <div><h2 className="text-3xl font-bold">Produção registrada</h2><p className="mt-2 text-lg text-muted-foreground">{parsedQuantity} {title}{variantTitle ? ` · ${variantTitle}` : ''}</p><p className="mt-1 text-sm text-muted-foreground">{routedProcesses.length} processo(s) apontado(s)</p></div>
-      {result?.material_adjustment_required && <div className="w-full max-w-md rounded-xl border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-800"><p className="font-semibold">Produção registrada com ajuste de material pendente.</p><p>O gestor poderá regularizar depois em Ajustes.</p></div>}
-      {processWarning && <div className="w-full max-w-md rounded-xl border border-amber-400/40 p-4 text-sm text-amber-800">Produção física registrada, mas algum apontamento de processo precisa ser revisado.</div>}
-      <Button className="h-16 w-full max-w-sm text-lg font-bold" onClick={reset}>Lançar outra produção</Button>
-    </CardContent></Card>}
-  </div>;
+          {screen === 'quantity' && (
+            <div className="w-full text-center">
+              <div className="mb-2 text-sm font-semibold text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''}</div>
+              <h1 className="mb-5 text-3xl font-black tracking-tight sm:text-4xl">Quantas unidades?</h1>
+              <Input
+                inputMode="decimal"
+                value={quantity}
+                onChange={(event) => { setQuantity(event.target.value.replace(/[^0-9.,]/g, '')); clearAttempt(); }}
+                placeholder="0"
+                className="mx-auto h-24 max-w-sm rounded-3xl text-center text-5xl font-black"
+                autoFocus
+              />
+              <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-3">
+                {QUICK_AMOUNTS.map((amount) => (
+                  <Button
+                    key={amount}
+                    type="button"
+                    variant="outline"
+                    className="h-14 rounded-2xl text-xl font-bold"
+                    onClick={() => { setQuantity(String((Number(quantity) || 0) + amount)); clearAttempt(); }}
+                  >
+                    +{amount}
+                  </Button>
+                ))}
+              </div>
+              {loadingProcesses && <p className="mt-4 text-sm text-muted-foreground">Carregando processos…</p>}
+              {!loadingProcesses && routedProcesses.length === 0 && (
+                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-3 text-sm text-amber-900">
+                  <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
+                  Processos ainda não configurados para este produto.
+                </div>
+              )}
+            </div>
+          )}
+
+          {screen === 'process' && currentProcess && (
+            <div className="w-full text-center">
+              <div className="mb-3 text-sm font-semibold text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''} · {parsedQuantity || 0} un</div>
+              <div className="text-sm font-bold uppercase tracking-[0.22em] text-muted-foreground">Processo {processIndex + 1} de {routedProcesses.length}</div>
+              <h1 className="mx-auto mt-4 max-w-md text-4xl font-black leading-tight tracking-tight">{currentProcess.name}</h1>
+              <div className="mx-auto mt-8 max-w-sm">
+                <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">Quem fez?</div>
+                <Select
+                  value={assignments[currentProcess.id] || ''}
+                  onValueChange={(operatorId) => {
+                    setAssignments((current) => ({ ...current, [currentProcess.id]: operatorId }));
+                    clearAttempt();
+                  }}
+                >
+                  <SelectTrigger className="h-20 rounded-3xl px-5 text-xl font-black">
+                    <SelectValue placeholder="Selecionar operador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operators.map((operator) => <SelectItem key={operator.id} value={operator.id} className="py-3 text-lg">{operator.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {currentOperatorName && <p className="mt-3 text-sm text-muted-foreground">Pré-selecionado: {currentOperatorName}</p>}
+              </div>
+            </div>
+          )}
+
+          {screen === 'confirm' && (
+            <div className="w-full text-center">
+              <div className="text-sm font-bold uppercase tracking-[0.22em] text-muted-foreground">Conferir</div>
+              <h1 className="mt-3 text-4xl font-black tracking-tight">{parsedQuantity} un</h1>
+              <p className="mt-2 text-xl font-bold">{productName}</p>
+              {variantName && <p className="mt-1 text-lg text-muted-foreground">{variantName}</p>}
+              <div className="mx-auto mt-6 max-w-sm rounded-3xl border bg-card p-4 text-left">
+                <div className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Processos</div>
+                {routedProcesses.slice(0, 5).map((proc) => {
+                  const operator = operators.find((item) => item.id === assignments[proc.id]);
+                  return <div key={proc.id} className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0">
+                    <span className="truncate font-semibold">{proc.name}</span>
+                    <span className="shrink-0 text-sm text-muted-foreground">{operator?.name || '—'}</span>
+                  </div>;
+                })}
+                {routedProcesses.length > 5 && <div className="pt-2 text-sm text-muted-foreground">+ {routedProcesses.length - 5} processo(s)</div>}
+              </div>
+            </div>
+          )}
+
+          {screen === 'success' && (
+            <div className="w-full text-center">
+              <CheckCircle2 className="mx-auto h-20 w-20 text-green-600" />
+              <h1 className="mt-5 text-4xl font-black tracking-tight">Produção registrada</h1>
+              <p className="mt-3 text-2xl font-bold">{parsedQuantity} un</p>
+              <p className="mt-1 text-lg text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''}</p>
+
+              {result?.material_adjustment_required && (
+                <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-4 text-amber-900">
+                  <div className="flex items-center justify-center gap-2 font-bold"><AlertTriangle className="h-5 w-5" />Ajuste de material pendente</div>
+                  <p className="mt-1 text-sm">A produção entrou normalmente. O gestor poderá regularizar depois em Ajustes.</p>
+                </div>
+              )}
+
+              {processWarning && (
+                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-3 text-sm text-amber-900">
+                  Algum processo precisa ser revisado posteriormente.
+                </div>
+              )}
+
+              <div className="mx-auto mt-7 grid max-w-sm gap-3">
+                <Button className="h-16 rounded-2xl text-lg font-black" onClick={reset}><PackageCheck className="mr-2 h-6 w-6" />Lançar outra produção</Button>
+                <Button variant="outline" className="h-14 rounded-2xl text-base font-bold" onClick={onExit}>Sair</Button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {screen !== 'product' && screen !== 'variant' && screen !== 'success' && (
+          <div className="grid shrink-0 grid-cols-2 gap-3 pt-2">
+            <Button variant="outline" className="h-16 rounded-2xl text-lg font-bold" onClick={goBack} disabled={submitting}>
+              <ArrowLeft className="mr-2 h-6 w-6" />Voltar
+            </Button>
+
+            {screen === 'quantity' && (
+              <Button className="h-16 rounded-2xl text-lg font-bold" disabled={!validQuantity || loadingProcesses || routedProcesses.length === 0} onClick={goForwardFromQuantity}>
+                Avançar<ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
+            )}
+
+            {screen === 'process' && (
+              <Button className="h-16 rounded-2xl text-lg font-bold" disabled={!currentProcess || !assignments[currentProcess.id]} onClick={goForwardFromProcess}>
+                Avançar<ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
+            )}
+
+            {screen === 'confirm' && (
+              <Button className="h-16 rounded-2xl text-lg font-black" disabled={!canConfirm || submitting} onClick={confirm}>
+                {submitting ? <><Loader2 className="mr-2 h-6 w-6 animate-spin" />Registrando</> : <>Confirmar<ArrowRight className="ml-2 h-6 w-6" /></>}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -32,7 +32,9 @@ export function ProductionTab({ products }: ProductionTabProps) {
           <TabsTrigger value="logs" className="min-h-11 gap-1 px-1"><FileText className="h-4 w-4" /><span className="hidden sm:inline">Legado</span></TabsTrigger>
         </TabsList>
 
-        <TabsContent value="produce" className="mt-4"><ProductionFactMobile products={products} /></TabsContent>
+        <TabsContent value="produce" className="mt-4">
+          <ProductionFactMobile products={products} onExit={() => setActiveSubTab('real')} />
+        </TabsContent>
         <TabsContent value="real" className="mt-4"><ProductionRealHistory /></TabsContent>
         <TabsContent value="adjustments" className="mt-4"><ProductionMaterialPendingPanel /></TabsContent>
         <TabsContent value="orders"><ProductionOrdersTab products={products} /></TabsContent>
