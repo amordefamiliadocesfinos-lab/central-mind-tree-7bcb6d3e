@@ -36,7 +36,7 @@ export function ProductionTab({ products }: ProductionTabProps) {
           <ProductionFactMobile products={products} onExit={() => setActiveSubTab('real')} />
         </TabsContent>
         <TabsContent value="real" className="mt-4"><ProductionRealHistory /></TabsContent>
-        <TabsContent value="adjustments" className="mt-4"><OperationsIncidentsPanel area="production" /></TabsContent>
+        <TabsContent value="adjustments" className="mt-4"><OperationsIncidentsPanel /></TabsContent>
         <TabsContent value="orders"><ProductionOrdersTab products={products} /></TabsContent>
         <TabsContent value="processes" className="space-y-4">
           <ProductProcessesManager products={products} />
