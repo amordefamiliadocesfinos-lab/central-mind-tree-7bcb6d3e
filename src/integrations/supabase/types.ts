@@ -7081,6 +7081,7 @@ export type Database = {
         Returns: Json
       }
       current_app_user_id: { Args: never; Returns: string }
+      current_app_user_role: { Args: never; Returns: string }
       finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
