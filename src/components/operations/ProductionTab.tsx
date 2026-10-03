@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ClipboardList, Cog, DollarSign, Factory, FileText } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Cog, DollarSign, Factory, FileText } from 'lucide-react';
 import type { Product } from '@/hooks/useOrders';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductionFactMobile } from './ProductionFactMobile';
+import { ProductionMaterialPendingPanel } from './ProductionMaterialPendingPanel';
 import { ProductionOrdersTab } from './ProductionOrdersTab';
 import { ProcessesManager } from './ProcessesManager';
 import { ProductionClosingTab } from './ProductionClosingTab';
@@ -19,10 +20,14 @@ export function ProductionTab({ products }: ProductionTabProps) {
   return (
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-5">
+        <TabsList className="grid h-auto w-full grid-cols-6">
           <TabsTrigger value="produce" className="min-h-11 gap-1 px-1">
             <Factory className="h-4 w-4" />
             <span className="hidden sm:inline">Produzir</span>
+          </TabsTrigger>
+          <TabsTrigger value="adjustments" className="min-h-11 gap-1 px-1">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="hidden sm:inline">Ajustes</span>
           </TabsTrigger>
           <TabsTrigger value="orders" className="min-h-11 gap-1 px-1">
             <ClipboardList className="h-4 w-4" />
@@ -44,6 +49,10 @@ export function ProductionTab({ products }: ProductionTabProps) {
 
         <TabsContent value="produce" className="mt-4">
           <ProductionFactMobile products={products} />
+        </TabsContent>
+
+        <TabsContent value="adjustments" className="mt-4">
+          <ProductionMaterialPendingPanel />
         </TabsContent>
 
         <TabsContent value="orders">
