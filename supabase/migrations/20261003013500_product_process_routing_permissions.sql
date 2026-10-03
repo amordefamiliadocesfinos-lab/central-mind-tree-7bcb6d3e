@@ -12,6 +12,7 @@ AS $function$
 DECLARE
   v_process_id uuid;
   v_order integer := 0;
+  v_value numeric;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -23,26 +24,31 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'forbidden');
   END IF;
 
+  IF p_variant_id IS NOT NULL THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'variant_override_not_supported');
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM public.products WHERE id = p_product_id) THEN
     RETURN jsonb_build_object('success', false, 'reason', 'product_not_found');
   END IF;
 
-  IF p_variant_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM public.product_variants WHERE id=p_variant_id AND product_id=p_product_id
-  ) THEN
-    RETURN jsonb_build_object('success', false, 'reason', 'invalid_variant');
-  END IF;
-
-  DELETE FROM public.product_processes
-  WHERE product_id=p_product_id AND variant_id IS NOT DISTINCT FROM p_variant_id;
+  DELETE FROM public.product_processes WHERE product_id = p_product_id;
 
   FOREACH v_process_id IN ARRAY COALESCE(p_process_ids, ARRAY[]::uuid[])
   LOOP
-    IF NOT EXISTS (SELECT 1 FROM public.processes WHERE id=v_process_id AND is_active=true) THEN
+    SELECT COALESCE(value_per_unit, 0) INTO v_value
+    FROM public.processes
+    WHERE id = v_process_id AND is_active = true;
+
+    IF NOT FOUND THEN
       RAISE EXCEPTION 'Invalid or inactive process %', v_process_id;
     END IF;
-    INSERT INTO public.product_processes(product_id,variant_id,process_id,sort_order,is_required,is_active)
-    VALUES (p_product_id,p_variant_id,v_process_id,v_order,true,true);
+
+    INSERT INTO public.product_processes(
+      product_id, process_id, cost_per_unit, sort_order, is_required, is_active, updated_at
+    ) VALUES (
+      p_product_id, v_process_id, v_value, v_order, true, true, now()
+    );
     v_order := v_order + 1;
   END LOOP;
 
