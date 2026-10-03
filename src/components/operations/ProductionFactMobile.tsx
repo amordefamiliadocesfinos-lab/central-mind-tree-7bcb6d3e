@@ -16,6 +16,7 @@ import { notifyInventoryChanged } from '@/hooks/useInventorySync';
 import type { Product } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type ProductVariant = {
   id: string;
@@ -25,7 +26,7 @@ type ProductVariant = {
   is_active: boolean;
 };
 
-type AppUser = { id: string; name: string };
+type AppUser = { id: string; name: string; avatar_url: string | null };
 type RoutedProcess = { id: string; name: string; value_per_unit: number | string; sort_order: number };
 type Screen = 'product' | 'variant' | 'quantity' | 'process' | 'confirm' | 'success';
 type ProductionFactResult = {
@@ -41,6 +42,15 @@ interface Props {
 }
 
 const QUICK_AMOUNTS = [30, 60, 120, 300];
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
+}
 
 function errorMessage(result: ProductionFactResult) {
   const messages: Record<string, string> = {
@@ -87,8 +97,7 @@ export function ProductionFactMobile({ products, onExit }: Props) {
           return 3;
         };
         const diff = rank(a.name) - rank(b.name);
-        if (diff !== 0) return diff;
-        return a.name.localeCompare(b.name, 'pt-BR');
+        return diff !== 0 ? diff : a.name.localeCompare(b.name, 'pt-BR');
       }),
     [products],
   );
@@ -96,21 +105,24 @@ export function ProductionFactMobile({ products, onExit }: Props) {
   const visibleProduct = manufactured[productCursor] || null;
   const visibleVariant = variants[variantCursor] || null;
   const currentProcess = routedProcesses[processIndex] || null;
+  const assignedOperator = currentProcess
+    ? operators.find((operator) => operator.id === assignments[currentProcess.id]) || null
+    : null;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const [{ data: authData }, usersRes] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('app_users').select('id,name').eq('is_active', true).order('name'),
+        (supabase as any).from('app_users').select('id,name,avatar_url').eq('is_active', true).order('name'),
       ]);
       if (!mounted) return;
       const userList = (usersRes.data || []) as AppUser[];
       setOperators(userList);
       if (authData.user?.id) {
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from('app_users')
-          .select('id,name')
+          .select('id,name,avatar_url')
           .eq('auth_user_id', authData.user.id)
           .eq('is_active', true)
           .maybeSingle();
@@ -230,14 +242,12 @@ export function ProductionFactMobile({ products, onExit }: Props) {
     const list = (data || []) as ProductVariant[];
     setVariants(list);
     setVariantCursor(0);
-
     if (list.length === 1) {
       setVariant(list[0]);
       await loadProcesses(selected);
       setScreen('quantity');
       return;
     }
-
     setScreen('variant');
   };
 
@@ -256,28 +266,15 @@ export function ProductionFactMobile({ products, onExit }: Props) {
 
   const goBack = () => {
     clearAttempt();
-    if (screen === 'product') {
-      onExit?.();
-      return;
-    }
+    if (screen === 'product') return onExit?.();
     if (screen === 'variant') {
-      setProduct(null);
-      setVariant(null);
-      setVariants([]);
-      setScreen('product');
-      return;
+      setProduct(null); setVariant(null); setVariants([]); setScreen('product'); return;
     }
     if (screen === 'quantity') {
       if (product?.variation_mode === 'variacoes_fisicas' && variants.length > 1) {
-        setVariant(null);
-        setRoutedProcesses([]);
-        setAssignments({});
-        setScreen('variant');
+        setVariant(null); setRoutedProcesses([]); setAssignments({}); setScreen('variant');
       } else {
-        setProduct(null);
-        setRoutedProcesses([]);
-        setAssignments({});
-        setScreen('product');
+        setProduct(null); setRoutedProcesses([]); setAssignments({}); setScreen('product');
       }
       return;
     }
@@ -287,16 +284,13 @@ export function ProductionFactMobile({ products, onExit }: Props) {
       return;
     }
     if (screen === 'confirm') {
-      if (routedProcesses.length > 0) {
-        setProcessIndex(routedProcesses.length - 1);
-        setScreen('process');
-      } else setScreen('quantity');
+      setProcessIndex(Math.max(0, routedProcesses.length - 1));
+      setScreen('process');
     }
   };
 
   const goForwardFromQuantity = () => {
-    if (!validQuantity) return;
-    if (loadingProcesses) return;
+    if (!validQuantity || loadingProcesses) return;
     if (routedProcesses.length === 0) {
       toast.error('Este produto ainda não possui processos configurados.');
       return;
@@ -314,6 +308,14 @@ export function ProductionFactMobile({ products, onExit }: Props) {
     clearAttempt();
     pendingEventKey.current = `production_fact:${crypto.randomUUID()}`;
     setScreen('confirm');
+  };
+
+  const moveOperator = (direction: -1 | 1) => {
+    if (!currentProcess || operators.length === 0) return;
+    const currentIndex = operators.findIndex((operator) => operator.id === assignments[currentProcess.id]);
+    const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (baseIndex + direction + operators.length) % operators.length;
+    setAssignments((current) => ({ ...current, [currentProcess.id]: operators[nextIndex].id }));
   };
 
   const confirm = async () => {
@@ -353,14 +355,12 @@ export function ProductionFactMobile({ products, onExit }: Props) {
       const operatorId = assignments[proc.id];
       const operator = operators.find((item) => item.id === operatorId);
       if (!operator) return false;
-
       const { data: attached, error: attachError } = await (supabase as any).rpc('attach_production_fact_process', {
         p_production_fact_id: rpcResult.production_fact_id,
         p_process_id: proc.id,
         p_operator_user_id: operator.id,
         p_operator_name: operator.name,
       });
-
       if (!attachError && attached?.success && typeof window !== 'undefined') {
         window.localStorage.setItem(`production:last-operator:${product.id}:${proc.id}`, operator.id);
       }
@@ -376,22 +376,17 @@ export function ProductionFactMobile({ products, onExit }: Props) {
     setScreen('success');
   };
 
-  const totalSteps = 3 + (product?.variation_mode === 'variacoes_fisicas' && variants.length > 1 ? 1 : 0) + routedProcesses.length;
-  const currentStep = (() => {
-    if (screen === 'product') return 1;
-    if (screen === 'variant') return 2;
-    const hasVariantStep = product?.variation_mode === 'variacoes_fisicas' && variants.length > 1;
-    if (screen === 'quantity') return hasVariantStep ? 3 : 2;
-    if (screen === 'process') return (hasVariantStep ? 4 : 3) + processIndex;
-    if (screen === 'confirm') return totalSteps;
-    return totalSteps;
-  })();
+  const hasVariantStep = product?.variation_mode === 'variacoes_fisicas' && variants.length > 1;
+  const totalSteps = 3 + (hasVariantStep ? 1 : 0) + routedProcesses.length;
+  const currentStep = screen === 'product' ? 1
+    : screen === 'variant' ? 2
+    : screen === 'quantity' ? (hasVariantStep ? 3 : 2)
+    : screen === 'process' ? (hasVariantStep ? 4 : 3) + processIndex
+    : totalSteps;
 
   const productName = product?.name || '';
   const variantName = variant?.variant_name || '';
-  const currentOperatorName = currentProcess
-    ? operators.find((operator) => operator.id === assignments[currentProcess.id])?.name
-    : '';
+  const coverImage = (visibleProduct as any)?.cover_image_url || (visibleProduct as any)?.media_urls?.[0] || null;
 
   return (
     <div className="fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
@@ -409,129 +404,56 @@ export function ProductionFactMobile({ products, onExit }: Props) {
           </div>
         )}
 
-        <main className="flex min-h-0 flex-1 items-center justify-center py-3">
+        <div className="flex min-h-0 flex-1 items-center justify-center py-3">
           {screen === 'product' && (
             <div className="w-full text-center">
-              <h1 className="mb-5 text-3xl font-black tracking-tight sm:text-4xl">O que você produziu?</h1>
+              <div className="mb-6">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">O que você produziu?</p>
+              </div>
               {visibleProduct ? (
                 <div className="flex items-center justify-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={manufactured.length <= 1}
-                    onClick={() => setProductCursor((current) => (current - 1 + manufactured.length) % manufactured.length)}
-                    aria-label="Produto anterior"
-                  >
+                  <Button variant="ghost" size="icon" className="h-14 w-14 shrink-0 rounded-full" disabled={manufactured.length <= 1} onClick={() => setProductCursor((current) => (current - 1 + manufactured.length) % manufactured.length)}>
                     <ChevronLeft className="h-8 w-8" />
                   </Button>
-
-                  <button
-                    type="button"
-                    onClick={chooseVisibleProduct}
-                    className="w-full max-w-[290px] overflow-hidden rounded-3xl border bg-card shadow-sm transition active:scale-[0.98]"
-                  >
-                    <div className="aspect-square max-h-[40dvh] bg-muted">
-                      {visibleProduct.cover_image_url ? (
-                        <img src={visibleProduct.cover_image_url} alt={visibleProduct.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-muted-foreground"><ImageOff className="h-16 w-16" /></div>
-                      )}
+                  <button onClick={chooseVisibleProduct} className="flex min-h-[360px] w-full max-w-[280px] flex-col items-center justify-center rounded-3xl border bg-card p-5 shadow-sm active:scale-[0.99]">
+                    <div className="mb-5 flex h-48 w-48 items-center justify-center overflow-hidden rounded-3xl bg-muted">
+                      {coverImage ? <img src={coverImage} alt={visibleProduct.name} className="h-full w-full object-contain" /> : <ImageOff className="h-14 w-14 text-muted-foreground" />}
                     </div>
-                    <div className="p-4 text-xl font-black leading-tight">{visibleProduct.name}</div>
+                    <div className="text-2xl font-black leading-tight">{visibleProduct.name}</div>
+                    <div className="mt-3 text-sm font-semibold text-emerald-600">TOQUE PARA ESCOLHER</div>
                   </button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={manufactured.length <= 1}
-                    onClick={() => setProductCursor((current) => (current + 1) % manufactured.length)}
-                    aria-label="Próximo produto"
-                  >
+                  <Button variant="ghost" size="icon" className="h-14 w-14 shrink-0 rounded-full" disabled={manufactured.length <= 1} onClick={() => setProductCursor((current) => (current + 1) % manufactured.length)}>
                     <ChevronRight className="h-8 w-8" />
                   </Button>
                 </div>
-              ) : (
-                <div className="text-lg text-muted-foreground">Nenhum produto fabricado ativo.</div>
-              )}
-              <p className="mt-4 text-sm text-muted-foreground">Toque no produto para continuar</p>
+              ) : <p className="text-muted-foreground">Nenhum produto fabricado ativo.</p>}
             </div>
           )}
 
           {screen === 'variant' && (
             <div className="w-full text-center">
-              <div className="mb-2 text-sm font-semibold text-muted-foreground">{productName}</div>
-              <h1 className="mb-8 text-3xl font-black tracking-tight sm:text-4xl">Qual variante?</h1>
-              {loadingVariants ? (
-                <Loader2 className="mx-auto h-10 w-10 animate-spin" />
-              ) : visibleVariant ? (
+              <p className="mb-8 text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Qual variante?</p>
+              {loadingVariants ? <Loader2 className="mx-auto h-10 w-10 animate-spin" /> : visibleVariant ? (
                 <div className="flex items-center justify-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={variants.length <= 1}
-                    onClick={() => setVariantCursor((current) => (current - 1 + variants.length) % variants.length)}
-                  >
-                    <ChevronLeft className="h-8 w-8" />
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={chooseVisibleVariant}
-                    className="flex min-h-44 w-full max-w-[290px] items-center justify-center rounded-3xl border bg-card p-6 text-3xl font-black leading-tight shadow-sm active:scale-[0.98]"
-                  >
-                    {visibleVariant.variant_name}
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={variants.length <= 1}
-                    onClick={() => setVariantCursor((current) => (current + 1) % variants.length)}
-                  >
-                    <ChevronRight className="h-8 w-8" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-14 w-14 rounded-full" disabled={variants.length <= 1} onClick={() => setVariantCursor((current) => (current - 1 + variants.length) % variants.length)}><ChevronLeft className="h-8 w-8" /></Button>
+                  <button onClick={chooseVisibleVariant} className="min-h-[230px] w-full max-w-[280px] rounded-3xl border bg-card px-6 py-10 text-3xl font-black shadow-sm active:scale-[0.99]">{visibleVariant.variant_name}</button>
+                  <Button variant="ghost" size="icon" className="h-14 w-14 rounded-full" disabled={variants.length <= 1} onClick={() => setVariantCursor((current) => (current + 1) % variants.length)}><ChevronRight className="h-8 w-8" /></Button>
                 </div>
-              ) : (
-                <div className="text-lg text-muted-foreground">Nenhuma variante ativa.</div>
-              )}
-              <p className="mt-5 text-sm text-muted-foreground">Toque na variante para continuar</p>
+              ) : <p className="text-muted-foreground">Nenhuma variante ativa.</p>}
             </div>
           )}
 
           {screen === 'quantity' && (
             <div className="w-full text-center">
-              <div className="mb-2 text-sm font-semibold text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''}</div>
-              <h1 className="mb-5 text-3xl font-black tracking-tight sm:text-4xl">Quantas unidades?</h1>
-              <Input
-                inputMode="decimal"
-                value={quantity}
-                onChange={(event) => { setQuantity(event.target.value.replace(/[^0-9.,]/g, '')); clearAttempt(); }}
-                placeholder="0"
-                className="mx-auto h-24 max-w-sm rounded-3xl text-center text-5xl font-black"
-                autoFocus
-              />
-              <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-3">
-                {QUICK_AMOUNTS.map((amount) => (
-                  <Button
-                    key={amount}
-                    type="button"
-                    variant="outline"
-                    className="h-14 rounded-2xl text-xl font-bold"
-                    onClick={() => { setQuantity(String((Number(quantity) || 0) + amount)); clearAttempt(); }}
-                  >
-                    +{amount}
-                  </Button>
-                ))}
+              <div className="mb-3 text-sm font-semibold text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''}</div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Quantas unidades?</p>
+              <Input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^0-9,.]/g, ''))} className="mx-auto mt-7 h-24 max-w-[280px] border-2 text-center text-5xl font-black" placeholder="0" autoFocus />
+              <div className="mx-auto mt-6 grid max-w-sm grid-cols-4 gap-2">
+                {QUICK_AMOUNTS.map((amount) => <Button key={amount} variant="outline" className="h-14 text-lg font-bold" onClick={() => setQuantity(String((Number(quantity) || 0) + amount))}>+{amount}</Button>)}
               </div>
-              {loadingProcesses && <p className="mt-4 text-sm text-muted-foreground">Carregando processos…</p>}
-              {!loadingProcesses && routedProcesses.length === 0 && (
-                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-3 text-sm text-amber-900">
-                  <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
-                  Processos ainda não configurados para este produto.
-                </div>
-              )}
+              <Button className="mt-8 h-14 w-full max-w-sm text-lg font-bold" disabled={!validQuantity || loadingProcesses} onClick={goForwardFromQuantity}>
+                {loadingProcesses ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null} Avançar <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
@@ -541,121 +463,65 @@ export function ProductionFactMobile({ products, onExit }: Props) {
               <div className="text-sm font-bold uppercase tracking-[0.22em] text-muted-foreground">Processo {processIndex + 1} de {routedProcesses.length}</div>
               <h1 className="mx-auto mt-4 max-w-md text-4xl font-black leading-tight tracking-tight">{currentProcess.name}</h1>
               <div className="mx-auto mt-8 max-w-sm">
-                <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">Quem fez?</div>
-                <div className="flex items-center justify-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={operators.length <= 1}
-                    onClick={() => {
-                      if (!currentProcess || operators.length === 0) return;
-                      const currentIndex = operators.findIndex((operator) => operator.id === assignments[currentProcess.id]);
-                      const previous = operators[(currentIndex - 1 + operators.length) % operators.length];
-                      setAssignments((current) => ({ ...current, [currentProcess.id]: previous.id }));
-                      clearAttempt();
-                    }}
-                    aria-label="Operador anterior"
-                  >
-                    <ChevronLeft className="h-8 w-8" />
-                  </Button>
-                  <div className="flex min-h-24 w-full max-w-[290px] items-center justify-center rounded-3xl border bg-card px-4 py-6 text-center text-3xl font-black leading-tight">
-                    {currentOperatorName || 'Sem operador'}
+                <div className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted-foreground">Quem fez?</div>
+                <div className="flex items-center justify-center gap-3">
+                  <Button variant="ghost" size="icon" className="h-14 w-14 shrink-0 rounded-full" disabled={operators.length <= 1} onClick={() => moveOperator(-1)}><ChevronLeft className="h-8 w-8" /></Button>
+                  <div className="flex min-w-0 flex-1 flex-col items-center rounded-3xl border bg-card px-4 py-5 shadow-sm">
+                    <Avatar className="h-28 w-28 border-4 border-background shadow-md">
+                      {assignedOperator?.avatar_url && <AvatarImage src={assignedOperator.avatar_url} alt={assignedOperator.name} className="object-cover" />}
+                      <AvatarFallback className="bg-emerald-600 text-3xl font-black text-white">{assignedOperator ? initials(assignedOperator.name) : '?'}</AvatarFallback>
+                    </Avatar>
+                    <div className="mt-4 text-2xl font-black leading-tight">{assignedOperator?.name || 'Sem operador'}</div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-14 w-14 shrink-0 rounded-full"
-                    disabled={operators.length <= 1}
-                    onClick={() => {
-                      if (!currentProcess || operators.length === 0) return;
-                      const currentIndex = operators.findIndex((operator) => operator.id === assignments[currentProcess.id]);
-                      const next = operators[(currentIndex + 1) % operators.length];
-                      setAssignments((current) => ({ ...current, [currentProcess.id]: next.id }));
-                      clearAttempt();
-                    }}
-                    aria-label="Próximo operador"
-                  >
-                    <ChevronRight className="h-8 w-8" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-14 w-14 shrink-0 rounded-full" disabled={operators.length <= 1} onClick={() => moveOperator(1)}><ChevronRight className="h-8 w-8" /></Button>
                 </div>
               </div>
+              <Button className="mt-8 h-14 w-full max-w-sm text-lg font-bold" disabled={!assignedOperator} onClick={goForwardFromProcess}>Avançar <ArrowRight className="ml-2 h-5 w-5" /></Button>
             </div>
           )}
 
           {screen === 'confirm' && (
             <div className="w-full text-center">
-              <div className="text-sm font-bold uppercase tracking-[0.22em] text-muted-foreground">Conferir</div>
-              <h1 className="mt-3 text-4xl font-black tracking-tight">{parsedQuantity} un</h1>
-              <p className="mt-2 text-xl font-bold">{productName}</p>
-              {variantName && <p className="mt-1 text-lg text-muted-foreground">{variantName}</p>}
-              <div className="mx-auto mt-6 max-w-sm rounded-3xl border bg-card p-4 text-left">
-                <div className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Processos</div>
-                {routedProcesses.slice(0, 5).map((proc) => {
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Conferir lançamento</p>
+              <div className="mt-5 text-5xl font-black">{parsedQuantity} <span className="text-2xl">un</span></div>
+              <div className="mt-2 text-xl font-bold">{productName}</div>
+              {variantName && <div className="text-lg text-muted-foreground">{variantName}</div>}
+              <div className="mx-auto mt-6 max-w-sm space-y-2 text-left">
+                {routedProcesses.map((proc) => {
                   const operator = operators.find((item) => item.id === assignments[proc.id]);
-                  return <div key={proc.id} className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0">
-                    <span className="truncate font-semibold">{proc.name}</span>
-                    <span className="shrink-0 text-sm text-muted-foreground">{operator?.name || '—'}</span>
-                  </div>;
+                  return (
+                    <div key={proc.id} className="flex items-center gap-3 rounded-2xl border bg-card p-3">
+                      <Avatar className="h-10 w-10"><AvatarImage src={operator?.avatar_url || undefined} /><AvatarFallback>{operator ? initials(operator.name) : '?'}</AvatarFallback></Avatar>
+                      <div className="min-w-0 flex-1"><div className="text-sm font-bold">{proc.name}</div><div className="truncate text-sm text-muted-foreground">{operator?.name || 'Sem operador'}</div></div>
+                    </div>
+                  );
                 })}
-                {routedProcesses.length > 5 && <div className="pt-2 text-sm text-muted-foreground">+ {routedProcesses.length - 5} processo(s)</div>}
               </div>
+              <Button className="mt-7 h-16 w-full max-w-sm bg-emerald-600 text-xl font-black hover:bg-emerald-700" disabled={!canConfirm || submitting} onClick={confirm}>
+                {submitting ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <PackageCheck className="mr-2 h-6 w-6" />} CONFIRMAR PRODUÇÃO
+              </Button>
             </div>
           )}
 
           {screen === 'success' && (
             <div className="w-full text-center">
-              <CheckCircle2 className="mx-auto h-20 w-20 text-green-600" />
-              <h1 className="mt-5 text-4xl font-black tracking-tight">Produção registrada</h1>
-              <p className="mt-3 text-2xl font-bold">{parsedQuantity} un</p>
-              <p className="mt-1 text-lg text-muted-foreground">{productName}{variantName ? ` · ${variantName}` : ''}</p>
-
+              <CheckCircle2 className="mx-auto h-20 w-20 text-emerald-600" />
+              <h1 className="mt-5 text-3xl font-black">Produção registrada</h1>
+              <div className="mt-3 text-5xl font-black">{parsedQuantity} <span className="text-2xl">un</span></div>
+              <div className="mt-2 text-lg font-semibold">{productName}{variantName ? ` · ${variantName}` : ''}</div>
               {result?.material_adjustment_required && (
-                <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-4 text-amber-900">
-                  <div className="flex items-center justify-center gap-2 font-bold"><AlertTriangle className="h-5 w-5" />Ajuste de material pendente</div>
-                  <p className="mt-1 text-sm">A produção entrou normalmente. O gestor poderá regularizar depois em Ajustes.</p>
+                <div className="mx-auto mt-6 flex max-w-sm items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><div><div className="font-bold">Ajuste de material pendente</div><div className="text-sm">A produção foi registrada e a divergência ficou disponível em Ajustes.</div></div>
                 </div>
               )}
-
-              {processWarning && (
-                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-amber-400/40 bg-amber-50 p-3 text-sm text-amber-900">
-                  Algum processo precisa ser revisado posteriormente.
-                </div>
-              )}
-
-              <div className="mx-auto mt-7 grid max-w-sm gap-3">
-                <Button className="h-16 rounded-2xl text-lg font-black" onClick={reset}><PackageCheck className="mr-2 h-6 w-6" />Lançar outra produção</Button>
-                <Button variant="outline" className="h-14 rounded-2xl text-base font-bold" onClick={onExit}>Sair</Button>
+              {processWarning && <div className="mx-auto mt-3 max-w-sm rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Algum processo precisa ser revisado.</div>}
+              <div className="mx-auto mt-8 grid max-w-sm gap-3">
+                <Button className="h-14 bg-emerald-600 text-lg font-bold hover:bg-emerald-700" onClick={reset}>Lançar outra produção</Button>
+                <Button variant="outline" className="h-12" onClick={onExit}>Sair</Button>
               </div>
             </div>
           )}
-        </main>
-
-        {screen !== 'product' && screen !== 'variant' && screen !== 'success' && (
-          <div className="grid shrink-0 grid-cols-2 gap-3 pt-2">
-            <Button variant="outline" className="h-16 rounded-2xl text-lg font-bold" onClick={goBack} disabled={submitting}>
-              <ArrowLeft className="mr-2 h-6 w-6" />Voltar
-            </Button>
-
-            {screen === 'quantity' && (
-              <Button className="h-16 rounded-2xl text-lg font-bold" disabled={!validQuantity || loadingProcesses || routedProcesses.length === 0} onClick={goForwardFromQuantity}>
-                Avançar<ArrowRight className="ml-2 h-6 w-6" />
-              </Button>
-            )}
-
-            {screen === 'process' && (
-              <Button className="h-16 rounded-2xl text-lg font-bold" disabled={!currentProcess || !assignments[currentProcess.id]} onClick={goForwardFromProcess}>
-                Avançar<ArrowRight className="ml-2 h-6 w-6" />
-              </Button>
-            )}
-
-            {screen === 'confirm' && (
-              <Button className="h-16 rounded-2xl text-lg font-black" disabled={!canConfirm || submitting} onClick={confirm}>
-                {submitting ? <><Loader2 className="mr-2 h-6 w-6 animate-spin" />Registrando</> : <>Confirmar<ArrowRight className="ml-2 h-6 w-6" /></>}
-              </Button>
-            )}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
