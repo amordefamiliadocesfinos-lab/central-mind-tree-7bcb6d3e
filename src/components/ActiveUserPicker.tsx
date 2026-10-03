@@ -2,7 +2,7 @@ import { useActiveUser } from '@/hooks/useActiveUser';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, UserCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,8 @@ export function ActiveUserPicker({ variant = 'compact', className }: Props) {
           title="Conta autenticada"
           aria-label="Conta autenticada"
         >
-          <Avatar className="h-5 w-5">
+          <Avatar className="h-6 w-6">
+            {activeUser?.avatar_url && <AvatarImage src={activeUser.avatar_url} alt={activeUser.name} />}
             <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
               {activeUser ? initials(activeUser.name) : <UserCircle2 className="h-3 w-3" />}
             </AvatarFallback>
@@ -55,17 +56,27 @@ export function ActiveUserPicker({ variant = 'compact', className }: Props) {
           <p className="text-[11px] text-muted-foreground break-all">{user?.email}</p>
         </div>
 
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-3">
           {isLinked ? (
             <>
-              <div className="text-sm font-medium">{activeUser!.name}</div>
-              {activeUser!.role && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-                  {activeUser!.role}
-                </Badge>
-              )}
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  {activeUser!.avatar_url && <AvatarImage src={activeUser!.avatar_url} alt={activeUser!.name} />}
+                  <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                    {initials(activeUser!.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{activeUser!.name}</div>
+                  {activeUser!.role && (
+                    <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0 h-4">
+                      {activeUser!.role}
+                    </Badge>
+                  )}
+                </div>
+              </div>
               <p className="text-[11px] text-muted-foreground">
-                Identidade operacional vinculada. Não é possível trocar de usuário.
+                Identidade operacional canônica vinculada à conta autenticada.
               </p>
             </>
           ) : (
