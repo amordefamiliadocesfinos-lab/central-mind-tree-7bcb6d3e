@@ -59,6 +59,8 @@ DECLARE
   v_demand_qty numeric;
   v_reference text;
   v_is_manufactured boolean;
+  v_existing_demand_id uuid;
+  v_primary_order_id uuid;
 BEGIN
   IF p_quantity IS NULL OR p_quantity <= 0 THEN
     RETURN jsonb_build_object('success', false, 'reason', 'invalid_quantity');
@@ -115,7 +117,11 @@ BEGIN
   ELSE
     UPDATE public.production_orders
     SET target_quantity = target_quantity + p_quantity,
-        scheduled_date = COALESCE(scheduled_date, p_scheduled_date),
+        scheduled_date = CASE
+          WHEN scheduled_date IS NULL THEN p_scheduled_date
+          WHEN p_scheduled_date IS NULL THEN scheduled_date
+          ELSE LEAST(scheduled_date, p_scheduled_date)
+        END,
         updated_at = now()
     WHERE id = v_order.id
     RETURNING * INTO v_order;
@@ -170,23 +176,45 @@ BEGIN
         CONTINUE;
       END IF;
 
-      INSERT INTO public.production_order_demands (
-        production_order_id, order_id, product_id, variant_id,
-        demand_quantity_snapshot, order_reference_snapshot
-      ) VALUES (
-        v_order.id, v_order_id, p_product_id, p_variant_id,
-        v_demand_qty, v_reference
-      )
-      ON CONFLICT (
-        production_order_id,
-        order_id,
-        product_id,
-        (COALESCE(variant_id, '00000000-0000-0000-0000-000000000000'::uuid))
-      ) DO UPDATE SET
-        demand_quantity_snapshot = EXCLUDED.demand_quantity_snapshot,
-        order_reference_snapshot = EXCLUDED.order_reference_snapshot,
-        updated_at = now();
+      IF v_primary_order_id IS NULL THEN
+        v_primary_order_id := v_order_id;
+      END IF;
+
+      SELECT id INTO v_existing_demand_id
+      FROM public.production_order_demands
+      WHERE production_order_id = v_order.id
+        AND order_id = v_order_id
+        AND product_id = p_product_id
+        AND variant_id IS NOT DISTINCT FROM p_variant_id
+      LIMIT 1
+      FOR UPDATE;
+
+      IF v_existing_demand_id IS NULL THEN
+        INSERT INTO public.production_order_demands (
+          production_order_id, order_id, product_id, variant_id,
+          demand_quantity_snapshot, order_reference_snapshot
+        ) VALUES (
+          v_order.id, v_order_id, p_product_id, p_variant_id,
+          v_demand_qty, v_reference
+        );
+      ELSE
+        UPDATE public.production_order_demands
+        SET demand_quantity_snapshot = v_demand_qty,
+            order_reference_snapshot = v_reference,
+            updated_at = now()
+        WHERE id = v_existing_demand_id;
+      END IF;
     END LOOP;
+  END IF;
+
+  -- Compatibilidade transitória com telas antigas que ainda leem source_order_id.
+  -- A verdade N:N permanece em production_order_demands.
+  IF v_primary_order_id IS NOT NULL AND v_order.source_order_id IS NULL THEN
+    UPDATE public.production_orders
+    SET source_order_id = v_primary_order_id,
+        updated_at = now()
+    WHERE id = v_order.id
+    RETURNING * INTO v_order;
   END IF;
 
   RETURN jsonb_build_object(
