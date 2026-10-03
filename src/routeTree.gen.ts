@@ -17,6 +17,7 @@ import { Route as ApiShopeeReviewHealthRouteImport } from './routes/api/shopee-r
 import { Route as ApiShopeeReviewLoginRouteImport } from './routes/api/shopee-review/login'
 import { Route as ApiShopeeReviewLogoutRouteImport } from './routes/api/shopee-review/logout'
 import { Route as ApiShopeeReviewSessionRouteImport } from './routes/api/shopee-review/session'
+import { Route as ApiShopeeOauthCallbackRouteImport } from './routes/api/shopee/oauth/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +59,11 @@ const ApiShopeeReviewSessionRoute = ApiShopeeReviewSessionRouteImport.update({
   path: '/api/shopee-review/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiShopeeOauthCallbackRoute = ApiShopeeOauthCallbackRouteImport.update({
+  id: '/api/shopee/oauth/callback',
+  path: '/api/shopee/oauth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
+  '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
+  '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/api/shopee-review/login': typeof ApiShopeeReviewLoginRoute
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
+  '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/login'
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
+    | '/api/shopee/oauth/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/login'
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
+    | '/api/shopee/oauth/callback'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/login'
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
+    | '/api/shopee/oauth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   ApiShopeeReviewLoginRoute: typeof ApiShopeeReviewLoginRoute
   ApiShopeeReviewLogoutRoute: typeof ApiShopeeReviewLogoutRoute
   ApiShopeeReviewSessionRoute: typeof ApiShopeeReviewSessionRoute
+  ApiShopeeOauthCallbackRoute: typeof ApiShopeeOauthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopeeReviewSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/shopee/oauth/callback': {
+      id: '/api/shopee/oauth/callback'
+      path: '/api/shopee/oauth/callback'
+      fullPath: '/api/shopee/oauth/callback'
+      preLoaderRoute: typeof ApiShopeeOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiShopeeReviewLoginRoute: ApiShopeeReviewLoginRoute,
   ApiShopeeReviewLogoutRoute: ApiShopeeReviewLogoutRoute,
   ApiShopeeReviewSessionRoute: ApiShopeeReviewSessionRoute,
+  ApiShopeeOauthCallbackRoute: ApiShopeeOauthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
