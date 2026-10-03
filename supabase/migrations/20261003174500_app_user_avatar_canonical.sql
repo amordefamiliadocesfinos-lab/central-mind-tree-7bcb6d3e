@@ -24,21 +24,57 @@ ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'app-user-avatars');
 
-DROP POLICY IF EXISTS "Authenticated upload app user avatars" ON storage.objects;
-CREATE POLICY "Authenticated upload app user avatars"
+DROP POLICY IF EXISTS "Managers upload app user avatars" ON storage.objects;
+CREATE POLICY "Managers upload app user avatars"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'app-user-avatars');
+WITH CHECK (
+  bucket_id = 'app-user-avatars'
+  AND EXISTS (
+    SELECT 1
+    FROM public.app_users au
+    WHERE au.auth_user_id = auth.uid()
+      AND au.is_active = true
+      AND upper(coalesce(au.role, '')) IN ('ADMINISTRADOR', 'LIDER PRODUÇÃO', 'LIDER PRODUCAO')
+  )
+);
 
-DROP POLICY IF EXISTS "Authenticated update app user avatars" ON storage.objects;
-CREATE POLICY "Authenticated update app user avatars"
+DROP POLICY IF EXISTS "Managers update app user avatars" ON storage.objects;
+CREATE POLICY "Managers update app user avatars"
 ON storage.objects FOR UPDATE
 TO authenticated
-USING (bucket_id = 'app-user-avatars')
-WITH CHECK (bucket_id = 'app-user-avatars');
+USING (
+  bucket_id = 'app-user-avatars'
+  AND EXISTS (
+    SELECT 1
+    FROM public.app_users au
+    WHERE au.auth_user_id = auth.uid()
+      AND au.is_active = true
+      AND upper(coalesce(au.role, '')) IN ('ADMINISTRADOR', 'LIDER PRODUÇÃO', 'LIDER PRODUCAO')
+  )
+)
+WITH CHECK (
+  bucket_id = 'app-user-avatars'
+  AND EXISTS (
+    SELECT 1
+    FROM public.app_users au
+    WHERE au.auth_user_id = auth.uid()
+      AND au.is_active = true
+      AND upper(coalesce(au.role, '')) IN ('ADMINISTRADOR', 'LIDER PRODUÇÃO', 'LIDER PRODUCAO')
+  )
+);
 
-DROP POLICY IF EXISTS "Authenticated delete app user avatars" ON storage.objects;
-CREATE POLICY "Authenticated delete app user avatars"
+DROP POLICY IF EXISTS "Managers delete app user avatars" ON storage.objects;
+CREATE POLICY "Managers delete app user avatars"
 ON storage.objects FOR DELETE
 TO authenticated
-USING (bucket_id = 'app-user-avatars');
+USING (
+  bucket_id = 'app-user-avatars'
+  AND EXISTS (
+    SELECT 1
+    FROM public.app_users au
+    WHERE au.auth_user_id = auth.uid()
+      AND au.is_active = true
+      AND upper(coalesce(au.role, '')) IN ('ADMINISTRADOR', 'LIDER PRODUÇÃO', 'LIDER PRODUCAO')
+  )
+);
