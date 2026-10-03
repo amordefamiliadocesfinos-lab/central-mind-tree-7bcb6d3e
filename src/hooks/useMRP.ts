@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
+const db = supabase as any;
 const SIMPLE_VARIANT_KEY = '__simple__';
 const OPEN_PURCHASE_STATUSES = ['confirmado', 'em_transito', 'parcialmente_recebido'] as const;
 export const physicalIdentityKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? SIMPLE_VARIANT_KEY}`;
@@ -20,17 +21,37 @@ export interface ProductionNeed {
   production_programmed: number; projected_balance: number; shortage: number; orders_affected: string[];
   order_demands: ProductionDemandOrigin[]; suggested_date: string | null;
 }
+
+export type PurchaseTimingStatus = 'not_configured' | 'no_required_date' | 'on_time' | 'due_today' | 'overdue';
 export interface MaterialNeed {
   component_id: string; variant_id: string | null; component_name: string; component_sku: string;
   unit: string; total_needed: number; direct_demand: number; production_requirement: number; stock_target: number;
   stock_available: number; available_now: number; open_purchase_qty: number; projected_balance: number;
   shortage: number; orders_affected: string[];
+  required_date: string | null;
+  target_arrival_date: string | null;
+  purchase_by_date: string | null;
+  lead_time_days: number | null;
+  safety_days: number | null;
+  preferred_supplier_id: string | null;
+  preferred_supplier_name: string | null;
+  timing_status: PurchaseTimingStatus;
 }
 
 type InventoryRow = { product_id: string; variant_id: string | null; quantity: number | null };
 type ProductionOrderRow = { product_id: string | null; variant_id: string | null; target_quantity: number | null; status: string; items?: Array<{ product_id: string; variant_id: string | null; planned_quantity: number | null }> };
 type OpenPurchaseItemRow = { id: string; purchase_order_id: string; product_id: string; variant_id: string | null; ordered_purchase_qty: number | null; conversion_factor: number | null };
 type ConfirmedReceiptRow = { purchase_order_item_id: string; received_purchase_qty: number | null };
+type ReplenishmentPolicyRow = {
+  product_id: string; variant_id: string | null; supplier_contact_id: string;
+  lead_time_days: number; safety_days: number; is_preferred: boolean;
+  supplier?: { name: string } | null;
+};
+
+type MaterialAccumulator = Omit<MaterialNeed,
+  'total_needed' | 'available_now' | 'projected_balance' | 'shortage' | 'required_date' |
+  'target_arrival_date' | 'purchase_by_date' | 'lead_time_days' | 'safety_days' |
+  'preferred_supplier_id' | 'preferred_supplier_name' | 'timing_status'> & { required_dates: string[] };
 
 function sumInventory(rows: InventoryRow[]) {
   return rows.reduce<Record<string, number>>((totals, row) => {
@@ -49,6 +70,22 @@ function sumProgrammedProduction(rows: ProductionOrderRow[]) {
     }
     return totals;
   }, {});
+}
+
+function todaySaoPaulo() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+function subtractCalendarDays(date: string, days: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+  value.setUTCDate(value.getUTCDate() - Math.max(0, days));
+  return value.toISOString().slice(0, 10);
+}
+function earliestDate(values: Array<string | null | undefined>) {
+  const valid = values.filter(Boolean) as string[];
+  return valid.length ? [...valid].sort()[0] : null;
 }
 
 export function sumOpenPurchaseOperationalQty(purchaseItems: OpenPurchaseItemRow[], confirmedReceipts: ConfirmedReceiptRow[]) {
@@ -139,7 +176,7 @@ export function useMRP() {
     }
 
     const production: ProductionNeed[] = [];
-    const materialsMap = new Map<string, MaterialNeed>();
+    const materialsMap = new Map<string, MaterialAccumulator>();
 
     for (const [key, row] of demandMap.entries()) {
       const product = row.product || {};
@@ -172,11 +209,12 @@ export function useMRP() {
           component_id: row.product_id, variant_id: row.variant_id,
           component_name: variant ? `${product.name} · ${variant.variant_name}` : product.name,
           component_sku: variant?.sku || product.sku || '', unit: getPhysicalIdentityUnit(product, variant),
-          total_needed: 0, direct_demand: 0, production_requirement: 0, stock_target: target,
-          stock_available: physical, available_now: 0, open_purchase_qty: openPurchaseByIdentity[key] || 0,
-          projected_balance: 0, shortage: 0, orders_affected: [] as string[],
+          direct_demand: 0, production_requirement: 0, stock_target: target,
+          stock_available: physical, open_purchase_qty: openPurchaseByIdentity[key] || 0,
+          orders_affected: [] as string[], required_dates: [] as string[],
         };
         existing.direct_demand += row.demand;
+        for (const origin of row.order_demands as ProductionDemandOrigin[]) if (origin.due_date) existing.required_dates.push(origin.due_date);
         for (const ref of row.orders_affected) if (!existing.orders_affected.includes(ref)) existing.orders_affected.push(ref);
         materialsMap.set(key, existing);
       }
@@ -209,26 +247,67 @@ export function useMRP() {
             component_id: component.component_id, variant_id: component.variant_id || null,
             component_name: variant ? `${product.name || 'Componente'} · ${variant.variant_name}` : product.name || 'Componente não identificado',
             component_sku: variant?.sku || product.sku || '', unit: getPhysicalIdentityUnit(product, variant),
-            total_needed: 0, direct_demand: 0, production_requirement: 0, stock_target: target,
-            stock_available: componentStock[key] || 0, available_now: 0, open_purchase_qty: openPurchaseByIdentity[key] || 0,
-            projected_balance: 0, shortage: 0, orders_affected: [] as string[],
+            direct_demand: 0, production_requirement: 0, stock_target: target,
+            stock_available: componentStock[key] || 0, open_purchase_qty: openPurchaseByIdentity[key] || 0,
+            orders_affected: [] as string[], required_dates: [] as string[],
           };
           existing.production_requirement += Number(component.qty_per_unit || 0) * need.shortage;
+          if (need.suggested_date) existing.required_dates.push(need.suggested_date);
           for (const ref of need.orders_affected) if (!existing.orders_affected.includes(ref)) existing.orders_affected.push(ref);
           materialsMap.set(key, existing);
         }
       }
     }
 
-    const materials = [...materialsMap.values()].map(need => {
+    const { data: policyRows, error: policyError } = await db
+      .from('purchase_replenishment_policies')
+      .select('product_id,variant_id,supplier_contact_id,lead_time_days,safety_days,is_preferred,supplier:contacts!purchase_replenishment_policies_supplier_contact_id_fkey(name)')
+      .eq('is_active', true);
+    if (policyError) console.error('Erro ao carregar políticas de reposição:', policyError);
+    const preferredPolicies = new Map<string, ReplenishmentPolicyRow>();
+    for (const row of (policyRows || []) as ReplenishmentPolicyRow[]) {
+      const key = physicalIdentityKey(row.product_id, row.variant_id);
+      if (row.is_preferred || !preferredPolicies.has(key)) preferredPolicies.set(key, row);
+    }
+
+    const today = todaySaoPaulo();
+    const materials: MaterialNeed[] = [...materialsMap.entries()].map(([key, need]) => {
       const totalNeeded = need.direct_demand + need.production_requirement + need.stock_target;
       const availableNow = need.stock_available - need.direct_demand;
       const projected = need.stock_available + need.open_purchase_qty - need.direct_demand - need.production_requirement;
-      return { ...need, total_needed: totalNeeded, available_now: availableNow, projected_balance: projected, shortage: Math.max(0, totalNeeded - need.stock_available - need.open_purchase_qty) };
+      const shortage = Math.max(0, totalNeeded - need.stock_available - need.open_purchase_qty);
+      const requiredDate = earliestDate(need.required_dates);
+      const policy = preferredPolicies.get(key) || null;
+      const leadTime = policy ? Number(policy.lead_time_days || 0) : null;
+      const safety = policy ? Number(policy.safety_days || 0) : null;
+      const targetArrival = requiredDate && safety !== null ? subtractCalendarDays(requiredDate, safety) : null;
+      const purchaseBy = targetArrival && leadTime !== null ? subtractCalendarDays(targetArrival, leadTime) : null;
+      let timingStatus: PurchaseTimingStatus = 'not_configured';
+      if (policy && !requiredDate) timingStatus = 'no_required_date';
+      else if (purchaseBy) timingStatus = purchaseBy < today ? 'overdue' : purchaseBy === today ? 'due_today' : 'on_time';
+
+      return {
+        ...need,
+        total_needed: totalNeeded,
+        available_now: availableNow,
+        projected_balance: projected,
+        shortage,
+        required_date: requiredDate,
+        target_arrival_date: targetArrival,
+        purchase_by_date: purchaseBy,
+        lead_time_days: leadTime,
+        safety_days: safety,
+        preferred_supplier_id: policy?.supplier_contact_id || null,
+        preferred_supplier_name: policy?.supplier?.name || null,
+        timing_status: timingStatus,
+      };
     });
 
     production.sort((a, b) => b.shortage - a.shortage || a.product_name.localeCompare(b.product_name));
-    materials.sort((a, b) => b.shortage - a.shortage || a.component_name.localeCompare(b.component_name));
+    materials.sort((a, b) => {
+      const priority = (value: PurchaseTimingStatus) => value === 'overdue' ? 0 : value === 'due_today' ? 1 : value === 'not_configured' ? 2 : value === 'on_time' ? 3 : 4;
+      return priority(a.timing_status) - priority(b.timing_status) || b.shortage - a.shortage || a.component_name.localeCompare(b.component_name);
+    });
     return { production, materials };
   }, []);
 
