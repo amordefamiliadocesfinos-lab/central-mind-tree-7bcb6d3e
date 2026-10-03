@@ -3,16 +3,18 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
+import ProductionOperator from "./pages/ProductionOperator";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { GlobalFooterBar } from "@/components/GlobalFooterBar";
 import { OperationalContextTracker } from "@/components/OperationalContextTracker";
 import { LightboxProvider, LightboxRoot } from "@/components/lightbox";
 import { UndoRedoProvider } from "@/contexts/UndoRedoContext";
 import { LinesModeProvider } from "@/contexts/LinesModeContext";
-import { StockCheckAlert, StockCheckWizard } from "@/components/stock-check";
+import { StockCheckWizard } from "@/components/stock-check";
 import { AssistantPanel } from "@/components/assistant";
 import { SwipeNavigationWrapper } from "@/components/SwipeNavigationWrapper";
 import { AnimatePresence, motion, Variants } from "framer-motion";
@@ -56,26 +58,9 @@ import { useKeyboardAware } from "./hooks/useKeyboardAware";
 const queryClient = new QueryClient();
 
 const pageVariants: Variants = {
-  initial: {
-    opacity: 0,
-    y: 10,
-  },
-  enter: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.2,
-      ease: "easeOut",
-    },
-  },
-  exit: {
-    opacity: 0,
-    y: -10,
-    transition: {
-      duration: 0.15,
-      ease: "easeIn",
-    },
-  },
+  initial: { opacity: 0, y: 10 },
+  enter: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.15, ease: "easeIn" } },
 };
 
 function AnimatedRoutes() {
@@ -83,13 +68,7 @@ function AnimatedRoutes() {
 
   return (
     <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial="initial"
-        animate="enter"
-        exit="exit"
-        variants={pageVariants}
-      >
+      <motion.div key={location.pathname} initial="initial" animate="enter" exit="exit" variants={pageVariants}>
         <Routes location={location}>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -122,14 +101,12 @@ function AnimatedRoutes() {
   );
 }
 
-/** Shell interno — só renderiza para sessões autenticadas. */
 function AuthenticatedShell() {
   useScheduledTaskPromotion();
   useKeyboardAware();
 
   return (
     <>
-      {/* Floating dock above footer — avoids overlapping page header buttons */}
       <div className="fixed z-40 right-3 bottom-16 md:bottom-20 md:right-4 flex items-center gap-1 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border border-border rounded-full shadow-md px-1.5 py-1">
         <NucleoLauncherButton />
         <ActiveUserPicker />
@@ -144,7 +121,6 @@ function AuthenticatedShell() {
       <GlobalFooterBar />
       <QuickConversationFAB />
       <CapturaCentralFAB />
-      {/* <StockCheckAlert /> desativado a pedido do usuário */}
       <StockCheckWizard />
       <RoutineAlertOverlay />
       <CustomAlarmsRuntime />
@@ -152,24 +128,45 @@ function AuthenticatedShell() {
   );
 }
 
+function RoleAwareAuthenticatedApp() {
+  const { profileLoading, isProductionOperator } = useAuth();
+
+  if (profileLoading) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Carregando perfil" />
+      </div>
+    );
+  }
+
+  if (isProductionOperator) {
+    return (
+      <Routes>
+        <Route path="/producao-operador" element={<ProductionOperator />} />
+        <Route path="*" element={<Navigate to="/producao-operador" replace />} />
+      </Routes>
+    );
+  }
+
+  return <AuthenticatedShell />;
+}
+
 function InternalApp() {
   return (
     <AuthProvider>
       <Routes>
-          {/* Rotas públicas */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/auth" element={<Navigate to="/login" replace />} />
-          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-          <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
-          {/* Todo o restante é protegido */}
-          <Route
-            path="*"
-            element={
-              <ProtectedRoute>
-                <AuthenticatedShell />
-              </ProtectedRoute>
-            }
-          />
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth" element={<Navigate to="/login" replace />} />
+        <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+        <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
+        <Route
+          path="*"
+          element={
+            <ProtectedRoute>
+              <RoleAwareAuthenticatedApp />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AuthProvider>
   );
@@ -184,7 +181,6 @@ function AppContent() {
     </BrowserRouter>
   );
 }
-
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

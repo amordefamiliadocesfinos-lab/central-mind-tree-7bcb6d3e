@@ -2,35 +2,84 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+export type AuthAppUser = {
+  id: string;
+  name: string;
+  role: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  auth_user_id: string | null;
+};
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
+  appUser: AuthAppUser | null;
   loading: boolean;
+  profileLoading: boolean;
+  isProductionOperator: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function normalizeRole(role?: string | null) {
+  return (role || '').trim().toLocaleUpperCase('pt-BR');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [appUser, setAppUser] = useState<AuthAppUser | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
-    // 1) Listener registrado antes da leitura inicial (evita perda de eventos)
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+    const applySession = (nextSession: Session | null) => {
+      setAppUser(null);
+      setProfileLoading(!!nextSession?.user?.id);
+      setSession(nextSession);
       setLoading(false);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      applySession(newSession);
     });
 
-    // 2) Sessão persistida atual
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
+      applySession(data.session);
     });
 
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!session?.user?.id) {
+      setAppUser(null);
+      setProfileLoading(false);
+      return () => { mounted = false; };
+    }
+
+    setProfileLoading(true);
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from('app_users')
+        .select('id,name,role,email,avatar_url,is_active,auth_user_id')
+        .eq('auth_user_id', session.user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (error) console.error('Erro ao carregar perfil operacional:', error);
+      setAppUser((data || null) as AuthAppUser | null);
+      setProfileLoading(false);
+    })();
+
+    return () => { mounted = false; };
+  }, [session?.user?.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -40,10 +89,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setAppUser(null);
+    setProfileLoading(false);
   }, []);
 
+  const isProductionOperator = normalizeRole(appUser?.role) === 'PRODUÇÃO';
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      session,
+      user: session?.user ?? null,
+      appUser,
+      loading,
+      profileLoading,
+      isProductionOperator,
+      signIn,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

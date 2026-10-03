@@ -8,7 +8,13 @@ import { Card } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 export default function Login() {
-  const { session, loading: authLoading, signIn } = useAuth();
+  const {
+    session,
+    loading: authLoading,
+    profileLoading,
+    isProductionOperator,
+    signIn,
+  } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get('next') || '/';
@@ -19,8 +25,9 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && session) navigate(next, { replace: true });
-  }, [authLoading, session, next, navigate]);
+    if (authLoading || profileLoading || !session) return;
+    navigate(isProductionOperator ? '/producao-operador' : next, { replace: true });
+  }, [authLoading, profileLoading, session, isProductionOperator, next, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,13 +78,9 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={submitting || authLoading}>
+          <Button type="submit" className="w-full" disabled={submitting || authLoading || profileLoading}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Entrar'}
           </Button>
         </form>
