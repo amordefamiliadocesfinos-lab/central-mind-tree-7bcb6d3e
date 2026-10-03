@@ -8,12 +8,13 @@ export interface AppUser {
   role: string | null;
   email: string | null;
   is_active: boolean;
+  avatar_url: string | null;
 }
 
 /**
- * Identidade operacional.
+ * Identidade operacional canônica.
  * Resolve exatamente um app_users ativo por auth_user_id = session.user.id.
- * Sem localStorage, sem fallback por e-mail/nome, sem escolha manual.
+ * Nome, função e foto pertencem à mesma linha app_users.
  */
 export function useActiveUser() {
   const { user, loading: authLoading } = useAuth();
@@ -27,9 +28,9 @@ export function useActiveUser() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('app_users')
-      .select('id, name, role, email, is_active')
+      .select('id, name, role, email, is_active, avatar_url')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .maybeSingle();
@@ -45,10 +46,8 @@ export function useActiveUser() {
   return {
     activeUserId: activeUser?.id ?? null,
     activeUser,
-    /** Mantido por compatibilidade: sempre a própria identidade autenticada. */
     users: activeUser ? [activeUser] : [],
     loading: loading || authLoading,
-    /** Sem vínculo operacional → ações devem ser bloqueadas. */
     isLinked: !!activeUser,
     refetch: fetchLinked,
   };
