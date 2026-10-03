@@ -10,7 +10,16 @@ type ReviewSession = { id: string; expires_at: string; revoked_at: string | null
 
 function clientAddress(request: Request) { return request.headers.get('cf-connecting-ip'); }
 function functionOrigin(request: Request) { return new URL(request.url).origin; }
-function isOwnOrigin(request: Request) { return request.headers.get('origin') === functionOrigin(request); }
+function canonicalProjectOrigin() {
+  const url = Deno.env.get('SUPABASE_URL');
+  if (!url) return null;
+  try { return new URL(url).origin; } catch { return null; }
+}
+function isOwnOrigin(request: Request) {
+  const origin = request.headers.get('origin');
+  if (!origin) return false;
+  return origin === functionOrigin(request) || origin === canonicalProjectOrigin();
+}
 function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers: { ...securityHeaders(createNonce(), 'application/json; charset=utf-8'), ...extra } });
 }
