@@ -4207,22 +4207,34 @@ export type Database = {
           cost_per_unit: number
           created_at: string
           id: string
+          is_active: boolean
+          is_required: boolean
           process_id: string
           product_id: string
+          sort_order: number
+          updated_at: string
         }
         Insert: {
           cost_per_unit?: number
           created_at?: string
           id?: string
+          is_active?: boolean
+          is_required?: boolean
           process_id: string
           product_id: string
+          sort_order?: number
+          updated_at?: string
         }
         Update: {
           cost_per_unit?: number
           created_at?: string
           id?: string
+          is_active?: boolean
+          is_required?: boolean
           process_id?: string
           product_id?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: [
           {
@@ -4448,6 +4460,231 @@ export type Database = {
           },
         ]
       }
+      production_fact_consumptions: {
+        Row: {
+          adjustment_status: string
+          component_id: string
+          created_at: string
+          id: string
+          production_fact_id: string
+          qty_per_unit_snapshot: number
+          quantity_applied: number
+          quantity_consumed: number
+          unit_snapshot: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          adjustment_status?: string
+          component_id: string
+          created_at?: string
+          id?: string
+          production_fact_id: string
+          qty_per_unit_snapshot: number
+          quantity_applied?: number
+          quantity_consumed: number
+          unit_snapshot?: string | null
+          variant_id?: string | null
+        }
+        Update: {
+          adjustment_status?: string
+          component_id?: string
+          created_at?: string
+          id?: string
+          production_fact_id?: string
+          qty_per_unit_snapshot?: number
+          quantity_applied?: number
+          quantity_consumed?: number
+          unit_snapshot?: string | null
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_fact_consumptions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_fact_consumptions_production_fact_id_fkey"
+            columns: ["production_fact_id"]
+            isOneToOne: false
+            referencedRelation: "production_facts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_fact_consumptions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_fact_process_entries: {
+        Row: {
+          created_at: string
+          id: string
+          occurred_at: string
+          operator_name: string
+          operator_user_id: string | null
+          process_id: string
+          production_fact_id: string
+          quantity: number
+          total_value: number
+          updated_at: string
+          value_per_unit_snapshot: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          occurred_at?: string
+          operator_name: string
+          operator_user_id?: string | null
+          process_id: string
+          production_fact_id: string
+          quantity: number
+          total_value?: number
+          updated_at?: string
+          value_per_unit_snapshot?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          occurred_at?: string
+          operator_name?: string
+          operator_user_id?: string | null
+          process_id?: string
+          production_fact_id?: string
+          quantity?: number
+          total_value?: number
+          updated_at?: string
+          value_per_unit_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_fact_process_entries_operator_user_id_fkey"
+            columns: ["operator_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_fact_process_entries_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_fact_process_entries_production_fact_id_fkey"
+            columns: ["production_fact_id"]
+            isOneToOne: false
+            referencedRelation: "production_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_facts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_key: string
+          id: string
+          location: string
+          location_id: string | null
+          occurred_at: string
+          operator_name: string | null
+          operator_user_id: string | null
+          product_id: string
+          production_order_id: string | null
+          quantity: number
+          reversal_of_id: string | null
+          source: string
+          status: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_key: string
+          id?: string
+          location?: string
+          location_id?: string | null
+          occurred_at?: string
+          operator_name?: string | null
+          operator_user_id?: string | null
+          product_id: string
+          production_order_id?: string | null
+          quantity: number
+          reversal_of_id?: string | null
+          source?: string
+          status?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_key?: string
+          id?: string
+          location?: string
+          location_id?: string | null
+          occurred_at?: string
+          operator_name?: string | null
+          operator_user_id?: string | null
+          product_id?: string
+          production_order_id?: string | null
+          quantity?: number
+          reversal_of_id?: string | null
+          source?: string
+          status?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_facts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_facts_operator_user_id_fkey"
+            columns: ["operator_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_facts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_facts_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_facts_reversal_of_id_fkey"
+            columns: ["reversal_of_id"]
+            isOneToOne: false
+            referencedRelation: "production_facts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_facts_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_logs: {
         Row: {
           created_at: string
@@ -4612,6 +4849,7 @@ export type Database = {
           internal_production_number: string | null
           notes: string | null
           order_number: string | null
+          physical_flow_mode: string
           product_id: string | null
           scheduled_date: string | null
           source_order_id: string | null
@@ -4629,6 +4867,7 @@ export type Database = {
           internal_production_number?: string | null
           notes?: string | null
           order_number?: string | null
+          physical_flow_mode?: string
           product_id?: string | null
           scheduled_date?: string | null
           source_order_id?: string | null
@@ -4646,6 +4885,7 @@ export type Database = {
           internal_production_number?: string | null
           notes?: string | null
           order_number?: string | null
+          physical_flow_mode?: string
           product_id?: string | null
           scheduled_date?: string | null
           source_order_id?: string | null
@@ -6390,6 +6630,15 @@ export type Database = {
         Args: { p_context: string; p_product_id: string; p_variant_id: string }
         Returns: undefined
       }
+      attach_production_fact_process: {
+        Args: {
+          p_operator_name?: string
+          p_operator_user_id?: string
+          p_process_id: string
+          p_production_fact_id: string
+        }
+        Returns: Json
+      }
       cancel_purchase_with_financial_entries: {
         Args: { p_purchase_order_id: string; p_reason?: string }
         Returns: Json
@@ -6422,6 +6671,10 @@ export type Database = {
         }
       }
       complete_production_order: {
+        Args: { p_finished_location?: string; p_production_order_id: string }
+        Returns: Json
+      }
+      complete_production_order_legacy: {
         Args: { p_finished_location?: string; p_production_order_id: string }
         Returns: Json
       }
@@ -6537,8 +6790,34 @@ export type Database = {
         Args: { p_entry_ids: string[]; p_payload: Json }
         Returns: string
       }
+      reconcile_production_fact_materials: {
+        Args: { p_production_fact_id: string }
+        Returns: Json
+      }
+      register_production_fact: {
+        Args: {
+          p_event_key: string
+          p_location?: string
+          p_occurred_at?: string
+          p_operator_name?: string
+          p_operator_user_id?: string
+          p_product_id: string
+          p_production_order_id?: string
+          p_quantity: number
+          p_variant_id: string
+        }
+        Returns: Json
+      }
       set_order_operational_status: {
         Args: { p_order_id: string; p_status: string }
+        Returns: Json
+      }
+      set_product_processes: {
+        Args: {
+          p_process_ids: string[]
+          p_product_id: string
+          p_variant_id: string
+        }
         Returns: Json
       }
       transition_order_status_with_stock: {
