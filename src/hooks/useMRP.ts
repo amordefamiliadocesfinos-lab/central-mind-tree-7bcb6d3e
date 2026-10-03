@@ -6,11 +6,19 @@ const SIMPLE_VARIANT_KEY = '__simple__';
 const OPEN_PURCHASE_STATUSES = ['confirmado', 'em_transito', 'parcialmente_recebido'] as const;
 export const physicalIdentityKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? SIMPLE_VARIANT_KEY}`;
 
+export interface ProductionDemandOrigin {
+  order_id: string;
+  reference: string;
+  quantity: number;
+  due_date: string | null;
+}
+
 export interface ProductionNeed {
   product_id: string; variant_id: string | null; product_name: string; variant_name: string | null;
   product_sku: string; variant_sku: string | null; unit: string; demand: number;
   stock_available: number; stock_committed: number; available_now: number; stock_target: number;
   production_programmed: number; projected_balance: number; shortage: number; orders_affected: string[];
+  order_demands: ProductionDemandOrigin[]; suggested_date: string | null;
 }
 export interface MaterialNeed {
   component_id: string; variant_id: string | null; component_name: string; component_sku: string;
@@ -61,7 +69,7 @@ export function sumOpenPurchaseOperationalQty(purchaseItems: OpenPurchaseItemRow
 export function useMRP() {
   const calculateOperationalPlan = useCallback(async () => {
     const { data: orders, error: ordersError } = await supabase.from('orders').select(`
-      id, order_number, internal_order_number, status, operational_status,
+      id, order_number, internal_order_number, status, operational_status, due_date,
       items:order_items(product_id, variant_id, quantity,
         product:products!order_items_product_id_fkey(id,name,sku,unit,min_stock,is_manufactured,is_purchased,variation_mode),
         variant:product_variants!order_items_variant_id_fkey(id,variant_name,sku,unit))
@@ -74,11 +82,13 @@ export function useMRP() {
     );
 
     const demandRows = activeOrders.flatMap(order => (order.items || []).filter((item: any) => item.product_id).map((item: any) => ({
+      order_id: order.id,
       product_id: item.product_id,
       variant_id: item.variant_id || null,
       quantity: Number(item.quantity || 0),
       product: item.product,
       variant: item.variant,
+      due_date: order.due_date || null,
       order_reference: order.internal_order_number || order.order_number || order.id.slice(0, 8),
     })));
     if (!demandRows.length) return { production: [] as ProductionNeed[], materials: [] as MaterialNeed[] };
@@ -119,9 +129,12 @@ export function useMRP() {
     const demandMap = new Map<string, any>();
     for (const row of demandRows) {
       const key = physicalIdentityKey(row.product_id, row.variant_id);
-      const current = demandMap.get(key) ?? { ...row, demand: 0, orders_affected: [] as string[] };
+      const current = demandMap.get(key) ?? { ...row, demand: 0, orders_affected: [] as string[], order_demands: [] as ProductionDemandOrigin[] };
       current.demand += row.quantity;
       if (!current.orders_affected.includes(row.order_reference)) current.orders_affected.push(row.order_reference);
+      const existingOrigin = current.order_demands.find((origin: ProductionDemandOrigin) => origin.order_id === row.order_id);
+      if (existingOrigin) existingOrigin.quantity += row.quantity;
+      else current.order_demands.push({ order_id: row.order_id, reference: row.order_reference, quantity: row.quantity, due_date: row.due_date });
       demandMap.set(key, current);
     }
 
@@ -135,6 +148,8 @@ export function useMRP() {
       const target = row.variant_id ? 0 : Number(product.min_stock || 0);
       const productionProgrammed = programmed[key] || 0;
       const availableNow = physical - row.demand;
+      const dated = (row.order_demands as ProductionDemandOrigin[]).map(origin => origin.due_date).filter(Boolean) as string[];
+      const suggestedDate = dated.length ? [...dated].sort()[0] : null;
 
       if (product.is_manufactured) {
         const shortage = Math.max(0, row.demand + target - physical - productionProgrammed);
@@ -147,6 +162,8 @@ export function useMRP() {
           stock_target: target, production_programmed: productionProgrammed,
           projected_balance: physical + productionProgrammed - row.demand,
           shortage, orders_affected: row.orders_affected,
+          order_demands: row.order_demands,
+          suggested_date: suggestedDate,
         });
       }
 
