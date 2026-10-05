@@ -7057,6 +7057,10 @@ export type Database = {
         Returns: Json
       }
       confirm_purchase_receipt: {
+        Args: { p_purchase_order_id: string }
+        Returns: Json
+      }
+      confirm_purchase_receipt_unguarded_01b: {
         Args: { p_receipt_id: string }
         Returns: Json
       }
@@ -7080,14 +7084,40 @@ export type Database = {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
       }
+      create_unified_sale_unguarded_01b: {
+        Args: { p_items: Json; p_order: Json }
+        Returns: Json
+      }
       current_app_user_id: { Args: never; Returns: string }
       current_app_user_role: { Args: never; Returns: string }
+      delete_production_closing: {
+        Args: { p_closing_id: string }
+        Returns: Json
+      }
       finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
+      finalize_order_separation_unguarded_01b: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
       }
+      import_shopee_order_with_stock_unguarded_01b: {
+        Args: { p_items: Json; p_order: Json }
+        Returns: Json
+      }
       link_order_to_existing_financial_entry: {
+        Args: {
+          p_description: string
+          p_financial_entry_id: string
+          p_notes: string
+          p_order_id: string
+          p_value: number
+        }
+        Returns: string
+      }
+      link_order_to_existing_financial_entry_unguarded_01b: {
         Args: {
           p_allocated_value: number
           p_entry_id: string
@@ -7100,6 +7130,10 @@ export type Database = {
       map_contact_to_conv_funnel: { Args: { _status: string }; Returns: string }
       map_conv_to_contact_funnel: { Args: { _stage: string }; Returns: string }
       mark_order_separation_printed: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      mark_order_separation_printed_unguarded_01b: {
         Args: { p_order_id: string }
         Returns: {
           created_at: string
@@ -7166,6 +7200,19 @@ export type Database = {
         Args: { p_production_fact_id: string }
         Returns: Json
       }
+      record_manual_inventory_movement: {
+        Args: {
+          p_event_key: string
+          p_location: string
+          p_notes: string
+          p_operation: string
+          p_product_id: string
+          p_quantity: number
+          p_to_location: string
+          p_variant_id: string
+        }
+        Returns: Json
+      }
       refresh_production_closing_financial_status: {
         Args: { p_closing_id: string }
         Returns: string
@@ -7205,6 +7252,10 @@ export type Database = {
         Args: { p_order_id: string; p_status: string }
         Returns: Json
       }
+      set_order_operational_status_unguarded_01b: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: Json
+      }
       set_product_processes: {
         Args: {
           p_process_ids: string[]
@@ -7214,6 +7265,10 @@ export type Database = {
         Returns: Json
       }
       transition_order_status_with_stock: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: Json
+      }
+      transition_order_status_with_stock_unguarded_01b: {
         Args: { p_order_id: string; p_status: string }
         Returns: Json
       }
@@ -7228,6 +7283,10 @@ export type Database = {
           p_supplier_contact_id: string
           p_variant_id: string
         }
+        Returns: Json
+      }
+      validate_production_closing_integrity: {
+        Args: { p_closing_id: string }
         Returns: Json
       }
     }
