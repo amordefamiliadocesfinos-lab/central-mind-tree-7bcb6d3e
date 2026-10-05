@@ -11,6 +11,7 @@ import {
   CategoriesManager,
   ContactsManager,
   PricingManagerV2,
+  ShopeeEconomicMotor,
   InvoicesManager,
   StatementImporter,
 } from '@/components/financial';
@@ -19,7 +20,7 @@ import { useFinancial, EntryStatus } from '@/hooks/useFinancial';
 import { Users, DollarSign, FileText, Upload } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, LayoutDashboard, TrendingDown, TrendingUp, Wallet, Tag } from 'lucide-react';
+import { CalendarIcon, Calculator, LayoutDashboard, TrendingDown, TrendingUp, Wallet, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SALES_CHANNELS } from '@/lib/salesChannels';
@@ -165,7 +166,7 @@ export default function Financeiro() {
         <MarketplaceSettlementDialog open={settlementOpen} onOpenChange={setSettlementOpen} onChanged={() => fetchEntries()} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className={cn("grid w-full", isMobile ? "grid-cols-3" : "grid-cols-8")}>
+          <TabsList className={cn("grid w-full", isMobile ? "grid-cols-3" : "grid-cols-9")}>
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               {!isMobile && "Dashboard"}
@@ -199,6 +200,10 @@ export default function Financeiro() {
                 <TabsTrigger value="valores" className="gap-2">
                   <DollarSign className="h-4 w-4" />
                   Valores
+                </TabsTrigger>
+                <TabsTrigger value="motor-shopee" className="gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Motor Shopee
                 </TabsTrigger>
               </>
             )}
@@ -286,6 +291,10 @@ export default function Financeiro() {
 
           <TabsContent value="valores">
             <PricingManagerV2 />
+          </TabsContent>
+
+          <TabsContent value="motor-shopee">
+            <ShopeeEconomicMotor />
           </TabsContent>
 
           <TabsContent value="notas">
