@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -34,11 +34,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [appUser, setAppUser] = useState<AuthAppUser | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const applySession = (nextSession: Session | null) => {
-      setAppUser(null);
-      setProfileLoading(!!nextSession?.user?.id);
+      const nextUserId = nextSession?.user?.id ?? null;
+      const userChanged = currentUserIdRef.current !== nextUserId;
+
+      currentUserIdRef.current = nextUserId;
+
+      // Token/session refreshes for the same user must not invalidate an already
+      // loaded operational profile. Only an actual identity change reloads it.
+      if (userChanged) {
+        setAppUser(null);
+        setProfileLoading(!!nextUserId);
+      } else if (!nextUserId) {
+        setAppUser(null);
+        setProfileLoading(false);
+      }
+
       setSession(nextSession);
       setLoading(false);
     };
@@ -65,17 +79,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfileLoading(true);
     (async () => {
-      const { data, error } = await (supabase as any)
-        .from('app_users')
-        .select('id,name,role,email,avatar_url,is_active,auth_user_id')
-        .eq('auth_user_id', session.user.id)
-        .eq('is_active', true)
-        .maybeSingle();
+      try {
+        const { data, error } = await (supabase as any)
+          .from('app_users')
+          .select('id,name,role,email,avatar_url,is_active,auth_user_id')
+          .eq('auth_user_id', session.user.id)
+          .eq('is_active', true)
+          .maybeSingle();
 
-      if (!mounted) return;
-      if (error) console.error('Erro ao carregar perfil operacional:', error);
-      setAppUser((data || null) as AuthAppUser | null);
-      setProfileLoading(false);
+        if (!mounted) return;
+        if (error) console.error('Erro ao carregar perfil operacional:', error);
+        setAppUser((data || null) as AuthAppUser | null);
+      } catch (error) {
+        if (!mounted) return;
+        console.error('Erro inesperado ao carregar perfil operacional:', error);
+        setAppUser(null);
+      } finally {
+        if (mounted) setProfileLoading(false);
+      }
     })();
 
     return () => { mounted = false; };
@@ -88,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    currentUserIdRef.current = null;
     setSession(null);
     setAppUser(null);
     setProfileLoading(false);
