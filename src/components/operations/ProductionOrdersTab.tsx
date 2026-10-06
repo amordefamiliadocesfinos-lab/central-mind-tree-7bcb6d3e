@@ -539,14 +539,14 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
             <Tabs defaultValue="info" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="info">Info</TabsTrigger>
-                  <TabsTrigger value="entries">Lançamentos</TabsTrigger>
-                  <TabsTrigger value="payment">Pagamento</TabsTrigger>
+                  <TabsTrigger value="entries">{selectedOrder.physical_flow_mode === 'production_facts' ? 'Produção Real' : 'Lançamentos'}</TabsTrigger>
+                  <TabsTrigger value="payment">{selectedOrder.physical_flow_mode === 'production_facts' ? 'Fechamento' : 'Pagamento'}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="info" className="space-y-4">
                   <Card>
                     <CardContent className="pt-4 space-y-3">
-                      <div className="space-y-2"><span className="text-muted-foreground">Itens da OP:</span>{(selectedOrder.items?.length ? selectedOrder.items : [{ id: 'legacy', product: selectedOrder.product, variant: selectedOrder.variant, planned_quantity: selectedOrder.target_quantity, produced_quantity: calculateConsolidation(selectedOrder) }]).map(item => <div key={item.id} className="rounded border p-2 text-sm"><p className="font-medium">{item.product?.name}{item.variant ? ` · ${item.variant.variant_name}` : ''}</p><p className="text-muted-foreground">Planejado: {item.planned_quantity} {getPhysicalIdentityUnit(item.product, item.variant)} · Apontado: {item.produced_quantity}</p></div>)}</div>
+                      <div className="space-y-2"><span className="text-muted-foreground">Itens da OP:</span>{(selectedOrder.items?.length ? selectedOrder.items : [{ id: 'legacy', product: selectedOrder.product, variant: selectedOrder.variant, planned_quantity: selectedOrder.target_quantity, produced_quantity: calculateConsolidation(selectedOrder) }]).map(item => <div key={item.id} className="rounded border p-2 text-sm"><p className="font-medium">{item.product?.name}{item.variant ? ` · ${item.variant.variant_name}` : ''}</p><p className="text-muted-foreground">Planejado: {item.planned_quantity} {getPhysicalIdentityUnit(item.product, item.variant)} · {selectedOrder.physical_flow_mode === 'production_facts' ? 'Realizado' : 'Apontado'}: {selectedOrder.physical_flow_mode === 'production_facts' ? calculateConsolidation(selectedOrder) : item.produced_quantity}</p></div>)}</div>
                       <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Origem:</span>
                         <span className="font-medium text-right">{selectedOrder.source_order
@@ -580,63 +580,99 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                     </CardContent>
                   </Card>
 
-                  {/* Processes Progress */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Progresso por Processo</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {(selectedOrder.processes || []).map((op) => {
-                        const processEntries = (selectedOrder.entries || []).filter(e => e.process_id === op.process_id);
-                        const totalQty = processEntries.reduce((sum, e) => sum + e.quantity, 0);
-                        const progress = selectedOrder.target_quantity > 0 
-                          ? Math.round((totalQty / selectedOrder.target_quantity) * 100)
-                          : 0;
-
-                        return (
-                          <div key={op.id} className="flex items-center justify-between p-2 border rounded">
-                            <div className="flex items-center gap-2">
-                              {op.is_required && <Badge variant="destructive" className="text-xs">Obrig.</Badge>}
-                              <span>{op.process?.name}</span>
+                  {/* Factual OP progress / legacy process progress */}
+                  {selectedOrder.physical_flow_mode === 'production_facts' ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Planejado × Produção Real</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const realized = calculateConsolidation(selectedOrder);
+                          const target = Number(selectedOrder.target_quantity || 0);
+                          const remaining = Math.max(0, target - realized);
+                          return (
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-xl font-bold">{target}</p>
+                                <p className="text-xs text-muted-foreground">Planejado</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-xl font-bold text-emerald-600">{realized}</p>
+                                <p className="text-xs text-muted-foreground">Realizado</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/60 p-3">
+                                <p className={cn("text-xl font-bold", remaining > 0 ? "text-amber-600" : "text-emerald-600")}>{remaining}</p>
+                                <p className="text-xs text-muted-foreground">Restante</p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{totalQty} {getOrderUnit(selectedOrder)}</span>
-                              <span className="text-xs text-muted-foreground">({progress}%)</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-
-                  {/* Destination location for stock entry */}
-                  {selectedOrder.status === 'producao' && (
-                    <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900">
-                      <CardContent className="pt-4 space-y-2">
-                        <Label className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
-                          <PackagePlus className="h-4 w-4" />
-                          Local de Destino do Estoque
-                        </Label>
-                        <Select value={effectiveLocation} onValueChange={(v) => setCompletionLocation(v)}>
-                          <SelectTrigger className="h-11 bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {locations.length === 0 && (
-                              <SelectItem value="Fábrica">Fábrica</SelectItem>
-                            )}
-                            {locations.map((loc) => (
-                              <SelectItem key={loc.id} value={loc.name}>{loc.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
-                          Ao concluir, <span className="font-semibold">{calculateConsolidation(selectedOrder)} {getOrderUnit(selectedOrder)}.</span> serão
-                          adicionadas em <span className="font-semibold">{effectiveLocation}</span>
-                          . O pedido vinculado não terá seu status alterado.
-                        </p>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
+                  ) : (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Progresso por Processo</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {(selectedOrder.processes || []).map((op) => {
+                          const processEntries = (selectedOrder.entries || []).filter(e => e.process_id === op.process_id);
+                          const totalQty = processEntries.reduce((sum, e) => sum + e.quantity, 0);
+                          const progress = selectedOrder.target_quantity > 0
+                            ? Math.round((totalQty / selectedOrder.target_quantity) * 100)
+                            : 0;
+
+                          return (
+                            <div key={op.id} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2">
+                                {op.is_required && <Badge variant="destructive" className="text-xs">Obrig.</Badge>}
+                                <span>{op.process?.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{totalQty} {getOrderUnit(selectedOrder)}</span>
+                                <span className="text-xs text-muted-foreground">({progress}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Factual completion never creates a second stock movement. */}
+                  {selectedOrder.status === 'producao' && (
+                    selectedOrder.physical_flow_mode === 'production_facts' ? (
+                      <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900">
+                        <CardContent className="pt-4 text-sm">
+                          <p className="font-semibold text-emerald-900 dark:text-emerald-200">Estoque já confirmado pela Produção Real</p>
+                          <p className="mt-1 text-emerald-700 dark:text-emerald-300/80">
+                            Concluir esta OP fecha somente o planejamento. Nenhum material será consumido e nenhum produto será adicionado novamente ao estoque.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900">
+                        <CardContent className="pt-4 space-y-2">
+                          <Label className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+                            <PackagePlus className="h-4 w-4" />
+                            Local de Destino do Estoque
+                          </Label>
+                          <Select value={effectiveLocation} onValueChange={(v) => setCompletionLocation(v)}>
+                            <SelectTrigger className="h-11 bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locations.length === 0 && <SelectItem value="Fábrica">Fábrica</SelectItem>}
+                              {locations.map((loc) => <SelectItem key={loc.id} value={loc.name}>{loc.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                            Ao concluir, <span className="font-semibold">{calculateConsolidation(selectedOrder)} {getOrderUnit(selectedOrder)}</span> serão adicionadas em <span className="font-semibold">{effectiveLocation}</span>.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )
                   )}
 
                   {/* Actions */}
@@ -652,12 +688,17 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       </Button>
                     )}
                     {selectedOrder.status === 'producao' && (
-                      <Button 
+                      <Button
                         onClick={() => handleCompleteOrder(selectedOrder)}
+                        disabled={selectedOrder.physical_flow_mode === 'production_facts' && calculateConsolidation(selectedOrder) < Number(selectedOrder.target_quantity || 0)}
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <Check className="h-4 w-4 mr-2" />
-                        Concluir OP
+                        {selectedOrder.physical_flow_mode === 'production_facts' && calculateConsolidation(selectedOrder) >= Number(selectedOrder.target_quantity || 0)
+                          ? 'Concluir OP'
+                          : selectedOrder.physical_flow_mode === 'production_facts'
+                            ? 'Produção restante'
+                            : 'Concluir OP'}
                       </Button>
                     )}
                     <Button 
@@ -687,54 +728,78 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                     </Button>
                   )}
 
-                  <div className="space-y-2">
-                    {(selectedOrder.entries || []).length === 0 ? (
-                      <p className="text-muted-foreground text-center py-4">Nenhum lançamento</p>
-                    ) : (
-                      (selectedOrder.entries || []).map((entry) => (
-                        <Card key={entry.id}>
-                          <CardContent className="p-3">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{entry.employee_name}</p>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {entry.process?.name}
-                                  </Badge>
-                                  <span>{entry.date}</span>
+                  {selectedOrder.physical_flow_mode === 'production_facts' ? (
+                    <div className="space-y-2">
+                      {(selectedOrder.facts || []).filter(fact => fact.status === 'confirmed').length === 0 ? (
+                        <p className="text-muted-foreground text-center py-4">Nenhuma Produção Real vinculada ainda.</p>
+                      ) : (
+                        (selectedOrder.facts || [])
+                          .filter(fact => fact.status === 'confirmed')
+                          .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at))
+                          .map(fact => (
+                            <Card key={fact.id}>
+                              <CardContent className="flex items-center justify-between gap-3 p-3">
+                                <div>
+                                  <p className="font-medium">{Number(fact.quantity)} {getOrderUnit(selectedOrder)}</p>
+                                  <p className="text-xs text-muted-foreground">{format(parseISO(fact.occurred_at), 'dd/MM/yyyy HH:mm')}</p>
                                 </div>
-                                {entry.notes && (
-                                  <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>
-                                )}
+                                <Badge variant="outline">Fato Real</Badge>
+                              </CardContent>
+                            </Card>
+                          ))
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(selectedOrder.entries || []).length === 0 ? (
+                        <p className="text-muted-foreground text-center py-4">Nenhum lançamento</p>
+                      ) : (
+                        (selectedOrder.entries || []).map((entry) => (
+                          <Card key={entry.id}>
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium">{entry.employee_name}</p>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Badge variant="secondary" className="text-xs">{entry.process?.name}</Badge>
+                                    <span>{entry.date}</span>
+                                  </div>
+                                  {entry.notes && <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold">{entry.quantity} {getOrderUnit(selectedOrder)}</p>
+                                  <p className="text-sm text-green-600">{formatCurrency(entry.total_value)}</p>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm('Excluir este lançamento?')) deleteEntry(entry.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-xl font-bold">{entry.quantity} {getOrderUnit(selectedOrder)}</p>
-                                <p className="text-sm text-green-600">
-                                  {formatCurrency(entry.total_value)}
-                                </p>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Excluir este lançamento?')) {
-                                      deleteEntry(entry.id);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="payment" className="space-y-4">
-                  {(() => {
+                  {selectedOrder.physical_flow_mode === 'production_facts' ? (
+                    <Card className="border-primary/20 bg-primary/5">
+                      <CardContent className="p-4 text-sm">
+                        <p className="font-semibold">Mão de obra pelo Fechamento de Produção</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Os operadores e valores são registrados nos processos de cada Fato Real. A consolidação financeira ocorre em Produção → Fechamento, sem lançamento de pagamento dentro da OP.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (() => {
                     const paymentSummary = getPaymentSummary(selectedOrder.entries || []);
                     const totalPayment = Object.values(paymentSummary).reduce((sum, emp) => sum + emp.total, 0);
 
@@ -742,9 +807,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       <>
                         <Card>
                           <CardContent className="pt-4 text-center">
-                            <p className="text-3xl font-bold text-green-600">
-                              {formatCurrency(totalPayment)}
-                            </p>
+                            <p className="text-3xl font-bold text-green-600">{formatCurrency(totalPayment)}</p>
                             <p className="text-sm text-muted-foreground">Total a Pagar</p>
                           </CardContent>
                         </Card>
