@@ -49,6 +49,13 @@ export interface ProductionOrderItem {
   variant?: { id: string; variant_name: string; sku: string; unit: string | null } | null;
 }
 
+export interface ProductionFactSummary {
+  id: string;
+  quantity: number;
+  status: string;
+  occurred_at: string;
+}
+
 export interface ProductionOrder {
   id: string;
   order_number: string | null;
@@ -87,6 +94,7 @@ export interface ProductionOrder {
   } | null;
   processes?: ProductionOrderProcess[];
   entries?: ProductionEntry[];
+  facts?: ProductionFactSummary[];
   items?: ProductionOrderItem[];
 }
 
@@ -120,6 +128,7 @@ export function useProductionOrders() {
           *,
           process:processes(id, name)
         ),
+        facts:production_facts(id,quantity,status,occurred_at),
         items:production_order_items(*, product:products(id,name,sku,unit), variant:product_variants(id,variant_name,sku,unit))
       `)
       .order('created_at', { ascending: false });
@@ -224,6 +233,12 @@ export function useProductionOrders() {
 
   // Calculate consolidated quantity (minimum across required processes, or min across all entries if no required processes)
   const calculateConsolidation = useCallback((order: ProductionOrder) => {
+    if (order.physical_flow_mode === 'production_facts') {
+      return (order.facts || [])
+        .filter(fact => fact.status === 'confirmed')
+        .reduce((total, fact) => total + Number(fact.quantity || 0), 0);
+    }
+
     const entries = order.entries || [];
     if (entries.length === 0) return 0;
 
@@ -234,13 +249,12 @@ export function useProductionOrders() {
 
     const requiredProcesses = order.processes?.filter(p => p.is_required) || [];
     
-    // If there are required processes, use minimum across them
+    // Legacy: quantity is consolidated by the minimum across required processes.
     if (requiredProcesses.length > 0) {
       const quantities = requiredProcesses.map(p => entriesByProcess[p.process_id] || 0);
       return Math.min(...quantities);
     }
     
-    // If no required processes defined, use minimum across all processes with entries
     const allQuantities = Object.values(entriesByProcess);
     return allQuantities.length > 0 ? Math.min(...allQuantities) : 0;
   }, []);
@@ -388,7 +402,12 @@ export function useProductionOrders() {
 
     if (error) {
       console.error('Erro ao concluir OP:', error);
-      toast.error(error.message || 'Não foi possível concluir a OP');
+      const message = error.message || '';
+      if (message.includes('production_order_incomplete')) {
+        toast.error('A OP ainda possui quantidade restante. Conclua a produção real ou ajuste a meta planejada.');
+      } else {
+        toast.error(message || 'Não foi possível concluir a OP');
+      }
       return { success: false, shortages: [] as BOMLine[] };
     }
 
@@ -431,10 +450,17 @@ export function useProductionOrders() {
       };
     }
 
-    toast.success(result.already_completed ? 'Esta OP já estava concluída.' : 'OP concluída e produto acabado registrado.');
+    const order = orders.find(item => item.id === orderId);
+    toast.success(
+      result.already_completed
+        ? 'Esta OP já estava concluída.'
+        : order?.physical_flow_mode === 'production_facts'
+          ? 'OP concluída. O estoque já estava registrado pelos fatos reais.'
+          : 'OP concluída e produto acabado registrado.'
+    );
     fetchOrders();
     return { success: true, shortages: [] as BOMLine[] };
-  }, [fetchOrders]);
+  }, [fetchOrders, orders]);
 
   // Get payment summary by employee
   const getPaymentSummary = useCallback((entries: ProductionEntry[]) => {
