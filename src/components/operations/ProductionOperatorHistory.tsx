@@ -116,7 +116,7 @@ export function ProductionOperatorHistory({ operatorId, operatorName, onProduce,
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produção</p>
-            <h1 className="text-2xl font-bold">Meus lançamentos</h1>
+            <h1 className="text-2xl font-bold">Meus apontamentos</h1>
             <p className="mt-1 text-sm text-muted-foreground">{operatorName}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onSignOut} className="text-muted-foreground">
@@ -129,7 +129,7 @@ export function ProductionOperatorHistory({ operatorId, operatorName, onProduce,
         </Button>
 
         <div className="grid grid-cols-2 gap-2">
-          <Card><CardContent className="p-3"><p className="text-2xl font-bold">{groups.length}</p><p className="text-xs text-muted-foreground">Lançamentos</p></CardContent></Card>
+          <Card><CardContent className="p-3"><p className="text-2xl font-bold">{groups.length}</p><p className="text-xs text-muted-foreground">Fatos com minha participação</p></CardContent></Card>
           <Card><CardContent className="p-3"><p className="text-2xl font-bold">{totalUnits}</p><p className="text-xs text-muted-foreground">Unidades</p></CardContent></Card>
         </div>
 
@@ -147,7 +147,7 @@ export function ProductionOperatorHistory({ operatorId, operatorName, onProduce,
         {error && <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
 
         {!loading && !error && groups.length === 0 && (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhum lançamento seu ainda.</CardContent></Card>
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhum apontamento seu ainda.</CardContent></Card>
         )}
 
         {!loading && groups.map((group) => (
