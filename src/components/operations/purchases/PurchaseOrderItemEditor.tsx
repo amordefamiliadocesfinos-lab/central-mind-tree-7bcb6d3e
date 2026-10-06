@@ -45,6 +45,7 @@ export interface PurchaseDraftLine {
   planning_source: 'mrp' | null;
   planning_context: PurchasePlanningContext | null;
   planning_qty_overridden?: boolean;
+  price_reference?: 'last_purchase' | 'canonical_cost' | null;
 }
 
 interface Props {
@@ -55,6 +56,7 @@ interface Props {
   onProductChange: (productId: string) => Promise<void>;
   onVariantChange: (variantId: string) => Promise<void>;
   onLoadPresentations: () => Promise<void>;
+  onPriceReferenceRequested: (line: PurchaseDraftLine) => Promise<void>;
   onRemove: () => void;
 }
 
@@ -77,7 +79,7 @@ function formatQtyInput(value: number) {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 10, useGrouping: false });
 }
 
-export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, onProductChange, onVariantChange, onLoadPresentations, onRemove }: Props) {
+export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, onProductChange, onVariantChange, onLoadPresentations, onPriceReferenceRequested, onRemove }: Props) {
   const product = products.find(item => item.id === line.product_id);
   const requiresVariant = product?.variation_mode === 'variacoes_fisicas';
   const identityResolved = Boolean(product) && (!requiresVariant || Boolean(line.variant_id));
@@ -93,12 +95,16 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
   const setPresentation = (next: PurchasePresentationOption, overridden = false) => {
     const suggestion = calculateSuggestedPurchaseQty(operationalNeed, Number(next.conversion_factor));
     const shouldSuggest = line.planning_source === 'mrp' && !line.planning_qty_overridden && suggestion > 0;
-    onChange({
+    const nextLine: PurchaseDraftLine = {
       ...line,
       presentation: next,
       presentationOverridden: overridden,
+      price: '',
+      price_reference: null,
       ...(shouldSuggest ? { qty: formatQtyInput(suggestion) } : {}),
-    });
+    };
+    onChange(nextLine);
+    void onPriceReferenceRequested(nextLine);
   };
 
   const reapplyPlanningSuggestion = () => {
@@ -198,9 +204,11 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
               maxDecimals={10}
               locale="pt-BR"
               value={line.price}
-              onValueChange={value => onChange({ ...line, price: value })}
+              onValueChange={value => onChange({ ...line, price: value, price_reference: null })}
               placeholder="Ex.: 379,10"
             />
+            {line.price_reference === 'last_purchase' && <p className="text-xs text-muted-foreground">Referência automática: último preço válido desta combinação.</p>}
+            {line.price_reference === 'canonical_cost' && <p className="text-xs text-muted-foreground">Referência automática: custo físico canônico por unidade de estoque.</p>}
           </div>
         </div>
 
