@@ -7,26 +7,15 @@ const CALLBACK_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
+const SHOPEE_SANDBOX_OAUTH_URL =
+  "https://xkskyutmtlhivvpfxkjg.supabase.co/functions/v1/shopee-sandbox-oauth";
+
 export const Route = createFileRoute("/api/shopee/oauth/callback")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const supabaseUrl = process.env["SUPABASE_URL"];
-        if (!supabaseUrl) {
-          return Response.json(
-            {
-              ok: false,
-              status: "not_configured",
-              message: "Backend OAuth Shopee não configurado.",
-            },
-            { status: 503, headers: CALLBACK_HEADERS },
-          );
-        }
-
         const incoming = new URL(request.url);
-        const upstream = new URL(
-          `${supabaseUrl.replace(/\/$/u, "")}/functions/v1/shopee-sandbox-oauth/callback`,
-        );
+        const upstream = new URL(`${SHOPEE_SANDBOX_OAUTH_URL}/callback`);
         incoming.searchParams.forEach((value, key) => upstream.searchParams.append(key, value));
 
         const response = await fetch(upstream, {
