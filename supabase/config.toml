@@ -24,3 +24,7 @@ verify_jwt = true
 # Sessão própria do portal demonstrativo; não aceita JWT do Supabase Auth.
 [functions.shopee-review-auth]
 verify_jwt = false
+
+# Callback OAuth externo da Shopee usa state próprio e tokens protegidos no backend.
+[functions.shopee-sandbox-oauth]
+verify_jwt = false
