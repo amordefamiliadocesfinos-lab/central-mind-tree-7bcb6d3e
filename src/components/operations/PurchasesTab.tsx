@@ -175,7 +175,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
 
   const changeSupplier = async (nextSupplierId: string) => {
     setSupplierId(nextSupplierId);
-    const snapshot = lines.map(line => ({ ...line, price: '', price_reference: null as const }));
+    const snapshot = lines.map(line => ({ ...line, price: '', price_reference: null }));
     setLines(snapshot);
     await Promise.all(snapshot.filter(line => line.presentation).map(line => requestPriceReference(line, nextSupplierId)));
   };
