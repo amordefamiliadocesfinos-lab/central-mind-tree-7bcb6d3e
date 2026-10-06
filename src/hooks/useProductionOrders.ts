@@ -65,6 +65,7 @@ export interface ProductionOrder {
   updated_at: string;
   completed_at: string | null;
   scheduled_date: string | null;
+  physical_flow_mode: 'production_facts' | 'legacy_completion';
   product?: {
     id: string;
     name: string;
@@ -254,6 +255,12 @@ export function useProductionOrders() {
 
   // Add production entry
   const createEntry = useCallback(async (entry: Omit<ProductionEntry, 'id' | 'created_at' | 'updated_at' | 'total_value' | 'process'>) => {
+    const order = orders.find(o => o.id === entry.production_order_id);
+    if (order?.physical_flow_mode === 'production_facts') {
+      toast.error('Esta OP usa Produção Real. Registre a produção em Produzir.');
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('production_entries')
       .insert(entry)
@@ -268,8 +275,7 @@ export function useProductionOrders() {
 
     toast.success('Lançamento registrado');
     
-    // Apontamentos são sempre consolidados no item físico correspondente.
-    const order = orders.find(o => o.id === entry.production_order_id);
+    // Apontamentos legados são consolidados somente nas OPs históricas.
     if (order) {
       const updatedOrder = {
         ...order,

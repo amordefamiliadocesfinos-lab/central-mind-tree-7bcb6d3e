@@ -671,10 +671,21 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                 </TabsContent>
 
                 <TabsContent value="entries" className="space-y-4">
-                  <Button onClick={() => setShowEntryForm(true)} className="w-full h-12">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Lançamento
-                  </Button>
+                  {selectedOrder.physical_flow_mode === 'production_facts' ? (
+                    <Card className="border-primary/20 bg-primary/5">
+                      <CardContent className="p-4 text-sm">
+                        <p className="font-semibold">Execução pela Produção Real</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Esta OP não aceita lançamentos legados. Registre o fato físico em Produzir; os fatos vinculados passam a alimentar o realizado desta OP.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Button onClick={() => setShowEntryForm(true)} className="w-full h-12">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Lançamento
+                    </Button>
+                  )}
 
                   <div className="space-y-2">
                     {(selectedOrder.entries || []).length === 0 ? (
@@ -768,7 +779,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
       {/* Entry Form Dialog */}
       <ResponsiveDialog 
-        open={showEntryForm} 
+        open={showEntryForm && selectedOrder?.physical_flow_mode !== 'production_facts'} 
         onOpenChange={setShowEntryForm}
         title="Novo Lançamento"
       >
