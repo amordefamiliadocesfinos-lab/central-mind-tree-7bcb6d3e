@@ -27,7 +27,6 @@ import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
 import {
   PurchaseOrderItemEditor,
-  directPresentation,
   type PurchaseDraftLine,
   type PurchasePresentationOption,
   type PurchaseVariantOption,
@@ -83,6 +82,10 @@ function requirePurchaseNumber(value: string, label: string) {
   return parsed.number;
 }
 
+function formatPriceInput(value: number) {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 10, useGrouping: false });
+}
+
 export function PurchasesTab({ products }: { products: Product[] }) {
   const purchases = usePurchases();
   const { contacts } = useContacts();
@@ -133,6 +136,50 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     setLines(current => current.map(line => line.id === lineId ? nextLine : line));
   };
 
+  const requestPriceReference = async (line: PurchaseDraftLine, supplierOverride?: string) => {
+    const supplier = supplierOverride ?? supplierId;
+    const presentation = line.presentation;
+    if (!supplier || !line.product_id || !presentation) return;
+
+    const { data, error } = await db.rpc('get_purchase_price_reference', {
+      p_supplier_contact_id: supplier,
+      p_product_id: line.product_id,
+      p_variant_id: line.variant_id,
+      p_purchase_presentation_id: presentation.id,
+      p_purchase_unit_label: presentation.purchase_unit_label,
+      p_conversion_factor: Number(presentation.conversion_factor),
+    });
+    if (error) {
+      console.error('Não foi possível carregar a referência de preço da compra:', error);
+      return;
+    }
+
+    const referencePrice = Number(data);
+    if (data === null || data === undefined || !Number.isFinite(referencePrice)) return;
+
+    setLines(current => current.map(item => {
+      if (item.id !== line.id) return item;
+      const sameIdentity = item.product_id === line.product_id
+        && item.variant_id === line.variant_id
+        && item.presentation?.id === presentation.id
+        && item.presentation?.purchase_unit_label === presentation.purchase_unit_label
+        && Number(item.presentation?.conversion_factor ?? 0) === Number(presentation.conversion_factor);
+      if (!sameIdentity) return item;
+      return {
+        ...item,
+        price: formatPriceInput(referencePrice),
+        price_reference: presentation.id ? 'last_purchase' : 'canonical_cost',
+      };
+    }));
+  };
+
+  const changeSupplier = async (nextSupplierId: string) => {
+    setSupplierId(nextSupplierId);
+    const snapshot = lines.map(line => ({ ...line, price: '', price_reference: null }));
+    setLines(snapshot);
+    await Promise.all(snapshot.filter(line => line.presentation).map(line => requestPriceReference(line, nextSupplierId)));
+  };
+
   const loadVariants = async (lineId: string, productId: string) => {
     const currentLine = lines.find(line => line.id === lineId);
     const identityChanged = Boolean(currentLine && currentLine.product_id !== productId);
@@ -149,8 +196,10 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       ...line,
       product_id: productId,
       variant_id: null,
-      presentation: directPresentation(products.find(product => product.id === productId), null),
+      presentation: null,
       presentationOverridden: false,
+      price: '',
+      price_reference: null,
       variants: (data ?? []) as PurchaseVariantOption[],
       presentations: [],
       ...(line.product_id !== productId ? { planning_source: null, planning_context: null } : {}),
@@ -177,12 +226,13 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     if (!line) return;
     const identityChanged = line.variant_id !== variantId;
     if (identityChanged && line.planning_source === 'mrp') setMrpContext(null);
-    const product = products.find(item => item.id === line.product_id);
     setLines(current => current.map(item => item.id === lineId ? {
       ...item,
       variant_id: variantId,
-      presentation: directPresentation(product, line.variants.find(item => item.id === variantId)),
+      presentation: null,
       presentationOverridden: false,
+      price: '',
+      price_reference: null,
       presentations: [],
       ...(identityChanged ? { planning_source: null, planning_context: null } : {}),
     } : item));
@@ -558,7 +608,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label>Fornecedor</Label>
-              <Select value={supplierId} onValueChange={setSupplierId} disabled={editingHasConfirmedReceipts}>
+              <Select value={supplierId} onValueChange={value => void changeSupplier(value)} disabled={editingHasConfirmedReceipts}>
                 <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                 <SelectContent>
                   {suppliers.map(supplier => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}
@@ -608,6 +658,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                 onProductChange={productId => loadVariants(line.id, productId).catch(error => toastError(errorMessage(error, 'Não foi possível carregar as variantes.')))}
                 onVariantChange={variantId => changeVariant(line.id, variantId)}
                 onLoadPresentations={() => loadPresentations(line.id, line.product_id, line.variant_id)}
+                onPriceReferenceRequested={nextLine => requestPriceReference(nextLine)}
                 onRemove={() => setLines(current => current.filter(item => item.id !== line.id))}
               />
             ))}
