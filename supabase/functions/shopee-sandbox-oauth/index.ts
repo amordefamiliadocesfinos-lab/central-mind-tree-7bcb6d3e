@@ -253,6 +253,12 @@ Deno.serve(async (request) => {
 
       const tokenResult = await signedPublicPost(TOKEN_PATH, partnerId, partnerKey, tokenBody);
       if (!tokenResult.response.ok || shopeeError(tokenResult.payload)) {
+        console.error('[Shopee Sandbox OAuth] Token exchange rejected:', JSON.stringify({
+          status: tokenResult.response.status,
+          error: typeof tokenResult.payload.error === 'string' ? tokenResult.payload.error : null,
+          message: typeof tokenResult.payload.message === 'string' ? tokenResult.payload.message : null,
+          request_id: tokenResult.payload.request_id ? String(tokenResult.payload.request_id) : null,
+        }));
         return html('Falha ao obter token Shopee', 'A Shopee recusou a troca do código de autorização. Nenhum efeito operacional foi aplicado.', 502);
       }
 
