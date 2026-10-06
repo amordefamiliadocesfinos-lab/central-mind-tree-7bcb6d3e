@@ -138,7 +138,7 @@ export function useProductionOrders() {
       console.error('Error fetching production orders:', error);
       toast.error('Erro ao carregar ordens de produção');
     } else {
-      setOrders((data || []) as ProductionOrder[]);
+      setOrders(data || []);
     }
     setLoading(false);
   }, []);
