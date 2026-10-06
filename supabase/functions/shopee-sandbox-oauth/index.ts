@@ -289,6 +289,33 @@ Deno.serve(async (request) => {
       });
       if (initialSnapshotError) return html('Leitura concluída, auditoria falhou', 'A leitura foi bem-sucedida, mas o Raw Snapshot não pôde ser persistido.', 503);
 
+      // Persist the first valid token pair before attempting refresh.
+      // If refresh fails, the completed OAuth authorization is not lost.
+      const initialNow = new Date().toISOString();
+      const { error: initialConnectionError } = await db.from('shopee_oauth_connections').upsert({
+        channel_account_id: channelAccountId,
+        environment: ENVIRONMENT,
+        partner_id: partnerId,
+        shop_id: effectiveShopId,
+        main_account_id: mainAccountId,
+        merchant_id: firstRead.payload.merchant_id ? Number(firstRead.payload.merchant_id) : null,
+        access_token_ciphertext: await encryptToken(accessToken, tokenEncryptionKey),
+        refresh_token_ciphertext: await encryptToken(refreshToken, tokenEncryptionKey),
+        access_token_expires_at: accessTokenExpiry(tokenResult.payload.expire_in),
+        refresh_token_expires_at: new Date(Date.now() + REFRESH_TTL_MS).toISOString(),
+        authorization_expires_at: epochSecondsToIso(firstRead.payload.expire_time),
+        shop_name: firstRead.payload.shop_name ? String(firstRead.payload.shop_name) : null,
+        region: firstRead.payload.region ? String(firstRead.payload.region) : null,
+        shop_status: firstRead.payload.status ? String(firstRead.payload.status) : null,
+        last_authenticated_at: initialNow,
+        updated_at: initialNow,
+      }, {
+        onConflict: 'channel_account_id,environment',
+      });
+      if (initialConnectionError) {
+        return html('Leitura concluída, persistência falhou', 'OAuth e get_shop_info funcionaram, mas os tokens protegidos não puderam ser persistidos.', 503);
+      }
+
       const refreshResult = await signedPublicPost(REFRESH_PATH, partnerId, partnerKey, {
         partner_id: partnerId,
         refresh_token: refreshToken,
