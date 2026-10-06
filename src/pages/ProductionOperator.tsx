@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Product } from '@/hooks/useOrders';
 import { ProductionFactMobile } from '@/components/operations/ProductionFactMobile';
+import { IntermediateBatchProduction } from '@/components/operations/IntermediateBatchProduction';
 import { ProductionOperatorHistory } from '@/components/operations/ProductionOperatorHistory';
 
 type Mode = 'produce' | 'history';
@@ -11,6 +12,7 @@ type Mode = 'produce' | 'history';
 export default function ProductionOperator() {
   const { appUser, signOut } = useAuth();
   const [mode, setMode] = useState<Mode>('produce');
+  const [intermediateProductId, setIntermediateProductId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,10 @@ export default function ProductionOperator() {
       <ProductionOperatorHistory
         operatorId={appUser.id}
         operatorName={appUser.name}
-        onProduce={() => setMode('produce')}
+        onProduce={() => {
+          setIntermediateProductId(null);
+          setMode('produce');
+        }}
         onSignOut={() => void signOut()}
       />
     );
@@ -78,5 +83,22 @@ export default function ProductionOperator() {
     );
   }
 
-  return <ProductionFactMobile products={products} onExit={() => setMode('history')} />;
+  if (intermediateProductId) {
+    return (
+      <main className="min-h-[100dvh] bg-background p-4">
+        <IntermediateBatchProduction
+          initialProductId={intermediateProductId}
+          onExit={() => setIntermediateProductId(null)}
+        />
+      </main>
+    );
+  }
+
+  return (
+    <ProductionFactMobile
+      products={products}
+      onExit={() => setMode('history')}
+      onIntermediateProduct={setIntermediateProductId}
+    />
+  );
 }
