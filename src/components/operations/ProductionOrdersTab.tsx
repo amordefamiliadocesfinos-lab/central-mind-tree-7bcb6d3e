@@ -722,10 +722,14 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                       </CardContent>
                     </Card>
                   ) : (
-                    <Button onClick={() => setShowEntryForm(true)} className="w-full h-12">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Novo Lançamento
-                    </Button>
+                    <Card className="border-muted bg-muted/20">
+                      <CardContent className="p-4 text-sm">
+                        <p className="font-semibold">Histórico legado — somente leitura</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Estes lançamentos são preservados para auditoria. Novas produções devem ser registradas em Produzir.
+                        </p>
+                      </CardContent>
+                    </Card>
                   )}
 
                   {selectedOrder.physical_flow_mode === 'production_facts' ? (
@@ -769,16 +773,6 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
                                 <div className="text-right">
                                   <p className="text-xl font-bold">{entry.quantity} {getOrderUnit(selectedOrder)}</p>
                                   <p className="text-sm text-green-600">{formatCurrency(entry.total_value)}</p>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (confirm('Excluir este lançamento?')) deleteEntry(entry.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
                                 </div>
                               </div>
                             </CardContent>
@@ -842,7 +836,7 @@ export function ProductionOrdersTab({ products }: ProductionOrdersTabProps) {
 
       {/* Entry Form Dialog */}
       <ResponsiveDialog 
-        open={showEntryForm && selectedOrder?.physical_flow_mode !== 'production_facts'} 
+        open={false} 
         onOpenChange={setShowEntryForm}
         title="Novo Lançamento"
       >
