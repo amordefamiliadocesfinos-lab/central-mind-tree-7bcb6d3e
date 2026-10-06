@@ -111,8 +111,8 @@ export function IntermediateBatchProduction() {
         return;
       }
 
-      const products = new Map((productsRes.data || []).map((row: any) => [row.id, row]));
-      const variants = new Map((variantsRes.data || []).map((row: any) => [row.id, row]));
+      const products = new Map<string, any>((productsRes.data || []).map((row: any) => [row.id, row]));
+      const variants = new Map<string, any>((variantsRes.data || []).map((row: any) => [row.id, row]));
 
       const mapped: Recipe[] = rows
         .filter((row: any) => {

@@ -2854,6 +2854,59 @@ export type Database = {
           },
         ]
       }
+      marketplace_raw_snapshots: {
+        Row: {
+          channel_account_id: string | null
+          created_at: string
+          endpoint: string
+          environment: string
+          external_entity_id: string
+          external_entity_type: string
+          id: string
+          observed_at: string
+          payload: Json
+          payload_hash: string
+          request_id: string | null
+          source: string
+        }
+        Insert: {
+          channel_account_id?: string | null
+          created_at?: string
+          endpoint: string
+          environment: string
+          external_entity_id: string
+          external_entity_type: string
+          id?: string
+          observed_at?: string
+          payload: Json
+          payload_hash: string
+          request_id?: string | null
+          source: string
+        }
+        Update: {
+          channel_account_id?: string | null
+          created_at?: string
+          endpoint?: string
+          environment?: string
+          external_entity_id?: string
+          external_entity_type?: string
+          id?: string
+          observed_at?: string
+          payload?: Json
+          payload_hash?: string
+          request_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_raw_snapshots_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_settlement_orders: {
         Row: {
           created_at: string
@@ -6499,6 +6552,118 @@ export type Database = {
           },
         ]
       }
+      shopee_oauth_connections: {
+        Row: {
+          access_token_ciphertext: string
+          access_token_expires_at: string | null
+          authorization_expires_at: string | null
+          channel_account_id: string
+          created_at: string
+          environment: string
+          id: string
+          last_authenticated_at: string
+          last_refreshed_at: string | null
+          main_account_id: number | null
+          merchant_id: number | null
+          partner_id: number
+          refresh_token_ciphertext: string
+          refresh_token_expires_at: string | null
+          region: string | null
+          shop_id: number | null
+          shop_name: string | null
+          shop_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_ciphertext: string
+          access_token_expires_at?: string | null
+          authorization_expires_at?: string | null
+          channel_account_id: string
+          created_at?: string
+          environment: string
+          id?: string
+          last_authenticated_at?: string
+          last_refreshed_at?: string | null
+          main_account_id?: number | null
+          merchant_id?: number | null
+          partner_id: number
+          refresh_token_ciphertext: string
+          refresh_token_expires_at?: string | null
+          region?: string | null
+          shop_id?: number | null
+          shop_name?: string | null
+          shop_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_ciphertext?: string
+          access_token_expires_at?: string | null
+          authorization_expires_at?: string | null
+          channel_account_id?: string
+          created_at?: string
+          environment?: string
+          id?: string
+          last_authenticated_at?: string
+          last_refreshed_at?: string | null
+          main_account_id?: number | null
+          merchant_id?: number | null
+          partner_id?: number
+          refresh_token_ciphertext?: string
+          refresh_token_expires_at?: string | null
+          region?: string | null
+          shop_id?: number | null
+          shop_name?: string | null
+          shop_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_connections_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopee_oauth_states: {
+        Row: {
+          channel_account_id: string
+          created_at: string
+          environment: string
+          expires_at: string
+          id: string
+          state_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          channel_account_id: string
+          created_at?: string
+          environment: string
+          expires_at: string
+          id?: string
+          state_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          channel_account_id?: string
+          created_at?: string
+          environment?: string
+          expires_at?: string
+          id?: string
+          state_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_states_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopee_review_login_attempts: {
         Row: {
           attempt_key: string
@@ -7216,6 +7381,16 @@ export type Database = {
       refresh_production_closing_financial_status: {
         Args: { p_closing_id: string }
         Returns: string
+      }
+      register_intermediate_batch_fact: {
+        Args: {
+          p_event_key: string
+          p_location?: string
+          p_occurred_at?: string
+          p_output_quantity: number
+          p_recipe_id: string
+        }
+        Returns: Json
       }
       register_production_fact: {
         Args: {
