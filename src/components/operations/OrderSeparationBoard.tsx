@@ -130,7 +130,12 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
         toast.error('Separação não finalizada: estoque insuficiente.');
         return;
       }
-      const message = error instanceof Error ? error.message : 'Não foi possível concluir esta operação.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : 'Não foi possível concluir esta operação.';
       toast.error(/estoque|insuficiente/i.test(message)
         ? `Separação não finalizada: ${message}`
         : message);
