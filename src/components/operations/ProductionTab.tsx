@@ -24,21 +24,45 @@ export function ProductionTab({ products }: ProductionTabProps) {
   return (
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-8 sm:grid-cols-7">
+        <TabsList className="grid h-auto w-full grid-cols-4">
           <TabsTrigger
             value="produce"
-            className="col-span-2 min-h-14 gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black uppercase tracking-wide text-white shadow-sm hover:bg-emerald-700 data-[state=active]:bg-emerald-700 data-[state=active]:text-white sm:col-span-1 sm:min-h-11 sm:gap-1 sm:px-1 sm:text-xs sm:font-semibold sm:normal-case sm:tracking-normal"
+            className="min-h-12 gap-2 rounded-lg bg-emerald-600 px-2 font-semibold text-white shadow-sm hover:bg-emerald-700 data-[state=active]:bg-emerald-700 data-[state=active]:text-white"
           >
-            <Factory className="h-6 w-6 sm:h-4 sm:w-4" />
+            <Factory className="h-4 w-4" />
             <span>Produzir</span>
           </TabsTrigger>
-          <TabsTrigger value="real" className="min-h-11 gap-1 px-1"><CalendarDays className="h-4 w-4" /><span className="hidden sm:inline">Produção Real</span></TabsTrigger>
-          <TabsTrigger value="adjustments" className="min-h-11 gap-1 px-1"><AlertTriangle className="h-4 w-4" /><span className="hidden sm:inline">Ajustes</span></TabsTrigger>
-          <TabsTrigger value="orders" className="min-h-11 gap-1 px-1"><ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">OPs</span></TabsTrigger>
-          <TabsTrigger value="processes" className="min-h-11 gap-1 px-1"><Cog className="h-4 w-4" /><span className="hidden sm:inline">Processos</span></TabsTrigger>
-          <TabsTrigger value="closing" className="min-h-11 gap-1 px-1"><DollarSign className="h-4 w-4" /><span className="hidden sm:inline">Fechamento</span></TabsTrigger>
-          <TabsTrigger value="logs" className="min-h-11 gap-1 px-1"><FileText className="h-4 w-4" /><span className="hidden sm:inline">Legado</span></TabsTrigger>
+          <TabsTrigger value="real" className="min-h-12 gap-1 px-2">
+            <CalendarDays className="h-4 w-4" />
+            <span>Produção Real</span>
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="min-h-12 gap-1 px-2">
+            <ClipboardList className="h-4 w-4" />
+            <span>OPs</span>
+          </TabsTrigger>
+          <TabsTrigger value="closing" className="min-h-12 gap-1 px-2">
+            <DollarSign className="h-4 w-4" />
+            <span>Fechamento</span>
+          </TabsTrigger>
         </TabsList>
+
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Apoio e configuração</span>
+          <TabsList className="grid h-auto grid-cols-3 sm:w-auto">
+            <TabsTrigger value="adjustments" className="min-h-9 gap-1 px-3 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>Ajustes</span>
+            </TabsTrigger>
+            <TabsTrigger value="processes" className="min-h-9 gap-1 px-3 text-xs">
+              <Cog className="h-3.5 w-3.5" />
+              <span>Configurações</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="min-h-9 gap-1 px-3 text-xs">
+              <FileText className="h-3.5 w-3.5" />
+              <span>Histórico</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="produce" className="mt-4">
           {intermediateProductId ? (
@@ -55,13 +79,14 @@ export function ProductionTab({ products }: ProductionTabProps) {
           )}
         </TabsContent>
         <TabsContent value="real" className="mt-4"><ProductionRealHistory /></TabsContent>
-        <TabsContent value="adjustments" className="mt-4"><OperationsIncidentsPanel /></TabsContent>
         <TabsContent value="orders"><ProductionOrdersTab products={products} /></TabsContent>
+        <TabsContent value="closing"><ProductionClosingTab /></TabsContent>
+
+        <TabsContent value="adjustments" className="mt-4"><OperationsIncidentsPanel /></TabsContent>
         <TabsContent value="processes" className="space-y-4">
           <ProductProcessesManager products={products} />
           <ProcessesManager />
         </TabsContent>
-        <TabsContent value="closing"><ProductionClosingTab /></TabsContent>
         <TabsContent value="logs"><LegacyProductionReport /></TabsContent>
       </Tabs>
     </div>
