@@ -6,20 +6,14 @@ const HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
+const SHOPEE_SANDBOX_OAUTH_URL =
+  "https://xkskyutmtlhivvpfxkjg.supabase.co/functions/v1/shopee-sandbox-oauth";
+
 export const Route = createFileRoute("/api/shopee/oauth/start")({
   server: {
     handlers: {
       GET: async () => {
-        const supabaseUrl = process.env["SUPABASE_URL"];
-        if (!supabaseUrl) {
-          return Response.json(
-            { ok: false, error: "Shopee Sandbox OAuth backend indisponível." },
-            { status: 503, headers: HEADERS },
-          );
-        }
-
-        const target = `${supabaseUrl.replace(/\/$/u, "")}/functions/v1/shopee-sandbox-oauth/authorize`;
-        return Response.redirect(target, 302);
+        return Response.redirect(`${SHOPEE_SANDBOX_OAUTH_URL}/authorize`, 302);
       },
     },
   },
