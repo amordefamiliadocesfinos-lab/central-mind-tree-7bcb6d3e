@@ -95,16 +95,18 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
   const setPresentation = (next: PurchasePresentationOption, overridden = false) => {
     const suggestion = calculateSuggestedPurchaseQty(operationalNeed, Number(next.conversion_factor));
     const shouldSuggest = line.planning_source === 'mrp' && !line.planning_qty_overridden && suggestion > 0;
+    const priceIdentityChanged = line.presentation?.id !== next.id
+      || line.presentation?.purchase_unit_label !== next.purchase_unit_label
+      || Number(line.presentation?.conversion_factor ?? 0) !== Number(next.conversion_factor);
     const nextLine: PurchaseDraftLine = {
       ...line,
       presentation: next,
       presentationOverridden: overridden,
-      price: '',
-      price_reference: null,
+      ...(priceIdentityChanged ? { price: '', price_reference: null } : {}),
       ...(shouldSuggest ? { qty: formatQtyInput(suggestion) } : {}),
     };
     onChange(nextLine);
-    void onPriceReferenceRequested(nextLine);
+    if (priceIdentityChanged) void onPriceReferenceRequested(nextLine);
   };
 
   const reapplyPlanningSuggestion = () => {
