@@ -226,7 +226,6 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     if (!line) return;
     const identityChanged = line.variant_id !== variantId;
     if (identityChanged && line.planning_source === 'mrp') setMrpContext(null);
-    const product = products.find(item => item.id === line.product_id);
     setLines(current => current.map(item => item.id === lineId ? {
       ...item,
       variant_id: variantId,
