@@ -18,6 +18,7 @@ import { Route as ApiShopeeReviewLoginRouteImport } from './routes/api/shopee-re
 import { Route as ApiShopeeReviewLogoutRouteImport } from './routes/api/shopee-review/logout'
 import { Route as ApiShopeeReviewSessionRouteImport } from './routes/api/shopee-review/session'
 import { Route as ApiShopeeOauthCallbackRouteImport } from './routes/api/shopee/oauth/callback'
+import { Route as ApiShopeeOauthStartRouteImport } from './routes/api/shopee/oauth/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const ApiShopeeOauthCallbackRoute = ApiShopeeOauthCallbackRouteImport.update({
   path: '/api/shopee/oauth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiShopeeOauthStartRoute = ApiShopeeOauthStartRouteImport.update({
+  id: '/api/shopee/oauth/start',
+  path: '/api/shopee/oauth/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
   '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
+  '/api/shopee/oauth/start': typeof ApiShopeeOauthStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
   '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
+  '/api/shopee/oauth/start': typeof ApiShopeeOauthStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/api/shopee-review/logout': typeof ApiShopeeReviewLogoutRoute
   '/api/shopee-review/session': typeof ApiShopeeReviewSessionRoute
   '/api/shopee/oauth/callback': typeof ApiShopeeOauthCallbackRoute
+  '/api/shopee/oauth/start': typeof ApiShopeeOauthStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
     | '/api/shopee/oauth/callback'
+    | '/api/shopee/oauth/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
     | '/api/shopee/oauth/callback'
+    | '/api/shopee/oauth/start'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/shopee-review/logout'
     | '/api/shopee-review/session'
     | '/api/shopee/oauth/callback'
+    | '/api/shopee/oauth/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   ApiShopeeReviewLogoutRoute: typeof ApiShopeeReviewLogoutRoute
   ApiShopeeReviewSessionRoute: typeof ApiShopeeReviewSessionRoute
   ApiShopeeOauthCallbackRoute: typeof ApiShopeeOauthCallbackRoute
+  ApiShopeeOauthStartRoute: typeof ApiShopeeOauthStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopeeOauthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/shopee/oauth/start': {
+      id: '/api/shopee/oauth/start'
+      path: '/api/shopee/oauth/start'
+      fullPath: '/api/shopee/oauth/start'
+      preLoaderRoute: typeof ApiShopeeOauthStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiShopeeReviewLogoutRoute: ApiShopeeReviewLogoutRoute,
   ApiShopeeReviewSessionRoute: ApiShopeeReviewSessionRoute,
   ApiShopeeOauthCallbackRoute: ApiShopeeOauthCallbackRoute,
+  ApiShopeeOauthStartRoute: ApiShopeeOauthStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
