@@ -29,7 +29,14 @@ export interface MaterialNeed {
 }
 
 type InventoryRow = { product_id: string; variant_id: string | null; quantity: number | null };
-type ProductionOrderRow = { product_id: string | null; variant_id: string | null; target_quantity: number | null; status: string; items?: Array<{ product_id: string; variant_id: string | null; planned_quantity: number | null }> };
+type ProductionOrderRow = {
+  product_id: string | null;
+  variant_id: string | null;
+  target_quantity: number | null;
+  status: string;
+  items?: Array<{ product_id: string; variant_id: string | null; planned_quantity: number | null }>;
+  facts?: Array<{ product_id: string; variant_id: string | null; quantity: number | null; status: string }>;
+};
 type OpenPurchaseItemRow = { id: string; purchase_order_id: string; product_id: string; variant_id: string | null; ordered_purchase_qty: number | null; conversion_factor: number | null };
 type ConfirmedReceiptRow = { purchase_order_item_id: string; received_purchase_qty: number | null };
 type ReplenishmentPolicyRow = { product_id: string; variant_id: string | null; supplier_contact_id: string; lead_time_days: number; safety_days: number; is_preferred: boolean; supplier?: { name: string } | null; };
@@ -45,11 +52,27 @@ function sumInventory(rows: InventoryRow[]) {
 function sumProgrammedProduction(rows: ProductionOrderRow[]) {
   return rows.reduce<Record<string, number>>((totals, row) => {
     if (!row.product_id || !['aberto', 'producao'].includes(row.status)) return totals;
-    const items = row.items?.length ? row.items : [{ product_id: row.product_id, variant_id: row.variant_id, planned_quantity: row.target_quantity }];
+
+    const producedByIdentity = (row.facts || [])
+      .filter(fact => fact.status === 'confirmed')
+      .reduce<Record<string, number>>((acc, fact) => {
+        const key = physicalIdentityKey(fact.product_id, fact.variant_id);
+        acc[key] = (acc[key] || 0) + Number(fact.quantity || 0);
+        return acc;
+      }, {});
+
+    const items = row.items?.length
+      ? row.items
+      : [{ product_id: row.product_id, variant_id: row.variant_id, planned_quantity: row.target_quantity }];
+
     for (const item of items) {
       const key = physicalIdentityKey(item.product_id, item.variant_id);
-      totals[key] = (totals[key] || 0) + Number(item.planned_quantity || 0);
+      const planned = Number(item.planned_quantity || 0);
+      const realized = producedByIdentity[key] || 0;
+      const remaining = Math.max(0, planned - realized);
+      totals[key] = (totals[key] || 0) + remaining;
     }
+
     return totals;
   }, {});
 }
@@ -108,7 +131,11 @@ export function useMRP() {
     const productIds = [...new Set(demandRows.map(row => row.product_id))];
     const [{ data: inventory }, { data: productionOrders }, { data: openOrders }] = await Promise.all([
       supabase.from('inventory').select('product_id,variant_id,quantity').in('product_id', productIds),
-      supabase.from('production_orders').select('product_id,variant_id,target_quantity,status,items:production_order_items(product_id,variant_id,planned_quantity)').in('status', ['aberto', 'producao']),
+      supabase
+        .from('production_orders')
+        .select('product_id,variant_id,target_quantity,status,items:production_order_items(product_id,variant_id,planned_quantity),facts:production_facts(product_id,variant_id,quantity,status)')
+        .in('status', ['aberto', 'producao'])
+        .eq('physical_flow_mode', 'production_facts'),
       supabase.from('purchase_orders').select('id,status,expected_at').in('status', [...OPEN_PURCHASE_STATUSES]),
     ]);
     const stock = sumInventory((inventory || []) as InventoryRow[]);
