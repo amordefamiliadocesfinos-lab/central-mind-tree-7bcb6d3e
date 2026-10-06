@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, FlaskConical, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, FlaskConical, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyInventoryChanged } from '@/hooks/useInventorySync';
@@ -45,7 +45,12 @@ const errorLabels: Record<string, string> = {
   invalid_location: 'O local Fábrica não está disponível.',
 };
 
-export function IntermediateBatchProduction() {
+interface Props {
+  initialProductId?: string | null;
+  onExit?: () => void;
+}
+
+export function IntermediateBatchProduction({ initialProductId, onExit }: Props) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState('');
   const [items, setItems] = useState<RecipeItem[]>([]);
@@ -136,14 +141,19 @@ export function IntermediateBatchProduction() {
         });
 
       setRecipes(mapped);
-      if (mapped.length === 1) setSelectedRecipeId(mapped[0].id);
+      if (initialProductId) {
+        const initialRecipe = mapped.find(recipe => recipe.output_product_id === initialProductId);
+        setSelectedRecipeId(initialRecipe?.id || '');
+      } else if (mapped.length === 1) {
+        setSelectedRecipeId(mapped[0].id);
+      }
       setLoading(false);
     })();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [initialProductId]);
 
   useEffect(() => {
     let mounted = true;
@@ -231,6 +241,12 @@ export function IntermediateBatchProduction() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      {onExit && (
+        <Button variant="ghost" onClick={onExit} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Voltar para produtos
+        </Button>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

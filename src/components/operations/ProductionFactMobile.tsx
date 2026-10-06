@@ -39,6 +39,7 @@ type ProductionFactResult = {
 interface Props {
   products: Product[];
   onExit?: () => void;
+  onIntermediateProduct?: (productId: string) => void;
 }
 
 const QUICK_AMOUNTS = [30, 60, 120, 300];
@@ -65,7 +66,7 @@ function errorMessage(result: ProductionFactResult) {
   return messages[result.reason || ''] || 'Não foi possível registrar a produção.';
 }
 
-export function ProductionFactMobile({ products, onExit }: Props) {
+export function ProductionFactMobile({ products, onExit, onIntermediateProduct }: Props) {
   const [screen, setScreen] = useState<Screen>('product');
   const [productCursor, setProductCursor] = useState(0);
   const [variantCursor, setVariantCursor] = useState(0);
@@ -210,6 +211,12 @@ export function ProductionFactMobile({ products, onExit }: Props) {
   const chooseVisibleProduct = async () => {
     if (!visibleProduct) return;
     const selected = visibleProduct;
+    if (selected.is_intermediate && onIntermediateProduct) {
+      clearAttempt();
+      onIntermediateProduct(selected.id);
+      return;
+    }
+
     setProduct(selected);
     setVariant(null);
     setQuantity('');
