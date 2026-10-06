@@ -9,7 +9,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const LIVE_CONTEXT_VERSION = 1;
 
 function parseJson(content: string): Record<string, unknown> | null {
-  const cleaned = content.trim().replace(/^\`\`\`(?:json)?/i, '').replace(/\`\`\`$/, '').trim();
+  const cleaned = content.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
   try { return JSON.parse(cleaned); } catch { /* tenta o objeto contido na resposta */ }
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) return null;
