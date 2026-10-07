@@ -573,7 +573,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-5">
           {visibleOrders.map(order => (
             <PurchaseOrderCard
               key={order.id}
