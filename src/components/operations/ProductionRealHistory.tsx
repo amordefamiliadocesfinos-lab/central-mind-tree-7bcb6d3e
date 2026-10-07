@@ -6,7 +6,9 @@ import {
   Clock3,
   Factory,
   PackageCheck,
+  Pencil,
   RefreshCw,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -17,6 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useActiveUser } from '@/hooks/useActiveUser';
+import { toast } from 'sonner';
 
 const OPERATIONAL_TIME_ZONE = 'America/Sao_Paulo';
 const db = supabase as any;
@@ -134,8 +141,35 @@ function pendingQty(item: FactRow['consumptions'][number]) {
   return Math.max(0, Number(item.quantity_consumed || 0) - Number(item.quantity_applied || 0));
 }
 
+function editDateTimeValue(iso: string) {
+  return `${localDay(iso)}T${localTime(iso)}`;
+}
+
+function operationalDateTimeIso(value: string) {
+  return new Date(`${value}:00-03:00`).toISOString();
+}
+
+function productionFactActionMessage(reason?: string | null) {
+  switch (reason) {
+    case 'reason_required': return 'Informe o motivo da correção.';
+    case 'invalid_quantity': return 'Informe uma quantidade válida.';
+    case 'occurred_at_required': return 'Informe a data e hora corretas.';
+    case 'pending_material_adjustment': return 'Regularize os materiais pendentes antes de editar ou excluir este lançamento.';
+    case 'production_fact_in_closing': return 'Este lançamento já entrou em um Fechamento de Produção. Revise o fechamento antes de alterar o fato.';
+    case 'insufficient_finished_stock': return 'Não há saldo suficiente do produto acabado para desfazer este lançamento.';
+    case 'finished_movement_not_found': return 'A entrada de estoque deste lançamento não foi localizada. A correção exige revisão técnica.';
+    case 'bom_changed_review_required': return 'A composição/BOM mudou desde este lançamento. A correção exige revisão técnica para não distorcer consumos.';
+    case 'intermediate_fact_not_supported': return 'Lotes intermediários ainda não entram nesta correção gerencial.';
+    case 'production_fact_not_found': return 'Lançamento de produção não encontrado.';
+    case 'production_fact_not_confirmed': return 'Este lançamento já não está confirmado.';
+    default: return 'Não foi possível corrigir este lançamento de produção.';
+  }
+}
+
 export function ProductionRealHistory() {
   const today = todayLocal();
+  const { activeUser } = useActiveUser();
+  const canManageFacts = ['Administrador', 'LIDER PRODUÇÃO'].includes(activeUser?.role || '');
   const [startDate, setStartDate] = useState(addDays(today, -6));
   const [endDate, setEndDate] = useState(today);
   const [facts, setFacts] = useState<FactRow[]>([]);
@@ -143,6 +177,11 @@ export function ProductionRealHistory() {
   const [registrars, setRegistrars] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingFact, setEditingFact] = useState<FactRow | null>(null);
+  const [editQuantity, setEditQuantity] = useState('');
+  const [editOccurredAt, setEditOccurredAt] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [factActionId, setFactActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,6 +265,87 @@ export function ProductionRealHistory() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const openEditFact = (fact: FactRow) => {
+    setEditingFact(fact);
+    setEditQuantity(String(Number(fact.quantity)));
+    setEditOccurredAt(editDateTimeValue(fact.occurred_at));
+    setEditReason('');
+  };
+
+  const handleEditFact = async () => {
+    if (!editingFact) return;
+    const quantity = Number(editQuantity.replace(',', '.'));
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast.error('Informe uma quantidade válida.');
+      return;
+    }
+    if (!editOccurredAt) {
+      toast.error('Informe a data e hora corretas.');
+      return;
+    }
+    if (!editReason.trim()) {
+      toast.error('Informe o motivo da correção.');
+      return;
+    }
+
+    try {
+      setFactActionId(editingFact.id);
+      const { data, error: rpcError } = await db.rpc('correct_production_fact', {
+        p_production_fact_id: editingFact.id,
+        p_quantity: quantity,
+        p_occurred_at: operationalDateTimeIso(editOccurredAt),
+        p_reason: editReason.trim(),
+      });
+      if (rpcError) throw rpcError;
+      const result = data as { success?: boolean; reason?: string } | null;
+      if (!result?.success) {
+        toast.error(productionFactActionMessage(result?.reason));
+        return;
+      }
+
+      toast.success('Lançamento corrigido. O fato original foi preservado como revertido.');
+      setEditingFact(null);
+      await load();
+    } catch (actionError: any) {
+      console.error('Erro ao editar fato de produção:', actionError);
+      toast.error(actionError?.message || 'Não foi possível editar este lançamento.');
+    } finally {
+      setFactActionId(null);
+    }
+  };
+
+  const handleDeleteFact = async (fact: FactRow) => {
+    const reason = window.prompt('Informe o motivo da exclusão/reversão deste lançamento:');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error('Informe o motivo da exclusão.');
+      return;
+    }
+    if (!window.confirm('Excluir este lançamento da Produção Real? O sistema irá reverter estoque e consumos, preservando o histórico para auditoria.')) return;
+
+    try {
+      setFactActionId(fact.id);
+      const { data, error: rpcError } = await db.rpc('reverse_production_fact', {
+        p_production_fact_id: fact.id,
+        p_reason: reason.trim(),
+      });
+      if (rpcError) throw rpcError;
+      const result = data as { success?: boolean; reason?: string } | null;
+      if (!result?.success) {
+        toast.error(productionFactActionMessage(result?.reason));
+        return;
+      }
+
+      toast.success('Lançamento excluído da Produção Real e revertido com histórico preservado.');
+      await load();
+    } catch (actionError: any) {
+      console.error('Erro ao excluir fato de produção:', actionError);
+      toast.error(actionError?.message || 'Não foi possível excluir este lançamento.');
+    } finally {
+      setFactActionId(null);
+    }
+  };
 
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Group>();
@@ -536,6 +656,31 @@ export function ProductionRealHistory() {
                               Este fato possui {pending.length} material(is) aguardando regularização em Produção → Ajustes.
                             </div>
                           )}
+
+                          {canManageFacts && !fact.product?.is_intermediate && (
+                            <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={factActionId === fact.id || pending.length > 0}
+                                onClick={() => openEditFact(fact)}
+                              >
+                                <Pencil className="mr-1 h-4 w-4" />
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                disabled={factActionId === fact.id || pending.length > 0}
+                                onClick={() => void handleDeleteFact(fact)}
+                              >
+                                <Trash2 className="mr-1 h-4 w-4" />
+                                Excluir
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </details>
                     );
@@ -545,6 +690,66 @@ export function ProductionRealHistory() {
             ))}
           </section>
         ))}
+
+      <Dialog open={!!editingFact} onOpenChange={open => !open && setEditingFact(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar lançamento de produção</DialogTitle>
+          </DialogHeader>
+
+          {editingFact && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">{editingFact.product?.name || 'Produto'}</p>
+                {editingFact.variant?.variant_name && (
+                  <p className="text-muted-foreground">{editingFact.variant.variant_name}</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A edição reverte o fato original e registra um novo fato corrigido. O histórico não é apagado.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Quantidade correta</Label>
+                <Input
+                  type="number"
+                  min="0.0001"
+                  step="0.01"
+                  value={editQuantity}
+                  onChange={event => setEditQuantity(event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data e hora corretas</Label>
+                <Input
+                  type="datetime-local"
+                  value={editOccurredAt}
+                  onChange={event => setEditOccurredAt(event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motivo da correção</Label>
+                <Textarea
+                  value={editReason}
+                  onChange={event => setEditReason(event.target.value)}
+                  placeholder="Ex.: quantidade lançada incorretamente"
+                  rows={3}
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={factActionId === editingFact.id}
+                onClick={() => void handleEditFact()}
+              >
+                Salvar correção
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
