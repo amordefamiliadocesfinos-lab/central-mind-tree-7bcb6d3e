@@ -209,7 +209,7 @@ export function PurchaseOrderItemEditor({ line, products, canRemove, onChange, o
               onValueChange={value => onChange({ ...line, price: value, price_reference: null })}
               placeholder="Ex.: 379,10"
             />
-            {line.price_reference === 'last_purchase' && <p className="text-xs text-muted-foreground">Referência automática: último preço válido desta combinação.</p>}
+            {line.price_reference === 'last_purchase' && <p className="text-xs text-muted-foreground">Referência automática: histórico válido ou custo atual convertido desta apresentação. Confirme com o pedido/nota.</p>}
             {line.price_reference === 'canonical_cost' && <p className="text-xs text-muted-foreground">Referência automática: custo físico canônico por unidade de estoque.</p>}
           </div>
         </div>
