@@ -5497,6 +5497,8 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          billed_at: string | null
+          billing_status: string
           created_at: string
           expected_at: string | null
           freight_amount: number
@@ -5509,6 +5511,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billed_at?: string | null
+          billing_status?: string
           created_at?: string
           expected_at?: string | null
           freight_amount?: number
@@ -5521,6 +5525,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billed_at?: string | null
+          billing_status?: string
           created_at?: string
           expected_at?: string | null
           freight_amount?: number
@@ -7221,8 +7227,12 @@ export type Database = {
         Args: { p_closing_id: string; p_due_date: string }
         Returns: Json
       }
-      confirm_purchase_receipt: {
+      confirm_purchase_order: {
         Args: { p_purchase_order_id: string }
+        Returns: Json
+      }
+      confirm_purchase_receipt: {
+        Args: { p_receipt_id: string }
         Returns: Json
       }
       confirm_purchase_receipt_unguarded_01b: {
@@ -7263,6 +7273,17 @@ export type Database = {
       finalize_order_separation_unguarded_01b: {
         Args: { p_order_id: string }
         Returns: Json
+      }
+      get_purchase_price_reference: {
+        Args: {
+          p_conversion_factor: number
+          p_product_id: string
+          p_purchase_presentation_id: string
+          p_purchase_unit_label: string
+          p_supplier_contact_id: string
+          p_variant_id: string
+        }
+        Returns: number
       }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
@@ -7404,6 +7425,10 @@ export type Database = {
           p_quantity: number
           p_variant_id: string
         }
+        Returns: Json
+      }
+      register_purchase_billing: {
+        Args: { p_installments: Json; p_purchase_order_id: string }
         Returns: Json
       }
       report_operational_incident: {
