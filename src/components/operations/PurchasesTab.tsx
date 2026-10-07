@@ -673,12 +673,12 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                     Agenda do fornecedor
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Entregas: {supplierDeliveryPlan.weekdays_label}. Pedido até 17h do dia anterior.
+                    Entregas: {supplierDeliveryPlan.weekdays_label}. Pedido antes das 17h do dia anterior.
                   </p>
                   {supplierDeliveryPlan.next_delivery_date && supplierDeliveryPlan.order_deadline_date && (
                     <p className="mt-2 text-sm">
                       Próxima entrega elegível: <strong>{formatDisplayDate(supplierDeliveryPlan.next_delivery_date)}</strong>
-                      {' · '}confirmar pedido até <strong>{formatDisplayDate(supplierDeliveryPlan.order_deadline_date)} às {supplierDeliveryPlan.order_deadline_time}</strong>.
+                      {' · '}confirmar pedido antes de <strong>{formatDisplayDate(supplierDeliveryPlan.order_deadline_date)} às {supplierDeliveryPlan.order_deadline_time}</strong>.
                     </p>
                   )}
                 </div>
