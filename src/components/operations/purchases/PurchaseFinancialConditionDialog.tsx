@@ -111,7 +111,7 @@ export function PurchaseFinancialConditionDialog({
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Condição financeira · ${order?.internal_purchase_number ?? 'Compra'}`}
+      title={`Registrar faturamento · ${order?.internal_purchase_number ?? 'Compra'}`}
       className="sm:max-w-2xl"
       footer={(
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -121,7 +121,7 @@ export function PurchaseFinancialConditionDialog({
               Soma das parcelas: {formatCurrency(enteredTotal)}
             </p>
           </div>
-          <Button onClick={handleValidate}>Validar condição</Button>
+          <Button onClick={handleValidate}>Registrar faturamento</Button>
         </div>
       )}
     >
@@ -188,7 +188,7 @@ export function PurchaseFinancialConditionDialog({
 
         {error && <p className="text-sm font-medium text-destructive">{error}</p>}
         <p className="text-xs text-muted-foreground">
-          Esta etapa apenas captura e valida a condição financeira. A criação das obrigações financeiras será feita pela etapa 02C.
+          Esta etapa registra o faturamento e cria a obrigação financeira vinculada à compra. Não registra pagamento e não altera estoque.
         </p>
       </div>
     </ResponsiveDialog>

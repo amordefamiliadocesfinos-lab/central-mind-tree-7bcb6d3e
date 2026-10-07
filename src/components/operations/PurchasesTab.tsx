@@ -21,7 +21,7 @@ import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { parseDecimalInput } from '@/lib/decimal';
-import { confirmPurchaseWithFinancialEntries } from '@/lib/purchases/confirmPurchaseFinancial';
+import { registerPurchaseBilling } from '@/lib/purchases/confirmPurchaseFinancial';
 import type { PurchaseFinancialInstallment } from '@/lib/purchases/purchaseFinancialCondition';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { formatCurrency } from '@/lib/utils';
@@ -439,6 +439,18 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     }
   };
 
+  const confirmOrder = async (order: PurchaseOrder) => {
+    try {
+      setBusyAction(order.id);
+      await purchases.confirmOrder(order.id);
+      toastSuccess('Pedido confirmado com o fornecedor. Nenhuma obrigação financeira ou estoque foi alterado.');
+    } catch (error) {
+      toastError(errorMessage(error, 'Não foi possível confirmar o pedido com o fornecedor.'));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const changeStatus = async (order: PurchaseOrder, status: PurchaseStatus) => {
     try {
       setBusyAction(order.id);
@@ -454,17 +466,17 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     const order = financialConditionOrder;
     if (!order) return;
 
-    const busyKey = `financial-confirm:${order.id}`;
+    const busyKey = `billing:${order.id}`;
     try {
       setBusyAction(busyKey);
-      const result = await confirmPurchaseWithFinancialEntries(order.id, installments);
+      const result = await registerPurchaseBilling(order.id, installments);
       await purchases.refetch();
       setFinancialConditionOrder(null);
-      toastSuccess(result.already_confirmed
-        ? 'Compra já estava confirmada e as obrigações financeiras foram preservadas.'
-        : `Compra confirmada e ${result.financial_entry_ids.length} obrigação(ões) financeira(s) criada(s).`);
+      toastSuccess(result.already_invoiced
+        ? 'O faturamento desta compra já estava registrado.'
+        : `Faturamento registrado e ${result.financial_entry_ids.length} obrigação(ões) financeira(s) criada(s). Nenhum pagamento foi registrado.`);
     } catch (error) {
-      toastError(errorMessage(error, 'Não foi possível confirmar a compra e gerar as obrigações financeiras.'));
+      toastError(errorMessage(error, 'Não foi possível registrar o faturamento da compra.'));
     } finally {
       setBusyAction(null);
     }
@@ -529,7 +541,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Compras</h2>
-          <p className="text-sm text-muted-foreground">Pedidos, trânsito e recebimentos físicos.</p>
+          <p className="text-sm text-muted-foreground">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
         </div>
         <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
       </header>
@@ -566,8 +578,9 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             <PurchaseOrderCard
               key={order.id}
               order={order}
-              busy={busyAction === order.id || busyAction === `financial-confirm:${order.id}`}
-              onConfirm={setFinancialConditionOrder}
+              busy={busyAction === order.id || busyAction === `billing:${order.id}`}
+              onConfirmOrder={order => void confirmOrder(order)}
+              onRegisterBilling={setFinancialConditionOrder}
               onMarkInTransit={current => changeStatus(current, 'em_transito')}
               onReceive={setReceiptOrder}
               onEdit={order => void openEdit(order)}

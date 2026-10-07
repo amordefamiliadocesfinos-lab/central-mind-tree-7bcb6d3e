@@ -13,7 +13,8 @@ import { PurchaseItemSupplierIntelligenceDialog } from './PurchaseItemSupplierIn
 interface PurchaseOrderCardProps {
   order: PurchaseOrder;
   busy: boolean;
-  onConfirm: (order: PurchaseOrder) => Promise<void> | void;
+  onConfirmOrder: (order: PurchaseOrder) => Promise<void> | void;
+  onRegisterBilling: (order: PurchaseOrder) => Promise<void> | void;
   onMarkInTransit: (order: PurchaseOrder) => Promise<void>;
   onReceive: (order: PurchaseOrder) => void;
   onEdit: (order: PurchaseOrder) => void;
@@ -69,7 +70,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   );
 }
 
-export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
+export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
   const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
@@ -92,7 +93,14 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
               {order.expected_at ? `Previsão ${formatDisplayDate(order.expected_at)}` : 'Sem previsão informada'}
             </p>
           </div>
-          <Badge className="px-2 py-1">{PURCHASE_STATUS_LABEL[order.status]}</Badge>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="px-2 py-1">{PURCHASE_STATUS_LABEL[order.status]}</Badge>
+            {order.status !== 'rascunho' && order.status !== 'cancelado' && (
+              <Badge variant="outline" className="px-2 py-1">
+                {order.billing_status === 'invoiced' ? 'Faturado' : 'Faturamento pendente'}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -125,7 +133,12 @@ export function PurchaseOrderCard({ order, busy, onConfirm, onMarkInTransit, onR
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />Documentos</Button>
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
             {order.status === 'rascunho' && (
-              <><Button size="sm" disabled={busy} onClick={() => void onConfirm(order)}>Confirmar compra</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
+              <><Button size="sm" disabled={busy} onClick={() => void onConfirmOrder(order)}>Confirmar pedido</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
+            )}
+            {order.status !== 'rascunho' && order.status !== 'cancelado' && order.billing_status === 'pending' && (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void onRegisterBilling(order)}>
+                Registrar faturamento
+              </Button>
             )}
             {order.status === 'confirmado' && (
               <><Button size="sm" variant="outline" disabled={busy} onClick={() => void onMarkInTransit(order)}>
