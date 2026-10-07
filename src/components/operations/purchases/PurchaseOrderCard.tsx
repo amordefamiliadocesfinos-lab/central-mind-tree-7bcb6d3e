@@ -44,7 +44,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
-    <div className="space-y-2 rounded-md border border-border/60 bg-background p-3 text-sm">
+    <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3 text-sm shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-medium">
           {item.product?.name ?? 'Produto'}
@@ -79,10 +79,11 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
   const canEdit = order.status === 'rascunho';
 
   return (
-    <Card className="overflow-hidden rounded-xl border-2 border-border/80 border-l-4 border-l-primary/70 bg-card shadow-sm">
-      <CardHeader className="space-y-3 border-b border-border/80 bg-muted/60 px-4 py-4">
+    <Card className="overflow-hidden rounded-2xl border-2 border-primary/25 border-l-[6px] border-l-primary bg-card shadow-md ring-1 ring-border/40">
+      <CardHeader className="space-y-3 border-b-2 border-primary/20 bg-primary/10 px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Pedido de compra</p>
             <CardTitle className="text-xl font-bold tracking-tight">
               {order.internal_purchase_number ?? 'Compra'}
             </CardTitle>
@@ -104,8 +105,9 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 bg-card pt-4">
-        <div className="space-y-2 rounded-lg bg-muted/20 p-2">
+      <CardContent className="space-y-4 bg-background/30 px-4 pt-4">
+        <div className="space-y-2 rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Itens do pedido</p>
           {(order.items ?? []).map(item => (
             <PurchaseOrderLine key={item.id} order={order} item={item} onCompare={setIntelligenceItem} />
           ))}
@@ -125,7 +127,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
           </div>
         )}
 
-        <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-muted-foreground">
             Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
