@@ -44,7 +44,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3 text-sm shadow-xs">
+    <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3 text-sm shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-medium">
           {item.product?.name ?? 'Produto'}
