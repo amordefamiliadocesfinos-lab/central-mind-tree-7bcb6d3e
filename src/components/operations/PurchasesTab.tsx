@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { useStorageLocations } from '@/hooks/useStorageLocations';
 import type { Product } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { parseDecimalInput } from '@/lib/decimal';
+import { formatDisplayDate } from '@/lib/dateUtils';
 import { registerPurchaseBilling } from '@/lib/purchases/confirmPurchaseFinancial';
 import type { PurchaseFinancialInstallment } from '@/lib/purchases/purchaseFinancialCondition';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
@@ -46,6 +47,15 @@ interface MrpPurchaseContext {
   operational_qty: string;
   unit: string;
   orders_affected: string[];
+}
+
+interface SupplierDeliveryPlan {
+  has_schedule: boolean;
+  weekdays_label?: string | null;
+  next_delivery_date?: string | null;
+  order_deadline_date?: string | null;
+  order_deadline_time?: string | null;
+  timezone?: string | null;
 }
 
 function createDraftLine(): PurchaseDraftLine {
@@ -96,6 +106,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
   const [financialConditionOrder, setFinancialConditionOrder] = useState<PurchaseOrder | null>(null);
   const [supplierId, setSupplierId] = useState('');
+  const [supplierDeliveryPlan, setSupplierDeliveryPlan] = useState<SupplierDeliveryPlan | null>(null);
   const [expectedAt, setExpectedAt] = useState('');
   const [notes, setNotes] = useState('');
   const [freight, setFreight] = useState('0');
@@ -120,6 +131,33 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     () => statusFilter === 'all' ? purchases.orders : purchases.orders.filter(order => order.status === statusFilter),
     [purchases.orders, statusFilter],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!supplierId) {
+      setSupplierDeliveryPlan(null);
+      return;
+    }
+
+    const loadSupplierSchedule = async () => {
+      const { data, error } = await db.rpc('get_supplier_delivery_plan', {
+        p_supplier_contact_id: supplierId,
+      });
+
+      if (cancelled) return;
+      if (error) {
+        console.error('Não foi possível carregar a agenda do fornecedor:', error);
+        setSupplierDeliveryPlan(null);
+        return;
+      }
+
+      setSupplierDeliveryPlan((data ?? null) as SupplierDeliveryPlan | null);
+    };
+
+    void loadSupplierSchedule();
+    return () => { cancelled = true; };
+  }, [supplierId]);
   const editingHasConfirmedReceipts = Boolean(editingOrder?.receipts?.some(receipt => receipt.status === 'confirmed'));
   const itemsTotal = useMemo(
     () => lines.reduce((sum, line) => {
@@ -627,6 +665,24 @@ export function PurchasesTab({ products }: { products: Product[] }) {
                   {suppliers.map(supplier => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+
+              {supplierDeliveryPlan?.has_schedule && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <CalendarClock className="h-4 w-4 text-primary" />
+                    Agenda do fornecedor
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Entregas: {supplierDeliveryPlan.weekdays_label}. Pedido antes das 17h do dia anterior.
+                  </p>
+                  {supplierDeliveryPlan.next_delivery_date && supplierDeliveryPlan.order_deadline_date && (
+                    <p className="mt-2 text-sm">
+                      Próxima entrega elegível: <strong>{formatDisplayDate(supplierDeliveryPlan.next_delivery_date)}</strong>
+                      {' · '}confirmar pedido antes de <strong>{formatDisplayDate(supplierDeliveryPlan.order_deadline_date)} às {supplierDeliveryPlan.order_deadline_time}</strong>.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Previsão</Label>
