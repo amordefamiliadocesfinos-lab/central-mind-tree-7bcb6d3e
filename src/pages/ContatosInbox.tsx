@@ -14,7 +14,7 @@ import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { MergeDuplicatesDialog } from '@/components/crm/MergeDuplicatesDialog';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Search, Zap, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil } from 'lucide-react';
+import { ArrowLeft, Search, Zap, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useContactTags } from '@/hooks/useContactTags';
 import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
@@ -73,6 +73,9 @@ interface InboxItem {
 type InboxFilter = 'priority' | 'needs_reply' | 'today' | 'overdue' | 'cooling';
 type ConversationScope = 'commercial' | 'suppliers';
 type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
+
+const OUT_OF_QUEUE_TAG_NAME = 'Fora da fila';
+const OUT_OF_QUEUE_TAG_COLOR = '#6b7280';
 
 function readAttendanceQueueScope(): string[] {
   try {
@@ -148,7 +151,16 @@ export default function ContatosInbox() {
     setAttendanceActionRequest(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
-  const { tags, assignments } = useContactTags();
+  const { tags, assignments, fetchTags } = useContactTags();
+  const outOfQueueTag = useMemo(
+    () => tags.find((tag) => tag.name.trim().toLocaleLowerCase('pt-BR') === OUT_OF_QUEUE_TAG_NAME.toLocaleLowerCase('pt-BR')) ?? null,
+    [tags],
+  );
+  const outOfQueueContactIds = useMemo(
+    () => new Set(assignments.filter((assignment) => assignment.tag_id === outOfQueueTag?.id).map((assignment) => assignment.contact_id)),
+    [assignments, outOfQueueTag?.id],
+  );
+  const showingOutOfQueue = Boolean(outOfQueueTag && tagFilter === outOfQueueTag.id);
 
   // Carrega a ficha do lead para a barra lateral (somente quando visível).
   useEffect(() => {
@@ -181,18 +193,26 @@ export default function ContatosInbox() {
     // Busca/estágio consultam o banco inteiro: leads antigos do Kanban não
     // podem ficar invisíveis só porque estão fora da janela recente da fila.
     const CONTACT_FIELDS = 'id,name,type,whatsapp,phone,photo_url,funnel_status,temperatura_lead,ultimo_contato,next_action_date,next_contact_date,commercial_opt_out,is_active';
+    const outOfQueueScopedIds = showingOutOfQueue
+      ? assignments.filter((assignment) => assignment.tag_id === outOfQueueTag?.id).map((assignment) => assignment.contact_id)
+      : null;
     let scopedContactIds: string[] | null = null;
     let scopedContacts: any[] = [];
-    if (term || stageFilter !== 'all') {
-      let contactQuery = supabase.from('contacts').select(CONTACT_FIELDS).eq('is_active', true).limit(1000);
-      if (stageFilter !== 'all') contactQuery = contactQuery.eq('funnel_status', stageFilter);
-      if (term) {
-        const like = `%${term}%`;
-        contactQuery = contactQuery.or(`name.ilike.${like},fantasy_name.ilike.${like},phone.ilike.${like},whatsapp.ilike.${like},email.ilike.${like},document.ilike.${like}`);
+    if (term || stageFilter !== 'all' || outOfQueueScopedIds) {
+      if (outOfQueueScopedIds?.length === 0) {
+        scopedContactIds = [];
+      } else {
+        let contactQuery = supabase.from('contacts').select(CONTACT_FIELDS).eq('is_active', true).limit(1000);
+        if (outOfQueueScopedIds) contactQuery = contactQuery.in('id', outOfQueueScopedIds);
+        if (stageFilter !== 'all') contactQuery = contactQuery.eq('funnel_status', stageFilter);
+        if (term) {
+          const like = `%${term}%`;
+          contactQuery = contactQuery.or(`name.ilike.${like},fantasy_name.ilike.${like},phone.ilike.${like},whatsapp.ilike.${like},email.ilike.${like},document.ilike.${like}`);
+        }
+        const { data: matches } = await contactQuery;
+        scopedContacts = matches || [];
+        scopedContactIds = scopedContacts.map((m) => m.id as string);
       }
-      const { data: matches } = await contactQuery;
-      scopedContacts = matches || [];
-      scopedContactIds = scopedContacts.map((m) => m.id as string);
     }
 
 
@@ -426,7 +446,7 @@ export default function ContatosInbox() {
     setLoading(false);
     return merged;
 
-  }, [loadLimit, deferredSearch, stageFilter]);
+  }, [loadLimit, deferredSearch, stageFilter, showingOutOfQueue, assignments, outOfQueueTag?.id]);
 
   useEffect(() => {
     load();
@@ -541,6 +561,15 @@ export default function ContatosInbox() {
         (i.phone || '').includes(q) ||
         (i.last_summary || '').toLowerCase().includes(q);
       if (!matchesSearch && !searching) return false;
+      const isOutOfQueue = outOfQueueContactIds.has(i.id);
+      if (showingOutOfQueue) {
+        if (!isOutOfQueue) return false;
+        if (stageFilter !== 'all' && i.funnel_status !== stageFilter) return false;
+        if (assignmentFilter === 'unassigned' && i.assigned_to) return false;
+        if (assignmentFilter === 'assigned' && !i.assigned_to) return false;
+        return true;
+      }
+      if (isOutOfQueue) return false;
       if (taggedContactIds && !taggedContactIds.has(i.id)) return false;
       if (stageFilter !== 'all' && i.funnel_status !== stageFilter) return false;
       if (assignmentFilter === 'unassigned' && i.assigned_to) return false;
@@ -576,7 +605,7 @@ export default function ContatosInbox() {
       return priority.reason === 'cooling';
 
     });
-  }, [items, search, inboxFilter, taggedContactIds, stageFilter, assignmentFilter, waitingCustomerOnly, conversationScope]);
+  }, [items, search, inboxFilter, taggedContactIds, stageFilter, assignmentFilter, waitingCustomerOnly, conversationScope, outOfQueueContactIds, showingOutOfQueue]);
 
   // A prioridade é somente uma camada de apresentação: os filtros continuam
   // definindo quem entra na fila e a regra pura explica a ordem resultante.
@@ -589,6 +618,7 @@ export default function ContatosInbox() {
 
 
   const selected = items.find((i) => i.id === selectedId) || null;
+  const selectedIsOutOfQueue = Boolean(selected && outOfQueueContactIds.has(selected.id));
   // Dono visual das operações assíncronas do atendimento. Uma operação pode
   // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
   const selectedContextRef = useRef<string>('');
@@ -663,6 +693,65 @@ export default function ContatosInbox() {
     }
   };
 
+
+  const ensureOutOfQueueTag = async () => {
+    if (outOfQueueTag) return outOfQueueTag.id;
+    const { data: existing, error: lookupError } = await supabase
+      .from('contact_tags')
+      .select('id')
+      .ilike('name', OUT_OF_QUEUE_TAG_NAME)
+      .limit(1)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing?.id) {
+      await fetchTags();
+      return existing.id as string;
+    }
+    const { data: created, error: createError } = await supabase
+      .from('contact_tags')
+      .insert({ name: OUT_OF_QUEUE_TAG_NAME, color: OUT_OF_QUEUE_TAG_COLOR })
+      .select('id')
+      .single();
+    if (createError) throw createError;
+    await fetchTags();
+    return created.id as string;
+  };
+
+  const toggleSelectedOutOfQueue = async () => {
+    if (!selected) return;
+    const currentContactId = selected.id;
+    const fallbackNext = prioritized.find(({ item }) => item.id !== currentContactId)?.item ?? null;
+    setAttendanceBusy(true);
+    try {
+      if (selectedIsOutOfQueue) {
+        if (!outOfQueueTag) return;
+        const { error } = await supabase
+          .from('contact_tag_assignments')
+          .delete()
+          .eq('contact_id', currentContactId)
+          .eq('tag_id', outOfQueueTag.id);
+        if (error) throw error;
+        await fetchTags();
+        setSelectedId(fallbackNext?.id ?? null);
+        toast.success('Contato voltou para a fila.');
+        return;
+      }
+
+      const tagId = await ensureOutOfQueueTag();
+      const { error } = await supabase
+        .from('contact_tag_assignments')
+        .insert({ contact_id: currentContactId, tag_id: tagId });
+      if (error && error.code !== '23505') throw error;
+      await fetchTags();
+      setSelectedId(fallbackNext?.id ?? null);
+      toast.success('Contato retirado da fila. Conversas e histórico foram preservados.');
+    } catch (error) {
+      console.error(error);
+      toast.error('Não foi possível atualizar a visibilidade deste contato na fila.');
+    } finally {
+      setAttendanceBusy(false);
+    }
+  };
 
   const updateAttendance = async (patch: Record<string, unknown>, successMessage: string) => {
     if (!selected) return;
@@ -765,9 +854,9 @@ export default function ContatosInbox() {
     const scope = new Set(attendanceQueueScope);
     const now = new Date();
     return items
-      .filter((item) => scope.has(item.id) && getCrmPriority(toCrmPriorityInput(item), now).operational)
+      .filter((item) => scope.has(item.id) && !outOfQueueContactIds.has(item.id) && getCrmPriority(toCrmPriorityInput(item), now).operational)
       .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a), toCrmPriorityInput(b), now));
-  }, [attendanceQueueScope, items]);
+  }, [attendanceQueueScope, items, outOfQueueContactIds]);
 
   const concludeAttendanceQueue = () => {
     setAttendanceQueueScope([]);
@@ -787,7 +876,7 @@ export default function ContatosInbox() {
     const scope = new Set(attendanceQueueScope);
     const now = new Date();
     const next = itemsToUse
-      .filter((item) => scope.has(item.id) && item.id !== selected.id && getCrmPriority(toCrmPriorityInput(item), now).operational)
+      .filter((item) => scope.has(item.id) && item.id !== selected.id && !outOfQueueContactIds.has(item.id) && getCrmPriority(toCrmPriorityInput(item), now).operational)
       .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a), toCrmPriorityInput(b), now))[0];
 
     if (!next) {
@@ -1152,6 +1241,16 @@ export default function ContatosInbox() {
                   </Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSaleOpen(true)} title="Registrar venda deste contato">
                     <ShoppingCart className="h-4 w-4 text-emerald-600" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={selectedIsOutOfQueue ? 'secondary' : 'ghost'}
+                    className="h-8 w-8"
+                    disabled={attendanceBusy}
+                    onClick={() => void toggleSelectedOutOfQueue()}
+                    title={selectedIsOutOfQueue ? 'Voltar para fila' : 'Tirar da fila'}
+                  >
+                    {selectedIsOutOfQueue ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
                     <Archive className="h-4 w-4 text-muted-foreground" />
