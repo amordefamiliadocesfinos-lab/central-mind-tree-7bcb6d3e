@@ -105,7 +105,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
       </CardHeader>
 
       <CardContent className="space-y-4 bg-card pt-4">
-        <div className="space-y-2 rounded-lg bg-muted/15 p-2">
+        <div className="space-y-2 rounded-lg bg-muted/20 p-2">
           {(order.items ?? []).map(item => (
             <PurchaseOrderLine key={item.id} order={order} item={item} onCompare={setIntelligenceItem} />
           ))}
