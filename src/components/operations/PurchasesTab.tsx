@@ -541,7 +541,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Compras</h2>
-          <p className="text-sm text-muted-foreground">Pedidos, trânsito e recebimentos físicos.</p>
+          <p className="text-sm text-muted-foreground">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
         </div>
         <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
       </header>
