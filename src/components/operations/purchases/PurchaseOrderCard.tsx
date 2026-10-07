@@ -44,7 +44,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
-    <div className="space-y-2 rounded-md border p-3 text-sm">
+    <div className="space-y-2 rounded-md border border-border/60 bg-background p-3 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-medium">
           {item.product?.name ?? 'Produto'}
@@ -79,11 +79,11 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
   const canEdit = order.status === 'rascunho';
 
   return (
-    <Card className="overflow-hidden border-l-4 border-l-primary/60 shadow-sm">
-      <CardHeader className="space-y-3 border-b bg-muted/35 pb-3">
+    <Card className="overflow-hidden rounded-xl border-2 border-border/80 border-l-4 border-l-primary/70 bg-card shadow-sm">
+      <CardHeader className="space-y-3 border-b border-border/80 bg-muted/60 px-4 py-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle className="text-lg font-bold tracking-tight">
+            <CardTitle className="text-xl font-bold tracking-tight">
               {order.internal_purchase_number ?? 'Compra'}
             </CardTitle>
             <p className="mt-1 truncate text-sm font-medium text-foreground">
@@ -104,7 +104,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4 bg-card pt-4">
         <div className="space-y-2 rounded-lg bg-muted/20 p-2">
           {(order.items ?? []).map(item => (
             <PurchaseOrderLine key={item.id} order={order} item={item} onCompare={setIntelligenceItem} />
@@ -125,7 +125,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
           </div>
         )}
 
-        <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-muted-foreground">
             Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
