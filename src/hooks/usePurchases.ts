@@ -4,7 +4,7 @@ import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 export type PurchaseStatus = 'rascunho' | 'confirmado' | 'em_transito' | 'parcialmente_recebido' | 'recebido' | 'cancelado';
 export const PURCHASE_STATUS_LABEL: Record<PurchaseStatus, string> = { rascunho: 'Rascunho', confirmado: 'Confirmado', em_transito: 'Em trânsito', parcialmente_recebido: 'Parcialmente recebido', recebido: 'Recebido', cancelado: 'Cancelado' };
-export interface PurchaseOrder { id: string; internal_purchase_number?: string | null; status: PurchaseStatus; supplier_contact_id: string; ordered_at: string | null; expected_at: string | null; notes: string | null; freight_amount: number; created_at: string; supplier?: { name: string } | null; items?: PurchaseItem[]; receipts?: PurchaseReceipt[] }
+export interface PurchaseOrder { id: string; internal_purchase_number?: string | null; status: PurchaseStatus; billing_status: 'pending' | 'invoiced'; billed_at: string | null; supplier_contact_id: string; ordered_at: string | null; expected_at: string | null; notes: string | null; freight_amount: number; created_at: string; supplier?: { name: string } | null; items?: PurchaseItem[]; receipts?: PurchaseReceipt[] }
 export interface PurchaseItem { id: string; product_id: string; variant_id: string | null; purchase_presentation_id: string | null; ordered_purchase_qty: number; purchase_unit_label: string; conversion_factor: number; stock_unit_label: string; unit_price: number | null; presentation_snapshot: any; planning_source?: 'mrp' | null; planning_context?: any; product?: { name: string; variation_mode: string; unit: string | null } | null; variant?: { variant_name: string } | null; }
 export interface PurchaseReceipt { id: string; status: 'draft' | 'confirmed' | 'cancelled'; storage_location_id: string; received_at: string | null; confirmed_at: string | null; notes: string | null; created_at: string; items?: any[]; location?: { name: string } | null }
 export interface CreatePurchasePresentationInput {
@@ -29,7 +29,14 @@ export function usePurchases() {
   useEffect(() => { refetch(); }, [refetch]);
   const createDraft = useCallback(async (input: any, items: any[]) => { const { data: order, error } = await db.from('purchase_orders').insert(input).select().single(); if (error) throw error; const { error: itemError } = await db.from('purchase_order_items').insert(items.map(i => ({ ...i, purchase_order_id: order.id }))); if (itemError) throw itemError; await refetch(); return order; }, [refetch]);
 
-  /** Status comercial sensível não é atualizado diretamente. Confirmação, recebimento e cancelamento possuem rotinas canônicas próprias. */
+  const confirmOrder = useCallback(async (id: string) => {
+    const { data, error } = await db.rpc('confirm_purchase_order', { p_purchase_order_id: id });
+    if (error) throw error;
+    await refetch();
+    return data;
+  }, [refetch]);
+
+  /** Status sensível não é atualizado diretamente. Confirmação do pedido, faturamento, recebimento e cancelamento possuem rotinas próprias. */
   const setStatus = useCallback(async (id: string, status: PurchaseStatus) => {
     if (status === 'cancelado') {
       const { error } = await db.rpc('cancel_purchase_with_financial_entries', { p_purchase_order_id: id, p_reason: null });
@@ -38,7 +45,7 @@ export function usePurchases() {
       return;
     }
     if (status !== 'em_transito') {
-      throw new Error('Este status só pode ser alterado pela rotina canônica de confirmação ou recebimento.');
+      throw new Error('Este status só pode ser alterado pela rotina canônica correspondente.');
     }
     const { error } = await db.from('purchase_orders').update({ status }).eq('id', id);
     if (error) throw error;
@@ -130,5 +137,5 @@ export function usePurchases() {
   const getPresentations = useCallback(async (productId: string, variantId: string | null, includeInactive = false) => { let q = db.from('purchase_presentations').select('*').eq('product_id', productId); if (!includeInactive) q = q.eq('is_active', true); q = variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null); const { data, error } = await q.order('name'); if (error) throw error; return data || []; }, []);
   const createReceipt = useCallback(async (input: any, items: any[]) => { const { data: receipt, error } = await db.from('purchase_receipts').insert(input).select().single(); if (error) throw error; const { error: itemError } = await db.from('purchase_receipt_items').insert(items.map(i => ({ ...i, purchase_receipt_id: receipt.id }))); if (itemError) throw itemError; return receipt; }, []);
   const confirmReceipt = useCallback(async (receiptId: string) => { const { data, error } = await db.rpc('confirm_purchase_receipt', { p_receipt_id: receiptId }); if (error) throw error; await refetch(); return data; }, [refetch]);
-  return { orders, loading, refetch, createDraft, updatePurchase, deleteDraft, setStatus, createPresentation, updatePresentation, getPresentations, createReceipt, confirmReceipt };
+  return { orders, loading, refetch, createDraft, updatePurchase, deleteDraft, confirmOrder, setStatus, createPresentation, updatePresentation, getPresentations, createReceipt, confirmReceipt };
 }
