@@ -216,12 +216,19 @@ export default function ContatosInbox() {
     }
 
 
-    const conversationQuery = (limit = loadLimit) => supabase
+    const conversationQuery = (limit = loadLimit) => {
+      let query = supabase
         .from('service_conversations')
         .select(CONVERSATION_FIELDS)
         .not('contact_id', 'is', null)
-        .order('last_message_at', { ascending: false })
-        .limit(limit);
+        .order('last_message_at', { ascending: false });
+      // "Fora da fila" é uma lista deliberada e precisa localizar também
+      // conversas antigas; neste escopo pequeno o filtro direto por contato é seguro.
+      if (showingOutOfQueue && scopedContactIds?.length) {
+        query = query.in('contact_id', scopedContactIds);
+      }
+      return query.limit(limit);
+    };
 
     if (scopedContactIds?.length === 0) {
       setItems([]);
@@ -828,7 +835,7 @@ export default function ContatosInbox() {
         const scope = new Set(attendanceQueueScope);
         const nowDate = new Date();
         next = refreshedItems
-          .filter((item) => scope.has(item.id) && item.id !== currentContactId && getCrmPriority(toCrmPriorityInput(item), nowDate).operational)
+          .filter((item) => scope.has(item.id) && item.id !== currentContactId && !outOfQueueContactIds.has(item.id) && getCrmPriority(toCrmPriorityInput(item), nowDate).operational)
           .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a), toCrmPriorityInput(b), nowDate))[0];
         if (!next) {
           setAttendanceQueueScope([]);
