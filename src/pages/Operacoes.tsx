@@ -1137,9 +1137,6 @@ export default function Operacoes() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
-                    </div>
-
                     {newSale.items.length > 0 && (
                       <div className="mt-3 space-y-1 text-sm">
                         <div className="flex items-center justify-between text-muted-foreground">
