@@ -378,6 +378,7 @@ export function useOrders() {
         .from('financial_entries')
         .select('id, value, value_paid')
         .eq('order_id', orderId)
+        .eq('type', 'receber')
         .maybeSingle();
 
       if (!existingEntry) {
@@ -408,11 +409,17 @@ export function useOrders() {
     updates: Partial<Order>, 
     items?: Partial<OrderItem>[]
   ) => {
-    // Update order
-    const total = items?.reduce((acc, item) => acc + getOrderItemLineTotal(item as OrderItem), 0) || updates.total_value;
+    // Get current order before recalculating the commercial total.
+    const currentOrder = orders.find(o => o.id === orderId);
+    const pricingItems = items ?? currentOrder?.items;
+    const subtotal = pricingItems?.reduce((acc, item) => acc + getOrderItemLineTotal(item as OrderItem), 0);
+    const discount = updates.discount_amount ?? currentOrder?.discount_amount ?? 0;
+    const shipping = updates.shipping_amount ?? currentOrder?.shipping_amount ?? 0;
+    const total = subtotal !== undefined
+      ? Math.max(0, subtotal - Number(discount || 0) + Number(shipping || 0))
+      : updates.total_value;
 
     // Get current order to check if order_number changed
-    const currentOrder = orders.find(o => o.id === orderId);
     const orderNumberChanged = updates.order_number && currentOrder?.order_number !== updates.order_number;
     const statusChanged = Boolean(updates.status && updates.status !== currentOrder?.status);
 
@@ -430,6 +437,8 @@ export function useOrders() {
         order_date: updates.order_date,
         due_date: updates.due_date,
         notes: updates.notes,
+        discount_amount: updates.discount_amount,
+        shipping_amount: updates.shipping_amount,
         total_value: total,
         updated_at: new Date().toISOString(),
       })
@@ -508,6 +517,7 @@ export function useOrders() {
       .from('financial_entries')
       .select('id, value_paid')
       .eq('order_id', orderId)
+      .eq('type', 'receber')
       .maybeSingle();
 
     if (existingFinEntry && total !== undefined) {
@@ -571,6 +581,22 @@ export function useOrders() {
 
     if (entry && (entry.value_paid || 0) === 0) {
       await supabase.from('financial_entries').delete().eq('id', entry.id);
+    }
+
+    // FIN-F17: remove somente a obrigação logística ainda não paga.
+    // Custo de frete já pago é fato financeiro real e deve permanecer no histórico.
+    const { data: logisticsEntries } = await supabase
+      .from('financial_entries')
+      .select('id,value_paid')
+      .eq('order_id', orderId)
+      .eq('type', 'pagar')
+      .ilike('notes', '%FIN-F17:order-logistics%');
+
+    const unpaidLogisticsIds = (logisticsEntries || [])
+      .filter(item => Number(item.value_paid || 0) === 0)
+      .map(item => item.id);
+    if (unpaidLogisticsIds.length) {
+      await supabase.from('financial_entries').delete().in('id', unpaidLogisticsIds);
     }
 
     toast.success('Pedido excluído!');
