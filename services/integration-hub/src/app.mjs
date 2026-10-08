@@ -1,4 +1,5 @@
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
+import { probeCoreBridge } from './core-bridge.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -12,6 +13,20 @@ function json(status, body) {
     headers: JSON_HEADERS,
     body: JSON.stringify(body),
   };
+}
+
+export async function handleRequest(request, { probeCore = probeCoreBridge } = {}) {
+  if (String(request.path ?? '/') !== '/health/core') return routeRequest(request);
+  if (String(request.method ?? 'GET').toUpperCase() !== 'GET') {
+    return json(405, { error: 'method_not_allowed' });
+  }
+  let available = false;
+  try { available = await probeCore() === true; } catch { /* Sanitized response below. */ }
+  return json(available ? 200 : 503, {
+    status: available ? 'ok' : 'degraded',
+    service: HUB_SERVICE_NAME,
+    core_bridge: available ? 'ok' : 'unavailable',
+  });
 }
 
 export function routeRequest({ method, path }) {

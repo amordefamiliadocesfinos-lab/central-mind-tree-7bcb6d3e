@@ -28,3 +28,7 @@ verify_jwt = false
 # Callback OAuth externo da Shopee usa state próprio e tokens protegidos no backend.
 [functions.shopee-sandbox-oauth]
 verify_jwt = false
+
+# Private Hub-to-Core health: every request must pass HMAC-SHA256 v1 validation.
+[functions.integration-core-bridge]
+verify_jwt = false
