@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { EconomicRuleCandidate } from '@/lib/economic-engine/rre';
 
 export type EconomicRuleEvidenceRecord = {
   id: string;
@@ -110,7 +111,28 @@ export function useEconomicRuleVersions(
     fetchRules();
   }, [fetchRules]);
 
+  const candidates = useMemo<EconomicRuleCandidate[]>(() => rules.map((rule) => ({
+    id: rule.id,
+    engineVersion: rule.engine_version,
+    ruleVersion: rule.rule_version,
+    channelAccountId: rule.channel_account_id,
+    offerMappingId: rule.marketplace_product_mapping_id,
+    effectiveFrom: rule.effective_from,
+    effectiveTo: rule.effective_to,
+    parameters: rule.parameters,
+    sourceSummary: rule.source_summary,
+    evidence: rule.evidence.map((evidence) => ({
+      id: evidence.id,
+      sourceRef: evidence.source_ref,
+      evidenceType: evidence.evidence_type,
+      observedFrom: evidence.observed_from,
+      observedTo: evidence.observed_to,
+      offerMappingId: evidence.marketplace_product_mapping_id,
+      isOfferSpecific: evidence.is_offer_specific,
+    })),
+  })), [rules]);
+
   const byId = useMemo(() => new Map(rules.map((rule) => [rule.id, rule])), [rules]);
 
-  return { rules, byId, loading, error, refetch: fetchRules };
+  return { rules, candidates, byId, loading, error, refetch: fetchRules };
 }
