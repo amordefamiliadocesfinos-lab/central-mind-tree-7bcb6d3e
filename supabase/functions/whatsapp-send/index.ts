@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from '../_shared/cors.ts';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
 import {

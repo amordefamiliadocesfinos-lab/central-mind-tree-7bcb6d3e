@@ -54,6 +54,11 @@ type AccountId = keyof typeof ACCOUNT_REGIMES;
 
 const PRESENTATIONS = [6, 18, 36, 72, 108, 144, 504];
 
+const money = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const pct = (value: number) => `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
+
 function MetricCard({
   title,
   value,
