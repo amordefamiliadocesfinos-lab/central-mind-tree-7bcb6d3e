@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { calculateLegacyEconomicScenario } from '@/lib/economic-engine/legacyCore';
 
 const ACCOUNT_REGIMES = {
   'SH-001': {
@@ -51,141 +52,7 @@ const ACCOUNT_REGIMES = {
 
 type AccountId = keyof typeof ACCOUNT_REGIMES;
 
-type CalculationInput = {
-  unitPrice: number;
-  q: number;
-  commissionPct: number;
-  transactionPct: number;
-  servicePct: number;
-  adsPct: number;
-  affiliatePct: number;
-  retMCharges: number;
-  retMBenefits: number;
-};
-
 const PRESENTATIONS = [6, 18, 36, 72, 108, 144, 504];
-
-const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const money = (value: number | null | undefined) => {
-  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
-
-const pct = (value: number | null | undefined) => {
-  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-};
-
-function getTsiUnit(unitPrice: number) {
-  if (unitPrice < 80) return 4;
-  if (unitPrice < 100) return 16;
-  if (unitPrice < 200) return 20;
-  return 26;
-}
-
-function calculateRepasse(input: CalculationInput) {
-  const ticket = round2(input.unitPrice * input.q);
-  const commission = round2(ticket * (input.commissionPct / 100));
-  const transaction = round2(ticket * (input.transactionPct / 100));
-  const serviceAdditional = round2(ticket * (input.servicePct / 100));
-  const adsEasy = round2(ticket * (input.adsPct / 100));
-  const affiliate = round2(ticket * (input.affiliatePct / 100));
-  const tsiUnit = getTsiUnit(input.unitPrice);
-  const tsiTotal = round2(tsiUnit * input.q);
-  const serviceTotal = round2(transaction + serviceAdditional + adsEasy + tsiTotal);
-  const retMChargesTotal = round2(affiliate + input.retMCharges);
-  const retMBenefitsTotal = round2(input.retMBenefits);
-  const repasse = round2(ticket - commission - serviceTotal - retMChargesTotal + retMBenefitsTotal);
-  const shopeeAbsorption = round2(ticket - repasse);
-
-  return {
-    ticket,
-    commission,
-    transaction,
-    serviceAdditional,
-    adsEasy,
-    affiliate,
-    tsiUnit,
-    tsiTotal,
-    serviceTotal,
-    retMChargesTotal,
-    retMBenefitsTotal,
-    repasse,
-    shopeeAbsorption,
-  };
-}
-
-function findFirstPriceForRepasse(targetRepasse: number, input: Omit<CalculationInput, 'unitPrice'>) {
-  if (!Number.isFinite(targetRepasse) || targetRepasse <= 0) return null;
-
-  const bands = [
-    { min: 0.01, max: 79.99 },
-    { min: 80, max: 99.99 },
-    { min: 100, max: 199.99 },
-    { min: 200, max: 5000 },
-  ];
-
-  const valueAt = (price: number) => calculateRepasse({ ...input, unitPrice: price }).repasse;
-
-  for (const band of bands) {
-    if (valueAt(band.max) + 0.0001 < targetRepasse) continue;
-
-    let lo = Math.round(band.min * 100);
-    let hi = Math.round(band.max * 100);
-
-    while (lo < hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      const price = mid / 100;
-      if (valueAt(price) + 0.0001 >= targetRepasse) hi = mid;
-      else lo = mid + 1;
-    }
-
-    return lo / 100;
-  }
-
-  return null;
-}
-
-function findRecoveryPrice(wall: 80 | 100 | 200, input: Omit<CalculationInput, 'unitPrice'>) {
-  const preWallPrice = wall - 0.01;
-  const preWallRepasse = calculateRepasse({ ...input, unitPrice: preWallPrice }).repasse;
-  const upper = wall === 80 ? 99.99 : wall === 100 ? 199.99 : 5000;
-  const valueAt = (price: number) => calculateRepasse({ ...input, unitPrice: price }).repasse;
-
-  if (valueAt(upper) + 0.0001 < preWallRepasse) return null;
-
-  let lo = Math.round(wall * 100);
-  let hi = Math.round(upper * 100);
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    const price = mid / 100;
-    if (valueAt(price) + 0.0001 >= preWallRepasse) hi = mid;
-    else lo = mid + 1;
-  }
-
-  return {
-    wall,
-    preWallPrice,
-    preWallRepasse,
-    recoveryPrice: lo / 100,
-  };
-}
-
-function getPreviousWall(unitPrice: number): 80 | 100 | 200 | null {
-  if (unitPrice >= 200) return 200;
-  if (unitPrice >= 100) return 100;
-  if (unitPrice >= 80) return 80;
-  return null;
-}
-
-function getNextWall(unitPrice: number): 80 | 100 | 200 | null {
-  if (unitPrice < 80) return 80;
-  if (unitPrice < 100) return 100;
-  if (unitPrice < 200) return 200;
-  return null;
-}
 
 function MetricCard({
   title,
@@ -261,71 +128,58 @@ export function ShopeeEconomicMotor() {
     setRetMBenefits(0);
   };
 
-  const commonInput = useMemo<Omit<CalculationInput, 'unitPrice'>>(() => ({
-    q: Math.max(1, Math.floor(q || 1)),
-    commissionPct: clamp(commissionPct || 0, 0, 100),
-    transactionPct: clamp(transactionPct || 0, 0, 100),
-    servicePct: clamp(servicePct || 0, 0, 100),
-    adsPct: clamp(adsPct || 0, 0, 100),
-    affiliatePct: clamp(affiliatePct || 0, 0, 100),
-    retMCharges: Math.max(0, retMCharges || 0),
-    retMBenefits: Math.max(0, retMBenefits || 0),
-  }), [q, commissionPct, transactionPct, servicePct, adsPct, affiliatePct, retMCharges, retMBenefits]);
+  const scenario = useMemo(() => calculateLegacyEconomicScenario({
+    presentation,
+    q,
+    agreedPrice,
+    commissionPct,
+    transactionPct,
+    servicePct,
+    adsPct,
+    affiliatePct,
+    retMCharges,
+    retMBenefits,
+    costPerUnit,
+    targetMarginPct,
+    baselinePrice,
+  }), [
+    presentation,
+    q,
+    agreedPrice,
+    commissionPct,
+    transactionPct,
+    servicePct,
+    adsPct,
+    affiliatePct,
+    retMCharges,
+    retMBenefits,
+    costPerUnit,
+    targetMarginPct,
+    baselinePrice,
+  ]);
 
-  const result = useMemo(
-    () => calculateRepasse({ ...commonInput, unitPrice: Math.max(0, agreedPrice || 0) }),
-    [commonInput, agreedPrice],
-  );
-
-  const volumePhysical = presentation * commonInput.q;
-  const absorptionPct = result.ticket > 0 ? result.shopeeAbsorption / result.ticket : 0;
-  const reu = volumePhysical > 0 ? result.repasse / volumePhysical : 0;
-  const costTotal = costPerUnit > 0 ? round2(costPerUnit * volumePhysical) : null;
-  const marginCurrent = costTotal !== null && result.repasse > 0 ? (result.repasse - costTotal) / result.repasse : null;
-
-  const previousWall = getPreviousWall(agreedPrice);
-  const nextWall = getNextWall(agreedPrice);
-  const recovery = useMemo(
-    () => previousWall ? findRecoveryPrice(previousWall, commonInput) : null,
-    [previousWall, commonInput],
-  );
-
-  const isDominated = Boolean(
-    recovery &&
-    agreedPrice >= recovery.wall &&
-    agreedPrice < recovery.recoveryPrice &&
-    result.repasse + 0.0001 < recovery.preWallRepasse,
-  );
-
-  const targetMargin = clamp((targetMarginPct || 0) / 100, 0, 0.95);
-  const requiredRepasse = costTotal !== null ? round2(costTotal / (1 - targetMargin)) : null;
-  const pmr = useMemo(
-    () => requiredRepasse !== null ? findFirstPriceForRepasse(requiredRepasse, commonInput) : null,
-    [requiredRepasse, commonInput],
-  );
-
-  const baseline = useMemo(
-    () => calculateRepasse({ ...commonInput, unitPrice: Math.max(0, baselinePrice || 0) }),
-    [commonInput, baselinePrice],
-  );
-
-  const baselineContribution = costTotal !== null ? round2(baseline.repasse - costTotal) : null;
-  const currentContribution = costTotal !== null ? round2(result.repasse - costTotal) : null;
-  const tceBe = baselineContribution !== null && currentContribution !== null && currentContribution > 0
-    ? 1 - (baselineContribution / currentContribution)
-    : null;
+  const {
+    commonInput,
+    result,
+    volumePhysical,
+    absorptionPct,
+    reu,
+    costTotal,
+    marginCurrent,
+    previousWall,
+    nextWall,
+    recovery,
+    isDominated,
+    requiredRepasse,
+    pmr,
+    tceBe,
+    tsiBand,
+  } = scenario;
 
   const confidence = accountId === 'SH-001' && presentation === 36
     ? { label: 'ALTA histórica', tone: 'good' as const, text: 'Mesma conta e apresentação do regime-laboratório mais limpo.' }
     : { label: 'MÉDIA', tone: 'warn' as const, text: 'Usa regime histórico comparável; confirme Oferta, vigência e modificadores.' };
 
-  const tsiBand = agreedPrice < 80
-    ? '< R$80'
-    : agreedPrice < 100
-      ? 'R$80–99,99'
-      : agreedPrice < 200
-        ? 'R$100–199,99'
-        : '≥ R$200';
 
   const wallTone = isDominated ? 'danger' : nextWall ? 'warn' : 'default';
 
