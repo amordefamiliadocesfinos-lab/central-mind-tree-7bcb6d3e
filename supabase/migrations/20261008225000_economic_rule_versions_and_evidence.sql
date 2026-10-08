@@ -72,6 +72,9 @@ CREATE POLICY "Authenticated users read economic rule evidence"
   FOR SELECT TO authenticated
   USING (true);
 
+GRANT SELECT ON public.economic_rule_versions TO authenticated;
+GRANT SELECT ON public.economic_rule_evidence TO authenticated;
+
 REVOKE INSERT, UPDATE, DELETE ON public.economic_rule_versions FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.economic_rule_evidence FROM anon, authenticated;
 
