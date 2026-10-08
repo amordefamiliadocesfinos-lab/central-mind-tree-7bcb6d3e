@@ -21,43 +21,13 @@ import { calculateLegacyEconomicScenario } from '@/lib/economic-engine/legacyCor
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
+import { usePlatforms } from '@/hooks/usePlatforms';
+import { useChannelAccounts } from '@/hooks/useChannelAccounts';
+import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
   directCommercialPresentation,
   type CommercialPresentation,
 } from '@/lib/products/commercialPresentation';
-
-const ACCOUNT_REGIMES = {
-  'SH-001': {
-    name: 'Adão',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    note: 'Regime limpo recente usado como referência do laboratório. Ads Fácil não observado no recorte utilizado.',
-  },
-  'SH-002': {
-    name: 'Viviane',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    note: 'Devolução Fácil e Afiliado apareceram em parte do histórico. Informe-os manualmente quando aplicáveis.',
-  },
-  'SH-003': {
-    name: 'Priscila',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    note: 'Recarga Automática e Devolução Fácil foram observadas. Ads Fácil deixou de aparecer no recorte recente estudado.',
-  },
-  'SH-004': {
-    name: 'Neto',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    note: 'Recarga Automática e Devolução Fácil foram observadas. Ads Fácil deixou de aparecer no recorte recente estudado.',
-  },
-} as const;
-
-type AccountId = keyof typeof ACCOUNT_REGIMES;
 
 const DIRECT_PRESENTATION_ID = '__direct__';
 
@@ -100,7 +70,27 @@ function MetricCard({
 }
 
 export function ShopeeEconomicMotor() {
-  const [accountId, setAccountId] = useState<AccountId>('SH-001');
+  const { platforms, loading: platformsLoading } = usePlatforms();
+  const shopeePlatform = useMemo(
+    () => platforms.find((platform) =>
+      platform.is_active &&
+      platform.group_type === 'marketplace' &&
+      platform.parent_id === null &&
+      platform.name.trim().toLocaleLowerCase('pt-BR').startsWith('shopee'),
+    ) ?? null,
+    [platforms],
+  );
+  const { accounts, loading: accountsLoading } = useChannelAccounts(shopeePlatform?.id ?? null);
+  const activeAccounts = useMemo(
+    () => accounts.filter((account) => account.is_active),
+    [accounts],
+  );
+  const [accountId, setAccountId] = useState('');
+  const selectedAccount = useMemo(
+    () => activeAccounts.find((account) => account.id === accountId) ?? null,
+    [activeAccounts, accountId],
+  );
+  const [effectiveAt, setEffectiveAt] = useState(() => new Date().toISOString().slice(0, 10));
   const { products, loading: productsLoading } = useProductsList();
   const [productId, setProductId] = useState('');
   const selectedProduct = useMemo(
@@ -120,9 +110,9 @@ export function ShopeeEconomicMotor() {
   const [q, setQ] = useState(1);
   const [originalPrice, setOriginalPrice] = useState(103);
   const [agreedPrice, setAgreedPrice] = useState(97.85);
-  const [commissionPct, setCommissionPct] = useState(12);
-  const [transactionPct, setTransactionPct] = useState(2);
-  const [servicePct, setServicePct] = useState(3.5);
+  const [commissionPct, setCommissionPct] = useState(0);
+  const [transactionPct, setTransactionPct] = useState(0);
+  const [servicePct, setServicePct] = useState(0);
   const [adsPct, setAdsPct] = useState(0);
   const [affiliatePct, setAffiliatePct] = useState(0);
   const [retMCharges, setRetMCharges] = useState(0);
@@ -130,6 +120,14 @@ export function ShopeeEconomicMotor() {
   const [costPerUnit, setCostPerUnit] = useState(0);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
+
+  useEffect(() => {
+    if (accountsLoading || accountId || activeAccounts.length === 0) return;
+    const preferred = activeAccounts.find((account) =>
+      account.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR') === 'adao',
+    ) ?? activeAccounts[0];
+    setAccountId(preferred.id);
+  }, [activeAccounts, accountsLoading, accountId]);
 
   useEffect(() => {
     if (productsLoading || productId || products.length === 0) return;
@@ -204,24 +202,33 @@ export function ShopeeEconomicMotor() {
   const presentationFactor = Number(selectedPresentation.conversion_factor);
   const isAlfajorLab = Boolean(selectedProduct?.name.toLocaleLowerCase('pt-BR').includes('alfajor'));
 
-  const account = ACCOUNT_REGIMES[accountId];
+  const rreResolution = useMemo(
+    () => resolveHistoricalShopeeRegime({
+      accountName: selectedAccount?.name,
+      effectiveAt,
+      presentationFactor,
+      offerKey: null,
+    }),
+    [selectedAccount?.name, effectiveAt, presentationFactor],
+  );
 
-  const resetHistoricalRegime = () => {
-    setCommissionPct(account.commissionPct);
-    setTransactionPct(account.transactionPct);
-    setServicePct(account.servicePct);
+  useEffect(() => {
+    const regime = rreResolution.regime;
+    setCommissionPct(regime?.commissionPct ?? 0);
+    setTransactionPct(regime?.transactionPct ?? 0);
+    setServicePct(regime?.servicePct ?? 0);
     setAdsPct(0);
     setAffiliatePct(0);
     setRetMCharges(0);
     setRetMBenefits(0);
-  };
+  }, [accountId, effectiveAt, rreResolution.regime?.id]);
 
-  const handleAccountChange = (value: AccountId) => {
-    const next = ACCOUNT_REGIMES[value];
-    setAccountId(value);
-    setCommissionPct(next.commissionPct);
-    setTransactionPct(next.transactionPct);
-    setServicePct(next.servicePct);
+  const resetHistoricalRegime = () => {
+    const regime = rreResolution.regime;
+    if (!regime) return;
+    setCommissionPct(regime.commissionPct);
+    setTransactionPct(regime.transactionPct);
+    setServicePct(regime.servicePct);
     setAdsPct(0);
     setAffiliatePct(0);
     setRetMCharges(0);
@@ -276,10 +283,21 @@ export function ShopeeEconomicMotor() {
     tsiBand,
   } = scenario;
 
-  const confidence = accountId === 'SH-001' && isAlfajorLab && presentationFactor === 36
-    ? { label: 'ALTA histórica', tone: 'good' as const, text: 'Mesma conta e apresentação do regime-laboratório mais limpo.' }
-    : { label: 'MÉDIA', tone: 'warn' as const, text: 'Usa regime histórico comparável; confirme Oferta, vigência e modificadores.' };
-
+  const confidence = {
+    label: rreResolution.confidence === 'high'
+      ? 'ALTA RRE'
+      : rreResolution.confidence === 'medium'
+        ? 'MÉDIA RRE'
+        : 'BAIXA RRE',
+    tone: rreResolution.confidence === 'high'
+      ? 'good' as const
+      : rreResolution.confidence === 'medium'
+        ? 'warn' as const
+        : 'danger' as const,
+    text: rreResolution.regime
+      ? rreResolution.regime.note
+      : 'Nenhum regime histórico foi resolvido para a conta selecionada.',
+  };
 
   const wallTone = isDominated ? 'danger' : nextWall ? 'warn' : 'default';
 
@@ -303,6 +321,7 @@ export function ShopeeEconomicMotor() {
               <Badge className={cn(
                 confidence.tone === 'good' && 'bg-emerald-600',
                 confidence.tone === 'warn' && 'bg-amber-600',
+                confidence.tone === 'danger' && 'bg-destructive',
               )}>{confidence.label}</Badge>
             </div>
           </div>
@@ -320,16 +339,45 @@ export function ShopeeEconomicMotor() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
-                  <Label>Conta / regime</Label>
-                  <Select value={accountId} onValueChange={(v) => handleAccountChange(v as AccountId)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>Conta Shopee canônica</Label>
+                  <Select
+                    value={accountId}
+                    onValueChange={setAccountId}
+                    disabled={platformsLoading || accountsLoading || activeAccounts.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        platformsLoading || accountsLoading
+                          ? 'Carregando contas...'
+                          : activeAccounts.length === 0
+                            ? 'Nenhuma conta Shopee ativa encontrada'
+                            : 'Selecione a conta'
+                      } />
+                    </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(ACCOUNT_REGIMES).map(([id, item]) => (
-                        <SelectItem key={id} value={id}>{id} — {item.name}</SelectItem>
+                      {activeAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}{account.external_identifier ? ' · ' + account.external_identifier : ''}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">{account.note}</p>
+                  {!shopeePlatform && !platformsLoading && (
+                    <p className="text-xs text-destructive">Plataforma Shopee canônica não encontrada.</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    A conta vem de channel_accounts. O regime é resolvido separadamente pelo RRE.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Data de referência do regime</Label>
+                  <Input type="date" value={effectiveAt} onChange={(e) => setEffectiveAt(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Vigência observada: {rreResolution.regime
+                      ? rreResolution.regime.observedFrom + ' a ' + rreResolution.regime.observedTo
+                      : 'não resolvida'}.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5 col-span-2">
@@ -432,7 +480,7 @@ export function ShopeeEconomicMotor() {
               <div className="rounded-lg border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">RET-E — regime estrutural</p>
-                  <Button size="sm" variant="ghost" className="gap-1" onClick={resetHistoricalRegime}>
+                  <Button size="sm" variant="ghost" className="gap-1" onClick={resetHistoricalRegime} disabled={!rreResolution.regime}>
                     <RefreshCcw className="h-3.5 w-3.5" /> Repor histórico
                   </Button>
                 </div>
@@ -524,9 +572,18 @@ export function ShopeeEconomicMotor() {
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Confiança</CardTitle></CardHeader>
               <CardContent>
-                <Badge className={cn(confidence.tone === 'good' ? 'bg-emerald-600' : 'bg-amber-600')}>{confidence.label}</Badge>
+                <Badge className={cn(
+                  confidence.tone === 'good' && 'bg-emerald-600',
+                  confidence.tone === 'warn' && 'bg-amber-600',
+                  confidence.tone === 'danger' && 'bg-destructive',
+                )}>{confidence.label}</Badge>
                 <p className="mt-2 text-sm text-muted-foreground">{confidence.text}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Conta + vigência + Oferta continuam sendo a chave correta do RRE. Este protótipo ainda usa parâmetros editáveis em tela.</p>
+                {rreResolution.warnings.map((warning) => (
+                  <p key={warning} className="mt-2 text-xs text-amber-600">{warning}</p>
+                ))}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  RRE: Conta + vigência + Oferta. Nesta E4 a conta e a vigência são reais; a Oferta será conectada na E5.
+                </p>
               </CardContent>
             </Card>
 
