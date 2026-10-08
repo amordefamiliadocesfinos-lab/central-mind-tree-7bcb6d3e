@@ -43,8 +43,16 @@ export interface NfeParsedData {
   raw_text: string;
 }
 
+type PdfTextItem = {
+  str?: string;
+  transform?: number[];
+};
+
 function parseBrNumber(value: string) {
-  const normalized = value.replace(/./g, '').replace(',', '.').replace(/[^d.-]/g, '');
+  const normalized = value
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : NaN;
 }
@@ -52,14 +60,12 @@ function parseBrNumber(value: string) {
 function toIsoDate(value: string) {
   const [day, month, year] = value.split('/');
   if (!day || !month || !year) return null;
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  return year + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0');
 }
 
 function compactDocument(value: string | null | undefined) {
-  return (value ?? '').replace(/D/g, '');
+  return (value ?? '').replace(/\D/g, '');
 }
-
-type PdfTextItem = { str?: string; transform?: number[] };
 
 function textItemsToLines(items: PdfTextItem[]) {
   const rows = new Map<number, Array<{ x: number; text: string }>>();
@@ -67,45 +73,68 @@ function textItemsToLines(items: PdfTextItem[]) {
   for (const item of items) {
     const text = item.str?.trim();
     if (!text) continue;
+
     const x = item.transform?.[4] ?? 0;
     const y = item.transform?.[5] ?? 0;
     const key = Math.round(y / 2) * 2;
     const row = rows.get(key) ?? [];
+
     row.push({ x, text });
     rows.set(key, row);
   }
 
   return [...rows.entries()]
     .sort((a, b) => b[0] - a[0])
-    .map(([, row]) => row.sort((a, b) => a.x - b.x).map(cell => cell.text).join(' ').replace(/s+/g, ' ').trim())
+    .map(([, row]) =>
+      row
+        .sort((a, b) => a.x - b.x)
+        .map(cell => cell.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
     .filter(Boolean);
 }
 
 function sectionLines(lines: string[], start: RegExp, end: RegExp) {
   const startIndex = lines.findIndex(line => start.test(line));
   if (startIndex < 0) return [];
-  const endRelative = lines.slice(startIndex + 1).findIndex(line => end.test(line));
-  const endIndex = endRelative < 0 ? lines.length : startIndex + 1 + endRelative;
+
+  const endRelative = lines
+    .slice(startIndex + 1)
+    .findIndex(line => end.test(line));
+
+  const endIndex = endRelative < 0
+    ? lines.length
+    : startIndex + 1 + endRelative;
+
   return lines.slice(startIndex + 1, endIndex);
 }
 
 function firstCnpj(text: string) {
-  return text.match(/d{2}.d{3}.d{3}/d{4}-d{2}/)?.[0] ?? null;
+  return text.match(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/)?.[0] ?? null;
 }
 
 function parseItems(lines: string[]): NfeItem[] {
-  const source = sectionLines(lines, /DADOS DOS PRODUTOSs*/s*SERVIÇOS/i, /CÁLCULO DO ISSQN|DADOS ADICIONAIS/i);
+  const source = sectionLines(
+    lines,
+    /DADOS DOS PRODUTOS\s*\/\s*SERVIÇOS/i,
+    /CÁLCULO DO ISSQN|DADOS ADICIONAIS/i,
+  );
+
   const items: NfeItem[] = [];
 
   for (const line of source) {
     const match = line.match(
-      /^(d{6,14})s+(.+?)s+(d{8})s+d+s+d+s+(d{4})s+([A-Z]{1,4})s+([d.,]+)s+([d.,]+)s+([d.,]+)(?:s|$)/i,
+      /^(\d{6,14})\s+(.+?)\s+(\d{8})\s+\d+\s+\d+\s+(\d{4})\s+([A-Z]{1,4})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)(?:\s|$)/i,
     );
+
     if (!match) continue;
 
     const quantity = parseBrNumber(match[6]);
     const unitPrice = parseBrNumber(match[7]);
     const totalPrice = parseBrNumber(match[8]);
+
     if (![quantity, unitPrice, totalPrice].every(Number.isFinite)) continue;
 
     items.push({
@@ -124,15 +153,18 @@ function parseItems(lines: string[]): NfeItem[] {
 }
 
 function parseInstallments(lines: string[]): NfeInstallment[] {
-  const source = sectionLines(lines, /^FATURA/i, /CÁLCULO DO IMPOSTO/i);
+  const source = sectionLines(lines, /^FATURA\b/i, /CÁLCULO DO IMPOSTO/i);
   const installments: NfeInstallment[] = [];
 
   for (const line of source) {
-    const match = line.match(/^(d{1,4})s+(d{2}/d{2}/d{4})s+([d.]+,d{2})/);
+    const match = line.match(/^(\d{1,4})\s+(\d{2}\/\d{2}\/\d{4})\s+([\d.]+,\d{2})/);
     if (!match) continue;
+
     const value = parseBrNumber(match[3]);
     const dueDate = toIsoDate(match[2]);
+
     if (!Number.isFinite(value) || !dueDate) continue;
+
     installments.push({
       number: Number(match[1]),
       due_date: dueDate,
@@ -144,29 +176,53 @@ function parseInstallments(lines: string[]): NfeInstallment[] {
 }
 
 function parseFreightAndTotals(lines: string[]) {
-  const freightHeader = lines.findIndex(line => /Valor do Frete/i.test(line) && /Valor Total da Nota/i.test(line));
-  const valuesLine = freightHeader >= 0 ? lines.slice(freightHeader + 1).find(line => /d+,d{2}/.test(line)) : null;
-  const numbers = valuesLine?.match(/[d.]+,d{2}/g) ?? [];
+  const freightHeader = lines.findIndex(
+    line => /Valor do Frete/i.test(line) && /Valor Total da Nota/i.test(line),
+  );
+
+  const valuesLine = freightHeader >= 0
+    ? lines.slice(freightHeader + 1).find(line => /\d+,\d{2}/.test(line))
+    : null;
+
+  const numbers = valuesLine?.match(/[\d.]+,\d{2}/g) ?? [];
 
   return {
     freight: numbers[0] ? parseBrNumber(numbers[0]) : null,
     discount: numbers[2] ? parseBrNumber(numbers[2]) : null,
-    total_note: numbers[numbers.length - 1] ? parseBrNumber(numbers[numbers.length - 1]) : null,
+    total_note: numbers.length
+      ? parseBrNumber(numbers[numbers.length - 1])
+      : null,
   };
 }
 
 function parseVolume(lines: string[]) {
-  const start = lines.findIndex(line => /Quantidades+Espécie/i.test(line) && /Peso Bruto/i.test(line));
-  const line = start >= 0 ? lines.slice(start + 1).find(candidate => /VOLUMES?/i.test(candidate)) : null;
-  if (!line) return { volume_quantity: null, gross_weight_kg: null, net_weight_kg: null };
+  const start = lines.findIndex(
+    line => /Quantidade\s+Espécie/i.test(line) && /Peso Bruto/i.test(line),
+  );
 
-  const first = line.match(/^s*(d+(?:[.,]d+)?)s+/)?.[1];
-  const values = line.match(/[d.]+,d{3}/g) ?? [];
+  const line = start >= 0
+    ? lines.slice(start + 1).find(candidate => /\bVOLUMES?\b/i.test(candidate))
+    : null;
+
+  if (!line) {
+    return {
+      volume_quantity: null,
+      gross_weight_kg: null,
+      net_weight_kg: null,
+    };
+  }
+
+  const first = line.match(/^\s*(\d+(?:[.,]\d+)?)\s+/)?.[1];
+  const values = line.match(/[\d.]+,\d{3}/g) ?? [];
 
   return {
     volume_quantity: first ? parseBrNumber(first) : null,
-    gross_weight_kg: values.length >= 2 ? parseBrNumber(values[values.length - 2]) : null,
-    net_weight_kg: values.length >= 1 ? parseBrNumber(values[values.length - 1]) : null,
+    gross_weight_kg: values.length >= 2
+      ? parseBrNumber(values[values.length - 2])
+      : null,
+    net_weight_kg: values.length >= 1
+      ? parseBrNumber(values[values.length - 1])
+      : null,
   };
 }
 
@@ -178,54 +234,81 @@ export async function parseNfePdf(file: File): Promise<NfeParsedData> {
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    allLines.push(...textItemsToLines(content.items.filter(item => 'str' in item) as PdfTextItem[]));
+
+    allLines.push(
+      ...textItemsToLines(
+        content.items.filter(item => 'str' in item) as PdfTextItem[],
+      ),
+    );
   }
 
-  const rawText = allLines.join('
-');
-  const normalizedText = rawText.replace(/s+/g, ' ');
-  const cnpjs = rawText.match(/d{2}.d{3}.d{3}/d{4}-d{2}/g) ?? [];
+  const rawText = allLines.join('\n');
+  const normalizedText = rawText.replace(/\s+/g, ' ');
+  const cnpjs =
+    rawText.match(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g) ?? [];
 
   const invoiceNumber =
-    normalizedText.match(/Nr.?s*(d{3,12})/i)?.[1]
-    ?? normalizedText.match(/NF-es+Nr.?s*(d{3,12})/i)?.[1]
+    normalizedText.match(/Nr\.?\s*(\d{3,12})\b/i)?.[1]
+    ?? normalizedText.match(/NF-e\s+Nr\.?\s*(\d{3,12})\b/i)?.[1]
     ?? null;
 
-  const series = normalizedText.match(/S[ÉE]RIEs*(d{1,4})/i)?.[1] ?? null;
+  const series =
+    normalizedText.match(/S[ÉE]RIE\s*(\d{1,4})\b/i)?.[1] ?? null;
+
   const issueDateBr =
-    normalizedText.match(/Emiss[aã]os*:s*(d{2}/d{2}/d{4})/i)?.[1]
-    ?? normalizedText.match(/Data da Emiss[aã]os*(d{2}/d{2}/d{4})/i)?.[1]
+    normalizedText.match(/Emiss[aã]o\s*:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1]
+    ?? normalizedText.match(/Data da Emiss[aã]o\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1]
     ?? null;
 
   const issuerName =
-    normalizedText.match(/Recebemos des+(.+?)s+os produtos da Nota Fiscal/i)?.[1]?.trim()
+    normalizedText.match(/Recebemos de\s+(.+?)\s+os produtos da Nota Fiscal/i)?.[1]?.trim()
     ?? null;
 
   const recipientName =
-    normalizedText.match(/Destinat[aá]rios*:s*(.+?)s+Valor Total/i)?.[1]?.trim()
+    normalizedText.match(/Destinat[aá]rio\s*:\s*(.+?)\s+Valor Total/i)?.[1]?.trim()
     ?? null;
 
   let accessKey: string | null = null;
   for (const line of allLines) {
-    const digits = line.replace(/D/g, '');
+    const digits = line.replace(/\D/g, '');
     if (digits.length === 44) {
       accessKey = digits;
       break;
     }
   }
 
-  const topTotal = normalizedText.match(/Valor Totals*:s*R$s*([d.]+,d{2})/i)?.[1];
-  const totalProductsHeader = allLines.findIndex(line => /Valor Total dos Produtos/i.test(line));
-  const totalProductsLine = totalProductsHeader >= 0 ? allLines.slice(totalProductsHeader + 1).find(line => /d+,d{2}/.test(line)) : null;
-  const totalProductsNumbers = totalProductsLine?.match(/[d.]+,d{2}/g) ?? [];
+  const topTotal =
+    normalizedText.match(/Valor Total\s*:\s*R\$\s*([\d.]+,\d{2})/i)?.[1];
+
+  const totalProductsHeader = allLines.findIndex(
+    line => /Valor Total dos Produtos/i.test(line),
+  );
+
+  const totalProductsLine = totalProductsHeader >= 0
+    ? allLines.slice(totalProductsHeader + 1).find(line => /\d+,\d{2}/.test(line))
+    : null;
+
+  const totalProductsNumbers =
+    totalProductsLine?.match(/[\d.]+,\d{2}/g) ?? [];
+
   const freightTotals = parseFreightAndTotals(allLines);
 
-  const transporterSection = sectionLines(allLines, /TRANSPORTADORs*/s*VOLUMES TRANSPORTADOS/i, /DADOS DOS PRODUTOSs*/s*SERVIÇOS/i);
-  const transporterName = transporterSection.find(line =>
-    !/Nomes*/s*Raz[aã]o Social|Frete por conta|Endere[cç]o|Munic[ií]pio|Quantidade|Esp[eé]cie|ANTT/i.test(line)
-    && /[A-Z]{4,}/.test(line),
-  ) ?? null;
-  const transporterDocument = transporterSection.map(firstCnpj).find(Boolean) ?? null;
+  const transporterSection = sectionLines(
+    allLines,
+    /TRANSPORTADOR\s*\/\s*VOLUMES TRANSPORTADOS/i,
+    /DADOS DOS PRODUTOS\s*\/\s*SERVIÇOS/i,
+  );
+
+  const transporterName =
+    transporterSection.find(
+      line =>
+        !/Nome\s*\/\s*Raz[aã]o Social|Frete por conta|Endere[cç]o|Munic[ií]pio|Quantidade|Esp[eé]cie|ANTT/i.test(line)
+        && /[A-Z]{4,}/.test(line),
+    ) ?? null;
+
+  const transporterDocument =
+    transporterSection.map(firstCnpj).find(Boolean) ?? null;
+
   const volumes = parseVolume(allLines);
 
   return {
@@ -237,10 +320,14 @@ export async function parseNfePdf(file: File): Promise<NfeParsedData> {
     issuer_document: cnpjs[0] ?? null,
     recipient_name: recipientName,
     recipient_document: cnpjs[1] ?? null,
-    total_products: totalProductsNumbers.length ? parseBrNumber(totalProductsNumbers[totalProductsNumbers.length - 1]) : null,
+    total_products: totalProductsNumbers.length
+      ? parseBrNumber(totalProductsNumbers[totalProductsNumbers.length - 1])
+      : null,
     freight: freightTotals.freight,
     discount: freightTotals.discount,
-    total_note: topTotal ? parseBrNumber(topTotal) : freightTotals.total_note,
+    total_note: topTotal
+      ? parseBrNumber(topTotal)
+      : freightTotals.total_note,
     transporter_name: transporterName,
     transporter_document: transporterDocument,
     volume_quantity: volumes.volume_quantity,
