@@ -4858,6 +4858,7 @@ export type Database = {
       }
       production_facts: {
         Row: {
+          correction_of_id: string | null
           created_at: string
           created_by: string | null
           event_key: string
@@ -4876,6 +4877,7 @@ export type Database = {
           variant_id: string | null
         }
         Insert: {
+          correction_of_id?: string | null
           created_at?: string
           created_by?: string | null
           event_key: string
@@ -4894,6 +4896,7 @@ export type Database = {
           variant_id?: string | null
         }
         Update: {
+          correction_of_id?: string | null
           created_at?: string
           created_by?: string | null
           event_key?: string
@@ -4912,6 +4915,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "production_facts_correction_of_id_fkey"
+            columns: ["correction_of_id"]
+            isOneToOne: false
+            referencedRelation: "production_facts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "production_facts_location_id_fkey"
             columns: ["location_id"]
@@ -5351,11 +5361,18 @@ export type Database = {
       }
       purchase_documents: {
         Row: {
+          access_key: string | null
           created_at: string
+          document_date: string | null
+          document_number: string | null
+          document_series: string | null
           document_type: string
+          extracted_data: Json | null
+          extraction_status: string
           file_name: string
           file_size: number | null
           id: string
+          issuer_document: string | null
           mime_type: string | null
           notes: string | null
           purchase_order_id: string
@@ -5366,11 +5383,18 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          access_key?: string | null
           created_at?: string
+          document_date?: string | null
+          document_number?: string | null
+          document_series?: string | null
           document_type?: string
+          extracted_data?: Json | null
+          extraction_status?: string
           file_name: string
           file_size?: number | null
           id?: string
+          issuer_document?: string | null
           mime_type?: string | null
           notes?: string | null
           purchase_order_id: string
@@ -5381,11 +5405,18 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          access_key?: string | null
           created_at?: string
+          document_date?: string | null
+          document_number?: string | null
+          document_series?: string | null
           document_type?: string
+          extracted_data?: Json | null
+          extraction_status?: string
           file_name?: string
           file_size?: number | null
           id?: string
+          issuer_document?: string | null
           mime_type?: string | null
           notes?: string | null
           purchase_order_id?: string
@@ -6763,6 +6794,53 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_delivery_schedules: {
+        Row: {
+          created_at: string
+          cutoff_days_before: number
+          cutoff_time: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          supplier_contact_id: string
+          timezone: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          cutoff_days_before?: number
+          cutoff_time?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          supplier_contact_id: string
+          timezone?: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          cutoff_days_before?: number
+          cutoff_time?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          supplier_contact_id?: string
+          timezone?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_delivery_schedules_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_merge_history: {
         Row: {
           created_at: string
@@ -7251,6 +7329,15 @@ export type Database = {
         }
         Returns: Json
       }
+      correct_production_fact: {
+        Args: {
+          p_occurred_at: string
+          p_production_fact_id: string
+          p_quantity: number
+          p_reason: string
+        }
+        Returns: Json
+      }
       create_production_closing: {
         Args: { p_end_date: string; p_notes?: string; p_start_date: string }
         Returns: Json
@@ -7284,6 +7371,10 @@ export type Database = {
           p_variant_id: string
         }
         Returns: number
+      }
+      get_supplier_delivery_plan: {
+        Args: { p_reference_time?: string; p_supplier_contact_id: string }
+        Returns: Json
       }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
@@ -7431,6 +7522,27 @@ export type Database = {
         Args: { p_installments: Json; p_purchase_order_id: string }
         Returns: Json
       }
+      register_purchase_invoice_billing: {
+        Args: {
+          p_installments: Json
+          p_invoice_date: string
+          p_purchase_order_id: string
+        }
+        Returns: Json
+      }
+      regularize_purchase_invoice_values: {
+        Args: {
+          p_access_key: string
+          p_installments: Json
+          p_invoice_date: string
+          p_invoice_number: string
+          p_invoice_series: string
+          p_item_prices: Json
+          p_purchase_order_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       report_operational_incident: {
         Args: {
           p_applied_quantity?: number
@@ -7446,6 +7558,10 @@ export type Database = {
           p_unit?: string
           p_variant_id?: string
         }
+        Returns: Json
+      }
+      reverse_production_fact: {
+        Args: { p_production_fact_id: string; p_reason: string }
         Returns: Json
       }
       set_order_operational_status: {
