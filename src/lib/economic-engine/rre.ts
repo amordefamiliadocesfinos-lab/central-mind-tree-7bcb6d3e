@@ -1,81 +1,104 @@
 export type RegimeConfidence = 'high' | 'medium' | 'low';
 
-export type HistoricalRegime = {
+export type EconomicRuleEvidenceInput = {
   id: string;
-  accountName: string;
+  sourceRef: string;
+  evidenceType: string;
+  observedFrom: string | null;
+  observedTo: string | null;
+  offerMappingId: string | null;
+  isOfferSpecific: boolean;
+};
+
+export type EconomicRuleCandidate = {
+  id: string;
+  engineVersion: string;
+  ruleVersion: string;
+  channelAccountId: string | null;
+  offerMappingId: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  parameters: Record<string, unknown>;
+  sourceSummary: string | null;
+  evidence: EconomicRuleEvidenceInput[];
+};
+
+export type ResolvedHistoricalRegime = {
+  id: string;
+  engineVersion: string;
+  ruleVersion: string;
   commissionPct: number;
   transactionPct: number;
   servicePct: number;
   observedFrom: string;
-  observedTo: string;
+  observedTo: string | null;
   note: string;
+  sourceRefs: string[];
+  offerSpecific: boolean;
 };
 
 export type ResolveHistoricalRegimeInput = {
-  accountName: string | null | undefined;
+  rules: EconomicRuleCandidate[];
+  channelAccountId: string | null | undefined;
   effectiveAt: string;
   presentationFactor?: number | null;
-  offerKey?: string | null;
-  offerEvidenceMatched?: boolean;
+  offerMappingId?: string | null;
 };
 
 export type HistoricalRegimeResolution = {
-  regime: HistoricalRegime | null;
+  regime: ResolvedHistoricalRegime | null;
   confidence: RegimeConfidence;
-  missing: Array<'account' | 'offer' | 'offer_evidence' | 'validity'>;
+  missing: Array<'account' | 'offer' | 'offer_evidence' | 'validity' | 'rule'>;
   warnings: string[];
-  matchedBy: Array<'account' | 'validity' | 'presentation' | 'offer'>;
+  matchedBy: Array<'account' | 'validity' | 'presentation' | 'offer' | 'offer_evidence' | 'rule_version'>;
 };
 
-const normalize = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLocaleLowerCase('pt-BR');
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
 
-export const HISTORICAL_SHOPEE_REGIMES: HistoricalRegime[] = [
-  {
-    id: 'shopee-adao-2026-07-02_2026-10-02',
-    accountName: 'Adão',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    observedFrom: '2026-07-02',
-    observedTo: '2026-10-02',
-    note: 'Regime estrutural histórico observado. Ads Fácil não foi observado no recorte recente utilizado.',
-  },
-  {
-    id: 'shopee-viviane-2026-07-02_2026-10-02',
-    accountName: 'Viviane',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    observedFrom: '2026-07-02',
-    observedTo: '2026-10-02',
-    note: 'Regime estrutural histórico observado. Devolução Fácil e Afiliado apareceram em parte do histórico.',
-  },
-  {
-    id: 'shopee-priscila-2026-07-02_2026-10-02',
-    accountName: 'Priscila',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    observedFrom: '2026-07-02',
-    observedTo: '2026-10-02',
-    note: 'Regime estrutural histórico observado. Recarga e Devolução Fácil apareceram; Ads Fácil mudou ao longo do período.',
-  },
-  {
-    id: 'shopee-neto-2026-07-02_2026-10-02',
-    accountName: 'Neto',
-    commissionPct: 12,
-    transactionPct: 2,
-    servicePct: 3.5,
-    observedFrom: '2026-07-02',
-    observedTo: '2026-10-02',
-    note: 'Regime estrutural histórico observado. Recarga e Devolução Fácil apareceram; Ads Fácil mudou ao longo do período.',
-  },
-];
+function isWithinValidity(rule: EconomicRuleCandidate, effectiveDate: string) {
+  return Boolean(
+    effectiveDate &&
+    effectiveDate >= rule.effectiveFrom &&
+    (!rule.effectiveTo || effectiveDate <= rule.effectiveTo),
+  );
+}
+
+function hasOfferSpecificEvidence(rule: EconomicRuleCandidate, offerMappingId: string | null | undefined) {
+  if (!offerMappingId) return false;
+  return rule.evidence.some((evidence) =>
+    evidence.isOfferSpecific &&
+    evidence.offerMappingId === offerMappingId,
+  );
+}
+
+function sortCandidates(
+  rules: EconomicRuleCandidate[],
+  effectiveDate: string,
+  offerMappingId: string | null | undefined,
+) {
+  return [...rules].sort((a, b) => {
+    const aValid = isWithinValidity(a, effectiveDate) ? 1 : 0;
+    const bValid = isWithinValidity(b, effectiveDate) ? 1 : 0;
+    if (aValid !== bValid) return bValid - aValid;
+
+    const aOffer = offerMappingId && a.offerMappingId === offerMappingId ? 1 : 0;
+    const bOffer = offerMappingId && b.offerMappingId === offerMappingId ? 1 : 0;
+    if (aOffer !== bOffer) return bOffer - aOffer;
+
+    const aEvidence = hasOfferSpecificEvidence(a, offerMappingId) ? 1 : 0;
+    const bEvidence = hasOfferSpecificEvidence(b, offerMappingId) ? 1 : 0;
+    if (aEvidence !== bEvidence) return bEvidence - aEvidence;
+
+    return b.effectiveFrom.localeCompare(a.effectiveFrom);
+  });
+}
 
 export function resolveHistoricalShopeeRegime(
   input: ResolveHistoricalRegimeInput,
@@ -84,45 +107,66 @@ export function resolveHistoricalShopeeRegime(
   const warnings: string[] = [];
   const matchedBy: HistoricalRegimeResolution['matchedBy'] = [];
 
-  if (!input.accountName?.trim()) {
+  if (!input.channelAccountId) {
     return {
       regime: null,
       confidence: 'low',
-      missing: ['account', 'offer', 'offer_evidence', 'validity'],
+      missing: ['account', 'offer', 'offer_evidence', 'validity', 'rule'],
       warnings: ['Conta canônica ainda não selecionada.'],
       matchedBy: [],
     };
   }
 
-  const regime = HISTORICAL_SHOPEE_REGIMES.find(
-    (item) => normalize(item.accountName) === normalize(input.accountName!),
-  ) ?? null;
+  matchedBy.push('account');
 
-  if (!regime) {
+  const accountRules = input.rules.filter((rule) =>
+    rule.channelAccountId === input.channelAccountId &&
+    (
+      rule.offerMappingId === null ||
+      rule.offerMappingId === input.offerMappingId
+    ),
+  );
+
+  if (accountRules.length === 0) {
     return {
       regime: null,
       confidence: 'low',
-      missing: ['offer', 'offer_evidence', 'validity'],
-      warnings: ['Não existe regime histórico congelado para esta conta. Informe parâmetros somente com evidência.'],
-      matchedBy: ['account'],
+      missing: ['rule', 'offer_evidence', 'validity'],
+      warnings: ['Nenhuma regra econômica versionada foi encontrada para esta conta.'],
+      matchedBy,
     };
   }
 
-  matchedBy.push('account');
-
   const effectiveDate = input.effectiveAt?.slice(0, 10);
-  const withinObservedWindow = Boolean(
-    effectiveDate &&
-    effectiveDate >= regime.observedFrom &&
-    effectiveDate <= regime.observedTo,
-  );
+  const sorted = sortCandidates(accountRules, effectiveDate, input.offerMappingId);
+  const rule = sorted[0];
+  matchedBy.push('rule_version');
 
+  const commissionPct = asNumber(rule.parameters.commissionPct);
+  const transactionPct = asNumber(rule.parameters.transactionPct);
+  const servicePct = asNumber(rule.parameters.servicePct);
+
+  if (commissionPct === null || transactionPct === null || servicePct === null) {
+    return {
+      regime: null,
+      confidence: 'low',
+      missing: ['rule'],
+      warnings: ['A regra econômica encontrada está incompleta e não pode ser aplicada.'],
+      matchedBy,
+    };
+  }
+
+  const withinObservedWindow = isWithinValidity(rule, effectiveDate);
   if (withinObservedWindow) {
     matchedBy.push('validity');
   } else {
     missing.push('validity');
     warnings.push(
-      'Data fora da janela observada (' + regime.observedFrom + ' a ' + regime.observedTo + '). O regime é apenas referência histórica.',
+      'Data fora da vigência da regra (' +
+      rule.effectiveFrom +
+      ' a ' +
+      (rule.effectiveTo ?? 'aberta') +
+      '). A regra permanece somente como referência histórica.',
     );
   }
 
@@ -130,28 +174,51 @@ export function resolveHistoricalShopeeRegime(
     matchedBy.push('presentation');
   }
 
-  if (input.offerKey) {
+  if (input.offerMappingId) {
     matchedBy.push('offer');
-    if (!input.offerEvidenceMatched) {
-      missing.push('offer_evidence');
-      warnings.push('Oferta resolvida no cadastro, mas ainda sem evidência histórica específica vinculada ao regime.');
-    }
   } else {
     missing.push('offer');
-    missing.push('offer_evidence');
     warnings.push('Oferta ainda não resolvida.');
   }
 
-  const confidence: RegimeConfidence = input.offerKey && input.offerEvidenceMatched && withinObservedWindow
-    ? 'high'
-    : withinObservedWindow && input.offerKey
-      ? 'medium'
+  const offerEvidenceMatched = hasOfferSpecificEvidence(rule, input.offerMappingId);
+  if (offerEvidenceMatched) {
+    matchedBy.push('offer_evidence');
+  } else {
+    missing.push('offer_evidence');
+    if (input.offerMappingId) {
+      warnings.push('Oferta resolvida no cadastro, mas ainda sem evidência histórica específica vinculada à regra.');
+    }
+  }
+
+  const exactOfferRule = Boolean(
+    input.offerMappingId &&
+    rule.offerMappingId === input.offerMappingId,
+  );
+
+  const confidence: RegimeConfidence =
+    withinObservedWindow && exactOfferRule && offerEvidenceMatched
+      ? 'high'
       : withinObservedWindow
         ? 'medium'
         : 'low';
 
+  const sourceRefs = [...new Set(rule.evidence.map((evidence) => evidence.sourceRef))];
+
   return {
-    regime,
+    regime: {
+      id: rule.id,
+      engineVersion: rule.engineVersion,
+      ruleVersion: rule.ruleVersion,
+      commissionPct,
+      transactionPct,
+      servicePct,
+      observedFrom: rule.effectiveFrom,
+      observedTo: rule.effectiveTo,
+      note: rule.sourceSummary ?? 'Regra econômica versionada sem resumo adicional.',
+      sourceRefs,
+      offerSpecific: exactOfferRule,
+    },
     confidence,
     missing,
     warnings,
