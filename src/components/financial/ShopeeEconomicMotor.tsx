@@ -24,6 +24,7 @@ import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import { usePlatforms } from '@/hooks/usePlatforms';
 import { useChannelAccounts } from '@/hooks/useChannelAccounts';
 import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
+import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
   directCommercialPresentation,
@@ -87,10 +88,6 @@ export function ShopeeEconomicMotor() {
     [accounts],
   );
   const [accountId, setAccountId] = useState('');
-  const selectedAccount = useMemo(
-    () => activeAccounts.find((account) => account.id === accountId) ?? null,
-    [activeAccounts, accountId],
-  );
   const [effectiveAt, setEffectiveAt] = useState(() => new Date().toISOString().slice(0, 10));
   const { products, loading: productsLoading } = useProductsList();
   const [productId, setProductId] = useState('');
@@ -112,6 +109,14 @@ export function ShopeeEconomicMotor() {
   } = useShopeeOfferMappings(accountId || null, productId || null, variantId);
   const [offerId, setOfferId] = useState('');
   const selectedOffer = shopeeOffersById.get(offerId) ?? null;
+  const {
+    candidates: economicRuleCandidates,
+    loading: rulesLoading,
+    error: rulesError,
+  } = useEconomicRuleVersions(
+    accountId || null,
+    selectedOffer?.mapping.id ?? null,
+  );
   const { list: listCommercialPresentations } = useCommercialPresentations();
   const [presentations, setPresentations] = useState<CommercialPresentation[]>([]);
   const [presentationsLoading, setPresentationsLoading] = useState(false);
@@ -219,13 +224,19 @@ export function ShopeeEconomicMotor() {
 
   const rreResolution = useMemo(
     () => resolveHistoricalShopeeRegime({
-      accountName: selectedAccount?.name,
+      rules: economicRuleCandidates,
+      channelAccountId: accountId || null,
       effectiveAt,
       presentationFactor,
-      offerKey: selectedOffer?.mapping.external_item_key ?? null,
-      offerEvidenceMatched: false,
+      offerMappingId: selectedOffer?.mapping.id ?? null,
     }),
-    [selectedAccount?.name, effectiveAt, presentationFactor, selectedOffer?.mapping.external_item_key],
+    [
+      economicRuleCandidates,
+      accountId,
+      effectiveAt,
+      presentationFactor,
+      selectedOffer?.mapping.id,
+    ],
   );
 
   useEffect(() => {
@@ -390,9 +401,11 @@ export function ShopeeEconomicMotor() {
                   <Label>Data de referência do regime</Label>
                   <Input type="date" value={effectiveAt} onChange={(e) => setEffectiveAt(e.target.value)} />
                   <p className="text-xs text-muted-foreground">
-                    Vigência observada: {rreResolution.regime
-                      ? rreResolution.regime.observedFrom + ' a ' + rreResolution.regime.observedTo
-                      : 'não resolvida'}.
+                    Vigência da regra: {rreResolution.regime
+                      ? rreResolution.regime.observedFrom + ' a ' + (rreResolution.regime.observedTo ?? 'aberta')
+                      : rulesLoading
+                        ? 'carregando...'
+                        : 'não resolvida'}.
                   </p>
                 </div>
 
@@ -633,11 +646,23 @@ export function ShopeeEconomicMotor() {
                   confidence.tone === 'danger' && 'bg-destructive',
                 )}>{confidence.label}</Badge>
                 <p className="mt-2 text-sm text-muted-foreground">{confidence.text}</p>
+                {rulesError && <p className="mt-2 text-xs text-destructive">{rulesError}</p>}
+                {rreResolution.regime && (
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <p>Engine: {rreResolution.regime.engineVersion}</p>
+                    <p>Regra: {rreResolution.regime.ruleVersion}</p>
+                    <p>
+                      Evidência: {rreResolution.regime.sourceRefs.length > 0
+                        ? rreResolution.regime.sourceRefs.join(' · ')
+                        : 'sem referência vinculada'}
+                    </p>
+                  </div>
+                )}
                 {rreResolution.warnings.map((warning) => (
                   <p key={warning} className="mt-2 text-xs text-amber-600">{warning}</p>
                 ))}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  RRE: Conta + vigência + Oferta. Na E5 a Oferta já vem do mapeamento canônico; confiança alta ainda exige evidência histórica específica da própria Oferta.
+                  RRE: Conta + vigência + Oferta + evidência. A versão usada fica explícita e regras futuras não reescrevem a regra histórica selecionada.
                 </p>
               </CardContent>
             </Card>
