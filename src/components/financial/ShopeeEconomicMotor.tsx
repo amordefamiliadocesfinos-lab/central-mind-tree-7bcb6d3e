@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Calculator,
@@ -18,6 +18,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { calculateLegacyEconomicScenario } from '@/lib/economic-engine/legacyCore';
+import { useProductsList } from '@/hooks/useProductsList';
+import { useProductVariants } from '@/hooks/useProductVariants';
+import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
+import {
+  directCommercialPresentation,
+  type CommercialPresentation,
+} from '@/lib/products/commercialPresentation';
 
 const ACCOUNT_REGIMES = {
   'SH-001': {
@@ -58,7 +65,7 @@ const money = (value: number) =>
 const pct = (value: number) =>
   `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
-const PRESENTATIONS = [6, 18, 36, 72, 108, 144, 504];
+const DIRECT_PRESENTATION_ID = '__direct__';
 
 function MetricCard({
   title,
@@ -95,7 +102,22 @@ function MetricCard({
 
 export function ShopeeEconomicMotor() {
   const [accountId, setAccountId] = useState<AccountId>('SH-001');
-  const [presentation, setPresentation] = useState(36);
+  const { products, loading: productsLoading } = useProductsList();
+  const [productId, setProductId] = useState('');
+  const selectedProduct = useMemo(
+    () => products.find((item) => item.id === productId) ?? null,
+    [products, productId],
+  );
+  const { variants, loading: variantsLoading } = useProductVariants(productId || null);
+  const [variantId, setVariantId] = useState<string | null>(null);
+  const selectedVariant = useMemo(
+    () => variants.find((item) => item.id === variantId) ?? null,
+    [variants, variantId],
+  );
+  const { list: listCommercialPresentations } = useCommercialPresentations();
+  const [presentations, setPresentations] = useState<CommercialPresentation[]>([]);
+  const [presentationsLoading, setPresentationsLoading] = useState(false);
+  const [presentationId, setPresentationId] = useState(DIRECT_PRESENTATION_ID);
   const [q, setQ] = useState(1);
   const [originalPrice, setOriginalPrice] = useState(103);
   const [agreedPrice, setAgreedPrice] = useState(97.85);
@@ -109,6 +131,78 @@ export function ShopeeEconomicMotor() {
   const [costPerUnit, setCostPerUnit] = useState(0);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
+
+  useEffect(() => {
+    if (productsLoading || productId || products.length === 0) return;
+    const preferred = products.find((item) => item.name.toLocaleLowerCase('pt-BR').includes('alfajor')) ?? products[0];
+    setProductId(preferred.id);
+  }, [products, productsLoading, productId]);
+
+  useEffect(() => {
+    setPresentationId(DIRECT_PRESENTATION_ID);
+    setPresentations([]);
+    if (!selectedProduct) {
+      setVariantId(null);
+      return;
+    }
+    if (selectedProduct.variation_mode !== 'variacoes_fisicas') {
+      setVariantId(null);
+    }
+  }, [selectedProduct?.id, selectedProduct?.variation_mode]);
+
+  useEffect(() => {
+    if (!selectedProduct || selectedProduct.variation_mode !== 'variacoes_fisicas' || variantsLoading) return;
+    if (variantId && variants.some((variant) => variant.id === variantId && variant.is_active)) return;
+    const firstActive = variants.find((variant) => variant.is_active);
+    setVariantId(firstActive?.id ?? null);
+  }, [selectedProduct, variants, variantsLoading, variantId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const canLoad = Boolean(
+      selectedProduct &&
+      (selectedProduct.variation_mode !== 'variacoes_fisicas' || variantId),
+    );
+
+    if (!canLoad || !selectedProduct) {
+      setPresentations([]);
+      setPresentationId(DIRECT_PRESENTATION_ID);
+      return;
+    }
+
+    setPresentationsLoading(true);
+    listCommercialPresentations(selectedProduct.id, variantId, false)
+      .then((items) => {
+        if (cancelled) return;
+        setPresentations(items);
+        setPresentationId(items[0]?.id ?? DIRECT_PRESENTATION_ID);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('Erro ao carregar apresentações comerciais do Motor Econômico:', error);
+        setPresentations([]);
+        setPresentationId(DIRECT_PRESENTATION_ID);
+      })
+      .finally(() => {
+        if (!cancelled) setPresentationsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProduct, variantId, listCommercialPresentations]);
+
+  const directPresentation = useMemo(
+    () => directCommercialPresentation(selectedProduct, selectedVariant),
+    [selectedProduct, selectedVariant],
+  );
+  const selectedPresentation = useMemo(
+    () => presentationId === DIRECT_PRESENTATION_ID
+      ? directPresentation
+      : presentations.find((item) => item.id === presentationId) ?? directPresentation,
+    [presentationId, presentations, directPresentation],
+  );
+  const presentationFactor = Number(selectedPresentation.conversion_factor);
 
   const account = ACCOUNT_REGIMES[accountId];
 
@@ -135,7 +229,7 @@ export function ShopeeEconomicMotor() {
   };
 
   const scenario = useMemo(() => calculateLegacyEconomicScenario({
-    presentation,
+    presentation: presentationFactor,
     q,
     agreedPrice,
     commissionPct,
@@ -149,7 +243,7 @@ export function ShopeeEconomicMotor() {
     targetMarginPct,
     baselinePrice,
   }), [
-    presentation,
+    presentationFactor,
     q,
     agreedPrice,
     commissionPct,
@@ -182,7 +276,7 @@ export function ShopeeEconomicMotor() {
     tsiBand,
   } = scenario;
 
-  const confidence = accountId === 'SH-001' && presentation === 36
+  const confidence = accountId === 'SH-001' && presentationFactor === 36
     ? { label: 'ALTA histórica', tone: 'good' as const, text: 'Mesma conta e apresentação do regime-laboratório mais limpo.' }
     : { label: 'MÉDIA', tone: 'warn' as const, text: 'Usa regime histórico comparável; confirme Oferta, vigência e modificadores.' };
 
@@ -205,7 +299,7 @@ export function ShopeeEconomicMotor() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">V0.6</Badge>
-              <Badge variant="secondary">Alfajor 60g</Badge>
+              <Badge variant="secondary">{selectedProduct?.name ?? 'Produto não selecionado'}</Badge>
               <Badge className={cn(
                 confidence.tone === 'good' && 'bg-emerald-600',
                 confidence.tone === 'warn' && 'bg-amber-600',
@@ -238,18 +332,78 @@ export function ShopeeEconomicMotor() {
                   <p className="text-xs text-muted-foreground">{account.note}</p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Apresentação</Label>
-                  <Select value={String(presentation)} onValueChange={(v) => setPresentation(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Produto canônico</Label>
+                  <Select
+                    value={productId}
+                    onValueChange={(value) => {
+                      setProductId(value);
+                      setVariantId(null);
+                    }}
+                    disabled={productsLoading || products.length === 0}
+                  >
+                    <SelectTrigger><SelectValue placeholder={productsLoading ? 'Carregando produtos...' : 'Selecione o produto'} /></SelectTrigger>
                     <SelectContent>
-                      {PRESENTATIONS.map((p) => <SelectItem key={p} value={String(p)}>{p} un.</SelectItem>)}
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {selectedProduct?.variation_mode === 'variacoes_fisicas' && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Variante física</Label>
+                    <Select
+                      value={variantId ?? ''}
+                      onValueChange={setVariantId}
+                      disabled={variantsLoading || variants.filter((variant) => variant.is_active).length === 0}
+                    >
+                      <SelectTrigger><SelectValue placeholder={variantsLoading ? 'Carregando variantes...' : 'Selecione a variante'} /></SelectTrigger>
+                      <SelectContent>
+                        {variants.filter((variant) => variant.is_active).map((variant) => (
+                          <SelectItem key={variant.id} value={variant.id}>{variant.variant_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label>Apresentação comercial</Label>
+                  <Select
+                    value={presentationId}
+                    onValueChange={setPresentationId}
+                    disabled={
+                      presentationsLoading ||
+                      !selectedProduct ||
+                      (selectedProduct.variation_mode === 'variacoes_fisicas' && !variantId)
+                    }
+                  >
+                    <SelectTrigger><SelectValue placeholder={presentationsLoading ? 'Carregando...' : 'Selecione a apresentação'} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={DIRECT_PRESENTATION_ID}>
+                        {directPresentation.name}
+                      </SelectItem>
+                      {presentations.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} · 1 {item.commercial_unit_label} = {Number(item.conversion_factor)} un. físicas
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!presentationsLoading && selectedProduct && presentations.length === 0 && (
+                    <p className="text-xs text-amber-600">
+                      Nenhuma apresentação cadastrada para esta identidade. O Motor usa somente a unidade direta canônica.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Quantidade comercial Q</Label>
                   <Input type="number" min={1} step={1} value={q} onChange={(e) => setQ(Number(e.target.value))} />
+                  <p className="text-xs text-muted-foreground">
+                    Conversão atual: 1 {selectedPresentation.commercial_unit_label} = {presentationFactor} unidade(s) física(s).
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -262,7 +416,7 @@ export function ShopeeEconomicMotor() {
                 </div>
               </div>
 
-              {presentation === 36 && commonInput.q >= 5 && (
+              {presentationFactor === 36 && commonInput.q >= 5 && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="text-xs font-medium mb-2">Escada A3 candidata</p>
                   <div className="flex flex-wrap gap-2">
