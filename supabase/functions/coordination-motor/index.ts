@@ -2,7 +2,7 @@
 // Recebe solicitações padronizadas da IA Orquestradora, resolve o Especialista
 // responsável e devolve o plano de encaminhamento. Não executa ações reais.
 
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import {
   coordinateRequest,
   getCoordinationLog,

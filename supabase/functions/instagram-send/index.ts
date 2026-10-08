@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { parseInstagramConversationHandle, sendInstagramText } from '../_shared/instagram/meta-connector.ts';
 import { isInstagramCustomerServiceWindowOpen } from '../_shared/instagram/message-window.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
