@@ -1,4 +1,4 @@
-import { GlobalWorkerOptions, getDocument, type TextItem } from 'pdfjs-dist';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -59,7 +59,9 @@ function compactDocument(value: string | null | undefined) {
   return (value ?? '').replace(/D/g, '');
 }
 
-function textItemsToLines(items: TextItem[]) {
+type PdfTextItem = { str?: string; transform?: number[] };
+
+function textItemsToLines(items: PdfTextItem[]) {
   const rows = new Map<number, Array<{ x: number; text: string }>>();
 
   for (const item of items) {
@@ -176,7 +178,7 @@ export async function parseNfePdf(file: File): Promise<NfeParsedData> {
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    allLines.push(...textItemsToLines(content.items.filter((item): item is TextItem => 'str' in item)));
+    allLines.push(...textItemsToLines(content.items.filter(item => 'str' in item) as PdfTextItem[]));
   }
 
   const rawText = allLines.join('
