@@ -16,12 +16,13 @@ export type ResolveHistoricalRegimeInput = {
   effectiveAt: string;
   presentationFactor?: number | null;
   offerKey?: string | null;
+  offerEvidenceMatched?: boolean;
 };
 
 export type HistoricalRegimeResolution = {
   regime: HistoricalRegime | null;
   confidence: RegimeConfidence;
-  missing: Array<'account' | 'offer' | 'validity'>;
+  missing: Array<'account' | 'offer' | 'offer_evidence' | 'validity'>;
   warnings: string[];
   matchedBy: Array<'account' | 'validity' | 'presentation' | 'offer'>;
 };
@@ -87,7 +88,7 @@ export function resolveHistoricalShopeeRegime(
     return {
       regime: null,
       confidence: 'low',
-      missing: ['account', 'offer', 'validity'],
+      missing: ['account', 'offer', 'offer_evidence', 'validity'],
       warnings: ['Conta canônica ainda não selecionada.'],
       matchedBy: [],
     };
@@ -101,7 +102,7 @@ export function resolveHistoricalShopeeRegime(
     return {
       regime: null,
       confidence: 'low',
-      missing: ['offer', 'validity'],
+      missing: ['offer', 'offer_evidence', 'validity'],
       warnings: ['Não existe regime histórico congelado para esta conta. Informe parâmetros somente com evidência.'],
       matchedBy: ['account'],
     };
@@ -131,16 +132,23 @@ export function resolveHistoricalShopeeRegime(
 
   if (input.offerKey) {
     matchedBy.push('offer');
+    if (!input.offerEvidenceMatched) {
+      missing.push('offer_evidence');
+      warnings.push('Oferta resolvida no cadastro, mas ainda sem evidência histórica específica vinculada ao regime.');
+    }
   } else {
     missing.push('offer');
-    warnings.push('Oferta ainda não resolvida. A confiança não pode ser alta antes da E5.');
+    missing.push('offer_evidence');
+    warnings.push('Oferta ainda não resolvida.');
   }
 
-  const confidence: RegimeConfidence = input.offerKey && withinObservedWindow
+  const confidence: RegimeConfidence = input.offerKey && input.offerEvidenceMatched && withinObservedWindow
     ? 'high'
-    : withinObservedWindow
+    : withinObservedWindow && input.offerKey
       ? 'medium'
-      : 'low';
+      : withinObservedWindow
+        ? 'medium'
+        : 'low';
 
   return {
     regime,

@@ -51,6 +51,16 @@ const withOffer = resolveHistoricalShopeeRegime({
   presentationFactor: 36,
   offerKey: 'future-offer-key',
 });
-equal(withOffer.confidence, 'high', 'Conta + vigência + Oferta podem alcançar confiança alta');
+equal(withOffer.confidence, 'medium', 'Oferta resolvida sem evidência específica não deve virar confiança alta');
+assert(withOffer.missing.includes('offer_evidence'), 'Oferta resolvida ainda precisa de evidência específica');
+
+const withOfferEvidence = resolveHistoricalShopeeRegime({
+  accountName: 'Neto',
+  effectiveAt: '2026-09-15',
+  presentationFactor: 36,
+  offerKey: 'future-offer-key',
+  offerEvidenceMatched: true,
+});
+equal(withOfferEvidence.confidence, 'high', 'Conta + vigência + Oferta + evidência específica podem alcançar confiança alta');
 
 console.log('economic-engine/rre.test: OK');
