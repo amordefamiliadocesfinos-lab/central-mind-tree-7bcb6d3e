@@ -13,6 +13,7 @@ import { DecimalInput } from '@/components/ui/decimal-input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { formatBrazilianCurrencyInput, parseBrazilianCurrencyInput } from '@/lib/currencyInput';
 import { parseDecimalInput } from '@/lib/decimal';
+import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -328,6 +329,12 @@ export default function Operacoes() {
     shipping_amount: 0,
     discount_text: '',
     shipping_text: '',
+    register_logistics_cost: false,
+    logistics_cost_amount: 0,
+    logistics_cost_text: '',
+    logistics_cost_status: 'pago' as 'pago' | 'pendente',
+    logistics_cost_account_id: '',
+    logistics_cost_date: new Date().toISOString().slice(0, 10),
     operational_destination: null as OperationalDestination | null,
     logistics_mode: '',
     operational_destination_details: {} as Record<string, unknown>,
@@ -443,13 +450,32 @@ export default function Operacoes() {
       toast.error(`Selecione a variante física de ${missingSaleVariantProduct.name}.`);
       return;
     }
-    const { items, discount_text, shipping_text, ...saleData } = newSale;
+    const {
+      items,
+      discount_text,
+      shipping_text,
+      register_logistics_cost,
+      logistics_cost_amount,
+      logistics_cost_text,
+      logistics_cost_status,
+      logistics_cost_account_id,
+      logistics_cost_date,
+      ...saleData
+    } = newSale;
     const pricedItems = items.map(item => ({
       item,
       price: parseBrazilianCurrencyInput(item._unit_price_text ?? String(item.unit_price ?? '')),
     }));
     if (pricedItems.some(({ price }) => !price)) {
       toast.error('Informe um valor unitário válido para cada item.');
+      return;
+    }
+    if (register_logistics_cost && logistics_cost_amount <= 0) {
+      toast.error('Informe o custo real do frete.');
+      return;
+    }
+    if (register_logistics_cost && logistics_cost_status === 'pago' && !logistics_cost_account_id) {
+      toast.error('Selecione a conta que pagou o frete.');
       return;
     }
     const mappedItems = pricedItems.map(({ item, price }) => {
@@ -463,6 +489,23 @@ export default function Operacoes() {
       mappedItems as Partial<OrderItem>[]
     );
     if (!result) return;
+    if (register_logistics_cost) {
+      try {
+        await upsertOrderLogisticsExpense({
+          orderId: result.id,
+          orderNumber: result.order_number,
+          amount: logistics_cost_amount,
+          status: logistics_cost_status,
+          accountId: logistics_cost_status === 'pago' ? logistics_cost_account_id : null,
+          paymentDate: logistics_cost_status === 'pago' ? logistics_cost_date : null,
+          dueDate: logistics_cost_status === 'pendente' ? logistics_cost_date : null,
+          providerLabel: newSale.logistics_mode || newSale.operational_destination || null,
+        });
+      } catch (error) {
+        console.error('FIN-F17: falha ao registrar custo logístico', error);
+        toast.error(error instanceof Error ? error.message : 'Pedido criado, mas o custo do frete não pôde ser registrado.');
+      }
+    }
     const documentResults = await Promise.allSettled(
       pendingSaleDocuments.map(document => uploadOrderDocument({
         orderId: result.id,
@@ -498,6 +541,12 @@ export default function Operacoes() {
       shipping_amount: 0,
       discount_text: '',
       shipping_text: '',
+      register_logistics_cost: false,
+      logistics_cost_amount: 0,
+      logistics_cost_text: '',
+      logistics_cost_status: 'pago',
+      logistics_cost_account_id: '',
+      logistics_cost_date: new Date().toISOString().slice(0, 10),
       operational_destination: null,
       logistics_mode: '',
       operational_destination_details: {},
@@ -1004,6 +1053,89 @@ export default function Operacoes() {
                         />
                       </div>
                     </div>
+
+                    {newSale.shipping_amount > 0 && (
+                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label>Registrar custo do frete no Financeiro</Label>
+                            <p className="text-xs text-muted-foreground">
+                              O frete cobrado já compõe o valor a receber. Registre aqui somente o custo real pago pela empresa.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={newSale.register_logistics_cost}
+                            onCheckedChange={(checked) => setNewSale(prev => ({
+                              ...prev,
+                              register_logistics_cost: checked,
+                              logistics_cost_amount: checked && prev.logistics_cost_amount <= 0 ? prev.shipping_amount : prev.logistics_cost_amount,
+                              logistics_cost_text: checked && !prev.logistics_cost_text ? String(prev.shipping_amount || '') : prev.logistics_cost_text,
+                            }))}
+                          />
+                        </div>
+
+                        {newSale.register_logistics_cost && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <div>
+                                <Label>Custo real do frete</Label>
+                                <DecimalInput
+                                  className="h-10"
+                                  placeholder="0,00"
+                                  value={newSale.logistics_cost_text}
+                                  onValueChange={(v) => setNewSale({ ...newSale, logistics_cost_text: v })}
+                                  onValueCommit={(parsed) => setNewSale(prev => ({
+                                    ...prev,
+                                    logistics_cost_amount: parsed?.number ?? 0,
+                                    logistics_cost_text: parsed?.normalized ?? '',
+                                  }))}
+                                  min={0}
+                                  maxDecimals={2}
+                                />
+                              </div>
+                              <div>
+                                <Label>Situação do custo</Label>
+                                <Select
+                                  value={newSale.logistics_cost_status}
+                                  onValueChange={(value: 'pago' | 'pendente') => setNewSale({ ...newSale, logistics_cost_status: value })}
+                                >
+                                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pago">Já pago</SelectItem>
+                                    <SelectItem value="pendente">A pagar</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              {newSale.logistics_cost_status === 'pago' && (
+                                <div>
+                                  <Label>Conta que pagou</Label>
+                                  <Select
+                                    value={newSale.logistics_cost_account_id}
+                                    onValueChange={value => setNewSale({ ...newSale, logistics_cost_account_id: value })}
+                                  >
+                                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                    <SelectContent>
+                                      {financialAccounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              <div>
+                                <Label>{newSale.logistics_cost_status === 'pago' ? 'Data do pagamento' : 'Vencimento'}</Label>
+                                <Input
+                                  type="date"
+                                  className="h-10"
+                                  value={newSale.logistics_cost_date}
+                                  onChange={e => setNewSale({ ...newSale, logistics_cost_date: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {newSale.items.length > 0 && (
                       <div className="mt-3 space-y-1 text-sm">

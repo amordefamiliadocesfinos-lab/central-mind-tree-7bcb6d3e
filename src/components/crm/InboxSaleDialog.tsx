@@ -24,6 +24,7 @@ import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
+import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 
 interface SaleItem {
   product_id: string;
@@ -68,6 +69,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
   const [accountId, setAccountId] = useState('');
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
+  const [registerLogisticsCost, setRegisterLogisticsCost] = useState(false);
+  const [logisticsCost, setLogisticsCost] = useState(0);
+  const [logisticsCostStatus, setLogisticsCostStatus] = useState<'pago' | 'pendente'>('pago');
+  const [logisticsCostAccountId, setLogisticsCostAccountId] = useState('');
+  const [logisticsCostDate, setLogisticsCostDate] = useState(new Date().toISOString().slice(0, 10));
   const [negotiatedTotal, setNegotiatedTotal] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [marketplaceAccount, setMarketplaceAccount] = useState('');
@@ -151,6 +157,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
     const pricedItems = validItems.map((item) => ({ item, price: parseBrazilianCurrencyInput(item._unit_price_text ?? String(item.unit_price ?? '')) }));
     if (pricedItems.some(({ price }) => !price)) return toast.error('Informe um valor unitário válido para cada item.');
     if (paymentStatus === 'pago' && !accountId) return toast.error('Selecione a conta que recebeu o pagamento.');
+    if (registerLogisticsCost && logisticsCost <= 0) return toast.error('Informe o custo real do frete.');
+    if (registerLogisticsCost && logisticsCostStatus === 'pago' && !logisticsCostAccountId) {
+      return toast.error('Selecione a conta que pagou o frete.');
+    }
     setSaving(true);
     try {
       const result = await createUnifiedSale({
@@ -172,6 +182,18 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         if (!product) throw new Error('Produto não encontrado.');
         return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
       }));
+      if (registerLogisticsCost) {
+        await upsertOrderLogisticsExpense({
+          orderId: result.order_id,
+          orderNumber: result.order_number,
+          amount: logisticsCost,
+          status: logisticsCostStatus,
+          accountId: logisticsCostStatus === 'pago' ? logisticsCostAccountId : null,
+          paymentDate: logisticsCostStatus === 'pago' ? logisticsCostDate : null,
+          dueDate: logisticsCostStatus === 'pendente' ? logisticsCostDate : null,
+          providerLabel: logisticsMode || operationalDestination || null,
+        });
+      }
       const documentResults = await Promise.allSettled(
         pendingDocuments.map(document => uploadOrderDocument({
           orderId: result.order_id,
@@ -190,6 +212,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
       setFinancialDueDate(new Date().toISOString().slice(0, 10));
       setPaymentStatus('pendente'); setPaymentMethod(''); setAccountId('');
       setDiscount(0); setShipping(0); setMarketplaceAccount('');
+      setRegisterLogisticsCost(false); setLogisticsCost(0); setLogisticsCostStatus('pago');
+      setLogisticsCostAccountId(''); setLogisticsCostDate(new Date().toISOString().slice(0, 10));
       setNegotiatedTotal(''); setPaymentDate(new Date().toISOString().slice(0, 10));
       setOperationalDestination(null); setLogisticsMode(''); setOperationalDestinationDetails({});
       setPendingDocuments([]);
@@ -340,6 +364,52 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
               <Input type="number" min="0" step="0.01" className="h-9" value={shipping} onChange={e => setShipping(Number(e.target.value))} />
             </div>
           </div>
+
+          {shipping > 0 && <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={registerLogisticsCost}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setRegisterLogisticsCost(checked);
+                  if (checked && logisticsCost <= 0) setLogisticsCost(shipping);
+                }}
+              />
+              Registrar custo do frete no Financeiro
+            </label>
+            <p className="text-[11px] text-muted-foreground">
+              O frete cobrado já compõe o valor a receber. Aqui registre apenas o custo real pago pela empresa.
+            </p>
+            {registerLogisticsCost && <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Custo real do frete</Label>
+                  <Input type="number" min="0" step="0.01" className="h-9" value={logisticsCost} onChange={e => setLogisticsCost(Number(e.target.value))} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Situação do custo</Label>
+                  <Select value={logisticsCostStatus} onValueChange={v => setLogisticsCostStatus(v as 'pago' | 'pendente')}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="pago">Já pago</SelectItem><SelectItem value="pendente">A pagar</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {logisticsCostStatus === 'pago' && <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Conta que pagou</Label>
+                  <Select value={logisticsCostAccountId} onValueChange={setLogisticsCostAccountId}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{accounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>}
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">{logisticsCostStatus === 'pago' ? 'Data do pagamento' : 'Vencimento'}</Label>
+                  <Input type="date" className="h-9" value={logisticsCostDate} onChange={e => setLogisticsCostDate(e.target.value)} />
+                </div>
+              </div>
+            </>}
+          </div>}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
