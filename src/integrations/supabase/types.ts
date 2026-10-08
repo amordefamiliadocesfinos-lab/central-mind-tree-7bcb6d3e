@@ -2055,6 +2055,139 @@ export type Database = {
           },
         ]
       }
+      economic_rule_evidence: {
+        Row: {
+          created_at: string
+          evidence_type: string
+          id: string
+          is_offer_specific: boolean
+          marketplace_product_mapping_id: string | null
+          observed_from: string | null
+          observed_to: string | null
+          payload: Json
+          rule_version_id: string
+          source_ref: string
+        }
+        Insert: {
+          created_at?: string
+          evidence_type: string
+          id?: string
+          is_offer_specific?: boolean
+          marketplace_product_mapping_id?: string | null
+          observed_from?: string | null
+          observed_to?: string | null
+          payload?: Json
+          rule_version_id: string
+          source_ref: string
+        }
+        Update: {
+          created_at?: string
+          evidence_type?: string
+          id?: string
+          is_offer_specific?: boolean
+          marketplace_product_mapping_id?: string | null
+          observed_from?: string | null
+          observed_to?: string | null
+          payload?: Json
+          rule_version_id?: string
+          source_ref?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_rule_evidence_marketplace_product_mapping_id_fkey"
+            columns: ["marketplace_product_mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_rule_evidence_rule_version_id_fkey"
+            columns: ["rule_version_id"]
+            isOneToOne: false
+            referencedRelation: "economic_rule_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      economic_rule_versions: {
+        Row: {
+          channel_account_id: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          engine_key: string
+          engine_version: string
+          id: string
+          marketplace: string
+          marketplace_product_mapping_id: string | null
+          parameters: Json
+          rule_key: string
+          rule_version: string
+          source_summary: string | null
+          status: string
+          supersedes_rule_version_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel_account_id?: string | null
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          engine_key: string
+          engine_version: string
+          id?: string
+          marketplace: string
+          marketplace_product_mapping_id?: string | null
+          parameters?: Json
+          rule_key: string
+          rule_version: string
+          source_summary?: string | null
+          status?: string
+          supersedes_rule_version_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel_account_id?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          engine_key?: string
+          engine_version?: string
+          id?: string
+          marketplace?: string
+          marketplace_product_mapping_id?: string | null
+          parameters?: Json
+          rule_key?: string
+          rule_version?: string
+          source_summary?: string | null
+          status?: string
+          supersedes_rule_version_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_rule_versions_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_rule_versions_marketplace_product_mapping_id_fkey"
+            columns: ["marketplace_product_mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_rule_versions_supersedes_rule_version_id_fkey"
+            columns: ["supersedes_rule_version_id"]
+            isOneToOne: false
+            referencedRelation: "economic_rule_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_accounts: {
         Row: {
           account_number: string | null
