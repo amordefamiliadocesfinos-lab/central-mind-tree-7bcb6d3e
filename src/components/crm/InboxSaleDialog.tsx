@@ -412,9 +412,6 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
           </div>}
 
           <div className="grid grid-cols-2 gap-3">
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Entrega prevista</Label>
               <Input type="date" className="h-9" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
