@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, Plus } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Plus, Search } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,6 +96,14 @@ function formatPriceInput(value: number) {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 10, useGrouping: false });
 }
 
+function normalizePurchaseSearch(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export function PurchasesTab({ products }: { products: Product[] }) {
   const purchases = usePurchases();
   const { contacts } = useContacts();
@@ -113,6 +121,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [lines, setLines] = useState<PurchaseDraftLine[]>([]);
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, PurchasePresentationOption[]>>({});
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
+  const [purchaseSearch, setPurchaseSearch] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [mrpContext, setMrpContext] = useState<MrpPurchaseContext | null>(null);
 
@@ -127,10 +136,33 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     () => contacts.filter(contact => contact.is_active && (contact.type === 'fornecedor' || contact.type === 'ambos')),
     [contacts],
   );
-  const visibleOrders = useMemo(
-    () => statusFilter === 'all' ? purchases.orders : purchases.orders.filter(order => order.status === statusFilter),
-    [purchases.orders, statusFilter],
-  );
+  const visibleOrders = useMemo(() => {
+    const term = normalizePurchaseSearch(purchaseSearch);
+
+    return purchases.orders.filter(order => {
+      if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+      if (!term) return true;
+
+      const searchable = [
+        order.internal_purchase_number,
+        order.supplier?.name,
+        order.notes,
+        PURCHASE_STATUS_LABEL[order.status],
+        ...(order.items ?? []).flatMap(item => [
+          item.product?.name,
+          item.variant?.variant_name,
+          item.presentation_snapshot?.name,
+          item.purchase_unit_label,
+          item.stock_unit_label,
+        ]),
+      ]
+        .map(normalizePurchaseSearch)
+        .filter(Boolean)
+        .join(' ');
+
+      return searchable.includes(term);
+    });
+  }, [purchases.orders, purchaseSearch, statusFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -584,17 +616,31 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
       </header>
 
-      <div className="max-w-xs">
-        <Label className="sr-only">Filtrar compras por status</Label>
-        <Select value={statusFilter} onValueChange={value => setStatusFilter(value as PurchaseStatus | 'all')}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {Object.entries(PURCHASE_STATUS_LABEL).map(([status, label]) => (
-              <SelectItem key={status} value={status}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="relative">
+          <Label className="sr-only" htmlFor="purchase-search">Pesquisar compras</Label>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="purchase-search"
+            value={purchaseSearch}
+            onChange={event => setPurchaseSearch(event.target.value)}
+            placeholder="Pesquisar pedido, fornecedor, produto, variante ou apresentação..."
+            className="pl-9"
+          />
+        </div>
+
+        <div>
+          <Label className="sr-only">Filtrar compras por status</Label>
+          <Select value={statusFilter} onValueChange={value => setStatusFilter(value as PurchaseStatus | 'all')}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {Object.entries(PURCHASE_STATUS_LABEL).map(([status, label]) => (
+                <SelectItem key={status} value={status}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {purchases.loading ? (
@@ -605,7 +651,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         <Card>
           <CardContent className="py-10 text-center">
             <p className="text-sm text-muted-foreground">
-              {purchases.orders.length ? 'Nenhuma compra encontrada neste status.' : 'Nenhum pedido de compra registrado.'}
+              {purchases.orders.length ? 'Nenhuma compra encontrada para a pesquisa/filtro atual.' : 'Nenhum pedido de compra registrado.'}
             </p>
             {!purchases.orders.length && <Button className="mt-3" onClick={openEditor}>Nova compra</Button>}
           </CardContent>
