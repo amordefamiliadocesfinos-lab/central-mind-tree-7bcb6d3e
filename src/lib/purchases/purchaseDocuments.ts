@@ -114,3 +114,19 @@ export async function deletePurchaseDocument(document: PurchaseDocument) {
   const { error } = await db.from('purchase_documents').delete().eq('id', document.id);
   if (error) throw error;
 }
+
+
+export async function updatePurchaseDocumentExtractionStatus(
+  documentId: string,
+  status: PurchaseDocument['extraction_status'],
+) {
+  const { data, error } = await db
+    .from('purchase_documents')
+    .update({ extraction_status: status })
+    .eq('id', documentId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as PurchaseDocument;
+}
