@@ -27,6 +27,13 @@ export interface PurchaseDocument {
   mime_type: string | null;
   file_size: number | null;
   notes: string | null;
+  document_number: string | null;
+  document_series: string | null;
+  document_date: string | null;
+  access_key: string | null;
+  issuer_document: string | null;
+  extraction_status: 'not_processed' | 'parsed' | 'confirmed' | 'mismatch';
+  extracted_data: any | null;
   created_at: string;
 }
 
@@ -46,6 +53,14 @@ export async function uploadPurchaseDocument(input: {
   documentType: PurchaseDocumentType;
   file: File;
   notes?: string | null;
+  documentNumber?: string | null;
+  documentSeries?: string | null;
+  documentDate?: string | null;
+  accessKey?: string | null;
+  issuerDocument?: string | null;
+  extractionStatus?: 'not_processed' | 'parsed' | 'confirmed' | 'mismatch';
+  extractedData?: any | null;
+  source?: string;
 }) {
   const safeName = input.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = `purchases/${input.purchaseOrderId}/${crypto.randomUUID()}-${safeName}`;
@@ -60,12 +75,19 @@ export async function uploadPurchaseDocument(input: {
     purchase_receipt_id: input.purchaseReceiptId || null,
     document_type: input.documentType,
     file_name: input.file.name,
-    source: 'manual',
+    source: input.source ?? 'manual',
     storage_bucket: BUCKET,
     storage_path: storagePath,
     mime_type: input.file.type || null,
     file_size: input.file.size,
     notes: input.notes?.trim() || null,
+    document_number: input.documentNumber?.trim() || null,
+    document_series: input.documentSeries?.trim() || null,
+    document_date: input.documentDate || null,
+    access_key: input.accessKey?.trim() || null,
+    issuer_document: input.issuerDocument?.trim() || null,
+    extraction_status: input.extractionStatus ?? 'not_processed',
+    extracted_data: input.extractedData ?? null,
   }).select().single();
 
   if (error) {
@@ -91,4 +113,20 @@ export async function deletePurchaseDocument(document: PurchaseDocument) {
 
   const { error } = await db.from('purchase_documents').delete().eq('id', document.id);
   if (error) throw error;
+}
+
+
+export async function updatePurchaseDocumentExtractionStatus(
+  documentId: string,
+  status: PurchaseDocument['extraction_status'],
+) {
+  const { data, error } = await db
+    .from('purchase_documents')
+    .update({ extraction_status: status })
+    .eq('id', documentId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as PurchaseDocument;
 }

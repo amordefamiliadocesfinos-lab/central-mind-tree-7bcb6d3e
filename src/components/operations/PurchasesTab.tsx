@@ -624,6 +624,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
               onEdit={order => void openEdit(order)}
               onDelete={deleteDraft}
               onCancel={cancelPurchase}
+              onRefresh={purchases.refetch}
             />
           ))}
         </div>
