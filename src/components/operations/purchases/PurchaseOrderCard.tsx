@@ -20,6 +20,7 @@ interface PurchaseOrderCardProps {
   onEdit: (order: PurchaseOrder) => void;
   onDelete: (order: PurchaseOrder) => Promise<void>;
   onCancel: (order: PurchaseOrder) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
 export function getConfirmedPurchaseQuantity(order: PurchaseOrder, itemId: string) {
@@ -70,7 +71,7 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   );
 }
 
-export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onEdit, onDelete, onCancel }: PurchaseOrderCardProps) {
+export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onEdit, onDelete, onCancel, onRefresh }: PurchaseOrderCardProps) {
   const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
@@ -132,7 +133,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
             Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />Documentos</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />{order.billing_status === 'pending' && order.status !== 'rascunho' ? 'NF / Documentos' : 'Documentos'}</Button>
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
             {order.status === 'rascunho' && (
               <><Button size="sm" disabled={busy} onClick={() => void onConfirmOrder(order)}>Confirmar pedido</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
@@ -156,7 +157,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
           </div>
         </div>
 
-        <PurchaseDocumentsDialog order={order} open={documentsOpen} onOpenChange={setDocumentsOpen} />
+        <PurchaseDocumentsDialog order={order} open={documentsOpen} onOpenChange={setDocumentsOpen} onImported={onRefresh} />
         <PurchaseItemSupplierIntelligenceDialog
           item={intelligenceItem}
           open={Boolean(intelligenceItem)}
