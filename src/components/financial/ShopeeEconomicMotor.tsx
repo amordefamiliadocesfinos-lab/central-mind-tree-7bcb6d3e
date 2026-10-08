@@ -23,6 +23,7 @@ import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import { usePlatforms } from '@/hooks/usePlatforms';
 import { useChannelAccounts } from '@/hooks/useChannelAccounts';
+import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
   directCommercialPresentation,
@@ -103,6 +104,14 @@ export function ShopeeEconomicMotor() {
     () => variants.find((item) => item.id === variantId) ?? null,
     [variants, variantId],
   );
+  const {
+    offers: shopeeOffers,
+    byId: shopeeOffersById,
+    loading: offersLoading,
+    error: offersError,
+  } = useShopeeOfferMappings(accountId || null, productId || null, variantId);
+  const [offerId, setOfferId] = useState('');
+  const selectedOffer = shopeeOffersById.get(offerId) ?? null;
   const { list: listCommercialPresentations } = useCommercialPresentations();
   const [presentations, setPresentations] = useState<CommercialPresentation[]>([]);
   const [presentationsLoading, setPresentationsLoading] = useState(false);
@@ -134,6 +143,12 @@ export function ShopeeEconomicMotor() {
     const preferred = products.find((item) => item.name.toLocaleLowerCase('pt-BR').includes('alfajor')) ?? products[0];
     setProductId(preferred.id);
   }, [products, productsLoading, productId]);
+
+  useEffect(() => {
+    if (offersLoading) return;
+    if (offerId && shopeeOffersById.has(offerId)) return;
+    setOfferId(shopeeOffers[0]?.mapping.id ?? '');
+  }, [shopeeOffers, shopeeOffersById, offersLoading, offerId]);
 
   useEffect(() => {
     setPresentationId(DIRECT_PRESENTATION_ID);
@@ -207,9 +222,10 @@ export function ShopeeEconomicMotor() {
       accountName: selectedAccount?.name,
       effectiveAt,
       presentationFactor,
-      offerKey: null,
+      offerKey: selectedOffer?.mapping.external_item_key ?? null,
+      offerEvidenceMatched: false,
     }),
-    [selectedAccount?.name, effectiveAt, presentationFactor],
+    [selectedAccount?.name, effectiveAt, presentationFactor, selectedOffer?.mapping.external_item_key],
   );
 
   useEffect(() => {
@@ -417,6 +433,45 @@ export function ShopeeEconomicMotor() {
                   </div>
                 )}
 
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Oferta Shopee canônica</Label>
+                  <Select
+                    value={offerId}
+                    onValueChange={setOfferId}
+                    disabled={offersLoading || !accountId || !productId || shopeeOffers.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        offersLoading
+                          ? 'Carregando Ofertas...'
+                          : shopeeOffers.length === 0
+                            ? 'Nenhuma Oferta mapeada para esta identidade'
+                            : 'Selecione a Oferta'
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shopeeOffers.map((offer) => (
+                        <SelectItem key={offer.mapping.id} value={offer.mapping.id}>
+                          {(offer.mapping.external_product_title || offer.mapping.external_item_key)}
+                          {offer.mapping.external_variation ? ' · ' + offer.mapping.external_variation : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {offersError && <p className="text-xs text-destructive">{offersError}</p>}
+                  {!offersLoading && !offersError && accountId && productId && shopeeOffers.length === 0 && (
+                    <p className="text-xs text-amber-600">
+                      A Oferta não está mapeada para esta Conta + Produto/Variante. O RRE mantém a Oferta como pendência.
+                    </p>
+                  )}
+                  {selectedOffer && (
+                    <p className="text-xs text-muted-foreground">
+                      Item externo: {selectedOffer.mapping.external_item_key} · vínculo {selectedOffer.match === 'direct' ? 'direto' : 'por composição'}
+                      {selectedOffer.mapping.physical_multiplier ? ' · multiplicador ' + Number(selectedOffer.mapping.physical_multiplier) : ''}.
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Apresentação comercial</Label>
                   <Select
@@ -582,7 +637,7 @@ export function ShopeeEconomicMotor() {
                   <p key={warning} className="mt-2 text-xs text-amber-600">{warning}</p>
                 ))}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  RRE: Conta + vigência + Oferta. Nesta E4 a conta e a vigência são reais; a Oferta será conectada na E5.
+                  RRE: Conta + vigência + Oferta. Na E5 a Oferta já vem do mapeamento canônico; confiança alta ainda exige evidência histórica específica da própria Oferta.
                 </p>
               </CardContent>
             </Card>
