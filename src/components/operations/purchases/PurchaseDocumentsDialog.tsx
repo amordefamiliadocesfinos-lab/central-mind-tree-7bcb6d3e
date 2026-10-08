@@ -17,6 +17,7 @@ import {
   listPurchaseDocuments,
   openPurchaseDocument,
   uploadPurchaseDocument,
+  updatePurchaseDocumentExtractionStatus,
   type PurchaseDocument,
   type PurchaseDocumentType,
 } from '@/lib/purchases/purchaseDocuments';
@@ -129,10 +130,13 @@ export function PurchaseDocumentsDialog({ order, open, onOpenChange, onImported 
     setInvoiceBusy(true);
     setError(null);
 
+    let uploadedDocument: PurchaseDocument | null = null;
+    let billingCompleted = order.billing_status === 'invoiced';
+
     try {
       const { raw_text: _rawText, ...storedData } = invoiceData;
 
-      await uploadPurchaseDocument({
+      uploadedDocument = await uploadPurchaseDocument({
         purchaseOrderId: order.id,
         purchaseReceiptId: null,
         documentType: 'invoice',
@@ -143,7 +147,7 @@ export function PurchaseDocumentsDialog({ order, open, onOpenChange, onImported 
         documentDate: invoiceData.issue_date,
         accessKey: invoiceData.access_key,
         issuerDocument: invoiceData.issuer_document,
-        extractionStatus: 'confirmed',
+        extractionStatus: 'parsed',
         extractedData: storedData,
         source: 'nfe_pdf_import',
       });
@@ -159,7 +163,10 @@ export function PurchaseDocumentsDialog({ order, open, onOpenChange, onImported 
           })),
           invoiceData.issue_date,
         );
+        billingCompleted = true;
       }
+
+      await updatePurchaseDocumentExtractionStatus(uploadedDocument.id, 'confirmed');
 
       setInvoiceFile(null);
       setInvoiceData(null);
@@ -167,6 +174,14 @@ export function PurchaseDocumentsDialog({ order, open, onOpenChange, onImported 
       await refresh();
       await onImported?.();
     } catch (err: any) {
+      if (uploadedDocument && !billingCompleted) {
+        try {
+          await deletePurchaseDocument(uploadedDocument);
+        } catch (cleanupError) {
+          console.error('Não foi possível desfazer o anexo após falha do faturamento:', cleanupError);
+        }
+      }
+
       console.error('Erro ao aplicar NF-e:', err);
       const message = err?.message || 'Não foi possível aplicar esta NF-e à compra.';
       setError(message.includes('purchase_documents_nfe_access_key_unique')
@@ -388,7 +403,9 @@ export function PurchaseDocumentsDialog({ order, open, onOpenChange, onImported 
                 </div>
                 <div className="flex gap-1">
                   <Button size="icon" variant="ghost" aria-label="Abrir documento" onClick={() => void openPurchaseDocument(document)}><ExternalLink className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" aria-label="Excluir documento" disabled={busy} onClick={() => void remove(document)}><Trash2 className="h-4 w-4" /></Button>
+                  {!(document.source === 'nfe_pdf_import' && document.extraction_status === 'confirmed') && (
+                    <Button size="icon" variant="ghost" aria-label="Excluir documento" disabled={busy} onClick={() => void remove(document)}><Trash2 className="h-4 w-4" /></Button>
+                  )}
                 </div>
               </div>
             ))}
