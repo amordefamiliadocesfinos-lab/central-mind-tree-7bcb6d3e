@@ -68,25 +68,36 @@ function compactDocument(value: string | null | undefined) {
 }
 
 function textItemsToLines(items: PdfTextItem[]) {
-  const rows = new Map<number, Array<{ x: number; text: string }>>();
+  const positioned = items
+    .map(item => ({
+      text: item.str?.trim() ?? '',
+      x: item.transform?.[4] ?? 0,
+      y: item.transform?.[5] ?? 0,
+    }))
+    .filter(item => Boolean(item.text))
+    .sort((a, b) => b.y - a.y || a.x - b.x);
 
-  for (const item of items) {
-    const text = item.str?.trim();
-    if (!text) continue;
+  const rows: Array<{ y: number; cells: Array<{ x: number; text: string }> }> = [];
+  const yTolerance = 2.5;
 
-    const x = item.transform?.[4] ?? 0;
-    const y = item.transform?.[5] ?? 0;
-    const key = Math.round(y / 2) * 2;
-    const row = rows.get(key) ?? [];
+  for (const item of positioned) {
+    const lastRow = rows[rows.length - 1];
 
-    row.push({ x, text });
-    rows.set(key, row);
+    if (!lastRow || Math.abs(lastRow.y - item.y) > yTolerance) {
+      rows.push({
+        y: item.y,
+        cells: [{ x: item.x, text: item.text }],
+      });
+      continue;
+    }
+
+    lastRow.cells.push({ x: item.x, text: item.text });
+    lastRow.y = (lastRow.y + item.y) / 2;
   }
 
-  return [...rows.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([, row]) =>
-      row
+  return rows
+    .map(row =>
+      row.cells
         .sort((a, b) => a.x - b.x)
         .map(cell => cell.text)
         .join(' ')
@@ -268,14 +279,17 @@ export async function parseNfePdf(file: File): Promise<NfeParsedData> {
     normalizedText.match(/Destinat[aá]rio\s*:\s*(.+?)\s+Valor Total/i)?.[1]?.trim()
     ?? null;
 
-  let accessKey: string | null = null;
-  for (const line of allLines) {
-    const digits = line.replace(/\D/g, '');
-    if (digits.length === 44) {
-      accessKey = digits;
-      break;
-    }
-  }
+  const accessKeyNearLabel = normalizedText.match(
+    /Chave de acesso.{0,160}?((?:\d{4}\s*){11})/i,
+  )?.[1];
+
+  const accessKeyFallback = rawText
+    .match(/(?:\d{4}\s*){11}/g)
+    ?.map(candidate => candidate.replace(/\D/g, ''))
+    .find(candidate => candidate.length === 44);
+
+  const accessKey = (accessKeyNearLabel ?? accessKeyFallback ?? '')
+    .replace(/\D/g, '') || null;
 
   const topTotal =
     normalizedText.match(/Valor Total\s*:\s*R\$\s*([\d.]+,\d{2})/i)?.[1];
