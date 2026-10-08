@@ -24,3 +24,19 @@ export async function registerPurchaseBilling(
   if (error) throw error;
   return data as RegisterPurchaseBillingResult;
 }
+
+
+export async function registerPurchaseInvoiceBilling(
+  purchaseOrderId: string,
+  installments: PurchaseFinancialInstallment[],
+  invoiceDate: string,
+): Promise<RegisterPurchaseBillingResult> {
+  const { data, error } = await db.rpc('register_purchase_invoice_billing', {
+    p_purchase_order_id: purchaseOrderId,
+    p_installments: installments,
+    p_invoice_date: invoiceDate,
+  });
+
+  if (error) throw error;
+  return data as RegisterPurchaseBillingResult;
+}
