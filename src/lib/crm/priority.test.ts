@@ -168,3 +168,42 @@ const futureActionWithOverdueReturn = getCrmPriority({
 }, now);
 assert(futureActionWithOverdueReturn.operational && futureActionWithOverdueReturn.reason === 'return_today',
   'retorno vencido deve manter precedência sobre uma tarefa futura.');
+
+
+const noNewFactAcknowledged = getCrmPriority({
+  ...waitingBase,
+  needs_reply: false,
+  last_inbound_at: '2026-08-27T19:58:00.000Z',
+  last_outbound_at: '2026-08-27T20:00:00.000Z',
+  last_message_at: '2026-08-27T20:00:00.000Z',
+  last_result_at: '2026-08-27T19:40:00.000Z',
+  last_no_new_fact_at: '2026-08-27T20:02:00.000Z',
+}, now);
+assert(!noNewFactAcknowledged.operational && noNewFactAcknowledged.reason === 'waiting_customer',
+  'revisão humana sem fato novo retira da fila após resposta, sem criar Resultado');
+
+const newInboundAfterReview = getCrmPriority({
+  ...waitingBase,
+  needs_reply: true,
+  last_inbound_at: '2026-08-27T20:06:00.000Z',
+  last_outbound_at: '2026-08-27T20:00:00.000Z',
+  last_message_at: '2026-08-27T20:06:00.000Z',
+  attendance_state_updated_at: '2026-08-27T20:06:00.000Z',
+  last_result_at: '2026-08-27T19:40:00.000Z',
+  last_no_new_fact_at: '2026-08-27T20:02:00.000Z',
+}, now);
+assert(newInboundAfterReview.operational,
+  'uma nova mensagem recebida depois da revisão deve reativar a fila');
+
+const existingTaskStillDue = getCrmPriority({
+  ...waitingBase,
+  needs_reply: false,
+  next_action_date: '2026-08-27T18:00:00.000Z',
+  last_inbound_at: '2026-08-27T19:58:00.000Z',
+  last_outbound_at: '2026-08-27T20:00:00.000Z',
+  last_result_at: '2026-08-27T19:40:00.000Z',
+  last_no_new_fact_at: '2026-08-27T20:02:00.000Z',
+}, now);
+assert(existingTaskStillDue.operational,
+  'a revisão sem fato novo não conclui nem oculta tarefa oficial vencida');
+
