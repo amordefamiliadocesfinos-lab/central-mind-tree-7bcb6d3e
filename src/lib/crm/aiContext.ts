@@ -246,10 +246,12 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
   },
   async loadMessages(conversationId, limit) {
     const { data } = await db.from('service_messages')
-      .select('content, sender, direction, created_at')
+      .select('content, sender, direction, created_at, message_type')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      // Eventos técnicos (reação/edição etc.) são descartados depois. Buscamos
+      // uma pequena folga para eles não roubarem espaço das mensagens semânticas.
+      .limit(Math.max(limit * 3, limit));
     return data ?? [];
   },
   async loadHistory(contactId, limit) {
@@ -265,7 +267,11 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
       .select('id, title, due_date, scheduled_date, source, status')
       .eq('contact_id', contactId)
       .is('deleted_at', null)
+      // O status canônico usado pelo CRM é "concluído". Mantemos também as
+      // grafias legadas fora do contexto para não ressuscitar obrigação antiga.
+      .neq('status', 'concluído')
       .neq('status', 'concluida')
+      .neq('status', 'concluido')
       .order('due_date', { ascending: true })
       .limit(limit);
     return data ?? [];
@@ -288,6 +294,21 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
   loadCampaign: resolveCampaignContext,
   loadLiveContext: getCrmLiveContext,
 };
+
+const CLOSED_CRM_TASK_STATUSES = new Set(['concluído', 'concluida', 'concluido']);
+const NON_SEMANTIC_AI_MESSAGE_TYPES = new Set(['reaction', 'edit', 'revoke', 'system', 'unsupported']);
+const NON_SEMANTIC_AI_MESSAGE_CONTENT = new Set(['mensagem não suportada', 'reação recebida']);
+
+export function isClosedCrmTaskStatus(status: unknown): boolean {
+  return CLOSED_CRM_TASK_STATUSES.has(String(status ?? '').trim().toLocaleLowerCase('pt-BR'));
+}
+
+export function isSemanticallyRelevantCrmAiMessage(row: any): boolean {
+  const type = String(row?.message_type ?? '').trim().toLocaleLowerCase('pt-BR');
+  if (NON_SEMANTIC_AI_MESSAGE_TYPES.has(type)) return false;
+  const content = String(row?.content ?? '').trim().toLocaleLowerCase('pt-BR');
+  return !NON_SEMANTIC_AI_MESSAGE_CONTENT.has(content);
+}
 
 function normalizeDirection(row: any): CrmAiMessage['direction'] {
   const raw = String(row?.direction ?? row?.sender ?? '').toLowerCase();
@@ -375,6 +396,7 @@ export async function buildCrmAiContext(
   ]);
 
   const messages: CrmAiMessage[] = (messageRows ?? [])
+    .filter(isSemanticallyRelevantCrmAiMessage)
     .slice(0, limits.messages)
     .map(row => ({
       direction: normalizeDirection(row),
@@ -395,12 +417,15 @@ export async function buildCrmAiContext(
       at: row.interaction_date,
     }));
 
-  const tasks: CrmAiTask[] = (taskRows ?? []).slice(0, limits.tasks).map(row => ({
-    id: row.id,
-    title: row.title,
-    dueAt: row.due_date ?? row.scheduled_date ?? null,
-    source: row.source ?? null,
-  }));
+  const tasks: CrmAiTask[] = (taskRows ?? [])
+    .filter(row => !isClosedCrmTaskStatus(row?.status))
+    .slice(0, limits.tasks)
+    .map(row => ({
+      id: row.id,
+      title: row.title,
+      dueAt: row.due_date ?? row.scheduled_date ?? null,
+      source: row.source ?? null,
+    }));
 
   // Próxima Ação oficial: código canônico registrado pelo próprio CRM, com o
   // prazo da tarefa oficial (source = crm_next_action) ou do contato.
