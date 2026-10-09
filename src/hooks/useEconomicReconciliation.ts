@@ -99,6 +99,7 @@ export function useEconomicReconciliation() {
       .select('id,order_number,total_value,order_date,marketplace_account,channel_account_id,order_items(product_id,variant_id,quantity,unit_price,commercial_quantity,commercial_conversion_factor,commercial_presentation_id)')
       .eq('channel', 'shopee')
       .is('deleted_at', null)
+      .gte('order_date', snapshot.created_at.slice(0, 10))
       .order('order_date', { ascending: false })
       .limit(100);
 
@@ -177,20 +178,54 @@ export function useEconomicReconciliation() {
         .eq('order_id', order.id);
       if (linkedRowsError) throw linkedRowsError;
 
-      const entriesById = new Map<string, any>();
-      for (const entry of directEntries ?? []) entriesById.set(entry.id, entry);
+      const financialFactsById = new Map<string, {
+        entry: any;
+        source: 'direct' | 'linked';
+        allocatedValue: number | null;
+        attributableRealized: number | null;
+      }>();
+
+      for (const entry of directEntries ?? []) {
+        financialFactsById.set(entry.id, {
+          entry,
+          source: 'direct',
+          allocatedValue: null,
+          attributableRealized: Number(entry.value_paid || 0),
+        });
+      }
+
       for (const row of linkedRows ?? []) {
         const entry = row.financial_entry;
-        if (entry?.id) entriesById.set(entry.id, entry);
+        if (!entry?.id || financialFactsById.has(entry.id)) continue;
+        const value = Number(entry.value || 0);
+        const valuePaid = Number(entry.value_paid || 0);
+        const fullyRealized = value > 0 && valuePaid >= value - 0.005;
+        financialFactsById.set(entry.id, {
+          entry,
+          source: 'linked',
+          allocatedValue: numeric(row.allocated_value),
+          attributableRealized: fullyRealized ? numeric(row.allocated_value) : null,
+        });
       }
-      const financialEntries = [...entriesById.values()];
-      const financialGrossRealized = financialEntries.length > 0
-        ? financialEntries.reduce((sum, entry) => sum + Number(entry.value_paid || 0), 0)
+
+      const financialFacts = [...financialFactsById.values()];
+      const financialEntries = financialFacts.map((fact) => fact.entry);
+      const financialAttributionComplete = financialFacts.length > 0 &&
+        financialFacts.every((fact) => fact.attributableRealized !== null);
+      const financialGrossRealized = financialFacts.length > 0 && financialAttributionComplete
+        ? financialFacts.reduce((sum, fact) => sum + Number(fact.attributableRealized || 0), 0)
         : null;
-      const financialConciliated = financialEntries.length > 0 &&
-        financialEntries.every((entry) => Boolean(entry.is_conciliated));
 
       const settlement = settlementLink?.settlement ?? null;
+      const financialConciliated = financialFacts.length > 0 &&
+        financialAttributionComplete &&
+        (
+          financialEntries.every((entry) => Boolean(entry.is_conciliated)) ||
+          (
+            settlement?.status === 'conciliado' &&
+            financialFacts.every((fact) => Number(fact.entry.value_paid || 0) > 0)
+          )
+        );
       const predictedRepasse = numeric(snapshot.result_snapshot?.repasse);
 
       const comparison = reconcileEconomicPrediction({
@@ -205,10 +240,19 @@ export function useEconomicReconciliation() {
         settlementOrderCount,
         financialGrossRealized,
         financialConciliated,
+        financialAttributionComplete,
       });
 
       const pending = [...comparison.pending];
       if (normalizedLinks.length > 1) pending.push('multiple_settlements');
+      const effectiveStatus = normalizedLinks.length > 1 && comparison.status === 'reconciled'
+        ? 'partial'
+        : comparison.status;
+      const effectiveComparison = {
+        ...comparison,
+        status: effectiveStatus,
+        pending: [...new Set(pending)],
+      };
 
       const observedSnapshot = {
         order: { id: order.id, orderNumber: order.order_number, orderDate: order.order_date, grossValue: numeric(order.total_value), marketplaceAccount: order.marketplace_account },
@@ -221,12 +265,21 @@ export function useEconomicReconciliation() {
       };
 
       const financialSnapshot = {
-        entries: financialEntries.map((entry) => ({
-          id: entry.id, value: numeric(entry.value), valuePaid: numeric(entry.value_paid), isConciliated: Boolean(entry.is_conciliated),
-          conciliatedAt: entry.conciliated_at, paymentDate: entry.payment_date, lifecycleStatus: entry.lifecycle_status,
+        entries: financialFacts.map((fact) => ({
+          id: fact.entry.id,
+          source: fact.source,
+          value: numeric(fact.entry.value),
+          valuePaid: numeric(fact.entry.value_paid),
+          allocatedValue: fact.allocatedValue,
+          attributableRealized: fact.attributableRealized,
+          isConciliated: Boolean(fact.entry.is_conciliated),
+          conciliatedAt: fact.entry.conciliated_at,
+          paymentDate: fact.entry.payment_date,
+          lifecycleStatus: fact.entry.lifecycle_status,
         })),
         grossRealized: financialGrossRealized,
-        allEntriesConciliated: financialConciliated,
+        attributionComplete: financialAttributionComplete,
+        conciliated: financialConciliated,
       };
 
       const comparisonSnapshot = {
@@ -238,14 +291,14 @@ export function useEconomicReconciliation() {
       const primaryFinancialEntryId = financialEntries.length === 1 ? financialEntries[0].id : null;
       const { data: reconciliationId, error: rpcError } = await db.rpc('create_economic_prediction_reconciliation', {
         p_prediction_snapshot_id: snapshot.id,
-        p_status: comparison.status,
+        p_status: effectiveStatus,
         p_order_id: order.id,
         p_marketplace_settlement_id: settlement?.id ?? null,
         p_financial_entry_id: primaryFinancialEntryId,
         p_observed_snapshot: observedSnapshot,
         p_financial_snapshot: financialSnapshot,
         p_comparison_snapshot: comparisonSnapshot,
-        p_pending_snapshot: [...new Set(pending)],
+        p_pending_snapshot: effectiveComparison.pending,
         p_notes: normalizedLinks.length > 1
           ? 'Pedido possui múltiplos settlements; a reconciliação usa o settlement mais recente e mantém a multiplicidade como pendência.'
           : null,
@@ -253,7 +306,7 @@ export function useEconomicReconciliation() {
       if (rpcError) throw rpcError;
 
       setSaving(false);
-      return { reconciliationId: String(reconciliationId), status: comparison.status, comparison };
+      return { reconciliationId: String(reconciliationId), status: effectiveStatus, comparison: effectiveComparison };
     } catch (caught: any) {
       setSaving(false);
       setError(caught?.message || 'Não foi possível reconciliar a previsão econômica.');
