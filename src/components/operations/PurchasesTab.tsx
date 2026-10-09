@@ -33,6 +33,7 @@ import {
   type PurchaseVariantOption,
 } from './purchases/PurchaseOrderItemEditor';
 import { PurchaseOrderCard } from './purchases/PurchaseOrderCard';
+import { SupplierCenter } from './SupplierCenter';
 import { PurchaseFinancialConditionDialog } from './purchases/PurchaseFinancialConditionDialog';
 import {
   PurchaseReceiptDialog,
@@ -109,6 +110,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const { contacts } = useContacts();
   const { locations } = useStorageLocations();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [purchaseSection, setPurchaseSection] = useState<'orders' | 'suppliers'>('orders');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
@@ -606,8 +608,24 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     }
   };
 
+  if (purchaseSection === 'suppliers') {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setPurchaseSection('orders')}>Pedidos de compra</Button>
+          <Button variant="secondary" disabled>Central de Fornecedores</Button>
+        </div>
+        <SupplierCenter />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" disabled>Pedidos de compra</Button>
+        <Button variant="outline" onClick={() => setPurchaseSection('suppliers')}>Central de Fornecedores</Button>
+      </div>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Compras</h2>
