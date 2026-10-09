@@ -372,8 +372,8 @@ async function handleReplyMode(body: any, apiKey: string) {
   const reply = rawReply ? rawReply.slice(0, 1200) : null;
   // Defesa adicional: um identificador zerado jamais deve sair do gateway
   // como resposta comercial, mesmo quando chamado fora da Inbox.
-  const financialPlaceholder = reply && /\\b(?:pix|chave|cnpj)\\b/i.test(reply)
-    && (/\\b0{2}\\.0{3}\\.0{3}\\/0{4}-0{2}\\b/.test(reply) || /\\b0{11,14}\\b/.test(reply));
+  const financialPlaceholder = reply && /\b(?:pix|chave|cnpj)\b/i.test(reply)
+    && (/\b0{2}\.0{3}\.0{3}\/0{4}-0{2}\b/.test(reply) || /\b0{11,14}\b/.test(reply));
   if (financialPlaceholder) {
     return json({ suggested_reply: null, reason: 'Chave Pix/CNPJ fictício bloqueado. Consulte a base oficial.', tone: null });
   }
