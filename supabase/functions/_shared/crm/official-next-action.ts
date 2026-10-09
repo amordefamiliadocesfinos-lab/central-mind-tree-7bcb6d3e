@@ -19,6 +19,27 @@ const FOLLOW_UP_RESET_EVENTS = new Set([
   'lead_created',
 ]);
 
+function formatHistoryDate(value?: string | null) {
+  if (!value) return 'Sem data';
+  const date = value.slice(0, 10);
+  const [year, month, day] = date.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+export function describeOfficialNextActionChange(input: {
+  previousTitle?: string | null;
+  previousDueAt?: string | null;
+  nextTitle: string;
+  nextDueAt: string;
+}) {
+  const previousTitle = input.previousTitle?.trim() || null;
+  const sameTitle = previousTitle === input.nextTitle.trim();
+  if (sameTitle && input.previousDueAt && input.previousDueAt !== input.nextDueAt) {
+    return `Próxima ação reagendada: ${input.nextTitle} · ${formatHistoryDate(input.previousDueAt)} → ${formatHistoryDate(input.nextDueAt)}`;
+  }
+  return `Próxima ação substituída: ${previousTitle || 'Sem título'} → ${input.nextTitle}`;
+}
+
 type FollowUpHistoryRow = {
   event_code?: string | null;
   event_metadata?: unknown;
@@ -184,7 +205,12 @@ export async function setOfficialCrmNextAction(
       contact_id: input.contactId,
       event_type: 'follow_up',
       interaction_type: 'sistema',
-      description: `Próxima ação substituída: ${previousTitle || 'Sem título'} → ${title}`,
+      description: describeOfficialNextActionChange({
+        previousTitle,
+        previousDueAt,
+        nextTitle: title,
+        nextDueAt: dueAt,
+      }),
       interaction_date: now,
       event_metadata: {
         source: CRM_TASK_SOURCE,
