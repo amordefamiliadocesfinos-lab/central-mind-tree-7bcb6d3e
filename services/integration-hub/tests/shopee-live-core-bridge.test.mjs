@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   CORE_BRIDGE_ACTIONS,
+  CORE_BRIDGE_LIVE_CONTENT_TYPE,
   CORE_BRIDGE_URL,
   callCoreBridgeAction,
   consumeLiveShopeeOauthState,
@@ -26,6 +27,9 @@ function bridgeFetch(executeAction, logs = []) {
   });
   return async (url, options) => {
     assert.equal(url, CORE_BRIDGE_URL);
+    if (JSON.parse(options.body).action !== 'health') {
+      assert.equal(options.headers['Content-Type'], CORE_BRIDGE_LIVE_CONTENT_TYPE);
+    }
     return handler(new Request(url, options));
   };
 }
@@ -207,4 +211,28 @@ test('invalid Shopee Live payloads fail closed without executing a Core action',
     assert.equal(result.status, 400);
     assert.equal(executions, 0);
   }
+});
+
+
+test('Shopee Live profile permits a bounded payload above the legacy 1 KiB health limit', async () => {
+  const largeValue = 'x'.repeat(2048);
+  const result = await upsertLiveShopeeShopSnapshot({
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    external_entity_id: '987654',
+    request_id: 'large-snapshot',
+    observed_at: new Date().toISOString(),
+    payload: { shop_name: 'Viviane', extra: largeValue },
+    payload_hash: PAYLOAD_HASH,
+  }, {
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async (payload) => ({
+      status: 200,
+      body: { status: 'ok', action: payload.action },
+    })),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
 });
