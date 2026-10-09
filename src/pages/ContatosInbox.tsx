@@ -64,6 +64,7 @@ interface InboxItem {
   conversation_updated_at: string | null;
   return_at: string | null;
   next_action_date: string | null;
+  next_action_title: string | null;
   next_contact_date: string | null;
   commercial_opt_out: boolean;
   reactivation_at: string | null;
@@ -260,19 +261,25 @@ export default function ContatosInbox() {
     // ficaram fora da página recente da Inbox.
     const { data: scheduledCrmTasks } = await supabase
       .from('tasks')
-      .select('contact_id, source, scheduled_date, scheduled_time, due_date')
+      .select('contact_id, source, title, scheduled_date, scheduled_time, due_date')
       .in('source', ['crm_next_action', 'crm_reactivation'])
       .is('deleted_at', null)
       .neq('status', 'concluído')
       .not('contact_id', 'is', null);
     const reactivationByContact = new Map<string, string>();
     const nextActionByContact = new Map<string, string>();
+    const nextActionTitleByContact = new Map<string, string>();
     for (const task of scheduledCrmTasks || []) {
       if (!task.contact_id) continue;
       const dueAt = getOfficialCrmTaskDueAt(task.scheduled_date || task.due_date, task.scheduled_time);
       if (!dueAt) continue;
       const target = task.source === 'crm_reactivation' ? reactivationByContact : nextActionByContact;
-      if (!target.has(task.contact_id)) target.set(task.contact_id, dueAt);
+      if (!target.has(task.contact_id)) {
+        target.set(task.contact_id, dueAt);
+        if (task.source === 'crm_next_action' && task.title) {
+          nextActionTitleByContact.set(task.contact_id, task.title);
+        }
+      }
     }
 
     const ids = Array.from(new Set([
@@ -352,6 +359,7 @@ export default function ContatosInbox() {
         conversation_updated_at: conversation.updated_at ?? null,
         return_at: conversation.return_at,
         next_action_date: officialNextActionByContact.get(conversation.contact_id) || null,
+        next_action_title: nextActionTitleByContact.get(conversation.contact_id) || null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact?.commercial_opt_out),
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
@@ -393,6 +401,7 @@ export default function ContatosInbox() {
         conversation_updated_at: null,
         return_at: null,
         next_action_date: officialNextActionByContact.get(contact.id) || null,
+        next_action_title: nextActionTitleByContact.get(contact.id) || null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contact.id) || null,
@@ -441,6 +450,7 @@ export default function ContatosInbox() {
         conversation_updated_at: null,
         return_at: null,
         next_action_date: officialNextActionByContact.get(contactId) || null,
+        next_action_title: nextActionTitleByContact.get(contactId) || null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contactId) || null,
@@ -1333,7 +1343,7 @@ export default function ContatosInbox() {
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
-                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} />
+                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selected.next_action_title} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
