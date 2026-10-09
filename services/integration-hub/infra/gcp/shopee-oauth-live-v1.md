@@ -127,6 +127,11 @@ Transport authentication remains HMAC-SHA256 `v1` using the existing
 `CORE_BRIDGE_HMAC_SECRET` pair. The Hub still has no Supabase
 `service_role`.
 
+Backward compatibility is preserved: legacy `application/json` HMAC v1 calls keep
+the original 1 KiB body ceiling. Shopee Live Bridge actions use the scoped media
+type `application/vnd.painel.shopee-live-v1+json`, allowing a bounded payload up
+to 64 KiB without relaxing the legacy health contract.
+
 The Bridge pins `environment='live'`; callers cannot choose the environment.
 
 ### `shopee.oauth_state.create`
