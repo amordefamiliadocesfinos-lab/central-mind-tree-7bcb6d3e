@@ -298,6 +298,26 @@ async function handleReplyMode(body: any, apiKey: string) {
     });
   }
 
+  // F5: defesa server-side. O CrmAiContext não transporta saldo atual por
+  // variante; sem fonte viva não se pode gerar lista de sabores disponíveis.
+  // Examina todo o bloco inbound sem resposta, não apenas a última fala.
+  if (lastIsInbound) {
+    const inboundBlock: string[] = [];
+    for (const message of [...(Array.isArray(context?.messages) ? context.messages : [])].reverse()) {
+      if (message?.direction === 'outbound') break;
+      if (message?.direction === 'inbound') inboundBlock.push(String(message.content ?? ''));
+    }
+    const text = inboundBlock.join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (/\b(estoque|disponibilidade|disponiveis?|pronta entrega|tem agora|tem hoje)\b/.test(text)
+      || /\b(quais|qual|que)\s+(?:sabores?|trufas?|produtos?)\s+(?:voces?\s+)?(?:tem|ha|estao disponiveis)\b/.test(text)) {
+      return json({
+        suggested_reply: null,
+        reason: 'Disponibilidade atual exige consulta à fonte viva de estoque por produto e variante. Não é seguro afirmar sabores sem essa confirmação.',
+        tone: null,
+      });
+    }
+  }
+
   // FAQ estável e diretamente aplicável vence memória interpretativa e qualquer
   // inferência do modelo. O helper pode combinar até três fatos explícitos da
   // mesma pergunta; fatos dinâmicos jamais chegam por esta via.
