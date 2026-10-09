@@ -168,9 +168,22 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
     && lastInboundAt >= start - (7 * 86400000)
     && (lastResultAt === null || lastInboundAt > lastResultAt);
 
+  // F1 — tarefa executada não é tarefa concluída. Se a Próxima Ação oficial
+  // já venceu e houve outbound depois do vencimento, a obrigação foi executada
+  // operacionalmente, mas continua pendente até um Resultado canônico explicar
+  // o que aconteceu. A fila troca "Ação atrasada" por "Registrar resultado"
+  // sem apagar ou concluir a tarefa antecipadamente.
+  const dueActionExecutedWithoutResult = validNextAction
+    && nextActionAt !== null
+    && nextActionAt <= now.getTime()
+    && lastOutboundAt !== null
+    && lastOutboundAt >= nextActionAt
+    && (lastResultAt === null || lastOutboundAt > lastResultAt);
+
   // Uma reativação de recompra é a única obrigação que pode trazer de volta
   // uma conversa já resolvida. Ela nunca se apresenta como mensagem pendente.
   if (input.status === 'resolved') {
+    if (dueActionExecutedWithoutResult) return result('P1', 'pending_result', lastOutboundAt!);
     if (reactivationOverdue) return result('P1', 'reactivation_overdue', reactivationAt!);
     if (reactivationToday) return result('P1', 'reactivation_today', reactivationAt!);
     // Pós-venda e demais próximas ações oficiais podem nascer após o
@@ -183,6 +196,10 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
 
   if (input.needs_reply && !waitingCustomer) {
     return result('P0', 'needs_reply', lastInboundAt ?? lastMessageAt);
+  }
+
+  if (dueActionExecutedWithoutResult) {
+    return result('P1', 'pending_result', lastOutboundAt!);
   }
 
   if (reactivationOverdue) return result('P1', 'reactivation_overdue', reactivationAt!);
