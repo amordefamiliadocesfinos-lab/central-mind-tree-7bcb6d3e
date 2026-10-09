@@ -88,6 +88,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const [analysisError, setAnalysisError] = useState(false);
   const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  // Quando o operador usa uma resposta sugerida, guardamos o contexto que a
+  // originou. Se entrar/sair mensagem depois, o texto não continua parecendo atual.
+  const [aiDraftStamp, setAiDraftStamp] = useState<string | null>(null);
 
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -113,7 +116,18 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // F4.5 — assinatura do contexto atual: contato, conversa e última mensagem.
   // Se mudar (nova mensagem, troca de contato, Resultado registrado que recarrega
   // o histórico), a sugestão anterior é descartada em vez de parecer válida.
-  const contextStamp = `${contactId}|${conversationId ?? ''}|${messages.length}|${messages[messages.length - 1]?.id ?? ''}`;
+  const contextStamp = [
+    contactId,
+    conversationId ?? '',
+    messages.length,
+    messages[messages.length - 1]?.id ?? '',
+    funnelStage ?? '',
+    conversationMeta?.attendance_state ?? '',
+    conversationMeta?.return_at ?? '',
+    conversationMeta?.last_inbound_at ?? '',
+    conversationMeta?.last_outbound_at ?? '',
+  ].join('|');
+  const aiDraftStale = Boolean(aiDraftStamp && aiDraftStamp !== contextStamp);
 
   const dismissAnalysis = () => {
     setAnalysis(null);
@@ -133,6 +147,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setText('');
     setAttachment(null);
     setFollowUpCycle(null);
+    setAiDraftStamp(null);
     clearPostSaleOrderContext();
   }, [contactId]);
 
@@ -305,6 +320,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
   const handleSend = async () => {
     if (!conversationId || (!text.trim() && !attachment)) return;
+    if (aiDraftStale) {
+      toast.error('A conversa mudou depois desta sugestão. Atualize a sugestão ou confirme que deseja manter seu texto.');
+      return;
+    }
     if (outboundBlocked) {
       toast.error('Este contato marcou que não deseja receber contato comercial. Remova o opt-out conscientemente antes de iniciar uma nova abordagem.');
       return;
@@ -388,6 +407,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       }
       setText('');
       setAttachment(null);
+      setAiDraftStamp(null);
       if (response?.automatic_follow_up_scheduled === true) {
         await onMessageSent?.(content);
       } else if (response?.automatic_follow_up_scheduled === false) {
@@ -570,6 +590,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           onUseResult={onUseSuggestedResult ? (code) => { onUseSuggestedResult(code); dismissAnalysis(); } : undefined}
           onUseReply={(reply) => {
             setText(reply);
+            setAiDraftStamp(contextStamp);
             dismissAnalysis();
             toast.success('Resposta no campo de mensagem — revise e envie');
           }}
@@ -607,6 +628,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 setPostSaleOrderContext({ contactId, conversationId, orderId: postSaleOrderId });
               }
               setText(reply.reply);
+              setAiDraftStamp(contextStamp);
               toast.success('Mensagem de pós-venda no campo — revise antes de enviar');
             } catch (error) {
               console.warn('Não foi possível preparar sugestão de pós-venda:', error);
@@ -630,6 +652,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 return;
               }
               setText(reply.reply);
+              setAiDraftStamp(contextStamp);
               toast.success('Mensagem sugerida no campo — revise antes de enviar');
             } catch (error) {
               console.warn('Não foi possível preparar sugestão de recompra:', error);
@@ -653,6 +676,39 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 {onRegisterManualResult && <Button type="button" size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40" onClick={onRegisterManualResult}>Registrar Resultado</Button>}
               </div>
             )}
+          </div>
+        )}
+        {aiDraftStale && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <span><strong>Sugestão da IA desatualizada.</strong> A conversa mudou depois que este texto foi preparado.</span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 border-amber-300 bg-transparent px-2 text-[10px] dark:border-amber-800"
+                onClick={() => {
+                  setText('');
+                  setAiDraftStamp(null);
+                  void handleAnalyze();
+                }}
+                disabled={analyzing}
+              >
+                Atualizar sugestão
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 border-amber-300 bg-transparent px-2 text-[10px] dark:border-amber-800"
+                onClick={() => {
+                  setAiDraftStamp(null);
+                  toast.message('Texto mantido por decisão do operador.');
+                }}
+              >
+                Manter meu texto
+              </Button>
+            </div>
           </div>
         )}
         {commercialOptOut && (
@@ -711,7 +767,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           />
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(-1)} disabled={fontSize <= MIN_FONT} title="Diminuir texto das mensagens"><AArrowDown className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => changeFont(1)} disabled={fontSize >= MAX_FONT} title="Aumentar texto das mensagens"><AArrowUp className="h-4 w-4" /></Button>
-          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || outboundBlocked || metaWindowClosed || (!text.trim() && !attachment) || !conversationId} title={metaWindowClosed ? 'Janela Meta de 24h encerrada' : 'Enviar'}>
+          <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSend} disabled={sending || aiDraftStale || outboundBlocked || metaWindowClosed || (!text.trim() && !attachment) || !conversationId} title={aiDraftStale ? 'Sugestão desatualizada — atualize ou mantenha conscientemente o texto' : metaWindowClosed ? 'Janela Meta de 24h encerrada' : 'Enviar'}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>

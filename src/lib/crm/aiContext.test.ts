@@ -1,4 +1,4 @@
-import { buildCrmAiContext, buildCrmAiRequestContext, deriveLastCanonicalResult, CRM_AI_CONTEXT_LIMITS, CRM_AI_LIVE_MEMORY_LIMITS, type CrmAiContextSources } from './aiContext';
+import { buildCrmAiContext, buildCrmAiRequestContext, deriveLastCanonicalResult, isClosedCrmTaskStatus, isSemanticallyRelevantCrmAiMessage, CRM_AI_CONTEXT_LIMITS, CRM_AI_LIVE_MEMORY_LIMITS, type CrmAiContextSources } from './aiContext';
 import type { CrmContactLiveContext } from './liveContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -94,6 +94,29 @@ async function run() {
   assert(compiled.liveContext?.summary?.length === 900, 'compilador deve limitar o resumo da memória viva.');
   assert(compiled.liveContext?.memory.preferences?.length === 6, 'compilador deve limitar listas da memória viva.');
   assert(compiled.tasks[0]?.source === 'crm_next_action' && compiled.nextAction?.code === 'CRM-PA-013', 'tarefa e Próxima Ação oficiais devem seguir explícitas no contexto.');
+
+  // F4 — integridade semântica: tarefa encerrada e evento técnico nunca
+  // podem parecer obrigação/fala ativa para o Assistente.
+  assert(isClosedCrmTaskStatus('concluído'), 'status canônico concluído deve ser reconhecido como encerrado.');
+  assert(isClosedCrmTaskStatus('concluida') && isClosedCrmTaskStatus('concluido'), 'grafias legadas encerradas também devem ser reconhecidas.');
+  assert(!isClosedCrmTaskStatus('pendente'), 'tarefa pendente deve permanecer ativa.');
+  assert(!isSemanticallyRelevantCrmAiMessage({ message_type: 'reaction', content: 'Reação recebida' }), 'reação não deve virar fala comercial.');
+  assert(!isSemanticallyRelevantCrmAiMessage({ message_type: 'edit', content: 'Mensagem não suportada' }), 'edição técnica não deve virar fala comercial.');
+  assert(isSemanticallyRelevantCrmAiMessage({ message_type: 'text', content: 'Consigo sim' }), 'mensagem textual real deve permanecer no contexto.');
+
+  const sanitized = await buildCrmAiContext('c1', 'conv1', sources({
+    loadMessages: async () => [
+      { content: 'Consigo sim', sender: 'contact', direction: 'inbound', message_type: 'text', created_at: '2026-10-09T17:42:13.000Z' },
+      { content: 'Reação recebida', sender: 'contact', direction: 'inbound', message_type: 'reaction', created_at: '2026-10-09T17:42:47.000Z' },
+      { content: 'Mensagem não suportada', sender: 'contact', direction: 'inbound', message_type: 'edit', created_at: '2026-10-09T17:42:43.000Z' },
+    ],
+    loadTasks: async () => [
+      { id: 'done', title: 'Verificar resposta no WhatsApp', due_date: '2026-10-11', source: 'crm_next_action', status: 'concluído' },
+      { id: 'open', title: 'Tratar objeção', due_date: null, source: 'crm_next_action', status: 'pendente' },
+    ],
+  }));
+  assert(sanitized.messages.length === 1 && sanitized.messages[0].content === 'Consigo sim', 'janela semântica deve remover reação/edição técnica.');
+  assert(sanitized.tasks.length === 1 && sanitized.tasks[0].id === 'open', 'tarefa concluída não pode contaminar o contexto da IA.');
 
   // G. nenhum efeito colateral: apenas leituras
   const calls: string[] = [];
