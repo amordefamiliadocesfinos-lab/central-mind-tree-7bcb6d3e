@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { CalendarClock, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CRM_CANONICAL_RESULTS } from '@/lib/crm/canonical/results';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
+import { getTaskContextResultCodes } from '@/lib/crm/taskResultContext';
 
 interface Props {
   busy?: boolean;
@@ -16,15 +17,25 @@ interface Props {
   presetResultCode?: string | null;
   /** Abre um fluxo já existente a partir de uma decisão contextual externa. */
   openModeRequest?: { mode: 'outcome' | 'snooze'; id: number } | null;
+  /** F1: obrigação oficial em execução. Só ordena/destaca Resultados; nunca bloqueia opções. */
+  taskContextTitle?: string | null;
 }
 
-export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode, openModeRequest }: Props) {
+export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode, openModeRequest, taskContextTitle }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
+  const contextualCodes = getTaskContextResultCodes(taskContextTitle);
+  const contextualCodeSet = new Set(contextualCodes);
+  const contextualResults = contextualCodes
+    .map(code => CRM_CANONICAL_RESULTS.find(result => result.code === code))
+    .filter((result): result is (typeof CRM_CANONICAL_RESULTS)[number] => Boolean(result));
+  const otherResults = contextualResults.length
+    ? CRM_CANONICAL_RESULTS.filter(result => !contextualCodeSet.has(result.code))
+    : CRM_CANONICAL_RESULTS;
 
   // CRM-COR-01: trocar de contato/conversa limpa todo estado temporário do formulário.
   useEffect(() => {
@@ -77,13 +88,41 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
           <Select value={resultCode} onValueChange={value => setResultCode(value as CrmResultCode)}>
             <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o resultado do atendimento" /></SelectTrigger>
             <SelectContent className="max-h-72">
-              {CRM_CANONICAL_RESULTS.map(result => (
+              {contextualResults.length > 0 && (
+                <>
+                  <SelectGroup>
+                    <SelectLabel className="pl-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Mais relacionados a: {taskContextTitle}
+                    </SelectLabel>
+                    {contextualResults.map(result => (
+                      <SelectItem key={result.code} value={result.code} className="text-xs">
+                        {result.code.replace('CRM-RES-', '')} · {result.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel className="pl-2 text-[10px] uppercase tracking-wide text-muted-foreground">Outros resultados</SelectLabel>
+                    {otherResults.map(result => (
+                      <SelectItem key={result.code} value={result.code} className="text-xs">
+                        {result.code.replace('CRM-RES-', '')} · {result.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </>
+              )}
+              {contextualResults.length === 0 && otherResults.map(result => (
                 <SelectItem key={result.code} value={result.code} className="text-xs">
                   {result.code.replace('CRM-RES-', '')} · {result.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {taskContextTitle && contextualResults.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Contexto da tarefa: <strong className="font-medium text-foreground">{taskContextTitle}</strong>. Os resultados relacionados aparecem primeiro; os demais continuam disponíveis.
+            </p>
+          )}
           {selectedResult && <p className="text-[11px] text-muted-foreground">{selectedResult.description}</p>}
           {(needsReturnDate || date) && (
             <div className="grid grid-cols-2 gap-2">
