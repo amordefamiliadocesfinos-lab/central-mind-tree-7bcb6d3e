@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Plus, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,13 +73,25 @@ export function SupplierCenter() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const requestToken = useRef(0);
+  const selectedSupplier = useRef('');
+  const selectSupplier = (id: string) => {
+    selectedSupplier.current = id;
+    requestToken.current += 1;
+    setSupplierId(id);
+    setProfile(null);
+    setItems([]);
+    setDocuments([]);
+    setLoading(Boolean(id));
+  };
   const filtered = useMemo(() => suppliers.filter(s =>
     (s.name + ' ' + (s.fantasy_name ?? '')).toLowerCase().includes(search.toLowerCase())
   ), [suppliers, search]);
   const selected = suppliers.find(s => s.id === supplierId);
 
   const load = useCallback(async (id: string) => {
-    if (!id) { setProfile(null); setItems([]); setDocuments([]); return; }
+    const token = ++requestToken.current;
+    if (!id) { setProfile(null); setItems([]); setDocuments([]); setLoading(false); return; }
     setLoading(true);
     try {
       const [p, i, d] = await Promise.all([
@@ -90,6 +102,7 @@ export function SupplierCenter() {
       if (p.error) throw p.error;
       if (i.error) throw i.error;
       if (d.error) throw d.error;
+      if (token !== requestToken.current || id !== selectedSupplier.current) return;
       const value = (p.data ?? null) as Profile | null;
       setProfile(value);
       setItems(i.data ?? []);
@@ -103,9 +116,11 @@ export function SupplierCenter() {
       setNotes(value?.notes ?? '');
       setDiscardReason(value?.discard_reason ?? '');
     } catch (error) {
-      toast.error('Não foi possível carregar fornecedor: ' + errorText(error));
+      if (token === requestToken.current && id === selectedSupplier.current) {
+        toast.error('Não foi possível carregar fornecedor: ' + errorText(error));
+      }
     } finally {
-      setLoading(false);
+      if (token === requestToken.current && id === selectedSupplier.current) setLoading(false);
     }
   }, []);
 
@@ -205,7 +220,7 @@ export function SupplierCenter() {
               {filtered.map(s => (
                 <Button key={s.id} variant={supplierId === s.id ? 'secondary' : 'ghost'}
                   className="w-full justify-start h-auto text-left whitespace-normal"
-                  onClick={() => setSupplierId(s.id)}>{s.name}</Button>
+                  onClick={() => selectSupplier(s.id)}>{s.name}</Button>
               ))}
             </div>
           </CardContent>
