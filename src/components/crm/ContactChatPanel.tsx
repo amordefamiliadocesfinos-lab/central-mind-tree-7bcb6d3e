@@ -364,7 +364,11 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       const { data, error } = await supabase.functions.invoke(isInstagramConversation ? 'instagram-send' : 'whatsapp-send', {
         body: { conversation_id: conversationId, message: content, ...mediaPayload },
       });
-      const response = data as { error?: string; automatic_follow_up_scheduled?: boolean | null } | null;
+      const response = data as {
+        error?: string;
+        automatic_follow_up_scheduled?: boolean | null;
+        preserved_existing_obligation?: boolean;
+      } | null;
       const errMsg =
         response?.error ??
         (error ? `Não foi possível enviar a mensagem pelo ${isInstagramConversation ? 'Instagram' : 'WhatsApp'}` : null);
@@ -408,7 +412,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       setText('');
       setAttachment(null);
       setAiDraftStamp(null);
-      if (response?.automatic_follow_up_scheduled === true) {
+      if (response?.preserved_existing_obligation === true) {
+        toast.success('Mensagem enviada · Próxima Ação preservada até você registrar o Resultado.');
+      } else if (response?.automatic_follow_up_scheduled === true) {
         await onMessageSent?.(content);
       } else if (response?.automatic_follow_up_scheduled === false) {
         toast.success('Mensagem enviada · nenhum novo retorno automático foi criado.');
