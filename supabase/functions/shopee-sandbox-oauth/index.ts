@@ -1,4 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  buildAuthorizeUrl,
+  exchangeToken,
+  getShopInfo,
+  parseShopeeError,
+  refreshToken,
+} from '../_shared/shopee-protocol.mjs';
 
 const ENVIRONMENT = 'sandbox';
 const AUTHORIZE_URL = 'https://open.sandbox.test-stable.shopee.com/auth';
@@ -63,18 +70,6 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function hmacHex(value: string, secret: string) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
-  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 async function encryptionKey(secret: string) {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(secret));
   return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt']);
@@ -104,58 +99,6 @@ function epochSecondsToIso(value: unknown) {
   return Number.isFinite(seconds) && seconds > 0
     ? new Date(seconds * 1000).toISOString()
     : null;
-}
-
-async function signedPublicPost(
-  path: string,
-  partnerId: number,
-  partnerKey: string,
-  body: Record<string, unknown>,
-) {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const sign = await hmacHex(`${partnerId}${path}${timestamp}`, partnerKey);
-  const url = new URL(path, API_BASE_URL);
-  url.searchParams.set('partner_id', String(partnerId));
-  url.searchParams.set('timestamp', String(timestamp));
-  url.searchParams.set('sign', sign);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const text = await response.text();
-  let payload: Record<string, unknown>;
-  try { payload = JSON.parse(text); } catch { payload = { error: 'invalid_json', message: text.slice(0, 300) }; }
-  return { response, payload };
-}
-
-async function getShopInfo(
-  partnerId: number,
-  partnerKey: string,
-  accessToken: string,
-  shopId: number,
-) {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const sign = await hmacHex(
-    `${partnerId}${SHOP_INFO_PATH}${timestamp}${accessToken}${shopId}`,
-    partnerKey,
-  );
-  const url = new URL(SHOP_INFO_PATH, API_BASE_URL);
-  url.searchParams.set('partner_id', String(partnerId));
-  url.searchParams.set('timestamp', String(timestamp));
-  url.searchParams.set('access_token', accessToken);
-  url.searchParams.set('shop_id', String(shopId));
-  url.searchParams.set('sign', sign);
-  const response = await fetch(url, { headers: { Accept: 'application/json' } });
-  const rawText = await response.text();
-  let payload: Record<string, unknown>;
-  try { payload = JSON.parse(rawText); } catch { payload = { error: 'invalid_json', message: rawText.slice(0, 300) }; }
-  return { response, payload, rawText };
-}
-
-function shopeeError(payload: Record<string, unknown>) {
-  const error = typeof payload.error === 'string' ? payload.error : '';
-  return error.trim();
 }
 
 Deno.serve(async (request) => {
@@ -191,12 +134,12 @@ Deno.serve(async (request) => {
       });
       if (error) return json({ error: 'oauth_state_persistence_failed' }, 503);
 
-      const authorizeUrl = new URL(AUTHORIZE_URL);
-      authorizeUrl.searchParams.set('partner_id', String(partnerId));
-      authorizeUrl.searchParams.set('auth_type', 'seller');
-      authorizeUrl.searchParams.set('redirect_uri', redirectUri);
-      authorizeUrl.searchParams.set('response_type', 'code');
-      authorizeUrl.searchParams.set('state', state);
+      const authorizeUrl = buildAuthorizeUrl({
+        authorizeUrl: AUTHORIZE_URL,
+        partnerId,
+        redirectUri,
+        state,
+      });
       return Response.redirect(authorizeUrl.toString(), 302);
     }
 
@@ -247,12 +190,16 @@ Deno.serve(async (request) => {
         return html('Autorização Shopee já utilizada', 'Este retorno OAuth já foi processado.', 409);
       }
 
-      const tokenBody: Record<string, unknown> = { code, partner_id: partnerId };
-      if (shopId) tokenBody.shop_id = shopId;
-      else tokenBody.main_account_id = mainAccountId;
-
-      const tokenResult = await signedPublicPost(TOKEN_PATH, partnerId, partnerKey, tokenBody);
-      if (!tokenResult.response.ok || shopeeError(tokenResult.payload)) {
+      const tokenResult = await exchangeToken({
+        apiBaseUrl: API_BASE_URL,
+        tokenPath: TOKEN_PATH,
+        partnerId,
+        partnerKey,
+        code,
+        shopId,
+        mainAccountId,
+      });
+      if (!tokenResult.response.ok || parseShopeeError(tokenResult.payload)) {
         console.error('[Shopee Sandbox OAuth] Token exchange rejected:', JSON.stringify({
           status: tokenResult.response.status,
           error: typeof tokenResult.payload.error === 'string' ? tokenResult.payload.error : null,
@@ -272,8 +219,15 @@ Deno.serve(async (request) => {
         return html('Resposta OAuth incompleta', 'A Shopee não retornou access_token, refresh_token e shop_id suficientes para a prova.', 502);
       }
 
-      const firstRead = await getShopInfo(partnerId, partnerKey, accessToken, effectiveShopId);
-      if (!firstRead.response.ok || shopeeError(firstRead.payload)) {
+      const firstRead = await getShopInfo({
+        apiBaseUrl: API_BASE_URL,
+        shopInfoPath: SHOP_INFO_PATH,
+        partnerId,
+        partnerKey,
+        accessToken,
+        shopId: effectiveShopId,
+      });
+      if (!firstRead.response.ok || parseShopeeError(firstRead.payload)) {
         return html('OAuth concluído, leitura falhou', 'Os tokens foram obtidos, mas get_shop_info não respondeu com sucesso. Nenhuma projeção operacional foi aplicada.', 502);
       }
 
@@ -322,12 +276,15 @@ Deno.serve(async (request) => {
         return html('Leitura concluída, persistência falhou', 'OAuth e get_shop_info funcionaram, mas os tokens protegidos não puderam ser persistidos.', 503);
       }
 
-      const refreshResult = await signedPublicPost(REFRESH_PATH, partnerId, partnerKey, {
-        partner_id: partnerId,
-        refresh_token: refreshToken,
-        shop_id: effectiveShopId,
+      const refreshResult = await refreshToken({
+        apiBaseUrl: API_BASE_URL,
+        refreshPath: REFRESH_PATH,
+        partnerId,
+        partnerKey,
+        refreshToken,
+        shopId: effectiveShopId,
       });
-      if (!refreshResult.response.ok || shopeeError(refreshResult.payload)) {
+      if (!refreshResult.response.ok || parseShopeeError(refreshResult.payload)) {
         return html('Leitura concluída, renovação falhou', 'OAuth e get_shop_info funcionaram, mas a renovação do token de teste falhou. Nenhuma projeção operacional foi aplicada.', 502);
       }
 
@@ -337,8 +294,15 @@ Deno.serve(async (request) => {
         return html('Renovação incompleta', 'A Shopee não retornou o novo par de tokens esperado.', 502);
       }
 
-      const refreshedRead = await getShopInfo(partnerId, partnerKey, refreshedAccessToken, effectiveShopId);
-      if (!refreshedRead.response.ok || shopeeError(refreshedRead.payload)) {
+      const refreshedRead = await getShopInfo({
+        apiBaseUrl: API_BASE_URL,
+        shopInfoPath: SHOP_INFO_PATH,
+        partnerId,
+        partnerKey,
+        accessToken: refreshedAccessToken,
+        shopId: effectiveShopId,
+      });
+      if (!refreshedRead.response.ok || parseShopeeError(refreshedRead.payload)) {
         return html('Renovação concluída, releitura falhou', 'O token foi renovado, mas a releitura de get_shop_info falhou.', 502);
       }
 

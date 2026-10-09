@@ -59,22 +59,45 @@ gcloud compute routers nats create integration-hub-nat --router=integration-hub-
 
 ## Deploy e validação
 
-Na raiz de um checkout limpo da `origin/main` atual, execute os testes do Hub e
-implante apenas este diretório. Não envie `.env`, tokens ou secrets.
-O deploy por source utiliza Cloud Build e Artifact Registry.
+Na raiz de um checkout limpo da `origin/main` atual, execute os testes do Hub.
+A partir da F4 o Hub consome o módulo compartilhado
+`supabase/functions/_shared/shopee-protocol.mjs`; portanto o build precisa usar
+o **repositório raiz como contexto**, mantendo o Dockerfile específico do Hub.
+Não copie nem duplique o módulo compartilhado dentro de
+`services/integration-hub`.
+
+O build continua usando Cloud Build + Artifact Registry, mas o deploy do Cloud
+Run passa a usar a imagem explicitamente construída. O Dockerfile copia somente
+o serviço e o módulo Shopee compartilhado necessários ao runtime e valida o
+import durante o build.
 
 ```sh
 (cd services/integration-hub && npm test)
+
+IMAGE="southamerica-east1-docker.pkg.dev/$PROJECT/cloud-run-source-deploy/integration-hub:f4-$(git rev-parse --short HEAD)"
+
+gcloud builds submit . \
+  --project="$PROJECT" --region="$REGION" \
+  --config=services/integration-hub/infra/gcp/cloudbuild.yaml \
+  --substitutions=_IMAGE="$IMAGE"
+
 gcloud run deploy integration-hub \
-  --source=services/integration-hub --project="$PROJECT" --region="$REGION" \
+  --image="$IMAGE" --project="$PROJECT" --region="$REGION" \
   --network=integration-hub-vpc --subnet=integration-hub-subnet --vpc-egress=all-traffic \
   --service-account=integration-hub-runtime@painel-central-integration-hub.iam.gserviceaccount.com \
-  --no-allow-unauthenticated --invoker-iam-check \
-  --min=0 --max=3 --min-instances=0 --max-instances=3 \
-  --cpu=1 --memory=256Mi --timeout=60
+  --no-allow-unauthenticated \
+  --min=0 --max=3 \
+  --cpu=1 --memory=256Mi --timeout=60s \
+  --update-env-vars=CORE_BRIDGE_URL=https://xkskyutmtlhivvpfxkjg.supabase.co/functions/v1/integration-core-bridge \
+  --update-secrets=CORE_BRIDGE_HMAC_SECRET=integration-hub-core-bridge-hmac-v1:2
+
 gcloud run services describe integration-hub --region="$REGION" --project="$PROJECT" --format=yaml
 gcloud compute addresses describe integration-hub-egress-ip --region="$REGION" --project="$PROJECT" --format='value(address)'
 ```
+
+Não voltar a `--source=services/integration-hub` enquanto o runtime depender de
+arquivos compartilhados fora dessa pasta; esse contexto excluiria o módulo
+Shopee do artefato.
 
 Confirme revisão `Ready=True`, 100% de tráfego na revisão limpa, identidade
 dedicada, rede/subnet acima, egress `all-traffic`, mínimo zero e máximo três.
