@@ -120,6 +120,31 @@ function pendingUnsupportedLiveData(
   return null;
 }
 
+/** F5: não solicitar novamente um formulário de envio já preenchido. */
+export function hasCustomerSuppliedShippingData(messages: CrmAiContext['messages']): boolean {
+  const inbound = (messages ?? []).filter(message => message?.direction === 'inbound')
+    .slice(-8).map(message => String(message.content ?? '')).join('\n')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const indicators = [
+    /\bcpf\s*[:\-]/, /\bcep\s*[:\-]/,
+    /\bendereco(?: completo)?\s*[:\-]/, /\btelefone\s*[:\-]/,
+    /\be-?mail\s*[:\-]/, /\bnome completo\s*[:\-]/,
+  ];
+  return indicators.filter(regex => regex.test(inbound)).length >= 3;
+}
+
+export function guardShippingDataRepeat(
+  suggestion: CrmReplySuggestion,
+  messages: CrmAiContext['messages'],
+): CrmReplySuggestion {
+  if (!suggestion.reply || !hasCustomerSuppliedShippingData(messages)) return suggestion;
+  const reply = suggestion.reply.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const fields = [/\bnome completo\b/, /\bcpf\b/, /\bcep\b/, /\bendereco completo\b/, /\btelefone\b/, /\be-?mail\b/];
+  if (fields.filter(regex => regex.test(reply)).length < 3) return suggestion;
+  const reason = 'O cliente já forneceu dados de envio no atendimento. O formulário repetido foi descartado para revisão humana.';
+  return { ...suggestion, reply: null, message: null, reason, rationale: reason, intent: 'none' };
+}
+
 function canUsePendingFactualKnowledge(options: SuggestCrmReplyOptions | undefined, lastIsInbound: boolean): boolean {
   if (!lastIsInbound) return false;
   const decision = options?.decision;
@@ -225,7 +250,7 @@ export async function suggestCrmReplyFromContext(
   // aprovada. Não chamamos o modelo para reescrever números, quantidades ou
   // endereços e, assim, eliminamos variação entre recarregamentos.
   if (lastIsInbound && knowledgeContext.authoritativeAnswer) {
-    return {
+    return guardShippingDataRepeat({
       reply: knowledgeContext.authoritativeAnswer,
       message: knowledgeContext.authoritativeAnswer,
       reason: 'Resposta baseada em conhecimento estável aplicável.',
@@ -233,7 +258,7 @@ export async function suggestCrmReplyFromContext(
       tone: 'objetivo',
       intent: 'answer',
       length: 'short',
-    };
+    }, context.messages);
   }
 
   const raw = await invoke({
@@ -249,5 +274,5 @@ export async function suggestCrmReplyFromContext(
     routing: { escalationReasons: getCrmAiEscalationReasons(context, { decision: options?.decision }) },
   });
   if (raw?.error) throw new Error(String(raw.error));
-  return guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision);
+  return guardShippingDataRepeat(guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision), context.messages);
 }

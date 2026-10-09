@@ -203,6 +203,33 @@ async function run() {
   assert(Array.isArray(lastPayload.communicationProfile.approvedExamples) && lastPayload.communicationProfile.approvedExamples.length >= 3,
     'F5: exemplos supervisionados devem chegar ao modelo como perfil de comunicação, não como fato canônico.');
 
+  // F5 — uso real 09/10: estoque atual sem fonte viva não vira sabor inventado.
+  let stockCalled = false;
+  const currentStock = await suggestCrmReplyFromContext(context({}, [
+    inbound('Quais vc tem em estoque hoje?'),
+    inbound('Sss'),
+  ]), {
+    invoke: async () => { stockCalled = true; return { suggested_reply: 'Temos tradicional e morango hoje.' }; },
+  });
+  assert(currentStock.reply === null && !stockCalled,
+    'F5: pergunta sobre estoque atual no bloco inbound não deve gerar resposta livre.');
+
+  // F5 — cliente informou CPF/CEP/endereço/contato: não repetir formulário.
+  const deliveryInfo = context({}, [inbound(
+    'Preciso de mais alfajor. Nome completo: Cliente Exemplo\nTelefone: 51900000000\nE-mail: exemplo@exemplo.com\nCPF: 00000000000\nEndereço completo: Rua Exemplo 10\nCEP: 90000000',
+  )]);
+  const duplicateForm = await suggestCrmReplyFromContext(deliveryInfo, {
+    invoke: async () => ({ suggested_reply: 'Precisamos dos dados para envio:\nNome completo:\nTelefone:\nE-mail:\nCPF:\nEndereço completo:\nCEP:' }),
+  });
+  assert(duplicateForm.reply === null && duplicateForm.reason.includes('já forneceu'),
+    'F5: formulário completo redundante deve ser descartado.');
+
+  const legitimateFollowup = await suggestCrmReplyFromContext(deliveryInfo, {
+    invoke: async () => ({ suggested_reply: 'Recebi os dados e as quantidades. Vou conferir os detalhes do pedido.' }),
+  });
+  assert(legitimateFollowup.reply?.includes('Recebi os dados'),
+    'F5: mensagem útil que reconhece dados fornecidos deve continuar permitida.');
+
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');

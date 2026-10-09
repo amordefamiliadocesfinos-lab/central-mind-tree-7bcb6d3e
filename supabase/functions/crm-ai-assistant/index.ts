@@ -1,3 +1,5 @@
+import { requiresLiveStockForReply } from '../_shared/crm/reply-live-stock.ts';
+
 // FRENTE 4.2 — Inteligência Assistida CRM: sugestão de Resultado.
 // A função é SOMENTE LEITURA: recebe o CrmAiContext montado no frontend (F4.1),
 // consulta o Lovable AI Gateway e devolve uma sugestão validada.
@@ -295,6 +297,15 @@ async function handleReplyMode(body: any, apiKey: string) {
       tone: null,
       intent: 'none',
       length: 'short',
+    });
+  }
+
+  // F5: nenhuma lista de sabores/estoque sem uma fonte operacional viva.
+  if (lastIsInbound && requiresLiveStockForReply(context?.messages)) {
+    return json({
+      suggested_reply: null,
+      reason: 'Disponibilidade atual exige consulta à fonte viva de estoque por produto e variante. Não é seguro afirmar sabores sem essa confirmação.',
+      tone: null,
     });
   }
 
