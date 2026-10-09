@@ -90,6 +90,8 @@ export function SupplierCenter() {
   const selected = suppliers.find(s => s.id === supplierId);
 
   const load = useCallback(async (id: string) => {
+    // A delayed save for the previous supplier must not invalidate B's request.
+    if (id && id !== selectedSupplier.current) return;
     const token = ++requestToken.current;
     if (!id) { setProfile(null); setItems([]); setDocuments([]); setLoading(false); return; }
     setLoading(true);
