@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,7 +15,7 @@ import { parseISO, isBefore, startOfDay, isToday, isTomorrow, isThisWeek, format
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { clearCrmNextAction, completeCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
+import { clearCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
 import { clearCrmReactivation, CRM_REACTIVATION_SOURCE, setCrmReactivation } from '@/lib/crm/reactivation';
 
 interface TaskRow {
@@ -150,22 +149,6 @@ export default function TarefasAgendadas() {
       semana: tasks.filter(t => t.scheduled_date && isThisWeek(parseISO(t.scheduled_date), { weekStartsOn: 1 })).length,
     };
   }, [tasks]);
-
-  const completeTask = async (t: TaskRow) => {
-    if (!t.contact_id) return;
-    try {
-      if (t.source === CRM_REACTIVATION_SOURCE) {
-        await clearCrmReactivation(t.contact_id);
-        toast.success('Reativação concluída.');
-      } else {
-        await completeCrmNextAction(t.contact_id);
-        toast.success('Próxima ação concluída.');
-      }
-      void fetchTasks();
-    } catch {
-      toast.error('Não foi possível concluir a próxima ação.');
-    }
-  };
 
   const cancelTask = async (t: TaskRow) => {
     if (!t.contact_id) return;
@@ -311,7 +294,11 @@ export default function TarefasAgendadas() {
                   const overdue = t.scheduled_date && t.status !== 'concluído' && isBefore(parseISO(t.scheduled_date), startOfDay(new Date()));
                   return (
                     <Card key={t.id} className={cn("p-3 flex items-start gap-3", overdue && "border-red-300 dark:border-red-900")}>
-                      <Checkbox checked={t.status === 'concluído'} onCheckedChange={() => void completeTask(t)} className="mt-1" aria-label={`Concluir ${t.title}`} />
+                      <div className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                        {t.status === 'concluído'
+                          ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          : <span className="h-2.5 w-2.5 rounded-full border border-muted-foreground/50" />}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className={cn("font-medium text-sm leading-snug", t.status === 'concluído' && 'line-through text-muted-foreground')}>
@@ -343,7 +330,11 @@ export default function TarefasAgendadas() {
                       </div>
                       {t.contact_id && t.status !== 'concluído' && (
                         <div className="flex shrink-0 items-center gap-1">
-                          <Link to={`/contatos/inbox?contact=${t.contact_id}`}><Button size="icon" variant="ghost" className="h-7 w-7" title="Abrir na Caixa de Entrada"><ExternalLink className="h-3.5 w-3.5" /></Button></Link>
+                          <Link to={`/contatos/inbox?contact=${t.contact_id}`}>
+                            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10px]" title="Atender e registrar o Resultado na Caixa de Entrada">
+                              <ExternalLink className="h-3.5 w-3.5" /> Atender
+                            </Button>
+                          </Link>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openReschedule(t)} title="Reagendar"><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => void cancelTask(t)} title="Cancelar"><X className="h-3.5 w-3.5" /></Button>
                         </div>
