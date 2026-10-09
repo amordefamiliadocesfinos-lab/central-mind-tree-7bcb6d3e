@@ -9,7 +9,7 @@ COPY services/integration-hub/package.json ./package.json
 COPY services/integration-hub/src ./src
 COPY supabase/functions/_shared/shopee-protocol.mjs /workspace/supabase/functions/_shared/shopee-protocol.mjs
 
-RUN node -e "import('file:///workspace/services/integration-hub/src/connectors/shopee-protocol.mjs')"
+RUN node -e "Promise.all([import('file:///workspace/services/integration-hub/src/connectors/shopee-protocol.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-oauth.mjs')])"
 
 EXPOSE 8080
 
