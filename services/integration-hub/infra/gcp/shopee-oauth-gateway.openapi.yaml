@@ -1,0 +1,61 @@
+swagger: '2.0'
+info:
+  title: integration-hub-oauth
+  description: Public OAuth ingress for the private Painel Central Integration Hub.
+  version: '1.0'
+schemes:
+  - https
+produces:
+  - text/html
+x-google-backend:
+  address: https://integration-hub-899273223001.southamerica-east1.run.app
+  jwt_audience: https://integration-hub-899273223001.southamerica-east1.run.app
+  path_translation: APPEND_PATH_TO_ADDRESS
+paths:
+  /shopee/live/oauth/start:
+    get:
+      operationId: shopeeLiveOauthStart
+      summary: Start the fixed Shopee Live pilot OAuth flow.
+      responses:
+        '302':
+          description: Redirect to Shopee authorization.
+        '4XX':
+          description: Request rejected before authorization.
+        '5XX':
+          description: Integration Hub unavailable.
+  /shopee/live/oauth/callback:
+    get:
+      operationId: shopeeLiveOauthCallback
+      summary: Receive the Shopee Live OAuth callback.
+      parameters:
+        - name: code
+          in: query
+          type: string
+          required: false
+        - name: state
+          in: query
+          type: string
+          required: false
+        - name: shop_id
+          in: query
+          type: string
+          required: false
+        - name: main_account_id
+          in: query
+          type: string
+          required: false
+        - name: error
+          in: query
+          type: string
+          required: false
+        - name: message
+          in: query
+          type: string
+          required: false
+      responses:
+        '200':
+          description: OAuth callback processed.
+        '4XX':
+          description: Invalid, expired, or already consumed OAuth callback.
+        '5XX':
+          description: Integration Hub or upstream unavailable.
