@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
       if (!conversation && contact) {
         const result = await supabase
           .from('service_conversations')
-          .select('id,unread_count,contact_id')
+          .select('id,unread_count,contact_id,attendance_state,return_at,last_inbound_at,last_outbound_at,funnel_stage')
           .eq('contact_id', contact.id)
           .order('last_message_at', { ascending: false })
           .limit(1)
