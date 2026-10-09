@@ -82,9 +82,6 @@ const noFinancial = reconcileEconomicPrediction({
 equal(noFinancial.status, 'partial', 'observado externo sem conciliação financeira deve ser parcial');
 assert(noFinancial.pending.includes('financial_reconciliation'), 'financeiro pendente deve ser explícito');
 
-console.log('economic-engine/reconciliation.test: OK');
-
-
 const incompleteFinancialAttribution = reconcileEconomicPrediction({
   predictedRepasse: 64.73,
   orderGross: 97.85,
@@ -102,3 +99,5 @@ const incompleteFinancialAttribution = reconcileEconomicPrediction({
 equal(incompleteFinancialAttribution.status, 'partial', 'atribuição financeira incompleta deve impedir reconciliação total');
 equal(incompleteFinancialAttribution.financialNet, null, 'líquido financeiro não pode ser inventado');
 assert(incompleteFinancialAttribution.pending.includes('financial_attribution'), 'atribuição financeira deve ficar pendente');
+
+console.log('economic-engine/reconciliation.test: OK');
