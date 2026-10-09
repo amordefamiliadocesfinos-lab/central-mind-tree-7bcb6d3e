@@ -69,6 +69,7 @@ interface InboxItem {
   commercial_opt_out: boolean;
   reactivation_at: string | null;
   last_result_at: string | null;
+  last_no_new_fact_at: string | null;
 }
 
 type InboxFilter = 'priority' | 'needs_reply' | 'today' | 'overdue' | 'cooling';
@@ -102,6 +103,7 @@ function toCrmPriorityInput(item: InboxItem): CrmPriorityInput {
     last_message_at: item.last_message_at,
     attendance_state_updated_at: item.conversation_updated_at,
     last_result_at: item.last_result_at,
+    last_no_new_fact_at: item.last_no_new_fact_at,
     is_lead_or_quote: ['novo_lead', 'contato_realizado', 'proposta_enviada', 'negociacao'].includes(item.funnel_status || ''),
   };
 }
@@ -305,6 +307,7 @@ export default function ContatosInbox() {
     // Pendência de Resultado: o último Resultado canônico já registrado por
     // contato. Reutiliza o histórico existente, sem nova estrutura.
     const lastResultByContact = new Map<string, string>();
+    const lastReviewedByContact = new Map<string, string>();
     if (ids.length) {
       const { data: resultHistory } = await supabase
         .from('contact_history')
@@ -313,6 +316,19 @@ export default function ContatosInbox() {
         .not('event_metadata->>result_code', 'is', null)
         .order('interaction_date', { ascending: false })
         .limit(2000);
+      const { data: reviewedHistory } = await supabase
+        .from('contact_history')
+        .select('contact_id,interaction_date')
+        .in('contact_id', ids)
+        .eq('event_code', 'crm_attendance_no_new_fact')
+        .order('interaction_date', { ascending: false })
+        .limit(2000);
+      for (const row of reviewedHistory || []) {
+        const contactId = row.contact_id as string;
+        if (contactId && !lastReviewedByContact.has(contactId) && row.interaction_date) {
+          lastReviewedByContact.set(contactId, row.interaction_date as string);
+        }
+      }
       for (const row of resultHistory || []) {
         const contactId = row.contact_id as string;
         if (!contactId || lastResultByContact.has(contactId)) continue;
@@ -366,6 +382,7 @@ export default function ContatosInbox() {
         commercial_opt_out: Boolean(contact?.commercial_opt_out),
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
         last_result_at: lastResultByContact.get(conversation.contact_id) || null,
+        last_no_new_fact_at: lastReviewedByContact.get(conversation.contact_id) || null,
       });
     }
 
@@ -943,6 +960,53 @@ export default function ContatosInbox() {
     }
   };
 
+  // Revisão humana sem novo Resultado: não altera tarefas, etapa nem fatos canônicos.
+  const acknowledgeNoNewFact = async () => {
+    if (!selected || attendanceBusy) return;
+    const current = selected;
+    const priority = getCrmPriority(toCrmPriorityInput(current));
+    const lastInbound = current.last_inbound_at ? Date.parse(current.last_inbound_at) : NaN;
+    const lastOutbound = current.last_outbound_at ? Date.parse(current.last_outbound_at) : NaN;
+    if (priority.reason !== 'pending_result' || !current.last_result_at
+      || !isWaitingCustomerState(current.attendance_state) || current.needs_reply
+      || !(lastOutbound >= lastInbound)
+      || (current.next_action_date && Date.parse(current.next_action_date) <= Date.now())) {
+      toast.error('Ainda existe uma obrigação ou mensagem que precisa ser tratada pelo Resultado.');
+      return;
+    }
+    setAttendanceBusy(true);
+    try {
+      const { data: latest, error: readError } = await supabase.from('service_conversations')
+        .select('last_inbound_at,last_outbound_at,needs_reply,attendance_state')
+        .eq('id', current.conversation_id).single();
+      if (readError) throw readError;
+      if (latest?.last_inbound_at !== current.last_inbound_at
+        || latest?.last_outbound_at !== current.last_outbound_at
+        || latest?.needs_reply !== false
+        || !isWaitingCustomerState(latest?.attendance_state)) {
+        toast.error('O atendimento mudou. Atualize a fila antes de revisar.');
+        await load();
+        return;
+      }
+      const { error } = await supabase.from('contact_history').insert({
+        contact_id: current.id,
+        event_type: 'contact',
+        event_code: 'crm_attendance_no_new_fact',
+        description: 'Atendimento revisado pelo operador: nenhuma mudança comercial nova a registrar.',
+        interaction_date: new Date().toISOString(),
+        event_metadata: { source: 'crm_inbox', conversation_id: current.conversation_id },
+      } as any);
+      if (error) throw error;
+      toast.success('Revisão registrada. Nenhum Resultado foi criado.');
+      await load();
+    } catch (error) {
+      console.error('CRM revisão sem fato novo:', error);
+      toast.error('Não foi possível registrar a revisão do atendimento.');
+    } finally {
+      setAttendanceBusy(false);
+    }
+  };
+
   const snoozeSelected = async (when: number | string) => {
     if (!selected) return;
     setAttendanceBusy(true);
@@ -1371,6 +1435,19 @@ export default function ContatosInbox() {
                         </div>
                       </div>
                     )}
+                    {getCrmPriority(toCrmPriorityInput(selected)).reason === 'pending_result'
+                      && Boolean(selected.last_result_at)
+                      && isWaitingCustomerState(selected.attendance_state)
+                      && !selected.needs_reply
+                      && Boolean(selected.last_inbound_at && selected.last_outbound_at
+                        && Date.parse(selected.last_outbound_at) >= Date.parse(selected.last_inbound_at))
+                      && (!selected.next_action_date || Date.parse(selected.next_action_date) > Date.now()) && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs self-start"
+                          disabled={attendanceBusy} onClick={() => void acknowledgeNoNewFact()}
+                          title="O operador confirma que respondeu à mensagem e não houve fato comercial novo. Não registra Resultado.">
+                          Sem fato novo — retirar da prioridade
+                        </Button>
+                      )}
                     <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selected.next_action_title} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
