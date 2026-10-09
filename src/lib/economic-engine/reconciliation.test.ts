@@ -20,6 +20,7 @@ const singleOrder = reconcileEconomicPrediction({
   settlementOrderCount: 1,
   financialGrossRealized: 97.85,
   financialConciliated: true,
+  financialAttributionComplete: true,
 });
 equal(singleOrder.status, 'reconciled', 'settlement de um Pedido deve permitir reconciliação completa');
 equal(singleOrder.observedNet, 64.73, 'líquido externo deve vir do settlement único');
@@ -38,6 +39,7 @@ const multiOrderWithoutAllocation = reconcileEconomicPrediction({
   settlementOrderCount: 3,
   financialGrossRealized: 97.85,
   financialConciliated: true,
+  financialAttributionComplete: true,
 });
 equal(multiOrderWithoutAllocation.status, 'partial', 'settlement multi-Pedido sem rateio deve ser parcial');
 equal(multiOrderWithoutAllocation.observedNet, null, 'não deve inventar líquido por Pedido');
@@ -57,6 +59,7 @@ const allocatedOrder = reconcileEconomicPrediction({
   settlementOrderCount: 3,
   financialGrossRealized: 97.85,
   financialConciliated: true,
+  financialAttributionComplete: true,
 });
 equal(allocatedOrder.status, 'reconciled', 'líquido explicitamente alocado por Pedido deve reconciliar');
 equal(allocatedOrder.observedNet, 64.75, 'deve preservar líquido alocado');
@@ -74,8 +77,28 @@ const noFinancial = reconcileEconomicPrediction({
   settlementOrderCount: 1,
   financialGrossRealized: null,
   financialConciliated: false,
+  financialAttributionComplete: true,
 });
 equal(noFinancial.status, 'partial', 'observado externo sem conciliação financeira deve ser parcial');
 assert(noFinancial.pending.includes('financial_reconciliation'), 'financeiro pendente deve ser explícito');
 
 console.log('economic-engine/reconciliation.test: OK');
+
+
+const incompleteFinancialAttribution = reconcileEconomicPrediction({
+  predictedRepasse: 64.73,
+  orderGross: 97.85,
+  settlementOrderGross: 97.85,
+  settlementOrderFee: 33.12,
+  settlementOrderNet: 64.73,
+  settlementGross: 97.85,
+  settlementFee: 33.12,
+  settlementNet: 64.73,
+  settlementOrderCount: 1,
+  financialGrossRealized: 97.85,
+  financialConciliated: true,
+  financialAttributionComplete: false,
+});
+equal(incompleteFinancialAttribution.status, 'partial', 'atribuição financeira incompleta deve impedir reconciliação total');
+equal(incompleteFinancialAttribution.financialNet, null, 'líquido financeiro não pode ser inventado');
+assert(incompleteFinancialAttribution.pending.includes('financial_attribution'), 'atribuição financeira deve ficar pendente');
