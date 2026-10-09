@@ -221,6 +221,25 @@ The current canonical database already supports `environment='live'` in
 Snapshot uniqueness contract already covers source/environment/account/entity/
 endpoint/hash. No F5 Hub migration is required.
 
+## F5 Live runtime configuration reserved for the Shopee specialist
+
+The Hub foundation does not create Shopee Live credentials. The F5 connector may
+bind the following runtime configuration after the Shopee specialist has the
+real values:
+
+- environment variable `SHOPEE_LIVE_PARTNER_ID`;
+- Secret Manager secret `shopee-live-partner-key` exposed as
+  `SHOPEE_LIVE_PARTNER_KEY`;
+- environment variable `SHOPEE_LIVE_REDIRECT_URI`, equal to the gateway
+  callback URL;
+- environment variable `SHOPEE_LIVE_CHANNEL_ACCOUNT_ID`, initially fixed to
+  the canonical Viviane account;
+- Secret Manager secret `shopee-live-token-encryption-key` exposed as
+  `SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY`.
+
+Sandbox secrets remain untouched. The Live token-encryption key is intentionally
+separate from the Sandbox key.
+
 ## Security invariants
 
 - Cloud Run `integration-hub` stays private.
