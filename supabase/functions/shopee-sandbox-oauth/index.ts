@@ -1,11 +1,19 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   buildAuthorizeUrl,
-  exchangeToken,
-  getShopInfo,
+  exchangeToken as exchangeTokenRaw,
+  getShopInfo as getShopInfoRaw,
   parseShopeeError,
-  refreshToken,
+  refreshToken as refreshTokenRaw,
 } from '../_shared/shopee-protocol.mjs';
+
+// The shared protocol module is plain JS; its inferred parameter types are
+// stricter than its real optional defaults, so expose loosely typed aliases.
+// deno-lint-ignore no-explicit-any
+type ProtocolCall = (input: Record<string, unknown>) => Promise<any>;
+const exchangeToken = exchangeTokenRaw as unknown as ProtocolCall;
+const getShopInfo = getShopInfoRaw as unknown as ProtocolCall;
+const refreshShopeeToken = refreshTokenRaw as unknown as ProtocolCall;
 
 const ENVIRONMENT = 'sandbox';
 const AUTHORIZE_URL = 'https://open.sandbox.test-stable.shopee.com/auth';
@@ -276,7 +284,7 @@ Deno.serve(async (request) => {
         return html('Leitura concluída, persistência falhou', 'OAuth e get_shop_info funcionaram, mas os tokens protegidos não puderam ser persistidos.', 503);
       }
 
-      const refreshResult = await refreshToken({
+      const refreshResult = await refreshShopeeToken({
         apiBaseUrl: API_BASE_URL,
         refreshPath: REFRESH_PATH,
         partnerId,
