@@ -143,6 +143,7 @@ export default function ContatosInbox() {
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
+  const [operationalHandoff, setOperationalHandoff] = useState<{ resultCode: string; label: string } | null>(null);
 
   // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
   // anterior é descartado (Resultado sugerido, confirmação de envio).
@@ -150,6 +151,7 @@ export default function ContatosInbox() {
     setSuggestedResultCode(null);
     setSendConfirmation(false);
     setAttendanceActionRequest(null);
+    setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
   const { tags, assignments, fetchTags } = useContactTags();
@@ -929,6 +931,7 @@ export default function ContatosInbox() {
       const conversationSummary = result.conversationResolved ? 'Conversa encerrada' : 'Conversa mantida aberta';
       toast.success('Resultado registrado', { description: `${result.label} · ${stageSummary} · ${nextActionSummary} · ${conversationSummary}` });
       setSendConfirmation(false);
+      setOperationalHandoff(result.handoffPending ? { resultCode, label: result.label } : null);
       const refreshedItems = await load();
       if (refreshedItems === null) return;
       if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems);
@@ -1343,6 +1346,31 @@ export default function ContatosInbox() {
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
+                    {operationalHandoff && (
+                      <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>
+                            <strong>{operationalHandoff.label}</strong> · a continuidade agora é operacional.
+                            {operationalHandoff.resultCode === 'CRM-RES-021'
+                              ? ' Se a venda ainda não foi registrada, registre-a; se já existe, confira em Operações.'
+                              : ' Confira o próximo passo no módulo responsável.'}
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {operationalHandoff.resultCode === 'CRM-RES-021' && (
+                              <Button size="sm" className="h-7 gap-1 px-2 text-[10px]" onClick={() => setSaleOpen(true)}>
+                                <ShoppingCart className="h-3.5 w-3.5" /> Registrar venda
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10px]" asChild>
+                              <Link to="/operacoes">Abrir Operações <ArrowRight className="h-3.5 w-3.5" /></Link>
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => setOperationalHandoff(null)}>
+                              Depois
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selected.next_action_title} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
@@ -1400,7 +1428,10 @@ export default function ContatosInbox() {
           contactName={selected.name}
           contactHandle={selected.whatsapp || selected.phone}
           onCreated={load}
-          onSaleCreated={() => setSaleDecisionOpen(true)}
+          onSaleCreated={() => {
+            setOperationalHandoff(null);
+            setSaleDecisionOpen(true);
+          }}
         />
       )}
       <AlertDialog open={saleDecisionOpen} onOpenChange={setSaleDecisionOpen}>
