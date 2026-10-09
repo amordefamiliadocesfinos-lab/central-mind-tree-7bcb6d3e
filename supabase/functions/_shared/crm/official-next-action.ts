@@ -57,22 +57,11 @@ function isFollowUpAttempt(row: FollowUpHistoryRow): boolean {
     && (metadata as Record<string, unknown>).kind === FOLLOW_UP_ATTEMPT_KIND);
 }
 
-/**
- * Writer server-side não pode depender do estado visual da Inbox. Esta leitura
- * espelha o contrato do ciclo: só tentativas explícitas contam; inbound/venda
- * e demais fatos canônicos iniciam um novo ciclo.
- *
- * `currentAttemptWillBeRegistered` fecha a janela entre o envio server-side e
- * o registro da tentativa no frontend: quando o envio atual já é o 3º follow-up
- * real, ele é considerado antes de decidir se uma nova obrigação automática
- * pode nascer. Assim nunca surge uma 4ª tarefa/return_at por defasagem temporal.
- */
-export async function canCreateAutomaticFollowUpObligation(
+export async function getOfficialFollowUpCycleState(
   supabase: any,
   contactId: string,
   lastInboundAt?: string | null,
-  currentAttemptWillBeRegistered = false,
-): Promise<boolean> {
+) {
   const { data, error } = await supabase
     .from('contact_history')
     .select('event_code, event_metadata, interaction_date, created_at')
@@ -93,7 +82,72 @@ export async function canCreateAutomaticFollowUpObligation(
     }
   }
   const attempts = rows.filter(({ row, at }) => isFollowUpAttempt(row) && (!boundary || at > boundary));
-  const effectiveAttemptCount = attempts.length + (currentAttemptWillBeRegistered ? 1 : 0);
+  return {
+    attemptCount: attempts.length,
+    nextAttemptNumber: attempts.length + 1,
+    limitReached: attempts.length >= FOLLOW_UP_LIMIT,
+    cycleStartedAt: attempts[0]?.at ?? null,
+  };
+}
+
+export async function registerOfficialFollowUpAttempt(
+  supabase: any,
+  input: {
+    contactId: string;
+    lastInboundAt?: string | null;
+    occurredAt: string;
+    preview?: string | null;
+  },
+) {
+  const current = await getOfficialFollowUpCycleState(supabase, input.contactId, input.lastInboundAt);
+  if (current.limitReached) return current;
+
+  const attemptNumber = current.nextAttemptNumber;
+  const cycleStartedAt = current.cycleStartedAt ?? input.occurredAt;
+  const preview = String(input.preview ?? '').trim();
+  const { error } = await supabase.from('contact_history').insert({
+    contact_id: input.contactId,
+    event_type: 'whatsapp',
+    interaction_type: 'mensagem',
+    event_code: 'follow_up_completed',
+    event_metadata: {
+      kind: FOLLOW_UP_ATTEMPT_KIND,
+      attempt_number: attemptNumber,
+      cycle_started_at: cycleStartedAt,
+      campaign_id: null,
+      source: 'outbound_operational',
+    },
+    description: `🔁 Follow-up ${attemptNumber} de ${FOLLOW_UP_LIMIT}${preview ? ` · "${preview.slice(0, 80)}"` : ''}`,
+    interaction_date: input.occurredAt,
+  });
+  if (error) throw error;
+
+  return {
+    attemptCount: attemptNumber,
+    nextAttemptNumber: attemptNumber + 1,
+    limitReached: attemptNumber >= FOLLOW_UP_LIMIT,
+    cycleStartedAt,
+  };
+}
+
+/**
+ * Writer server-side não pode depender do estado visual da Inbox. Esta leitura
+ * espelha o contrato do ciclo: só tentativas explícitas contam; inbound/venda
+ * e demais fatos canônicos iniciam um novo ciclo.
+ *
+ * `currentAttemptWillBeRegistered` fecha a janela entre o envio server-side e
+ * o registro da tentativa no frontend: quando o envio atual já é o 3º follow-up
+ * real, ele é considerado antes de decidir se uma nova obrigação automática
+ * pode nascer. Assim nunca surge uma 4ª tarefa/return_at por defasagem temporal.
+ */
+export async function canCreateAutomaticFollowUpObligation(
+  supabase: any,
+  contactId: string,
+  lastInboundAt?: string | null,
+  currentAttemptWillBeRegistered = false,
+): Promise<boolean> {
+  const state = await getOfficialFollowUpCycleState(supabase, contactId, lastInboundAt);
+  const effectiveAttemptCount = state.attemptCount + (currentAttemptWillBeRegistered ? 1 : 0);
   return effectiveAttemptCount < FOLLOW_UP_LIMIT;
 }
 
