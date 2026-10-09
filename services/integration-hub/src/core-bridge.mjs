@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 export const CORE_BRIDGE_URL = 'https://xkskyutmtlhivvpfxkjg.supabase.co/functions/v1/integration-core-bridge';
+export const CORE_BRIDGE_LIVE_CONTENT_TYPE = 'application/vnd.painel.shopee-live-v1+json';
+const JSON_CONTENT_TYPE = 'application/json';
 const TIMEOUT_MS = 5000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 
@@ -25,10 +27,11 @@ export function buildSignedHeaders({
   body,
   timestamp = Math.floor(Date.now() / 1000),
   requestId = randomUUID(),
+  contentType = JSON_CONTENT_TYPE,
 }) {
   const canonical = `v1\n${timestamp}\n${requestId}\n${sha256Hex(body)}`;
   return {
-    'Content-Type': 'application/json',
+    'Content-Type': contentType,
     'X-Integration-Hub-Version': 'v1',
     'X-Integration-Hub-Timestamp': String(timestamp),
     'X-Integration-Hub-Request-Id': requestId,
@@ -89,9 +92,12 @@ export async function callCoreBridgeAction({
     }
 
     const body = JSON.stringify({ action, ...data });
+    const contentType = action === CORE_BRIDGE_ACTIONS.HEALTH
+      ? JSON_CONTENT_TYPE
+      : CORE_BRIDGE_LIVE_CONTENT_TYPE;
     const response = await fetchImpl(url, {
       method: 'POST',
-      headers: buildSignedHeaders({ secret, body, requestId }),
+      headers: buildSignedHeaders({ secret, body, requestId, contentType }),
       body,
       redirect: 'error',
       signal: AbortSignal.timeout(timeoutMs),
