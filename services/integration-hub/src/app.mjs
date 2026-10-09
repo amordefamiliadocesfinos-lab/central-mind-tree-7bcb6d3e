@@ -1,5 +1,6 @@
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge } from './core-bridge.mjs';
+import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -15,7 +16,13 @@ function json(status, body) {
   };
 }
 
-export async function handleRequest(request, { probeCore = probeCoreBridge } = {}) {
+export async function handleRequest(
+  request,
+  { probeCore = probeCoreBridge, handleShopeeLive = handleShopeeLiveOauthRequest } = {},
+) {
+  const shopeeLiveResponse = await handleShopeeLive(request);
+  if (shopeeLiveResponse) return shopeeLiveResponse;
+
   if (String(request.path ?? '/') !== '/health/core') return routeRequest(request);
   if (String(request.method ?? 'GET').toUpperCase() !== 'GET') {
     return json(405, { error: 'method_not_allowed' });
