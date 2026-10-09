@@ -1,4 +1,4 @@
-import { normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult } from './aiResultSuggestion';
+import { guardShortConfirmationStrongResult, normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult } from './aiResultSuggestion';
 import type { CrmAiContextSources } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -74,6 +74,31 @@ async function run() {
     },
   );
   assert(nextOperationalDay.reason.includes('data futura'), 'retorno em outro dia deve preservar a classificação futura.');
+
+  // F5 — confirmação curta não prova Resultado forte.
+  const shortContext = {
+    messages: [{ direction: 'inbound', content: 'Sim', createdAt: '2026-10-09T17:50:57.000Z' }],
+  } as any;
+  const guardedOrder = guardShortConfirmationStrongResult(
+    { code: 'CRM-RES-021', label: 'Pedido confirmado', confidence: 0.95, reason: 'Cliente respondeu sim.', evidenceQuotes: ['Sim'] },
+    shortContext,
+  );
+  assert(guardedOrder.code === null && guardedOrder.tentativeCode === 'CRM-RES-021' && guardedOrder.confidence <= 0.5,
+    '“Sim” isolado não pode tornar Pedido confirmado acionável.');
+
+  const guardedPayment = guardShortConfirmationStrongResult(
+    { code: 'CRM-RES-020', label: 'Pagamento confirmado', confidence: 0.9, reason: 'Cliente respondeu ok.', evidenceQuotes: ['ok'] },
+    { messages: [{ direction: 'inbound', content: 'ok', createdAt: '2026-10-09T17:50:57.000Z' }] } as any,
+  );
+  assert(guardedPayment.code === null && guardedPayment.tentativeCode === 'CRM-RES-020',
+    '“ok” isolado não pode confirmar pagamento.');
+
+  const explicitOrder = guardShortConfirmationStrongResult(
+    { code: 'CRM-RES-021', label: 'Pedido confirmado', confidence: 0.9, reason: 'Confirmação explícita.', evidenceQuotes: ['Pode fechar o pedido de 1000 unidades'] },
+    { messages: [{ direction: 'inbound', content: 'Pode fechar o pedido de 1000 unidades', createdAt: '2026-10-09T17:50:57.000Z' }] } as any,
+  );
+  assert(explicitOrder.code === 'CRM-RES-021',
+    'confirmação específica não deve ser bloqueada pela guarda de resposta curta.');
 
   // Fluxo completo com invoke simulado
   const suggestion = await suggestCrmResult('c1', 'conv1', {
