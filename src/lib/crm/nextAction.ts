@@ -50,6 +50,27 @@ async function syncMatchingConversationReturn(input: {
   if (error) throw error;
 }
 
+function formatHistoryDate(value?: string | null) {
+  if (!value) return 'Sem data';
+  const date = value.slice(0, 10);
+  const [year, month, day] = date.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+export function describeCrmNextActionChange(input: {
+  previousTitle?: string | null;
+  previousDueAt?: string | null;
+  nextTitle: string;
+  nextDueAt: string;
+}) {
+  const previousTitle = input.previousTitle?.trim() || null;
+  const sameTitle = previousTitle === input.nextTitle.trim();
+  if (sameTitle && input.previousDueAt && input.previousDueAt !== input.nextDueAt) {
+    return `Próxima ação reagendada: ${input.nextTitle} · ${formatHistoryDate(input.previousDueAt)} → ${formatHistoryDate(input.nextDueAt)}`;
+  }
+  return `Próxima ação substituída: ${previousTitle || 'Sem título'} → ${input.nextTitle}`;
+}
+
 function requireValidAction(action: CrmNextAction) {
   const title = action.title?.trim();
   if (!title || !action.dueAt) throw new Error('Próxima ação e data são obrigatórias');
@@ -146,7 +167,12 @@ export async function setCrmNextAction(input: SetCrmNextActionInput) {
       contact_id: input.contactId,
       event_type: 'follow_up',
       interaction_type: 'sistema',
-      description: `Próxima ação substituída: ${previousTitle || 'Sem título'} → ${title}`,
+      description: describeCrmNextActionChange({
+        previousTitle,
+        previousDueAt,
+        nextTitle: title,
+        nextDueAt: dueAt,
+      }),
       interaction_date: new Date().toISOString(),
       event_metadata: {
         source: CRM_TASK_SOURCE,
