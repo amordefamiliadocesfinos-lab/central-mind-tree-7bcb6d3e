@@ -424,7 +424,8 @@ export default function ContatosInbox() {
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contact.id) || null,
-        last_result_at: null,
+        last_result_at: lastResultByContact.get(contact.id) || null,
+        last_no_new_fact_at: lastReviewedByContact.get(contact.id) || null,
       });
     }
 
@@ -473,7 +474,8 @@ export default function ContatosInbox() {
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contactId) || null,
-        last_result_at: null,
+        last_result_at: lastResultByContact.get(contactId) || null,
+        last_no_new_fact_at: lastReviewedByContact.get(contactId) || null,
       });
     }
 
