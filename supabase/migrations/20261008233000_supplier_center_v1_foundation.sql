@@ -402,10 +402,50 @@ CREATE TRIGGER trg_validate_supplier_catalog_item
     supplier_document_id,
     product_id,
     variant_id,
-    purchase_presentation_id
+    purchase_presentation_id,
+    status
   ON public.supplier_catalog_items
   FOR EACH ROW
   EXECUTE FUNCTION public.validate_supplier_catalog_item();
+
+-- Preserve the supplier-only invariant when a canonical contact changes type.
+-- Existing supplier-related rows must be detached first, rather than silently
+-- becoming linked to a customer-only contact.
+CREATE OR REPLACE FUNCTION public.protect_supplier_contact_type()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF OLD.type IN ('fornecedor', 'ambos')
+     AND NEW.type NOT IN ('fornecedor', 'ambos')
+     AND (
+       EXISTS (
+         SELECT 1 FROM public.supplier_procurement_profiles
+         WHERE supplier_contact_id = OLD.id
+       )
+       OR EXISTS (
+         SELECT 1 FROM public.supplier_documents
+         WHERE supplier_contact_id = OLD.id
+       )
+       OR EXISTS (
+         SELECT 1 FROM public.supplier_catalog_items
+         WHERE supplier_contact_id = OLD.id
+       )
+     ) THEN
+    RAISE EXCEPTION
+      'Contato possui dados de suprimentos e não pode deixar de ser fornecedor.';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_protect_supplier_contact_type
+  ON public.contacts;
+CREATE TRIGGER trg_protect_supplier_contact_type
+  BEFORE UPDATE OF type ON public.contacts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_supplier_contact_type();
 
 -- ---------------------------------------------------------------------------
 -- 6. updated_at.
