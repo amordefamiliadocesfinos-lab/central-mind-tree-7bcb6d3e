@@ -33,6 +33,45 @@ function normalizeState(value?: string | null) {
     .replace(/[\s-]+/g, '_');
 }
 
+export function isCrmReactivationDue(
+  scheduledDate?: string | null,
+  scheduledTime?: string | null,
+  occurredAt?: string | null,
+): boolean {
+  if (!scheduledDate || !occurredAt) return false;
+  const suppliedTime = scheduledTime?.trim();
+  const match = suppliedTime?.match(/^(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if (suppliedTime && !match) return false;
+  // Operação CRM é America/Sao_Paulo; em 2026 o offset operacional é -03:00.
+  const dueAt = Date.parse(`${scheduledDate}T${match?.[1] ?? '09:00'}:00-03:00`);
+  const eventAt = Date.parse(occurredAt);
+  return Number.isFinite(dueAt) && Number.isFinite(eventAt) && dueAt <= eventAt;
+}
+
+async function completeDueCrmReactivation(supabase: any, contactId: string, occurredAt: string) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id,scheduled_date,scheduled_time,due_date')
+    .eq('contact_id', contactId)
+    .eq('source', 'crm_reactivation')
+    .is('deleted_at', null)
+    .neq('status', 'concluído')
+    .neq('status', 'concluida')
+    .neq('status', 'concluido')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || !isCrmReactivationDue(data.scheduled_date || data.due_date, data.scheduled_time, occurredAt)) return false;
+
+  const { error: updateError } = await supabase
+    .from('tasks')
+    .update({ status: 'concluído', updated_at: occurredAt })
+    .eq('id', data.id);
+  if (updateError) throw updateError;
+  return true;
+}
+
 export function isRealFollowUpOutbound(
   conversation: OutboundConversationSnapshot,
   occurredAt: string,
@@ -81,6 +120,8 @@ export async function applyOutboundOperationalEffects(
   if (!conversation.contact_id) {
     return { automaticFollowUpScheduled: null, preservedExistingObligation: false };
   }
+
+  await completeDueCrmReactivation(supabase, conversation.contact_id, occurredAt);
 
   const [{ data: contact, error: contactError }, { data: pendingTask, error: taskError }] = await Promise.all([
     supabase
