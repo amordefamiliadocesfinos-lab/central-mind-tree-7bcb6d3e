@@ -14,7 +14,7 @@ import { recommendCrmNextAction, type CrmNextActionRecommendation } from '@/lib/
 import { suggestCrmReplyFromContext } from '@/lib/crm/aiReplySuggestion';
 import { CrmAssistantCard, type CrmAssistantAnalysis } from './CrmAssistantCard';
 import { getFollowUpCycleLabel, getFollowUpLimitNotice, type FollowUpCycleState } from '@/lib/crm/followUpCycle';
-import { loadFollowUpCycle, registerFollowUpAttemptIfReal } from '@/lib/crm/followUpTracking';
+import { loadFollowUpCycle } from '@/lib/crm/followUpTracking';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { buildCrmCommunicationDecision, DEFAULT_BUILDING_COMMUNICATION_PROFILE } from '@/lib/crm/communication';
 import { calculateRepurchaseSignal, hasFutureCrmReactivation, loadRepurchaseOrders } from '@/lib/crm/repurchase';
@@ -394,20 +394,13 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       } catch (reactivationError) {
         console.warn('Mensagem enviada, mas não foi possível concluir a reativação:', reactivationError);
       }
-      // F5.2.1 — só conta como tentativa quando é follow-up real (fora de campanha).
+      // F2 — o ciclo de follow-up agora é escrito server-side pelo mesmo
+      // evento operacional usado por CRM e mobile_echo. O frontend só relê.
       try {
-        const nextCycle = await registerFollowUpAttemptIfReal({
-          contactId,
-          mode: 'manual',
-          attendanceState: conversationMeta?.attendance_state,
-          returnAt: conversationMeta?.return_at,
-          lastInboundAt: conversationMeta?.last_inbound_at,
-          lastOutboundAt: conversationMeta?.last_outbound_at,
-          preview: content ? (content.length > 80 ? `${content.slice(0, 80)}…` : content) : null,
-        });
+        const nextCycle = await loadFollowUpCycle(contactId, { lastInboundAt: conversationMeta?.last_inbound_at });
         setFollowUpCycle(nextCycle);
       } catch (followUpError) {
-        console.warn('Mensagem enviada, mas o ciclo de follow-up não foi atualizado:', followUpError);
+        console.warn('Mensagem enviada, mas o ciclo de follow-up não pôde ser recarregado:', followUpError);
       }
       setText('');
       setAttachment(null);
