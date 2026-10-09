@@ -94,6 +94,8 @@ export async function applyOutboundOperationalEffects(
       .eq('source', 'crm_next_action')
       .is('deleted_at', null)
       .neq('status', 'concluído')
+      .neq('status', 'concluida')
+      .neq('status', 'concluido')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
