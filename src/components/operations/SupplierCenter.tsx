@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { FileText, Plus, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const db = supabase as any;
+const db = supabase;
 const statuses = [
   ['prospectado', 'Prospectado'], ['em_contato', 'Em contato'],
   ['em_avaliacao', 'Em avaliação'], ['qualificado', 'Qualificado'],
@@ -37,6 +38,7 @@ type SupplierDocument = {
   storage_path: string; created_at: string;
 };
 function errorText(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'message' in error) return String(error.message);
   return error instanceof Error ? error.message : String(error);
 }
 function parseOptionalMoney(value: string): number | null {
@@ -73,12 +75,18 @@ export function SupplierCenter() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const requestToken = useRef(0);
   const selectedSupplier = useRef('');
   const selectSupplier = (id: string) => {
     selectedSupplier.current = id;
     requestToken.current += 1;
     setSupplierId(id);
+    setReady(false);
+    setDescription(''); setSupplierCode(''); setPresentation('');
+    setFile(null); setDocumentType('catalog');
+    setStatus('prospectado'); setSource(''); setNextAction(''); setNextDate('');
+    setMinOrder(''); setFreightTerms(''); setNotes(''); setDiscardReason('');
     setProfile(null);
     setItems([]);
     setDocuments([]);
@@ -95,6 +103,7 @@ export function SupplierCenter() {
     const token = ++requestToken.current;
     if (!id) { setProfile(null); setItems([]); setDocuments([]); setLoading(false); return; }
     setLoading(true);
+    setReady(false);
     try {
       const [p, i, d] = await Promise.all([
         db.from('supplier_procurement_profiles').select('*').eq('supplier_contact_id', id).maybeSingle(),
@@ -112,11 +121,12 @@ export function SupplierCenter() {
       setStatus(value?.lifecycle_status ?? 'prospectado');
       setSource(value?.source ?? '');
       setNextAction(value?.next_action_text ?? '');
-      setNextDate(value?.next_action_at?.slice(0, 16) ?? '');
+      setNextDate(value?.next_action_at ? format(new Date(value.next_action_at), "yyyy-MM-dd'T'HH:mm") : '');
       setMinOrder(value?.general_min_order_amount?.toString() ?? '');
       setFreightTerms(value?.freight_terms ?? '');
       setNotes(value?.notes ?? '');
       setDiscardReason(value?.discard_reason ?? '');
+      setReady(true);
     } catch (error) {
       if (token === requestToken.current && id === selectedSupplier.current) {
         toast.error('Não foi possível carregar fornecedor: ' + errorText(error));
@@ -127,9 +137,11 @@ export function SupplierCenter() {
   }, []);
 
   useEffect(() => { void load(supplierId); }, [supplierId, load]);
+  useEffect(() => () => { selectedSupplier.current = ''; requestToken.current += 1; }, []);
 
   const saveProfile = async () => {
-    if (!supplierId || busy) return;
+    if (!supplierId || busy || loading || !ready) return;
+    const operationToken = requestToken.current;
     setBusy(true);
     try {
       const value = {
@@ -145,14 +157,16 @@ export function SupplierCenter() {
       const { error } = await db.from('supplier_procurement_profiles')
         .upsert(value, { onConflict: 'supplier_contact_id' });
       if (error) throw error;
+      if (supplierId !== selectedSupplier.current || operationToken !== requestToken.current) return;
       toast.success('Perfil de suprimentos salvo.');
       await load(supplierId);
-    } catch (error) { toast.error(errorText(error)); }
+    } catch (error) { if (supplierId === selectedSupplier.current && operationToken === requestToken.current) toast.error(errorText(error)); }
     finally { setBusy(false); }
   };
 
   const addItem = async () => {
-    if (!supplierId || !description.trim() || busy) return;
+    if (!supplierId || !description.trim() || busy || loading || !ready) return;
+    const operationToken = requestToken.current;
     setBusy(true);
     try {
       const { error } = await db.from('supplier_catalog_items').insert({
@@ -161,15 +175,17 @@ export function SupplierCenter() {
         presentation_label: presentation.trim() || null,
       });
       if (error) throw error;
+      if (supplierId !== selectedSupplier.current || operationToken !== requestToken.current) return;
       setDescription(''); setSupplierCode(''); setPresentation('');
       toast.success('Oportunidade adicionada ao catálogo, sem criar Produto.');
       await load(supplierId);
-    } catch (error) { toast.error(errorText(error)); }
+    } catch (error) { if (supplierId === selectedSupplier.current && operationToken === requestToken.current) toast.error(errorText(error)); }
     finally { setBusy(false); }
   };
 
   const uploadDocument = async () => {
-    if (!supplierId || !file || busy) return;
+    if (!supplierId || !file || busy || loading || !ready) return;
+    const operationToken = requestToken.current;
     setBusy(true);
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const path = `suppliers/${supplierId}/${crypto.randomUUID()}-${safeName}`;
@@ -186,10 +202,11 @@ export function SupplierCenter() {
         await supabase.storage.from('order-documents').remove([path]);
         throw dbError;
       }
+      if (supplierId !== selectedSupplier.current || operationToken !== requestToken.current) return;
       setFile(null);
       toast.success('Documento armazenado no bucket privado e vinculado ao fornecedor.');
       await load(supplierId);
-    } catch (error) { toast.error(errorText(error)); }
+    } catch (error) { if (supplierId === selectedSupplier.current && operationToken === requestToken.current) toast.error(errorText(error)); }
     finally { setBusy(false); }
   };
 
@@ -222,7 +239,7 @@ export function SupplierCenter() {
               {filtered.map(s => (
                 <Button key={s.id} variant={supplierId === s.id ? 'secondary' : 'ghost'}
                   className="w-full justify-start h-auto text-left whitespace-normal"
-                  onClick={() => selectSupplier(s.id)}>{s.name}</Button>
+                  onClick={() => { if (s.id !== supplierId) selectSupplier(s.id); }}>{s.name}</Button>
               ))}
             </div>
           </CardContent>
@@ -230,7 +247,7 @@ export function SupplierCenter() {
         {!selected ? (
           <Card><CardContent className="py-8 text-muted-foreground text-sm">Selecione um fornecedor existente. Para cadastrar outro, utilize o cadastro canônico de Contatos.</CardContent></Card>
         ) : (
-          <div className="space-y-4 min-w-0">
+          <fieldset disabled={loading || !ready} className="space-y-4 min-w-0">
             <Card>
               <CardHeader><CardTitle className="text-base">{selected.name} — Perfil de suprimentos</CardTitle></CardHeader>
               <CardContent className="space-y-3">
@@ -260,7 +277,7 @@ export function SupplierCenter() {
                   <Input aria-label="Código fornecedor" placeholder="Código (opcional)" value={supplierCode} onChange={e => setSupplierCode(e.target.value)} />
                   <Input aria-label="Apresentação comercial" placeholder="Apresentação (opcional)" value={presentation} onChange={e => setPresentation(e.target.value)} />
                 </div>
-                <Button variant="outline" onClick={() => void addItem()} disabled={busy || !description.trim()}><Plus className="mr-2 h-4 w-4" /> Adicionar item</Button>
+                <Button variant="outline" onClick={() => void addItem()} disabled={busy || loading || !description.trim()}><Plus className="mr-2 h-4 w-4" /> Adicionar item</Button>
                 <div className="space-y-2">{items.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item registrado.</p>}
                   {items.map(i => <div key={i.id} className="border rounded-md p-3 text-sm">
                     <div className="font-medium">{i.original_description}</div>
@@ -277,8 +294,8 @@ export function SupplierCenter() {
                   <div className="min-w-40 space-y-1"><Label>Tipo</Label><Select value={documentType} onValueChange={setDocumentType}><SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{documentTypes.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                   </Select></div>
-                  <Input className="max-w-xs" aria-label="Selecionar documento" type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
-                  <Button variant="outline" onClick={() => void uploadDocument()} disabled={!file || busy}><Upload className="mr-2 h-4 w-4" /> Enviar</Button>
+                  <Input key={supplierId} className="max-w-xs" aria-label="Selecionar documento" type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                  <Button variant="outline" onClick={() => void uploadDocument()} disabled={!file || busy || loading}><Upload className="mr-2 h-4 w-4" /> Enviar</Button>
                 </div>
                 {documents.map(d => <div key={d.id} className="flex justify-between items-center gap-2 border rounded-md p-3 text-sm">
                   <div className="flex gap-2 items-center min-w-0"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{d.file_name}</span></div>
@@ -287,7 +304,7 @@ export function SupplierCenter() {
                 {documents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum documento registrado.</p>}
               </CardContent>
             </Card>
-          </div>
+          </fieldset>
         )}
       </div>
     </div>
