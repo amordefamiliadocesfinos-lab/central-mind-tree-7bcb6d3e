@@ -35,6 +35,8 @@ export interface CrmPriorityInput {
   last_message_at?: string | null;
   /** Momento do último Resultado canônico registrado para o contato. */
   last_result_at?: string | null;
+  /** Revisão explícita: última mensagem tratada sem novo fato comercial. */
+  last_no_new_fact_at?: string | null;
 
   /** Momento em que o estado atual do atendimento foi registrado. */
   attendance_state_updated_at?: string | null;
@@ -164,9 +166,11 @@ export function getCrmPriority(input: CrmPriorityInput, now = new Date()): CrmPr
   // relevante do cliente ainda não recebeu um Resultado canônico: o operador
   // precisa continuar acessando a conversa para registrar o Resultado.
   const lastResultAt = asTime(input.last_result_at);
+  const noNewFactAt = asTime(input.last_no_new_fact_at);
+  const lastClassifiedAt = Math.max(lastResultAt ?? 0, noNewFactAt ?? 0);
   const pendingResult = lastInboundAt !== null
     && lastInboundAt >= start - (7 * 86400000)
-    && (lastResultAt === null || lastInboundAt > lastResultAt);
+    && lastInboundAt > lastClassifiedAt;
 
   // F1 — tarefa executada não é tarefa concluída. Se a Próxima Ação oficial
   // já venceu e houve outbound depois do vencimento, a obrigação foi executada
