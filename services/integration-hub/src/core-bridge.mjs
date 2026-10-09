@@ -4,7 +4,9 @@ export const CORE_BRIDGE_URL = 'https://xkskyutmtlhivvpfxkjg.supabase.co/functio
 export const CORE_BRIDGE_LIVE_CONTENT_TYPE = 'application/vnd.painel.shopee-live-v1+json';
 const JSON_CONTENT_TYPE = 'application/json';
 const TIMEOUT_MS = 5000;
-const MAX_RESPONSE_BYTES = 64 * 1024;
+// Core Bridge responses remain small and sanitized, including Shopee Live actions.
+// Keep the original F3 response ceiling so oversized upstream responses fail closed.
+const MAX_RESPONSE_BYTES = 1024;
 
 export const CORE_BRIDGE_ACTIONS = Object.freeze({
   HEALTH: 'health',
