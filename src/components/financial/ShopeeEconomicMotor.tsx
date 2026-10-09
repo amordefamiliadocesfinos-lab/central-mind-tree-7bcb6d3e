@@ -9,6 +9,7 @@ import {
   Target,
   TrendingUp,
   Wallet,
+  Save,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import { usePlatforms } from '@/hooks/usePlatforms';
 import { useChannelAccounts } from '@/hooks/useChannelAccounts';
 import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
+import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
   directCommercialPresentation,
@@ -134,6 +136,12 @@ export function ShopeeEconomicMotor() {
   const [costPerUnit, setCostPerUnit] = useState(0);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
+  const {
+    createSnapshot,
+    saving: snapshotSaving,
+    error: snapshotError,
+    lastSnapshotId,
+  } = useEconomicPredictionSnapshots();
 
   useEffect(() => {
     if (accountsLoading || accountId || activeAccounts.length === 0) return;
@@ -326,6 +334,106 @@ export function ShopeeEconomicMotor() {
       : 'Nenhum regime histórico foi resolvido para a conta selecionada.',
   };
 
+  const freezePrediction = async () => {
+    if (!accountId || !productId) return;
+
+    await createSnapshot({
+      engine_key: 'shopee-economic-v2',
+      engine_version: rreResolution.regime?.engineVersion ?? '2.0.0',
+      rule_version_id: rreResolution.regime?.id ?? null,
+      rule_version: rreResolution.regime?.ruleVersion ?? null,
+      marketplace: 'shopee',
+      channel_account_id: accountId,
+      marketplace_product_mapping_id: selectedOffer?.mapping.id ?? null,
+      product_id: productId,
+      variant_id: variantId,
+      commercial_presentation_id: presentationId === DIRECT_PRESENTATION_ID ? null : presentationId,
+      effective_at: effectiveAt,
+      confidence: rreResolution.confidence,
+      input_snapshot: {
+        accountId,
+        offer: selectedOffer ? {
+          mappingId: selectedOffer.mapping.id,
+          externalItemKey: selectedOffer.mapping.external_item_key,
+          externalProductTitle: selectedOffer.mapping.external_product_title,
+          externalVariation: selectedOffer.mapping.external_variation,
+          match: selectedOffer.match,
+          physicalMultiplier: Number(selectedOffer.mapping.physical_multiplier),
+        } : null,
+        product: selectedProduct ? {
+          id: selectedProduct.id,
+          name: selectedProduct.name,
+        } : null,
+        variant: selectedVariant ? {
+          id: selectedVariant.id,
+          name: selectedVariant.variant_name,
+        } : null,
+        presentation: {
+          id: presentationId === DIRECT_PRESENTATION_ID ? null : presentationId,
+          name: selectedPresentation.name,
+          commercialUnitLabel: selectedPresentation.commercial_unit_label,
+          conversionFactor: presentationFactor,
+        },
+        q: commonInput.q,
+        volumePhysical,
+        originalPrice,
+        agreedPrice,
+        commissionPct,
+        transactionPct,
+        servicePct,
+        adsPct,
+        affiliatePct,
+        retMCharges,
+        retMBenefits,
+        costPerUnit: costPerUnit > 0 ? costPerUnit : null,
+        targetMarginPct,
+        baselinePrice,
+      },
+      result_snapshot: {
+        ticket: result.ticket,
+        commission: result.commission,
+        transaction: result.transaction,
+        serviceAdditional: result.serviceAdditional,
+        adsEasy: result.adsEasy,
+        affiliate: result.affiliate,
+        tsiBand,
+        tsiUnit: result.tsiUnit,
+        tsiTotal: result.tsiTotal,
+        serviceTotal: result.serviceTotal,
+        retMChargesTotal: result.retMChargesTotal,
+        retMBenefitsTotal: result.retMBenefitsTotal,
+        repasse: result.repasse,
+        shopeeAbsorption: result.shopeeAbsorption,
+        absorptionPct,
+        reu,
+        costTotal,
+        marginCurrent,
+        previousWall,
+        nextWall,
+        recovery,
+        isDominated,
+        requiredRepasse,
+        pmr,
+        tceBe,
+      },
+      evidence_snapshot: {
+        confidence: rreResolution.confidence,
+        matchedBy: rreResolution.matchedBy,
+        warnings: rreResolution.warnings,
+        rule: rreResolution.regime ? {
+          id: rreResolution.regime.id,
+          engineVersion: rreResolution.regime.engineVersion,
+          ruleVersion: rreResolution.regime.ruleVersion,
+          effectiveFrom: rreResolution.regime.observedFrom,
+          effectiveTo: rreResolution.regime.observedTo,
+          sourceRefs: rreResolution.regime.sourceRefs,
+          offerSpecific: rreResolution.regime.offerSpecific,
+        } : null,
+      },
+      pending_snapshot: rreResolution.missing,
+    });
+  };
+
   const wallTone = isDominated ? 'danger' : nextWall ? 'warn' : 'default';
 
   return (
@@ -342,7 +450,17 @@ export function ShopeeEconomicMotor() {
                 Protótipo funcional MV2-12 baseado no checkpoint canônico V0.6. Histórico orienta; transação real decide.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={freezePrediction}
+                disabled={snapshotSaving || !accountId || !productId}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {snapshotSaving ? 'Congelando...' : 'Congelar previsão'}
+              </Button>
               <Badge variant="outline">V0.6</Badge>
               <Badge variant="secondary">{selectedProduct?.name ?? 'Produto não selecionado'}</Badge>
               <Badge className={cn(
@@ -703,6 +821,12 @@ export function ShopeeEconomicMotor() {
                   <p className="mt-1 text-muted-foreground">
                     TSI, taxas e regimes são referências históricas do período estudado. O protótipo não homologa preço, custo, margem ou configuração futura da Shopee. Use a transação real para reconciliar o previsto.
                   </p>
+                  {snapshotError && <p className="mt-2 text-xs text-destructive">{snapshotError}</p>}
+                  {lastSnapshotId && (
+                    <p className="mt-2 text-xs text-emerald-600">
+                      Previsão congelada como snapshot imutável: {lastSnapshotId}.
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
