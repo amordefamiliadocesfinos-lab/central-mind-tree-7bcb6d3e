@@ -38,7 +38,7 @@ export interface SuggestCrmReplyOptions {
   invoke?: (payload: unknown) => Promise<any>;
 }
 
-const PASSIVE_OBJECTION_CLOSE = /\b(?:aguard(?:amos|o) (?:o )?seu retorno|fico no aguardo|quando tiver novidades|quando puder(?:,)? (?:me )?cham[ae]|quando conseguir(?:,)? (?:me )?avis[ae])\b/i;
+const PASSIVE_OBJECTION_CLOSE = /\b(?:aguard(?:amos|o) (?:o )?seu retorno|fic(?:o|amos) no aguardo(?: do seu retorno)?|quando tiver novidades|quando puder(?:,)? (?:me )?cham[ae]|quando conseguir(?:,)? (?:me )?avis[ae])\b/i;
 
 export function guardTreatableObjectionReply(
   suggestion: CrmReplySuggestion,
