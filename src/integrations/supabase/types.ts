@@ -7125,6 +7125,118 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_catalog_items: {
+        Row: {
+          brand: string | null
+          created_at: string
+          declared_content_qty: number | null
+          declared_content_unit: string | null
+          id: string
+          is_active: boolean
+          normalized_name: string | null
+          notes: string | null
+          original_description: string
+          presentation_label: string | null
+          product_id: string | null
+          purchase_presentation_id: string | null
+          purchase_unit_label: string | null
+          status: string
+          supplier_code: string | null
+          supplier_contact_id: string
+          supplier_document_id: string | null
+          supply_group_id: string | null
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          declared_content_qty?: number | null
+          declared_content_unit?: string | null
+          id?: string
+          is_active?: boolean
+          normalized_name?: string | null
+          notes?: string | null
+          original_description: string
+          presentation_label?: string | null
+          product_id?: string | null
+          purchase_presentation_id?: string | null
+          purchase_unit_label?: string | null
+          status?: string
+          supplier_code?: string | null
+          supplier_contact_id: string
+          supplier_document_id?: string | null
+          supply_group_id?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          declared_content_qty?: number | null
+          declared_content_unit?: string | null
+          id?: string
+          is_active?: boolean
+          normalized_name?: string | null
+          notes?: string | null
+          original_description?: string
+          presentation_label?: string | null
+          product_id?: string | null
+          purchase_presentation_id?: string | null
+          purchase_unit_label?: string | null
+          status?: string
+          supplier_code?: string | null
+          supplier_contact_id?: string
+          supplier_document_id?: string | null
+          supply_group_id?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_catalog_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_catalog_items_purchase_presentation_id_fkey"
+            columns: ["purchase_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_catalog_items_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_catalog_items_supplier_document_id_fkey"
+            columns: ["supplier_document_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_catalog_items_supply_group_id_fkey"
+            columns: ["supply_group_id"]
+            isOneToOne: false
+            referencedRelation: "supply_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_catalog_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_delivery_schedules: {
         Row: {
           created_at: string
@@ -7171,6 +7283,222 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      supplier_documents: {
+        Row: {
+          created_at: string
+          document_date: string | null
+          document_type: string
+          extracted_data: Json | null
+          extraction_status: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          source: string
+          storage_bucket: string
+          storage_path: string
+          supersedes_document_id: string | null
+          supplier_contact_id: string
+          updated_at: string
+          uploaded_by: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string
+          extracted_data?: Json | null
+          extraction_status?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          source?: string
+          storage_bucket?: string
+          storage_path: string
+          supersedes_document_id?: string | null
+          supplier_contact_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string
+          extracted_data?: Json | null
+          extraction_status?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          source?: string
+          storage_bucket?: string
+          storage_path?: string
+          supersedes_document_id?: string | null
+          supplier_contact_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_documents_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_procurement_profiles: {
+        Row: {
+          created_at: string
+          discard_reason: string | null
+          freight_terms: string | null
+          general_min_order_amount: number | null
+          last_contact_at: string | null
+          lifecycle_status: string
+          next_action_at: string | null
+          next_action_text: string | null
+          notes: string | null
+          source: string | null
+          supplier_contact_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discard_reason?: string | null
+          freight_terms?: string | null
+          general_min_order_amount?: number | null
+          last_contact_at?: string | null
+          lifecycle_status?: string
+          next_action_at?: string | null
+          next_action_text?: string | null
+          notes?: string | null
+          source?: string | null
+          supplier_contact_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discard_reason?: string | null
+          freight_terms?: string | null
+          general_min_order_amount?: number | null
+          last_contact_at?: string | null
+          lifecycle_status?: string
+          next_action_at?: string | null
+          next_action_text?: string | null
+          notes?: string | null
+          source?: string | null
+          supplier_contact_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_procurement_profiles_supplier_contact_id_fkey"
+            columns: ["supplier_contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supply_group_product_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          product_id: string
+          supply_group_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          product_id: string
+          supply_group_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          product_id?: string
+          supply_group_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_group_product_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_group_product_links_supply_group_id_fkey"
+            columns: ["supply_group_id"]
+            isOneToOne: false
+            referencedRelation: "supply_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_group_product_links_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supply_groups: {
+        Row: {
+          comparison_unit: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          comparison_unit?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comparison_unit?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       task_merge_history: {
         Row: {
@@ -7556,6 +7884,10 @@ export type Database = {
       assert_operational_incident_manager: { Args: never; Returns: undefined }
       assert_physical_identity: {
         Args: { p_context: string; p_product_id: string; p_variant_id: string }
+        Returns: undefined
+      }
+      assert_procurement_supplier_contact: {
+        Args: { p_context: string; p_supplier_contact_id: string }
         Returns: undefined
       }
       assert_production_closing_manager: { Args: never; Returns: undefined }
