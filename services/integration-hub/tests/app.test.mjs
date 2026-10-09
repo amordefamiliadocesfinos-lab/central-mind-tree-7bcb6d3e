@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routeRequest } from '../src/app.mjs';
+import { handleRequest, routeRequest } from '../src/app.mjs';
 import { defineConnectorDescriptor } from '../src/contracts.mjs';
 
 test('GET /health exposes only minimal runtime metadata', () => {
@@ -42,4 +42,20 @@ test('connector descriptor is provider-agnostic and capability constrained', () 
     () => defineConnectorDescriptor({ provider: 'x', environment: 'live', capabilities: ['database-admin'] }),
     /unsupported connector capability/,
   );
+});
+
+
+test('authorized Shopee Live OAuth paths are delegated without exposing new generic routes', async () => {
+  const response = await handleRequest(
+    { method: 'GET', path: '/shopee/live/oauth/start', query: {}, headers: {} },
+    {
+      handleShopeeLive: async (request) => request.path === '/shopee/live/oauth/start'
+        ? { status: 302, headers: { Location: 'https://partner.shopeemobile.com/' }, body: '' }
+        : null,
+      probeCore: async () => true,
+    },
+  );
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.Location, 'https://partner.shopeemobile.com/');
 });

@@ -9,7 +9,12 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', 'http://integration-hub.local');
-  const routed = await handleRequest({ method: request.method, path: url.pathname });
+  const routed = await handleRequest({
+    method: request.method,
+    path: url.pathname,
+    query: Object.fromEntries(url.searchParams.entries()),
+    headers: request.headers,
+  });
 
   response.writeHead(routed.status, routed.headers);
   response.end(routed.body);
