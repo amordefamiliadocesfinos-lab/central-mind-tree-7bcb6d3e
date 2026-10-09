@@ -116,7 +116,17 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // F4.5 — assinatura do contexto atual: contato, conversa e última mensagem.
   // Se mudar (nova mensagem, troca de contato, Resultado registrado que recarrega
   // o histórico), a sugestão anterior é descartada em vez de parecer válida.
-  const contextStamp = `${contactId}|${conversationId ?? ''}|${messages.length}|${messages[messages.length - 1]?.id ?? ''}`;
+  const contextStamp = [
+    contactId,
+    conversationId ?? '',
+    messages.length,
+    messages[messages.length - 1]?.id ?? '',
+    funnelStage ?? '',
+    conversationMeta?.attendance_state ?? '',
+    conversationMeta?.return_at ?? '',
+    conversationMeta?.last_inbound_at ?? '',
+    conversationMeta?.last_outbound_at ?? '',
+  ].join('|');
   const aiDraftStale = Boolean(aiDraftStamp && aiDraftStamp !== contextStamp);
 
   const dismissAnalysis = () => {
@@ -618,6 +628,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 setPostSaleOrderContext({ contactId, conversationId, orderId: postSaleOrderId });
               }
               setText(reply.reply);
+              setAiDraftStamp(contextStamp);
               toast.success('Mensagem de pós-venda no campo — revise antes de enviar');
             } catch (error) {
               console.warn('Não foi possível preparar sugestão de pós-venda:', error);
@@ -641,6 +652,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 return;
               }
               setText(reply.reply);
+              setAiDraftStamp(contextStamp);
               toast.success('Mensagem sugerida no campo — revise antes de enviar');
             } catch (error) {
               console.warn('Não foi possível preparar sugestão de recompra:', error);
