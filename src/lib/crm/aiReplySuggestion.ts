@@ -38,6 +38,35 @@ export interface SuggestCrmReplyOptions {
   invoke?: (payload: unknown) => Promise<any>;
 }
 
+const PASSIVE_OBJECTION_CLOSE = /\b(?:aguard(?:amos|o) (?:o )?seu retorno|fic(?:o|amos) no aguardo(?: do seu retorno)?|quando tiver novidades|quando puder(?:,)? (?:me )?cham[ae]|quando conseguir(?:,)? (?:me )?avis[ae])\b/i;
+
+export function guardTreatableObjectionReply(
+  suggestion: CrmReplySuggestion,
+  decision?: CrmCommunicationDecision | null,
+): CrmReplySuggestion {
+  if (
+    !suggestion.reply
+    || decision?.commercialIntent !== 'objection'
+    || decision.decisionState !== 'action_required'
+    || decision.responsibility !== 'operator'
+  ) return suggestion;
+
+  // Pergunta ativa ou proposta de próximo movimento mantém a negociação viva.
+  if (suggestion.reply.includes('?')) return suggestion;
+  if (!PASSIVE_OBJECTION_CLOSE.test(suggestion.reply)) return suggestion;
+
+  const reason = 'A objeção continua tratável e sob responsabilidade do operador; uma resposta de espera passiva encerraria a negociação cedo demais.';
+  return {
+    reply: null,
+    message: null,
+    reason,
+    rationale: reason,
+    tone: null,
+    intent: 'none',
+    length: 'short',
+  };
+}
+
 export function normalizeReplyResponse(raw: any): CrmReplySuggestion {
   const text = typeof raw?.suggested_reply === 'string' ? raw.suggested_reply.trim() : '';
   const reply = text ? text : null;
@@ -220,5 +249,5 @@ export async function suggestCrmReplyFromContext(
     routing: { escalationReasons: getCrmAiEscalationReasons(context, { decision: options?.decision }) },
   });
   if (raw?.error) throw new Error(String(raw.error));
-  return normalizeReplyResponse(raw);
+  return guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision);
 }

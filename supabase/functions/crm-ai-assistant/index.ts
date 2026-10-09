@@ -72,6 +72,8 @@ Regras OBRIGATÓRIAS:
 - Escolha SOMENTE um código presente no catálogo enviado. Nunca invente código, etapa, próxima ação ou status.
 - Se a conversa ainda NÃO tem informação suficiente para registrar um Resultado com segurança, responda suggested_result_code = null.
 - Exemplo claro de null: o operador acabou de enviar uma mensagem e o cliente ainda não respondeu. NÃO sugira "Sem resposta" nesse caso.
+- Respostas curtas como "sim", "ok", "ótimo", "beleza" e "pode ser" respondem ao turno anterior e NÃO provam sozinhas Pedido confirmado ou Pagamento confirmado. Leia a pergunta anterior e o restante da negociação; sem fato explícito suficiente, use null ou confiança baixa.
+- Pedido confirmado e Pagamento confirmado exigem evidência específica. Nunca os derive apenas de concordância genérica.
 - Conversa ambígua = confiança baixa ou null.
 - Resposta de campanha usa o contexto normalmente; não existe Resultado especial de campanha.
 - Opt-out é apenas informação de contexto; não muda a análise.
@@ -242,6 +244,9 @@ Sua tarefa: sugerir a PRÓXIMA MENSAGEM que o operador enviaria ao cliente, coer
 Regras OBRIGATÓRIAS:
 - Retorne suggested_reply = null quando NÃO houver motivo real para responder agora. Exemplos: o operador acabou de enviar mensagem e o cliente não respondeu; estamos aguardando o cliente; conversa encerrada sem ação atual; contexto insuficiente. Nunca escreva mensagem só para preencher espaço.
 - Coerência: interesse demonstrado → avançar a conversa, nunca encerrar. Proposta em análise → respeitar o tempo do cliente, sem pressão indevida. Pagamento confirmado → reconhecer e orientar o próximo passo. Não deseja contato → NUNCA gerar nova abordagem promocional (retorne null).
+- Quando a decisão indicar intenção de objeção + responsabilidade do operador + ação requerida, NÃO encerre por padrão com "aguardamos seu retorno". Antes, tente UM próximo movimento legítimo para entender ou tratar a barreira (por exemplo: orçamento viável, quantidade menor, forma de pagamento, necessidade ou condição já conhecida no contexto).
+- Nunca transforme tratamento de objeção em pressão. Se o cliente adiar explicitamente, recusar, pedir retorno futuro ou a responsabilidade estiver com ele, respeite isso e não force nova alternativa.
+- Use exemplos aprovados do perfil somente como padrão de abordagem e estilo. Eles NÃO autorizam afirmar preço, desconto, estoque, prazo ou condição que não esteja nos fatos atuais.
 - OPT-OUT: se o contato está em opt-out comercial e a última mensagem NÃO é do cliente, retorne null. Se o cliente enviou mensagem recente, pode responder àquela mensagem, sem oferta comercial nova.
 - Escreva em português do Brasil, tom humano e direto, 1 a 4 frases, sem emojis em excesso, sem placeholders como [nome]. Use o primeiro nome do contato quando fizer sentido.
 - A DECISÃO OPERACIONAL é recebida pronta: não escolha nem altere Resultado, Próxima Ação, responsabilidade ou risco. O PERFIL influencia somente tom, tamanho e forma de escrever.

@@ -1,4 +1,4 @@
-import { suggestCrmReplyFromContext, normalizeReplyResponse } from './aiReplySuggestion';
+import { guardTreatableObjectionReply, suggestCrmReplyFromContext, normalizeReplyResponse } from './aiReplySuggestion';
 import type { CrmAiContext } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -162,6 +162,46 @@ async function run() {
     invoke: async () => ({ suggested_reply: null }),
   });
   assert(closedDecision.reply === null, 'L: decisão encerrada não deve usar FAQ histórica.');
+
+  // F5 — objeção tratável não pode ser encerrada passivamente pela IA.
+  const objectionDecision = {
+    situation: 'em_atendimento',
+    perceivedIntent: 'Objeção identificada',
+    responsibility: 'operator',
+    suggestedResult: { code: 'CRM-RES-010', confidence: 0.9 },
+    nextAction: { code: 'CRM-PA-009', source: 'canonical' },
+    shouldReply: true,
+    ambiguity: 'none',
+    riskFlags: [],
+    reason: 'Há uma barreira comercial a tratar.',
+    commercialIntent: 'objection',
+    decisionState: 'action_required',
+    paymentState: 'none',
+  } as any;
+  const passive = guardTreatableObjectionReply(
+    normalizeReplyResponse({ suggested_reply: 'Tudo bem. Ficamos no aguardo do seu retorno quando tiver novidades.', reason: 'Aguardar', tone: 'cordial' }),
+    objectionDecision,
+  );
+  assert(passive.reply === null, 'F5: objeção tratável não deve sugerir encerramento passivo.');
+
+  const active = guardTreatableObjectionReply(
+    normalizeReplyResponse({ suggested_reply: 'Qual seria um valor mais viável para você agora?', reason: 'Explorar alternativa', tone: 'consultivo' }),
+    objectionDecision,
+  );
+  assert(active.reply?.includes('valor mais viável'), 'F5: pergunta ativa e legítima deve permanecer disponível.');
+
+  lastPayload = null;
+  await suggestCrmReplyFromContext(
+    context({}, [inbound('Não consegui juntar o valor inteiro.')]),
+    {
+      result: { code: 'CRM-RES-010', label: 'Objeção identificada' },
+      nextAction: { nextActionCode: 'CRM-PA-009', nextActionLabel: 'Tratar objeção' },
+      decision: objectionDecision,
+      invoke: stub({ suggested_reply: 'Qual valor seria viável para você agora?', reason: 'Tratar objeção', tone: 'consultivo' }),
+    },
+  );
+  assert(Array.isArray(lastPayload.communicationProfile.approvedExamples) && lastPayload.communicationProfile.approvedExamples.length >= 3,
+    'F5: exemplos supervisionados devem chegar ao modelo como perfil de comunicação, não como fato canônico.');
 
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });

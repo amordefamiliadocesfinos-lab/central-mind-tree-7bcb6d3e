@@ -44,7 +44,7 @@ export interface CommunicationProfile {
   approvedExamples: string[];
 }
 
-/** Perfil neutro, local e aditivo enquanto o estilo do operador é documentado. */
+/** Perfil local, supervisionado e aditivo enquanto o estilo do operador é documentado. */
 export const DEFAULT_BUILDING_COMMUNICATION_PROFILE: CommunicationProfile = {
   status: 'building',
   formality: 'low',
@@ -57,7 +57,13 @@ export const DEFAULT_BUILDING_COMMUNICATION_PROFILE: CommunicationProfile = {
     'estamos à disposição',
     'não hesite em entrar em contato',
   ],
-  approvedExamples: [],
+  // Exemplos aprovados a partir de uso real supervisionado. Servem somente
+  // como padrão de abordagem/estilo; nunca são fatos, preços ou condições.
+  approvedExamples: [
+    'Qual seria um valor mais viável para você agora?',
+    'Temos outra forma de pagamento que poderia ajudar neste momento?',
+    'E se começássemos com um pedido menor para iniciar essa parceria?',
+  ],
 };
 
 function normalizedText(context: CrmAiContext) {
