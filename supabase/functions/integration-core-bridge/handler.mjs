@@ -149,9 +149,9 @@ function validateActionPayload(payload, nowMs) {
   return false;
 }
 
-async function readBody(request) {
+async function readBody(request, maxBodyBytes) {
   const length = request.headers.get('content-length');
-  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_BODY_BYTES)) return null;
+  if (length !== null && (!/^\d+$/.test(length) || Number(length) > maxBodyBytes)) return null;
   if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const chunks = [];
