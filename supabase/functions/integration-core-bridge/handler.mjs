@@ -1,4 +1,7 @@
-const MAX_BODY_BYTES = 64 * 1024;
+const LEGACY_MAX_BODY_BYTES = 1024;
+const LIVE_MAX_BODY_BYTES = 64 * 1024;
+const JSON_CONTENT_TYPE = 'application/json';
+const LIVE_CONTENT_TYPE = 'application/vnd.painel.shopee-live-v1+json';
 const TIMESTAMP_TOLERANCE_SECONDS = 300;
 const STATE_MAX_TTL_MS = 15 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -158,7 +161,7 @@ async function readBody(request) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBodyBytes) {
         await reader.cancel();
         return null;
       }
@@ -217,7 +220,9 @@ export function createBridgeHandler({
     });
 
     if (request.method !== 'POST') return finish(405, { error: 'method_not_allowed' });
-    if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return invalid();
+    const mediaType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
+    if (mediaType !== JSON_CONTENT_TYPE && mediaType !== LIVE_CONTENT_TYPE) return invalid();
+    const maxBodyBytes = mediaType === LIVE_CONTENT_TYPE ? LIVE_MAX_BODY_BYTES : LEGACY_MAX_BODY_BYTES;
 
     const version = request.headers.get('x-integration-hub-version');
     const timestamp = request.headers.get('x-integration-hub-timestamp') ?? '';
@@ -234,7 +239,7 @@ export function createBridgeHandler({
     }
 
     try {
-      const bytes = await readBody(request);
+      const bytes = await readBody(request, maxBodyBytes);
       if (bytes === null) return invalid();
 
       const secret = getSecret();
@@ -259,6 +264,9 @@ export function createBridgeHandler({
       const currentNow = now();
       if (!validateActionPayload(payload, currentNow)) return invalid();
       action = payload.action;
+
+      if (action === 'health' && mediaType !== JSON_CONTENT_TYPE) return invalid();
+      if (LIVE_ACTIONS.has(action) && mediaType !== LIVE_CONTENT_TYPE) return invalid();
 
       if (action === 'health') {
         if (await checkCore() !== true) return unavailable();
