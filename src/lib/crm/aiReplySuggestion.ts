@@ -18,7 +18,7 @@ import {
   type CrmCommunicationDraft,
 } from './communication';
 import { getUnsupportedCrmLiveDataRequirement, type CrmUnsupportedLiveDataRequirement } from './dynamicLiveData';
-import { resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
+import { defaultCrmKnowledgeFetcher, resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 import { isWaitingCustomerState } from './priority';
 
@@ -145,6 +145,26 @@ export function guardShippingDataRepeat(
   return { ...suggestion, reply: null, message: null, reason, rationale: reason, intent: 'none' };
 }
 
+/** Resposta curta "Pix" só autoriza recuperar uma chave oficial existente. */
+export function isPixPaymentMethodChoice(messages: CrmAiContext['messages']): boolean {
+  const last = messages?.[messages.length - 1];
+  if (last?.direction !== 'inbound' || !/^\s*pix[.!]?\s*$/i.test(String(last.content ?? ''))) return false;
+  const previous = [...messages.slice(0, -1)].reverse().find(message => message?.direction === 'outbound');
+  return Boolean(previous && /\b(forma|meio|modo|opcao|opção).{0,35}pagamento\b|\bpagamento.{0,35}(forma|meio|modo|opcao|opção)\b|\b(pix|cartao|cartão)\b/i.test(String(previous.content ?? '')));
+}
+
+export function isUnsafePixReply(reply: string): boolean {
+  const normalized = reply.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return /\b(?:pix|chave|cnpj)\b/.test(normalized)
+    && (/\b0{2}\.0{3}\.0{3}\/0{4}-0{2}\b/.test(normalized)
+      || /\b0{11,14}\b/.test(normalized)
+      || /\b(?:chave|cnpj)\s*(?:pix)?\s*[:=-]?\s*(?:xxxx+|000[.\d\/-]*)\b/.test(normalized));
+}
+
+function blockedPixReply(reason: string): CrmReplySuggestion {
+  return { reply: null, message: null, reason, rationale: reason, tone: null, intent: 'none', length: 'short' };
+}
+
 function canUsePendingFactualKnowledge(options: SuggestCrmReplyOptions | undefined, lastIsInbound: boolean): boolean {
   if (!lastIsInbound) return false;
   const decision = options?.decision;
@@ -224,6 +244,23 @@ export async function suggestCrmReplyFromContext(
     };
   }
 
+  // Chave Pix é identificador financeiro, nunca inferência do modelo.
+  if (isPixPaymentMethodChoice(context.messages)) {
+    try {
+      const items = await (options?.knowledgeFetcher ?? defaultCrmKnowledgeFetcher)(context.conversation?.platformId ?? null);
+      const official = items.filter(item => /^\s*qual (?:e|é) o pix\??\s*$/i.test(item.question));
+      if (official.length === 1 && official[0].answer.trim()
+        && !isUnsafePixReply(official[0].answer)
+        && /\bpix\b/i.test(official[0].answer)) {
+        const reply = official[0].answer.trim();
+        return { reply, message: reply, reason: 'Chave Pix extraída da base oficial ativa; sem geração livre.', rationale: 'Chave Pix extraída da base oficial ativa; sem geração livre.', tone: 'objetivo', intent: 'answer', length: 'short' };
+      }
+    } catch {
+      // Falha de leitura: não recorrer à geração livre de chave financeira.
+    }
+    return blockedPixReply('Não foi possível confirmar uma única chave Pix oficial ativa. Confira a base de conhecimento antes de responder.');
+  }
+
   const invoke = options?.invoke ?? (async (payload: unknown) => {
     const startedAt = performance.now();
     const { data, error } = await supabase.functions.invoke('crm-ai-assistant', { body: payload });
@@ -274,5 +311,7 @@ export async function suggestCrmReplyFromContext(
     routing: { escalationReasons: getCrmAiEscalationReasons(context, { decision: options?.decision }) },
   });
   if (raw?.error) throw new Error(String(raw.error));
-  return guardShippingDataRepeat(guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision), context.messages);
+  const suggestion = guardShippingDataRepeat(guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision), context.messages);
+  if (suggestion.reply && isUnsafePixReply(suggestion.reply)) return blockedPixReply('Sugestão bloqueada: identificador Pix/CNPJ fictício. Confira a fonte oficial.');
+  return suggestion;
 }

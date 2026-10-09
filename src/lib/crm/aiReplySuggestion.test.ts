@@ -230,6 +230,38 @@ async function run() {
   assert(legitimateFollowup.reply?.includes('Recebi os dados'),
     'F5: mensagem útil que reconhece dados fornecidos deve continuar permitida.');
 
+  // Uso real: escolha curta "Pix" após pergunta de pagamento só usa FAQ oficial.
+  let gatewayCalled = false;
+  const pixContext = context({}, [
+    outbound('QUAL FORMA DE PAGAMENTO?'),
+    inbound('Pix'),
+  ]);
+  const pixOfficial = await suggestCrmReplyFromContext(pixContext, {
+    knowledgeFetcher: async () => [{
+      id: 'pix', question: 'Qual é o PIX?', answer: 'PIX celular: 51981204596\nAmor de Família Doces Finos e Artesanais\nBanco Nubank',
+      category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
+    }],
+    invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave CNPJ 00.000.000/0001-00' }; },
+  });
+  assert(pixOfficial.reply?.includes('51981204596') && !gatewayCalled,
+    'PIX contextual precisa usar chave da FAQ, sem chamada ao modelo.');
+  const pixMissing = await suggestCrmReplyFromContext(pixContext, {
+    knowledgeFetcher: async () => [],
+    invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave CNPJ 00.000.000/0001-00' }; },
+  });
+  assert(pixMissing.reply === null && !gatewayCalled,
+    'sem chave oficial o sistema deve bloquear, sem fabricar CNPJ.');
+  const pixWrong = await suggestCrmReplyFromContext(context({}, [inbound('Pode me ajudar?')]), {
+    invoke: async () => ({ suggested_reply: 'Use a chave CNPJ 00.000.000/0001-00.' }),
+  });
+  assert(pixWrong.reply === null,
+    'chave Pix fictícia deve ser bloqueada mesmo fora do fluxo curto.');
+  const pixUnrelated = await suggestCrmReplyFromContext(context({}, [inbound('Pix')]), {
+    invoke: async () => ({ suggested_reply: 'Pode me explicar melhor sua dúvida?' }),
+  });
+  assert(pixUnrelated.reply?.includes('explicar'),
+    'Pix isolado sem pergunta de pagamento não deve acionar chave antiga.');
+
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');
