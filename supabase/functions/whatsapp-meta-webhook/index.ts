@@ -3,6 +3,7 @@ import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 import { applyInboundTemporalAuthority } from '../_shared/crm/temporal-authority-inbound.ts';
+import { applyOutboundOperationalEffects } from '../_shared/crm/outbound-operational.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -110,10 +111,19 @@ Deno.serve(async (req) => {
 
       // Primeiro respeita um vínculo de conversa já existente para este número.
       // Isso é a autoridade mais forte quando há contatos duplicados no cadastro.
-      let conversation: { id: string; unread_count?: number | null; contact_id?: string | null } | null = null;
+      let conversation: {
+        id: string;
+        unread_count?: number | null;
+        contact_id?: string | null;
+        attendance_state?: string | null;
+        return_at?: string | null;
+        last_inbound_at?: string | null;
+        last_outbound_at?: string | null;
+        funnel_stage?: string | null;
+      } | null = null;
       const byHandle = await supabase
         .from('service_conversations')
-        .select('id,unread_count,contact_id')
+        .select('id,unread_count,contact_id,attendance_state,return_at,last_inbound_at,last_outbound_at,funnel_stage')
         .eq('contact_handle', phone)
         .order('last_message_at', { ascending: false })
         .limit(1)
@@ -204,7 +214,7 @@ Deno.serve(async (req) => {
       if (!conversation && contact) {
         const result = await supabase
           .from('service_conversations')
-          .select('id,unread_count,contact_id')
+          .select('id,unread_count,contact_id,attendance_state,return_at,last_inbound_at,last_outbound_at,funnel_stage')
           .eq('contact_id', contact.id)
           .order('last_message_at', { ascending: false })
           .limit(1)
@@ -216,7 +226,7 @@ Deno.serve(async (req) => {
         const result = await supabase.from('service_conversations').insert({
           contact_id: contact!.id, contact_name: contact!.name ?? evt.contactName ?? null,
           contact_handle: phone, status: 'open', funnel_stage: contact!.funnel_status ?? 'novo_lead', channel: 'whatsapp',
-        }).select('id,contact_id').single();
+        }).select('id,contact_id,unread_count,attendance_state,return_at,last_inbound_at,last_outbound_at,funnel_stage').single();
         if (result.error) throw result.error;
         conversation = result.data;
       }
@@ -249,28 +259,41 @@ Deno.serve(async (req) => {
         media_caption: evt.mediaCaption ?? null,
       });
       if (messageError && messageError.code !== '23505') throw messageError;
-      const { error: conversationError } = await supabase.from('service_conversations').update({
-        last_message_at: now,
-        ...(contact?.funnel_status ? { funnel_stage: contact.funnel_status } : {}),
-        ...(inbound
-          ? { last_inbound_at: now, needs_reply: true, status: 'open', resolved_at: null, attendance_state: 'responder', unread_count: (conversation!.unread_count ?? 0) + 1 }
-          : { last_outbound_at: now, needs_reply: false, attendance_state: 'aguardando_cliente' }),
-        last_message_preview: (evt.content ?? '').slice(0, 100),
-      }).eq('id', conversation!.id);
-      if (conversationError) throw conversationError;
       if (inbound) {
+        const { error: conversationError } = await supabase.from('service_conversations').update({
+          last_message_at: now,
+          ...(contact?.funnel_status ? { funnel_stage: contact.funnel_status } : {}),
+          last_inbound_at: now,
+          needs_reply: true,
+          status: 'open',
+          resolved_at: null,
+          attendance_state: 'responder',
+          unread_count: (conversation!.unread_count ?? 0) + 1,
+          last_message_preview: (evt.content ?? '').slice(0, 100),
+        }).eq('id', conversation!.id);
+        if (conversationError) throw conversationError;
+
         await applyInboundTemporalAuthority(supabase, {
           contactId: conversation?.contact_id ?? contact?.id ?? null,
           conversationId: conversation!.id,
           occurredAt: now,
         });
+        await refreshLiveContextAfterEvent(supabase, {
+          contactId: conversation?.contact_id ?? contact?.id,
+          type: 'inbound',
+          occurredAt: now,
+          summary: `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}`,
+        });
+      } else {
+        // Coexistência Meta: mensagem enviada pelo WhatsApp do celular passa
+        // pelo mesmo fato operacional do envio feito dentro do CRM.
+        await applyOutboundOperationalEffects(supabase, {
+          conversation: conversation!,
+          occurredAt: now,
+          preview: evt.content ?? '',
+          summaryText: evt.content ?? '',
+        });
       }
-      await refreshLiveContextAfterEvent(supabase, {
-        contactId: conversation?.contact_id ?? contact?.id,
-        type: inbound ? 'inbound' : 'outbound',
-        occurredAt: now,
-        summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
-      });
       await finish('processed'); processed++;
     } catch (error) {
       console.error('meta webhook processing failed', (error as Error).message);

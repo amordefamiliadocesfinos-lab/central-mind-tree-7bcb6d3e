@@ -2,12 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
-import {
-  canCreateAutomaticFollowUpObligation,
-  clearOfficialCrmNextAction,
-  setOfficialCrmNextAction,
-} from '../_shared/crm/official-next-action.ts';
-import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
+import { applyOutboundOperationalEffects } from '../_shared/crm/outbound-operational.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -180,90 +175,18 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode: 'campaign', message_id: pending.id, external_message_id: result.externalMessageId ?? null });
   }
 
-  // O estado anterior ao envio determina se esta mensagem é uma tentativa real
-  // de follow-up. Esta decisão precisa acontecer antes de sobrescrever os campos
-  // temporais da conversa.
-  const waitingStates = new Set(['aguardando_cliente', 'aguardando_resposta', 'retornar_em', 'awaiting_response', 'waiting_customer']);
-  const normalizedAttendanceState = String(conv.attendance_state ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-  const previousReturnAt = conv.return_at ? Date.parse(conv.return_at) : Number.NaN;
-  const previousLastInboundAt = conv.last_inbound_at ? Date.parse(conv.last_inbound_at) : Number.NaN;
-  const previousLastOutboundAt = conv.last_outbound_at ? Date.parse(conv.last_outbound_at) : 0;
-  const currentSendIsRealFollowUp = waitingStates.has(normalizedAttendanceState)
-    && Number.isFinite(previousReturnAt)
-    && previousReturnAt <= Date.now()
-    && (!Number.isFinite(previousLastInboundAt) || previousLastInboundAt <= previousLastOutboundAt);
-
-  await supabase
-    .from('service_conversations')
-    .update({
-      last_message_at: nowIso,
-      last_outbound_at: nowIso,
-      last_message_preview: preview.slice(0, 100),
-      needs_reply: false,
-      unread_count: 0,
-      attendance_state: 'aguardando_cliente',
-    })
-    .eq('id', conversationId);
-
-  let automaticFollowUpScheduled: boolean | null = null;
-  if (conv.contact_id) {
-    const { data: contact } = await supabase
-      .from('contacts')
-      .select('funnel_status')
-      .eq('id', conv.contact_id)
-      .maybeSingle();
-    const currentStage = contact?.funnel_status ?? conv.funnel_stage ?? 'novo_lead';
-    const nextStage = currentStage === 'novo_lead' ? 'contato_realizado' : currentStage;
-    const returnAt = new Date(Date.now() + 2 * 86400000);
-    returnAt.setUTCHours(12, 0, 0, 0);
-
-    await supabase.from('contacts').update({
-      funnel_status: nextStage,
-      updated_at: nowIso,
-    }).eq('id', conv.contact_id);
-    await supabase.from('service_conversations').update({
-      funnel_stage: nextStage,
-    }).eq('id', conversationId);
-    const canScheduleFollowUp = await canCreateAutomaticFollowUpObligation(
-      supabase,
-      conv.contact_id,
-      conv.last_inbound_at,
-      currentSendIsRealFollowUp,
-    );
-    automaticFollowUpScheduled = canScheduleFollowUp;
-    if (canScheduleFollowUp) {
-      await setOfficialCrmNextAction(supabase, {
-        contactId: conv.contact_id,
-        title: 'Verificar resposta no WhatsApp',
-        dueAt: returnAt.toISOString(),
-        conversationId,
-        taskTime: '09:00',
-      });
-    } else {
-      // Se o envio atual é o 3º follow-up real, ele já é considerado aqui,
-      // mesmo antes de o frontend registrar o evento 3/3. A obrigação atual é
-      // consumida e nenhuma 4ª tarefa/return_at pode nascer.
-      await clearOfficialCrmNextAction(supabase, { contactId: conv.contact_id, conversationId });
-    }
-    if (message.length >= 24) {
-      await refreshLiveContextAfterEvent(supabase, {
-        contactId: conv.contact_id,
-        type: 'outbound',
-        occurredAt: nowIso,
-        summary: `Mensagem relevante enviada: ${message.slice(0, 240)}`,
-      });
-    }
-  }
+  const outboundEffects = await applyOutboundOperationalEffects(supabase, {
+    conversation: conv,
+    occurredAt: nowIso,
+    preview,
+    summaryText: message,
+  });
 
   return json({
     ok: true,
     message_id: pending.id,
     external_message_id: result.externalMessageId ?? null,
-    automatic_follow_up_scheduled: automaticFollowUpScheduled,
+    automatic_follow_up_scheduled: outboundEffects.automaticFollowUpScheduled,
+    preserved_existing_obligation: outboundEffects.preservedExistingObligation,
   });
 });
