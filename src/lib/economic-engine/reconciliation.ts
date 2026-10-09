@@ -12,6 +12,7 @@ export type EconomicReconciliationInput = {
   settlementOrderCount: number | null;
   financialGrossRealized: number | null;
   financialConciliated: boolean;
+  financialAttributionComplete: boolean;
 };
 
 export type EconomicReconciliationResult = {
@@ -62,7 +63,7 @@ export function reconcileEconomicPrediction(
 
   let financialNet: number | null = null;
 
-  if (input.financialConciliated) {
+  if (input.financialConciliated && input.financialAttributionComplete) {
     if (input.settlementOrderCount === 1 && known(input.settlementNet)) {
       financialNet = round2(input.settlementNet);
     } else if (orderLevelNetIsAllocated) {
@@ -76,7 +77,11 @@ export function reconcileEconomicPrediction(
       }
     }
   } else {
-    pending.push('financial_reconciliation');
+    if (!input.financialConciliated) pending.push('financial_reconciliation');
+    if (!input.financialAttributionComplete) {
+      pending.push('financial_attribution');
+      notes.push('O valor financeiro realizado não está integralmente atribuível ao Pedido selecionado.');
+    }
   }
 
   if (!known(input.predictedRepasse)) {
