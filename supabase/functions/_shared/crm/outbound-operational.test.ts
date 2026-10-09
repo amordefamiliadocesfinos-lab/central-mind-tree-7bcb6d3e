@@ -1,4 +1,4 @@
-import { isRealFollowUpOutbound } from './outbound-operational.ts';
+import { isCrmReactivationDue, isRealFollowUpOutbound } from './outbound-operational.ts';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`outbound-operational: ${message}`);
@@ -32,3 +32,13 @@ const customerReplied = isRealFollowUpOutbound({
 assert(!customerReplied, 'nova entrada do cliente reinicia o ciclo e não é follow-up.');
 
 console.log('outbound-operational.test: OK');
+
+
+Deno.test('reativação vencida usa horário operacional de São Paulo', () => {
+  if (!isCrmReactivationDue('2026-10-09', '09:00:00', '2026-10-09T12:00:00.000Z')) {
+    throw new Error('09:00 de São Paulo deve estar vencido às 12:00Z.');
+  }
+  if (isCrmReactivationDue('2026-10-09', '10:00:00', '2026-10-09T12:00:00.000Z')) {
+    throw new Error('10:00 de São Paulo ainda não venceu às 12:00Z.');
+  }
+});
