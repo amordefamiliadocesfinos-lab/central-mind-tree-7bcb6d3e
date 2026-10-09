@@ -22,7 +22,15 @@ const action = { nextActionCode: 'CRM-PA-001', noImmediateAction: false, chosenB
 const decision = buildCrmCommunicationDecision(context(), result, action);
 assert(decision.shouldReply && decision.responsibility === 'operator', 'inbound atual exige resposta sem gerar texto nesta camada.');
 assert(decision.suggestedResult.code === 'CRM-RES-001' && decision.nextAction.code === 'CRM-PA-001', 'contrato carrega somente decisões já canônicas.');
-assert(DEFAULT_BUILDING_COMMUNICATION_PROFILE.status === 'building' && DEFAULT_BUILDING_COMMUNICATION_PROFILE.approvedExamples.length === 0, 'perfil padrão permanece neutro e em construção.');
+assert(
+  DEFAULT_BUILDING_COMMUNICATION_PROFILE.status === 'building'
+  && DEFAULT_BUILDING_COMMUNICATION_PROFILE.approvedExamples.length >= 3,
+  'perfil em construção deve carregar somente exemplos comerciais supervisionados, sem virar regra canônica.',
+);
+assert(
+  DEFAULT_BUILDING_COMMUNICATION_PROFILE.approvedExamples.some(example => example.toLowerCase().includes('pedido menor')),
+  'uso real deve preservar o padrão supervisionado de explorar uma alternativa legítima antes de encerrar objeção.',
+);
 
 const noReply = buildCrmCommunicationDecision(context({ conversation: { id: 'v1', platformId: null, state: 'aguardando_cliente', status: 'open', needsReply: false, returnAt: null, lastInboundAt: null, lastOutboundAt: null } }), result, { ...action, noImmediateAction: true, nextActionCode: null });
 assert(!noReply.shouldReply, 'ausência legítima de ação não gera resposta artificial.');
