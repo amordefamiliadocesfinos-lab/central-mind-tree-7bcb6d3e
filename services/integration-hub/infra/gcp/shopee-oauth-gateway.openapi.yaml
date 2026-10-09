@@ -19,9 +19,9 @@ paths:
       responses:
         '302':
           description: Redirect to Shopee authorization.
-        '4XX':
+        '400':
           description: Request rejected before authorization.
-        '5XX':
+        '503':
           description: Integration Hub unavailable.
   /shopee/live/oauth/callback:
     get:
@@ -55,7 +55,11 @@ paths:
       responses:
         '200':
           description: OAuth callback processed.
-        '4XX':
-          description: Invalid, expired, or already consumed OAuth callback.
-        '5XX':
-          description: Integration Hub or upstream unavailable.
+        '400':
+          description: Invalid OAuth callback.
+        '409':
+          description: OAuth state expired or already consumed.
+        '502':
+          description: Shopee upstream rejected or returned an incomplete response.
+        '503':
+          description: Integration Hub or Core persistence unavailable.
