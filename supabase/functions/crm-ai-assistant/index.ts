@@ -370,6 +370,13 @@ async function handleReplyMode(body: any, apiKey: string) {
   const parsed = parseAiJson(String(data?.choices?.[0]?.message?.content ?? ""));
   const rawReply = typeof parsed?.suggested_reply === "string" ? parsed.suggested_reply.trim() : "";
   const reply = rawReply ? rawReply.slice(0, 1200) : null;
+  // Defesa adicional: um identificador zerado jamais deve sair do gateway
+  // como resposta comercial, mesmo quando chamado fora da Inbox.
+  const financialPlaceholder = reply && /\\b(?:pix|chave|cnpj)\\b/i.test(reply)
+    && (/\\b0{2}\\.0{3}\\.0{3}\\/0{4}-0{2}\\b/.test(reply) || /\\b0{11,14}\\b/.test(reply));
+  if (financialPlaceholder) {
+    return json({ suggested_reply: null, reason: 'Chave Pix/CNPJ fictício bloqueado. Consulte a base oficial.', tone: null });
+  }
   const reason = typeof parsed?.reason === "string" && parsed.reason.trim()
     ? parsed.reason.trim().slice(0, 280)
     : (reply ? "Resposta alinhada ao Resultado e à Próxima Ação." : "Nenhuma resposta necessária no momento.");
