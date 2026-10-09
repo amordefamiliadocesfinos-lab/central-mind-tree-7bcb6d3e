@@ -1,6 +1,7 @@
 import {
   canCreateAutomaticFollowUpObligation,
   clearOfficialCrmNextAction,
+  registerOfficialFollowUpAttempt,
   setOfficialCrmNextAction,
 } from './official-next-action.ts';
 import { refreshLiveContextAfterEvent } from './live-context.ts';
@@ -128,14 +129,23 @@ export async function applyOutboundOperationalEffects(
     || pendingTask?.id,
   );
 
+  const currentSendIsRealFollowUp = isRealFollowUpOutbound(conversation, occurredAt);
+  if (currentSendIsRealFollowUp) {
+    await registerOfficialFollowUpAttempt(supabase, {
+      contactId: conversation.contact_id,
+      lastInboundAt: conversation.last_inbound_at,
+      occurredAt,
+      preview,
+    });
+  }
+
   let automaticFollowUpScheduled: boolean | null = null;
   if (!preservedExistingObligation) {
-    const currentSendIsRealFollowUp = isRealFollowUpOutbound(conversation, occurredAt);
     const canSchedule = await canCreateAutomaticFollowUpObligation(
       supabase,
       conversation.contact_id,
       conversation.last_inbound_at,
-      currentSendIsRealFollowUp,
+      false,
     );
     automaticFollowUpScheduled = canSchedule;
 
