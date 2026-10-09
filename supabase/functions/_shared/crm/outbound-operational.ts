@@ -165,12 +165,6 @@ export async function applyOutboundOperationalEffects(
       occurredAt,
       summary: `Mensagem relevante enviada: ${summary.slice(0, 240)}`,
     });
-  } else {
-    await refreshLiveContextAfterEvent(supabase, {
-      contactId: conversation.contact_id,
-      type: 'outbound',
-      occurredAt,
-    });
   }
 
   return { automaticFollowUpScheduled, preservedExistingObligation };
