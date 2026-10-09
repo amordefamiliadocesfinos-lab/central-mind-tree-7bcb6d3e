@@ -2055,6 +2055,204 @@ export type Database = {
           },
         ]
       }
+      economic_prediction_reconciliations: {
+        Row: {
+          comparison_snapshot: Json
+          created_at: string
+          created_by: string | null
+          financial_entry_id: string | null
+          financial_snapshot: Json
+          id: string
+          marketplace_settlement_id: string | null
+          notes: string | null
+          observed_snapshot: Json
+          order_id: string | null
+          pending_snapshot: Json
+          prediction_snapshot_id: string
+          reconciliation_version: number
+          status: string
+        }
+        Insert: {
+          comparison_snapshot?: Json
+          created_at?: string
+          created_by?: string | null
+          financial_entry_id?: string | null
+          financial_snapshot?: Json
+          id?: string
+          marketplace_settlement_id?: string | null
+          notes?: string | null
+          observed_snapshot?: Json
+          order_id?: string | null
+          pending_snapshot?: Json
+          prediction_snapshot_id: string
+          reconciliation_version: number
+          status: string
+        }
+        Update: {
+          comparison_snapshot?: Json
+          created_at?: string
+          created_by?: string | null
+          financial_entry_id?: string | null
+          financial_snapshot?: Json
+          id?: string
+          marketplace_settlement_id?: string | null
+          notes?: string | null
+          observed_snapshot?: Json
+          order_id?: string | null
+          pending_snapshot?: Json
+          prediction_snapshot_id?: string
+          reconciliation_version?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_prediction_reconciliati_marketplace_settlement_id_fkey"
+            columns: ["marketplace_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_reconciliations_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_reconciliations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_reconciliations_prediction_snapshot_id_fkey"
+            columns: ["prediction_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "economic_prediction_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      economic_prediction_snapshots: {
+        Row: {
+          channel_account_id: string | null
+          commercial_presentation_id: string | null
+          confidence: string
+          created_at: string
+          created_by: string | null
+          decision_note: string | null
+          effective_at: string
+          engine_key: string
+          engine_version: string
+          evidence_snapshot: Json
+          id: string
+          input_snapshot: Json
+          marketplace: string
+          marketplace_product_mapping_id: string | null
+          pending_snapshot: Json
+          product_id: string | null
+          result_snapshot: Json
+          rule_version: string | null
+          rule_version_id: string | null
+          snapshot_key: string
+          snapshot_schema_version: string
+          variant_id: string | null
+        }
+        Insert: {
+          channel_account_id?: string | null
+          commercial_presentation_id?: string | null
+          confidence: string
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          effective_at: string
+          engine_key: string
+          engine_version: string
+          evidence_snapshot?: Json
+          id?: string
+          input_snapshot: Json
+          marketplace: string
+          marketplace_product_mapping_id?: string | null
+          pending_snapshot?: Json
+          product_id?: string | null
+          result_snapshot: Json
+          rule_version?: string | null
+          rule_version_id?: string | null
+          snapshot_key?: string
+          snapshot_schema_version?: string
+          variant_id?: string | null
+        }
+        Update: {
+          channel_account_id?: string | null
+          commercial_presentation_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          effective_at?: string
+          engine_key?: string
+          engine_version?: string
+          evidence_snapshot?: Json
+          id?: string
+          input_snapshot?: Json
+          marketplace?: string
+          marketplace_product_mapping_id?: string | null
+          pending_snapshot?: Json
+          product_id?: string | null
+          result_snapshot?: Json
+          rule_version?: string | null
+          rule_version_id?: string | null
+          snapshot_key?: string
+          snapshot_schema_version?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_prediction_snapshots_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_commercial_presentation_id_fkey"
+            columns: ["commercial_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_marketplace_product_mapping__fkey"
+            columns: ["marketplace_product_mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_rule_version_id_fkey"
+            columns: ["rule_version_id"]
+            isOneToOne: false
+            referencedRelation: "economic_rule_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       economic_rule_evidence: {
         Row: {
           created_at: string
@@ -7470,6 +7668,21 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      create_economic_prediction_reconciliation: {
+        Args: {
+          p_comparison_snapshot: Json
+          p_financial_entry_id: string
+          p_financial_snapshot: Json
+          p_marketplace_settlement_id: string
+          p_notes?: string
+          p_observed_snapshot: Json
+          p_order_id: string
+          p_pending_snapshot: Json
+          p_prediction_snapshot_id: string
+          p_status: string
+        }
+        Returns: string
       }
       create_production_closing: {
         Args: { p_end_date: string; p_notes?: string; p_start_date: string }
