@@ -71,6 +71,30 @@ const noInboundPending = getCrmPriority({ ...waitingBase, needs_reply: false, la
 assert(!noInboundPending.operational,
   'envio sem nenhuma resposta pendente continua saindo da Prioridade.');
 
+const executedDueAction = getCrmPriority({
+  status: 'open',
+  attendance_state: 'aguardando_cliente',
+  needs_reply: false,
+  next_action_date: '2026-08-27T18:00:00.000Z',
+  last_outbound_at: '2026-08-27T19:00:00.000Z',
+  last_message_at: '2026-08-27T19:00:00.000Z',
+  last_result_at: '2026-08-26T12:00:00.000Z',
+}, now);
+assert(executedDueAction.operational && executedDueAction.reason === 'pending_result',
+  'ação oficial já executada por outbound após o vencimento deve virar Registrar resultado, sem concluir a tarefa.');
+
+const resultAfterExecutedAction = getCrmPriority({
+  status: 'open',
+  attendance_state: 'aguardando_cliente',
+  needs_reply: false,
+  next_action_date: '2026-08-27T18:00:00.000Z',
+  last_outbound_at: '2026-08-27T19:00:00.000Z',
+  last_message_at: '2026-08-27T19:00:00.000Z',
+  last_result_at: '2026-08-27T19:05:00.000Z',
+}, now);
+assert(resultAfterExecutedAction.operational && resultAfterExecutedAction.reason === 'next_action_today',
+  'se já houve Resultado depois do outbound, a tarefa ainda pendente continua explícita até o writer concluí-la/substituí-la.');
+
 const futureReactivation = getCrmPriority({ status: 'resolved', reactivation_at: '2026-09-15T09:00:00.000Z' }, now);
 assert(!futureReactivation.operational,
   'reativação futura não pode colocar cliente encerrado na Prioridade agora.');
