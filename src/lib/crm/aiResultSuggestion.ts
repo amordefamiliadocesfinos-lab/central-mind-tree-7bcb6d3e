@@ -19,6 +19,37 @@ import { getCrmAiEscalationReasons } from './aiModelRouting';
 export const CRM_RESULT_ACTIONABLE_CONFIDENCE = 0.55;
 const CRM_OPERATION_TIME_ZONE = 'America/Sao_Paulo';
 
+const STRONG_RESULTS_REQUIRING_EXPLICIT_FACT = new Set(['CRM-RES-020', 'CRM-RES-021']);
+const SHORT_CONFIRMATION = /^(?:sim|ok|okay|otimo|ótimo|beleza|pode ser|fechado|certo|perfeito)[!. ]*$/i;
+
+function normalizedMessageText(value: unknown) {
+  return String(value ?? '').trim();
+}
+
+/**
+ * F5 — uma confirmação curta só responde ao turno anterior; ela não prova
+ * sozinha pagamento confirmado ou pedido confirmado. Resultados fortes precisam
+ * de um fato explícito/estruturado ou de texto suficientemente específico.
+ */
+export function guardShortConfirmationStrongResult(
+  suggestion: CrmResultSuggestion,
+  context: Pick<CrmAiContext, 'messages'>,
+): CrmResultSuggestion {
+  if (!suggestion.code || !STRONG_RESULTS_REQUIRING_EXPLICIT_FACT.has(suggestion.code)) return suggestion;
+  const lastInbound = [...(context.messages ?? [])].reverse().find(message => message.direction === 'inbound');
+  if (!lastInbound || !SHORT_CONFIRMATION.test(normalizedMessageText(lastInbound.content))) return suggestion;
+
+  return {
+    ...suggestion,
+    code: null,
+    label: null,
+    tentativeCode: suggestion.code,
+    tentativeLabel: suggestion.label,
+    confidence: Math.min(suggestion.confidence, 0.5),
+    reason: 'Confirmação curta não sustenta sozinha pagamento ou pedido confirmado. Confira a pergunta anterior e o fato operacional antes de registrar um Resultado forte.',
+  };
+}
+
 export interface CrmResultSuggestion {
   /** null = não há Resultado confiável o bastante para dirigir ação operacional. */
   code: string | null;
@@ -158,7 +189,8 @@ export async function suggestCrmResultFromContext(
   });
   const raw = await invoke(context);
   if (raw?.error) throw new Error(String(raw.error));
-  return normalizeSuggestionTemporalReason(normalizeSuggestionResponse(raw), context);
+  const normalized = normalizeSuggestionTemporalReason(normalizeSuggestionResponse(raw), context);
+  return guardShortConfirmationStrongResult(normalized, context);
 }
 
 export async function suggestCrmResult(
