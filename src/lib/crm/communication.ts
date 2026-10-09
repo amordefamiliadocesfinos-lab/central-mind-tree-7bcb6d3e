@@ -44,7 +44,7 @@ export interface CommunicationProfile {
   approvedExamples: string[];
 }
 
-/** Perfil neutro, local e aditivo enquanto o estilo do operador é documentado. */
+/** Perfil local, supervisionado e aditivo enquanto o estilo do operador é documentado. */
 export const DEFAULT_BUILDING_COMMUNICATION_PROFILE: CommunicationProfile = {
   status: 'building',
   formality: 'low',
