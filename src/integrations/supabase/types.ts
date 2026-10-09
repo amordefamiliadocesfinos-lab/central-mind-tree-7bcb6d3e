@@ -2055,6 +2055,124 @@ export type Database = {
           },
         ]
       }
+      economic_prediction_snapshots: {
+        Row: {
+          channel_account_id: string | null
+          commercial_presentation_id: string | null
+          confidence: string
+          created_at: string
+          created_by: string | null
+          decision_note: string | null
+          effective_at: string
+          engine_key: string
+          engine_version: string
+          evidence_snapshot: Json
+          id: string
+          input_snapshot: Json
+          marketplace: string
+          marketplace_product_mapping_id: string | null
+          pending_snapshot: Json
+          product_id: string | null
+          result_snapshot: Json
+          rule_version: string | null
+          rule_version_id: string | null
+          snapshot_key: string
+          snapshot_schema_version: string
+          variant_id: string | null
+        }
+        Insert: {
+          channel_account_id?: string | null
+          commercial_presentation_id?: string | null
+          confidence: string
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          effective_at: string
+          engine_key: string
+          engine_version: string
+          evidence_snapshot?: Json
+          id?: string
+          input_snapshot: Json
+          marketplace: string
+          marketplace_product_mapping_id?: string | null
+          pending_snapshot?: Json
+          product_id?: string | null
+          result_snapshot: Json
+          rule_version?: string | null
+          rule_version_id?: string | null
+          snapshot_key?: string
+          snapshot_schema_version?: string
+          variant_id?: string | null
+        }
+        Update: {
+          channel_account_id?: string | null
+          commercial_presentation_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          effective_at?: string
+          engine_key?: string
+          engine_version?: string
+          evidence_snapshot?: Json
+          id?: string
+          input_snapshot?: Json
+          marketplace?: string
+          marketplace_product_mapping_id?: string | null
+          pending_snapshot?: Json
+          product_id?: string | null
+          result_snapshot?: Json
+          rule_version?: string | null
+          rule_version_id?: string | null
+          snapshot_key?: string
+          snapshot_schema_version?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_prediction_snapshots_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_commercial_presentation_id_fkey"
+            columns: ["commercial_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_marketplace_product_mapping__fkey"
+            columns: ["marketplace_product_mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_rule_version_id_fkey"
+            columns: ["rule_version_id"]
+            isOneToOne: false
+            referencedRelation: "economic_rule_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_prediction_snapshots_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       economic_rule_evidence: {
         Row: {
           created_at: string
