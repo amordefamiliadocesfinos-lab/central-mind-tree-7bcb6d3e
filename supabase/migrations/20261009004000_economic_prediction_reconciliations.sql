@@ -37,13 +37,8 @@ CREATE POLICY "Authenticated users read economic prediction reconciliations"
   FOR SELECT TO authenticated
   USING (true);
 
-CREATE POLICY "Authenticated users create economic prediction reconciliations"
-  ON public.economic_prediction_reconciliations
-  FOR INSERT TO authenticated
-  WITH CHECK (created_by = auth.uid());
-
-GRANT SELECT, INSERT ON public.economic_prediction_reconciliations TO authenticated;
-REVOKE UPDATE, DELETE ON public.economic_prediction_reconciliations FROM anon, authenticated;
+GRANT SELECT ON public.economic_prediction_reconciliations TO authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.economic_prediction_reconciliations FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.prevent_economic_prediction_reconciliation_mutation()
 RETURNS trigger
@@ -86,6 +81,8 @@ AS $$
 DECLARE
   v_id uuid;
   v_version integer;
+  v_snapshot public.economic_prediction_snapshots%ROWTYPE;
+  v_order public.orders%ROWTYPE;
 BEGIN
   IF auth.role() <> 'authenticated' THEN
     RAISE EXCEPTION 'Usuário não autenticado.';
@@ -95,12 +92,77 @@ BEGIN
     RAISE EXCEPTION 'Status de reconciliação inválido.';
   END IF;
 
-  PERFORM 1
+  SELECT * INTO v_snapshot
   FROM public.economic_prediction_snapshots
   WHERE id = p_prediction_snapshot_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Snapshot econômico não encontrado.';
+  END IF;
+
+  IF p_order_id IS NOT NULL THEN
+    SELECT * INTO v_order
+    FROM public.orders
+    WHERE id = p_order_id
+      AND deleted_at IS NULL
+      AND lower(COALESCE(channel, '')) = 'shopee';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Pedido Shopee não encontrado.';
+    END IF;
+
+    IF v_snapshot.channel_account_id IS NOT NULL
+       AND v_order.channel_account_id IS DISTINCT FROM v_snapshot.channel_account_id THEN
+      RAISE EXCEPTION 'Pedido pertence a outra Conta Shopee.';
+    END IF;
+
+    IF v_order.order_date < v_snapshot.created_at::date THEN
+      RAISE EXCEPTION 'Pedido anterior ao congelamento não pode reconciliar previsão prospectiva.';
+    END IF;
+
+    IF v_snapshot.product_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1
+      FROM public.order_items oi
+      WHERE oi.order_id = p_order_id
+        AND oi.product_id = v_snapshot.product_id
+        AND (
+          v_snapshot.variant_id IS NULL
+          OR oi.variant_id = v_snapshot.variant_id
+        )
+    ) THEN
+      RAISE EXCEPTION 'Pedido não contém a identidade física do snapshot.';
+    END IF;
+  END IF;
+
+  IF p_marketplace_settlement_id IS NOT NULL THEN
+    IF p_order_id IS NULL OR NOT EXISTS (
+      SELECT 1
+      FROM public.marketplace_settlement_orders mso
+      WHERE mso.settlement_id = p_marketplace_settlement_id
+        AND mso.order_id = p_order_id
+    ) THEN
+      RAISE EXCEPTION 'Settlement não está vinculado ao Pedido selecionado.';
+    END IF;
+  END IF;
+
+  IF p_financial_entry_id IS NOT NULL THEN
+    IF p_order_id IS NULL OR NOT EXISTS (
+      SELECT 1
+      FROM public.financial_entries fe
+      WHERE fe.id = p_financial_entry_id
+        AND fe.type = 'receber'
+        AND (
+          fe.order_id = p_order_id
+          OR EXISTS (
+            SELECT 1
+            FROM public.financial_order_links fol
+            WHERE fol.financial_entry_id = fe.id
+              AND fol.order_id = p_order_id
+          )
+        )
+    ) THEN
+      RAISE EXCEPTION 'Lançamento financeiro não está vinculado ao Pedido selecionado.';
+    END IF;
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtext('economic-reconciliation:' || p_prediction_snapshot_id::text));
