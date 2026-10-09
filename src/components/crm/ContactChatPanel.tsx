@@ -376,23 +376,23 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         toast.error(errMsg);
         return;
       }
-      // Só registra na memória mensagens manuais minimamente descritivas.
-      // Campanhas não passam por este painel e confirmações curtas não poluem
-      // o contexto interpretativo.
-      if (content.length >= 24 && !/^(ok|obrigad[oa]|bom dia|boa tarde|boa noite)[!. ]*$/i.test(content)) {
-        refreshCrmLiveContext({
-          contactId,
-          type: 'outbound',
-          occurredAt: new Date().toISOString(),
-          summary: `Mensagem relevante enviada: ${content.slice(0, 240)}`,
-        });
-      }
-      // A mensagem enviada consome apenas uma reativação já vencida. Uma
-      // reativação futura permanece programada e não interfere no atendimento.
-      try {
-        await completeCrmReactivationIfDue(contactId);
-      } catch (reactivationError) {
-        console.warn('Mensagem enviada, mas não foi possível concluir a reativação:', reactivationError);
+      // WhatsApp já materializa memória e reativação no writer server-side
+      // compartilhado com mobile_echo. Instagram preserva o caminho atual até
+      // ganhar o mesmo contrato em sua frente própria.
+      if (isInstagramConversation) {
+        if (content.length >= 24 && !/^(ok|obrigad[oa]|bom dia|boa tarde|boa noite)[!. ]*$/i.test(content)) {
+          refreshCrmLiveContext({
+            contactId,
+            type: 'outbound',
+            occurredAt: new Date().toISOString(),
+            summary: `Mensagem relevante enviada: ${content.slice(0, 240)}`,
+          });
+        }
+        try {
+          await completeCrmReactivationIfDue(contactId);
+        } catch (reactivationError) {
+          console.warn('Mensagem enviada, mas não foi possível concluir a reativação:', reactivationError);
+        }
       }
       // F2 — o ciclo de follow-up agora é escrito server-side pelo mesmo
       // evento operacional usado por CRM e mobile_echo. O frontend só relê.
