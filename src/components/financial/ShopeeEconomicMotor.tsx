@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Wallet,
   Save,
+  GitCompareArrows,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import { useChannelAccounts } from '@/hooks/useChannelAccounts';
 import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
+import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
   directCommercialPresentation,
@@ -136,6 +138,7 @@ export function ShopeeEconomicMotor() {
   const [costPerUnit, setCostPerUnit] = useState(0);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
+  const [reconciliationOpen, setReconciliationOpen] = useState(false);
   const {
     createSnapshot,
     saving: snapshotSaving,
@@ -451,6 +454,16 @@ export function ShopeeEconomicMotor() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setReconciliationOpen(true)}
+                disabled={!accountId || !productId}
+              >
+                <GitCompareArrows className="h-3.5 w-3.5" />
+                Reconciliar
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -833,6 +846,13 @@ export function ShopeeEconomicMotor() {
           </Card>
         </div>
       </div>
+
+      <EconomicReconciliationDialog
+        open={reconciliationOpen}
+        onOpenChange={setReconciliationOpen}
+        channelAccountId={accountId || null}
+        productId={productId || null}
+      />
     </div>
   );
 }
