@@ -81,8 +81,11 @@ const leonardo: CrmOperationalSource = {
 const pLeonardo = projectCrmOperationalState(leonardo, now);
 assert(pLeonardo.obligation?.source === 'official_task' && pLeonardo.obligation.dueAt === dueAt,
   'Leonardo: manter tarefa oficial futura com horário real, sem duplicar agendamento.');
-assert(pLeonardo.priority.reason === 'pending_result',
-  'Leonardo: mensagem nova após último Resultado ainda precisa de revisão.');
+assert(pLeonardo.priority.reason === 'next_action_today',
+  'Leonardo: tarefa oficial de hoje mantém a precedência vigente no motor.');
+const beforeDue = projectCrmOperationalState(leonardo, new Date('2026-10-10T14:00:00.000Z'));
+assert(beforeDue.priority.reason === 'pending_result',
+  'Leonardo: antes do vencimento, mensagem nova após Resultado exige revisão canônica.');
 assert(pLeonardo.handoffVerified === false,
   'Leonardo: pagamento registrado não prova handoff financeiro ou operacional.');
 assert(!getCrmOperationalTaskDueAt({scheduled_date:'2026-10-12',scheduled_time:'invalido'}),
