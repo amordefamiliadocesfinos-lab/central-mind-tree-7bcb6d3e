@@ -514,7 +514,7 @@ export async function buildCrmAiContext(
     attendance_state_updated_at: conversationRow?.updated_at ?? null,
     last_result_at: derived.at,
     last_result_code: derived.result?.code ?? null,
-    handoff_required: typeof (operationalSignals?.lastResultEvent?.event_metadata?.handoff_required)?.valueOf() === 'boolean'
+    handoff_required: typeof operationalSignals?.lastResultEvent?.event_metadata?.handoff_required === 'boolean'
       ? operationalSignals?.lastResultEvent?.event_metadata?.handoff_required : null,
     last_no_new_fact_at: operationalSignals?.lastReviewedAt
       ?? (historyRows ?? []).find(row => row.event_code === 'crm_attendance_no_new_fact')?.interaction_date ?? null,
