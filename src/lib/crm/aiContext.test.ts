@@ -72,7 +72,7 @@ async function run() {
     loadMessages: async (_conversationId, limit) => many.slice(0, limit),
     loadHistory: async (_contactId, limit) => Array.from({ length: limit }, (_, index) => ({
       event_type: 'contact', event_code: 'CRM-EVT', description: `evento ${index}`,
-      interaction_date: `2026-08-30T10:0${index}:00.000Z`, event_metadata: index === 0 ? { result_code: 'CRM-RES-019' } : {},
+      interaction_date: `2026-08-30T10:0${index}:00.000Z`, event_metadata: index === 0 ? { result_code: 'CRM-RES-019', next_action_code: 'CRM-PA-013' } : {},
     })),
     loadOrders: async (_contactId, limit) => Array.from({ length: limit }, (_, index) => ({
       id: `o${index}`, order_number: String(index), status: 'concluido', payment_status: 'pago', total_value: 10, order_date: '2026-08-01',
