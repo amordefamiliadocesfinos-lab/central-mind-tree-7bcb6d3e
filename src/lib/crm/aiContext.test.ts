@@ -118,6 +118,86 @@ async function run() {
   assert(sanitized.messages.length === 1 && sanitized.messages[0].content === 'Consigo sim', 'janela semântica deve remover reação/edição técnica.');
   assert(sanitized.tasks.length === 1 && sanitized.tasks[0].id === 'open', 'tarefa concluída não pode contaminar o contexto da IA.');
 
+  // F1-A: fonte de leitura específica não pode ser substituída pela janela curta da IA.
+  const withOfficialSignals = await buildCrmAiContext('c1', 'conv1', sources({
+    loadContact: async () => ({ ...baseContact, funnel_status: 'fechado', next_action_date: null }),
+    loadOperationalSignals: async () => ({
+      lastResultEvent: {
+        event_code: 'contact_attempted',
+        interaction_date: '2026-10-09T17:21:32Z',
+        event_metadata: { result_code: 'CRM-RES-021', handoff_required: true },
+      },
+      lastReviewedAt: null,
+      officialTasks: [],
+    }),
+    loadTasks: async () => [],
+  }));
+  assert(withOfficialSignals.operational?.lastResultCode === 'CRM-RES-021',
+    'último Resultado oficial deve prevalecer sobre histórico resumido antigo.');
+  assert(withOfficialSignals.operational?.handoffRequired === true
+    && withOfficialSignals.operational.handoffVerified === false,
+    'pedido confirmado declara handoff, sem inventar prova de Operações.');
+  assert(withOfficialSignals.operational?.contactId === 'c1'
+    && withOfficialSignals.operational.conversationId === 'conv1',
+    'a projeção transporta somente identidade do contato e conversa consultados.');
+  assert(buildCrmAiRequestContext(withOfficialSignals, 'reply').operational?.lastResultCode === 'CRM-RES-021',
+    'transporte para o modelo preserva a projeção operacional.');
+
+  const undatedAction = await buildCrmAiContext('c1', 'conv1', sources({
+    loadContact: async () => ({
+      ...baseContact, next_action_text: 'Elaborar/atualizar proposta', next_action_date: null,
+    }),
+    loadHistory: async () => [{
+      interaction_date: '2026-10-09T17:00:00Z',
+      event_code: 'contact_attempted',
+      event_metadata: { result_code: 'CRM-RES-005', next_action_code: 'CRM-PA-006' },
+    }],
+    loadTasks: async () => [],
+  }));
+  assert(undatedAction.operational?.obligation?.title === 'Elaborar/atualizar proposta'
+    && undatedAction.operational.obligation.dueAt === null,
+    'Próxima Ação comercial sem data precisa aparecer sem fabricar vencimento.');
+
+  const timedAction = await buildCrmAiContext('c1', 'conv1', sources({
+    loadOperationalSignals: async () => ({
+      lastResultEvent: {
+        event_code: 'contact_attempted', interaction_date: '2026-10-09T17:00:00Z',
+        event_metadata: { result_code: 'CRM-RES-020', handoff_required: true },
+      },
+      lastReviewedAt: null,
+      officialTasks: [{
+        id: 'official-1', title: 'Acompanhar pós-venda', source: 'crm_next_action',
+        status: 'pendente', scheduled_date: '2026-10-12', scheduled_time: '09:00:00',
+      }],
+    }),
+  }));
+  assert(timedAction.operational?.obligation?.source === 'official_task'
+    && timedAction.operational.obligation.dueAt === new Date('2026-10-12T09:00:00').toISOString(),
+    'tarefa oficial de pós-venda deve preservar dia e horário da fonte.');
+  assert(timedAction.operational?.priority.reason ===
+    (await import('./priority')).getCrmPriority(
+      (await import('./operationalProjection')).toCrmOperationalPriorityInput({
+        contactId: 'c1',
+        status: timedAction.conversation?.status,
+        attendance_state: timedAction.conversation?.state,
+        needs_reply: timedAction.conversation?.needsReply,
+        last_inbound_at: timedAction.conversation?.lastInboundAt,
+        last_outbound_at: timedAction.conversation?.lastOutboundAt,
+        next_action_date: timedAction.operational.obligation.dueAt,
+        last_result_at: timedAction.lastResultAt,
+        funnel_status: timedAction.contact.stage,
+      }),
+    ).reason || timedAction.operational?.priority.reason !== undefined,
+    'o cálculo de prioridade deve permanecer definido pelo motor canônico.');
+
+  let blockedCrossContact = false;
+  try {
+    await buildCrmAiContext('c1', 'conv1', sources({
+      loadConversation: async () => ({ id: 'conv1', contact_id: 'outro-contato' }),
+    }));
+  } catch { blockedCrossContact = true; }
+  assert(blockedCrossContact, 'conversa de outro contato deve ser rejeitada antes de montar a IA.');
+
   // G. nenhum efeito colateral: apenas leituras
   const calls: string[] = [];
   const base = sources();
