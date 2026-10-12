@@ -1,0 +1,46 @@
+name: CRM F1-A Technical Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/crm/**'
+      - 'src/pages/ContatosInbox.tsx'
+      - 'src/components/crm/ContactChatPanel.tsx'
+      - '.github/workflows/crm-f1a-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build
+        run: npm run build
+      - name: CRM F1-A regressions
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-test-only-not-a-real-key
+        run: |
+          status=0
+          for file in \
+            src/lib/crm/operationalProjection.test.ts \
+            src/lib/crm/priority.test.ts \
+            src/lib/crm/canonical/transitions.test.ts \
+            src/lib/crm/aiContext.test.ts; do
+            echo "::group::Test ${file}"
+            npx --yes vite-node@3.2.4 "$file" || status=1
+            echo "::endgroup::"
+          done
+          exit "$status"

@@ -58,6 +58,9 @@ assert(residualAction.level === 'P4' && !residualAction.operational,
 const canonicalPendingTaskWhileWaiting = getCrmPriority({
   ...waitingBase,
   needs_reply: false,
+  // Resultado posterior ao último outbound: a ação segue pendente em vez de
+  // cair em "Registrar resultado" por execução ainda sem classificação.
+  last_result_at: '2026-08-27T20:01:00.000Z',
   next_action_date: '2026-08-27T12:00:00.000Z',
 }, now);
 assert(canonicalPendingTaskWhileWaiting.operational && canonicalPendingTaskWhileWaiting.reason === 'next_action_today',
