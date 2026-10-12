@@ -437,7 +437,9 @@ export async function buildCrmAiContext(
     timed('orders', sources.loadOrders(contactId, limits.orders)),
     timed('tags', sources.loadTags(contactId)),
     timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
-    sources.loadOperationalSignals ? timed('operationalSignals', sources.loadOperationalSignals(contactId)) : Promise.resolve(null),
+    sources.loadOperationalSignals
+      ? timed('operationalSignals', sources.loadOperationalSignals(contactId)).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const messages: CrmAiMessage[] = (messageRows ?? [])
@@ -493,7 +495,9 @@ export async function buildCrmAiContext(
 
   // A prioridade recebe as mesmas fontes oficiais usadas na Inbox. O texto
   // sem data do contato permanece visível como obrigação, sem fabricar vencimento.
-  const operational = projectCrmOperationalState({
+  // Falha na leitura específica não pode fabricar precisão operacional.
+  // A IA permanece disponível com o histórico, mas sem projeção afirmativa.
+  const operational = (!sources.loadOperationalSignals || operationalSignals) ? projectCrmOperationalState({
     contactId,
     conversationId: conversation?.id ?? null,
     funnel_status: contact.funnel_status ?? null,
@@ -518,7 +522,7 @@ export async function buildCrmAiContext(
       ? operationalSignals?.lastResultEvent?.event_metadata?.handoff_required : null,
     last_no_new_fact_at: operationalSignals?.lastReviewedAt
       ?? (historyRows ?? []).find(row => row.event_code === 'crm_attendance_no_new_fact')?.interaction_date ?? null,
-  });
+  }) : undefined;
 
   const context: CrmAiContext = {
     generatedAt: new Date().toISOString(),
