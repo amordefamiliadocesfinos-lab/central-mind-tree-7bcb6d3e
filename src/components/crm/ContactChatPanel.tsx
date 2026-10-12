@@ -127,6 +127,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     conversationMeta?.last_inbound_at ?? '',
     conversationMeta?.last_outbound_at ?? '',
   ].join('|');
+  // Uma resposta assíncrona do contato anterior nunca pode voltar à tela nova.
+  const latestContextStampRef = useRef(contextStamp);
+  latestContextStampRef.current = contextStamp;
   const aiDraftStale = Boolean(aiDraftStamp && aiDraftStamp !== contextStamp);
 
   const dismissAnalysis = () => {
@@ -148,6 +151,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
     setAttachment(null);
     setFollowUpCycle(null);
     setAiDraftStamp(null);
+    setAnalyzing(false);
     clearPostSaleOrderContext();
   }, [contactId]);
 
@@ -443,17 +447,21 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
+    const requestedStamp = contextStamp;
+    const isCurrent = () => latestContextStampRef.current === requestedStamp;
     const analysisStartedAt = performance.now();
     setAnalyzing(true);
     setAnalysisError(false);
     setAnalysis(null);
     try {
       const context = await buildCrmAiContext(contactId, conversationId);
+      if (!isCurrent()) return;
       const [suggestion, repurchaseOrders, postSale] = await Promise.all([
         suggestCrmResultFromContext(context),
         loadRepurchaseOrders(contactId),
         loadPostSaleEligibility(contactId),
       ]);
+      if (!isCurrent()) return;
       const repurchase = calculateRepurchaseSignal(context, repurchaseOrders);
       // Reativação futura é um agendamento humano existente: não criamos uma
       // segunda chamada de ação visual para a mesma oportunidade.
@@ -490,6 +498,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         reply = await suggestCrmReplyFromContext(context, { result, nextAction: recommendation ?? deterministicRecommendation, decision, profile: DEFAULT_BUILDING_COMMUNICATION_PROFILE });
       }
 
+      if (!isCurrent()) return;
       setAnalysis({ result: suggestion, nextAction: recommendation, reply, postSale: visiblePostSale, repurchase: visibleRepurchase });
       // Carimbo do contexto usado: qualquer mudança posterior invalida a análise.
       setAnalyzedAt(contextStamp);
@@ -497,10 +506,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         console.debug('[CRM IA] análise completa', { totalMs: Math.round(performance.now() - analysisStartedAt) });
       }
     } catch (error) {
-      console.error('crm-ai-assistant:', error);
-      setAnalysisError(true);
+      if (isCurrent()) {
+        console.error('crm-ai-assistant:', error);
+        setAnalysisError(true);
+      }
     } finally {
-      setAnalyzing(false);
+      if (isCurrent()) setAnalyzing(false);
     }
   };
 
@@ -603,8 +614,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
           onDismiss={dismissAnalysis}
           onRetry={handleAnalyze}
           onPreparePostSale={async () => {
+            const requestedStamp = contextStamp;
             try {
               const context = await buildCrmAiContext(contactId, conversationId);
+              if (latestContextStampRef.current !== requestedStamp) return;
               const authorization = evaluatePostSaleApproach(analysis?.postSale ?? null, {
                 optOut: context.contact.optOut,
                 conversationState: context.conversation?.state ?? null,
@@ -629,6 +642,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 toast.message('Não há uma mensagem adequada para sugerir agora.');
                 return;
               }
+              if (latestContextStampRef.current !== requestedStamp) return;
               const postSaleOrderId = analysis?.postSale?.orderId?.trim();
               if (postSaleOrderId && conversationId) {
                 setPostSaleOrderContext({ contactId, conversationId, orderId: postSaleOrderId });
@@ -642,8 +656,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
             }
           }}
           onPrepareRepurchase={async () => {
+            const requestedStamp = contextStamp;
             try {
               const context = await buildCrmAiContext(contactId, conversationId);
+              if (latestContextStampRef.current !== requestedStamp) return;
               const decision = {
                 ...buildCrmCommunicationDecision(context, null, null),
                 commercialIntent: 'repurchase' as const,
@@ -657,6 +673,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
                 toast.message('Não há uma mensagem adequada para sugerir agora.');
                 return;
               }
+              if (latestContextStampRef.current !== requestedStamp) return;
               setText(reply.reply);
               setAiDraftStamp(contextStamp);
               toast.success('Mensagem sugerida no campo — revise antes de enviar');
