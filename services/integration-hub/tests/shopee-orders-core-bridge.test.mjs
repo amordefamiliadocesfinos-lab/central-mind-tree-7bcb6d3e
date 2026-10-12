@@ -7,6 +7,7 @@ import {
   CORE_BRIDGE_URL,
   callCoreBridgeAction,
   readLiveShopeeOauthConnection,
+  refreshLiveShopeeOauthConnection,
   upsertLiveShopeeOrderListSnapshot,
   upsertLiveShopeeOrderSnapshot,
 } from '../src/core-bridge.mjs';
@@ -34,9 +35,10 @@ function bridgeFetch(executeAction) {
   };
 }
 
-test('F6-B registers only the three localized Shopee Live Bridge actions', () => {
+test('F6-B registers the localized Shopee Live Bridge actions', () => {
   for (const action of [
     'shopee.oauth_connection.read',
+    'shopee.oauth_connection.refresh',
     'shopee.raw_order_list_snapshot.upsert',
     'shopee.raw_order_snapshot.upsert',
   ]) {
@@ -82,6 +84,63 @@ test('OAuth connection read sends only channel_account_id and returns ciphertext
   assert.equal(result.payload.refresh_token, undefined);
   assert.equal(result.payload.environment, undefined);
   assert.equal(result.payload.request_id, result.requestId);
+});
+
+test('OAuth connection refresh sends only rotated ciphertexts and expirations, preserving metadata server-side', async () => {
+  let observed;
+  const data = {
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    access_token_ciphertext: 'iv.new-access-ciphertext',
+    refresh_token_ciphertext: 'iv.new-refresh-ciphertext',
+    access_token_expires_at: '2026-10-12T22:00:00.000Z',
+    refresh_token_expires_at: '2026-11-11T18:00:00.000Z',
+    last_refreshed_at: '2026-10-12T18:00:00.000Z',
+  };
+  const result = await refreshLiveShopeeOauthConnection(data, {
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async (payload) => {
+      observed = payload;
+      return { status: 200, body: { status: 'ok', action: payload.action } };
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(observed, {
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_REFRESH,
+    ...data,
+  });
+  for (const forbidden of ['partner_id', 'shop_id', 'shop_name', 'region', 'shop_status', 'environment']) {
+    assert.equal(observed[forbidden], undefined);
+  }
+});
+
+test('OAuth connection refresh rejects caller attempts to overwrite connection identity or metadata', async () => {
+  let executions = 0;
+  const result = await callCoreBridgeAction({
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_REFRESH,
+    data: {
+      channel_account_id: CHANNEL_ACCOUNT_ID,
+      access_token_ciphertext: 'iv.new-access-ciphertext',
+      refresh_token_ciphertext: 'iv.new-refresh-ciphertext',
+      access_token_expires_at: '2026-10-12T22:00:00.000Z',
+      refresh_token_expires_at: '2026-11-11T18:00:00.000Z',
+      last_refreshed_at: '2026-10-12T18:00:00.000Z',
+      shop_id: 999,
+    },
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async () => {
+      executions += 1;
+      return { status: 200, body: {} };
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 400);
+  assert.equal(executions, 0);
 });
 
 test('OAuth connection read rejects caller-controlled environment and extra fields before Core execution', async () => {
