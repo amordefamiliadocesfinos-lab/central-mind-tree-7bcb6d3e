@@ -503,7 +503,8 @@ export async function buildCrmAiContext(
     funnel_status: contact.funnel_status ?? null,
     ultimo_contato: contact.ultimo_contato ?? null,
     needs_reply: conversation?.needsReply ?? false,
-    status: conversation?.status ?? 'resolved',
+    // Sem conversa, o estado é desconhecido; não inventar atendimento concluído.
+    status: conversation?.status ?? null,
     attendance_state: conversation?.state ?? null,
     return_at: conversation?.returnAt ?? null,
     next_action_date: officialDueAt,
