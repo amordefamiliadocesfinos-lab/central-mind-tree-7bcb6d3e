@@ -15,6 +15,8 @@ export interface CrmOperationalSource extends CrmPriorityInput {
   funnel_status?: string | null;
   next_action_text?: string | null;
   next_action_title?: string | null;
+  /** Confirma que o prazo/título nasceu de uma tarefa oficial ativa. */
+  official_task_present?: boolean;
   /** Código do último Resultado efetivamente registrado, nunca uma hipótese da IA. */
   last_result_code?: string | null;
   /** Metadado gravado no evento canônico; não comprova recebimento por Operações. */
@@ -77,10 +79,10 @@ export function projectCrmOperationalState(source: CrmOperationalSource, now = n
   const canonicalResult = getCanonicalResult(source.last_result_code);
   const taskTitle = source.next_action_title?.trim() || null;
   const contactTitle = source.next_action_text?.trim() || null;
-  const obligation = taskTitle || source.next_action_date
-    ? { title: taskTitle, dueAt: source.next_action_date ?? null, source: 'official_task' as const }
-    : contactTitle
-      ? { title: contactTitle, dueAt: null, source: 'contact' as const }
+  const obligation = source.official_task_present || taskTitle
+    ? { title: taskTitle ?? contactTitle, dueAt: source.next_action_date ?? null, source: 'official_task' as const }
+    : contactTitle || source.next_action_date
+      ? { title: contactTitle, dueAt: source.next_action_date ?? null, source: 'contact' as const }
       : null;
   return {
     contactId: source.contactId,
