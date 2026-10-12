@@ -213,6 +213,135 @@ export async function getShopInfo({
   return { response, payload: parseJsonPayload(rawText), rawText };
 }
 
+
+async function signedShopGet({
+  apiBaseUrl,
+  path,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  query = {},
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
+  const normalizedPartnerId = requiredPositiveInteger(partnerId, 'partnerId');
+  const normalizedShopId = requiredPositiveInteger(shopId, 'shopId');
+  const normalizedPath = requiredText(path, 'path');
+  const normalizedAccessToken = requiredText(accessToken, 'accessToken');
+  const signature = await signShopRequest({
+    partnerId: normalizedPartnerId,
+    partnerKey,
+    path: normalizedPath,
+    accessToken: normalizedAccessToken,
+    shopId: normalizedShopId,
+    timestamp,
+  });
+
+  const url = new URL(normalizedPath, requiredText(apiBaseUrl, 'apiBaseUrl'));
+  url.searchParams.set('partner_id', String(normalizedPartnerId));
+  url.searchParams.set('timestamp', String(signature.timestamp));
+  url.searchParams.set('access_token', normalizedAccessToken);
+  url.searchParams.set('shop_id', String(normalizedShopId));
+  url.searchParams.set('sign', signature.sign);
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value === null || value === undefined || value === '') continue;
+    url.searchParams.set(key, String(value));
+  }
+
+  const response = await fetchImpl(url, { headers: { Accept: 'application/json' } });
+  const rawText = await response.text();
+  return { response, payload: parseJsonPayload(rawText), rawText };
+}
+
+export function getOrderList({
+  apiBaseUrl,
+  orderListPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  timeRangeField = 'create_time',
+  timeFrom,
+  timeTo,
+  pageSize,
+  cursor = null,
+  orderStatus = null,
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  const normalizedTimeRangeField = requiredText(timeRangeField, 'timeRangeField');
+  if (!['create_time', 'update_time'].includes(normalizedTimeRangeField)) {
+    throw new TypeError('timeRangeField must be create_time or update_time');
+  }
+  const normalizedTimeFrom = requiredPositiveInteger(timeFrom, 'timeFrom');
+  const normalizedTimeTo = requiredPositiveInteger(timeTo, 'timeTo');
+  if (normalizedTimeTo < normalizedTimeFrom) throw new TypeError('timeTo must be greater than or equal to timeFrom');
+
+  const query = {
+    time_range_field: normalizedTimeRangeField,
+    time_from: normalizedTimeFrom,
+    time_to: normalizedTimeTo,
+    page_size: requiredPositiveInteger(pageSize, 'pageSize'),
+  };
+  if (cursor !== null && cursor !== undefined && String(cursor).trim() !== '') {
+    query.cursor = String(cursor).trim();
+  }
+  if (orderStatus !== null && orderStatus !== undefined && String(orderStatus).trim() !== '') {
+    query.order_status = String(orderStatus).trim();
+  }
+
+  return signedShopGet({
+    apiBaseUrl,
+    path: orderListPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    query,
+    fetchImpl,
+    timestamp,
+  });
+}
+
+export function getOrderDetail({
+  apiBaseUrl,
+  orderDetailPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSnList,
+  responseOptionalFields = [],
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (!Array.isArray(orderSnList) || orderSnList.length === 0) {
+    throw new TypeError('orderSnList must be a non-empty array');
+  }
+  const normalizedOrderSnList = orderSnList.map((value, index) => requiredText(value, `orderSnList[${index}]`));
+  const optionalFields = Array.isArray(responseOptionalFields)
+    ? responseOptionalFields.map((value, index) => requiredText(value, `responseOptionalFields[${index}]`)).join(',')
+    : requiredText(responseOptionalFields, 'responseOptionalFields');
+
+  return signedShopGet({
+    apiBaseUrl,
+    path: orderDetailPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    query: {
+      order_sn_list: normalizedOrderSnList.join(','),
+      response_optional_fields: optionalFields,
+    },
+    fetchImpl,
+    timestamp,
+  });
+}
+
 export function parseShopeeError(payload) {
   const error = payload && typeof payload.error === 'string' ? payload.error : '';
   return error.trim();
