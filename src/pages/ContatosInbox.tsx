@@ -33,7 +33,8 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
-import { getOfficialCrmNextActionAt, getOfficialCrmTaskDueAt } from '@/lib/crm/officialTask';
+import { getCrmOperationalTaskDueAt, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
+import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
@@ -65,6 +66,9 @@ interface InboxItem {
   return_at: string | null;
   next_action_date: string | null;
   next_action_title: string | null;
+  next_action_text: string | null;
+  last_result_code: string | null;
+  handoff_required: boolean | null;
   next_contact_date: string | null;
   commercial_opt_out: boolean;
   reactivation_at: string | null;
@@ -88,24 +92,18 @@ function readAttendanceQueueScope(): string[] {
   }
 }
 
-function toCrmPriorityInput(item: InboxItem): CrmPriorityInput {
+/** Adaptador visual, sem reimplementar o motor de prioridade. */
+function toCrmOperationalSource(item: InboxItem): CrmOperationalSource {
   return {
-    needs_reply: item.needs_reply,
-    status: item.status,
-    attendance_state: item.attendance_state,
-    return_at: item.return_at,
-    next_action_date: item.next_action_date,
-    next_contact_date: item.next_contact_date,
-    reactivation_at: item.reactivation_at,
-    ultimo_contato: item.ultimo_contato,
-    last_inbound_at: item.last_inbound_at,
-    last_outbound_at: item.last_outbound_at,
-    last_message_at: item.last_message_at,
+    ...item,
+    contactId: item.id,
+    conversationId: item.conversation_id || null,
     attendance_state_updated_at: item.conversation_updated_at,
-    last_result_at: item.last_result_at,
-    last_no_new_fact_at: item.last_no_new_fact_at,
-    is_lead_or_quote: ['novo_lead', 'contato_realizado', 'proposta_enviada', 'negociacao'].includes(item.funnel_status || ''),
   };
+}
+
+function toCrmPriorityInput(item: InboxItem): CrmPriorityInput {
+  return toCrmOperationalPriorityInput(toCrmOperationalSource(item));
 }
 
 function isPureSupplier(item: InboxItem) {
@@ -197,7 +195,7 @@ export default function ContatosInbox() {
 
     // Busca/estágio consultam o banco inteiro: leads antigos do Kanban não
     // podem ficar invisíveis só porque estão fora da janela recente da fila.
-    const CONTACT_FIELDS = 'id,name,type,whatsapp,phone,photo_url,funnel_status,temperatura_lead,ultimo_contato,next_action_date,next_contact_date,commercial_opt_out,is_active';
+    const CONTACT_FIELDS = 'id,name,type,whatsapp,phone,photo_url,funnel_status,temperatura_lead,ultimo_contato,next_action_date,next_action_text,next_contact_date,commercial_opt_out,is_active';
     const outOfQueueScopedIds = showingOutOfQueue
       ? assignments.filter((assignment) => assignment.tag_id === outOfQueueTag?.id).map((assignment) => assignment.contact_id)
       : null;
@@ -275,7 +273,7 @@ export default function ContatosInbox() {
     const nextActionTitleByContact = new Map<string, string>();
     for (const task of scheduledCrmTasks || []) {
       if (!task.contact_id) continue;
-      const dueAt = getOfficialCrmTaskDueAt(task.scheduled_date || task.due_date, task.scheduled_time);
+      const dueAt = getCrmOperationalTaskDueAt(task);
       if (!dueAt) continue;
       const target = task.source === 'crm_reactivation' ? reactivationByContact : nextActionByContact;
       if (!target.has(task.contact_id)) {
@@ -307,11 +305,13 @@ export default function ContatosInbox() {
     // Pendência de Resultado: o último Resultado canônico já registrado por
     // contato. Reutiliza o histórico existente, sem nova estrutura.
     const lastResultByContact = new Map<string, string>();
+    const lastResultCodeByContact = new Map<string, string>();
+    const lastHandoffByContact = new Map<string, boolean | null>();
     const lastReviewedByContact = new Map<string, string>();
     if (ids.length) {
       const { data: resultHistory } = await supabase
         .from('contact_history')
-        .select('contact_id,interaction_date,event_metadata')
+        .select('contact_id,interaction_date,event_code,event_metadata')
         .in('contact_id', ids)
         .not('event_metadata->>result_code', 'is', null)
         .order('interaction_date', { ascending: false })
@@ -331,8 +331,11 @@ export default function ContatosInbox() {
       }
       for (const row of resultHistory || []) {
         const contactId = row.contact_id as string;
-        if (!contactId || lastResultByContact.has(contactId)) continue;
+        if (!contactId || lastResultByContact.has(contactId) || row.event_code === 'stage_changed') continue;
         if (row.interaction_date) lastResultByContact.set(contactId, row.interaction_date as string);
+        const metadata = row.event_metadata as { result_code?: string; handoff_required?: boolean } | null;
+        if (metadata?.result_code) lastResultCodeByContact.set(contactId, metadata.result_code);
+        lastHandoffByContact.set(contactId, typeof metadata?.handoff_required === 'boolean' ? metadata.handoff_required : null);
       }
     }
 
@@ -378,6 +381,9 @@ export default function ContatosInbox() {
         return_at: conversation.return_at,
         next_action_date: officialNextActionByContact.get(conversation.contact_id) || null,
         next_action_title: nextActionTitleByContact.get(conversation.contact_id) || null,
+        next_action_text: contact?.next_action_text || null,
+        last_result_code: lastResultCodeByContact.get(conversation.contact_id) || null,
+        handoff_required: lastHandoffByContact.get(conversation.contact_id) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact?.commercial_opt_out),
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
@@ -421,6 +427,9 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contact.id) || null,
         next_action_title: nextActionTitleByContact.get(contact.id) || null,
+        next_action_text: contact.next_action_text || null,
+        last_result_code: lastResultCodeByContact.get(contact.id) || null,
+        handoff_required: lastHandoffByContact.get(contact.id) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contact.id) || null,
@@ -471,6 +480,9 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contactId) || null,
         next_action_title: nextActionTitleByContact.get(contactId) || null,
+        next_action_text: contact.next_action_text || null,
+        last_result_code: lastResultCodeByContact.get(contactId) || null,
+        handoff_required: lastHandoffByContact.get(contactId) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contactId) || null,
@@ -650,7 +662,7 @@ export default function ContatosInbox() {
   const prioritized = useMemo(() => {
     const now = new Date();
     return [...filtered]
-      .map((item) => ({ item, priority: getCrmPriority(toCrmPriorityInput(item), now) }))
+      .map((item) => ({ item, priority: projectCrmOperationalState(toCrmOperationalSource(item), now).priority }))
       .sort((a, b) => compareCrmPriority(toCrmPriorityInput(a.item), toCrmPriorityInput(b.item), now));
   }, [filtered]);
 
