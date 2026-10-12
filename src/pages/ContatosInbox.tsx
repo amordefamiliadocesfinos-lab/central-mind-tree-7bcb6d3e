@@ -99,6 +99,7 @@ function toCrmOperationalSource(item: InboxItem): CrmOperationalSource {
     contactId: item.id,
     conversationId: item.conversation_id || null,
     attendance_state_updated_at: item.conversation_updated_at,
+    official_task_present: Boolean(item.next_action_date),
   };
 }
 
