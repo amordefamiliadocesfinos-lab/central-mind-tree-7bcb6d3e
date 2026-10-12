@@ -12,6 +12,7 @@ import { CRM_CANONICAL_NEXT_ACTIONS, getCanonicalNextAction } from './canonical/
 import { CRM_TASK_SOURCE } from './nextAction';
 import { resolveCampaignContext, type CampaignContext } from './campaignContext';
 import { ensureCrmLiveContext, getCrmLiveContext, type CrmContactLiveContext } from './liveContext';
+import { getCrmOperationalTaskDueAt, projectCrmOperationalState, type CrmOperationalProjection } from './operationalProjection';
 
 const db = supabase as any;
 
@@ -112,6 +113,8 @@ export interface CrmAiContext {
   purchases: { paidOrdersCount: number; lifetimeValue: number | null; lastOrders: CrmAiOrder[] };
   tags: string[];
   campaign: CampaignContext | null;
+  /** F1-A: projeção de leitura compartilhada com a Inbox; não executa decisões. */
+  operational?: CrmOperationalProjection;
   /** Camada interpretativa adicional; nunca é fonte de fatos canônicos. */
   liveContext: CrmContactLiveContext | null;
   catalogs: { results: CrmAiCatalogItem[]; nextActions: CrmAiCatalogItem[] };
@@ -216,8 +219,16 @@ function serializeCatalog(items: readonly { code: string; label: string; descrip
 export const CRM_AI_RESULT_CATALOG = serializeCatalog(CRM_CANONICAL_RESULTS);
 export const CRM_AI_NEXT_ACTION_CATALOG = serializeCatalog(CRM_CANONICAL_NEXT_ACTIONS);
 
+export interface CrmOperationalSignals {
+  lastResultEvent: any | null;
+  lastReviewedAt: string | null;
+  officialTasks: any[];
+}
+
 export interface CrmAiContextSources {
   loadContact(contactId: string): Promise<any | null>;
+  /** Consulta específica dos fatos oficiais, sem depender da janela resumida da IA. */
+  loadOperationalSignals?(contactId: string): Promise<CrmOperationalSignals>;
   loadConversation(contactId: string, conversationId?: string | null): Promise<any | null>;
   loadMessages(conversationId: string, limit: number): Promise<any[]>;
   loadHistory(contactId: string, limit: number): Promise<any[]>;
@@ -231,15 +242,15 @@ export interface CrmAiContextSources {
 export const defaultCrmAiContextSources: CrmAiContextSources = {
   async loadContact(contactId) {
     const { data } = await db.from('contacts')
-      .select('id, name, funnel_status, origem_lead, temperatura_lead, commercial_opt_out, paid_orders_count, lifetime_value, next_action_text, next_action_date')
+      .select('id, name, funnel_status, origem_lead, temperatura_lead, commercial_opt_out, paid_orders_count, lifetime_value, ultimo_contato, next_action_text, next_action_date')
       .eq('id', contactId).maybeSingle();
     return data ?? null;
   },
   async loadConversation(contactId, conversationId) {
     let query = db.from('service_conversations')
-      .select('id, platform_id, attendance_state, status, needs_reply, return_at, last_inbound_at, last_outbound_at');
+      .select('id, contact_id, platform_id, attendance_state, status, needs_reply, return_at, last_inbound_at, last_outbound_at, last_message_at, updated_at');
     query = conversationId
-      ? query.eq('id', conversationId)
+      ? query.eq('id', conversationId).eq('contact_id', contactId)
       : query.eq('contact_id', contactId).order('last_message_at', { ascending: false }).limit(1);
     const { data } = await query.maybeSingle();
     return data ?? null;
@@ -264,7 +275,7 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
   },
   async loadTasks(contactId, limit) {
     const { data } = await db.from('tasks')
-      .select('id, title, due_date, scheduled_date, source, status')
+      .select('id, title, due_date, scheduled_date, scheduled_time, source, status')
       .eq('contact_id', contactId)
       .is('deleted_at', null)
       // O status canônico usado pelo CRM é "concluído". Mantemos também as
@@ -293,6 +304,33 @@ export const defaultCrmAiContextSources: CrmAiContextSources = {
   },
   loadCampaign: resolveCampaignContext,
   loadLiveContext: getCrmLiveContext,
+  async loadOperationalSignals(contactId) {
+    const [result, reviewed, tasks] = await Promise.all([
+      db.from('contact_history')
+        .select('interaction_date,event_code,event_metadata')
+        .eq('contact_id', contactId)
+        .not('event_metadata->>result_code', 'is', null)
+        .neq('event_code', 'stage_changed')
+        .order('interaction_date', { ascending: false }).limit(1),
+      db.from('contact_history')
+        .select('interaction_date')
+        .eq('contact_id', contactId)
+        .eq('event_code', 'crm_attendance_no_new_fact')
+        .order('interaction_date', { ascending: false }).limit(1),
+      db.from('tasks')
+        .select('id,title,source,status,scheduled_date,scheduled_time,due_date')
+        .eq('contact_id', contactId).in('source', ['crm_next_action', 'crm_reactivation'])
+        .is('deleted_at', null).neq('status', 'concluído'),
+    ]);
+    if (result.error || reviewed.error || tasks.error) {
+      throw result.error || reviewed.error || tasks.error;
+    }
+    return {
+      lastResultEvent: result.data?.[0] ?? null,
+      lastReviewedAt: reviewed.data?.[0]?.interaction_date ?? null,
+      officialTasks: tasks.data ?? [],
+    };
+  },
 };
 
 const CLOSED_CRM_TASK_STATUSES = new Set(['concluído', 'concluida', 'concluido']);
@@ -324,6 +362,7 @@ function normalizeDirection(row: any): CrmAiMessage['direction'] {
  */
 export function deriveLastCanonicalResult(historyRows: any[]): { result: CrmAiCatalogItem | null; at: string | null; nextActionCode: string | null } {
   for (const row of historyRows) {
+    if (row?.event_code === 'stage_changed') continue;
     const code = row?.event_metadata?.result_code;
     const canonical = getCanonicalResult(code);
     if (canonical) {
@@ -360,6 +399,11 @@ export async function buildCrmAiContext(
       : Promise.resolve(null),
   ]);
   if (!contact) throw new Error('Contato não encontrado');
+  if (contact.id !== undefined && contact.id !== contactId) throw new Error('Contato divergente no contexto CRM');
+  if (conversationRow && ((conversationRow.contact_id && conversationRow.contact_id !== contactId)
+    || (conversationId && conversationRow.id !== conversationId))) {
+    throw new Error('Conversa não pertence ao contato solicitado');
+  }
 
   const conversation: CrmAiConversationSummary | null = conversationRow ? {
     id: conversationRow.id,
@@ -386,13 +430,14 @@ export async function buildCrmAiContext(
   // Contexto Vivo é a memória histórica principal; as consultas abaixo ainda
   // preservam fatos atuais oficiais e uma janela recente de segurança.
   const limits = liveContext ? CRM_AI_LIVE_MEMORY_LIMITS : CRM_AI_CONTEXT_LIMITS;
-  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign] = await Promise.all([
+  const [messageRows, historyRows, taskRows, orderRows, tagRows, campaign, operationalSignals] = await Promise.all([
     conversation ? timed('messages', sources.loadMessages(conversation.id, limits.messages)) : Promise.resolve([]),
     timed('history', sources.loadHistory(contactId, limits.historyEvents)),
     timed('tasks', sources.loadTasks(contactId, limits.tasks)),
     timed('orders', sources.loadOrders(contactId, limits.orders)),
     timed('tags', sources.loadTags(contactId)),
     timed('campaign', sources.loadCampaign({ contactId, conversationId: conversation?.id ?? null, lastInboundAt: conversation?.lastInboundAt ?? null }).catch(() => null)),
+    sources.loadOperationalSignals ? timed('operationalSignals', sources.loadOperationalSignals(contactId)) : Promise.resolve(null),
   ]);
 
   const messages: CrmAiMessage[] = (messageRows ?? [])
@@ -406,7 +451,8 @@ export async function buildCrmAiContext(
     }))
     .reverse();
 
-  const derived = deriveLastCanonicalResult(historyRows ?? []);
+  const derived = deriveLastCanonicalResult(operationalSignals?.lastResultEvent
+    ? [operationalSignals.lastResultEvent] : (historyRows ?? []));
 
   const history: CrmAiHistoryEvent[] = (historyRows ?? [])
     .slice(0, limits.historyEvents)
@@ -423,24 +469,56 @@ export async function buildCrmAiContext(
     .map(row => ({
       id: row.id,
       title: row.title,
-      dueAt: row.due_date ?? row.scheduled_date ?? null,
+      dueAt: getCrmOperationalTaskDueAt(row),
       source: row.source ?? null,
     }));
 
   // Próxima Ação oficial: código canônico registrado pelo próprio CRM, com o
   // prazo da tarefa oficial (source = crm_next_action) ou do contato.
   const canonicalNextAction = getCanonicalNextAction(derived.nextActionCode);
-  const officialTask = tasks.find(task => task.source === CRM_TASK_SOURCE) ?? null;
+  const authoritativeTasks = operationalSignals?.officialTasks ?? (taskRows ?? []);
+  const officialTaskRow = authoritativeTasks.find(row => row.source === CRM_TASK_SOURCE && !isClosedCrmTaskStatus(row.status)) ?? null;
+  const reactivationTaskRow = authoritativeTasks.find(row => row.source === 'crm_reactivation' && !isClosedCrmTaskStatus(row.status)) ?? null;
+  const officialDueAt = officialTaskRow ? getCrmOperationalTaskDueAt(officialTaskRow) : null;
   const nextAction = canonicalNextAction ? {
     code: canonicalNextAction.code,
     label: canonicalNextAction.label,
     description: canonicalNextAction.description,
-    dueAt: officialTask?.dueAt ?? contact.next_action_date ?? null,
+    dueAt: officialDueAt ?? contact.next_action_date ?? null,
   } : null;
 
   const tags = (tagRows ?? [])
     .map((row: any) => row?.tag?.name ?? row?.name ?? null)
     .filter((name: unknown): name is string => typeof name === 'string' && name.length > 0);
+
+  // A prioridade recebe as mesmas fontes oficiais usadas na Inbox. O texto
+  // sem data do contato permanece visível como obrigação, sem fabricar vencimento.
+  const operational = projectCrmOperationalState({
+    contactId,
+    conversationId: conversation?.id ?? null,
+    funnel_status: contact.funnel_status ?? null,
+    ultimo_contato: contact.ultimo_contato ?? null,
+    needs_reply: conversation?.needsReply ?? false,
+    status: conversation?.status ?? 'resolved',
+    attendance_state: conversation?.state ?? null,
+    return_at: conversation?.returnAt ?? null,
+    next_action_date: officialDueAt,
+    next_action_title: officialTaskRow?.title ?? null,
+    official_task_present: Boolean(officialTaskRow),
+    next_action_text: contact.next_action_text ?? null,
+    reactivation_at: reactivationTaskRow ? getCrmOperationalTaskDueAt(reactivationTaskRow) : null,
+    next_contact_date: null,
+    last_inbound_at: conversation?.lastInboundAt ?? null,
+    last_outbound_at: conversation?.lastOutboundAt ?? null,
+    last_message_at: conversationRow?.last_message_at ?? null,
+    attendance_state_updated_at: conversationRow?.updated_at ?? null,
+    last_result_at: derived.at,
+    last_result_code: derived.result?.code ?? null,
+    handoff_required: typeof (operationalSignals?.lastResultEvent?.event_metadata?.handoff_required)?.valueOf() === 'boolean'
+      ? operationalSignals?.lastResultEvent?.event_metadata?.handoff_required : null,
+    last_no_new_fact_at: operationalSignals?.lastReviewedAt
+      ?? (historyRows ?? []).find(row => row.event_code === 'crm_attendance_no_new_fact')?.interaction_date ?? null,
+  });
 
   const context: CrmAiContext = {
     generatedAt: new Date().toISOString(),
@@ -458,6 +536,7 @@ export async function buildCrmAiContext(
     lastResult: derived.result,
     lastResultAt: derived.at,
     nextAction,
+    operational,
     tasks,
     purchases: {
       paidOrdersCount: Number(contact.paid_orders_count ?? 0),
