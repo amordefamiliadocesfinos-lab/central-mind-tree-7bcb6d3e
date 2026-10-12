@@ -174,21 +174,9 @@ async function run() {
   assert(timedAction.operational?.obligation?.source === 'official_task'
     && timedAction.operational.obligation.dueAt === new Date('2026-10-12T09:00:00').toISOString(),
     'tarefa oficial de pós-venda deve preservar dia e horário da fonte.');
-  assert(timedAction.operational?.priority.reason ===
-    (await import('./priority')).getCrmPriority(
-      (await import('./operationalProjection')).toCrmOperationalPriorityInput({
-        contactId: 'c1',
-        status: timedAction.conversation?.status,
-        attendance_state: timedAction.conversation?.state,
-        needs_reply: timedAction.conversation?.needsReply,
-        last_inbound_at: timedAction.conversation?.lastInboundAt,
-        last_outbound_at: timedAction.conversation?.lastOutboundAt,
-        next_action_date: timedAction.operational.obligation.dueAt,
-        last_result_at: timedAction.lastResultAt,
-        funnel_status: timedAction.contact.stage,
-      }),
-    ).reason || timedAction.operational?.priority.reason !== undefined,
-    'o cálculo de prioridade deve permanecer definido pelo motor canônico.');
+  assert(timedAction.operational?.priority.reason !== undefined,
+    'projeção deve incluir classificação canônica calculada.');
+
 
   let blockedCrossContact = false;
   try {
