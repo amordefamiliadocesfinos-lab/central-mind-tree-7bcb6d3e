@@ -1,6 +1,8 @@
 export {
   buildAuthorizeUrl,
   exchangeToken,
+  getOrderDetail,
+  getOrderList,
   getShopInfo,
   parseShopeeError,
   refreshToken,
