@@ -4,6 +4,8 @@ import { createBridgeHandler } from './handler.mjs';
 const CORE_ORIGIN = 'https://xkskyutmtlhivvpfxkjg.supabase.co';
 const LIVE = 'live';
 const SHOP_INFO_ENDPOINT = '/api/v2/shop/get_shop_info';
+const ORDER_LIST_ENDPOINT = '/api/v2/order/get_order_list';
+const ORDER_DETAIL_ENDPOINT = '/api/v2/order/get_order_detail';
 
 function coreClient() {
   const url = Deno.env.get('SUPABASE_URL');
@@ -22,6 +24,37 @@ async function activeChannelAccount(core: ReturnType<typeof createClient>, chann
     .maybeSingle();
   if (error) return { ok: false, unavailable: true };
   return { ok: data?.is_active === true, unavailable: false };
+}
+
+async function persistRawSnapshot(
+  core: ReturnType<typeof createClient>,
+  payload: Record<string, unknown>,
+  { externalEntityType, endpoint }: { externalEntityType: string; endpoint: string },
+) {
+  const channelAccountId = String(payload.channel_account_id);
+  const account = await activeChannelAccount(core, channelAccountId);
+  if (account.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+  if (!account.ok) return { status: 409, body: { error: 'channel_account_unavailable' } };
+
+  const { error } = await core.from('marketplace_raw_snapshots').upsert({
+    source: 'shopee_open_platform',
+    environment: LIVE,
+    channel_account_id: channelAccountId,
+    external_entity_type: externalEntityType,
+    external_entity_id: String(payload.external_entity_id),
+    endpoint,
+    request_id: payload.request_id == null ? null : String(payload.request_id),
+    observed_at: String(payload.observed_at),
+    payload: payload.payload,
+    payload_hash: String(payload.payload_hash),
+  }, {
+    onConflict: 'source,environment,channel_account_id,external_entity_type,external_entity_id,endpoint,payload_hash',
+    ignoreDuplicates: true,
+  });
+
+  return error
+    ? { status: 503, body: { error: 'raw_snapshot_persistence_failed' } }
+    : { status: 200, body: { status: 'ok', action: payload.action } };
 }
 
 async function executeAction(payload: Record<string, unknown>) {
@@ -74,6 +107,43 @@ async function executeAction(payload: Record<string, unknown>) {
     };
   }
 
+  if (payload.action === 'shopee.oauth_connection.read') {
+    const channelAccountId = String(payload.channel_account_id);
+    const account = await activeChannelAccount(core, channelAccountId);
+    if (account.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!account.ok) return { status: 409, body: { error: 'channel_account_unavailable' } };
+
+    const { data, error } = await core
+      .from('shopee_oauth_connections')
+      .select('partner_id,shop_id,access_token_ciphertext,refresh_token_ciphertext,access_token_expires_at,refresh_token_expires_at,last_refreshed_at')
+      .eq('channel_account_id', channelAccountId)
+      .eq('environment', LIVE)
+      .maybeSingle();
+
+    if (error) return { status: 503, body: { error: 'oauth_connection_read_failed' } };
+    if (
+      !data
+      || data.shop_id == null
+      || !data.access_token_ciphertext
+      || !data.refresh_token_ciphertext
+    ) {
+      return { status: 409, body: { error: 'oauth_connection_unavailable' } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        partner_id: data.partner_id,
+        shop_id: data.shop_id,
+        access_token_ciphertext: data.access_token_ciphertext,
+        refresh_token_ciphertext: data.refresh_token_ciphertext,
+        access_token_expires_at: data.access_token_expires_at,
+        refresh_token_expires_at: data.refresh_token_expires_at,
+        last_refreshed_at: data.last_refreshed_at,
+      },
+    };
+  }
+
   if (payload.action === 'shopee.oauth_connection.upsert') {
     const channelAccountId = String(payload.channel_account_id);
     const account = await activeChannelAccount(core, channelAccountId);
@@ -110,30 +180,24 @@ async function executeAction(payload: Record<string, unknown>) {
   }
 
   if (payload.action === 'shopee.raw_shop_snapshot.upsert') {
-    const channelAccountId = String(payload.channel_account_id);
-    const account = await activeChannelAccount(core, channelAccountId);
-    if (account.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
-    if (!account.ok) return { status: 409, body: { error: 'channel_account_unavailable' } };
-
-    const { error } = await core.from('marketplace_raw_snapshots').upsert({
-      source: 'shopee_open_platform',
-      environment: LIVE,
-      channel_account_id: channelAccountId,
-      external_entity_type: 'shop',
-      external_entity_id: String(payload.external_entity_id),
+    return persistRawSnapshot(core, payload, {
+      externalEntityType: 'shop',
       endpoint: SHOP_INFO_ENDPOINT,
-      request_id: payload.request_id == null ? null : String(payload.request_id),
-      observed_at: String(payload.observed_at),
-      payload: payload.payload,
-      payload_hash: String(payload.payload_hash),
-    }, {
-      onConflict: 'source,environment,channel_account_id,external_entity_type,external_entity_id,endpoint,payload_hash',
-      ignoreDuplicates: true,
     });
+  }
 
-    return error
-      ? { status: 503, body: { error: 'raw_snapshot_persistence_failed' } }
-      : { status: 200, body: { status: 'ok', action: payload.action } };
+  if (payload.action === 'shopee.raw_order_list_snapshot.upsert') {
+    return persistRawSnapshot(core, payload, {
+      externalEntityType: 'order_list',
+      endpoint: ORDER_LIST_ENDPOINT,
+    });
+  }
+
+  if (payload.action === 'shopee.raw_order_snapshot.upsert') {
+    return persistRawSnapshot(core, payload, {
+      externalEntityType: 'order',
+      endpoint: ORDER_DETAIL_ENDPOINT,
+    });
   }
 
   return { status: 400, body: { error: 'unsupported_action' } };

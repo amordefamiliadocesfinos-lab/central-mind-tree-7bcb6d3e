@@ -12,8 +12,11 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   HEALTH: 'health',
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
+  SHOPEE_OAUTH_CONNECTION_READ: 'shopee.oauth_connection.read',
   SHOPEE_OAUTH_CONNECTION_UPSERT: 'shopee.oauth_connection.upsert',
   SHOPEE_RAW_SHOP_SNAPSHOT_UPSERT: 'shopee.raw_shop_snapshot.upsert',
+  SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT: 'shopee.raw_order_list_snapshot.upsert',
+  SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
 });
 
 export function sha256Hex(bytes) {
@@ -164,6 +167,14 @@ export function consumeLiveShopeeOauthState(data, options = {}) {
   });
 }
 
+export function readLiveShopeeOauthConnection(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_READ,
+    data,
+  });
+}
+
 export function upsertLiveShopeeOauthConnection(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
@@ -176,6 +187,22 @@ export function upsertLiveShopeeShopSnapshot(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_RAW_SHOP_SNAPSHOT_UPSERT,
+    data,
+  });
+}
+
+export function upsertLiveShopeeOrderListSnapshot(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT,
+    data,
+  });
+}
+
+export function upsertLiveShopeeOrderSnapshot(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT,
     data,
   });
 }

@@ -13,8 +13,11 @@ const encoder = new TextEncoder();
 const LIVE_ACTIONS = new Set([
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
+  'shopee.oauth_connection.read',
   'shopee.oauth_connection.upsert',
   'shopee.raw_shop_snapshot.upsert',
+  'shopee.raw_order_list_snapshot.upsert',
+  'shopee.raw_order_snapshot.upsert',
 ]);
 
 function json(status, body) {
@@ -87,6 +90,11 @@ function validateActionPayload(payload, nowMs) {
     return hasExactKeys(payload, ['action', 'state_hash']) && SHA256.test(payload.state_hash);
   }
 
+  if (payload.action === 'shopee.oauth_connection.read') {
+    return hasExactKeys(payload, ['action', 'channel_account_id'])
+      && UUID.test(payload.channel_account_id);
+  }
+
   if (payload.action === 'shopee.oauth_connection.upsert') {
     const required = [
       'action',
@@ -126,7 +134,11 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_status, 128, { nullable: true });
   }
 
-  if (payload.action === 'shopee.raw_shop_snapshot.upsert') {
+  if (
+    payload.action === 'shopee.raw_shop_snapshot.upsert'
+    || payload.action === 'shopee.raw_order_list_snapshot.upsert'
+    || payload.action === 'shopee.raw_order_snapshot.upsert'
+  ) {
     const required = [
       'action',
       'channel_account_id',
@@ -137,9 +149,13 @@ function validateActionPayload(payload, nowMs) {
     ];
     const optional = ['request_id'];
     if (!hasExactKeys(payload, required, optional)) return false;
+
+    const validExternalEntityId = payload.action === 'shopee.raw_shop_snapshot.upsert'
+      ? typeof payload.external_entity_id === 'string' && POSITIVE_INTEGER_TEXT.test(payload.external_entity_id)
+      : isBoundedText(payload.external_entity_id, 300);
+
     return UUID.test(payload.channel_account_id)
-      && typeof payload.external_entity_id === 'string'
-      && POSITIVE_INTEGER_TEXT.test(payload.external_entity_id)
+      && validExternalEntityId
       && isIsoTimestamp(payload.observed_at)
       && isObject(payload.payload)
       && SHA256.test(payload.payload_hash)
