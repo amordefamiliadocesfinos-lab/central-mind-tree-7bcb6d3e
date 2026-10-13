@@ -128,6 +128,12 @@ Deno.serve(async (req) => {
     if (!campaignId || !recipientId) {
       return json({ error: 'Destinatário e campanha obrigatórios', code: 'campaign_recipient_required' }, 400);
     }
+    const { data: liveCampaign, error: campaignError } = await supabase
+      .from('crm_campaigns').select('status').eq('id', campaignId).maybeSingle();
+    if (campaignError) return json({ error: 'Falha ao conferir campanha', code: 'campaign_lookup_failed' }, 500);
+    if (!liveCampaign || !['prepared', 'sending'].includes(liveCampaign.status)) {
+      return json({ error: 'Campanha não está autorizada para execução', code: 'campaign_not_active' }, 409);
+    }
     const { data: recipient, error: readError } = await supabase
       .from('crm_campaign_recipients')
       .select('id, campaign_id, contact_id, conversation_id, rendered_message, status, delivery_mode')
