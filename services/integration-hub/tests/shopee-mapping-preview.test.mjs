@@ -206,3 +206,73 @@ test('contract remains preview-only', () => {
     ['recognized', 'needs_mapping', 'ambiguous', 'invalid_mapping'],
   );
 });
+
+function exactMapping(overrides = {}) {
+  return { id: 'exact', marketplace: 'shopee', channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: ACCOUNT, external_item_key: 'code:SH-002-006|variation:1 kg',
+    product_id: 'legacy', physical_multiplier: 1000, ...overrides };
+}
+
+test('SKU priority and normalized title fallback match the legacy key format', () => {
+  assert.equal(buildShopeeApiExternalItemKey({ modelSku: 'MODEL', itemSku: 'ITEM', modelName: '1 Kg' }), 'sku:model|variation:1 kg');
+  assert.equal(buildShopeeApiExternalItemKey({ modelSku: ' ', itemSku: 'ITEM', modelName: '1 Kg' }), 'sku:item|variation:1 kg');
+  assert.equal(buildShopeeApiExternalItemKey({ itemName: 'Açúcar Especial!', modelName: 'Pacote 1 Kg' }), 'title:acucar especial|pacote 1 kg');
+});
+
+test('named legacy mappings from every other account and mismatched scoped mappings are excluded', () => {
+  for (const account of ['SHOPEE ADÃO', 'SHOPEE PRISCILA', 'SHOPEE CELIVIO']) {
+    const preview = buildShopeeMappingPreview(normalizedPayload(), [exactMapping({ channel_account_id: null, marketplace_account: account })], { marketplaceAccount: ACCOUNT });
+    assert.equal(preview.orders[0].items[0].mappingStatus, 'needs_mapping');
+  }
+  for (const mapping of [exactMapping({ channel_account_id: 'different' }), exactMapping({ marketplace: 'other' }), exactMapping({ marketplace: 'SHOPEE' }), exactMapping({ external_item_key: 'code:SH-002-006|variation:1 kg extra' })]) {
+    assert.equal(buildShopeeMappingPreview(normalizedPayload(), [mapping], { marketplaceAccount: ACCOUNT }).orders[0].items[0].mappingStatus, 'needs_mapping');
+  }
+});
+
+test('explicit composition is complete, ordered and supersedes the legacy header', () => {
+  const input = normalizedPayload([normalizedItem({ quantity: 3, itemSku: null, modelSku: null })]);
+  const mappings = [exactMapping({ components: [
+    { product_id: 'second', variant_id: 'variant-second', physical_multiplier: 2, position: 2 },
+    { product_id: 'first', variant_id: null, physical_multiplier: 5, position: 1 },
+  ] })];
+  const before = JSON.stringify({ input, mappings });
+  const item = buildShopeeMappingPreview(input, mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.deepEqual(item.components.map(c => [c.productId, c.physicalQuantity]), [['first', 15], ['second', 6]]);
+  assert.equal(item.itemId, '58261505740');
+  assert.equal(item.modelId, '149554569657');
+  assert.equal('productId' in item, false);
+  assert.equal('variantId' in item, false);
+  assert.equal(JSON.stringify({ input, mappings }), before);
+});
+
+test('invalid explicit composition fails closed without dropping rows or using the legacy header', () => {
+  for (const components of [
+    [{ product_id: 'p', physical_multiplier: Infinity }],
+    [{ product_id: null, physical_multiplier: 1 }],
+    [{ product_id: 'good', physical_multiplier: 1 }, { product_id: 'bad', physical_multiplier: 0 }],
+    { product_id: 'p', physical_multiplier: 1 },
+  ]) {
+    const item = buildShopeeMappingPreview(normalizedPayload(), [exactMapping({ components })], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+    assert.equal(item.mappingStatus, 'invalid_mapping');
+    assert.deepEqual(item.components, []);
+  }
+});
+
+test('legacy header is used only when explicit composition is absent or empty', () => {
+  for (const components of [undefined, []]) {
+    const item = buildShopeeMappingPreview(normalizedPayload([normalizedItem({ quantity: 2 })]), [exactMapping({ components })], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+    assert.equal(item.mappingStatus, 'recognized');
+    assert.equal(item.components[0].physicalQuantity, 2000);
+  }
+});
+
+test('external SKU identity is preserved and duplicate scoped and legacy matches remain ambiguous', () => {
+  const input = normalizedPayload([normalizedItem({ itemSku: 'ITEM', modelSku: 'MODEL' })]);
+  const key = 'sku:model|variation:1 kg';
+  const item = buildShopeeMappingPreview(input, [exactMapping({ external_item_key: key })], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.itemSku, 'ITEM');
+  assert.equal(item.modelSku, 'MODEL');
+  const ambiguous = buildShopeeMappingPreview(input, [exactMapping({ external_item_key: key }), exactMapping({ id: 'legacy', external_item_key: key, channel_account_id: null })], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(ambiguous.mappingStatus, 'ambiguous');
+  assert.deepEqual(ambiguous.components, []);
+});

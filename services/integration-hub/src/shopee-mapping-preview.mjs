@@ -19,7 +19,7 @@ export function buildShopeeApiExternalItemKey({
   modelSku,
 } = {}) {
   const variation = normalizeKeyText(modelName);
-  const normalizedSku = normalizeKeyText(modelSku || itemSku).replace(/ /g, '-');
+  const normalizedSku = (normalizeKeyText(modelSku) || normalizeKeyText(itemSku)).replace(/ /g, '-');
   if (normalizedSku) return `sku:${normalizedSku}|variation:${variation}`;
 
   const code = `${itemName ?? ''} ${modelName ?? ''}`.match(/\bSH-\d+(?:-\d+)+\b/i)?.[0];
@@ -32,7 +32,7 @@ function mappingMatchesScope(mapping, {
   channelAccountId = null,
   marketplaceAccount = null,
 } = {}) {
-  if (String(mapping?.marketplace ?? '').toLowerCase() !== 'shopee') return false;
+  if (mapping?.marketplace !== 'shopee') return false;
 
   const mappingChannelAccountId = nullableText(mapping?.channel_account_id);
   if (mappingChannelAccountId) {
@@ -46,6 +46,13 @@ function mappingMatchesScope(mapping, {
 }
 
 function resolveComponents(mapping) {
+  if (mapping?.components != null && !Array.isArray(mapping.components)) return [];
+  if (Array.isArray(mapping?.components) && mapping.components.length > 0
+    && mapping.components.some((component) => (
+      !nullableText(component?.product_id)
+      || !Number.isFinite(Number(component?.physical_multiplier))
+      || Number(component.physical_multiplier) <= 0
+    ))) return [];
   const explicit = Array.isArray(mapping?.components)
     ? mapping.components
       .filter((component) => nullableText(component?.product_id) && Number(component?.physical_multiplier) > 0)
