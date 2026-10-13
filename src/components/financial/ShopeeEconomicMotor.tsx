@@ -19,7 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { calculateLegacyEconomicScenario } from '@/lib/economic-engine/legacyCore';
+import { calculateShopeeAdapterScenario } from '@/lib/economic-engine/shopeeAdapter';
+import { composeEconomicResult } from '@/lib/economic-engine/composer';
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
@@ -336,13 +337,12 @@ export function ShopeeEconomicMotor() {
     setRetMBenefits(0);
   };
 
-  const scenario = useMemo(() => calculateLegacyEconomicScenario({
-    presentation: presentationFactor,
+  const channelAdapter = useMemo(() => calculateShopeeAdapterScenario({
+    channelAccountId: accountId || null,
+    offerMappingId: selectedOffer?.mapping.id ?? null,
+    unitPrice: agreedPrice,
     q,
-    agreedPrice,
-    commissionPct,
-    transactionPct,
-    servicePct,
+    presentation: presentationFactor,
     adsPct,
     affiliatePct,
     retMCharges,
@@ -350,13 +350,28 @@ export function ShopeeEconomicMotor() {
     costPerUnit: effectiveCostPerUnit,
     targetMarginPct,
     baselinePrice,
+    policy: {
+      commissionPct,
+      transactionPct,
+      servicePct,
+      tsiBands: rreResolution.regime?.tsiBands ?? [],
+      walls: rreResolution.regime?.walls ?? [],
+    },
+    rule: {
+      engineVersion: rreResolution.regime?.engineVersion ?? '2.0.0',
+      ruleVersion: rreResolution.regime?.ruleVersion ?? null,
+      effectiveFrom: rreResolution.regime?.observedFrom ?? null,
+      effectiveTo: rreResolution.regime?.observedTo ?? null,
+      sourceRefs: rreResolution.regime?.sourceRefs ?? [],
+      confidence: rreResolution.confidence,
+      warnings: rreResolution.warnings,
+    },
   }), [
-    presentationFactor,
-    q,
+    accountId,
+    selectedOffer?.mapping.id,
     agreedPrice,
-    commissionPct,
-    transactionPct,
-    servicePct,
+    q,
+    presentationFactor,
     adsPct,
     affiliatePct,
     retMCharges,
@@ -364,10 +379,20 @@ export function ShopeeEconomicMotor() {
     effectiveCostPerUnit,
     targetMarginPct,
     baselinePrice,
+    commissionPct,
+    transactionPct,
+    servicePct,
+    rreResolution.regime,
+    rreResolution.confidence,
+    rreResolution.warnings,
   ]);
 
+  const b5Composition = useMemo(
+    () => composeEconomicResult({ components: channelAdapter.components }),
+    [channelAdapter.components],
+  );
+
   const {
-    commonInput,
     result,
     volumePhysical,
     absorptionPct,
@@ -381,8 +406,9 @@ export function ShopeeEconomicMotor() {
     requiredRepasse,
     pmr,
     tceBe,
-    tsiBand,
-  } = scenario;
+  } = channelAdapter.scenario;
+  const commonInput = { q: Math.max(1, Math.floor(q || 1)) };
+  const tsiBand = result.tsiBand?.label ?? 'PENDENTE';
 
   const confidence = {
     label: rreResolution.confidence === 'high'
@@ -447,6 +473,14 @@ export function ShopeeEconomicMotor() {
         commissionPct,
         transactionPct,
         servicePct,
+        b5Rule: {
+          adapter: channelAdapter.meta.adapter,
+          ruleVersion: channelAdapter.meta.rule.ruleVersion,
+          effectiveFrom: channelAdapter.meta.rule.effectiveFrom,
+          effectiveTo: channelAdapter.meta.rule.effectiveTo,
+          tsiBands: rreResolution.regime?.tsiBands ?? [],
+          walls: rreResolution.regime?.walls ?? [],
+        },
         adsPct,
         affiliatePct,
         retMCharges,
@@ -528,6 +562,14 @@ export function ShopeeEconomicMotor() {
           completeness: b4Result.composition.blocks.B4.completeness,
         },
         b4Components: b4Result.components,
+        b5: {
+          adapter: channelAdapter.meta.adapter,
+          confidence: channelAdapter.meta.confidence,
+          completeness: b5Composition.blocks.B5.completeness,
+          knownNetAmount: b5Composition.blocks.B5.knownNetAmount,
+          warnings: channelAdapter.meta.warnings,
+        },
+        b5Components: channelAdapter.components,
         b1Components: b1Result?.components.map((component) => ({
           id: component.id,
           block: component.block,
@@ -565,6 +607,8 @@ export function ShopeeEconomicMotor() {
         ...(!b4Mode ? ['B4_MODE_UNSELECTED'] : []),
         ...(b4Result.composition.blocks.B4.pendingComponentIds ?? []),
         ...(b4Result.composition.blocks.B4.blockedComponentIds ?? []),
+        ...(b5Composition.blocks.B5.pendingComponentIds ?? []),
+        ...(b5Composition.blocks.B5.blockedComponentIds ?? []),
       ],
     });
   };
@@ -935,7 +979,7 @@ export function ShopeeEconomicMotor() {
 
               <div className="rounded-lg border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">RET-E — regime estrutural</p>
+                  <p className="text-sm font-medium">B5 / RET-E — adaptador Shopee</p>
                   <Button size="sm" variant="ghost" className="gap-1" onClick={resetHistoricalRegime} disabled={!rreResolution.regime}>
                     <RefreshCcw className="h-3.5 w-3.5" /> Repor histórico
                   </Button>
@@ -955,7 +999,7 @@ export function ShopeeEconomicMotor() {
                   <div className="space-y-1.5"><Label>Outros custos R$</Label><Input type="number" min={0} step="0.01" value={retMCharges} onChange={(e) => setRetMCharges(Number(e.target.value))} /></div>
                   <div className="space-y-1.5 col-span-2"><Label>Benefícios / ajustes favoráveis R$</Label><Input type="number" min={0} step="0.01" value={retMBenefits} onChange={(e) => setRetMBenefits(Number(e.target.value))} /></div>
                 </div>
-                <p className="text-xs text-muted-foreground">Preencha apenas quando houver evidência para a transação. Não são aplicados automaticamente por conta.</p>
+                <p className="text-xs text-muted-foreground">Preencha apenas quando houver evidência para a transação. Estes modificadores pertencem ao B5 do adaptador Shopee e não são aplicados automaticamente por conta.</p>
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
@@ -1013,7 +1057,7 @@ export function ShopeeEconomicMotor() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Outros RET-M</span><span>- {money(retMCharges)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Benefícios RET-M</span><span>+ {money(result.retMBenefitsTotal)}</span></div>
                 <div className="border-t pt-2 flex justify-between font-semibold"><span>Repasse previsto</span><span>{money(result.repasse)}</span></div>
-                <p className="pt-1 text-xs text-muted-foreground">Cada componente é arredondado para centavos antes da soma.</p>
+                <p className="pt-1 text-xs text-muted-foreground">B5 via ShopeeAdapter · cada componente é arredondado para centavos antes da soma. Estado: {b5Composition.blocks.B5.completeness}.</p>
               </CardContent>
             </Card>
 
@@ -1038,7 +1082,7 @@ export function ShopeeEconomicMotor() {
                   <p className="text-sm text-muted-foreground">Preço ainda abaixo da primeira parede relevante do modelo.</p>
                 )}
                 {nextWall && <p className="text-sm">Próxima parede: <strong>{money(nextWall)}</strong>.</p>}
-                {!nextWall && <p className="text-sm text-muted-foreground">Sem nova parede cadastrada acima de R$200 neste checkpoint.</p>}
+                {!nextWall && <p className="text-sm text-muted-foreground">Sem nova parede versionada acima da faixa atual.</p>}
               </CardContent>
             </Card>
           </div>
@@ -1108,7 +1152,7 @@ export function ShopeeEconomicMotor() {
                 <div>
                   <p className="font-medium">Estado da evidência</p>
                   <p className="mt-1 text-muted-foreground">
-                    TSI, taxas e regimes são referências históricas do período estudado. O protótipo não homologa preço, custo, margem ou configuração futura da Shopee. Use a transação real para reconciliar o previsto.
+                    TSI, paredes, taxas e regimes são consumidos pelo ShopeeAdapter a partir da regra versionada. Quando a data estiver fora da vigência, permanecem referência histórica; a transação real continua decidindo a reconciliação.
                   </p>
                   {snapshotError && <p className="mt-2 text-xs text-destructive">{snapshotError}</p>}
                   {lastSnapshotId && (

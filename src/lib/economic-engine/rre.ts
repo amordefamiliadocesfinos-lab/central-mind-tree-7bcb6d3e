@@ -30,6 +30,8 @@ export type ResolvedHistoricalRegime = {
   commissionPct: number;
   transactionPct: number;
   servicePct: number;
+  tsiBands: Array<{ minInclusive: number; maxExclusive: number | null; amount: number; label: string }>;
+  walls: number[];
   observedFrom: string;
   observedTo: string | null;
   note: string;
@@ -60,6 +62,28 @@ function asNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+
+function parseTsiBands(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Record<string, unknown>;
+    const minInclusive = asNumber(row.minInclusive);
+    const maxExclusive = row.maxExclusive === null ? null : asNumber(row.maxExclusive);
+    const amount = asNumber(row.amount);
+    const label = typeof row.label === 'string' && row.label.trim() ? row.label.trim() : null;
+    if (minInclusive === null || amount === null || !label) return [];
+    if (row.maxExclusive !== null && maxExclusive === null) return [];
+    return [{ minInclusive, maxExclusive, amount, label }];
+  }).sort((a, b) => a.minInclusive - b.minInclusive);
+}
+
+function parseWalls(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(asNumber).filter((item): item is number => item !== null && item > 0))]
+    .sort((a, b) => a - b);
 }
 
 function isWithinValidity(rule: EconomicRuleCandidate, effectiveDate: string) {
@@ -145,6 +169,8 @@ export function resolveHistoricalShopeeRegime(
   const commissionPct = asNumber(rule.parameters.commissionPct);
   const transactionPct = asNumber(rule.parameters.transactionPct);
   const servicePct = asNumber(rule.parameters.servicePct);
+  const tsiBands = parseTsiBands(rule.parameters.tsiBands);
+  const walls = parseWalls(rule.parameters.walls);
 
   if (commissionPct === null || transactionPct === null || servicePct === null) {
     return {
@@ -155,6 +181,9 @@ export function resolveHistoricalShopeeRegime(
       matchedBy,
     };
   }
+
+  if (tsiBands.length === 0) warnings.push('Regra sem bandas TSI versionadas; B5/TSI permanece pendente.');
+  if (walls.length === 0) warnings.push('Regra sem paredes econômicas versionadas; PRE/dominância ficam limitados.');
 
   const withinObservedWindow = isWithinValidity(rule, effectiveDate);
   if (withinObservedWindow) {
@@ -213,6 +242,8 @@ export function resolveHistoricalShopeeRegime(
       commissionPct,
       transactionPct,
       servicePct,
+      tsiBands,
+      walls,
       observedFrom: rule.effectiveFrom,
       observedTo: rule.effectiveTo,
       note: rule.sourceSummary ?? 'Regra econômica versionada sem resumo adicional.',
