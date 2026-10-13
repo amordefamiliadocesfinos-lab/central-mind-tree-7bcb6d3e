@@ -5,6 +5,8 @@ export interface PurchaseFinancialInstallment {
   installment_number: number;
   value: number;
   due_date: string;
+  payment_method?: 'cartao';
+  account_id?: string;
 }
 
 export type PurchaseFinancialConditionPreset = 'avista' | '30dias' | 'personalizado';
@@ -47,6 +49,7 @@ export function normalizePurchaseFinancialInstallments(
       installment_number: index + 1,
       value: roundMoney(Number(installment.value) || 0),
       due_date: installment.due_date,
+      ...(installment.payment_method === 'cartao' ? {payment_method: 'cartao' as const, account_id: installment.account_id} : {}),
     }));
 }
 
