@@ -202,21 +202,9 @@ INSERT INTO public.economic_cost_configuration_components (
   subcategory, quantity, incidence, notes, sort_order
 )
 SELECT cfg.id, h18.id, NULL::uuid, 'B2.1', 1, 'I-A', 'Uma bandeja por apresentação configurada.', 10
-FROM public.economic_cost_configurations cfg
-JOIN presentations p ON p.id = cfg.commercial_presentation_id
+FROM b2_h18 cfg
 CROSS JOIN h18
-WHERE cfg.block = 'B2' AND cfg.code = 'B2-H18'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.economic_cost_configuration_components ecc
-    WHERE ecc.configuration_id = cfg.id AND ecc.component_product_id = h18.id
-  )
 UNION ALL
 SELECT cfg.id, rotulo.id, NULL::uuid, 'B2.1', 1, 'I-A', 'Um rótulo por apresentação configurada.', 20
-FROM public.economic_cost_configurations cfg
-JOIN presentations p ON p.id = cfg.commercial_presentation_id
-CROSS JOIN rotulo
-WHERE cfg.block = 'B2' AND cfg.code = 'B2-H18'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.economic_cost_configuration_components ecc
-    WHERE ecc.configuration_id = cfg.id AND ecc.component_product_id = rotulo.id
-  );
+FROM b2_h18 cfg
+CROSS JOIN rotulo;
