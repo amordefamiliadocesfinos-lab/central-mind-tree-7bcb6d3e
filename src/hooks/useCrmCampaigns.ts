@@ -217,10 +217,14 @@ export async function syncCampaignStatus(campaign: { id: string; status: string 
 export async function revalidateOptOut(contactIds: string[]): Promise<Set<string>> {
   const blocked = new Set<string>();
   for (let i = 0; i < contactIds.length; i += 200) {
-    const { data } = await db
+    const slice = [...new Set(contactIds.slice(i, i + 200))];
+    const { data, error } = await db
       .from('contacts')
       .select('id, commercial_opt_out')
-      .in('id', contactIds.slice(i, i + 200));
+      .in('id', slice);
+    if (error || (data || []).length !== slice.length) {
+      throw new Error('Não foi possível revalidar opt-out de todos os destinatários. Execução interrompida.');
+    }
     (data || []).forEach((c: any) => { if (c.commercial_opt_out === true) blocked.add(c.id); });
   }
   return blocked;
