@@ -53,6 +53,30 @@ CREATE TRIGGER trg_crm_campaign_reconciliation_immutable
   BEFORE UPDATE OR DELETE ON public.crm_campaign_recipient_reconciliations
   FOR EACH ROW EXECUTE FUNCTION public.reject_crm_campaign_reconciliation_mutation();
 
+-- A política legada de recipients permite UPDATE amplo para autenticados.
+-- Bloqueie especificamente a promoção failed -> sent fora desta RPC; a Edge
+-- Function F0-B conserva seu uso autorizado do papel service_role e as
+-- transições pending -> sent da fila manual não são afetadas.
+CREATE OR REPLACE FUNCTION public.guard_crm_campaign_failed_to_sent()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = public, pg_temp AS $
+BEGIN
+  IF OLD.status = 'failed' AND NEW.status = 'sent'
+     AND auth.role() IS DISTINCT FROM 'service_role'
+     AND current_setting('app.crm_f0d_reconciliation', true)
+       IS DISTINCT FROM 'authorized' THEN
+    RAISE EXCEPTION 'Promoção de envio em falha exige reconciliação formal auditável.'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$;
+DROP TRIGGER IF EXISTS trg_crm_campaign_failed_to_sent
+  ON public.crm_campaign_recipients;
+CREATE TRIGGER trg_crm_campaign_failed_to_sent
+  BEFORE UPDATE ON public.crm_campaign_recipients
+  FOR EACH ROW EXECUTE FUNCTION public.guard_crm_campaign_failed_to_sent();
+
 -- A confirmação é atômica e o servidor revalida TODOS os fatos, não confia
 -- na evidência exibida no navegador nem no status em cache da campanha.
 CREATE OR REPLACE FUNCTION public.reconcile_crm_campaign_recipient(
@@ -137,6 +161,8 @@ BEGIN
   END IF;
 
   v_sent_at := coalesce(v_msg.provider_timestamp, v_msg.created_at, now());
+  -- Sinal transacional consumido somente pela guarda da transição específica.
+  PERFORM set_config('app.crm_f0d_reconciliation', 'authorized', true);
   UPDATE public.crm_campaign_recipients
   SET status = 'sent',
       sent_at = v_sent_at,
@@ -144,6 +170,7 @@ BEGIN
       error_code = NULL,
       error_message = NULL
   WHERE id = v_rec.id AND status = 'failed';
+  PERFORM set_config('app.crm_f0d_reconciliation', '', true);
 
   INSERT INTO public.crm_campaign_recipient_reconciliations (
     campaign_id, recipient_id, service_message_id, provider_message_id,
