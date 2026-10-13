@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { calculateShopeeAdapterScenario } from '@/lib/economic-engine/shopeeAdapter';
 import { composeEconomicResult } from '@/lib/economic-engine/composer';
+import { buildGeneralEconomicSnapshot } from '@/lib/economic-engine/snapshot';
+import { noB7Occurrence } from '@/lib/economic-engine/b7';
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
@@ -391,6 +393,33 @@ export function ShopeeEconomicMotor() {
     () => composeEconomicResult({ components: channelAdapter.components }),
     [channelAdapter.components],
   );
+  const generalEconomicSnapshot = useMemo(() => buildGeneralEconomicSnapshot({
+    components: [
+      ...(b1Result?.components ?? []),
+      ...(b2Result?.components ?? []),
+      ...(b3Result?.components ?? []),
+      ...b4Result.components,
+      ...channelAdapter.components,
+      ...noB7Occurrence(),
+    ],
+    pendingBlocks: {
+      ...(!b1Result ? { B1: 'B1 ainda não resolvido.' } : {}),
+      ...(!b2ConfigurationId ? { B2: 'Configuração B2 não selecionada.' } : {}),
+      ...(!b3ConfigurationId ? { B3: 'Configuração B3 não selecionada.' } : {}),
+      ...(!b4Mode ? { B4: 'Modalidade logística B4 não selecionada.' } : {}),
+      B6: 'Financeiro/Fiscal direto ainda não atribuído para esta previsão.',
+    },
+  }), [
+    b1Result,
+    b2Result,
+    b3Result,
+    b4Result.components,
+    channelAdapter.components,
+    b2ConfigurationId,
+    b3ConfigurationId,
+    b4Mode,
+  ]);
+
 
   const {
     result,
@@ -430,6 +459,7 @@ export function ShopeeEconomicMotor() {
     if (!accountId || !productId) return;
 
     await createSnapshot({
+      snapshot_schema_version: '2.0.0',
       engine_key: 'shopee-economic-v2',
       engine_version: rreResolution.regime?.engineVersion ?? '2.0.0',
       rule_version_id: rreResolution.regime?.id ?? null,
@@ -536,6 +566,7 @@ export function ShopeeEconomicMotor() {
         requiredRepasse,
         pmr,
         tceBe,
+        economic: generalEconomicSnapshot,
       },
       evidence_snapshot: {
         confidence: rreResolution.confidence,
@@ -609,6 +640,8 @@ export function ShopeeEconomicMotor() {
         ...(b4Result.composition.blocks.B4.blockedComponentIds ?? []),
         ...(b5Composition.blocks.B5.pendingComponentIds ?? []),
         ...(b5Composition.blocks.B5.blockedComponentIds ?? []),
+        ...generalEconomicSnapshot.pendingComponentIds,
+        ...generalEconomicSnapshot.blockedComponentIds,
       ],
     });
   };
