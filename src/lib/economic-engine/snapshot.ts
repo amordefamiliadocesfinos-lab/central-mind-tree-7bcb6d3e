@@ -1,7 +1,7 @@
 import { composeEconomicResult } from './composer';
-import type { EconomicBlock, EconomicComponent, EconomicCompleteness } from './domain';
+import type { EconomicBlock, EconomicComponent, EconomicCompleteness, EconomicRevenueInput } from './domain';
 
-export const GENERAL_ECONOMIC_SNAPSHOT_SCHEMA_VERSION = '2.0.0';
+export const GENERAL_ECONOMIC_SNAPSHOT_SCHEMA_VERSION = '2.1.0';
 
 export type EconomicBlockSnapshot = {
   block: EconomicBlock;
@@ -22,6 +22,17 @@ export type GeneralEconomicSnapshot = {
     N3: number | null;
     N4: number | null;
     N5: number | null;
+  };
+  contribution: {
+    amount: number | null;
+    knownContribution: number | null;
+    completeness: EconomicCompleteness;
+  };
+  structural: {
+    amount: number | null;
+    knownStructuralResult: number | null;
+    knownOverheadAndCapital: number;
+    completeness: EconomicCompleteness;
   };
   completeness: EconomicCompleteness;
   pendingComponentIds: string[];
@@ -51,6 +62,7 @@ function pendingBlockComponent(block: EconomicBlock, reason: string): EconomicCo
 
 export function buildGeneralEconomicSnapshot(input: {
   components: EconomicComponent[];
+  revenue?: EconomicRevenueInput | null;
   pendingBlocks?: Partial<Record<EconomicBlock, string>>;
 }): GeneralEconomicSnapshot {
   const components = [...input.components];
@@ -61,7 +73,7 @@ export function buildGeneralEconomicSnapshot(input: {
     }
   }
 
-  const composition = composeEconomicResult({ components });
+  const composition = composeEconomicResult({ components, revenue: input.revenue ?? null });
 
   const blocks = Object.fromEntries(
     (Object.keys(composition.blocks) as EconomicBlock[]).map((block) => {
@@ -87,6 +99,17 @@ export function buildGeneralEconomicSnapshot(input: {
       N3: composition.levels.N3.amount,
       N4: composition.levels.N4.amount,
       N5: composition.levels.N5.amount,
+    },
+    contribution: {
+      amount: composition.contribution.amount,
+      knownContribution: composition.contribution.knownContribution,
+      completeness: composition.contribution.completeness,
+    },
+    structural: {
+      amount: composition.structural.amount,
+      knownStructuralResult: composition.structural.knownStructuralResult,
+      knownOverheadAndCapital: composition.structural.knownOverheadAndCapital,
+      completeness: composition.structural.completeness,
     },
     completeness: composition.completeness,
     pendingComponentIds: composition.pendingComponentIds,

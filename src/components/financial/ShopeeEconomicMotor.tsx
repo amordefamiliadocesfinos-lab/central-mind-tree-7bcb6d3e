@@ -23,6 +23,8 @@ import { calculateShopeeAdapterScenario } from '@/lib/economic-engine/shopeeAdap
 import { composeEconomicResult } from '@/lib/economic-engine/composer';
 import { buildGeneralEconomicSnapshot } from '@/lib/economic-engine/snapshot';
 import { noB7Occurrence } from '@/lib/economic-engine/b7';
+import { buildB8Components } from '@/lib/economic-engine/b8';
+import { buildB9Components } from '@/lib/economic-engine/b9';
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
@@ -393,6 +395,21 @@ export function ShopeeEconomicMotor() {
     () => composeEconomicResult({ components: channelAdapter.components }),
     [channelAdapter.components],
   );
+  const b8Components = useMemo(() => buildB8Components({
+    facts: [],
+    allocation: {
+      status: 'pending',
+      notes: 'G9 prepara o contrato, mas o driver de rateio estrutural ainda não foi homologado.',
+    },
+  }), []);
+  const b9Components = useMemo(() => buildB9Components({
+    capitalBaseValue: null,
+    method: {
+      status: 'pending',
+      notes: 'G9 prepara o contrato, mas base média, taxa de capital e horizonte ainda não foram homologados.',
+    },
+  }), []);
+
   const generalEconomicSnapshot = useMemo(() => buildGeneralEconomicSnapshot({
     components: [
       ...(b1Result?.components ?? []),
@@ -401,15 +418,22 @@ export function ShopeeEconomicMotor() {
       ...b4Result.components,
       ...channelAdapter.components,
       ...noB7Occurrence(),
+      ...b8Components,
+      ...b9Components,
     ],
+    revenue: {
+      amount: channelAdapter.scenario.result.ticket,
+      currency: 'BRL',
+      numericNature: 'SIMULATED',
+      sourceDomain: 'Precificação/Canal',
+      sourceEntity: 'shopeeAdapter',
+    },
     pendingBlocks: {
       ...(!b1Result ? { B1: 'B1 ainda não resolvido.' } : {}),
       ...(!b2Result ? { B2: 'Configuração B2 não resolvida para a previsão.' } : {}),
       ...(!b3Result ? { B3: 'Configuração B3 não resolvida para a previsão.' } : {}),
       ...(!b4Mode ? { B4: 'Modalidade logística B4 não selecionada.' } : {}),
       B6: 'Financeiro/Fiscal direto ainda não atribuído para esta previsão.',
-      B8: 'Overhead sem metodologia homologada nesta fase.',
-      B9: 'Capital/estoque sem metodologia homologada nesta fase.',
     },
   }), [
     b1Result,
@@ -417,6 +441,8 @@ export function ShopeeEconomicMotor() {
     b3Result,
     b4Result.components,
     channelAdapter.components,
+    b8Components,
+    b9Components,
     b2ConfigurationId,
     b3ConfigurationId,
     b4Mode,
@@ -461,7 +487,7 @@ export function ShopeeEconomicMotor() {
     if (!accountId || !productId) return;
 
     await createSnapshot({
-      snapshot_schema_version: '2.0.0',
+      snapshot_schema_version: '2.1.0',
       engine_key: 'shopee-economic-v2',
       engine_version: rreResolution.regime?.engineVersion ?? '2.0.0',
       rule_version_id: rreResolution.regime?.id ?? null,
@@ -603,6 +629,18 @@ export function ShopeeEconomicMotor() {
           warnings: channelAdapter.meta.warnings,
         },
         b5Components: channelAdapter.components,
+        b8: {
+          completeness: generalEconomicSnapshot.blocks.B8.completeness,
+          amount: generalEconomicSnapshot.blocks.B8.amount,
+          knownNetAmount: generalEconomicSnapshot.blocks.B8.knownNetAmount,
+        },
+        b8Components,
+        b9: {
+          completeness: generalEconomicSnapshot.blocks.B9.completeness,
+          amount: generalEconomicSnapshot.blocks.B9.amount,
+          knownNetAmount: generalEconomicSnapshot.blocks.B9.knownNetAmount,
+        },
+        b9Components,
         b1Components: b1Result?.components.map((component) => ({
           id: component.id,
           block: component.block,
@@ -1035,6 +1073,27 @@ export function ShopeeEconomicMotor() {
                   <div className="space-y-1.5 col-span-2"><Label>Benefícios / ajustes favoráveis R$</Label><Input type="number" min={0} step="0.01" value={retMBenefits} onChange={(e) => setRetMBenefits(Number(e.target.value))} /></div>
                 </div>
                 <p className="text-xs text-muted-foreground">Preencha apenas quando houver evidência para a transação. Estes modificadores pertencem ao B5 do adaptador Shopee e não são aplicados automaticamente por conta.</p>
+              </div>
+
+              <div className="rounded-lg border p-3 space-y-2">
+                <p className="text-sm font-medium">G9 — B8 Overhead + B9 Capital</p>
+                <p className="text-xs text-muted-foreground">
+                  B8 e B9 ficam fora do custo direto da oferta. O Motor só fecha N7 quando existir metodologia homologada de rateio estrutural e de custo de capital.
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-muted/30 p-2">
+                    <span className="text-muted-foreground">B8 / overhead</span>
+                    <p className="font-medium">{generalEconomicSnapshot.blocks.B8.completeness}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2">
+                    <span className="text-muted-foreground">B9 / capital</span>
+                    <p className="font-medium">{generalEconomicSnapshot.blocks.B9.completeness}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  N6 contribuição conhecida: {generalEconomicSnapshot.contribution.knownContribution === null ? 'PENDENTE' : money(generalEconomicSnapshot.contribution.knownContribution)}
+                  {' · '}N7 resultado estrutural: {generalEconomicSnapshot.structural.amount === null ? 'PENDENTE' : money(generalEconomicSnapshot.structural.amount)}
+                </p>
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
