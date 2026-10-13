@@ -11,6 +11,7 @@ on:
       - 'src/components/crm/CampaignReviewDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
       - 'supabase/functions/whatsapp-send/index.ts'
+      - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
       - 'src/components/crm/PosVendaPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
       - '.github/workflows/crm-f1a-validation.yml'
@@ -47,6 +48,7 @@ jobs:
             src/lib/crm/handoffEvidence.test.ts \
             src/lib/crm/campaignReplaySafety.test.ts \
             src/lib/crm/campaignDispatchEvidence.test.ts \
+            src/lib/crm/campaignFormalReconciliation.test.ts \
             src/lib/crm/handoffOperationalAction.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
