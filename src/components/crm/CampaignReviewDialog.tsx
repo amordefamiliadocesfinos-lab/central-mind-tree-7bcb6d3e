@@ -150,7 +150,14 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           .eq('role', 'Administrador')
           .eq('is_active', true)
           .maybeSingle();
-        if (!cancelled && !error && data) setIsReconciliationAdmin(true);
+        if (!cancelled && !error && data) {
+          // A tela não oferece conciliação enquanto a migration da RPC
+          // ainda não estiver disponível no Lovable Cloud oficial.
+          const { error: schemaError } = await (supabase as any)
+            .from('crm_campaign_recipient_reconciliations')
+            .select('id', { head: true }).limit(0);
+          if (!cancelled && !schemaError) setIsReconciliationAdmin(true);
+        }
       } catch {
         // Fail closed: a RPC faz sua própria autorização.
       }
