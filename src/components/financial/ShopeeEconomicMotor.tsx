@@ -28,6 +28,7 @@ import { useChannelAccounts } from '@/hooks/useChannelAccounts';
 import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
+import { useEconomicB1 } from '@/hooks/useEconomicB1';
 import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
@@ -232,6 +233,15 @@ export function ShopeeEconomicMotor() {
   );
   const presentationFactor = Number(selectedPresentation.conversion_factor);
   const isAlfajorLab = Boolean(selectedProduct?.name.toLocaleLowerCase('pt-BR').includes('alfajor'));
+  const { loading: b1Loading, error: b1Error, result: b1Result } = useEconomicB1(
+    productId || null,
+    variantId,
+    isAlfajorLab ? 'provisional-zero-open' : 'unknown',
+    effectiveAt,
+  );
+  const b1OperationalCfu = b1Result?.operationalCfu ?? 0;
+  const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : b1OperationalCfu;
+  const b1CostSource = costPerUnit > 0 ? 'manual_override' : b1OperationalCfu > 0 ? 'b1_operational' : 'pending';
 
   const rreResolution = useMemo(
     () => resolveHistoricalShopeeRegime({
@@ -284,7 +294,7 @@ export function ShopeeEconomicMotor() {
     affiliatePct,
     retMCharges,
     retMBenefits,
-    costPerUnit,
+    costPerUnit: effectiveCostPerUnit,
     targetMarginPct,
     baselinePrice,
   }), [
@@ -298,7 +308,7 @@ export function ShopeeEconomicMotor() {
     affiliatePct,
     retMCharges,
     retMBenefits,
-    costPerUnit,
+    effectiveCostPerUnit,
     targetMarginPct,
     baselinePrice,
   ]);
@@ -388,7 +398,15 @@ export function ShopeeEconomicMotor() {
         affiliatePct,
         retMCharges,
         retMBenefits,
-        costPerUnit: costPerUnit > 0 ? costPerUnit : null,
+        costPerUnit: effectiveCostPerUnit > 0 ? effectiveCostPerUnit : null,
+        costSource: b1CostSource,
+        b1: b1Result ? {
+          operationalCfu: b1Result.operationalCfu,
+          completeCfu: b1Result.completeCfu,
+          completeness: b1Result.composition.blocks.B1.completeness,
+          pendingComponentIds: b1Result.composition.blocks.B1.pendingComponentIds,
+          blockedComponentIds: b1Result.composition.blocks.B1.blockedComponentIds,
+        } : null,
         targetMarginPct,
         baselinePrice,
       },
@@ -423,6 +441,20 @@ export function ShopeeEconomicMotor() {
         confidence: rreResolution.confidence,
         matchedBy: rreResolution.matchedBy,
         warnings: rreResolution.warnings,
+        b1Components: b1Result?.components.map((component) => ({
+          id: component.id,
+          block: component.block,
+          subcategory: component.subcategory,
+          itemName: component.itemName,
+          amount: component.amount,
+          numericNature: component.numericNature,
+          costState: component.costState,
+          knowledgeState: component.knowledgeState,
+          sourceDomain: component.sourceDomain,
+          sourceEntity: component.sourceEntity,
+          sourceId: component.sourceId,
+          observedAt: component.observedAt,
+        })) ?? [],
         rule: rreResolution.regime ? {
           id: rreResolution.regime.id,
           engineVersion: rreResolution.regime.engineVersion,
@@ -433,7 +465,11 @@ export function ShopeeEconomicMotor() {
           offerSpecific: rreResolution.regime.offerSpecific,
         } : null,
       },
-      pending_snapshot: rreResolution.missing,
+      pending_snapshot: [
+        ...rreResolution.missing,
+        ...(b1Result?.composition.blocks.B1.pendingComponentIds ?? []),
+        ...(b1Result?.composition.blocks.B1.blockedComponentIds ?? []),
+      ],
     });
   };
 
@@ -702,13 +738,32 @@ export function ShopeeEconomicMotor() {
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
-                <p className="text-sm font-medium">CEA / Motor reverso</p>
+                <p className="text-sm font-medium">B1 / CEA operacional</p>
+                <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">CFU B1 automático</span>
+                    <strong>{b1Loading ? 'Carregando...' : b1OperationalCfu > 0 ? money(b1OperationalCfu) : 'Pendente'}</strong>
+                  </div>
+                  {b1Result && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Estado B1</span>
+                      <span>{b1Result.composition.blocks.B1.completeness}</span>
+                    </div>
+                  )}
+                  {b1Result?.warning && <p className="text-amber-600">{b1Result.warning}</p>}
+                  {b1Error && <p className="text-destructive">{b1Error}</p>}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5"><Label>CEA por unidade física</Label><Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} /></div>
+                  <div className="space-y-1.5">
+                    <Label>Override manual CEA / unidade</Label>
+                    <Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} />
+                    <p className="text-xs text-muted-foreground">0 = usar B1 automático. Override permanece explícito e não altera as fontes canônicas.</p>
+                  </div>
                   <div className="space-y-1.5"><Label>Margem-alvo %</Label><Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} /></div>
                   <div className="space-y-1.5 col-span-2"><Label>Preço baseline para TCE-BE</Label><Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} /></div>
                 </div>
-                {costPerUnit <= 0 && <p className="text-xs text-amber-600">CEA real ainda pendente. PMR, margem e TCE-BE permanecem desativados até informar um custo.</p>}
+                {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">B1 econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
+                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">CEA usada no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 operacional automático'}.</p>}
               </div>
             </CardContent>
           </Card>
