@@ -1,4 +1,4 @@
-name: CRM F1-A/F2-A Technical Validation
+name: CRM Technical Validation
 
 on:
   pull_request:
@@ -6,6 +6,8 @@ on:
     paths:
       - 'src/lib/crm/**'
       - 'src/pages/ContatosInbox.tsx'
+      - 'src/pages/Contatos.tsx'
+      - 'src/components/crm/PosVendaPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
       - '.github/workflows/crm-f1a-validation.yml'
   workflow_dispatch:
@@ -28,7 +30,7 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Build
         run: npm run build
-      - name: CRM F1-A/F2-A regressions
+      - name: CRM regressions
         env:
           TZ: America/Sao_Paulo
           VITE_SUPABASE_URL: https://example.supabase.co
@@ -37,6 +39,7 @@ jobs:
           status=0
           for file in \
             src/lib/crm/operationalProjection.test.ts \
+            src/lib/crm/externalWhatsAppPreparation.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/canonical/transitions.test.ts \

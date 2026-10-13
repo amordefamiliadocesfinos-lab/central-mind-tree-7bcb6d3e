@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ContactOrderHistory } from '@/components/financial/ContactOrderHistory';
 import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { prepareExternalWhatsAppDraft } from '@/lib/crm/externalWhatsAppPreparation';
 import { toast } from 'sonner';
 import {
   Heart, Star, RotateCcw, History, Search, MessageCircle, Gift, Award, Clock,
@@ -85,22 +86,21 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
     );
   }, [buckets, bucket, search]);
 
-  const sendMessage = async (c: Contact, type: 'satisfacao' | 'recompra' | 'fidelizacao') => {
+  const prepareMessage = (c: Contact, type: 'satisfacao' | 'recompra' | 'fidelizacao') => {
     const phone = c.whatsapp || c.phone || c.mobile;
     if (!phone) {
       toast.error('Contato sem telefone/WhatsApp');
       return;
     }
     const msg = TEMPLATES[type](c.name || '');
-    openWhatsApp(phone, msg);
-    await supabase.from('contact_history').insert({
-      contact_id: c.id,
-      event_type: type === 'satisfacao' ? 'survey_sent' : type === 'recompra' ? 'reactivation' : 'loyalty',
-      interaction_type: 'whatsapp',
-      description: `📤 Pós-Venda: ${type === 'satisfacao' ? 'Pesquisa de satisfação' : type === 'recompra' ? 'Convite de recompra' : 'Programa de fidelidade'} enviado`,
-      interaction_date: new Date().toISOString(),
-    });
-    toast.success('Mensagem enviada e registrada');
+    const status = prepareExternalWhatsAppDraft(phone, msg, openWhatsApp);
+    if (status === 'blocked') {
+      toast.error('Não foi possível abrir o WhatsApp. Confira o telefone e os pop-ups.');
+      return;
+    }
+    // Abrir um rascunho externo não comprova envio nem entrega.
+    // Não registrar "survey_sent"/reativação como fato realizado.
+    toast.message('Mensagem preparada no WhatsApp. Revise e envie por lá; envio não confirmado no CRM.');
   };
 
   const markAsPosVenda = async (c: Contact) => {
@@ -136,13 +136,13 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-3">
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => sendMessage(c, 'satisfacao')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'satisfacao')}>
             <Star className="h-3.5 w-3.5 text-amber-500" />Satisfação
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => sendMessage(c, 'recompra')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'recompra')}>
             <RotateCcw className="h-3.5 w-3.5 text-blue-600" />Recompra
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => sendMessage(c, 'fidelizacao')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'fidelizacao')}>
             <Gift className="h-3.5 w-3.5 text-pink-600" />Fidelizar
           </Button>
           <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => setHistoryContact(c)}>
