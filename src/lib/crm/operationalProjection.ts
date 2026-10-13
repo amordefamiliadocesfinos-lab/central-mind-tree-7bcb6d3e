@@ -46,6 +46,55 @@ export function getCrmOperationalTaskDueAt(task: {
     : getOfficialCrmNextActionAt(task.due_date);
 }
 
+/** Leitura única das tarefas CRM existentes, inclusive sem vencimento. */
+export interface CrmOperationalTaskRow {
+  contact_id?: string | null;
+  source?: string | null;
+  title?: string | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
+  due_date?: string | null;
+}
+
+export interface CrmOperationalTaskSnapshot {
+  hasOfficialNextAction: boolean;
+  nextActionTitle: string | null;
+  nextActionDueAt: string | null;
+  reactivationDueAt: string | null;
+}
+
+/**
+ * Preserva a primeira tarefa ativa de cada origem. Se houver vários registros,
+ * uma tarefa com data válida prevalece para não ocultar obrigação temporizada.
+ * A existência de tarefa sem data NÃO produz prazo nem altera getCrmPriority().
+ * Espera receber apenas tarefas ativas (os filtros de status são dos leitores).
+ */
+export function indexCrmOperationalTasks(
+  rows: readonly CrmOperationalTaskRow[],
+): Map<string, CrmOperationalTaskSnapshot> {
+  const indexed = new Map<string, CrmOperationalTaskSnapshot>();
+  for (const row of rows) {
+    const contactId = row.contact_id;
+    if (!contactId || (row.source !== 'crm_next_action' && row.source !== 'crm_reactivation')) continue;
+    let snapshot = indexed.get(contactId);
+    if (!snapshot) {
+      snapshot = { hasOfficialNextAction: false, nextActionTitle: null, nextActionDueAt: null, reactivationDueAt: null };
+      indexed.set(contactId, snapshot);
+    }
+    const dueAt = getCrmOperationalTaskDueAt(row);
+    if (row.source === 'crm_reactivation') {
+      if (!snapshot.reactivationDueAt && dueAt) snapshot.reactivationDueAt = dueAt;
+      continue;
+    }
+    if (!snapshot.hasOfficialNextAction || (!snapshot.nextActionDueAt && dueAt)) {
+      snapshot.nextActionTitle = row.title?.trim() || null;
+      snapshot.nextActionDueAt = dueAt;
+    }
+    snapshot.hasOfficialNextAction = true;
+  }
+  return indexed;
+}
+
 /**
  * Adaptador comum: a prioridade continua pertencendo exclusivamente
  * a getCrmPriority(). Nenhum Resultado ou texto de IA altera essa regra.
