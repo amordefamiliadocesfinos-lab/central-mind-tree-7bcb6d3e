@@ -124,6 +124,8 @@ test('builds ready internal order candidates without assigning internal status o
 
   assert.equal(preview.readyCount, 2);
   assert.equal(preview.blockedCount, 0);
+  assert.equal(preview.writeReady, false);
+  assert.equal(preview.requiresInternalContract, true);
 
   for (const order of preview.orders) {
     assert.equal(order.projectionStatus, 'ready');
@@ -207,9 +209,22 @@ test('does not map external Shopee status to internal order status', () => {
   assert.equal(preview.orders[0].candidate.operationalStatus, null);
 });
 
+test('blocks a candidate with no valid order date', () => {
+  const normalized = normalizedPayload();
+  normalized.orders[0].createdAt = null;
+  const preview = buildShopeeOrderProjectionPreview(normalized, mappingPreview(), {
+    marketplaceAccount: ACCOUNT,
+  });
+
+  assert.equal(preview.orders[0].projectionStatus, 'blocked');
+  assert.ok(preview.orders[0].blockers.includes('missing_order_date'));
+});
+
 test('contract is preview-only and side-effect free by design', () => {
   assert.deepEqual(SHOPEE_ORDER_PROJECTION_PREVIEW_CONTRACT, {
     operationalWrites: false,
+    writeReady: false,
+    requiresInternalContract: true,
     externalStatusDoesNotSetInternalStatus: true,
     stockEvent: null,
     financialAction: null,
