@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { calculateLegacyEconomicScenario } from '@/lib/economic-engine/legacyCore';
+import { composeEconomicResult } from '@/lib/economic-engine/composer';
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
@@ -29,6 +30,7 @@ import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
 import { useEconomicB1 } from '@/hooks/useEconomicB1';
+import { useEconomicB2B3 } from '@/hooks/useEconomicB2B3';
 import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
@@ -240,8 +242,77 @@ export function ShopeeEconomicMotor() {
     effectiveAt,
   );
   const b1OperationalCfu = b1Result?.operationalCfu ?? 0;
-  const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : b1OperationalCfu;
-  const b1CostSource = costPerUnit > 0 ? 'manual_override' : b1OperationalCfu > 0 ? 'b1_operational' : 'pending';
+  const [b2ConfigId, setB2ConfigId] = useState('');
+  const [b3ConfigId, setB3ConfigId] = useState('');
+  const {
+    loading: b2b3Loading,
+    error: b2b3Error,
+    b2Configs,
+    b3Configs,
+  } = useEconomicB2B3(
+    productId || null,
+    variantId,
+    presentationId === DIRECT_PRESENTATION_ID ? null : presentationId,
+    effectiveAt,
+  );
+
+  useEffect(() => {
+    const preferred = b2Configs.find((config) => config.isDefault) ?? b2Configs[0] ?? null;
+    if (!preferred) {
+      setB2ConfigId('');
+      return;
+    }
+    if (!b2Configs.some((config) => config.id === b2ConfigId)) setB2ConfigId(preferred.id);
+  }, [b2Configs, b2ConfigId]);
+
+  useEffect(() => {
+    const preferred = b3Configs.find((config) => config.isDefault) ?? b3Configs[0] ?? null;
+    if (!preferred) {
+      setB3ConfigId('');
+      return;
+    }
+    if (!b3Configs.some((config) => config.id === b3ConfigId)) setB3ConfigId(preferred.id);
+  }, [b3Configs, b3ConfigId]);
+
+  const selectedB2Config = b2Configs.find((config) => config.id === b2ConfigId) ?? null;
+  const selectedB3Config = b3Configs.find((config) => config.id === b3ConfigId) ?? null;
+  const b2Composition = useMemo(
+    () => composeEconomicResult({ components: selectedB2Config?.economicComponents ?? [] }),
+    [selectedB2Config],
+  );
+  const b3Composition = useMemo(
+    () => composeEconomicResult({ components: selectedB3Config?.economicComponents ?? [] }),
+    [selectedB3Config],
+  );
+
+  const volumePhysicalBridge = Math.max(0, presentationFactor * Math.max(1, q));
+  const b2OrderKnown = b2Composition.blocks.B2.knownNetAmount * Math.max(1, q);
+  const b3OrderKnown = b3Composition.blocks.B3.knownNetAmount;
+  const b1OrderKnown = b1OperationalCfu * volumePhysicalBridge;
+  const automaticKnownOrderCost = b1OrderKnown + b2OrderKnown + b3OrderKnown;
+  const automaticCeaPerUnit = volumePhysicalBridge > 0
+    ? automaticKnownOrderCost / volumePhysicalBridge
+    : b1OperationalCfu;
+  const automaticCompleteness = [
+    b1Result?.composition.blocks.B1.completeness ?? 'PARTIAL',
+    b2Composition.blocks.B2.completeness,
+    b3Composition.blocks.B3.completeness,
+  ].includes('BLOCKED')
+    ? 'BLOCKED'
+    : [
+        b1Result?.composition.blocks.B1.completeness ?? 'PARTIAL',
+        b2Composition.blocks.B2.completeness,
+        b3Composition.blocks.B3.completeness,
+      ].includes('PARTIAL')
+      ? 'PARTIAL'
+      : 'COMPLETE';
+
+  const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : automaticCeaPerUnit;
+  const costSource = costPerUnit > 0
+    ? 'manual_override'
+    : automaticCeaPerUnit > 0
+      ? 'b1_b2_b3_operational'
+      : 'pending';
 
   const rreResolution = useMemo(
     () => resolveHistoricalShopeeRegime({
@@ -399,7 +470,7 @@ export function ShopeeEconomicMotor() {
         retMCharges,
         retMBenefits,
         costPerUnit: effectiveCostPerUnit > 0 ? effectiveCostPerUnit : null,
-        costSource: b1CostSource,
+        costSource,
         b1: b1Result ? {
           operationalCfu: b1Result.operationalCfu,
           completeCfu: b1Result.completeCfu,
@@ -407,6 +478,23 @@ export function ShopeeEconomicMotor() {
           pendingComponentIds: b1Result.composition.blocks.B1.pendingComponentIds,
           blockedComponentIds: b1Result.composition.blocks.B1.blockedComponentIds,
         } : null,
+        b2: selectedB2Config ? {
+          configId: selectedB2Config.id,
+          code: selectedB2Config.code,
+          name: selectedB2Config.name,
+          perCommercialUnitKnown: b2Composition.blocks.B2.knownNetAmount,
+          orderKnown: b2OrderKnown,
+          completeness: b2Composition.blocks.B2.completeness,
+        } : null,
+        b3: selectedB3Config ? {
+          configId: selectedB3Config.id,
+          code: selectedB3Config.code,
+          name: selectedB3Config.name,
+          orderKnown: b3OrderKnown,
+          completeness: b3Composition.blocks.B3.completeness,
+        } : null,
+        automaticKnownOrderCost,
+        automaticCompleteness,
         targetMarginPct,
         baselinePrice,
       },
@@ -455,6 +543,8 @@ export function ShopeeEconomicMotor() {
           sourceId: component.sourceId,
           observedAt: component.observedAt,
         })) ?? [],
+        b2Components: selectedB2Config?.economicComponents ?? [],
+        b3Components: selectedB3Config?.economicComponents ?? [],
         rule: rreResolution.regime ? {
           id: rreResolution.regime.id,
           engineVersion: rreResolution.regime.engineVersion,
@@ -469,6 +559,10 @@ export function ShopeeEconomicMotor() {
         ...rreResolution.missing,
         ...(b1Result?.composition.blocks.B1.pendingComponentIds ?? []),
         ...(b1Result?.composition.blocks.B1.blockedComponentIds ?? []),
+        ...b2Composition.blocks.B2.pendingComponentIds,
+        ...b2Composition.blocks.B2.blockedComponentIds,
+        ...b3Composition.blocks.B3.pendingComponentIds,
+        ...b3Composition.blocks.B3.blockedComponentIds,
       ],
     });
   };
