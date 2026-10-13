@@ -145,7 +145,7 @@ CREATE POLICY "Authenticated users operate economic_fulfillment_config_component
 INSERT INTO public.economic_presentation_configs (
   product_id, variant_id, commercial_presentation_id, code, name, is_default, zero_confirmed, notes
 )
-SELECT cp.product_id, cp.variant_id, cp.id, 'BANDEJA_H18', 'Bandeja H-18', true, false,
+SELECT cp.product_id, cp.variant_id, cp.id, 'BANDEJA_H18', 'Bandeja H-18', false, false,
        'Configuração B2 piloto: 1 bandeja H-18 + 1 rótulo por apresentação de 18.'
 FROM public.commercial_presentations cp
 WHERE cp.product_id = '62cf9f63-be04-4261-ad11-569028dd1125'::uuid
@@ -174,7 +174,7 @@ INSERT INTO public.economic_fulfillment_configs (
 VALUES (
   'SEM_EMBALAGEM_EXTRA',
   'Sem embalagem extra',
-  true,
+  false,
   true,
   'B3 = R$0,00 only when this configuration is explicitly selected and no additional fulfillment material/labor is required.'
 )
