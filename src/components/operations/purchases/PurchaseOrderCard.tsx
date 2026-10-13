@@ -10,6 +10,15 @@ import { formatCurrency } from '@/lib/utils';
 import { PurchaseDocumentsDialog } from './PurchaseDocumentsDialog';
 import { PurchaseItemSupplierIntelligenceDialog } from './PurchaseItemSupplierIntelligenceDialog';
 
+const STATUS_TONE: Record<PurchaseOrder['status'], string> = {
+  rascunho: 'border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100',
+  confirmado: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200',
+  em_transito: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200',
+  parcialmente_recebido: 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-200',
+  recebido: 'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200',
+  cancelado: 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
+};
+
 interface PurchaseOrderCardProps {
   order: PurchaseOrder;
   busy: boolean;
@@ -45,26 +54,26 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   const subtotal = item.unit_price === null ? null : Number(item.ordered_purchase_qty) * Number(item.unit_price);
 
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3 text-sm shadow-sm">
+    <div className="space-y-3 rounded-lg border border-border bg-card p-3.5 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="font-medium">
+        <p className="text-sm font-semibold leading-snug text-foreground">
           {item.product?.name ?? 'Produto'}
           {item.variant ? ` · ${item.variant.variant_name}` : ''}
         </p>
-        {subtotal !== null && <span className="font-medium">{formatCurrency(subtotal)}</span>}
+        {subtotal !== null && <span className="text-sm font-semibold text-foreground">{formatCurrency(subtotal)}</span>}
       </div>
-      <p className="text-muted-foreground">
+      <p className="text-[13px] text-foreground/80">
         {item.presentation_snapshot?.name ?? 'Apresentação'}: pedido {item.ordered_purchase_qty} {item.purchase_unit_label}
       </p>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Pedido: {item.ordered_purchase_qty} {item.purchase_unit_label}</span>
-        <span>Recebido: {received} {item.purchase_unit_label}</span>
-        <span>Pendente: {pending} {item.purchase_unit_label}</span>
-        <span className={hasConfirmedReceipt && divergence !== 0 ? divergence > 0 ? 'text-amber-600' : 'text-destructive' : undefined}>
+      <div className="grid grid-cols-2 gap-2 text-[13px] sm:flex sm:flex-wrap sm:gap-2">
+        <span className="rounded-md bg-muted/80 px-2.5 py-1.5 text-foreground/90">Pedido: <strong className="text-foreground">{item.ordered_purchase_qty} {item.purchase_unit_label}</strong></span>
+        <span className="rounded-md bg-muted/80 px-2.5 py-1.5 text-foreground/90">Recebido: <strong className="text-foreground">{received} {item.purchase_unit_label}</strong></span>
+        <span className="rounded-md bg-muted/80 px-2.5 py-1.5 text-foreground/90">Pendente: <strong className="text-foreground">{pending} {item.purchase_unit_label}</strong></span>
+        <span className={`rounded-md bg-muted/80 px-2.5 py-1.5 ${hasConfirmedReceipt && divergence !== 0 ? divergence > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-destructive' : 'text-foreground/75'}`}>
           Divergência: {hasConfirmedReceipt ? `${divergence > 0 ? '+' : ''}${divergence} ${item.purchase_unit_label}` : '—'}
         </span>
       </div>
-      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => onCompare(item)}>
+      <Button type="button" size="sm" variant="ghost" className="h-9 px-2 text-[13px] font-medium" onClick={() => onCompare(item)}>
         <BarChart3 className="mr-1 h-3.5 w-3.5" />Comparar fornecedores e preços
       </Button>
     </div>
@@ -80,25 +89,25 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
   const canEdit = order.status === 'rascunho';
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-2 border-primary/25 border-l-[6px] border-l-primary bg-card shadow-md ring-1 ring-border/40">
-      <CardHeader className="space-y-3 border-b-2 border-primary/20 bg-primary/10 px-5 py-4">
+    <Card className="overflow-hidden rounded-xl border border-border border-l-4 border-l-primary/60 bg-card shadow-sm">
+      <CardHeader className="space-y-3 border-b border-border bg-muted/40 px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Pedido de compra</p>
-            <CardTitle className="text-xl font-bold tracking-tight">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-foreground/65">Pedido de compra</p>
+            <CardTitle className="text-lg font-bold tracking-tight sm:text-xl">
               {order.internal_purchase_number ?? 'Compra'}
             </CardTitle>
-            <p className="mt-1 truncate text-sm font-medium text-foreground">
+            <p className="mt-1 truncate text-[15px] font-semibold text-foreground">
               {order.supplier?.name ?? 'Fornecedor não informado'}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-[13px] text-foreground/75">
               {order.expected_at ? `Previsão ${formatDisplayDate(order.expected_at)}` : 'Sem previsão informada'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className="px-2 py-1">{PURCHASE_STATUS_LABEL[order.status]}</Badge>
+            <Badge variant="outline" className={`border px-2.5 py-1 text-xs font-semibold shadow-none ${STATUS_TONE[order.status]}`}>{PURCHASE_STATUS_LABEL[order.status]}</Badge>
             {order.status !== 'rascunho' && order.status !== 'cancelado' && (
-              <Badge variant="outline" className="px-2 py-1">
+              <Badge variant="outline" className={`px-2.5 py-1 text-xs font-medium ${order.billing_status === 'invoiced' ? 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200' : 'border-border bg-background text-foreground/75'}`}>
                 {order.billing_status === 'invoiced' ? 'Faturado' : 'Faturamento pendente'}
               </Badge>
             )}
@@ -106,9 +115,9 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 bg-background/30 px-4 pt-4">
-        <div className="space-y-2 rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Itens do pedido</p>
+      <CardContent className="space-y-4 bg-card px-4 pt-4 sm:px-5">
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/70">Itens do pedido</p>
           {(order.items ?? []).map(item => (
             <PurchaseOrderLine key={item.id} order={order} item={item} onCompare={setIntelligenceItem} />
           ))}
@@ -129,8 +138,8 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
         )}
 
         <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-muted-foreground">
-            Total da compra: <span className="text-lg text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
+          <p className="text-sm font-semibold text-foreground/80">
+            Total da compra: <span className="text-lg font-bold text-foreground">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />{order.billing_status === 'pending' && order.status !== 'rascunho' ? 'NF / Documentos' : 'Documentos'}</Button>
