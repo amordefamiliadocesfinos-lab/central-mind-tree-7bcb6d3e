@@ -404,10 +404,12 @@ export function ShopeeEconomicMotor() {
     ],
     pendingBlocks: {
       ...(!b1Result ? { B1: 'B1 ainda não resolvido.' } : {}),
-      ...(!b2ConfigurationId ? { B2: 'Configuração B2 não selecionada.' } : {}),
-      ...(!b3ConfigurationId ? { B3: 'Configuração B3 não selecionada.' } : {}),
+      ...(!b2Result ? { B2: 'Configuração B2 não resolvida para a previsão.' } : {}),
+      ...(!b3Result ? { B3: 'Configuração B3 não resolvida para a previsão.' } : {}),
       ...(!b4Mode ? { B4: 'Modalidade logística B4 não selecionada.' } : {}),
       B6: 'Financeiro/Fiscal direto ainda não atribuído para esta previsão.',
+      B8: 'Overhead sem metodologia homologada nesta fase.',
+      B9: 'Capital/estoque sem metodologia homologada nesta fase.',
     },
   }), [
     b1Result,
