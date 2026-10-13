@@ -574,9 +574,20 @@ export function PurchasesTab({ products }: { products: Product[] }) {
     finally { setBusyAction(null); }
   };
 
-  const confirmReceipt = async (locationId: string, receiptLines: PurchaseReceiptDraftLine[]) => {
+  const confirmReceipt = async (locationId: string, receiptDate: string, receiptLines: PurchaseReceiptDraftLine[]) => {
     if (!receiptOrder) return;
     if (!locationId) return toastError('Selecione o local de estoque.');
+    const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(receiptDate) ? new Date(`${receiptDate}T12:00:00`) : null;
+    if (!selectedDate || Number.isNaN(selectedDate.getTime()) || [
+      selectedDate.getFullYear(),
+      String(selectedDate.getMonth() + 1).padStart(2, '0'),
+      String(selectedDate.getDate()).padStart(2, '0'),
+    ].join('-') !== receiptDate || receiptDate > (() => {
+      const today = new Date();
+      return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+    })()) {
+      return toastError('Informe uma data real de recebimento válida, sem data futura.');
+    }
 
     let items;
     try {
@@ -597,6 +608,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       const receipt = await purchases.createReceipt({
         purchase_order_id: receiptOrder.id,
         storage_location_id: locationId,
+        received_at: selectedDate.toISOString(),
       }, items);
       await purchases.confirmReceipt(receipt.id);
       toastSuccess('Recebimento confirmado e estoque atualizado.');

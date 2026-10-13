@@ -140,7 +140,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
             {confirmedReceipts.map(receipt => (
               <div key={receipt.id} className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                 <span>{receipt.location?.name ?? 'Local não informado'}</span>
-                <span>{formatDisplayDate(receipt.confirmed_at ?? receipt.received_at)}</span>
+                <span><span>Recebido: {formatDisplayDate(receipt.received_at ?? receipt.confirmed_at)}</span></span>
               </div>
             ))}
           </div>

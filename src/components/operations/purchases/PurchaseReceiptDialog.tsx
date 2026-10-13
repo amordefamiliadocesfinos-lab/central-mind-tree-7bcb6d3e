@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DecimalInput } from '@/components/ui/decimal-input';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,7 +22,7 @@ interface PurchaseReceiptDialogProps {
   locations: StorageLocation[];
   busy: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (locationId: string, lines: PurchaseReceiptDraftLine[]) => Promise<void>;
+  onConfirm: (locationId: string, receiptDate: string, lines: PurchaseReceiptDraftLine[]) => Promise<void>;
 }
 
 function parsePurchaseNumber(value: string) {
@@ -32,17 +33,28 @@ function formatQuantity(value: number) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 10 }).format(value);
 }
 
+function todayLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, onConfirm }: PurchaseReceiptDialogProps) {
   const [locationId, setLocationId] = useState('');
+  const [receiptDate, setReceiptDate] = useState(todayLocalDate);
   const [lines, setLines] = useState<PurchaseReceiptDraftLine[]>([]);
 
   useEffect(() => {
     if (!order) {
       setLocationId('');
+      setReceiptDate(todayLocalDate());
       setLines([]);
       return;
     }
 
+    setReceiptDate(todayLocalDate());
     setLines((order.items ?? []).map(item => {
       const pending = Math.max(0, Number(item.ordered_purchase_qty) - getConfirmedPurchaseQuantity(order, item.id));
       return {
@@ -69,7 +81,7 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
         operational_received_qty: operational?.normalized ?? '',
       };
     });
-    await onConfirm(locationId, normalizedLines);
+    await onConfirm(locationId, receiptDate, normalizedLines);
   };
 
   return (
@@ -94,6 +106,21 @@ export function PurchaseReceiptDialog({ order, locations, busy, onOpenChange, on
               {locations.map(location => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="purchase-receipt-date">Data real do recebimento</Label>
+          <Input
+            id="purchase-receipt-date"
+            type="date"
+            value={receiptDate}
+            max={todayLocalDate()}
+            onChange={event => setReceiptDate(event.target.value)}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Informe o dia em que a mercadoria chegou fisicamente. A data de confirmação no sistema será registrada separadamente.
+          </p>
         </div>
 
         <div className="space-y-3">
