@@ -14,6 +14,7 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
   SHOPEE_OAUTH_CONNECTION_READ: 'shopee.oauth_connection.read',
   SHOPEE_OAUTH_CONNECTION_UPSERT: 'shopee.oauth_connection.upsert',
+  SHOPEE_OAUTH_CONNECTION_REFRESH: 'shopee.oauth_connection.refresh',
   SHOPEE_RAW_SHOP_SNAPSHOT_UPSERT: 'shopee.raw_shop_snapshot.upsert',
   SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT: 'shopee.raw_order_list_snapshot.upsert',
   SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
@@ -179,6 +180,14 @@ export function upsertLiveShopeeOauthConnection(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_UPSERT,
+    data,
+  });
+}
+
+export function refreshLiveShopeeOauthConnection(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_REFRESH,
     data,
   });
 }
