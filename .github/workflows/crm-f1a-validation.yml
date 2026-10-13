@@ -30,6 +30,7 @@ jobs:
         run: npm run build
       - name: CRM F1-A regressions
         env:
+          TZ: America/Sao_Paulo
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ci-test-only-not-a-real-key
         run: |
@@ -38,6 +39,8 @@ jobs:
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/canonical/transitions.test.ts \
+            src/lib/crm/canonical/operationalResponsibility.test.ts \
+            src/lib/crm/officialTask.test.ts \
             src/lib/crm/aiContext.test.ts; do
             echo "::group::Test ${file}"
             npx --yes vite-node@3.2.4 "$file" || status=1

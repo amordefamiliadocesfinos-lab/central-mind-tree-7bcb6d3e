@@ -9,10 +9,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { CRM_CANONICAL_RESULTS, getCanonicalResult } from './canonical/results';
 import { CRM_CANONICAL_NEXT_ACTIONS, getCanonicalNextAction } from './canonical/nextActions';
-import { CRM_TASK_SOURCE } from './nextAction';
 import { resolveCampaignContext, type CampaignContext } from './campaignContext';
 import { ensureCrmLiveContext, getCrmLiveContext, type CrmContactLiveContext } from './liveContext';
-import { getCrmOperationalTaskDueAt, projectCrmOperationalState, type CrmOperationalProjection } from './operationalProjection';
+import { getCrmOperationalTaskDueAt, indexCrmOperationalTasks, projectCrmOperationalState, type CrmOperationalProjection } from './operationalProjection';
 
 const db = supabase as any;
 
@@ -479,9 +478,10 @@ export async function buildCrmAiContext(
   // prazo da tarefa oficial (source = crm_next_action) ou do contato.
   const canonicalNextAction = getCanonicalNextAction(derived.nextActionCode);
   const authoritativeTasks = operationalSignals?.officialTasks ?? (taskRows ?? []);
-  const officialTaskRow = authoritativeTasks.find(row => row.source === CRM_TASK_SOURCE && !isClosedCrmTaskStatus(row.status)) ?? null;
-  const reactivationTaskRow = authoritativeTasks.find(row => row.source === 'crm_reactivation' && !isClosedCrmTaskStatus(row.status)) ?? null;
-  const officialDueAt = officialTaskRow ? getCrmOperationalTaskDueAt(officialTaskRow) : null;
+  const officialTasks = indexCrmOperationalTasks(authoritativeTasks
+    .filter(row => !isClosedCrmTaskStatus(row.status))
+    .map(row => ({ ...row, contact_id: contactId }))).get(contactId);
+  const officialDueAt = officialTasks?.nextActionDueAt ?? null;
   const nextAction = canonicalNextAction ? {
     code: canonicalNextAction.code,
     label: canonicalNextAction.label,
@@ -508,10 +508,10 @@ export async function buildCrmAiContext(
     attendance_state: conversation?.state ?? null,
     return_at: conversation?.returnAt ?? null,
     next_action_date: officialDueAt,
-    next_action_title: officialTaskRow?.title ?? null,
-    official_task_present: Boolean(officialTaskRow),
+    next_action_title: officialTasks?.nextActionTitle ?? null,
+    official_task_present: officialTasks?.hasOfficialNextAction ?? false,
     next_action_text: contact.next_action_text ?? null,
-    reactivation_at: reactivationTaskRow ? getCrmOperationalTaskDueAt(reactivationTaskRow) : null,
+    reactivation_at: officialTasks?.reactivationDueAt ?? null,
     next_contact_date: null,
     last_inbound_at: conversation?.lastInboundAt ?? null,
     last_outbound_at: conversation?.lastOutboundAt ?? null,

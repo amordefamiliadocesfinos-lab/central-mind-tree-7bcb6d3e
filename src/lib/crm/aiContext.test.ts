@@ -158,6 +158,28 @@ async function run() {
     && undatedAction.operational.obligation.dueAt === null,
     'Próxima Ação comercial sem data precisa aparecer sem fabricar vencimento.');
 
+  // Regressão de leitura compartilhada: tarefa oficial sem data, sem texto legado.
+  const officialUndated = await buildCrmAiContext('c1', 'conv1', sources({
+    loadContact: async () => ({ ...baseContact, next_action_text: null, next_action_date: null }),
+    loadOperationalSignals: async () => ({
+      lastResultEvent: null,
+      lastReviewedAt: null,
+      officialTasks: [{
+        id: 'task-undated', title: 'Retomar proposta pendente',
+        source: 'crm_next_action', status: 'pendente',
+        scheduled_date: null, due_date: null,
+      }],
+    }),
+    loadTasks: async () => [],
+  }));
+  assert(officialUndated.operational?.obligation?.title === 'Retomar proposta pendente'
+    && officialUndated.operational.obligation.source === 'official_task'
+    && officialUndated.operational.obligation.dueAt === null,
+    'IA e Inbox devem preservar tarefa oficial sem data, inclusive sem next_action_text.');
+  assert(officialUndated.operational?.priority.reason !== 'next_action_today'
+    && officialUndated.operational?.priority.reason !== 'next_action_overdue',
+    'Tarefa sem data não pode receber prioridade temporal artificial.');
+
   const timedAction = await buildCrmAiContext('c1', 'conv1', sources({
     loadOperationalSignals: async () => ({
       lastResultEvent: {

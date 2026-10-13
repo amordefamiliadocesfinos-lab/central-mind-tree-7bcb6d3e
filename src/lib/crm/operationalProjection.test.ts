@@ -1,6 +1,7 @@
 import { getCrmPriority } from './priority';
 import {
   getCrmOperationalTaskDueAt,
+  indexCrmOperationalTasks,
   projectCrmOperationalState,
   toCrmOperationalPriorityInput,
   type CrmOperationalSource,
@@ -98,4 +99,42 @@ assert(isolated.contactId !== pFelipe.contactId && isolated.conversationId === n
 assert(projectCrmOperationalState({
   contactId: 'Indefinido', status: 'open', last_result_code: 'código inválido',
 }).lastResultCode === null, 'Resultado desconhecido deve permanecer ausente.');
+// Regressão F1-A: uma tarefa oficial sem data existe, mas nunca fabrica prazo.
+const officialTaskIndex = indexCrmOperationalTasks([
+  { contact_id: 'Sem prazo', source: 'crm_next_action', title: 'Retomar proposta' },
+  { contact_id: 'Outro contato', source: 'crm_next_action', title: 'Agendar contato',
+    scheduled_date: '2026-10-13', scheduled_time: '09:00:00' },
+  { contact_id: 'Com dois registros', source: 'crm_next_action', title: 'Sem prazo ainda' },
+  { contact_id: 'Com dois registros', source: 'crm_next_action', title: 'Prazo oficial',
+    scheduled_date: '2026-10-13', scheduled_time: '10:00:00' },
+  { contact_id: 'Reativação sem prazo', source: 'crm_reactivation', title: 'Reativar' },
+  { contact_id: 'Legado', source: 'legacy_task', title: 'Não é tarefa CRM' },
+]);
+const undatedTask = officialTaskIndex.get('Sem prazo');
+assert(undatedTask?.hasOfficialNextAction === true && undatedTask.nextActionTitle === 'Retomar proposta'
+  && undatedTask.nextActionDueAt === null, 'Tarefa CRM sem prazo não pode desaparecer da fonte da Inbox.');
+const undatedSource: CrmOperationalSource = {
+  contactId: 'Sem prazo', status: 'open', needs_reply: false,
+  official_task_present: undatedTask.hasOfficialNextAction,
+  next_action_title: undatedTask.nextActionTitle,
+  next_action_date: undatedTask.nextActionDueAt,
+};
+const undatedProjection = projectCrmOperationalState(undatedSource, now);
+assert(undatedProjection.obligation?.title === 'Retomar proposta'
+  && undatedProjection.obligation?.source === 'official_task'
+  && undatedProjection.obligation.dueAt === null,
+  'A obrigação pendente deve manter origem oficial, sem prazo inventado.');
+assert(undatedProjection.priority.reason === getCrmPriority(toCrmOperationalPriorityInput(undatedSource), now).reason,
+  'Tarefa sem data não pode introduzir nova prioridade ou mudar o motor canônico.');
+assert(officialTaskIndex.get('Outro contato')?.nextActionTitle === 'Agendar contato'
+  && officialTaskIndex.get('Outro contato')?.nextActionDueAt !== null,
+  'Tarefa de outro contato não pode ser incorporada à obrigação atual.');
+assert(officialTaskIndex.get('Com dois registros')?.nextActionTitle === 'Prazo oficial'
+  && officialTaskIndex.get('Com dois registros')?.nextActionDueAt !== null,
+  'Tarefa datada deve continuar visível quando houver outro registro sem data.');
+assert(officialTaskIndex.get('Reativação sem prazo')?.reactivationDueAt === null
+  && officialTaskIndex.get('Reativação sem prazo')?.hasOfficialNextAction === false,
+  'Reativação sem prazo não pode virar Próxima Ação nem entrada temporal.');
+assert(!officialTaskIndex.has('Legado'), 'Tarefa legada não pode contaminar a projeção CRM.');
+
 console.log('operationalProjection.test: OK');
