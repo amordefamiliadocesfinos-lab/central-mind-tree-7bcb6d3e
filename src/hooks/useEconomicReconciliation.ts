@@ -321,7 +321,12 @@ export function useEconomicReconciliation() {
         });
       }
 
-      const observedChannelFee = orderLevelNetIsAllocated && numeric(settlementLink?.fee_value) !== null
+      const orderLevelFeeIsAllocated = numeric(settlementLink?.fee_value) !== null && (
+        Math.abs(Number(settlementLink?.fee_value || 0)) > 0.0001 ||
+        (numeric(settlementLink?.gross_value) !== null && numeric(settlementLink?.net_value) !== null &&
+          Math.abs(Number(settlementLink.gross_value) - Number(settlementLink.net_value)) > 0.0001)
+      );
+      const observedChannelFee = orderLevelFeeIsAllocated && numeric(settlementLink?.fee_value) !== null
         ? Math.abs(Number(settlementLink.fee_value))
         : settlementOrderCount === 1 && numeric(settlement?.fee_value) !== null
           ? Math.abs(Number(settlement.fee_value))
