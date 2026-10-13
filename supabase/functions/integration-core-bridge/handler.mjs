@@ -14,8 +14,8 @@ const LIVE_ACTIONS = new Set([
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
   'shopee.oauth_connection.read',
-  'shopee.oauth_connection.upsert',
   'shopee.oauth_connection.refresh',
+  'shopee.oauth_connection.upsert',
   'shopee.raw_shop_snapshot.upsert',
   'shopee.raw_order_list_snapshot.upsert',
   'shopee.raw_order_snapshot.upsert',
@@ -96,6 +96,25 @@ function validateActionPayload(payload, nowMs) {
       && UUID.test(payload.channel_account_id);
   }
 
+  if (payload.action === 'shopee.oauth_connection.refresh') {
+    const required = [
+      'action',
+      'channel_account_id',
+      'access_token_ciphertext',
+      'refresh_token_ciphertext',
+      'access_token_expires_at',
+      'refresh_token_expires_at',
+      'last_refreshed_at',
+    ];
+    if (!hasExactKeys(payload, required)) return false;
+    return UUID.test(payload.channel_account_id)
+      && isBoundedText(payload.access_token_ciphertext, 4096)
+      && isBoundedText(payload.refresh_token_ciphertext, 4096)
+      && isIsoTimestamp(payload.access_token_expires_at)
+      && isIsoTimestamp(payload.refresh_token_expires_at)
+      && isIsoTimestamp(payload.last_refreshed_at);
+  }
+
   if (payload.action === 'shopee.oauth_connection.upsert') {
     const required = [
       'action',
@@ -133,24 +152,6 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_name, 300, { nullable: true })
       && isBoundedText(payload.region, 64, { nullable: true })
       && isBoundedText(payload.shop_status, 128, { nullable: true });
-  }
-
-  if (payload.action === 'shopee.oauth_connection.refresh') {
-    if (!hasExactKeys(payload, [
-      'action',
-      'channel_account_id',
-      'access_token_ciphertext',
-      'refresh_token_ciphertext',
-      'access_token_expires_at',
-      'refresh_token_expires_at',
-      'last_refreshed_at',
-    ])) return false;
-    return UUID.test(payload.channel_account_id)
-      && isBoundedText(payload.access_token_ciphertext, 4096)
-      && isBoundedText(payload.refresh_token_ciphertext, 4096)
-      && isIsoTimestamp(payload.access_token_expires_at)
-      && isIsoTimestamp(payload.refresh_token_expires_at)
-      && isIsoTimestamp(payload.last_refreshed_at);
   }
 
   if (
