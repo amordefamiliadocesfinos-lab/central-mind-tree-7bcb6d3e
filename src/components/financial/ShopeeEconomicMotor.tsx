@@ -832,32 +832,100 @@ export function ShopeeEconomicMotor() {
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
-                <p className="text-sm font-medium">B1 / CEA operacional</p>
+                <p className="text-sm font-medium">CEA operacional — B1 + B2 + B3</p>
+
                 <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
                   <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">CFU B1 automático</span>
+                    <span className="text-muted-foreground">B1 · CFU fabril</span>
                     <strong>{b1Loading ? 'Carregando...' : b1OperationalCfu > 0 ? money(b1OperationalCfu) : 'Pendente'}</strong>
                   </div>
-                  {b1Result && (
-                    <div className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">Estado B1</span>
-                      <span>{b1Result.composition.blocks.B1.completeness}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">B2 · por unidade comercial</span>
+                    <strong>{b2b3Loading ? 'Carregando...' : money(b2Composition.blocks.B2.knownNetAmount)}</strong>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">B3 · por pedido</span>
+                    <strong>{b2b3Loading ? 'Carregando...' : money(b3Composition.blocks.B3.knownNetAmount)}</strong>
+                  </div>
+                  <div className="border-t pt-1 flex justify-between gap-3">
+                    <span className="text-muted-foreground">Custo conhecido do cenário</span>
+                    <strong>{money(automaticKnownOrderCost)}</strong>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Completude B1–B3</span>
+                    <span>{automaticCompleteness}</span>
+                  </div>
                   {b1Result?.warning && <p className="text-amber-600">{b1Result.warning}</p>}
                   {b1Error && <p className="text-destructive">{b1Error}</p>}
+                  {b2b3Error && <p className="text-destructive">{b2b3Error}</p>}
                 </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>Override manual CEA / unidade</Label>
-                    <Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} />
-                    <p className="text-xs text-muted-foreground">0 = usar B1 automático. Override permanece explícito e não altera as fontes canônicas.</p>
+                    <Label>B2 · configuração de apresentação</Label>
+                    <Select
+                      value={b2ConfigId}
+                      onValueChange={setB2ConfigId}
+                      disabled={b2b3Loading || b2Configs.length === 0}
+                    >
+                      <SelectTrigger><SelectValue placeholder={b2b3Loading ? 'Carregando...' : 'Selecione B2'} /></SelectTrigger>
+                      <SelectContent>
+                        {b2Configs.map((config) => (
+                          <SelectItem key={config.id} value={config.id}>{config.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedB2Config && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedB2Config.code} · {b2Composition.blocks.B2.completeness}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-1.5"><Label>Margem-alvo %</Label><Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} /></div>
-                  <div className="space-y-1.5 col-span-2"><Label>Preço baseline para TCE-BE</Label><Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} /></div>
+
+                  <div className="space-y-1.5">
+                    <Label>B3 · configuração de fulfillment</Label>
+                    <Select
+                      value={b3ConfigId}
+                      onValueChange={setB3ConfigId}
+                      disabled={b2b3Loading || b3Configs.length === 0}
+                    >
+                      <SelectTrigger><SelectValue placeholder={b2b3Loading ? 'Carregando...' : 'Selecione B3'} /></SelectTrigger>
+                      <SelectContent>
+                        {b3Configs.map((config) => (
+                          <SelectItem key={config.id} value={config.id}>{config.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedB3Config && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedB3Config.code} · {b3Composition.blocks.B3.completeness}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Override manual CEA / unidade física</Label>
+                    <Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} />
+                    <p className="text-xs text-muted-foreground">0 = usar composição automática B1+B2+B3. O override não altera as fontes canônicas.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Margem-alvo %</Label>
+                    <Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} />
+                  </div>
+
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Preço baseline para TCE-BE</Label>
+                    <Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} />
+                  </div>
                 </div>
-                {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">B1 econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
-                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">CEA usada no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 operacional automático'}.</p>}
+
+                {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">CEA econômica ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
+                {effectiveCostPerUnit > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    CEA usada no cenário: {money(effectiveCostPerUnit)} / unidade física · fonte {costSource === 'manual_override' ? 'override manual' : 'B1+B2+B3 automático'}.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
