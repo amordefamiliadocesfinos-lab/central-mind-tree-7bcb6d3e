@@ -1075,6 +1075,27 @@ export function ShopeeEconomicMotor() {
                 <p className="text-xs text-muted-foreground">Preencha apenas quando houver evidência para a transação. Estes modificadores pertencem ao B5 do adaptador Shopee e não são aplicados automaticamente por conta.</p>
               </div>
 
+              <div className="rounded-lg border p-3 space-y-2">
+                <p className="text-sm font-medium">G9 — B8 Overhead + B9 Capital</p>
+                <p className="text-xs text-muted-foreground">
+                  B8 e B9 ficam fora do custo direto da oferta. O Motor só fecha N7 quando existir metodologia homologada de rateio estrutural e de custo de capital.
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-muted/30 p-2">
+                    <span className="text-muted-foreground">B8 / overhead</span>
+                    <p className="font-medium">{generalEconomicSnapshot.blocks.B8.completeness}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2">
+                    <span className="text-muted-foreground">B9 / capital</span>
+                    <p className="font-medium">{generalEconomicSnapshot.blocks.B9.completeness}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  N6 contribuição conhecida: {generalEconomicSnapshot.contribution.knownContribution === null ? 'PENDENTE' : money(generalEconomicSnapshot.contribution.knownContribution)}
+                  {' · '}N7 resultado estrutural: {generalEconomicSnapshot.structural.amount === null ? 'PENDENTE' : money(generalEconomicSnapshot.structural.amount)}
+                </p>
+              </div>
+
               <div className="rounded-lg border p-3 space-y-3">
                 <p className="text-sm font-medium">B1 + B2 + B3 + B4 / custo direto operacional</p>
                 <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
