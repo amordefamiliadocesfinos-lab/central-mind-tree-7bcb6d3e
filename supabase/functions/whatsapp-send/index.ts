@@ -166,6 +166,9 @@ Deno.serve(async (req) => {
       .eq('campaign_id', campaignId)
       .eq('status', 'pending')
       .eq('delivery_mode', 'api')
+      .eq('contact_id', conv.contact_id)
+      .eq('conversation_id', conversationId)
+      .eq('rendered_message', recipient.rendered_message)
       .select('id')
       .maybeSingle();
     if (claimError) return json({ error: 'Falha ao reservar destinatário', code: 'campaign_claim_failed' }, 500);
