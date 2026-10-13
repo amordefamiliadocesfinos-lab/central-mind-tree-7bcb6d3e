@@ -9,6 +9,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { assessCampaignDispatchEvidence, type CampaignDispatchMessage, type CampaignMessageLookup } from '@/lib/crm/campaignDispatchEvidence';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
@@ -40,6 +42,13 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [confirmApiOpen, setConfirmApiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [requeuing, setRequeuing] = useState(false);
+  // F0-C: a revisão não altera nenhum recipient e não habilita retransmissão.
+  const [evidenceRecipientId, setEvidenceRecipientId] = useState<string | null>(null);
+  const [evidenceRead, setEvidenceRead] = useState<{
+    key: string;
+    lookup: CampaignMessageLookup;
+    message: CampaignDispatchMessage | null;
+  } | null>(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
@@ -75,6 +84,49 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     const requiresReview = failed.filter(requiresCampaignSendReconciliation);
     return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped, failed, retryable, requiresReview };
   }, [recipients]);
+
+  const evidenceRecipient = recipients.find(r => r.id === evidenceRecipientId && r.status === 'failed') || null;
+  const evidenceKey = campaign && evidenceRecipient
+    ? [campaign.id, evidenceRecipient.id, evidenceRecipient.conversation_id ?? '',
+      evidenceRecipient.service_message_id ?? ''].join('|')
+    : '';
+
+  useEffect(() => {
+    setEvidenceRecipientId(null);
+    setEvidenceRead(null);
+  }, [campaign?.id, open]);
+
+  useEffect(() => {
+    setEvidenceRead(null);
+    if (!open || !campaign || !evidenceRecipient
+      || !evidenceRecipient.service_message_id || !evidenceRecipient.conversation_id) return;
+    const key = evidenceKey;
+    let cancelled = false;
+    setEvidenceRead({ key, lookup: 'loading', message: null });
+    void supabase.from('service_messages')
+      .select('id,conversation_id,source,direction,content,delivery_status,external_message_id,created_at,provider_name')
+      .eq('id', evidenceRecipient.service_message_id)
+      .eq('conversation_id', evidenceRecipient.conversation_id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setEvidenceRead({
+          key,
+          lookup: error ? 'error' : data ? 'found' : 'missing',
+          message: error ? null : (data as CampaignDispatchMessage | null),
+        });
+      });
+    return () => { cancelled = true; };
+  }, [open, campaign?.id, evidenceRecipient?.id, evidenceRecipient?.service_message_id,
+      evidenceRecipient?.conversation_id]);
+
+  const dispatchEvidence = evidenceRecipient
+    ? assessCampaignDispatchEvidence({
+        recipient: evidenceRecipient,
+        lookup: evidenceRead?.key === evidenceKey ? evidenceRead.lookup : 'not_requested',
+        message: evidenceRead?.key === evidenceKey ? evidenceRead.message : null,
+      })
+    : null;
 
   const visibleRecipients = useMemo(() => {
     const ordered = [...eligible, ...sent, ...skipped, ...failed, ...excluded];
@@ -200,6 +252,23 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           </div>
         )}
 
+        {evidenceRecipient && dispatchEvidence && (
+          <div className="space-y-1.5 rounded-lg border p-3 text-xs" aria-label="Conciliação somente leitura de campanha">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">Evidências · {evidenceRecipient.contact?.name || evidenceRecipient.contact_id}</span>
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                onClick={() => setEvidenceRecipientId(null)}>Fechar consulta</Button>
+            </div>
+            <p className="text-muted-foreground">{dispatchEvidence.message}</p>
+            <p className="text-muted-foreground">
+              Estado consultado: {dispatchEvidence.providerStatus || 'não identificado'}
+              {' · '}Mensagem CRM: {dispatchEvidence.serviceMessageId || 'sem referência direta'}
+              {dispatchEvidence.providerMessageId ? ` · Referência externa: ${dispatchEvidence.providerMessageId}` : ''}
+            </p>
+            <p className="font-medium">Reenvio permanece bloqueado. Esta consulta não modifica a campanha.</p>
+          </div>
+        )}
+
         <ScrollArea className="h-[320px] rounded-lg border">
           <div className="divide-y">
             {loading && <p className="p-3 text-sm text-muted-foreground">Carregando destinatários...</p>}
@@ -220,13 +289,21 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
                 ) : r.status === 'skipped' ? (
                   <Badge variant="outline" className="text-[10px]">Pulado</Badge>
                 ) : r.status === 'failed' ? (
-                  <Badge
-                    variant="outline"
-                    className="max-w-[55%] truncate text-[10px] text-destructive border-destructive/40"
-                    title={`${r.error_code || 'send_failed'}: ${r.error_message || ''}`}
-                  >
-                    Falha · {r.error_code || 'send_failed'}
-                  </Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge
+                      variant="outline"
+                      className="max-w-[180px] truncate text-[10px] text-destructive border-destructive/40"
+                      title={`${r.error_code || 'send_failed'}: ${r.error_message || ''}`}
+                    >
+                      Falha · {r.error_code || 'send_failed'}
+                    </Badge>
+                    {requiresCampaignSendReconciliation(r) && (
+                      <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]"
+                        onClick={() => setEvidenceRecipientId(r.id)}>
+                        Conferir evidências
+                      </Button>
+                    )}
+                  </div>
                 ) : r.status === 'pending' ? (
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Elegível</Badge>

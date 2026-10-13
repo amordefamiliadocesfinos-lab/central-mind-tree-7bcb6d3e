@@ -44,6 +44,8 @@ export interface CrmCampaignRecipient {
   exclusion_reason: string | null;
   delivery_mode: string | null;
   sent_at?: string | null;
+  service_message_id?: string | null;
+  external_message_id?: string | null;
   error_code?: string | null;
   error_message?: string | null;
 }
