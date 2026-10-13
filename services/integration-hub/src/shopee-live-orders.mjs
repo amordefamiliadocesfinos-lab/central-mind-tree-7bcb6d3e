@@ -1,0 +1,242 @@
+import {
+  readLiveShopeeOauthConnection,
+  sha256Hex,
+  upsertLiveShopeeOrderListSnapshot,
+  upsertLiveShopeeOrderSnapshot,
+} from './core-bridge.mjs';
+import {
+  getOrderDetail,
+  getOrderList,
+  parseShopeeError,
+} from './connectors/shopee-protocol.mjs';
+import { decryptShopeeToken } from './shopee-token-crypto.mjs';
+
+const API_BASE_URL = 'https://partner.shopeemobile.com';
+const ORDER_LIST_PATH = '/api/v2/order/get_order_list';
+const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
+
+function requiredEnv(getEnv, name) {
+  const value = getEnv(name);
+  if (typeof value !== 'string' || value.trim() === '') throw new Error(`Missing required environment variable: ${name}`);
+  return value.trim();
+}
+
+function positiveInteger(value, field) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new TypeError(`${field} must be a positive safe integer`);
+  return parsed;
+}
+
+function sanitizeShopeeRequestId(payload) {
+  return typeof payload?.request_id === 'string' && payload.request_id.trim() !== ''
+    ? payload.request_id.trim()
+    : null;
+}
+
+function payloadHash(payload) {
+  return sha256Hex(JSON.stringify(payload));
+}
+
+function orderListFrom(payload) {
+  return Array.isArray(payload?.response?.order_list) ? payload.response.order_list : [];
+}
+
+function buildSingleOrderPayload(sourcePayload, order) {
+  const payload = {};
+  for (const key of ['error', 'message', 'warning', 'request_id']) {
+    if (Object.prototype.hasOwnProperty.call(sourcePayload ?? {}, key)) payload[key] = sourcePayload[key];
+  }
+  payload.response = { order_list: [order] };
+  return payload;
+}
+
+function tokenIsExpired(expiresAt, nowMs, safetyMs = 60_000) {
+  const parsed = Date.parse(String(expiresAt ?? ''));
+  return !Number.isFinite(parsed) || parsed <= nowMs + safetyMs;
+}
+
+export function createShopeeLiveOrdersReader({
+  getEnv = (name) => process.env[name],
+  now = Date.now,
+  readConnection = readLiveShopeeOauthConnection,
+  decryptToken = decryptShopeeToken,
+  readOrderList = getOrderList,
+  readOrderDetail = getOrderDetail,
+  persistOrderListSnapshot = upsertLiveShopeeOrderListSnapshot,
+  persistOrderSnapshot = upsertLiveShopeeOrderSnapshot,
+  logger = (entry) => console.info(JSON.stringify(entry)),
+} = {}) {
+  return async function readShopeeLiveOrdersWindow({
+    timeFrom,
+    timeTo,
+    pageSize = 5,
+    cursor = null,
+    orderStatus = null,
+    timeRangeField = 'create_time',
+    responseOptionalFields = [
+      'buyer_user_id',
+      'buyer_username',
+      'estimated_shipping_fee',
+      'recipient_address',
+      'actual_shipping_fee',
+      'goods_to_declare',
+      'note',
+      'note_update_time',
+      'item_list',
+      'pay_time',
+      'dropshipper',
+      'dropshipper_phone',
+      'split_up',
+      'buyer_cancel_reason',
+      'cancel_by',
+      'cancel_reason',
+      'actual_shipping_fee_confirmed',
+      'buyer_cpf_id',
+      'fulfillment_flag',
+      'pickup_done_time',
+      'package_list',
+      'shipping_carrier',
+      'payment_method',
+      'total_amount',
+      'invoice_data',
+      'checkout_shipping_carrier',
+      'reverse_shipping_fee',
+      'order_chargeable_weight_gram',
+      'edt',
+      'prescription_check_status',
+    ],
+  } = {}) {
+    const started = now();
+    const partnerId = positiveInteger(requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_ID'), 'SHOPEE_LIVE_PARTNER_ID');
+    const partnerKey = requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_KEY');
+    const channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
+    const tokenEncryptionKey = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
+
+    const connection = await readConnection({ channel_account_id: channelAccountId });
+    if (!connection?.ok) return { ok: false, code: 'oauth_connection_unavailable' };
+
+    const storedPartnerId = positiveInteger(connection.payload?.partner_id, 'stored partner_id');
+    const shopId = positiveInteger(connection.payload?.shop_id, 'stored shop_id');
+    if (storedPartnerId !== partnerId) return { ok: false, code: 'partner_id_mismatch' };
+
+    if (tokenIsExpired(connection.payload?.access_token_expires_at, now())) {
+      return {
+        ok: false,
+        code: 'access_token_expired',
+        refresh_required: true,
+        shop_id: shopId,
+      };
+    }
+
+    const accessToken = await decryptToken(
+      connection.payload?.access_token_ciphertext,
+      tokenEncryptionKey,
+    );
+
+    const listResult = await readOrderList({
+      apiBaseUrl: API_BASE_URL,
+      orderListPath: ORDER_LIST_PATH,
+      partnerId,
+      partnerKey,
+      accessToken,
+      shopId,
+      timeRangeField,
+      timeFrom,
+      timeTo,
+      pageSize,
+      cursor,
+      orderStatus,
+    });
+
+    if (!listResult.response.ok || parseShopeeError(listResult.payload)) {
+      logger({
+        event: 'shopee_live_order_list_rejected',
+        shop_id: shopId,
+        status: listResult.response.status,
+        error: typeof listResult.payload?.error === 'string' ? listResult.payload.error : null,
+        request_id: sanitizeShopeeRequestId(listResult.payload),
+      });
+      return { ok: false, code: 'order_list_rejected', shop_id: shopId };
+    }
+
+    const listPayload = listResult.payload;
+    const observedAt = new Date(now()).toISOString();
+    const windowId = `${timeRangeField}:${positiveInteger(timeFrom, 'timeFrom')}-${positiveInteger(timeTo, 'timeTo')}:cursor:${cursor ?? 'root'}`;
+    const listSnapshot = await persistOrderListSnapshot({
+      channel_account_id: channelAccountId,
+      external_entity_id: windowId,
+      request_id: sanitizeShopeeRequestId(listPayload),
+      observed_at: observedAt,
+      payload: listPayload,
+      payload_hash: payloadHash(listPayload),
+    });
+    if (!listSnapshot?.ok) return { ok: false, code: 'order_list_snapshot_failed', shop_id: shopId };
+
+    const listedOrders = orderListFrom(listPayload);
+    const orderSns = listedOrders
+      .map((order) => typeof order?.order_sn === 'string' ? order.order_sn.trim() : '')
+      .filter(Boolean);
+
+    if (orderSns.length === 0) {
+      return {
+        ok: true,
+        shop_id: shopId,
+        listed_count: 0,
+        detailed_count: 0,
+        more: listPayload?.response?.more === true,
+        next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
+        duration_ms: now() - started,
+      };
+    }
+
+    const detailResult = await readOrderDetail({
+      apiBaseUrl: API_BASE_URL,
+      orderDetailPath: ORDER_DETAIL_PATH,
+      partnerId,
+      partnerKey,
+      accessToken,
+      shopId,
+      orderSnList: orderSns,
+      responseOptionalFields,
+    });
+
+    if (!detailResult.response.ok || parseShopeeError(detailResult.payload)) {
+      logger({
+        event: 'shopee_live_order_detail_rejected',
+        shop_id: shopId,
+        status: detailResult.response.status,
+        error: typeof detailResult.payload?.error === 'string' ? detailResult.payload.error : null,
+        request_id: sanitizeShopeeRequestId(detailResult.payload),
+      });
+      return { ok: false, code: 'order_detail_rejected', shop_id: shopId, listed_count: orderSns.length };
+    }
+
+    const detailedOrders = orderListFrom(detailResult.payload);
+    for (const order of detailedOrders) {
+      const orderSn = typeof order?.order_sn === 'string' ? order.order_sn.trim() : '';
+      if (!orderSn) return { ok: false, code: 'order_detail_missing_order_sn', shop_id: shopId };
+      const singlePayload = buildSingleOrderPayload(detailResult.payload, order);
+      const persisted = await persistOrderSnapshot({
+        channel_account_id: channelAccountId,
+        external_entity_id: orderSn,
+        request_id: sanitizeShopeeRequestId(detailResult.payload),
+        observed_at: new Date(now()).toISOString(),
+        payload: singlePayload,
+        payload_hash: payloadHash(singlePayload),
+      });
+      if (!persisted?.ok) return { ok: false, code: 'order_snapshot_failed', shop_id: shopId };
+    }
+
+    return {
+      ok: true,
+      shop_id: shopId,
+      listed_count: orderSns.length,
+      detailed_count: detailedOrders.length,
+      more: listPayload?.response?.more === true,
+      next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
+      duration_ms: now() - started,
+    };
+  };
+}
+
+export const readShopeeLiveOrdersWindow = createShopeeLiveOrdersReader();
