@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type EconomicPredictionSnapshotInsert = {
+  snapshot_schema_version?: string;
   engine_key: string;
   engine_version: string;
   rule_version_id: string | null;
@@ -34,7 +35,7 @@ export function useEconomicPredictionSnapshots() {
 
     const { data, error: insertError } = await db
       .from('economic_prediction_snapshots')
-      .insert(payload)
+      .insert({ snapshot_schema_version: '2.0.0', ...payload })
       .select('id, snapshot_key, created_at')
       .single();
 
