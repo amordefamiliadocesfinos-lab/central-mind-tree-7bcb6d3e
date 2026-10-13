@@ -15,6 +15,24 @@ function fromBase64Url(value, field) {
   }
 }
 
+function toBase64Url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+export async function encryptShopeeToken(token, secret) {
+  const normalizedToken = requiredText(token, 'token');
+  const normalizedSecret = requiredText(secret, 'secret');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const keyBytes = createHash('sha256').update(normalizedSecret).digest();
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']);
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(normalizedToken),
+  ));
+  return `${toBase64Url(iv)}.${toBase64Url(encrypted)}`;
+}
+
 export async function decryptShopeeToken(ciphertext, secret) {
   const normalizedCiphertext = requiredText(ciphertext, 'ciphertext');
   const normalizedSecret = requiredText(secret, 'secret');
