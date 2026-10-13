@@ -34,6 +34,11 @@ Deno.serve(async (req) => {
     return json({ error: 'JSON inválido' }, 400);
   }
 
+  // Handshake somente leitura: impede o painel de enviar usando uma versão
+  // antiga da função, ainda sem reserva atômica (sincronização/deploy assíncronos).
+  if (body.mode === 'campaign_preflight') {
+    return json({ ok: true, campaign_dispatch_protocol: 2 });
+  }
   const isCampaign = String(body.mode ?? '').trim() === 'campaign';
   const conversationId = String(body.conversation_id ?? '').trim();
   const message = String(body.message ?? '').trim();
