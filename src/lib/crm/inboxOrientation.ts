@@ -170,3 +170,60 @@ export function getCrmOrientationShortcut(orientation: CrmInboxOrientation): Crm
         : 'Conferir histórico',
   };
 }
+
+/**
+ * F3-A — pré-checagem somente leitura antes de preparar o recurso existente.
+ * Este contrato não escolhe Resultado, não prepara envio e nunca persiste dados.
+ */
+export interface CrmSupervisedPreparation {
+  status: 'ready' | 'blocked';
+  target: CrmOrientationTarget;
+  contactId: string;
+  conversationId: string | null;
+  /** A IA é chamada SOMENTE após clique explícito, com conversa já identificada. */
+  analyzeReply: boolean;
+  taskContextTitle: string | null;
+  reason: string;
+  requiresHumanConfirmation: true;
+}
+
+export function prepareCrmSupervisedAction(
+  orientation: CrmInboxOrientation,
+  shortcut: CrmOrientationShortcut | null,
+  current: { contactId: string; conversationId: string | null; busy: boolean },
+): CrmSupervisedPreparation {
+  const sameContext = orientation.contactId === current.contactId
+    && orientation.conversationId === current.conversationId;
+  const allowedShortcut = getCrmOrientationShortcut(orientation);
+  const target = shortcut?.target ?? 'none';
+  if (!sameContext || current.busy || !allowedShortcut || target !== allowedShortcut.target) {
+    return {
+      status: 'blocked',
+      target: 'none',
+      contactId: current.contactId,
+      conversationId: current.conversationId,
+      analyzeReply: false,
+      taskContextTitle: null,
+      reason: !sameContext ? 'O contato ou a conversa mudou; confira o contexto atual.'
+        : current.busy ? 'Existe uma operação do atendimento em andamento.'
+          : 'Nenhuma preparação é indicada para esta situação.',
+      requiresHumanConfirmation: true,
+    };
+  }
+  return {
+    status: 'ready',
+    target,
+    contactId: current.contactId,
+    conversationId: current.conversationId,
+    analyzeReply: target === 'reply' && Boolean(current.conversationId),
+    taskContextTitle: orientation.obligation?.title ?? null,
+    reason: target === 'reply'
+      ? current.conversationId
+        ? 'O Assistente prepara sugestões para revisão; usar ou enviar exige ação humana.'
+        : 'Sem conversa vinculada: somente o campo de resposta será aberto.'
+      : target === 'result'
+        ? 'O Resultado continua sujeito à escolha e confirmação humana no formulário canônico.'
+        : 'Apenas consulta do histórico existente; nenhuma ação será registrada.',
+    requiresHumanConfirmation: true,
+  };
+}

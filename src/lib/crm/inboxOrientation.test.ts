@@ -1,4 +1,4 @@
-import { CRM_INBOX_ORIENTATION_COPY, getCrmInboxOrientation, getCrmOrientationShortcut, type CrmOrientationTarget } from './inboxOrientation';
+import { CRM_INBOX_ORIENTATION_COPY, getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction, type CrmOrientationTarget } from './inboxOrientation';
 import { projectCrmOperationalState, type CrmOperationalSource } from './operationalProjection';
 import { getCrmPriority, type CrmPriorityReason } from './priority';
 
@@ -134,5 +134,68 @@ assert(getCrmOrientationShortcut({
   ...felipeOrientation, priorityReason: 'needs_reply',
 })?.label === 'Preparar resposta',
   'Resposta deve ser apenas preparada no campo existente, sem envio.');
+
+// F3-A: a preparação nunca possui autoridade de envio ou gravação.
+const forResult = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'pending_result' },
+  { target: 'result', label: 'Abrir registro do Resultado' },
+  { contactId: 'Felipe', conversationId: 'conv-felipe', busy: false },
+);
+assert(forResult.status === 'ready' && forResult.target === 'result'
+  && forResult.requiresHumanConfirmation
+  && forResult.taskContextTitle === 'Elaborar/atualizar proposta'
+  && !forResult.analyzeReply,
+  'Resultado preparado preserva obrigação e exige seleção/confirmação humana.');
+const forReply = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'needs_reply' },
+  { target: 'reply', label: 'Preparar resposta' },
+  { contactId: 'Felipe', conversationId: 'conv-felipe', busy: false },
+);
+assert(forReply.status === 'ready' && forReply.analyzeReply
+  && forReply.target === 'reply' && forReply.requiresHumanConfirmation,
+  'Resposta contextual pode acionar Assistente apenas por clique explícito.');
+const replyWithoutConversation = prepareCrmSupervisedAction(
+  { ...felipeOrientation, conversationId: null, priorityReason: 'needs_reply' },
+  { target: 'reply', label: 'Preparar resposta' },
+  { contactId: 'Felipe', conversationId: null, busy: false },
+);
+assert(replyWithoutConversation.status === 'ready' && !replyWithoutConversation.analyzeReply,
+  'Sem conversa identificada, não disparar IA com histórico incerto.');
+const changedContact = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'needs_reply' },
+  { target: 'reply', label: 'Preparar resposta' },
+  { contactId: 'Outro contato', conversationId: 'conv-felipe', busy: false },
+);
+assert(changedContact.status === 'blocked' && !changedContact.analyzeReply
+  && changedContact.target === 'none',
+  'Troca de contato bloqueia uma preparação antiga.');
+const changedConversation = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'needs_reply' },
+  { target: 'reply', label: 'Preparar resposta' },
+  { contactId: 'Felipe', conversationId: 'outra-conversa', busy: false },
+);
+assert(changedConversation.status === 'blocked' && !changedConversation.analyzeReply,
+  'Troca de conversa bloqueia a preparação antiga.');
+const busyAction = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'pending_result' },
+  { target: 'result', label: 'Abrir registro do Resultado' },
+  { contactId: 'Felipe', conversationId: 'conv-felipe', busy: true },
+);
+assert(busyAction.status === 'blocked' && busyAction.target === 'none',
+  'Operação comercial em andamento impede nova preparação concorrente.');
+const forgedShortcut = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'needs_reply' },
+  { target: 'result', label: 'Registrar resultado' },
+  { contactId: 'Felipe', conversationId: 'conv-felipe', busy: false },
+);
+assert(forgedShortcut.status === 'blocked',
+  'Atalho divergente do motivo canônico não pode direcionar ação diferente.');
+const noAction = prepareCrmSupervisedAction(
+  { ...felipeOrientation, priorityReason: 'resolved', undatedObligationNeedsReview: false },
+  null,
+  { contactId: 'Felipe', conversationId: 'conv-felipe', busy: false },
+);
+assert(noAction.status === 'blocked' && !noAction.analyzeReply,
+  'Atendimento resolvido sem obrigação não prepara ação.');
 
 console.log('inboxOrientation.test: OK');

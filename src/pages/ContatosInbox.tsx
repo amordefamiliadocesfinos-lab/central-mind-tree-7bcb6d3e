@@ -34,7 +34,7 @@ import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendanc
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
-import { getCrmInboxOrientation, getCrmOrientationShortcut } from '@/lib/crm/inboxOrientation';
+import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
@@ -141,7 +141,8 @@ export default function ContatosInbox() {
   const [suggestedResultCode, setSuggestedResultCode] = useState<string | null>(null);
   const [attendanceActionRequest, setAttendanceActionRequest] = useState<{ mode: 'outcome' | 'snooze'; id: number; contextKey?: string } | null>(null);
   const [detailTab, setDetailTab] = useState<'conversa' | 'historico'>('conversa');
-  const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string } | null>(null);
+  const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string; conversationId: string | null; prepareAssistant: boolean } | null>(null);
+  const actionRequestSequenceRef = useRef(0);
   const [leadPanelOpen, setLeadPanelOpen] = useState(false);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
@@ -692,19 +693,32 @@ export default function ContatosInbox() {
   }, [selected?.id, selected?.conversation_id]);
 
   const prepareOrientationShortcut = () => {
-    if (!selected || !selectedOrientation || !orientationShortcut
-      || selectedOrientation.contactId !== selected.id) return;
+    if (!selected || !selectedOrientation) return;
     const key = `${selected.id}|${selected.conversation_id ?? ''}`;
     if (selectedContextRef.current !== key) return;
-    if (orientationShortcut.target === 'history') {
+    const preparation = prepareCrmSupervisedAction(selectedOrientation, orientationShortcut, {
+      contactId: selected.id,
+      conversationId: selected.conversation_id ?? null,
+      busy: attendanceBusy,
+    });
+    if (preparation.status === 'blocked') {
+      toast.message(preparation.reason);
+      return;
+    }
+    // Toda execução segue pertencendo aos controles já existentes.
+    const id = ++actionRequestSequenceRef.current;
+    if (preparation.target === 'history') {
       setDetailTab('historico');
-    } else if (orientationShortcut.target === 'result') {
+    } else if (preparation.target === 'result') {
       setDetailTab('conversa');
-      // Somente abre o formulário já existente. O operador escolhe e confirma.
-      setAttendanceActionRequest({ mode: 'outcome', id: Date.now(), contextKey: key });
-    } else if (orientationShortcut.target === 'reply') {
+      setAttendanceActionRequest({ mode: 'outcome', id, contextKey: key });
+    } else if (preparation.target === 'reply') {
       setDetailTab('conversa');
-      setReplyFocusRequest({ id: Date.now(), contactId: selected.id });
+      setReplyFocusRequest({
+        id, contactId: preparation.contactId, conversationId: preparation.conversationId,
+        prepareAssistant: preparation.analyzeReply,
+      });
+      if (!preparation.analyzeReply) toast.message(preparation.reason);
     }
   };
 
@@ -1473,7 +1487,10 @@ export default function ContatosInbox() {
               )}
 
               {/* Conversa (padrão) + Histórico */}
-              <Tabs value={detailTab} onValueChange={value => setDetailTab(value as "conversa" | "historico")} className="flex min-h-0 flex-1 flex-col" key={selected.id}>
+              <Tabs value={detailTab} onValueChange={value => {
+                setDetailTab(value as "conversa" | "historico");
+                if (value === 'historico') setReplyFocusRequest(null);
+              }} className="flex min-h-0 flex-1 flex-col" key={selected.id}>
                 <div className="px-3 pt-2">
                   <TabsList className="h-8">
                     <TabsTrigger value="conversa" className="text-xs h-6 gap-1">
@@ -1495,6 +1512,7 @@ export default function ContatosInbox() {
                     knownCommercialOptOut={selected.commercial_opt_out}
                     heightClassName="min-h-0 flex-1"
                     focusRequest={replyFocusRequest}
+                    onPreparationHandled={id => setReplyFocusRequest(current => current?.id === id ? null : current)}
                     onMessageSent={() => setSendConfirmation(true)}
                     onUseSuggestedResult={setSuggestedResultCode}
                     onScheduleManualFollowUp={() => setAttendanceActionRequest({ mode: 'snooze', id: Date.now() })}
@@ -1545,7 +1563,7 @@ export default function ContatosInbox() {
                           Sem fato novo — retirar da prioridade
                         </Button>
                       )}
-                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selected.next_action_title} />
+                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selectedOrientation?.obligation?.title ?? selected.next_action_title ?? null} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
