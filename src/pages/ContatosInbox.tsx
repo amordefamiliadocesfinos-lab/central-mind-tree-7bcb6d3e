@@ -33,7 +33,7 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
-import { getCrmOperationalTaskDueAt, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
+import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
@@ -66,6 +66,7 @@ interface InboxItem {
   return_at: string | null;
   next_action_date: string | null;
   next_action_title: string | null;
+  official_task_present: boolean;
   next_action_text: string | null;
   last_result_code: string | null;
   handoff_required: boolean | null;
@@ -99,7 +100,7 @@ function toCrmOperationalSource(item: InboxItem): CrmOperationalSource {
     contactId: item.id,
     conversationId: item.conversation_id || null,
     attendance_state_updated_at: item.conversation_updated_at,
-    official_task_present: Boolean(item.next_action_date),
+    official_task_present: item.official_task_present,
   };
 }
 
@@ -269,25 +270,25 @@ export default function ContatosInbox() {
       .is('deleted_at', null)
       .neq('status', 'concluído')
       .not('contact_id', 'is', null);
+    // A existência da tarefa oficial independe do vencimento. Isso mantém
+    // a obrigação na Inbox quando a IA já a reconhece sem data.
+    const officialTasks = indexCrmOperationalTasks(scheduledCrmTasks || []);
+    const officialTaskContactIds = new Set<string>();
     const reactivationByContact = new Map<string, string>();
     const nextActionByContact = new Map<string, string>();
     const nextActionTitleByContact = new Map<string, string>();
-    for (const task of scheduledCrmTasks || []) {
-      if (!task.contact_id) continue;
-      const dueAt = getCrmOperationalTaskDueAt(task);
-      if (!dueAt) continue;
-      const target = task.source === 'crm_reactivation' ? reactivationByContact : nextActionByContact;
-      if (!target.has(task.contact_id)) {
-        target.set(task.contact_id, dueAt);
-        if (task.source === 'crm_next_action' && task.title) {
-          nextActionTitleByContact.set(task.contact_id, task.title);
-        }
+    for (const [contactId, task] of officialTasks) {
+      if (task.hasOfficialNextAction) {
+        officialTaskContactIds.add(contactId);
+        if (task.nextActionDueAt) nextActionByContact.set(contactId, task.nextActionDueAt);
+        if (task.nextActionTitle) nextActionTitleByContact.set(contactId, task.nextActionTitle);
       }
+      if (task.reactivationDueAt) reactivationByContact.set(contactId, task.reactivationDueAt);
     }
 
     const ids = Array.from(new Set([
       ...conversationContactIds,
-      ...nextActionByContact.keys(),
+      ...officialTaskContactIds,
       ...reactivationByContact.keys(),
     ]));
     const { data: contacts } = ids.length
@@ -382,6 +383,7 @@ export default function ContatosInbox() {
         return_at: conversation.return_at,
         next_action_date: officialNextActionByContact.get(conversation.contact_id) || null,
         next_action_title: nextActionTitleByContact.get(conversation.contact_id) || null,
+        official_task_present: officialTaskContactIds.has(conversation.contact_id),
         next_action_text: contact?.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(conversation.contact_id) || null,
         handoff_required: lastHandoffByContact.get(conversation.contact_id) ?? null,
@@ -428,6 +430,7 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contact.id) || null,
         next_action_title: nextActionTitleByContact.get(contact.id) || null,
+        official_task_present: officialTaskContactIds.has(contact.id),
         next_action_text: contact.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(contact.id) || null,
         handoff_required: lastHandoffByContact.get(contact.id) ?? null,
@@ -481,6 +484,7 @@ export default function ContatosInbox() {
         return_at: null,
         next_action_date: officialNextActionByContact.get(contactId) || null,
         next_action_title: nextActionTitleByContact.get(contactId) || null,
+        official_task_present: officialTaskContactIds.has(contactId),
         next_action_text: contact.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(contactId) || null,
         handoff_required: lastHandoffByContact.get(contactId) ?? null,
