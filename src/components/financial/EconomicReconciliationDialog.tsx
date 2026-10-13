@@ -111,6 +111,20 @@ export function EconomicReconciliationDialog({ open, onOpenChange, channelAccoun
                 <span className="text-muted-foreground">Δ previsto × observado</span><span>{money(result.comparison.predictedVsObservedDelta)}</span>
                 <span className="text-muted-foreground">Δ previsto × financeiro</span><span>{money(result.comparison.predictedVsFinancialDelta)}</span>
               </div>
+              {result.economicComparison && (
+                <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
+                  <p className="font-medium">Reconciliação econômica B1–B7: {result.economicComparison.overall.toUpperCase()}</p>
+                  <p className="text-muted-foreground">
+                    Validados: {result.economicComparison.validatedBlocks.join(', ') || 'nenhum'}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Parciais: {result.economicComparison.partialBlocks.join(', ') || 'nenhum'}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Inconclusivos: {result.economicComparison.inconclusiveBlocks.join(', ') || 'nenhum'}
+                  </p>
+                </div>
+              )}
               {result.comparison.pending.length > 0 && <p className="text-xs text-amber-600">Pendências: {result.comparison.pending.join(' · ')}</p>}
               <p className="text-xs text-muted-foreground">Reconciliação registrada como novo fato auditável: {result.reconciliationId}</p>
             </div>

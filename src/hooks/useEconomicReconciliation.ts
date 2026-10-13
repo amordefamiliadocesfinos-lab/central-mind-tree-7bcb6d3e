@@ -1,10 +1,14 @@
 import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { reconcileEconomicPrediction } from '@/lib/economic-engine/reconciliation';
+import { reconcileGeneralEconomicSnapshot, type ObservedEconomicBlock } from '@/lib/economic-engine/generalReconciliation';
+import type { GeneralEconomicSnapshot } from '@/lib/economic-engine/snapshot';
+import { ORDER_LOGISTICS_EXPENSE_MARKER } from '@/lib/financial/orderLogisticsExpense';
 
 export type EconomicPredictionSnapshotRecord = {
   id: string;
   snapshot_key: string;
+  snapshot_schema_version: string;
   engine_key: string;
   engine_version: string;
   rule_version_id: string | null;
@@ -46,6 +50,7 @@ export type ReconciliationSaveResult = {
   reconciliationId: string;
   status: 'pending' | 'partial' | 'reconciled' | 'inconclusive';
   comparison: ReturnType<typeof reconcileEconomicPrediction>;
+  economicComparison: ReturnType<typeof reconcileGeneralEconomicSnapshot> | null;
 };
 
 const db = supabase as any;
@@ -172,6 +177,21 @@ export function useEconomicReconciliation() {
         .eq('order_id', order.id);
       if (directEntriesError) throw directEntriesError;
 
+      const { data: logisticsEntries, error: logisticsEntriesError } = await db
+        .from('financial_entries')
+        .select('id,value,value_paid,is_conciliated,payment_date,created_at')
+        .eq('type', 'pagar')
+        .eq('order_id', order.id)
+        .ilike('notes', '%' + ORDER_LOGISTICS_EXPENSE_MARKER + '%')
+        .eq('lifecycle_status', 'active');
+      if (logisticsEntriesError) throw logisticsEntriesError;
+
+      const { data: economicAttributions, error: economicAttributionsError } = await db
+        .from('economic_financial_attributions')
+        .select('id,block,effect,allocated_value,financial_entry_id,incident_id,notes')
+        .eq('order_id', order.id);
+      if (economicAttributionsError) throw economicAttributionsError;
+
       const { data: linkedRows, error: linkedRowsError } = await db
         .from('financial_order_links')
         .select('allocated_value,financial_entry:financial_entries(id,value,value_paid,is_conciliated,conciliated_at,payment_date,order_id,lifecycle_status)')
@@ -278,14 +298,75 @@ export function useEconomicReconciliation() {
           lifecycleStatus: fact.entry.lifecycle_status,
         })),
         grossRealized: financialGrossRealized,
+        economicAttributions: economicAttributions ?? [],
+        logisticsEntries: logisticsEntries ?? [],
         attributionComplete: financialAttributionComplete,
         conciliated: financialConciliated,
       };
 
+      const predictedEconomic = snapshot.result_snapshot?.economic as GeneralEconomicSnapshot | undefined;
+      const observedEconomicBlocks: ObservedEconomicBlock[] = [];
+
+      const logisticsRealized = (logisticsEntries ?? []).reduce(
+        (sum: number, entry: any) => sum + Number(entry.value_paid || entry.value || 0),
+        0,
+      );
+      if ((logisticsEntries ?? []).length > 0) {
+        observedEconomicBlocks.push({
+          block: 'B4',
+          amount: logisticsRealized,
+          source: 'financial_entries',
+          sourceIds: (logisticsEntries ?? []).map((entry: any) => entry.id),
+          notes: ['Custo logístico real vinculado ao Pedido.'],
+        });
+      }
+
+      const orderLevelFeeIsAllocated = numeric(settlementLink?.fee_value) !== null && (
+        Math.abs(Number(settlementLink?.fee_value || 0)) > 0.0001 ||
+        (numeric(settlementLink?.gross_value) !== null && numeric(settlementLink?.net_value) !== null &&
+          Math.abs(Number(settlementLink.gross_value) - Number(settlementLink.net_value)) > 0.0001)
+      );
+      const observedChannelFee = orderLevelFeeIsAllocated && numeric(settlementLink?.fee_value) !== null
+        ? Math.abs(Number(settlementLink.fee_value))
+        : settlementOrderCount === 1 && numeric(settlement?.fee_value) !== null
+          ? Math.abs(Number(settlement.fee_value))
+          : null;
+      if (observedChannelFee !== null) {
+        observedEconomicBlocks.push({
+          block: 'B5',
+          amount: observedChannelFee,
+          source: 'marketplace_settlement',
+          sourceIds: settlementLink?.id ? [settlementLink.id] : [],
+          notes: ['Taxa observada atribuível ao Pedido sem rateio presumido.'],
+        });
+      }
+
+      for (const block of ['B6','B7'] as const) {
+        const rows = (economicAttributions ?? []).filter((row: any) => row.block === block);
+        if (rows.length === 0) continue;
+        const amount = rows.reduce((sum: number, row: any) => {
+          const value = Number(row.allocated_value || 0);
+          return sum + (row.effect === 'RECOVERY' || row.effect === 'BENEFIT' ? -value : value);
+        }, 0);
+        observedEconomicBlocks.push({
+          block,
+          amount,
+          source: 'economic_financial_attributions',
+          sourceIds: rows.map((row: any) => row.id),
+          notes: ['Valor econômico explicitamente atribuído a partir de fatos financeiros.'],
+        });
+      }
+
+      const economicComparison = predictedEconomic
+        ? reconcileGeneralEconomicSnapshot(predictedEconomic, observedEconomicBlocks)
+        : null;
+
       const comparisonSnapshot = {
+        schemaVersion: '2.0.0',
         predictedRepasse, observedNet: comparison.observedNet, financialNet: comparison.financialNet,
         predictedVsObservedDelta: comparison.predictedVsObservedDelta, predictedVsFinancialDelta: comparison.predictedVsFinancialDelta,
         observedVsFinancialDelta: comparison.observedVsFinancialDelta, notes: comparison.notes,
+        economic: economicComparison,
       };
 
       const primaryFinancialEntryId = financialEntries.length === 1 ? financialEntries[0].id : null;
@@ -306,7 +387,7 @@ export function useEconomicReconciliation() {
       if (rpcError) throw rpcError;
 
       setSaving(false);
-      return { reconciliationId: String(reconciliationId), status: effectiveStatus, comparison: effectiveComparison };
+      return { reconciliationId: String(reconciliationId), status: effectiveStatus, comparison: effectiveComparison, economicComparison };
     } catch (caught: any) {
       setSaving(false);
       setError(caught?.message || 'Não foi possível reconciliar a previsão econômica.');
