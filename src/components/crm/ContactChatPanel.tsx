@@ -62,14 +62,16 @@ interface ContactChatPanelProps {
   /** F5.2.3: abre o registro canônico de Resultado sem pré-seleção. */
   onRegisterManualResult?: () => void;
   /** F2-B: somente foca o campo de resposta do contato atual, nunca envia. */
-  focusRequest?: { id: number; contactId: string } | null;
+  focusRequest?: { id: number; contactId: string; conversationId?: string | null; prepareAssistant?: boolean } | null;
+  /** Descarta a solicitação após consumi-la para não reanalisar ao remontar abas. */
+  onPreparationHandled?: (requestId: number) => void;
 }
 
 const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -132,6 +134,8 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   ].join('|');
   // Uma resposta assíncrona do contato anterior nunca pode voltar à tela nova.
   const latestContextStampRef = useRef(contextStamp);
+  const analyzedRequestKeyRef = useRef<string | null>(null);
+  const analyzingStampRef = useRef<string | null>(null);
   latestContextStampRef.current = contextStamp;
   const aiDraftStale = Boolean(aiDraftStamp && aiDraftStamp !== contextStamp);
 
@@ -457,6 +461,9 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
     const requestedStamp = contextStamp;
+    // Dois cliques no mesmo contexto não geram duas análises simultâneas.
+    if (analyzingStampRef.current === requestedStamp) return;
+    analyzingStampRef.current = requestedStamp;
     const isCurrent = () => latestContextStampRef.current === requestedStamp;
     const analysisStartedAt = performance.now();
     setAnalyzing(true);
@@ -520,9 +527,27 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
         setAnalysisError(true);
       }
     } finally {
+      if (analyzingStampRef.current === requestedStamp) analyzingStampRef.current = null;
       if (isCurrent()) setAnalyzing(false);
     }
   };
+
+  // F3-A: o operador solicitou explicitamente preparar a resposta.
+  // Reaproveita o Assistente existente (sob demanda), sem preencher ou enviar
+  // mensagem automaticamente e sem transportar solicitação a outro contato.
+  useEffect(() => {
+    if (!focusRequest?.prepareAssistant || loading || !conversationId
+      || focusRequest.contactId !== contactId
+      || focusRequest.conversationId !== conversationId) return;
+    const requestKey = `${contactId}|${conversationId}|${focusRequest.id}`;
+    if (analyzedRequestKeyRef.current === requestKey) return;
+    analyzedRequestKeyRef.current = requestKey;
+    onPreparationHandled?.(focusRequest.id);
+    void handleAnalyze();
+    // A solicitação é consumida uma única vez; novas mensagens invalidam
+    // a análise via contextStamp existente e não disparam uma nova análise.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, contactId, conversationId, loading]);
 
 
   return (
