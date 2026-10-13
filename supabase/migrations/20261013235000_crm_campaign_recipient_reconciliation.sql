@@ -59,7 +59,7 @@ CREATE TRIGGER trg_crm_campaign_reconciliation_immutable
 -- transições pending -> sent da fila manual não são afetadas.
 CREATE OR REPLACE FUNCTION public.guard_crm_campaign_failed_to_sent()
 RETURNS trigger LANGUAGE plpgsql
-SET search_path = public, pg_temp AS $
+SET search_path = public, pg_temp AS $$
 BEGIN
   IF OLD.status = 'failed' AND NEW.status = 'sent'
      AND auth.role() IS DISTINCT FROM 'service_role'
@@ -70,7 +70,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 DROP TRIGGER IF EXISTS trg_crm_campaign_failed_to_sent
   ON public.crm_campaign_recipients;
 CREATE TRIGGER trg_crm_campaign_failed_to_sent

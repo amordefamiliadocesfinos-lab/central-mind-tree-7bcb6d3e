@@ -1,0 +1,31 @@
+name: CRM F0-D SQL Syntax Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
+      - '.github/workflows/crm-f0d-sql-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sql-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL SQL parser
+        run: python3 -m pip install --quiet pglast
+      - name: Parse F0-D migration (no database writes)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+          path = Path('supabase/migrations/20261013235000_crm_campaign_recipient_reconciliation.sql')
+          statements = parse_sql(path.read_text(encoding='utf-8'))
+          assert statements and len(statements) >= 10, 'Migration incompleta'
+          print(f'CRM F0-D: {len(statements)} instruções SQL aceitas pelo parser PostgreSQL')
+          PY
