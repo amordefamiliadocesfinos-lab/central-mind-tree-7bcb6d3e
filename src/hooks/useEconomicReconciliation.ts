@@ -50,6 +50,7 @@ export type ReconciliationSaveResult = {
   reconciliationId: string;
   status: 'pending' | 'partial' | 'reconciled' | 'inconclusive';
   comparison: ReturnType<typeof reconcileEconomicPrediction>;
+  economicComparison: ReturnType<typeof reconcileGeneralEconomicSnapshot> | null;
 };
 
 const db = supabase as any;
@@ -381,7 +382,7 @@ export function useEconomicReconciliation() {
       if (rpcError) throw rpcError;
 
       setSaving(false);
-      return { reconciliationId: String(reconciliationId), status: effectiveStatus, comparison: effectiveComparison };
+      return { reconciliationId: String(reconciliationId), status: effectiveStatus, comparison: effectiveComparison, economicComparison };
     } catch (caught: any) {
       setSaving(false);
       setError(caught?.message || 'Não foi possível reconciliar a previsão econômica.');
