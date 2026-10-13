@@ -65,11 +65,19 @@ BEGIN
     SELECT count(*)
     FROM public.marketplace_product_mapping_items
     WHERE mapping_id = v_glucodry_mapping
+  ) <> 1 THEN
+    RAISE EXCEPTION 'F6-F Glucodry composition count mismatch';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.marketplace_product_mapping_items
+    WHERE mapping_id = v_glucodry_mapping
       AND product_id = '92088a70-8cc0-40ef-a39d-564603df6866'
       AND variant_id IS NULL
       AND physical_multiplier = 1000
       AND position = 0
-  ) <> 1 THEN
+  ) THEN
     RAISE EXCEPTION 'F6-F Glucodry composition mismatch';
   END IF;
 END $$;
