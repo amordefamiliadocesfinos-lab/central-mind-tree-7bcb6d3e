@@ -621,15 +621,15 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 rounded-xl bg-slate-100 p-3 dark:bg-slate-900 sm:p-4">
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" disabled>Pedidos de compra</Button>
         <Button variant="outline" onClick={() => setPurchaseSection('suppliers')}>Central de Fornecedores</Button>
       </div>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Compras</h2>
-          <p className="text-[13px] text-foreground/75">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-950 dark:text-white">Compras</h2>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
         </div>
         <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
       </header>
@@ -643,14 +643,14 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             value={purchaseSearch}
             onChange={event => setPurchaseSearch(event.target.value)}
             placeholder="Pesquisar pedido, fornecedor, produto, variante ou apresentação..."
-            className="h-10 border-border bg-background pl-9 text-sm placeholder:text-foreground/55"
+            className="h-11 border-2 border-slate-300 bg-white pl-9 text-sm font-medium text-slate-900 placeholder:text-slate-500 dark:border-slate-600 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-400"
           />
         </div>
 
         <div>
           <Label className="sr-only">Filtrar compras por status</Label>
           <Select value={statusFilter} onValueChange={value => setStatusFilter(value as PurchaseStatus | 'all')}>
-            <SelectTrigger className="h-10 border-border bg-background text-sm font-medium"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-11 border-2 border-slate-300 bg-white text-sm font-semibold text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-white"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               {Object.entries(PURCHASE_STATUS_LABEL).map(([status, label]) => (
