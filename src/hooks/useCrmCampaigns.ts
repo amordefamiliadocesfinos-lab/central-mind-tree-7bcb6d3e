@@ -425,41 +425,49 @@ export async function sendCampaignViaApi(
  * Nenhuma mensagem é enviada aqui.
  */
 export async function requeueFailedRecipients(campaignId: string): Promise<number> {
-  const { data } = await db
-    .from('crm_campaign_recipients')
-    .select('id, contact_id, conversation_id')
-    .eq('campaign_id', campaignId)
-    .eq('status', 'failed');
-  const rows = (data || []) as CrmCampaignRecipient[];
-  if (rows.length === 0) return 0;
+  const { data, error: listError } = await db.from('crm_campaign_recipients')
+    .select('id, contact_id, conversation_id, status, error_code, service_message_id, external_message_id')
+    .eq('campaign_id', campaignId).eq('status', 'failed');
+  if (listError) throw listError;
+  // Falhas sem prova negativa do envio NÃO podem ser reencaminhadas.
+  const rows = ((data || []) as CrmCampaignRecipient[]).filter(canSafelyRequeueCampaignRecipient);
+  if (!rows.length) return 0;
 
-  const convIds = rows.map(r => r.conversation_id).filter(Boolean) as string[];
+  const convIds = [...new Set(rows.map(r => r.conversation_id).filter(Boolean))] as string[];
   const convMap = new Map<string, { id: string; last_inbound_at: string | null }>();
-  if (convIds.length > 0) {
-    const { data: convs } = await db
-      .from('service_conversations')
-      .select('id, last_inbound_at')
-      .in('id', convIds);
+  for (let i = 0; i < convIds.length; i += 200) {
+    const { data: convs, error: convError } = await db.from('service_conversations')
+      .select('id, last_inbound_at').in('id', convIds.slice(i, i + 200));
+    if (convError) throw convError;
     (convs || []).forEach((c: any) => convMap.set(c.id, c));
   }
 
   const blocked = await revalidateOptOut(rows.map(r => r.contact_id));
+  let updated = 0;
   for (const r of rows) {
-    if (blocked.has(r.contact_id)) {
-      await db.from('crm_campaign_recipients')
-        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
-        .eq('id', r.id);
-      continue;
-    }
-    await db.from('crm_campaign_recipients').update({
-      status: 'pending',
-      error_code: null,
-      error_message: null,
-      delivery_mode: resolveDeliveryMode(r.conversation_id ? convMap.get(r.conversation_id) : null),
-    }).eq('id', r.id);
+    // CAS: não sobrescreve registro que outra aba tenha concluído neste meio-tempo.
+    const query = db.from('crm_campaign_recipients')
+      .update(blocked.has(r.contact_id)
+        ? { status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null }
+        : {
+          status: 'pending', error_code: null, error_message: null,
+          delivery_mode: resolveDeliveryMode(r.conversation_id ? convMap.get(r.conversation_id) : null),
+        })
+      .eq('id', r.id).eq('campaign_id', campaignId)
+      .eq('status', 'failed').eq('error_code', r.error_code)
+      .is('service_message_id', null).is('external_message_id', null);
+    const { data: changed, error: changeError } = await query.select('id').maybeSingle();
+    if (changeError) throw changeError;
+    if (changed && !blocked.has(r.contact_id)) updated++;
   }
   await refreshCampaignCounters(campaignId);
-  return rows.length;
+  if (updated > 0) {
+    // Campanha anteriormente encerrada com falhas seguras pode voltar à fila
+    // PREPARADA; reenvio ainda exige confirmação explícita pelo operador.
+    await db.from('crm_campaigns').update({ status: 'prepared', updated_at: new Date().toISOString() })
+      .eq('id', campaignId).eq('status', 'completed');
+  }
+  return updated;
 }
 
 export async function fetchCampaignRecipients(campaignId: string) {
