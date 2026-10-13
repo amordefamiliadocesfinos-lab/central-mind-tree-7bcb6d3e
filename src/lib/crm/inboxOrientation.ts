@@ -96,6 +96,7 @@ export interface CrmInboxOrientation {
   explanation: string;
   priorityLabel: string;
   priorityLevel: string;
+  priorityReason: CrmPriorityReason;
   /** Somente dado registrado, nunca um novo agendamento. */
   obligation: CrmOperationalProjection['obligation'];
   /** Não pressupõe comprovação de recebimento por Operações. */
@@ -119,9 +120,53 @@ export function getCrmInboxOrientation(projection: CrmOperationalProjection): Cr
     explanation: copy.explanation,
     priorityLabel: projection.priority.label,
     priorityLevel: projection.priority.level,
+    priorityReason: projection.priority.reason,
     obligation: projection.obligation,
     handoffUnverified: projection.handoffRequired === true && !projection.handoffVerified,
     lastResultResponsibility: projection.resultResponsibility,
     undatedObligationNeedsReview,
+  };
+}
+
+
+/**
+ * F2-B — encaminhamento para um recurso JÁ EXISTENTE.
+ * O atalho só troca a aba, foca o campo ou abre o formulário canônico.
+ * Nenhuma operação de escrita e nenhum disparo é feito por esta decisão.
+ */
+export type CrmOrientationTarget = 'reply' | 'result' | 'history' | 'none';
+export interface CrmOrientationShortcut {
+  target: Exclude<CrmOrientationTarget, 'none'>;
+  label: string;
+}
+
+const ORIENTATION_TARGETS: Record<CrmPriorityReason, CrmOrientationTarget> = {
+  needs_reply: 'reply',
+  pending_result: 'result',
+  return_overdue: 'history',
+  next_action_overdue: 'history',
+  return_today: 'history',
+  next_action_today: 'history',
+  reactivation_overdue: 'history',
+  reactivation_today: 'history',
+  follow_up_urgent: 'history',
+  cooling: 'history',
+  normal: 'history',
+  future: 'none',
+  waiting_customer: 'none',
+  resolved: 'none',
+};
+
+export function getCrmOrientationShortcut(orientation: CrmInboxOrientation): CrmOrientationShortcut | null {
+  // Uma obrigação sem prazo requer leitura humana mesmo quando P4.
+  const target = orientation.undatedObligationNeedsReview && ORIENTATION_TARGETS[orientation.priorityReason] === 'none'
+    ? 'history'
+    : ORIENTATION_TARGETS[orientation.priorityReason];
+  if (target === 'none') return null;
+  return {
+    target,
+    label: target === 'reply' ? 'Preparar resposta'
+      : target === 'result' ? 'Abrir registro do Resultado'
+        : 'Conferir histórico',
   };
 }
