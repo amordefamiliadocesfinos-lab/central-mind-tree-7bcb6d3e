@@ -1487,7 +1487,10 @@ export default function ContatosInbox() {
               )}
 
               {/* Conversa (padrão) + Histórico */}
-              <Tabs value={detailTab} onValueChange={value => setDetailTab(value as "conversa" | "historico")} className="flex min-h-0 flex-1 flex-col" key={selected.id}>
+              <Tabs value={detailTab} onValueChange={value => {
+                setDetailTab(value as "conversa" | "historico");
+                if (value === 'historico') setReplyFocusRequest(null);
+              }} className="flex min-h-0 flex-1 flex-col" key={selected.id}>
                 <div className="px-3 pt-2">
                   <TabsList className="h-8">
                     <TabsTrigger value="conversa" className="text-xs h-6 gap-1">
@@ -1509,6 +1512,7 @@ export default function ContatosInbox() {
                     knownCommercialOptOut={selected.commercial_opt_out}
                     heightClassName="min-h-0 flex-1"
                     focusRequest={replyFocusRequest}
+                    onPreparationHandled={id => setReplyFocusRequest(current => current?.id === id ? null : current)}
                     onMessageSent={() => setSendConfirmation(true)}
                     onUseSuggestedResult={setSuggestedResultCode}
                     onScheduleManualFollowUp={() => setAttendanceActionRequest({ mode: 'snooze', id: Date.now() })}
