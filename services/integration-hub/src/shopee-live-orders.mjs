@@ -90,36 +90,13 @@ export function createShopeeLiveOrdersReader({
     orderStatus = null,
     timeRangeField = 'create_time',
     responseOptionalFields = [
-      'buyer_user_id',
-      'buyer_username',
-      'estimated_shipping_fee',
-      'recipient_address',
-      'actual_shipping_fee',
-      'goods_to_declare',
-      'note',
-      'note_update_time',
       'item_list',
-      'pay_time',
-      'dropshipper',
-      'dropshipper_phone',
-      'split_up',
-      'buyer_cancel_reason',
-      'cancel_by',
-      'cancel_reason',
-      'actual_shipping_fee_confirmed',
-      'buyer_cpf_id',
-      'fulfillment_flag',
-      'pickup_done_time',
       'package_list',
       'shipping_carrier',
       'payment_method',
       'total_amount',
-      'invoice_data',
-      'checkout_shipping_carrier',
-      'reverse_shipping_fee',
-      'order_chargeable_weight_gram',
-      'edt',
-      'prescription_check_status',
+      'pay_time',
+      'recipient_address',
     ],
   } = {}) {
     const started = now();
@@ -275,9 +252,18 @@ export function createShopeeLiveOrdersReader({
     }
 
     const detailedOrders = orderListFrom(detailResult.payload);
+    const listedOrderSns = new Set(orderSns);
+    const detailedOrderSns = new Set();
     for (const order of detailedOrders) {
       const orderSn = typeof order?.order_sn === 'string' ? order.order_sn.trim() : '';
       if (!orderSn) return { ok: false, code: 'order_detail_missing_order_sn', shop_id: shopId };
+      if (!listedOrderSns.has(orderSn) || detailedOrderSns.has(orderSn)) {
+        return { ok: false, code: 'order_detail_identity_mismatch', shop_id: shopId };
+      }
+      detailedOrderSns.add(orderSn);
+    }
+    for (const order of detailedOrders) {
+      const orderSn = typeof order?.order_sn === 'string' ? order.order_sn.trim() : '';
       const singlePayload = buildSingleOrderPayload(detailResult.payload, order);
       const persisted = await persistOrderSnapshot({
         channel_account_id: channelAccountId,

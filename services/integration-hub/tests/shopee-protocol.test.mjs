@@ -94,7 +94,9 @@ test('exchangeToken signs and posts the same token payload', async () => {
 
 test('refreshToken signs and posts the same refresh payload', async () => {
   let body;
-  const fetchImpl = async (_url, init) => {
+  let observedUrl;
+  const fetchImpl = async (url, init) => {
+    observedUrl = new URL(url);
     body = JSON.parse(init.body);
     return new Response(JSON.stringify({ access_token: 'next-a', refresh_token: 'next-r' }), { status: 200 });
   };
@@ -116,6 +118,9 @@ test('refreshToken signs and posts the same refresh payload', async () => {
     shop_id: 227959614,
   });
   assert.equal(result.payload.refresh_token, 'next-r');
+  assert.equal(observedUrl.pathname, '/api/v2/auth/access_token/get');
+  assert.equal(observedUrl.searchParams.get('sign'), createHmac('sha256', partnerKey)
+    .update(`${partnerId}/api/v2/auth/access_token/get${timestamp}`).digest('hex'));
 });
 
 test('getShopInfo signs a shop-scoped GET and preserves raw response', async () => {
@@ -191,7 +196,8 @@ test('getOrderList signs shop request and emits only read-only list query parame
   assert.equal(observed.url.searchParams.get('cursor'), 'cursor-1');
   assert.equal(observed.url.searchParams.get('order_status'), 'READY_TO_SHIP');
   assert.equal(observed.url.searchParams.get('shop_id'), '531736366');
-  assert.ok(observed.url.searchParams.get('sign'));
+  assert.equal(observed.url.searchParams.get('sign'), createHmac('sha256', partnerKey)
+    .update(`${partnerId}/api/v2/order/get_order_list${timestamp}access-value531736366`).digest('hex'));
   assert.equal(result.payload.response.order_list[0].order_sn, '260101ABCDEF');
 });
 
@@ -226,13 +232,14 @@ test('getOrderDetail signs shop request and requests explicit optional fields', 
     'item_list,recipient_address,buyer_username,total_amount',
   );
   assert.equal(observed.url.searchParams.get('shop_id'), '531736366');
-  assert.ok(observed.url.searchParams.get('sign'));
+  assert.equal(observed.url.searchParams.get('sign'), createHmac('sha256', partnerKey)
+    .update(`${partnerId}/api/v2/order/get_order_detail${timestamp}access-value531736366`).digest('hex'));
   assert.equal(result.payload.response.order_list[0].order_sn, '260101ABCDEF');
 });
 
 test('getOrderList rejects inverted time windows before calling Shopee', async () => {
-  await assert.rejects(
-    getOrderList({
+  assert.throws(
+    () => getOrderList({
       apiBaseUrl: 'https://partner.shopeemobile.com',
       orderListPath: '/api/v2/order/get_order_list',
       partnerId,
