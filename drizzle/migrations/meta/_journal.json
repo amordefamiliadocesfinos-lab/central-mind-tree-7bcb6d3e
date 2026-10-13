@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791930634271,
+      "tag": "0000_economic_b6_b7_financial_attributions",
+      "breakpoints": true
+    }
+  ]
+}
