@@ -1,4 +1,4 @@
-import { CRM_INBOX_ORIENTATION_COPY, getCrmInboxOrientation } from './inboxOrientation';
+import { CRM_INBOX_ORIENTATION_COPY, getCrmInboxOrientation, getCrmOrientationShortcut, type CrmOrientationTarget } from './inboxOrientation';
 import { projectCrmOperationalState, type CrmOperationalSource } from './operationalProjection';
 import { getCrmPriority, type CrmPriorityReason } from './priority';
 
@@ -97,5 +97,42 @@ const otherContact = getCrmInboxOrientation(projectCrmOperationalState({
 assert(otherContact.contactId === 'Outro' && otherContact.conversationId === null
   && otherContact.obligation === null && otherContact.lastResultResponsibility === null,
   'Troca de contato nunca pode reutilizar obrigação ou Resultado anterior.');
+
+// F2-B: os 14 motivos só apontam para controles já existentes.
+const expectedShortcuts: Record<CrmPriorityReason, CrmOrientationTarget> = {
+  needs_reply: 'reply',
+  pending_result: 'result',
+  return_overdue: 'history',
+  next_action_overdue: 'history',
+  return_today: 'history',
+  next_action_today: 'history',
+  reactivation_overdue: 'history',
+  reactivation_today: 'history',
+  follow_up_urgent: 'history',
+  cooling: 'history',
+  normal: 'history',
+  future: 'none',
+  waiting_customer: 'none',
+  resolved: 'none',
+};
+for (const reason of reasons) {
+  const expected = expectedShortcuts[reason];
+  const mapped = getCrmOrientationShortcut({
+    ...felipeOrientation, priorityReason: reason,
+    undatedObligationNeedsReview: false,
+  });
+  assert((mapped?.target ?? 'none') === expected,
+    `F2-B: ${reason} deve encaminhar apenas para ${expected}, sem execução.`);
+}
+assert(getCrmOrientationShortcut(waitingOrientation)?.target === 'history',
+  'Tarefa oficial sem prazo mantém atalho de conferência sem mudar P4.');
+assert(getCrmOrientationShortcut({
+  ...felipeOrientation, priorityReason: 'pending_result',
+})?.label === 'Abrir registro do Resultado',
+  'Registrar Resultado usa formulário atual, sem gravar antes de confirmar.');
+assert(getCrmOrientationShortcut({
+  ...felipeOrientation, priorityReason: 'needs_reply',
+})?.label === 'Preparar resposta',
+  'Resposta deve ser apenas preparada no campo existente, sem envio.');
 
 console.log('inboxOrientation.test: OK');
