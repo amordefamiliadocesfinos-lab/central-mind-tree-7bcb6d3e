@@ -629,7 +629,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Compras</h2>
-          <p className="text-sm text-muted-foreground">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
+          <p className="text-[13px] text-foreground/75">Pedidos, faturamento, trânsito e recebimentos físicos.</p>
         </div>
         <Button onClick={openEditor}><Plus className="mr-1 h-4 w-4" />Nova compra</Button>
       </header>
@@ -643,18 +643,29 @@ export function PurchasesTab({ products }: { products: Product[] }) {
             value={purchaseSearch}
             onChange={event => setPurchaseSearch(event.target.value)}
             placeholder="Pesquisar pedido, fornecedor, produto, variante ou apresentação..."
-            className="pl-9"
+            className="h-10 border-border bg-background pl-9 text-sm placeholder:text-foreground/55"
           />
         </div>
 
         <div>
           <Label className="sr-only">Filtrar compras por status</Label>
           <Select value={statusFilter} onValueChange={value => setStatusFilter(value as PurchaseStatus | 'all')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-10 border-border bg-background text-sm font-medium"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               {Object.entries(PURCHASE_STATUS_LABEL).map(([status, label]) => (
-                <SelectItem key={status} value={status}>{label}</SelectItem>
+                <SelectItem key={status} value={status}>
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden="true" className={`h-2 w-2 rounded-full ${
+                      status === 'rascunho' ? 'bg-slate-400' :
+                      status === 'confirmado' ? 'bg-blue-500' :
+                      status === 'em_transito' ? 'bg-amber-500' :
+                      status === 'parcialmente_recebido' ? 'bg-orange-500' :
+                      status === 'recebido' ? 'bg-green-600' : 'bg-red-500'
+                    }`} />
+                    {label}
+                  </span>
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -675,7 +686,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-4">
           {visibleOrders.map(order => (
             <PurchaseOrderCard
               key={order.id}
