@@ -1536,9 +1536,6 @@ export default function ContatosInbox() {
                             : 'do cliente'}
                         </span>
                       )}
-                      {selectedOrientation.handoffUnverified && !operationalHandoff && !handoffEvidence?.explicitOrderLinkVerified && (
-                        <span>Handoff declarado; recebimento por Operações não comprovado nesta visão</span>
-                      )}
                     </div>
                   )}
                   {handoffEvidence && handoffEvidence.state !== 'not_required' && (
