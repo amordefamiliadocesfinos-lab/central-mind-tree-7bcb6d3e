@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { assessCampaignDispatchEvidence, type CampaignDispatchMessage, type CampaignMessageLookup } from '@/lib/crm/campaignDispatchEvidence';
+import { canOfferCrmCampaignFormalReconciliation } from '@/lib/crm/campaignFormalReconciliation';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
@@ -74,6 +75,9 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   };
   // F0-C: a revisão não altera nenhum recipient e não habilita retransmissão.
   const [evidenceRecipientId, setEvidenceRecipientId] = useState<string | null>(null);
+  const [isReconciliationAdmin, setIsReconciliationAdmin] = useState(false);
+  const [confirmReconciliationOpen, setConfirmReconciliationOpen] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [evidenceRead, setEvidenceRead] = useState<{
     key: string;
     lookup: CampaignMessageLookup;
@@ -132,6 +136,33 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   useEffect(() => {
     setEvidenceRecipientId(null);
     setEvidenceRead(null);
+    setConfirmReconciliationOpen(false);
+    setIsReconciliationAdmin(false);
+    if (!open || !campaign) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: userResult, error: userError } = await supabase.auth.getUser();
+        if (userError || !userResult.user) return;
+        const { data, error } = await supabase.from('app_users')
+          .select('id')
+          .eq('auth_user_id', userResult.user.id)
+          .eq('role', 'Administrador')
+          .eq('is_active', true)
+          .maybeSingle();
+        if (!cancelled && !error && data) {
+          // A tela não oferece conciliação enquanto a migration da RPC
+          // ainda não estiver disponível no Lovable Cloud oficial.
+          const { error: schemaError } = await (supabase as any)
+            .from('crm_campaign_recipient_reconciliations')
+            .select('id', { head: true }).limit(0);
+          if (!cancelled && !schemaError) setIsReconciliationAdmin(true);
+        }
+      } catch {
+        // Fail closed: a RPC faz sua própria autorização.
+      }
+    })();
+    return () => { cancelled = true; };
   }, [campaign?.id, open]);
 
   useEffect(() => {
@@ -165,6 +196,38 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
         message: evidenceRead?.key === evidenceKey ? evidenceRead.message : null,
       })
     : null;
+  const mayReconcile = Boolean(evidenceRecipient && dispatchEvidence
+    && canOfferCrmCampaignFormalReconciliation({
+      isAdmin: isReconciliationAdmin,
+      recipient: evidenceRecipient,
+      evidence: dispatchEvidence,
+    }));
+  const confirmFormalReconciliation = async () => {
+    if (!campaign || !evidenceRecipient || !dispatchEvidence || reconciling
+      || !canOfferCrmCampaignFormalReconciliation({
+        isAdmin: isReconciliationAdmin, recipient: evidenceRecipient, evidence: dispatchEvidence,
+      })) return;
+    setReconciling(true);
+    try {
+      // O banco revalida TODA a evidência e a autorização na mesma transação.
+      const { data, error } = await (supabase as any).rpc('reconcile_crm_campaign_recipient', {
+        p_recipient_id: evidenceRecipient.id,
+        p_service_message_id: evidenceRecipient.service_message_id,
+      });
+      if (error || !['reconciled', 'already_reconciled'].includes(data?.status)) {
+        throw new Error(error?.message || 'Servidor não confirmou a conciliação.');
+      }
+      toast.success('Conciliação registrada com auditoria. Nenhuma mensagem foi reenviada.');
+      setEvidenceRecipientId(null);
+      reload();
+      void fetchCampaigns();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Conciliação indisponível. Nenhum reenvio foi realizado.');
+    } finally {
+      setConfirmReconciliationOpen(false);
+      setReconciling(false);
+    }
+  };
 
   const visibleRecipients = useMemo(() => {
     const ordered = [...eligible, ...sent, ...skipped, ...failed, ...excluded];
@@ -317,6 +380,12 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
               {dispatchEvidence.providerMessageId ? ` · Referência externa: ${dispatchEvidence.providerMessageId}` : ''}
             </p>
             <p className="font-medium">Reenvio permanece bloqueado. Esta consulta não modifica a campanha.</p>
+            {mayReconcile && (
+              <Button type="button" size="sm" variant="outline" className="mt-1 h-8 text-xs"
+                disabled={reconciling} onClick={() => setConfirmReconciliationOpen(true)}>
+                Conciliar envio com auditoria
+              </Button>
+            )}
           </div>
         )}
 
@@ -408,6 +477,28 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
               }}
             >
               Confirmar envio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmReconciliationOpen}
+        onOpenChange={value => { if (!reconciling) setConfirmReconciliationOpen(value); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar conciliação formal do envio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A mensagem exata possui identificador externo e registro de aceite/entrega/leitura.
+              O servidor verificará novamente a evidência e seu perfil administrativo,
+              atualizará somente este destinatário para enviado e criará um registro de auditoria imutável.
+              Nenhuma mensagem será reenviada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reconciling}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={reconciling || !mayReconcile}
+              onClick={event => { event.preventDefault(); void confirmFormalReconciliation(); }}>
+              {reconciling ? 'Conferindo…' : 'Confirmar conciliação auditável'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
