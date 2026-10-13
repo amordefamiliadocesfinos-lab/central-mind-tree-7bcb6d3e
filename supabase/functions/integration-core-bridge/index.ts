@@ -179,6 +179,33 @@ async function executeAction(payload: Record<string, unknown>) {
       : { status: 200, body: { status: 'ok', action: payload.action } };
   }
 
+  if (payload.action === 'shopee.oauth_connection.refresh') {
+    const channelAccountId = String(payload.channel_account_id);
+    const account = await activeChannelAccount(core, channelAccountId);
+    if (account.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!account.ok) return { status: 409, body: { error: 'channel_account_unavailable' } };
+
+    const lastRefreshedAt = String(payload.last_refreshed_at);
+    const { data, error } = await core
+      .from('shopee_oauth_connections')
+      .update({
+        access_token_ciphertext: String(payload.access_token_ciphertext),
+        refresh_token_ciphertext: String(payload.refresh_token_ciphertext),
+        access_token_expires_at: String(payload.access_token_expires_at),
+        refresh_token_expires_at: String(payload.refresh_token_expires_at),
+        last_refreshed_at: lastRefreshedAt,
+        updated_at: lastRefreshedAt,
+      })
+      .eq('channel_account_id', channelAccountId)
+      .eq('environment', LIVE)
+      .select('id')
+      .maybeSingle();
+
+    if (error) return { status: 503, body: { error: 'oauth_connection_refresh_failed' } };
+    if (!data) return { status: 409, body: { error: 'oauth_connection_unavailable' } };
+    return { status: 200, body: { status: 'ok', action: payload.action } };
+  }
+
   if (payload.action === 'shopee.raw_shop_snapshot.upsert') {
     return persistRawSnapshot(core, payload, {
       externalEntityType: 'shop',
