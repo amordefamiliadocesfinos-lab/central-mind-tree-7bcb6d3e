@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient } from '@/lib/crm/campaignReplaySafety';
+import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient, isCampaignDispatchProtocolV2 } from '@/lib/crm/campaignReplaySafety';
 import {
   EligibilityContact,
   EvaluatedRecipient,
@@ -318,7 +318,7 @@ export async function sendCampaignViaApi(
   const { data: preflight, error: preflightError } = await supabase.functions.invoke('whatsapp-send', {
     body: { mode: 'campaign_preflight' },
   });
-  if (preflightError || preflight?.campaign_dispatch_protocol !== 2) {
+  if (preflightError || !isCampaignDispatchProtocolV2(preflight)) {
     throw new Error('Envio de campanha protegido ainda não está ativo no servidor. Aguarde a sincronização da função.');
   }
   const { data: liveCampaign, error: campaignError } = await db.from('crm_campaigns')
