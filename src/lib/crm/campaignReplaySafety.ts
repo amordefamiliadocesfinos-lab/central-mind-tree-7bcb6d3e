@@ -34,3 +34,13 @@ export function requiresCampaignSendReconciliation(recipient: {
 }): boolean {
   return recipient.status === 'failed' && !canSafelyRequeueCampaignRecipient(recipient);
 }
+
+/**
+ * Resposta observável da Edge Function efetivamente ativa, sob sessão autenticada.
+ * Um commit sincronizado no Lovable NÃO comprova que o runtime implementa v2.
+ */
+export function isCampaignDispatchProtocolV2(response: unknown): boolean {
+  if (!response || typeof response !== 'object') return false;
+  const value = response as Record<string, unknown>;
+  return value.ok === true && value.campaign_dispatch_protocol === 2;
+}

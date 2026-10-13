@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { assessCampaignDispatchEvidence, type CampaignDispatchMessage, type Camp
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
-import { canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation } from '@/lib/crm/campaignReplaySafety';
+import { canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation, isCampaignDispatchProtocolV2 } from '@/lib/crm/campaignReplaySafety';
 import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, requeueFailedRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
@@ -42,6 +42,36 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [confirmApiOpen, setConfirmApiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [requeuing, setRequeuing] = useState(false);
+  // F0-B: estado consultado do runtime real, não inferido do SHA da main.
+  const protectionRequestRef = useRef(0);
+  const [protection, setProtection] = useState<'unchecked' | 'checking' | 'active' | 'unavailable'>('unchecked');
+  const [protectionCampaignId, setProtectionCampaignId] = useState<string | null>(null);
+  const [protectionError, setProtectionError] = useState<string | null>(null);
+  const checkActiveProtection = async () => {
+    if (!campaign || !open) return;
+    const campaignId = campaign.id;
+    const requestId = ++protectionRequestRef.current;
+    setProtectionCampaignId(campaignId);
+    setProtection('checking');
+    setProtectionError(null);
+    try {
+      // Preflight autenticado: não cria mensagens nem modifica destinatários.
+      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+        body: { mode: 'campaign_preflight' },
+      });
+      if (protectionRequestRef.current !== requestId) return;
+      if (error || !isCampaignDispatchProtocolV2(data)) {
+        setProtection('unavailable');
+        setProtectionError('Não foi possível confirmar a proteção no servidor. Nenhum envio foi realizado.');
+      } else {
+        setProtection('active');
+      }
+    } catch {
+      if (protectionRequestRef.current !== requestId) return;
+      setProtection('unavailable');
+      setProtectionError('Falha ao consultar o servidor. Nenhum envio foi realizado.');
+    }
+  };
   // F0-C: a revisão não altera nenhum recipient e não habilita retransmissão.
   const [evidenceRecipientId, setEvidenceRecipientId] = useState<string | null>(null);
   const [evidenceRead, setEvidenceRead] = useState<{
@@ -52,6 +82,14 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
+
+  useEffect(() => {
+    // O resultado de outra campanha nunca é transportado como verificação.
+    protectionRequestRef.current += 1;
+    setProtection('unchecked');
+    setProtectionCampaignId(null);
+    setProtectionError(null);
+  }, [open, campaign?.id]);
 
   useEffect(() => {
     if (!open || !campaign) return;
@@ -176,6 +214,19 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
       <div className="space-y-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Status: {campaign.status}</Badge>
+          <Badge variant="outline">
+            Proteção API: {protectionCampaignId !== campaign.id || protection === 'unchecked'
+              ? 'não verificada' : protection === 'checking'
+                ? 'verificando' : protection === 'active' ? 'v2 ativa' : 'não confirmada'}
+          </Badge>
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs"
+            disabled={protection === 'checking' || sending}
+            onClick={() => { void checkActiveProtection(); }}>
+            {protection === 'checking' ? 'Verificando…' : 'Verificar proteção no servidor'}
+          </Button>
+          {protectionError && protectionCampaignId === campaign.id && (
+            <span className="text-xs text-destructive">{protectionError}</span>
+          )}
           <Badge variant="outline">Selecionados: {campaign.total_selected}</Badge>
           <Badge variant="outline" className="text-emerald-600 border-emerald-300">Elegíveis: {campaign.total_eligible}</Badge>
           <Badge variant="outline" className="text-destructive border-destructive/40">Excluídos: {campaign.total_excluded}</Badge>

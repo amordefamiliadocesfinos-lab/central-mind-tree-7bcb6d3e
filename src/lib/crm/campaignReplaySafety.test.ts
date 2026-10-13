@@ -1,4 +1,4 @@
-import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation } from './campaignReplaySafety';
+import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation, isCampaignDispatchProtocolV2 } from './campaignReplaySafety';
 function assert(v: unknown, message: string): asserts v { if (!v) throw new Error('CRM F0-B: ' + message); }
 
 for (const error_code of [
@@ -25,4 +25,15 @@ assert(!canSafelyRequeueCampaignRecipient({
 assert(!canSafelyRequeueCampaignRecipient({
   status: 'failed', error_code: 'not_configured', external_message_id: 'wa-provider-message',
 }), 'Mensagem externa identificada jamais pode ser automaticamente retransmitida.');
+assert(isCampaignDispatchProtocolV2({ ok: true, campaign_dispatch_protocol: 2 }),
+  'Runtime deve confirmar exatamente o protocolo 2 e sucesso autenticado.');
+for (const response of [
+  null, undefined, {}, { ok: false, campaign_dispatch_protocol: 2 },
+  { ok: true, campaign_dispatch_protocol: 1 },
+  { ok: true, campaign_dispatch_protocol: '2' },
+  { error: 'Não autenticado', campaign_dispatch_protocol: 2 },
+]) {
+  assert(!isCampaignDispatchProtocolV2(response),
+    'Resposta ausente, erro, protocolo antigo ou versão incorreta nunca autoriza envio.');
+}
 console.log('campaignReplaySafety.test: OK');
