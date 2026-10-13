@@ -582,7 +582,7 @@ export function ShopeeEconomicMotor() {
                 Motor Econômico Shopee V2
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Protótipo funcional MV2-12 baseado no checkpoint canônico V0.6. Histórico orienta; transação real decide.
+                Motor em evolução B1–B4 sobre o patrimônio MV2. Histórico orienta; transação real decide.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1078,7 +1078,7 @@ export function ShopeeEconomicMotor() {
               <CardHeader className="pb-3"><CardTitle className="text-base">Capacidade / margem</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Custo máximo de equilíbrio</span><strong>{money(reu)}/un.</strong></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">CEA informado</span><span>{costPerUnit > 0 ? money(costPerUnit) : 'PENDENTE'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Custo direto usado</span><span>{effectiveCostPerUnit > 0 ? money(effectiveCostPerUnit) : 'PENDENTE'}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Custo total</span><span>{costTotal !== null ? money(costTotal) : '—'}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Margem atual sobre repasse</span><span>{marginCurrent !== null ? pct(marginCurrent) : '—'}</span></div>
               </CardContent>
