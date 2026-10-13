@@ -582,7 +582,10 @@ export function PurchasesTab({ products }: { products: Product[] }) {
       selectedDate.getFullYear(),
       String(selectedDate.getMonth() + 1).padStart(2, '0'),
       String(selectedDate.getDate()).padStart(2, '0'),
-    ].join('-') !== receiptDate || selectedDate.getTime() > Date.now()) {
+    ].join('-') !== receiptDate || receiptDate > (() => {
+      const today = new Date();
+      return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+    })()) {
       return toastError('Informe uma data real de recebimento válida, sem data futura.');
     }
 
