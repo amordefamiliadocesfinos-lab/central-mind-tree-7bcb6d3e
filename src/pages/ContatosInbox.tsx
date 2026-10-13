@@ -1411,7 +1411,7 @@ export default function ContatosInbox() {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                     <span className="font-medium">Orientação · {selectedOrientation.title}</span>
                     <span className="text-muted-foreground">
-                      {selectedOrientation.priorityLevel} · {selectedOrientation.priorityLabel}
+                      {selectedOrientation.mode === 'action' ? 'Ação' : selectedOrientation.mode === 'verify' ? 'Conferir' : 'Aguardar'} · {selectedOrientation.priorityLevel} · {selectedOrientation.priorityLabel}
                       {selectedIsOutOfQueue ? ' · Fora da fila' : ''}
                     </span>
                   </div>
