@@ -103,6 +103,7 @@ import { differenceInDays, parseISO, format, isSameDay, isBefore, startOfDay } f
 import { toast } from 'sonner';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { prepareExternalWhatsAppDraft } from '@/lib/crm/externalWhatsAppPreparation';
 import { useWhatsAppWithLog, type WhatsAppOperationalResult } from '@/hooks/useWhatsAppWithLog';
 import { getTodayISO } from '@/lib/dateUtils';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
@@ -1849,16 +1850,19 @@ export default function Contatos() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-5 w-5 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                    title="Enviar sugestão via WhatsApp"
-                                    onClick={async (e) => {
+                                    title="Preparar sugestão no WhatsApp (envio não confirmado)"
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       const phone = contact.whatsapp || contact.mobile || contact.phone;
                                       if (!phone) return;
-                                      const now = new Date().toISOString();
-                                      await addEntry(contact.id, 'whatsapp', `💬 Follow-up enviado automaticamente (sugerido pelo sistema · ${nrInfo.suggestedLabel})`, now);
-                                      openWhatsApp(phone, nrInfo.suggestedMessage);
-                                      markContactedOptimistically(contact.id);
-                                      setTimeout(refreshContactSignals, 500);
+                                      const status = prepareExternalWhatsAppDraft(phone, nrInfo.suggestedMessage, openWhatsApp);
+                                      if (status === 'blocked') {
+                                        toast.error('WhatsApp bloqueado. Libere pop-ups e tente novamente.');
+                                        return;
+                                      }
+                                      // Não registrar follow-up como enviado nem marcar
+                                      // contato atendido sem fato de envio comprovado.
+                                      toast.message('Mensagem preparada. Revise e envie no WhatsApp; envio não confirmado no CRM.');
                                     }}
                                   >
                                     <Send className="h-3 w-3" />
