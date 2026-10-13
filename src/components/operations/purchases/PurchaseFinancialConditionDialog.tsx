@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,9 @@ export function PurchaseFinancialConditionDialog({
   onValidated,
 }: PurchaseFinancialConditionDialogProps) {
   const [preset, setPreset] = useState<PurchaseFinancialConditionPreset>('avista');
+  const [paymentMethod, setPaymentMethod] = useState<'other' | 'cartao'>('other');
+  const [cardAccountId, setCardAccountId] = useState('');
+  const [cardAccounts, setCardAccounts] = useState<Array<{id: string; name: string}>>([]);
   const [rows, setRows] = useState<DraftInstallment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const total = useMemo(() => order ? getPurchaseCommercialTotal(order) : 0, [order]);
@@ -55,6 +59,12 @@ export function PurchaseFinancialConditionDialog({
   useEffect(() => {
     if (!open || !order) return;
     setPreset('avista');
+    setPaymentMethod('other');
+    setCardAccountId('');
+    void supabase.from('financial_accounts').select('id,name').eq('type', 'cartao').eq('is_active', true).then(({data, error}) => {
+      if (error) { setCardAccounts([]); return; }
+      setCardAccounts(data ?? []);
+    });
     setRows(toDraft(buildPurchaseFinancialInstallments('avista', getPurchaseCommercialTotal(order))));
     setError(null);
   }, [open, order]);
@@ -100,8 +110,14 @@ export function PurchaseFinancialConditionDialog({
       setError(validation.message);
       return;
     }
+    if (paymentMethod === 'cartao' && !cardAccountId) {
+      setError('Selecione o cartão utilizado na compra.');
+      return;
+    }
     setError(null);
-    onValidated(validation.installments);
+    onValidated(validation.installments.map(item => paymentMethod === 'cartao'
+      ? { ...item, payment_method: 'cartao', account_id: cardAccountId }
+      : item));
   };
 
   const enteredTotal = rows.reduce((sum, row) => sum + parseMoney(row.value), 0);
@@ -126,6 +142,29 @@ export function PurchaseFinancialConditionDialog({
       )}
     >
       <div className="space-y-5">
+        <div className="space-y-2">
+          <Label>Forma de pagamento</Label>
+          <Select value={paymentMethod} onValueChange={value => { setPaymentMethod(value as 'other' | 'cartao'); setError(null); }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="other">Outras condições (contas a pagar)</SelectItem>
+              <SelectItem value="cartao">Cartão de crédito</SelectItem>
+            </SelectContent>
+          </Select>
+          {paymentMethod === 'cartao' && (
+            <div className="space-y-2 rounded-md border p-3">
+              <Label>Cartão utilizado</Label>
+              <Select value={cardAccountId} onValueChange={setCardAccountId}>
+                <SelectTrigger><SelectValue placeholder="Selecione um cartão cadastrado no Financeiro" /></SelectTrigger>
+                <SelectContent>
+                  {cardAccounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">O valor será vinculado ao cartão selecionado; a quitação da fatura permanece no Financeiro.</p>
+              {!cardAccounts.length && <p className="text-xs text-amber-700">Nenhum cartão ativo disponível. Cadastre ou ative uma conta do tipo cartão no Financeiro.</p>}
+            </div>
+          )}
+        </div>
         <div className="space-y-2">
           <Label>Condição</Label>
           <Select value={preset} onValueChange={value => applyPreset(value as PurchaseFinancialConditionPreset)}>
