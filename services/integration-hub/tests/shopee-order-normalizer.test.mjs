@@ -65,6 +65,22 @@ test('normalizes real Shopee order identifiers/status/items without operational 
   assert.equal(result.orders[0].items[0].itemId, '21798187490');
   assert.equal(result.orders[0].items[0].modelId, '987654321');
   assert.equal(result.orders[0].items[0].quantity, 2);
+  const order = result.orders[0];
+  assert.equal(order.createdAt, new Date(PAYLOAD.response.order_list[0].create_time * 1000).toISOString());
+  assert.equal(order.updatedAt, new Date(PAYLOAD.response.order_list[0].update_time * 1000).toISOString());
+  assert.equal(order.paidAt, new Date(PAYLOAD.response.order_list[0].pay_time * 1000).toISOString());
+  assert.equal(order.shipByDate, new Date(PAYLOAD.response.order_list[0].ship_by_date * 1000).toISOString());
+  assert.equal(order.currency, 'BRL');
+  assert.equal(order.totalAmount, 159.9);
+  assert.equal(order.paymentMethod, 'Credit Card');
+  assert.equal(order.shippingCarrier, 'Shopee Xpress');
+  assert.equal(order.packageCount, 1);
+  assert.equal(order.itemCount, 1);
+  assert.equal(order.items[0].itemName, 'Trufa 40g');
+  assert.equal(order.items[0].modelName, 'Brigadeiro 30un');
+  assert.equal(order.items[0].originalUnitPrice, 89.9);
+  assert.equal(order.items[0].discountedUnitPrice, 79.95);
+  assert.equal(order.items[0].weight, 1.2);
   assert.deepEqual(result.orders[0].items[0].identityEvidence, {
     itemId: '21798187490',
     modelId: '987654321',
@@ -86,9 +102,66 @@ test('safe preview suppresses buyer/recipient PII while preserving mapping evide
   assert.equal(preview.orders[0].items[0].itemId, '21798187490');
   assert.equal(preview.orders[0].items[0].modelId, '987654321');
   assert.equal(serialized.includes('PII MUST NOT LEAK'), false);
+  assert.equal(serialized.includes('000000000'), false);
   for (const forbiddenKey of ['recipient_address', 'buyer_username', 'buyer_cpf_id', 'dropshipper_phone']) {
     assert.equal(serialized.includes(forbiddenKey), false);
   }
+});
+
+test('complete preview serialization excludes unique synthetic PII and nested original payload', () => {
+  const payload = structuredClone(PAYLOAD);
+  const order = payload.response.order_list[0];
+  const secrets = ['synthetic-name-private', 'synthetic-phone-private', 'synthetic-address-private',
+    'synthetic-buyer-private', 'synthetic-cpf-private', 'synthetic-dropship-private'];
+  order.recipient_address = { name: secrets[0], phone: secrets[1], full_address: secrets[2] };
+  order.buyer_username = secrets[3]; order.buyer_cpf_id = secrets[4]; order.dropshipper_phone = secrets[5];
+  const normalized = normalizeShopeeOrderDetailPayload(payload);
+  normalized.orders[0].items[0].identityEvidence.phone = secrets[1];
+  normalized.orders[0].payload = payload;
+  const serialized = JSON.stringify(buildShopeeOrderSafePreview(normalized));
+  for (const value of secrets) assert.equal(serialized.includes(value), false);
+  for (const key of ['recipient_address', 'buyer_username', 'buyer_cpf_id', 'dropshipper_phone', 'phone', 'full_address', 'payload']) {
+    assert.equal(serialized.includes(`"${key}"`), false);
+  }
+});
+
+test('missing lists and external model identity remain absent without invented values', () => {
+  assert.equal(normalizeShopeeOrderDetailPayload({}).orderCount, 0);
+  const order = normalizeShopeeOrderDetailPayload({ response: { order_list: [{}] } }).orders[0];
+  assert.equal(order.itemCount, 0); assert.equal(order.packageCount, 0);
+  const item = normalizeShopeeOrderDetailPayload({ response: { order_list: [{ item_list: [{}] }] } }).orders[0].items[0];
+  assert.equal(item.modelId, null); assert.equal(item.quantity, null); assert.equal(item.weight, null);
+});
+
+for (const invalid of [undefined, null, '', '   ', 'invalid', true, [], {}, Infinity]) {
+  test(`invalid number and timestamp normalize to null (${String(invalid)})`, () => {
+    const order = normalizeShopeeOrderDetailPayload({ response: { order_list: [{
+      create_time: invalid, total_amount: invalid, item_list: [{ model_original_price: invalid }],
+    }] } }).orders[0];
+    assert.equal(order.createdAt, null); assert.equal(order.totalAmount, null);
+    assert.equal(order.items[0].originalUnitPrice, null);
+  });
+}
+
+test('out-of-range timestamp is null and string identities retain all digits', () => {
+  const payload = { response: { order_list: [{ create_time: 1e100, item_list: [{
+    item_id: '900719925474099312345', model_id: '900719925474099312346',
+  }] }] } };
+  const normalized = normalizeShopeeOrderDetailPayload(payload);
+  assert.equal(normalized.orders[0].createdAt, null);
+  const preview = buildShopeeOrderSafePreview(normalized);
+  assert.equal(preview.orders[0].items[0].itemId, '900719925474099312345');
+  assert.equal(preview.orders[0].items[0].modelId, '900719925474099312346');
+});
+
+test('normalization and preview do not mutate their inputs or retain raw references', () => {
+  const payload = structuredClone(PAYLOAD); const original = JSON.stringify(payload);
+  const normalized = normalizeShopeeOrderDetailPayload(payload);
+  const before = JSON.stringify(normalized);
+  const preview = buildShopeeOrderSafePreview(normalized);
+  preview.orders[0].items[0].identityEvidence.itemId = 'changed-preview-only';
+  assert.equal(JSON.stringify(payload), original);
+  assert.equal(JSON.stringify(normalized), before);
 });
 
 test('normalizes only the canonical live order-detail Raw Snapshot contract', () => {

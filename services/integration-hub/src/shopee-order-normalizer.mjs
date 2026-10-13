@@ -12,14 +12,16 @@ function nullableText(value) {
 }
 
 function finiteNumber(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string') || text(value) === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 function epochSecondsToIso(value) {
-  const seconds = Number(value);
+  const seconds = finiteNumber(value);
   if (!Number.isFinite(seconds) || seconds <= 0) return null;
-  return new Date(seconds * 1000).toISOString();
+  const date = new Date(seconds * 1000);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 function array(value) {
@@ -141,13 +143,14 @@ export function buildShopeeOrderSafePreview(normalized) {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       paidAt: order.paidAt,
+      shipByDate: order.shipByDate,
       currency: order.currency,
       totalAmount: order.totalAmount,
       shippingCarrier: order.shippingCarrier,
       paymentMethod: order.paymentMethod,
       packageCount: order.packageCount,
       itemCount: order.itemCount,
-      recipientAddressAvailable: order.hasRecipientAddress,
+      recipientAddressAvailable: order.hasRecipientAddress === true,
       items: order.items.map((item) => ({
         itemId: item.itemId,
         modelId: item.modelId,
@@ -158,7 +161,12 @@ export function buildShopeeOrderSafePreview(normalized) {
         quantity: item.quantity,
         originalUnitPrice: item.originalUnitPrice,
         discountedUnitPrice: item.discountedUnitPrice,
-        identityEvidence: item.identityEvidence,
+        identityEvidence: {
+          itemId: item.identityEvidence?.itemId,
+          modelId: item.identityEvidence?.modelId,
+          itemSku: item.identityEvidence?.itemSku,
+          modelSku: item.identityEvidence?.modelSku,
+        },
       })),
     })),
   };
