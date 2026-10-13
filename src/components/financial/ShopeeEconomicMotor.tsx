@@ -290,6 +290,8 @@ export function ShopeeEconomicMotor() {
   const b2KnownCost = b2Result?.composition.blocks.B2.knownNetAmount ?? 0;
   const b3KnownCost = b3Result?.composition.blocks.B3.knownNetAmount ?? 0;
   const b4KnownCost = b4Result.composition.blocks.B4.knownNetAmount;
+  const b6Components = useMemo(() => buildB6Scenario({}), []);
+  const b7Components = useMemo(() => noB7Occurrence(), []);
   const automaticDirectCostPerUnit =
     b1OperationalCfu > 0
       ? ((b1OperationalCfu * physicalVolumeForCost) + b2KnownCost + b3KnownCost + b4KnownCost) / physicalVolumeForCost
