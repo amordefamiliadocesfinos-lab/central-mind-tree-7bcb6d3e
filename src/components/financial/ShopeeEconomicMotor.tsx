@@ -860,7 +860,7 @@ export function ShopeeEconomicMotor() {
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
-                <p className="text-sm font-medium">B1 / CEA operacional</p>
+                <p className="text-sm font-medium">B1 + B2 + B3 / custo direto operacional</p>
                 <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">CFU B1 automático</span>
@@ -884,7 +884,7 @@ export function ShopeeEconomicMotor() {
                   <div className="space-y-1.5"><Label>Margem-alvo %</Label><Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} /></div>
                   <div className="space-y-1.5 col-span-2"><Label>Preço baseline para TCE-BE</Label><Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} /></div>
                 </div>
-                {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">B1 econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
+                {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">Custo direto econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
                 {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">Custo direto usado no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 + B2 + B3 operacionais conhecidos'}.</p>}
               </div>
             </CardContent>
