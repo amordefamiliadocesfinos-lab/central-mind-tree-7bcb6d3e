@@ -37,6 +37,7 @@ import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalP
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
+import { evaluateCrmOperationalActionEvidence, type CrmOrderSeparationEvidenceRow, type CrmSeparationLookup } from '@/lib/crm/handoffOperationalAction';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
@@ -743,6 +744,44 @@ export default function ContatosInbox() {
       ? handoffLookup.lookup : 'not_requested',
     order: handoffLookup?.contextKey === selectedHandoffKey ? handoffLookup.order : null,
   }) : null;
+  // F4-B: só consulta Separação após a F4-A comprovar ID do Pedido e contato.
+  // first_printed_at/by e finalized_at/by registram atuação, NÃO aceite formal.
+  const [separationLookup, setSeparationLookup] = useState<{
+    contextKey: string;
+    lookup: CrmSeparationLookup;
+    separation: CrmOrderSeparationEvidenceRow | null;
+  } | null>(null);
+  const verifiedOrderId = handoffEvidence?.explicitOrderLinkVerified
+    && handoffEvidence.state === 'linked_order' ? handoffEvidence.orderId : null;
+  useEffect(() => {
+    const contextKey = selectedHandoffKey;
+    setSeparationLookup(null);
+    if (!verifiedOrderId) return;
+    let cancelled = false;
+    setSeparationLookup({ contextKey, lookup: 'loading', separation: null });
+    void supabase.from('order_separation')
+      .select('order_id,separation_status,first_printed_at,first_printed_by,finalized_at,finalized_by')
+      .eq('order_id', verifiedOrderId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setSeparationLookup({
+          contextKey,
+          lookup: error ? 'error' : data ? 'found' : 'missing',
+          separation: error ? null : data as CrmOrderSeparationEvidenceRow | null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [selectedHandoffKey, verifiedOrderId]);
+  const operationalActionEvidence = handoffEvidence
+    ? evaluateCrmOperationalActionEvidence({
+        orderLink: handoffEvidence,
+        lookup: separationLookup?.contextKey === selectedHandoffKey
+          ? separationLookup.lookup : 'not_requested',
+        separation: separationLookup?.contextKey === selectedHandoffKey
+          ? separationLookup.separation : null,
+      })
+    : null;
   // Dono visual das operações assíncronas do atendimento. Uma operação pode
   // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
   const selectedContextRef = useRef<string>('');
@@ -1546,6 +1585,21 @@ export default function ContatosInbox() {
                       {handoffEvidence.message}
                       {handoffEvidence.operationalStatus && (
                         <span> · Estado do Pedido em Operações: {handoffEvidence.operationalStatus}.</span>
+                      )}
+                      {operationalActionEvidence
+                        && operationalActionEvidence.state !== 'not_applicable'
+                        && operationalActionEvidence.state !== 'cancelled' && (
+                        <div className="mt-0.5">
+                          <span className={operationalActionEvidence.operationalActionVerified
+                            ? 'font-medium text-foreground/80' : ''}>
+                            {operationalActionEvidence.operationalActionVerified
+                              ? 'Atuação operacional registrada · ' : 'Atuação operacional · '}
+                          </span>
+                          {operationalActionEvidence.message}
+                          {operationalActionEvidence.activityAt && (
+                            <span> · {format(parseISO(operationalActionEvidence.activityAt), 'dd/MM/yyyy HH:mm')}</span>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
