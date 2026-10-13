@@ -34,7 +34,7 @@ import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendanc
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
-import { getCrmInboxOrientation } from '@/lib/crm/inboxOrientation';
+import { getCrmInboxOrientation, getCrmOrientationShortcut } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
@@ -139,7 +139,9 @@ export default function ContatosInbox() {
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [sendConfirmation, setSendConfirmation] = useState(false);
   const [suggestedResultCode, setSuggestedResultCode] = useState<string | null>(null);
-  const [attendanceActionRequest, setAttendanceActionRequest] = useState<{ mode: 'outcome' | 'snooze'; id: number } | null>(null);
+  const [attendanceActionRequest, setAttendanceActionRequest] = useState<{ mode: 'outcome' | 'snooze'; id: number; contextKey?: string } | null>(null);
+  const [detailTab, setDetailTab] = useState<'conversa' | 'historico'>('conversa');
+  const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string } | null>(null);
   const [leadPanelOpen, setLeadPanelOpen] = useState(false);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
@@ -154,6 +156,8 @@ export default function ContatosInbox() {
     setSuggestedResultCode(null);
     setSendConfirmation(false);
     setAttendanceActionRequest(null);
+    setReplyFocusRequest(null);
+    setDetailTab('conversa');
     setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
@@ -679,12 +683,30 @@ export default function ContatosInbox() {
   const selectedOrientation = selected
     ? getCrmInboxOrientation(projectCrmOperationalState(toCrmOperationalSource(selected)))
     : null;
+  const orientationShortcut = selectedOrientation ? getCrmOrientationShortcut(selectedOrientation) : null;
   // Dono visual das operações assíncronas do atendimento. Uma operação pode
   // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
   const selectedContextRef = useRef<string>('');
   useEffect(() => {
     selectedContextRef.current = selected ? `${selected.id}|${selected.conversation_id ?? ''}` : '';
   }, [selected?.id, selected?.conversation_id]);
+
+  const prepareOrientationShortcut = () => {
+    if (!selected || !selectedOrientation || !orientationShortcut
+      || selectedOrientation.contactId !== selected.id) return;
+    const key = `${selected.id}|${selected.conversation_id ?? ''}`;
+    if (selectedContextRef.current !== key) return;
+    if (orientationShortcut.target === 'history') {
+      setDetailTab('historico');
+    } else if (orientationShortcut.target === 'result') {
+      setDetailTab('conversa');
+      // Somente abre o formulário já existente. O operador escolhe e confirma.
+      setAttendanceActionRequest({ mode: 'outcome', id: Date.now(), contextKey: key });
+    } else if (orientationShortcut.target === 'reply') {
+      setDetailTab('conversa');
+      setReplyFocusRequest({ id: Date.now(), contactId: selected.id });
+    }
+  };
 
   // FRENTE 3.5 — contexto (somente leitura) da campanha que originou o contato.
   const [campaignContext, setCampaignContext] = useState<CampaignContext | null>(null);
@@ -1415,7 +1437,15 @@ export default function ContatosInbox() {
                       {selectedIsOutOfQueue ? ' · Fora da fila' : ''}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-muted-foreground">{selectedOrientation.explanation}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="min-w-0 flex-1 text-muted-foreground">{selectedOrientation.explanation}</p>
+                    {orientationShortcut && (
+                      <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2 text-[10px]"
+                        onClick={prepareOrientationShortcut}>
+                        {orientationShortcut.label}
+                      </Button>
+                    )}
+                  </div>
                   {(selectedOrientation.obligation || selectedOrientation.handoffUnverified || selectedOrientation.lastResultResponsibility) && (
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
                       {selectedOrientation.obligation && (
@@ -1443,7 +1473,7 @@ export default function ContatosInbox() {
               )}
 
               {/* Conversa (padrão) + Histórico */}
-              <Tabs defaultValue="conversa" className="flex min-h-0 flex-1 flex-col" key={selected.id}>
+              <Tabs value={detailTab} onValueChange={value => setDetailTab(value as "conversa" | "historico")} className="flex min-h-0 flex-1 flex-col" key={selected.id}>
                 <div className="px-3 pt-2">
                   <TabsList className="h-8">
                     <TabsTrigger value="conversa" className="text-xs h-6 gap-1">
@@ -1464,6 +1494,7 @@ export default function ContatosInbox() {
                     knownConversationId={selected.conversation_id || null}
                     knownCommercialOptOut={selected.commercial_opt_out}
                     heightClassName="min-h-0 flex-1"
+                    focusRequest={replyFocusRequest}
                     onMessageSent={() => setSendConfirmation(true)}
                     onUseSuggestedResult={setSuggestedResultCode}
                     onScheduleManualFollowUp={() => setAttendanceActionRequest({ mode: 'snooze', id: Date.now() })}
