@@ -271,8 +271,27 @@ export function useEconomicB2B3(
       };
     });
 
-  const b2Configs = useMemo<ResolvedEconomicConfig[]>(() =>
-    b2Rows.map((row) => {
+  const b2Configs = useMemo<ResolvedEconomicConfig[]>(() => {
+    if (!commercialPresentationId) {
+      const config: EconomicConfigInput = {
+        id: '__b2_no_additional__',
+        code: 'SEM_APRESENTACAO_ADICIONAL',
+        name: 'Sem apresentação adicional',
+        zeroConfirmed: true,
+        components: [],
+      };
+      return [{
+        id: config.id,
+        code: config.code,
+        name: config.name,
+        isDefault: true,
+        zeroConfirmed: true,
+        components: [],
+        economicComponents: buildB2Components(config),
+      }];
+    }
+
+    return b2Rows.map((row) => {
       const components = toConfigComponents(b2ComponentRows.filter((item) => item.config_id === row.id));
       const config: EconomicConfigInput = {
         id: row.id,
@@ -290,8 +309,8 @@ export function useEconomicB2B3(
         components,
         economicComponents: buildB2Components(config),
       };
-    }),
-  [b2Rows, b2ComponentRows, latestPurchases]);
+    });
+  }, [commercialPresentationId, b2Rows, b2ComponentRows, latestPurchases]);
 
   const b3Configs = useMemo<ResolvedEconomicConfig[]>(() =>
     b3Rows.map((row) => {
