@@ -237,6 +237,7 @@ export function ShopeeEconomicMotor() {
     productId || null,
     variantId,
     isAlfajorLab ? 'provisional-zero-open' : 'unknown',
+    effectiveAt,
   );
   const b1OperationalCfu = b1Result?.operationalCfu ?? 0;
   const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : b1OperationalCfu;
