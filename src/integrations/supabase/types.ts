@@ -2055,6 +2055,134 @@ export type Database = {
           },
         ]
       }
+      economic_cost_configuration_components: {
+        Row: {
+          component_product_id: string
+          component_variant_id: string | null
+          configuration_id: string
+          created_at: string
+          id: string
+          incidence: string
+          notes: string | null
+          quantity: number
+          sort_order: number
+          subcategory: string | null
+        }
+        Insert: {
+          component_product_id: string
+          component_variant_id?: string | null
+          configuration_id: string
+          created_at?: string
+          id?: string
+          incidence: string
+          notes?: string | null
+          quantity: number
+          sort_order?: number
+          subcategory?: string | null
+        }
+        Update: {
+          component_product_id?: string
+          component_variant_id?: string | null
+          configuration_id?: string
+          created_at?: string
+          id?: string
+          incidence?: string
+          notes?: string | null
+          quantity?: number
+          sort_order?: number
+          subcategory?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_cost_configuration_component_component_product_id_fkey"
+            columns: ["component_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_cost_configuration_component_component_variant_id_fkey"
+            columns: ["component_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_cost_configuration_components_configuration_id_fkey"
+            columns: ["configuration_id"]
+            isOneToOne: false
+            referencedRelation: "economic_cost_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      economic_cost_configurations: {
+        Row: {
+          block: string
+          code: string
+          commercial_presentation_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_zero_confirmed: boolean
+          name: string
+          notes: string | null
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          block: string
+          code: string
+          commercial_presentation_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_zero_confirmed?: boolean
+          name: string
+          notes?: string | null
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          block?: string
+          code?: string
+          commercial_presentation_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_zero_confirmed?: boolean
+          name?: string
+          notes?: string | null
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_cost_configurations_commercial_presentation_id_fkey"
+            columns: ["commercial_presentation_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_cost_configurations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_cost_configurations_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       economic_prediction_reconciliations: {
         Row: {
           comparison_snapshot: Json
