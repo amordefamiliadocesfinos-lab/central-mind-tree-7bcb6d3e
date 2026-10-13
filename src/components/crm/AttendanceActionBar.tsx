@@ -16,7 +16,7 @@ interface Props {
   /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
   presetResultCode?: string | null;
   /** Abre um fluxo já existente a partir de uma decisão contextual externa. */
-  openModeRequest?: { mode: 'outcome' | 'snooze'; id: number } | null;
+  openModeRequest?: { mode: 'outcome' | 'snooze'; id: number; contextKey?: string } | null;
   /** F1: obrigação oficial em execução. Só ordena/destaca Resultados; nunca bloqueia opções. */
   taskContextTitle?: string | null;
 }
@@ -57,7 +57,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   // F5.2.3: os atalhos do limite de follow-up apenas abrem os fluxos canônicos.
   // Nenhum resultado ou retorno é gravado antes da confirmação do operador.
   useEffect(() => {
-    if (!openModeRequest) return;
+    if (!openModeRequest || (openModeRequest.contextKey && openModeRequest.contextKey !== contextKey)) return;
     setMode(openModeRequest.mode);
     setResultCode('');
     setDate('');
