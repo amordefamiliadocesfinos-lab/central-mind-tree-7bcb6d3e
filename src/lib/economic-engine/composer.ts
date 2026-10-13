@@ -20,8 +20,10 @@ const LEVEL_BLOCKS: Record<'N1' | 'N2' | 'N3' | 'N4' | 'N5', EconomicBlock[]> = 
   N5: ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
 };
 
-const roundMoney = (value: number) =>
-  Math.round((value + Number.EPSILON) * 100) / 100;
+// The common composer preserves sub-cent unit economics. Channel adapters may
+// apply their own legally/operationally required cent rounding per component.
+const roundEconomic = (value: number) =>
+  Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
 
 function worstCompleteness(states: EconomicCompleteness[]): EconomicCompleteness {
   if (states.includes('BLOCKED')) return 'BLOCKED';
@@ -189,12 +191,12 @@ function summarizeBlock(
     );
   }
 
-  const knownNetAmount = roundMoney(grossCost - recoveriesAndBenefits);
+  const knownNetAmount = roundEconomic(grossCost - recoveriesAndBenefits);
 
   return {
     block,
-    grossCost: roundMoney(grossCost),
-    recoveriesAndBenefits: roundMoney(recoveriesAndBenefits),
+    grossCost: roundEconomic(grossCost),
+    recoveriesAndBenefits: roundEconomic(recoveriesAndBenefits),
     knownNetAmount,
     amount: completeness === 'COMPLETE' ? knownNetAmount : null,
     completeness,
@@ -212,7 +214,7 @@ function summarizeLevel(
   const includedBlocks = LEVEL_BLOCKS[level];
   const blockSummaries = includedBlocks.map((block) => blocks[block]);
   const completeness = worstCompleteness(blockSummaries.map((block) => block.completeness));
-  const knownNetCost = roundMoney(
+  const knownNetCost = roundEconomic(
     blockSummaries.reduce((sum, block) => sum + block.knownNetAmount, 0),
   );
 
@@ -247,7 +249,7 @@ function summarizeContribution(
     };
   }
 
-  const knownContribution = roundMoney(revenueAmount - n5.knownNetCost);
+  const knownContribution = roundEconomic(revenueAmount - n5.knownNetCost);
   const completeness = n5.completeness;
 
   return {
@@ -269,11 +271,11 @@ function summarizeStructural(
     b8.completeness,
     b9.completeness,
   ]);
-  const knownOverheadAndCapital = roundMoney(b8.knownNetAmount + b9.knownNetAmount);
+  const knownOverheadAndCapital = roundEconomic(b8.knownNetAmount + b9.knownNetAmount);
   const knownStructuralResult =
     contribution.knownContribution === null
       ? null
-      : roundMoney(contribution.knownContribution - knownOverheadAndCapital);
+      : roundEconomic(contribution.knownContribution - knownOverheadAndCapital);
 
   return {
     knownContribution: contribution.knownContribution,
