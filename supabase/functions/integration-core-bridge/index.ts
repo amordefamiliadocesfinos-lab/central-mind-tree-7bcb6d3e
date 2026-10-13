@@ -16,9 +16,7 @@ function coreClient() {
   });
 }
 
-type CoreClient = NonNullable<ReturnType<typeof coreClient>>;
-
-async function activeChannelAccount(core: CoreClient, channelAccountId: string) {
+async function activeChannelAccount(core: ReturnType<typeof createClient>, channelAccountId: string) {
   const { data, error } = await core
     .from('channel_accounts')
     .select('id,is_active')
@@ -29,7 +27,7 @@ async function activeChannelAccount(core: CoreClient, channelAccountId: string) 
 }
 
 async function persistRawSnapshot(
-  core: CoreClient,
+  core: ReturnType<typeof createClient>,
   payload: Record<string, unknown>,
   { externalEntityType, endpoint }: { externalEntityType: string; endpoint: string },
 ) {
