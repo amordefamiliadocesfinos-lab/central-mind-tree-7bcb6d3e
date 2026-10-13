@@ -2183,6 +2183,70 @@ export type Database = {
           },
         ]
       }
+      economic_financial_attributions: {
+        Row: {
+          allocated_value: number
+          block: string
+          created_at: string
+          created_by: string | null
+          effect: string
+          financial_entry_id: string
+          id: string
+          incident_id: string | null
+          notes: string | null
+          order_id: string | null
+          subcategory: string
+        }
+        Insert: {
+          allocated_value: number
+          block: string
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          financial_entry_id: string
+          id?: string
+          incident_id?: string | null
+          notes?: string | null
+          order_id?: string | null
+          subcategory: string
+        }
+        Update: {
+          allocated_value?: number
+          block?: string
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          financial_entry_id?: string
+          id?: string
+          incident_id?: string | null
+          notes?: string | null
+          order_id?: string | null
+          subcategory?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_financial_attributions_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_financial_attributions_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "operational_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "economic_financial_attributions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       economic_prediction_reconciliations: {
         Row: {
           comparison_snapshot: Json
