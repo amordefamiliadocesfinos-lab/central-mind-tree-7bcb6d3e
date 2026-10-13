@@ -33,6 +33,8 @@ import { useEconomicB1 } from '@/hooks/useEconomicB1';
 import { useEconomicB2B3 } from '@/hooks/useEconomicB2B3';
 import { useEconomicB4 } from '@/hooks/useEconomicB4';
 import { B4_LOGISTICS_MODE_LABELS, type B4LogisticsMode } from '@/lib/economic-engine/b4';
+import { buildB6Scenario } from '@/lib/economic-engine/b6';
+import { noB7Occurrence } from '@/lib/economic-engine/b7';
 import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
@@ -147,6 +149,8 @@ export function ShopeeEconomicMotor() {
   const [b4LogisticsCost, setB4LogisticsCost] = useState<number | null>(null);
   const [b4CustomerFreight, setB4CustomerFreight] = useState<number | null>(null);
   const [b4ChannelSubsidy, setB4ChannelSubsidy] = useState<number | null>(null);
+  const [b6FinancialCost, setB6FinancialCost] = useState<number | null>(null);
+  const [b6FiscalCost, setB6FiscalCost] = useState<number | null>(null);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
   const [reconciliationOpen, setReconciliationOpen] = useState(false);
