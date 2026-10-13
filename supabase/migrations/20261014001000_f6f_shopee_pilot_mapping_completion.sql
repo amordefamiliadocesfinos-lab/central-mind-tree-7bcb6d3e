@@ -18,7 +18,9 @@ BEGIN
   -- Guard canonical identities before touching mapping data.
   IF NOT EXISTS (
     SELECT 1 FROM public.channel_accounts
-    WHERE id = v_channel_account_id AND is_active = true
+    WHERE id = v_channel_account_id
+      AND name = v_account
+      AND is_active = true
   ) THEN
     RAISE EXCEPTION 'F6-F pilot channel account unavailable';
   END IF;
