@@ -40,6 +40,7 @@ jobs:
           for file in \
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
+            src/lib/crm/handoffEvidence.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/canonical/transitions.test.ts \
