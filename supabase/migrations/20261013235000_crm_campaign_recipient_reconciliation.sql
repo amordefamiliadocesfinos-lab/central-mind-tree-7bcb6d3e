@@ -111,7 +111,11 @@ BEGIN
   IF v_rec.status <> 'failed'
     OR v_rec.delivery_mode IS DISTINCT FROM 'api'
     OR v_rec.service_message_id IS DISTINCT FROM p_service_message_id
-    OR v_rec.conversation_id IS NULL THEN
+    OR v_rec.conversation_id IS NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM public.service_conversations sc
+      WHERE sc.id = v_rec.conversation_id AND sc.contact_id = v_rec.contact_id
+    ) THEN
     RAISE EXCEPTION 'Destinatário não elegível ou sem referência exata de mensagem.';
   END IF;
 
