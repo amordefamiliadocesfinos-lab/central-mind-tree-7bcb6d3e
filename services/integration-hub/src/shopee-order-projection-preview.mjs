@@ -48,6 +48,7 @@ function buildProjectionLines(item) {
 function buildBlockers(normalizedOrder, mappingOrder, duplicate) {
   const blockers = [];
   if (!nullableText(normalizedOrder?.orderSn)) blockers.push('missing_order_sn');
+  if (!dateOnly(normalizedOrder?.createdAt)) blockers.push('missing_order_date');
   if (duplicate) blockers.push('already_imported');
 
   const normalizedItems = Array.isArray(normalizedOrder?.items) ? normalizedOrder.items : [];
@@ -155,6 +156,8 @@ export function buildShopeeOrderProjectionPreview(
     channelAccountId: nullableText(normalizedPayload.channelAccountId),
     marketplaceAccount: account,
     operationalWrites: false,
+    writeReady: false,
+    requiresInternalContract: true,
     readyCount: orders.filter((order) => order.projectionStatus === 'ready').length,
     blockedCount: orders.filter((order) => order.projectionStatus === 'blocked').length,
     orders,
@@ -163,6 +166,8 @@ export function buildShopeeOrderProjectionPreview(
 
 export const SHOPEE_ORDER_PROJECTION_PREVIEW_CONTRACT = Object.freeze({
   operationalWrites: false,
+  writeReady: false,
+  requiresInternalContract: true,
   externalStatusDoesNotSetInternalStatus: true,
   stockEvent: null,
   financialAction: null,
