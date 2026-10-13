@@ -30,6 +30,8 @@ import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
 import { useEconomicB1 } from '@/hooks/useEconomicB1';
 import { useEconomicB2B3 } from '@/hooks/useEconomicB2B3';
+import { useEconomicB4 } from '@/hooks/useEconomicB4';
+import { B4_LOGISTICS_MODE_LABELS, type B4LogisticsMode } from '@/lib/economic-engine/b4';
 import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
@@ -140,6 +142,10 @@ export function ShopeeEconomicMotor() {
   const [costPerUnit, setCostPerUnit] = useState(0);
   const [b2ConfigurationId, setB2ConfigurationId] = useState<string | null>(null);
   const [b3ConfigurationId, setB3ConfigurationId] = useState<string | null>(null);
+  const [b4Mode, setB4Mode] = useState<B4LogisticsMode | null>(null);
+  const [b4LogisticsCost, setB4LogisticsCost] = useState<number | null>(null);
+  const [b4CustomerFreight, setB4CustomerFreight] = useState<number | null>(null);
+  const [b4ChannelSubsidy, setB4ChannelSubsidy] = useState<number | null>(null);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
   const [reconciliationOpen, setReconciliationOpen] = useState(false);
@@ -268,18 +274,26 @@ export function ShopeeEconomicMotor() {
     setB3ConfigurationId(null);
   }, [productId, variantId]);
 
+  const { error: b4Error, result: b4Result } = useEconomicB4(null, {
+    mode: b4Mode,
+    logisticsCost: b4LogisticsCost,
+    customerFreightPaid: b4CustomerFreight,
+    channelFreightSubsidy: b4ChannelSubsidy,
+  });
+
   const physicalVolumeForCost = Math.max(1, presentationFactor * Math.max(1, q));
   const b2KnownCost = b2Result?.composition.blocks.B2.knownNetAmount ?? 0;
   const b3KnownCost = b3Result?.composition.blocks.B3.knownNetAmount ?? 0;
+  const b4KnownCost = b4Result.composition.blocks.B4.knownNetAmount;
   const automaticDirectCostPerUnit =
     b1OperationalCfu > 0
-      ? ((b1OperationalCfu * physicalVolumeForCost) + b2KnownCost + b3KnownCost) / physicalVolumeForCost
+      ? ((b1OperationalCfu * physicalVolumeForCost) + b2KnownCost + b3KnownCost + b4KnownCost) / physicalVolumeForCost
       : 0;
   const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : automaticDirectCostPerUnit;
   const b1CostSource = costPerUnit > 0
     ? 'manual_override'
     : automaticDirectCostPerUnit > 0
-      ? 'b1_b2_b3_operational'
+      ? 'b1_b2_b3_b4_operational'
       : 'pending';
 
   const rreResolution = useMemo(
@@ -447,6 +461,9 @@ export function ShopeeEconomicMotor() {
           b2KnownCost,
           b3ConfigurationId,
           b3KnownCost,
+          b4Mode,
+          b4KnownCost,
+          b4Funding: b4Result.funding,
           automaticCostPerUnit: automaticDirectCostPerUnit,
         },
         b1: b1Result ? {
@@ -504,6 +521,13 @@ export function ShopeeEconomicMotor() {
         } : null,
         b2Components: b2Result?.components ?? [],
         b3Components: b3Result?.components ?? [],
+        b4: {
+          mode: b4Result.mode,
+          source: b4Result.source,
+          funding: b4Result.funding,
+          completeness: b4Result.composition.blocks.B4.completeness,
+        },
+        b4Components: b4Result.components,
         b1Components: b1Result?.components.map((component) => ({
           id: component.id,
           block: component.block,
@@ -538,6 +562,9 @@ export function ShopeeEconomicMotor() {
         ...(b2Result?.composition.blocks.B2.blockedComponentIds ?? []),
         ...(b3Result?.composition.blocks.B3.pendingComponentIds ?? []),
         ...(b3Result?.composition.blocks.B3.blockedComponentIds ?? []),
+        ...(!b4Mode ? ['B4_MODE_UNSELECTED'] : []),
+        ...(b4Result.composition.blocks.B4.pendingComponentIds ?? []),
+        ...(b4Result.composition.blocks.B4.blockedComponentIds ?? []),
       ],
     });
   };
@@ -555,7 +582,7 @@ export function ShopeeEconomicMotor() {
                 Motor Econômico Shopee V2
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Protótipo funcional MV2-12 baseado no checkpoint canônico V0.6. Histórico orienta; transação real decide.
+                Motor em evolução B1–B4 sobre o patrimônio MV2. Histórico orienta; transação real decide.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -811,6 +838,78 @@ export function ShopeeEconomicMotor() {
                   {b2b3Error && <p className="text-xs text-destructive">{b2b3Error}</p>}
                 </div>
 
+                <div className="space-y-2 col-span-2 rounded-lg border p-3">
+                  <p className="text-sm font-medium">B4 — Logística / distribuição</p>
+                  <Select
+                    value={b4Mode ?? '__none__'}
+                    onValueChange={(value) => {
+                      const next = value === '__none__' ? null : value as B4LogisticsMode;
+                      setB4Mode(next);
+                      if (next === 'retirada_fabrica') setB4LogisticsCost(0);
+                      if (next !== 'retirada_fabrica' && b4LogisticsCost === 0) setB4LogisticsCost(null);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione a modalidade logística" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Não definida — manter pendente</SelectItem>
+                      {Object.entries(B4_LOGISTICS_MODE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Custo logístico R$</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={b4LogisticsCost ?? ''}
+                        disabled={b4Mode === 'retirada_fabrica'}
+                        onChange={(e) => setB4LogisticsCost(e.target.value === '' ? null : Number(e.target.value))}
+                        placeholder="Pendente"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Frete pago cliente R$</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={b4CustomerFreight ?? ''}
+                        onChange={(e) => setB4CustomerFreight(e.target.value === '' ? null : Number(e.target.value))}
+                        placeholder="Pendente"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Subsídio canal R$</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={b4ChannelSubsidy ?? ''}
+                        onChange={(e) => setB4ChannelSubsidy(e.target.value === '' ? null : Number(e.target.value))}
+                        placeholder="Pendente"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      Custo B4 conhecido: <strong>{money(b4KnownCost)}</strong>
+                      {' · '}estado {b4Result.composition.blocks.B4.completeness}
+                    </p>
+                    <p>
+                      Custo logístico, frete cobrado e subsídio são fatos distintos; o Motor não usa um para apagar o outro.
+                    </p>
+                    {b4Result.funding.sellerAbsorptionKnown !== null && (
+                      <p>Parcela conhecida absorvida pela empresa: <strong>{money(b4Result.funding.sellerAbsorptionKnown)}</strong>.</p>
+                    )}
+                    {b4Error && <p className="text-destructive">{b4Error}</p>}
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Preço original / unidade comercial</Label>
                   <Input type="number" min={0} step="0.01" value={originalPrice} onChange={(e) => setOriginalPrice(Number(e.target.value))} />
@@ -860,7 +959,7 @@ export function ShopeeEconomicMotor() {
               </div>
 
               <div className="rounded-lg border p-3 space-y-3">
-                <p className="text-sm font-medium">B1 + B2 + B3 / custo direto operacional</p>
+                <p className="text-sm font-medium">B1 + B2 + B3 + B4 / custo direto operacional</p>
                 <div className="rounded-md bg-muted/30 p-2 text-xs space-y-1">
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">CFU B1 automático</span>
@@ -879,13 +978,13 @@ export function ShopeeEconomicMotor() {
                   <div className="space-y-1.5">
                     <Label>Override manual custo direto / unidade</Label>
                     <Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} />
-                    <p className="text-xs text-muted-foreground">0 = usar B1 + B2 + B3 automáticos conhecidos. Override permanece explícito e não altera as fontes canônicas.</p>
+                    <p className="text-xs text-muted-foreground">0 = usar B1 + B2 + B3 + B4 automáticos conhecidos. Override permanece explícito e não altera as fontes canônicas.</p>
                   </div>
                   <div className="space-y-1.5"><Label>Margem-alvo %</Label><Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} /></div>
                   <div className="space-y-1.5 col-span-2"><Label>Preço baseline para TCE-BE</Label><Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} /></div>
                 </div>
                 {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">Custo direto econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
-                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">Custo direto usado no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 + B2 + B3 operacionais conhecidos'}.</p>}
+                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">Custo direto usado no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 + B2 + B3 + B4 operacionais conhecidos'}.</p>}
               </div>
             </CardContent>
           </Card>
@@ -979,7 +1078,7 @@ export function ShopeeEconomicMotor() {
               <CardHeader className="pb-3"><CardTitle className="text-base">Capacidade / margem</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Custo máximo de equilíbrio</span><strong>{money(reu)}/un.</strong></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">CEA informado</span><span>{costPerUnit > 0 ? money(costPerUnit) : 'PENDENTE'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Custo direto usado</span><span>{effectiveCostPerUnit > 0 ? money(effectiveCostPerUnit) : 'PENDENTE'}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Custo total</span><span>{costTotal !== null ? money(costTotal) : '—'}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Margem atual sobre repasse</span><span>{marginCurrent !== null ? pct(marginCurrent) : '—'}</span></div>
               </CardContent>
