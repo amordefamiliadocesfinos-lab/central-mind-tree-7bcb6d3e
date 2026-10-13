@@ -36,6 +36,7 @@ import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPri
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
+import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
@@ -71,6 +72,8 @@ interface InboxItem {
   next_action_text: string | null;
   last_result_code: string | null;
   handoff_required: boolean | null;
+  /** Somente ID explícito no evento do último Resultado canônico. */
+  last_result_order_id: string | null;
   next_contact_date: string | null;
   commercial_opt_out: boolean;
   reactivation_at: string | null;
@@ -315,6 +318,7 @@ export default function ContatosInbox() {
     const lastResultByContact = new Map<string, string>();
     const lastResultCodeByContact = new Map<string, string>();
     const lastHandoffByContact = new Map<string, boolean | null>();
+    const lastResultOrderIdByContact = new Map<string, string>();
     const lastReviewedByContact = new Map<string, string>();
     if (ids.length) {
       const { data: resultHistory } = await supabase
@@ -341,9 +345,12 @@ export default function ContatosInbox() {
         const contactId = row.contact_id as string;
         if (!contactId || lastResultByContact.has(contactId) || row.event_code === 'stage_changed') continue;
         if (row.interaction_date) lastResultByContact.set(contactId, row.interaction_date as string);
-        const metadata = row.event_metadata as { result_code?: string; handoff_required?: boolean } | null;
+        const metadata = row.event_metadata as { result_code?: string; handoff_required?: boolean; order_id?: string } | null;
         if (metadata?.result_code) lastResultCodeByContact.set(contactId, metadata.result_code);
         lastHandoffByContact.set(contactId, typeof metadata?.handoff_required === 'boolean' ? metadata.handoff_required : null);
+        if (typeof metadata?.order_id === 'string' && metadata.order_id.trim()) {
+          lastResultOrderIdByContact.set(contactId, metadata.order_id);
+        }
       }
     }
 
@@ -393,6 +400,7 @@ export default function ContatosInbox() {
         next_action_text: contact?.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(conversation.contact_id) || null,
         handoff_required: lastHandoffByContact.get(conversation.contact_id) ?? null,
+        last_result_order_id: lastResultOrderIdByContact.get(conversation.contact_id) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact?.commercial_opt_out),
         reactivation_at: reactivationByContact.get(conversation.contact_id) || null,
@@ -440,6 +448,7 @@ export default function ContatosInbox() {
         next_action_text: contact.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(contact.id) || null,
         handoff_required: lastHandoffByContact.get(contact.id) ?? null,
+        last_result_order_id: lastResultOrderIdByContact.get(contact.id) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contact.id) || null,
@@ -494,6 +503,7 @@ export default function ContatosInbox() {
         next_action_text: contact.next_action_text || null,
         last_result_code: lastResultCodeByContact.get(contactId) || null,
         handoff_required: lastHandoffByContact.get(contactId) ?? null,
+        last_result_order_id: lastResultOrderIdByContact.get(contactId) ?? null,
         next_contact_date: null,
         commercial_opt_out: Boolean(contact.commercial_opt_out),
         reactivation_at: reactivationByContact.get(contactId) || null,
@@ -685,6 +695,54 @@ export default function ContatosInbox() {
     ? getCrmInboxOrientation(projectCrmOperationalState(toCrmOperationalSource(selected)))
     : null;
   const orientationShortcut = selectedOrientation ? getCrmOrientationShortcut(selectedOrientation) : null;
+  // F4-A: consulta pontual pelo ID EXPLÍCITO do último Resultado. Não se
+  // procura Pedido por nome, por data ou por simples histórico do contato.
+  const [handoffLookup, setHandoffLookup] = useState<{
+    contextKey: string;
+    lookup: CrmOrderLookup;
+    order: CrmReferencedOrder | null;
+  } | null>(null);
+  const selectedHandoffKey = selected
+    ? [selected.id, selected.conversation_id ?? '', selected.last_result_at ?? '',
+      selected.last_result_code ?? '', selected.last_result_order_id ?? ''].join('|')
+    : '';
+  useEffect(() => {
+    const orderId = selected?.last_result_order_id;
+    const contactId = selected?.id;
+    const contextKey = selectedHandoffKey;
+    setHandoffLookup(null);
+    if (!orderId || !contactId) return;
+    let cancelled = false;
+    // Verificação simples evita passar valores inválidos ao filtro UUID da DB.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      setHandoffLookup({ contextKey, lookup: 'missing', order: null });
+      return;
+    }
+    setHandoffLookup({ contextKey, lookup: 'loading', order: null });
+    void supabase.from('orders')
+      .select('id,contact_id,order_number,sale_origin,operational_status')
+      .eq('id', orderId)
+      .eq('contact_id', contactId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setHandoffLookup({
+          contextKey,
+          lookup: error ? 'error' : data ? 'found' : 'missing',
+          order: error ? null : (data as CrmReferencedOrder | null),
+        });
+      });
+    return () => { cancelled = true; };
+  }, [selected?.id, selected?.conversation_id, selected?.last_result_at,
+      selected?.last_result_code, selected?.last_result_order_id]);
+  const handoffEvidence = selected ? evaluateCrmHandoffEvidence({
+    contactId: selected.id,
+    handoffRequired: selected.handoff_required,
+    referencedOrderId: selected.last_result_order_id,
+    lookup: handoffLookup?.contextKey === selectedHandoffKey
+      ? handoffLookup.lookup : 'not_requested',
+    order: handoffLookup?.contextKey === selectedHandoffKey ? handoffLookup.order : null,
+  }) : null;
   // Dono visual das operações assíncronas do atendimento. Uma operação pode
   // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
   const selectedContextRef = useRef<string>('');
@@ -1478,8 +1536,19 @@ export default function ContatosInbox() {
                             : 'do cliente'}
                         </span>
                       )}
-                      {selectedOrientation.handoffUnverified && !operationalHandoff && (
+                      {selectedOrientation.handoffUnverified && !operationalHandoff && !handoffEvidence?.explicitOrderLinkVerified && (
                         <span>Handoff declarado; recebimento por Operações não comprovado nesta visão</span>
+                      )}
+                    </div>
+                  )}
+                  {handoffEvidence && handoffEvidence.state !== 'not_required' && (
+                    <div className="mt-1 text-muted-foreground" aria-label="Evidência de continuidade operacional">
+                      {handoffEvidence.explicitOrderLinkVerified && (
+                        <span className="font-medium">Pedido {handoffEvidence.orderNumber || handoffEvidence.orderId} · </span>
+                      )}
+                      {handoffEvidence.message}
+                      {handoffEvidence.operationalStatus && (
+                        <span> · Estado do Pedido em Operações: {handoffEvidence.operationalStatus}.</span>
                       )}
                     </div>
                   )}
