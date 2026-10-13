@@ -307,6 +307,14 @@ export async function sendCampaignViaApi(
   onProgress?: (done: number, total: number) => void,
 ): Promise<{ sent: number; failed: number; movedToManual: number; blocked: number; unconfirmed: number; alreadyProcessed: number }> {
   // O status em cache não dá direito de repetir uma campanha já concluída.
+  // Verifica que a Edge Function ATIVA já implementa o protocolo com claim
+  // atômico. Se Lovable ainda não implantou o servidor novo, não enviar nada.
+  const { data: preflight, error: preflightError } = await supabase.functions.invoke('whatsapp-send', {
+    body: { mode: 'campaign_preflight' },
+  });
+  if (preflightError || preflight?.campaign_dispatch_protocol !== 2) {
+    throw new Error('Envio de campanha protegido ainda não está ativo no servidor. Aguarde a sincronização da função.');
+  }
   const { data: liveCampaign, error: campaignError } = await db.from('crm_campaigns')
     .select('status').eq('id', campaign.id).maybeSingle();
   if (campaignError || !liveCampaign || !['prepared', 'sending'].includes(liveCampaign.status)) {
