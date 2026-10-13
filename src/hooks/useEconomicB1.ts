@@ -52,6 +52,7 @@ export function useEconomicB1(
   productId: string | null,
   variantId: string | null,
   lossMode: B1LossMode = 'unknown',
+  effectiveAt?: string | null,
 ) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +147,10 @@ export function useEconomicB1(
       const occurredAt = row.order.ordered_at ?? row.order.created_at;
       const timestamp = new Date(occurredAt).getTime();
       if (!Number.isFinite(timestamp)) continue;
+      if (effectiveAt) {
+        const cutoff = new Date(effectiveAt.slice(0, 10) + 'T23:59:59.999Z').getTime();
+        if (Number.isFinite(cutoff) && timestamp > cutoff) continue;
+      }
 
       const key = identityKey(row.product_id, row.variant_id);
       const current = result.get(key);
@@ -159,7 +164,7 @@ export function useEconomicB1(
     }
 
     return result;
-  }, [purchases]);
+  }, [purchases, effectiveAt]);
 
   const result = useMemo(() => {
     if (!productId || !product) return null;
