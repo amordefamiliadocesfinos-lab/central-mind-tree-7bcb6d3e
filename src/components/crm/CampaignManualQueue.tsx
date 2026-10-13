@@ -33,80 +33,92 @@ interface Props {
 }
 
 export function CampaignManualQueue({ open, onOpenChange, campaignId, campaignMessage, recipients, onChanged }: Props) {
-  const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Record<string, 'sent' | 'skipped' | 'blocked'>>({});
 
-  const queue = recipients.filter(r => r.status === 'pending' && r.delivery_mode === 'manual');
-  const current = queue[index];
-  const progress = queue.length ? Math.round((Object.keys(done).length / queue.length) * 100) : 0;
-
-  const advance = () => setIndex(i => i + 1);
+  // Destinatários já tratados nesta sessão saem do cursor local; a atualização
+  // assíncrona da lista no pai não pode pular o próximo item da fila.
+  const queue = recipients.filter(r => r.status === 'pending' && r.delivery_mode === 'manual' && !done[r.id]);
+  const current = queue[0];
+  const processed = Object.keys(done).length;
+  const total = processed + queue.length;
+  const progress = total ? Math.round((processed / total) * 100) : 100;
 
   const handleOpenWhatsApp = async () => {
-    if (!current) return;
+    if (!current || busy) return;
     setBusy(true);
-    // Opt-out é revalidado imediatamente antes de qualquer execução manual.
-    const blocked = await revalidateOptOut([current.contact_id]);
-    if (blocked.has(current.contact_id)) {
-      await blockRecipientByOptOut(current.id, campaignId);
-      setDone(d => ({ ...d, [current.id]: 'blocked' }));
-      toast.error('Contato com opt-out comercial — envio bloqueado.');
-      onChanged?.();
+    try {
+      const blocked = await revalidateOptOut([current.contact_id]);
+      if (blocked.has(current.contact_id)) {
+        await blockRecipientByOptOut(current.id, campaignId);
+        setDone(d => ({ ...d, [current.id]: 'blocked' }));
+        toast.error('Contato com opt-out comercial — envio bloqueado.');
+        onChanged?.();
+        return;
+      }
+      const ok = openWhatsApp(current.phone_normalized, current.rendered_message || campaignMessage);
+      if (!ok) toast.error('Não foi possível abrir o WhatsApp.');
+      else toast.message('Mensagem preparada. Envio depende da sua confirmação no WhatsApp e nesta fila.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao conferir permissão de contato.');
+    } finally {
       setBusy(false);
-      advance();
-      return;
     }
-    const ok = openWhatsApp(current.phone_normalized, current.rendered_message || campaignMessage);
-    if (!ok) toast.error('Não foi possível abrir o WhatsApp.');
-    setBusy(false);
   };
 
   const handleSent = async () => {
-    if (!current) return;
+    if (!current || busy) return;
     setBusy(true);
-    const blocked = await revalidateOptOut([current.contact_id]);
-    if (blocked.has(current.contact_id)) {
-      await blockRecipientByOptOut(current.id, campaignId);
-      setDone(d => ({ ...d, [current.id]: 'blocked' }));
-      toast.error('Contato com opt-out comercial — não pode ser marcado como enviado.');
-    } else if (await markRecipientSent(current.id, campaignId)) {
-      setDone(d => ({ ...d, [current.id]: 'sent' }));
+    try {
+      const blocked = await revalidateOptOut([current.contact_id]);
+      if (blocked.has(current.contact_id)) {
+        await blockRecipientByOptOut(current.id, campaignId);
+        setDone(d => ({ ...d, [current.id]: 'blocked' }));
+        toast.error('Contato com opt-out comercial — não pode ser marcado como enviado.');
+      } else if (await markRecipientSent(current.id, campaignId)) {
+        setDone(d => ({ ...d, [current.id]: 'sent' }));
+      }
+      onChanged?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao confirmar envio manual.');
+    } finally {
+      setBusy(false);
     }
-    onChanged?.();
-    setBusy(false);
-    advance();
   };
 
   const handleSkip = async () => {
-    if (!current) return;
+    if (!current || busy) return;
     setBusy(true);
-    if (await markRecipientSkipped(current.id, campaignId)) {
-      setDone(d => ({ ...d, [current.id]: 'skipped' }));
+    try {
+      if (await markRecipientSkipped(current.id, campaignId)) {
+        setDone(d => ({ ...d, [current.id]: 'skipped' }));
+      }
+      onChanged?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao pular destinatário.');
+    } finally {
+      setBusy(false);
     }
-    onChanged?.();
-    setBusy(false);
-    advance();
   };
 
   return (
     <ResponsiveDialog
       open={open}
-      onOpenChange={(v) => { if (!v) { setIndex(0); setDone({}); } onOpenChange(v); }}
+      onOpenChange={(v) => { if (!v && !busy) setDone({}); if (!busy) onOpenChange(v); }}
       title="Fila manual guiada"
       description="Envie pelo WhatsApp e confirme o resultado de cada destinatário."
       className="sm:max-w-lg"
     >
       <div className="space-y-4 p-4">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{Math.min(index + (current ? 1 : 0), queue.length)} de {queue.length}</span>
+          <span>{processed + (current ? 1 : 0)} de {total}</span>
           <span>{progress}%</span>
         </div>
         <Progress value={progress} />
 
         {!current && (
           <div className="rounded-lg border bg-muted/30 p-6 text-center text-sm">
-            {queue.length === 0 ? 'Nenhum destinatário manual pendente.' : 'Fila concluída.'}
+            {total === 0 ? 'Nenhum destinatário manual pendente.' : 'Fila concluída.'}
           </div>
         )}
 

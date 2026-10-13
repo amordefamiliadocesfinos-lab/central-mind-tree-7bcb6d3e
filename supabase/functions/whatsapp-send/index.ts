@@ -27,13 +27,18 @@ Deno.serve(async (req) => {
   );
   if (claimsError || !claimsData?.claims) return json({ error: 'Não autenticado' }, 401);
 
-  let body: { conversation_id?: string; message?: string; media_url?: string; media_type?: string; media_mime_type?: string; media_filename?: string; mode?: string; campaign_id?: string };
+  let body: { conversation_id?: string; message?: string; media_url?: string; media_type?: string; media_mime_type?: string; media_filename?: string; mode?: string; campaign_id?: string; recipient_id?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'JSON inválido' }, 400);
   }
 
+  // Handshake somente leitura: impede o painel de enviar usando uma versão
+  // antiga da função, ainda sem reserva atômica (sincronização/deploy assíncronos).
+  if (body.mode === 'campaign_preflight') {
+    return json({ ok: true, campaign_dispatch_protocol: 2 });
+  }
   const isCampaign = String(body.mode ?? '').trim() === 'campaign';
   const conversationId = String(body.conversation_id ?? '').trim();
   const message = String(body.message ?? '').trim();
@@ -118,6 +123,58 @@ Deno.serve(async (req) => {
     return json({ error: 'WhatsApp desconectado — reconecte a integração' }, 409);
   }
 
+  // F0-B — idempotência da campanha: o servidor é a autoridade do envio.
+  // Reserva atômica do destinatário antes de qualquer escrita em messages ou
+  // chamada ao provedor. Sem confirmação de resultado, a reserva NÃO retorna
+  // automaticamente a 'pending', para evitar reenvio após timeout.
+  const campaignId = String(body.campaign_id ?? '').trim();
+  const recipientId = String(body.recipient_id ?? '').trim();
+  if (isCampaign) {
+    if (!campaignId || !recipientId) {
+      return json({ error: 'Destinatário e campanha obrigatórios', code: 'campaign_recipient_required' }, 400);
+    }
+    const { data: liveCampaign, error: campaignError } = await supabase
+      .from('crm_campaigns').select('status').eq('id', campaignId).maybeSingle();
+    if (campaignError) return json({ error: 'Falha ao conferir campanha', code: 'campaign_lookup_failed' }, 500);
+    if (!liveCampaign || !['prepared', 'sending'].includes(liveCampaign.status)) {
+      return json({ error: 'Campanha não está autorizada para execução', code: 'campaign_not_active' }, 409);
+    }
+    const { data: recipient, error: readError } = await supabase
+      .from('crm_campaign_recipients')
+      .select('id, campaign_id, contact_id, conversation_id, rendered_message, status, delivery_mode')
+      .eq('id', recipientId)
+      .eq('campaign_id', campaignId)
+      .maybeSingle();
+    if (readError) return json({ error: 'Falha ao conferir destinatário da campanha', code: 'campaign_lookup_failed' }, 500);
+    if (!recipient || recipient.contact_id !== conv.contact_id
+      || recipient.conversation_id !== conversationId
+      || String(recipient.rendered_message ?? '').trim() !== message
+      || recipient.status !== 'pending' || recipient.delivery_mode !== 'api') {
+      return json({ error: 'Destinatário não está pendente para este envio; atualize a campanha', code: 'campaign_recipient_not_pending' }, 409);
+    }
+    // status=failed + error_code=dispatch_unconfirmed é uma reserva fail-closed.
+    // O schema existente não possui status 'processing'; preservar a constraint
+    // atual evita migration e garante que reexecuções não alcancem o provedor.
+    const { data: claimed, error: claimError } = await supabase
+      .from('crm_campaign_recipients')
+      .update({
+        status: 'failed',
+        error_code: 'dispatch_unconfirmed',
+        error_message: 'Tentativa de envio iniciada. Conferir o histórico/provedor antes de qualquer reenvio.',
+      })
+      .eq('id', recipientId)
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending')
+      .eq('delivery_mode', 'api')
+      .eq('contact_id', conv.contact_id)
+      .eq('conversation_id', conversationId)
+      .eq('rendered_message', recipient.rendered_message)
+      .select('id')
+      .maybeSingle();
+    if (claimError) return json({ error: 'Falha ao reservar destinatário', code: 'campaign_claim_failed' }, 500);
+    if (!claimed) return json({ error: 'Destinatário já reservado ou processado', code: 'campaign_recipient_not_pending' }, 409);
+  }
+
   const nowIso = new Date().toISOString();
   const preview = mediaUrl ? (message || `${mediaType === 'audio' ? 'Áudio' : mediaType === 'video' ? 'Vídeo' : mediaType === 'image' ? 'Imagem' : 'Documento'} enviado`) : message;
   const { data: pending, error: pendingErr } = await supabase
@@ -157,7 +214,17 @@ Deno.serve(async (req) => {
       .from('service_messages')
       .update({ delivery_status: 'failed', error_code: result.errorCode ?? 'unknown' })
       .eq('id', pending.id);
-    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem', code: result.errorCode ?? 'send_failed' }, 502);
+    if (isCampaign) {
+      // Uma rejeição não prova ausência de envio no provedor em todos os casos.
+      // Mantemos o destinatário bloqueado para reconciliação manual.
+      await supabase.from('crm_campaign_recipients').update({
+        error_message: `Provedor retornou erro: ${result.errorCode ?? 'send_failed'} — ${result.errorMessage ?? 'sem detalhes'}. Conferir antes de reprocessar.`,
+        service_message_id: pending.id,
+      }).eq('id', recipientId).eq('campaign_id', campaignId)
+        .eq('status', 'failed').eq('error_code', 'dispatch_unconfirmed');
+    }
+    return json({ error: result.errorMessage ?? 'Falha ao enviar mensagem',
+      code: isCampaign ? 'dispatch_unconfirmed' : (result.errorCode ?? 'send_failed') }, 502);
   }
 
   await supabase
@@ -170,9 +237,31 @@ Deno.serve(async (req) => {
     .eq('id', pending.id);
 
   if (isCampaign) {
-    // Campanha: nenhum efeito de atendimento (sem aguardando_cliente, return_at, próxima ação,
-    // tarefa crm_next_action ou mudança de funil). Só o histórico da mensagem é preservado.
-    return json({ ok: true, mode: 'campaign', message_id: pending.id, external_message_id: result.externalMessageId ?? null });
+    // Campanha: confirmar o destinatário no SERVIDOR, antes de responder ao
+    // navegador. Mesmo que a resposta HTTP se perca, novo clique não reenvia.
+    const { data: confirmed, error: confirmError } = await supabase
+      .from('crm_campaign_recipients')
+      .update({
+        status: 'sent',
+        sent_at: nowIso,
+        service_message_id: pending.id,
+        external_message_id: result.externalMessageId ?? null,
+        error_code: null,
+        error_message: null,
+      })
+      .eq('id', recipientId).eq('campaign_id', campaignId)
+      .eq('status', 'failed').eq('error_code', 'dispatch_unconfirmed')
+      .select('id').maybeSingle();
+    if (confirmError || !confirmed) {
+      return json({
+        error: 'Provedor aceitou o envio, mas confirmação da campanha requer reconciliação. Não reenviar.',
+        code: 'dispatch_unconfirmed',
+        message_id: pending.id,
+      }, 503);
+    }
+    // Sem efeitos de atendimento (sem tarefas, return_at ou funil).
+    return json({ ok: true, mode: 'campaign', recipient_id: recipientId,
+      message_id: pending.id, external_message_id: result.externalMessageId ?? null });
   }
 
   const outboundEffects = await applyOutboundOperationalEffects(supabase, {

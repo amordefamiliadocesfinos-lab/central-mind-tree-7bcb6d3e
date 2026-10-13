@@ -7,6 +7,10 @@ on:
       - 'src/lib/crm/**'
       - 'src/pages/ContatosInbox.tsx'
       - 'src/pages/Contatos.tsx'
+      - 'src/hooks/useCrmCampaigns.ts'
+      - 'src/components/crm/CampaignReviewDialog.tsx'
+      - 'src/components/crm/CampaignManualQueue.tsx'
+      - 'supabase/functions/whatsapp-send/index.ts'
       - 'src/components/crm/PosVendaPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
       - '.github/workflows/crm-f1a-validation.yml'
@@ -41,6 +45,7 @@ jobs:
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
             src/lib/crm/handoffEvidence.test.ts \
+            src/lib/crm/campaignReplaySafety.test.ts \
             src/lib/crm/handoffOperationalAction.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \

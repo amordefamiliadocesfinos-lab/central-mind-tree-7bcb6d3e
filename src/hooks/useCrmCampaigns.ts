@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient } from '@/lib/crm/campaignReplaySafety';
 import {
   EligibilityContact,
   EvaluatedRecipient,
@@ -216,10 +217,14 @@ export async function syncCampaignStatus(campaign: { id: string; status: string 
 export async function revalidateOptOut(contactIds: string[]): Promise<Set<string>> {
   const blocked = new Set<string>();
   for (let i = 0; i < contactIds.length; i += 200) {
-    const { data } = await db
+    const slice = [...new Set(contactIds.slice(i, i + 200))];
+    const { data, error } = await db
       .from('contacts')
       .select('id, commercial_opt_out')
-      .in('id', contactIds.slice(i, i + 200));
+      .in('id', slice);
+    if (error || (data || []).length !== slice.length) {
+      throw new Error('Não foi possível revalidar opt-out de todos os destinatários. Execução interrompida.');
+    }
     (data || []).forEach((c: any) => { if (c.commercial_opt_out === true) blocked.add(c.id); });
   }
   return blocked;
@@ -230,28 +235,38 @@ export async function blockRecipientByOptOut(recipientId: string, campaignId: st
   await db
     .from('crm_campaign_recipients')
     .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
-    .eq('id', recipientId);
+    .eq('id', recipientId).eq('campaign_id', campaignId).eq('status', 'pending');
   await refreshCampaignCounters(campaignId);
 }
 
-/** Execução manual guiada: marca enviado (não cria Prioridade, Tarefa nem return_at). */
+/** Confirmação manual guiada: CAS impede sobrescrever enviado/pulado por outra aba. */
 export async function markRecipientSent(recipientId: string, campaignId: string) {
-  const { error } = await db
+  const { data, error } = await db
     .from('crm_campaign_recipients')
     .update({ status: 'sent', sent_at: new Date().toISOString() })
-    .eq('id', recipientId);
-  if (error) { toast.error(error.message); return false; }
+    .eq('id', recipientId).eq('campaign_id', campaignId)
+    .eq('status', 'pending').eq('delivery_mode', 'manual')
+    .select('id').maybeSingle();
+  if (error || !data) {
+    toast.error(error?.message || 'Destinatário já processado em outra sessão. Atualize a fila.');
+    return false;
+  }
   await refreshCampaignCounters(campaignId);
   return true;
 }
 
-/** Execução manual guiada: pular não conta como enviado nem como falha. */
+/** Pular só é permitido em recipient ainda pendente e manual. */
 export async function markRecipientSkipped(recipientId: string, campaignId: string) {
-  const { error } = await db
+  const { data, error } = await db
     .from('crm_campaign_recipients')
     .update({ status: 'skipped' })
-    .eq('id', recipientId);
-  if (error) { toast.error(error.message); return false; }
+    .eq('id', recipientId).eq('campaign_id', campaignId)
+    .eq('status', 'pending').eq('delivery_mode', 'manual')
+    .select('id').maybeSingle();
+  if (error || !data) {
+    toast.error(error?.message || 'Destinatário já processado em outra sessão. Atualize a fila.');
+    return false;
+  }
   await refreshCampaignCounters(campaignId);
   return true;
 }
@@ -294,20 +309,36 @@ function isManualFallback(code: string | null, message: string | null): boolean 
 export async function sendCampaignViaApi(
   campaign: { id: string; status: string },
   onProgress?: (done: number, total: number) => void,
-): Promise<{ sent: number; failed: number; movedToManual: number; blocked: number }> {
-  const { data } = await db
+): Promise<{ sent: number; failed: number; movedToManual: number; blocked: number; unconfirmed: number; alreadyProcessed: number }> {
+  // O status em cache não dá direito de repetir uma campanha já concluída.
+  // Verifica que a Edge Function ATIVA já implementa o protocolo com claim
+  // atômico. Se Lovable ainda não implantou o servidor novo, não enviar nada.
+  const { data: preflight, error: preflightError } = await supabase.functions.invoke('whatsapp-send', {
+    body: { mode: 'campaign_preflight' },
+  });
+  if (preflightError || preflight?.campaign_dispatch_protocol !== 2) {
+    throw new Error('Envio de campanha protegido ainda não está ativo no servidor. Aguarde a sincronização da função.');
+  }
+  const { data: liveCampaign, error: campaignError } = await db.from('crm_campaigns')
+    .select('status').eq('id', campaign.id).maybeSingle();
+  if (campaignError || !liveCampaign || !['prepared', 'sending'].includes(liveCampaign.status)) {
+    throw new Error('Campanha não está preparada ou já foi concluída/cancelada. Atualize a tela.');
+  }
+  const { data, error: queueError } = await db
     .from('crm_campaign_recipients')
     .select('id, contact_id, conversation_id, rendered_message, status, delivery_mode')
-    .eq('campaign_id', campaign.id)
-    .eq('status', 'pending')
-    .eq('delivery_mode', 'api');
+    .eq('campaign_id', campaign.id).eq('status', 'pending').eq('delivery_mode', 'api');
+  if (queueError) throw queueError;
 
   const queue = (data || []) as CrmCampaignRecipient[];
-  const result = { sent: 0, failed: 0, movedToManual: 0, blocked: 0 };
+  const result = { sent: 0, failed: 0, movedToManual: 0, blocked: 0, unconfirmed: 0, alreadyProcessed: 0 };
   if (queue.length === 0) return result;
 
-  if (campaign.status !== 'sending') {
-    await db.from('crm_campaigns').update({ status: 'sending', updated_at: new Date().toISOString() }).eq('id', campaign.id);
+  if (liveCampaign.status === 'prepared') {
+    const { error: statusError } = await db.from('crm_campaigns')
+      .update({ status: 'sending', updated_at: new Date().toISOString() })
+      .eq('id', campaign.id).eq('status', 'prepared');
+    if (statusError) throw statusError;
   }
 
   const blockedOptOut = await revalidateOptOut(queue.map(r => r.contact_id));
@@ -315,79 +346,88 @@ export async function sendCampaignViaApi(
   let done = 0;
   for (const r of queue) {
     if (blockedOptOut.has(r.contact_id)) {
-      await db.from('crm_campaign_recipients')
+      const { data: excluded } = await db.from('crm_campaign_recipients')
         .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
-        .eq('id', r.id);
-      result.blocked++; onProgress?.(++done, queue.length);
+        .eq('id', r.id).eq('campaign_id', campaign.id).eq('status', 'pending')
+        .select('id').maybeSingle();
+      if (excluded) result.blocked++; else result.alreadyProcessed++;
+      onProgress?.(++done, queue.length);
       continue;
     }
     if (!r.conversation_id) {
-      await db.from('crm_campaign_recipients').update({ delivery_mode: 'manual' }).eq('id', r.id);
-      result.movedToManual++; onProgress?.(++done, queue.length);
+      const { data: moved } = await db.from('crm_campaign_recipients')
+        .update({ delivery_mode: 'manual' })
+        .eq('id', r.id).eq('campaign_id', campaign.id).eq('status', 'pending')
+        .select('id').maybeSingle();
+      if (moved) result.movedToManual++; else result.alreadyProcessed++;
+      onProgress?.(++done, queue.length);
       continue;
     }
 
-    const { data: res, error } = await supabase.functions.invoke('whatsapp-send', {
-      body: {
-        mode: 'campaign',
-        campaign_id: campaign.id,
-        conversation_id: r.conversation_id,
-        message: r.rendered_message || '',
-      },
-    });
-
-    // supabase-js devolve o corpo do erro em error.context (Response) — precisa ser lido.
-    const payload: any = res ?? (await readFunctionErrorBody(error));
-    const errorCode = payload?.code || null;
-    const errorMessage = payload?.error || error?.message || null;
-
-    if (!error && payload?.ok) {
-      await db.from('crm_campaign_recipients').update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        service_message_id: payload.message_id ?? null,
-        external_message_id: payload.external_message_id ?? null,
-      }).eq('id', r.id);
-      result.sent++;
-    } else if (isManualFallback(errorCode, errorMessage)) {
-      // Impossibilidade de mensagem livre por API não é falha: segue pendente na fila manual.
-      await db.from('crm_campaign_recipients').update({
-        delivery_mode: 'manual',
-        status: 'pending',
-        error_code: null,
-        error_message: null,
-      }).eq('id', r.id);
-      result.movedToManual++;
-    } else if (errorCode === 'commercial_opt_out') {
-      await db.from('crm_campaign_recipients')
-        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
-        .eq('id', r.id);
-      result.blocked++;
-    } else {
-      await db.from('crm_campaign_recipients').update({
-        status: 'failed',
-        error_code: errorCode || 'send_failed',
-        error_message: errorMessage,
-      }).eq('id', r.id);
-      result.failed++;
+    // F0-B: a Edge Function possui a reserva atômica real. Envia-se um ID
+    // específico; qualquer segunda aba recebe campaign_recipient_not_pending.
+    let res: any = null;
+    let error: any = null;
+    try {
+      const reply = await supabase.functions.invoke('whatsapp-send', {
+        body: {
+          mode: 'campaign', campaign_id: campaign.id, recipient_id: r.id,
+          conversation_id: r.conversation_id, message: r.rendered_message || '',
+        },
+      });
+      res = reply.data;
+      error = reply.error;
+    } catch (e) {
+      error = e;
     }
 
+    const payload: any = res ?? (await readFunctionErrorBody(error));
+    const errorCode = String(payload?.code ?? '');
+    const errorMessage = payload?.error || error?.message || 'Resposta da integração não confirmada';
+
+    if (!error && payload?.ok && payload.recipient_id === r.id) {
+      // O servidor já confirmou status='sent' antes de responder.
+      result.sent++;
+    } else if (isManualFallback(errorCode, errorMessage)) {
+      // Fallback comprovadamente pré-envio; atualizar só se ainda pending.
+      const { data: moved } = await db.from('crm_campaign_recipients').update({
+        delivery_mode: 'manual', status: 'pending', error_code: null, error_message: null,
+      }).eq('id', r.id).eq('campaign_id', campaign.id).eq('status', 'pending')
+        .select('id').maybeSingle();
+      if (moved) result.movedToManual++; else result.alreadyProcessed++;
+    } else if (errorCode === 'commercial_opt_out') {
+      const { data: excluded } = await db.from('crm_campaign_recipients')
+        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
+        .eq('id', r.id).eq('campaign_id', campaign.id).eq('status', 'pending')
+        .select('id').maybeSingle();
+      if (excluded) result.blocked++; else result.alreadyProcessed++;
+    } else if (errorCode === 'campaign_recipient_not_pending') {
+      // Concorrência legítima com outra aba: não sobrescrever seu resultado.
+      result.alreadyProcessed++;
+    } else {
+      // Timeout/resposta perdida não permite repetir um disparo: se o servidor
+      // chegou a iniciar, o claim já está failed/dispatch_unconfirmed.
+      // Se erro ocorreu antes do claim, colocar pending em quarentena também.
+      await db.from('crm_campaign_recipients').update({
+        status: 'failed', error_code: CAMPAIGN_UNCONFIRMED_CODE,
+        error_message: `Falha ou resultado incerto: ${errorMessage}. Confira o provedor antes de reenviar.`,
+      }).eq('id', r.id).eq('campaign_id', campaign.id).eq('status', 'pending');
+      result.unconfirmed++;
+      result.failed++;
+    }
     onProgress?.(++done, queue.length);
     await new Promise(resolve => setTimeout(resolve, 400));
   }
 
   await refreshCampaignCounters(campaign.id);
-
-  // Só conclui quando não restar nenhum recipient executável (api ou manual).
-  const { count } = await db
-    .from('crm_campaign_recipients')
+  const { count } = await db.from('crm_campaign_recipients')
     .select('id', { count: 'exact', head: true })
-    .eq('campaign_id', campaign.id)
-    .eq('status', 'pending');
-  if (!count) {
-    await db.from('crm_campaigns').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', campaign.id);
+    .eq('campaign_id', campaign.id).eq('status', 'pending');
+  if (count === 0) {
+    await db.from('crm_campaigns')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', campaign.id).eq('status', 'sending');
   }
-
   return result;
 }
 
@@ -397,41 +437,49 @@ export async function sendCampaignViaApi(
  * Nenhuma mensagem é enviada aqui.
  */
 export async function requeueFailedRecipients(campaignId: string): Promise<number> {
-  const { data } = await db
-    .from('crm_campaign_recipients')
-    .select('id, contact_id, conversation_id')
-    .eq('campaign_id', campaignId)
-    .eq('status', 'failed');
-  const rows = (data || []) as CrmCampaignRecipient[];
-  if (rows.length === 0) return 0;
+  const { data, error: listError } = await db.from('crm_campaign_recipients')
+    .select('id, contact_id, conversation_id, status, error_code, service_message_id, external_message_id')
+    .eq('campaign_id', campaignId).eq('status', 'failed');
+  if (listError) throw listError;
+  // Falhas sem prova negativa do envio NÃO podem ser reencaminhadas.
+  const rows = ((data || []) as CrmCampaignRecipient[]).filter(canSafelyRequeueCampaignRecipient);
+  if (!rows.length) return 0;
 
-  const convIds = rows.map(r => r.conversation_id).filter(Boolean) as string[];
+  const convIds = [...new Set(rows.map(r => r.conversation_id).filter(Boolean))] as string[];
   const convMap = new Map<string, { id: string; last_inbound_at: string | null }>();
-  if (convIds.length > 0) {
-    const { data: convs } = await db
-      .from('service_conversations')
-      .select('id, last_inbound_at')
-      .in('id', convIds);
+  for (let i = 0; i < convIds.length; i += 200) {
+    const { data: convs, error: convError } = await db.from('service_conversations')
+      .select('id, last_inbound_at').in('id', convIds.slice(i, i + 200));
+    if (convError) throw convError;
     (convs || []).forEach((c: any) => convMap.set(c.id, c));
   }
 
   const blocked = await revalidateOptOut(rows.map(r => r.contact_id));
+  let updated = 0;
   for (const r of rows) {
-    if (blocked.has(r.contact_id)) {
-      await db.from('crm_campaign_recipients')
-        .update({ status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null })
-        .eq('id', r.id);
-      continue;
-    }
-    await db.from('crm_campaign_recipients').update({
-      status: 'pending',
-      error_code: null,
-      error_message: null,
-      delivery_mode: resolveDeliveryMode(r.conversation_id ? convMap.get(r.conversation_id) : null),
-    }).eq('id', r.id);
+    // CAS: não sobrescreve registro que outra aba tenha concluído neste meio-tempo.
+    const query = db.from('crm_campaign_recipients')
+      .update(blocked.has(r.contact_id)
+        ? { status: 'excluded', exclusion_reason: 'commercial_opt_out', delivery_mode: null }
+        : {
+          status: 'pending', error_code: null, error_message: null,
+          delivery_mode: resolveDeliveryMode(r.conversation_id ? convMap.get(r.conversation_id) : null),
+        })
+      .eq('id', r.id).eq('campaign_id', campaignId)
+      .eq('status', 'failed').eq('error_code', r.error_code)
+      .is('service_message_id', null).is('external_message_id', null);
+    const { data: changed, error: changeError } = await query.select('id').maybeSingle();
+    if (changeError) throw changeError;
+    if (changed && !blocked.has(r.contact_id)) updated++;
   }
   await refreshCampaignCounters(campaignId);
-  return rows.length;
+  if (updated > 0) {
+    // Campanha anteriormente encerrada com falhas seguras pode voltar à fila
+    // PREPARADA; reenvio ainda exige confirmação explícita pelo operador.
+    await db.from('crm_campaigns').update({ status: 'prepared', updated_at: new Date().toISOString() })
+      .eq('id', campaignId).eq('status', 'completed');
+  }
+  return updated;
 }
 
 export async function fetchCampaignRecipients(campaignId: string) {

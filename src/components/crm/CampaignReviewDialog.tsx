@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
+import { canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation } from '@/lib/crm/campaignReplaySafety';
 import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, requeueFailedRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 interface Props {
@@ -38,6 +39,7 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [confirmApiOpen, setConfirmApiOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [requeuing, setRequeuing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
@@ -56,7 +58,7 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     countCampaignResponses(campaign.id).then(setResponses);
   };
 
-  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped, failed } = useMemo(() => {
+  const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped, failed, retryable, requiresReview } = useMemo(() => {
     const eligible = recipients.filter(r => r.status === 'pending');
     const excluded = recipients.filter(r => r.status === 'excluded');
     const reasons = new Map<string, number>();
@@ -69,7 +71,9 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     const sent = recipients.filter(r => r.status === 'sent');
     const skipped = recipients.filter(r => r.status === 'skipped');
     const failed = recipients.filter(r => r.status === 'failed');
-    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped, failed };
+    const retryable = failed.filter(canSafelyRequeueCampaignRecipient);
+    const requiresReview = failed.filter(requiresCampaignSendReconciliation);
+    return { eligible, excluded, reasons: [...reasons.entries()], apiCount, manualCount, sent, skipped, failed, retryable, requiresReview };
   }, [recipients]);
 
   const visibleRecipients = useMemo(() => {
@@ -94,8 +98,8 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
-          {apiCount > 0 && (
-            <Button variant="default" disabled={sending} onClick={() => setConfirmApiOpen(true)}>
+          {apiCount > 0 && ['prepared', 'sending'].includes(campaign.status) && (
+            <Button variant="default" disabled={sending || requeuing} onClick={() => setConfirmApiOpen(true)}>
               {sending
                 ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 : <Send className="h-4 w-4 mr-2" />}
@@ -128,25 +132,44 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           <Badge variant="outline">Enviados: {sent.length}</Badge>
           <Badge variant="outline">Pulados: {skipped.length}</Badge>
           <Badge variant="outline" className="text-destructive border-destructive/40">Falhas: {failed.length}</Badge>
+          {requiresReview.length > 0 && (
+            <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
+              Envio a conferir: {requiresReview.length}
+            </Badge>
+          )}
           <Badge variant="outline" className="text-sky-600 border-sky-300">
             Respostas: {responses ? `${responses.responded}/${responses.sent}` : '—'}
             {responseRate !== null ? ` (${responseRate}%)` : ''}
           </Badge>
         </div>
 
-        {failed.length > 0 && (
+        {requiresReview.length > 0 && (
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            {requiresReview.length} tentativa(s) com entrega incerta ou sem prova negativa.
+            Confira o histórico e o provedor antes de qualquer novo disparo; reenvio automático bloqueado.
+          </p>
+        )}
+        {retryable.length > 0 && (
           <Button
             size="sm"
             variant="outline"
             className="h-8 text-xs"
+            disabled={requeuing || sending}
             onClick={async () => {
-              const n = await requeueFailedRecipients(campaign.id);
-              toast.success(`${n} destinatário(s) reenfileirado(s) — nenhum envio realizado`);
-              reload();
-              fetchCampaigns();
+              setRequeuing(true);
+              try {
+                const n = await requeueFailedRecipients(campaign.id);
+                toast.success(`${n} falha(s) anteriores ao disparo reenfileiradas; nenhum envio realizado`);
+                reload();
+                await fetchCampaigns();
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Falha ao reenfileirar destinatários.');
+              } finally {
+                setRequeuing(false);
+              }
             }}
           >
-            Reenfileirar falhas ({failed.length})
+            Reenfileirar falhas seguras ({retryable.length})
           </Button>
         )}
 
@@ -242,13 +265,18 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
               onClick={async () => {
                 setSending(true);
                 setProgress({ done: 0, total: apiCount });
-                const res = await sendCampaignViaApi(campaign, (done, total) => setProgress({ done, total }));
-                setSending(false);
-                toast.success(
-                  `Enviados: ${res.sent} · Falhas: ${res.failed} · Movidos p/ manual: ${res.movedToManual} · Bloqueados: ${res.blocked}`,
-                );
-                reload();
-                fetchCampaigns();
+                try {
+                  const res = await sendCampaignViaApi(campaign, (done, total) => setProgress({ done, total }));
+                  toast.message(
+                    `Enviados: ${res.sent} · Falhas a conferir: ${res.unconfirmed} · Movidos p/ manual: ${res.movedToManual} · Bloqueados: ${res.blocked} · Já processados: ${res.alreadyProcessed}`,
+                  );
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Envio não concluído. Atualize a campanha.');
+                } finally {
+                  setSending(false);
+                  reload();
+                  void fetchCampaigns();
+                }
               }}
             >
               Confirmar envio
