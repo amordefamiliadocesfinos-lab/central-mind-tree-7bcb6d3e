@@ -61,13 +61,15 @@ interface ContactChatPanelProps {
   onScheduleManualFollowUp?: () => void;
   /** F5.2.3: abre o registro canônico de Resultado sem pré-seleção. */
   onRegisterManualResult?: () => void;
+  /** F2-B: somente foca o campo de resposta do contato atual, nunca envia. */
+  focusRequest?: { id: number; contactId: string } | null;
 }
 
 const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -100,6 +102,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   });
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const isCustomerReply = messages[messages.length - 1]?.sender === 'customer';
   const outboundBlocked = commercialOptOut && !isCustomerReply;
   const isInstagramConversation = conversationMeta?.channel === 'instagram';
@@ -131,6 +134,12 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   const latestContextStampRef = useRef(contextStamp);
   latestContextStampRef.current = contextStamp;
   const aiDraftStale = Boolean(aiDraftStamp && aiDraftStamp !== contextStamp);
+
+  useEffect(() => {
+    if (!focusRequest || focusRequest.contactId !== contactId) return;
+    // Não cria mensagem, não contorna opt-out e não abre a janela Meta.
+    composerRef.current?.focus();
+  }, [focusRequest, contactId]);
 
   const dismissAnalysis = () => {
     setAnalysis(null);
@@ -774,6 +783,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
           </Button>
           <Textarea
+            ref={composerRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Digite uma mensagem…"
