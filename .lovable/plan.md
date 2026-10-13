@@ -1,26 +1,13 @@
-# Auditoria read-only — commit 5526f83b (MV2-12 Motor Econômico Shopee)
+# Respostas — mecanismo de deploy de Edge Function (somente leitura)
 
-Nenhum arquivo alterado. Este documento é só o diagnóstico; não há nada a implementar.
+Nenhuma ação foi executada; nenhum arquivo do projeto, commit, branch ou deploy foi alterado.
 
-## Estado
-- 5526f83b é ancestral do HEAD atual (2a673d83). A única diferença em `src/` está em `src/integrations/supabase/types.ts` (+59 linhas, geradas automaticamente). Os três arquivos auditados estão iguais ao commit.
+1. **Sim.** Os deploys anteriores de `shopee-review-auth` (30/09 e 01/10/2026) foram feitos pelo agente interno autenticado do Lovable, com a ferramenta nativa de deploy de Edge Function do backend. Não usaram o Supabase CLI. Antes de cada deploy, o agente comparou o arquivo do projeto com o commit aprovado.
 
-## Resultado
-- TypeScript (`tsgo -p tsconfig.app.json`): **0 erros** no projeto inteiro, incluindo os três arquivos.
-- Imports:
-  - `index.ts` exporta `ShopeeEconomicMotor` (linha 13), e o arquivo existe com `export function ShopeeEconomicMotor` (linha 223).
-  - `Financeiro.tsx` importa o motor pelo barrel e o mostra na aba `motor-shopee`.
-  - O motor só depende de `react`, `lucide-react`, componentes de `@/components/ui/*` e `cn`. Todos existem.
-- Runtime: não há problema óbvio.
-  - As divisões estão protegidas: `ticket > 0`, `volumePhysical > 0`, `repasse > 0`, `currentContribution > 0`, e a margem-alvo é limitada a 0,95, então não ocorre divisão por zero no PMR.
-  - As buscas binárias (linhas 132-148 e 151-174) usam centavos inteiros e sempre terminam. Quando o valor está fora do alcance, retornam `null`, e a tela mostra "—".
-  - O componente não acessa banco nem rede, e não usa `useEffect`. Não há risco de SSR ou hidratação.
-- O log de build da plataforma mostra só uma falha antiga e sem relação: o typecheck Deno de `supabase/functions/whatsapp-zapi-webhook/index.ts:2` não encontra o módulo `npm:@supabase/supabase-js@2/cors`. Isso não afeta o build do app.
+2. **Não.** A ferramenta recebe apenas o nome da função. Ela não aceita branch, PR, SHA nem conteúdo de arquivo. Para publicar código de uma branch que não está na main, esse código precisa estar no projeto Lovable antes do deploy. Isso pode ser feito por sincronização do editor com a branch, como na F6-B, ou por gravação dos arquivos.
 
-## Observações menores (não são erros)
-1. `Financeiro.tsx` linhas 169 e 212-227: a aba Motor Shopee não aparece na lista de abas para celular. Na prática não importa, porque no celular a página mostra `MobileFinancialView` antes (linha 79), e esses ramos com `isMobile` nunca rodam.
-2. `ShopeeEconomicMotor.tsx`: os campos usam `Number(e.target.value)`. Se o campo ficar vazio, o valor vira 0 e é aceito sem aviso. É comportamento visual, não falha.
-3. As taxas por conta (SH-001/002/003) estão fixas no código (linhas 21+). Isso contraria a regra do projeto de evitar estruturas rígidas. É uma sugestão para o futuro, não um bug.
+3. **Sim.** A ferramenta publica somente o código presente no projeto Lovable no momento do deploy. Isso inclui a pasta da função, os imports de `_shared` e o `supabase/config.toml` (por exemplo, `verify_jwt`).
 
-## Conclusão
-PASS. Não há erro de TypeScript, build, imports ou runtime óbvio nos três arquivos, e não há correção necessária.
+4. **Não.** O projeto não tem controle interno de deploy que aceite snapshot ou arquivo externo congelado sem editar o projeto. Para fixar uma fonte exata, há dois caminhos:
+   - sincronizar o editor com o SHA desejado e conferir o código byte a byte antes do deploy;
+   - fazer o deploy fora do Lovable, com outra ferramenta e credenciais próprias, o que fica fora deste ambiente.
