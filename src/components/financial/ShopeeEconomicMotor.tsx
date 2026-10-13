@@ -29,6 +29,7 @@ import { useShopeeOfferMappings } from '@/hooks/useShopeeOfferMappings';
 import { useEconomicRuleVersions } from '@/hooks/useEconomicRuleVersions';
 import { useEconomicPredictionSnapshots } from '@/hooks/useEconomicPredictionSnapshots';
 import { useEconomicB1 } from '@/hooks/useEconomicB1';
+import { useEconomicB2B3 } from '@/hooks/useEconomicB2B3';
 import { EconomicReconciliationDialog } from '@/components/financial/EconomicReconciliationDialog';
 import { resolveHistoricalShopeeRegime } from '@/lib/economic-engine/rre';
 import {
@@ -137,6 +138,8 @@ export function ShopeeEconomicMotor() {
   const [retMCharges, setRetMCharges] = useState(0);
   const [retMBenefits, setRetMBenefits] = useState(0);
   const [costPerUnit, setCostPerUnit] = useState(0);
+  const [b2ConfigurationId, setB2ConfigurationId] = useState<string | null>(null);
+  const [b3ConfigurationId, setB3ConfigurationId] = useState<string | null>(null);
   const [targetMarginPct, setTargetMarginPct] = useState(20);
   const [baselinePrice, setBaselinePrice] = useState(97.85);
   const [reconciliationOpen, setReconciliationOpen] = useState(false);
@@ -240,8 +243,44 @@ export function ShopeeEconomicMotor() {
     effectiveAt,
   );
   const b1OperationalCfu = b1Result?.operationalCfu ?? 0;
-  const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : b1OperationalCfu;
-  const b1CostSource = costPerUnit > 0 ? 'manual_override' : b1OperationalCfu > 0 ? 'b1_operational' : 'pending';
+  const {
+    loading: b2b3Loading,
+    error: b2b3Error,
+    b2Configurations,
+    b3Configurations,
+    b2: b2Result,
+    b3: b3Result,
+  } = useEconomicB2B3(
+    productId || null,
+    variantId,
+    presentationId === DIRECT_PRESENTATION_ID ? null : presentationId,
+    effectiveAt,
+    b2ConfigurationId,
+    b3ConfigurationId,
+    q,
+  );
+
+  useEffect(() => {
+    setB2ConfigurationId(null);
+  }, [productId, variantId, presentationId]);
+
+  useEffect(() => {
+    setB3ConfigurationId(null);
+  }, [productId, variantId]);
+
+  const physicalVolumeForCost = Math.max(1, presentationFactor * Math.max(1, q));
+  const b2KnownCost = b2Result?.composition.blocks.B2.knownNetAmount ?? 0;
+  const b3KnownCost = b3Result?.composition.blocks.B3.knownNetAmount ?? 0;
+  const automaticDirectCostPerUnit =
+    b1OperationalCfu > 0
+      ? ((b1OperationalCfu * physicalVolumeForCost) + b2KnownCost + b3KnownCost) / physicalVolumeForCost
+      : 0;
+  const effectiveCostPerUnit = costPerUnit > 0 ? costPerUnit : automaticDirectCostPerUnit;
+  const b1CostSource = costPerUnit > 0
+    ? 'manual_override'
+    : automaticDirectCostPerUnit > 0
+      ? 'b1_b2_b3_operational'
+      : 'pending';
 
   const rreResolution = useMemo(
     () => resolveHistoricalShopeeRegime({
@@ -400,6 +439,16 @@ export function ShopeeEconomicMotor() {
         retMBenefits,
         costPerUnit: effectiveCostPerUnit > 0 ? effectiveCostPerUnit : null,
         costSource: b1CostSource,
+        directCostComposition: {
+          physicalVolume: physicalVolumeForCost,
+          b1UnitCfu: b1OperationalCfu,
+          b1Total: b1OperationalCfu * physicalVolumeForCost,
+          b2ConfigurationId,
+          b2KnownCost,
+          b3ConfigurationId,
+          b3KnownCost,
+          automaticCostPerUnit: automaticDirectCostPerUnit,
+        },
         b1: b1Result ? {
           operationalCfu: b1Result.operationalCfu,
           completeCfu: b1Result.completeCfu,
@@ -441,6 +490,20 @@ export function ShopeeEconomicMotor() {
         confidence: rreResolution.confidence,
         matchedBy: rreResolution.matchedBy,
         warnings: rreResolution.warnings,
+        b2Configuration: b2Result ? {
+          id: b2Result.configuration.id,
+          code: b2Result.configuration.code,
+          name: b2Result.configuration.name,
+          completeness: b2Result.composition.blocks.B2.completeness,
+        } : null,
+        b3Configuration: b3Result ? {
+          id: b3Result.configuration.id,
+          code: b3Result.configuration.code,
+          name: b3Result.configuration.name,
+          completeness: b3Result.composition.blocks.B3.completeness,
+        } : null,
+        b2Components: b2Result?.components ?? [],
+        b3Components: b3Result?.components ?? [],
         b1Components: b1Result?.components.map((component) => ({
           id: component.id,
           block: component.block,
@@ -469,6 +532,12 @@ export function ShopeeEconomicMotor() {
         ...rreResolution.missing,
         ...(b1Result?.composition.blocks.B1.pendingComponentIds ?? []),
         ...(b1Result?.composition.blocks.B1.blockedComponentIds ?? []),
+        ...(!b2ConfigurationId ? ['B2_CONFIGURATION_UNSELECTED'] : []),
+        ...(!b3ConfigurationId ? ['B3_CONFIGURATION_UNSELECTED'] : []),
+        ...(b2Result?.composition.blocks.B2.pendingComponentIds ?? []),
+        ...(b2Result?.composition.blocks.B2.blockedComponentIds ?? []),
+        ...(b3Result?.composition.blocks.B3.pendingComponentIds ?? []),
+        ...(b3Result?.composition.blocks.B3.blockedComponentIds ?? []),
       ],
     });
   };
@@ -689,6 +758,59 @@ export function ShopeeEconomicMotor() {
                   </p>
                 </div>
 
+                <div className="space-y-1.5 col-span-2 rounded-lg border p-3">
+                  <p className="text-sm font-medium">B2 — Apresentação física</p>
+                  <Select
+                    value={b2ConfigurationId ?? '__none__'}
+                    onValueChange={(value) => setB2ConfigurationId(value === '__none__' ? null : value)}
+                    disabled={b2b3Loading}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione a configuração B2" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Não definida — manter pendente</SelectItem>
+                      {b2Configurations.map((configuration) => (
+                        <SelectItem key={configuration.id} value={configuration.id}>
+                          {configuration.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {b2Result
+                      ? 'Custo B2 conhecido no cenário: ' + money(b2KnownCost)
+                      : b2Configurations.length === 0
+                        ? 'Nenhuma configuração B2 cadastrada para esta apresentação.'
+                        : 'Escolha explicitamente como esta apresentação será montada.'}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 col-span-2 rounded-lg border p-3">
+                  <p className="text-sm font-medium">B3 — Preparação / fulfillment</p>
+                  <Select
+                    value={b3ConfigurationId ?? '__none__'}
+                    onValueChange={(value) => setB3ConfigurationId(value === '__none__' ? null : value)}
+                    disabled={b2b3Loading}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione a configuração B3" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Não definida — manter pendente</SelectItem>
+                      {b3Configurations.map((configuration) => (
+                        <SelectItem key={configuration.id} value={configuration.id}>
+                          {configuration.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {b3Result
+                      ? 'Custo B3 conhecido no pedido: ' + money(b3KnownCost)
+                      : b3Configurations.length === 0
+                        ? 'Nenhuma configuração B3 cadastrada para esta identidade.'
+                        : 'Escolha explicitamente como o pedido será preparado.'}
+                  </p>
+                  {b2b3Error && <p className="text-xs text-destructive">{b2b3Error}</p>}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Preço original / unidade comercial</Label>
                   <Input type="number" min={0} step="0.01" value={originalPrice} onChange={(e) => setOriginalPrice(Number(e.target.value))} />
@@ -755,15 +877,15 @@ export function ShopeeEconomicMotor() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>Override manual CEA / unidade</Label>
+                    <Label>Override manual custo direto / unidade</Label>
                     <Input type="number" min={0} step="0.01" value={costPerUnit} onChange={(e) => setCostPerUnit(Number(e.target.value))} />
-                    <p className="text-xs text-muted-foreground">0 = usar B1 automático. Override permanece explícito e não altera as fontes canônicas.</p>
+                    <p className="text-xs text-muted-foreground">0 = usar B1 + B2 + B3 automáticos conhecidos. Override permanece explícito e não altera as fontes canônicas.</p>
                   </div>
                   <div className="space-y-1.5"><Label>Margem-alvo %</Label><Input type="number" min={0} max={95} step="1" value={targetMarginPct} onChange={(e) => setTargetMarginPct(Number(e.target.value))} /></div>
                   <div className="space-y-1.5 col-span-2"><Label>Preço baseline para TCE-BE</Label><Input type="number" min={0} step="0.01" value={baselinePrice} onChange={(e) => setBaselinePrice(Number(e.target.value))} /></div>
                 </div>
                 {effectiveCostPerUnit <= 0 && <p className="text-xs text-amber-600">B1 econômico ainda pendente. PMR, margem e TCE-BE permanecem desativados.</p>}
-                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">CEA usada no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 operacional automático'}.</p>}
+                {effectiveCostPerUnit > 0 && <p className="text-xs text-muted-foreground">Custo direto usado no cenário: {money(effectiveCostPerUnit)} · fonte {b1CostSource === 'manual_override' ? 'override manual' : 'B1 + B2 + B3 operacionais conhecidos'}.</p>}
               </div>
             </CardContent>
           </Card>
