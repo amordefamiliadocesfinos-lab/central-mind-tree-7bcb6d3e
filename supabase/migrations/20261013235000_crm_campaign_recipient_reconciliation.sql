@@ -109,7 +109,7 @@ BEGIN
   END IF;
 
   IF v_rec.status <> 'failed'
-    OR v_rec.delivery_mode <> 'api'
+    OR v_rec.delivery_mode IS DISTINCT FROM 'api'
     OR v_rec.service_message_id IS DISTINCT FROM p_service_message_id
     OR v_rec.conversation_id IS NULL THEN
     RAISE EXCEPTION 'Destinatário não elegível ou sem referência exata de mensagem.';
@@ -125,7 +125,7 @@ BEGIN
     OR v_msg.sender IS DISTINCT FROM 'agent'
     OR btrim(coalesce(v_msg.content, '')) IS DISTINCT FROM btrim(coalesce(v_rec.rendered_message, ''))
     OR btrim(coalesce(v_msg.content, '')) = ''
-    OR v_msg.delivery_status NOT IN ('sent', 'delivered', 'read')
+    OR coalesce(v_msg.delivery_status, '') NOT IN ('sent', 'delivered', 'read')
     OR nullif(btrim(coalesce(v_msg.external_message_id, '')), '') IS NULL
     OR (v_rec.external_message_id IS NOT NULL
         AND v_rec.external_message_id IS DISTINCT FROM v_msg.external_message_id) THEN
