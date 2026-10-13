@@ -34,6 +34,7 @@ import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendanc
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
+import { getCrmInboxOrientation } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
@@ -674,6 +675,10 @@ export default function ContatosInbox() {
 
   const selected = items.find((i) => i.id === selectedId) || null;
   const selectedIsOutOfQueue = Boolean(selected && outOfQueueContactIds.has(selected.id));
+  // F2-A: a mesma projeção F1-A da fila, sem writer, ação ou nova prioridade.
+  const selectedOrientation = selected
+    ? getCrmInboxOrientation(projectCrmOperationalState(toCrmOperationalSource(selected)))
+    : null;
   // Dono visual das operações assíncronas do atendimento. Uma operação pode
   // terminar depois da troca de contato, mas nunca pode atualizar o novo painel.
   const selectedContextRef = useRef<string>('');
@@ -1394,6 +1399,48 @@ export default function ContatosInbox() {
 
                 </div>
               </div>
+
+              {/* F2-A — orientação compacta, exclusivamente de leitura. */}
+              {selectedOrientation && selectedOrientation.contactId === selected.id && (
+                <div
+                  key={`${selectedOrientation.contactId}|${selectedOrientation.conversationId ?? ''}`}
+                  aria-label="Orientação operacional do contato"
+                  aria-live="polite"
+                  className="mx-3 mt-2 shrink-0 rounded-md border bg-muted/30 px-3 py-2 text-[11px]"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                    <span className="font-medium">Orientação · {selectedOrientation.title}</span>
+                    <span className="text-muted-foreground">
+                      {selectedOrientation.mode === 'action' ? 'Ação' : selectedOrientation.mode === 'verify' ? 'Conferir' : 'Aguardar'} · {selectedOrientation.priorityLevel} · {selectedOrientation.priorityLabel}
+                      {selectedIsOutOfQueue ? ' · Fora da fila' : ''}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-muted-foreground">{selectedOrientation.explanation}</p>
+                  {(selectedOrientation.obligation || selectedOrientation.handoffUnverified || selectedOrientation.lastResultResponsibility) && (
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+                      {selectedOrientation.obligation && (
+                        <span>
+                          {selectedOrientation.obligation.source === 'official_task' ? 'Tarefa CRM' : 'Próxima Ação registrada'}:
+                          {' '}{selectedOrientation.obligation.title || 'sem título'}
+                          {selectedOrientation.obligation.dueAt
+                            ? ` · ${format(parseISO(selectedOrientation.obligation.dueAt), 'dd/MM HH:mm')}`
+                            : ' · sem prazo'}
+                        </span>
+                      )}
+                      {selectedOrientation.lastResultResponsibility && (
+                        <span>
+                          Último Resultado: iniciativa {selectedOrientation.lastResultResponsibility === 'operator'
+                            ? 'do operador'
+                            : 'do cliente'}
+                        </span>
+                      )}
+                      {selectedOrientation.handoffUnverified && !operationalHandoff && (
+                        <span>Handoff declarado; recebimento por Operações não comprovado nesta visão</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Conversa (padrão) + Histórico */}
               <Tabs defaultValue="conversa" className="flex min-h-0 flex-1 flex-col" key={selected.id}>
