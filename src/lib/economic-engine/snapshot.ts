@@ -7,17 +7,6 @@ export type EconomicBlockSnapshot = {
   block: EconomicBlock;
   knownNetAmount: number;
   amount: number | null;
-  contribution: {
-    amount: number | null;
-    knownContribution: number | null;
-    completeness: EconomicCompleteness;
-  };
-  structural: {
-    amount: number | null;
-    knownStructuralResult: number | null;
-    knownOverheadAndCapital: number;
-    completeness: EconomicCompleteness;
-  };
   completeness: EconomicCompleteness;
   pendingComponentIds: string[];
   blockedComponentIds: string[];
@@ -33,6 +22,17 @@ export type GeneralEconomicSnapshot = {
     N3: number | null;
     N4: number | null;
     N5: number | null;
+  };
+  contribution: {
+    amount: number | null;
+    knownContribution: number | null;
+    completeness: EconomicCompleteness;
+  };
+  structural: {
+    amount: number | null;
+    knownStructuralResult: number | null;
+    knownOverheadAndCapital: number;
+    completeness: EconomicCompleteness;
   };
   completeness: EconomicCompleteness;
   pendingComponentIds: string[];
