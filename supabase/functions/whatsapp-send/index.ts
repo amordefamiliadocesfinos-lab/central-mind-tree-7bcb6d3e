@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     if (readError) return json({ error: 'Falha ao conferir destinatário da campanha', code: 'campaign_lookup_failed' }, 500);
     if (!recipient || recipient.contact_id !== conv.contact_id
       || recipient.conversation_id !== conversationId
-      || recipient.rendered_message !== message
+      || String(recipient.rendered_message ?? '').trim() !== message
       || recipient.status !== 'pending' || recipient.delivery_mode !== 'api') {
       return json({ error: 'Destinatário não está pendente para este envio; atualize a campanha', code: 'campaign_recipient_not_pending' }, 409);
     }
