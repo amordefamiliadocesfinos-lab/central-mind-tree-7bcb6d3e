@@ -15,6 +15,9 @@ import { canOfferCrmCampaignFormalReconciliation } from '@/lib/crm/campaignForma
 import { CampaignManualQueue } from './CampaignManualQueue';
 import { EXCLUSION_LABELS } from '@/lib/crm/campaignEligibility';
 import { countCampaignResponses } from '@/lib/crm/campaignContext';
+import { loadCrmCampaignSales } from '@/lib/crm/campaignSalesIO';
+import type { CampaignSaleSummary } from '@/lib/crm/campaignSales';
+import { Link } from 'react-router-dom';
 import { canSafelyRequeueCampaignRecipient, requiresCampaignSendReconciliation, isCampaignDispatchProtocolV2 } from '@/lib/crm/campaignReplaySafety';
 import { CrmCampaign, CrmCampaignRecipient, fetchCampaignRecipients, requeueFailedRecipients, sendCampaignViaApi, syncCampaignStatus, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
@@ -86,6 +89,24 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [responses, setResponses] = useState<{ sent: number; responded: number } | null>(null);
+  const [saleReport, setSaleReport] = useState<CampaignSaleSummary | null>(null);
+  const [saleReportError, setSaleReportError] = useState<string | null>(null);
+  const [salesLoading, setSalesLoading] = useState(false);
+
+  useEffect(() => {
+    setSaleReport(null);
+    setSaleReportError(null);
+    if (!open || !campaign?.id) return;
+    const campaignId = campaign.id;
+    let active = true;
+    setSalesLoading(true);
+    void loadCrmCampaignSales(campaignId).then(report => {
+      if (active) setSaleReport(report);
+    }).catch(error => {
+      if (active) setSaleReportError(error instanceof Error ? error.message : 'Consulta comercial indisponível.');
+    }).finally(() => { if (active) setSalesLoading(false); });
+    return () => { active = false; };
+  }, [open, campaign?.id]);
 
   useEffect(() => {
     // O resultado de outra campanha nunca é transportado como verificação.
@@ -107,6 +128,12 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     if (!campaign) return;
     fetchCampaignRecipients(campaign.id).then(setRecipients);
     countCampaignResponses(campaign.id).then(setResponses);
+    setSaleReport(null);
+    setSaleReportError(null);
+    setSalesLoading(true);
+    void loadCrmCampaignSales(campaign.id).then(setSaleReport)
+      .catch(err => setSaleReportError(err instanceof Error ? err.message : 'Consulta comercial indisponível.'))
+      .finally(() => setSalesLoading(false));
   };
 
   const { eligible, excluded, reasons, apiCount, manualCount, sent, skipped, failed, retryable, requiresReview } = useMemo(() => {
@@ -313,6 +340,46 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
             {responseRate !== null ? ` (${responseRate}%)` : ''}
           </Badge>
         </div>
+
+        <section className="space-y-2 rounded-lg border p-3" aria-label="Campanhas e pedidos com evidência">
+          <p className="text-sm font-semibold">Campanha → Respostas → Pedidos</p>
+          <p className="text-xs text-muted-foreground">
+            Envio e resposta não comprovam venda. Um vínculo é registrado somente ao
+            criar um Pedido pela Inbox a partir de uma conversa com resposta rastreável
+            à campanha. Pedidos posteriores no mesmo contato NÃO são atribuídos.
+          </p>
+          {salesLoading && <p className="text-xs text-muted-foreground">Consultando pedidos oficiais...</p>}
+          {saleReportError && <p className="text-xs text-destructive">{saleReportError} · Indicadores indisponíveis, não zero.</p>}
+          {saleReport && !salesLoading && !saleReportError && (
+            <>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="outline">Contatos com envio: {saleReport.sentContacts}</Badge>
+                <Badge variant="outline">Pedidos com origem rastreada: {saleReport.tracedOrders.length}</Badge>
+                <Badge variant="outline">Pedidos posteriores sem vínculo: {saleReport.unrelatedOrders.length}</Badge>
+                <Badge variant="outline">Valor nominal rastreado: {saleReport.tracedOrderValue.toLocaleString('pt-BR', {style:'currency',currency:'BRL'})}</Badge>
+                <Badge variant="outline">Com status pago: {saleReport.paidStatusOrderCount}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">{saleReport.sourceNote}</p>
+              {saleReport.tracedOrders.length > 0 && (
+                <div className="space-y-1">
+                  {saleReport.tracedOrders.slice(0, 12).map(order => (
+                    <p key={order.id} className="text-xs">
+                      <Link className="underline" to={`/operacoes?tab=orders&orderId=${encodeURIComponent(order.id)}`}>
+                        Pedido {order.order_number || order.id.slice(0, 8)}
+                      </Link>
+                      {' · '}Status: {order.status || 'não informado'}
+                      {' · '}Pagamento: {order.payment_status || 'não informado'}
+                      {' · '}Valor: {Number(order.total_value || 0).toLocaleString('pt-BR', {style:'currency',currency:'BRL'})}
+                    </p>
+                  ))}
+                  {saleReport.tracedOrders.length > 12 && (
+                    <p className="text-xs text-muted-foreground">Exibindo 12 de {saleReport.tracedOrders.length} pedidos rastreados.</p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </section>
 
         {requiresReview.length > 0 && (
           <p className="text-xs text-amber-700 dark:text-amber-300">
