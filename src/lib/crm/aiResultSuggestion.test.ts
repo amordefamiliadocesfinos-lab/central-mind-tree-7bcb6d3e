@@ -1,4 +1,4 @@
-import { guardShortConfirmationStrongResult, normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult } from './aiResultSuggestion';
+import { guardCrmResultFactualCoherence, guardShortConfirmationStrongResult, normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult, suggestCrmResultFromContext } from './aiResultSuggestion';
 import type { CrmAiContextSources } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -99,6 +99,90 @@ async function run() {
   );
   assert(explicitOrder.code === 'CRM-RES-021',
     'confirmação específica não deve ser bloqueada pela guarda de resposta curta.');
+
+
+  // C3: cenário de uso real 14/10 — reabertura apenas com "Oii".
+  const greeting = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-001', label: 'Interesse demonstrado', confidence: 0.9,
+      reason: 'Retomou compra de trufas.', evidenceQuotes: ['Oii'] },
+    { messages: [
+      { direction: 'inbound', content: 'Então terça-feira te mando mensagem amigo', createdAt: '2026-10-09T15:14:00Z' },
+      { direction: 'outbound', content: 'COMBINADO', createdAt: '2026-10-09T15:15:00Z' },
+      { direction: 'inbound', content: 'Oii', createdAt: '2026-10-14T15:34:00Z' },
+    ] } as any,
+  );
+  assert(greeting.code === null && greeting.tentativeCode === 'CRM-RES-001'
+    && greeting.confidence <= 0.5 && greeting.evidenceQuotes.length === 0,
+    'C3: saudação não é Resultado acionável, histórico antigo não eleva confiança.');
+
+  // C3: pedir Pix não significa "Aguardando pagamento".
+  const pixRequest = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-018', label: 'Aguardando pagamento', confidence: 1,
+      reason: 'Vai pagar.', evidenceQuotes: ['Me manda a chave Pix pfv'] },
+    { messages: [
+      { direction: 'inbound', content: 'Pagamento pix', createdAt: '2026-10-14T15:46:00Z' },
+      { direction: 'outbound', content: 'Os sabores disponíveis são...', createdAt: '2026-10-14T15:48:00Z' },
+      { direction: 'inbound', content: 'Me manda a chave Pix pfv', createdAt: '2026-10-14T15:49:00Z' },
+    ] } as any,
+  );
+  assert(pixRequest.code === null && pixRequest.tentativeCode === 'CRM-RES-018'
+    && pixRequest.confidence <= 0.5, 'C3: solicitar chave Pix não prova pagamento já aguardado.');
+
+  const informedNotConfirmed = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-020', label: 'Pagamento confirmado', confidence: 1,
+      reason: 'Cliente disse que pagou.', evidenceQuotes: ['Já fiz o pix'] },
+    { messages: [{ direction: 'inbound', content: 'Já fiz o pix', createdAt: '2026-10-14T15:50:00Z' }] } as any,
+  );
+  assert(informedNotConfirmed.code === null && informedNotConfirmed.tentativeCode === 'CRM-RES-020',
+    'C3: mensagem de pagamento informado não prova confirmação financeira.');
+
+  const specificNeed = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-001', label: 'Interesse demonstrado', confidence: 0.94,
+      reason: 'Solicitou valores para comprar.', evidenceQuotes: ['Quero 50 trufas de 30g'] },
+    { messages: [{ direction: 'inbound', content: 'Quero 50 trufas de 30g, quanto fica?', createdAt: '2026-10-14T15:38:00Z' }] } as any,
+  );
+  assert(specificNeed.code === 'CRM-RES-001' && specificNeed.confidence === 0.94,
+    'C3: interesse comercial explícito não deve perder classificação.');
+
+  const paymentInformed = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-019', label: 'Pagamento informado', confidence: 0.84,
+      reason: 'Cliente declarou pagamento.', evidenceQuotes: ['Fiz o pix'] },
+    { messages: [{ direction: 'inbound', content: 'Fiz o pix agora', createdAt: '2026-10-14T16:02:00Z' }] } as any,
+  );
+  assert(paymentInformed.code === 'CRM-RES-019',
+    'C3: pagamento informado preserva significado sem se tornar confirmado.');
+
+  const outboundLast = guardCrmResultFactualCoherence(
+    { code: 'CRM-RES-001', label: 'Interesse demonstrado', confidence: 0.91,
+      reason: 'Histórico.', evidenceQuotes: ['Quero trufas'] },
+    { messages: [
+      { direction: 'inbound', content: 'Quero trufas', createdAt: '2026-10-14T15:40:00Z' },
+      { direction: 'outbound', content: 'Pode informar a quantidade?', createdAt: '2026-10-14T15:41:00Z' },
+    ] } as any,
+  );
+  assert(outboundLast.code === null, 'C3: depois do outbound não inventar novo Resultado.');
+
+  const turnContext = (turn: string) => ({
+    messages: [{ direction: 'inbound', content: turn, createdAt: '2026-10-14T18:45:00Z' }],
+  }) as any;
+  const endToEndGreeting = await suggestCrmResultFromContext(
+    turnContext('Oii'),
+    async () => ({ suggested_result_code: 'CRM-RES-001', confidence: 0.93, reason: 'Retomada pelo histórico.', evidence_quotes: ['Oii'] }),
+  );
+  assert(endToEndGreeting.code === null && endToEndGreeting.tentativeCode === 'CRM-RES-001',
+    'C3 integração: hipótese sem evidência não deve dirigir Próxima Ação.');
+  const endToEndPix = await suggestCrmResultFromContext(
+    turnContext('Pagamento pix'),
+    async () => ({ suggested_result_code: 'CRM-RES-018', confidence: 0.97, reason: 'Vai pagar.', evidence_quotes: ['Pagamento pix'] }),
+  );
+  assert(endToEndPix.code === null && endToEndPix.tentativeCode === 'CRM-RES-018',
+    'C3 integração: escolha do método Pix ainda não prova pagamento aguardado.');
+  const endToEndInterest = await suggestCrmResultFromContext(
+    turnContext('Quero 50 trufas de 30g e saber o frete'),
+    async () => ({ suggested_result_code: 'CRM-RES-001', confidence: 0.92, reason: 'Interesse explícito.', evidence_quotes: ['Quero 50 trufas de 30g'] }),
+  );
+  assert(endToEndInterest.code === 'CRM-RES-001',
+    'C3 integração: pedido explícito mantém Resultado acionável.');
 
   // Fluxo completo com invoke simulado
   const suggestion = await suggestCrmResult('c1', 'conv1', {

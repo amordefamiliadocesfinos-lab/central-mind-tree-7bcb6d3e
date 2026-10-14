@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { buildCrmAiContext, buildCrmAiRequestContext, isCrmAiPerformanceLoggingEnabled, type CrmAiContext, type CrmAiContextSources } from './aiContext';
 import { getCanonicalResult } from './canonical/results';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
+import { isCrmPixKeyRequest } from './aiReplySuggestion';
 
 /**
  * Limiar operacional já usado pela decisão de comunicação para marcar
@@ -97,6 +98,90 @@ function operationalDateKey(value: string | null | undefined): string | null {
   const month = parts.find(part => part.type === 'month')?.value;
   const day = parts.find(part => part.type === 'day')?.value;
   return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+
+/**
+ * C3 — A confiança do modelo nunca supera o fato observado.
+ * Uma hipótese permanece visível para o operador, mas deixa de dirigir a
+ * transição canônica. Este leitor não cria Resultado nem altera a Inbox.
+ */
+function toCrmResultHypothesis(suggestion: CrmResultSuggestion, reason: string): CrmResultSuggestion {
+  if (!suggestion.code) return suggestion;
+  return {
+    ...suggestion,
+    code: null,
+    label: null,
+    tentativeCode: suggestion.code,
+    tentativeLabel: suggestion.label,
+    confidence: Math.min(suggestion.confidence, 0.5),
+    reason,
+    evidenceQuotes: [],
+  };
+}
+
+function latestUnansweredInboundBlock(messages: CrmAiContext['messages']): string[] {
+  if (!messages?.length || messages[messages.length - 1]?.direction !== 'inbound') return [];
+  const pending: string[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.direction === 'outbound') break;
+    if (message.direction === 'inbound') {
+      const content = normalizedMessageText(message.content);
+      if (content) pending.unshift(content);
+    }
+  }
+  return pending;
+}
+
+function plainCrmText(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+const ONLY_GREETING = /^(?:oi+e?|ola+|opa|e ai|bom dia|boa tarde|boa noite|tudo bem|oi+e? tudo bem|ola+ tudo bem)[!?.,\s]*$/;
+const PAYMENT_REPORTED = /\b(?:ja fiz (?:o )?pix|fiz (?:o )?pix|ja paguei|paguei|efetuei (?:o )?pagamento|transferi|enviei (?:o )?comprovante|pix (?:feito|enviado)|pagamento (?:feito|realizado))\b/;
+
+/**
+ * C3 — reforço determinístico sobre o Resultado sugerido.
+ * Histórico/memória podem orientar uma investigação, mas não transformar
+ * saudação ou pedido de chave em fato comercial novo/confirmado.
+ */
+export function guardCrmResultFactualCoherence(
+  suggestion: CrmResultSuggestion,
+  context: Pick<CrmAiContext, 'messages'>,
+): CrmResultSuggestion {
+  if (!suggestion.code || !context.messages?.length) return suggestion;
+  const pending = latestUnansweredInboundBlock(context.messages);
+  if (!pending.length) {
+    // Último ato foi do operador; não há nova fala do cliente para atribuir.
+    return toCrmResultHypothesis(suggestion,
+      'Sem nova manifestação do cliente após a resposta do operador. O histórico não comprova novo Resultado.');
+  }
+  const current = plainCrmText(pending.join(' ')).replace(/\s+/g, ' ');
+  if (ONLY_GREETING.test(current)) {
+    return toCrmResultHypothesis(suggestion,
+      'Saudação isolada não comprova interesse, proposta aceita ou outra decisão comercial. Qualifique o motivo do contato.');
+  }
+
+  const lastInbound = plainCrmText(pending[pending.length - 1] ?? '');
+  const choosingPixMethod = /^(?:pagamento\s*(?:por|no)?\s*pix|pix)[!?.,\s]*$/.test(lastInbound);
+  if ((isCrmPixKeyRequest(context.messages) || choosingPixMethod)
+      && ['CRM-RES-018', 'CRM-RES-019', 'CRM-RES-020'].includes(suggestion.code)) {
+    return toCrmResultHypothesis(suggestion,
+      'Solicitar a chave Pix não comprova pagamento pendente já orientado, pagamento informado ou pagamento confirmado. Primeiro confira e encaminhe os dados oficiais.');
+  }
+
+  if (suggestion.code === 'CRM-RES-018' && PAYMENT_REPORTED.test(current)) {
+    return toCrmResultHypothesis(suggestion,
+      'O cliente declarou que pagou; Aguardando pagamento não representa essa informação. Confira o pagamento antes de classificar.');
+  }
+
+  if (suggestion.code === 'CRM-RES-020' && PAYMENT_REPORTED.test(current)) {
+    return toCrmResultHypothesis(suggestion,
+      'Cliente informou que pagou, mas uma declaração ou comprovante enviado não confirma compensação. Confira a fonte financeira antes de registrar Pagamento confirmado.');
+  }
+
+  return suggestion;
 }
 
 /**
@@ -190,7 +275,7 @@ export async function suggestCrmResultFromContext(
   const raw = await invoke(context);
   if (raw?.error) throw new Error(String(raw.error));
   const normalized = normalizeSuggestionTemporalReason(normalizeSuggestionResponse(raw), context);
-  return guardShortConfirmationStrongResult(normalized, context);
+  return guardCrmResultFactualCoherence(guardShortConfirmationStrongResult(normalized, context), context);
 }
 
 export async function suggestCrmResult(
