@@ -198,7 +198,114 @@ BEGIN
     OR (SELECT count(*) FROM public.order_separation WHERE order_id = v_order_id AND separation_status = 'todo') <> 1 THEN
     RAISE EXCEPTION 'F6-I duplicate items or separation created';
   END IF;
-END $$;
+END $;
+
+DO $alfajor_money$
+DECLARE
+  v_order_number text := 'F6I-VALIDATION-ALFAJOR-261014';
+  v_channel_account_id uuid := '8a8ad166-0317-4597-8be6-e43fb46b4d1b';
+  v_product_id uuid := '62cf9f63-be04-4261-ad11-569028dd1125';
+  v_white uuid := 'd89e1dba-ca80-4136-b9f3-225fb80b6dfb';
+  v_dark uuid := 'e4d756c8-f324-4ac0-b9ff-6adae24f5310';
+  v_result jsonb;
+  v_order_id uuid;
+  v_stored_total numeric;
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.orders
+    WHERE channel = 'shopee'
+      AND channel_account_id = v_channel_account_id
+      AND order_number = v_order_number
+  ) THEN
+    RAISE EXCEPTION 'F6-I alfajor validation identity already exists';
+  END IF;
+
+  v_result := public.create_shopee_api_order(
+    jsonb_build_object(
+      'channel_account_id', v_channel_account_id,
+      'marketplace_account', 'SHOPEE VIVIANE',
+      'order_number', v_order_number,
+      'order_date', '2026-10-14',
+      'total_value', 40.42,
+      'payment_method', 'Pix',
+      'external_status', 'READY_TO_SHIP'
+    ),
+    jsonb_build_array(
+      jsonb_build_object(
+        'product_id', v_product_id,
+        'variant_id', v_white,
+        'quantity', 6,
+        'commercial_quantity', 2,
+        'physical_multiplier', 3,
+        'unit_price', 20.21,
+        'external_item_key', 'code:SH-002-015|variation:',
+        'item_id', '23298665306',
+        'model_id', '0',
+        'mapping_id', '11111111-1111-4111-8111-111111111111',
+        'composition_position', 0
+      ),
+      jsonb_build_object(
+        'product_id', v_product_id,
+        'variant_id', v_dark,
+        'quantity', 6,
+        'commercial_quantity', 2,
+        'physical_multiplier', 3,
+        'unit_price', 0,
+        'external_item_key', 'code:SH-002-015|variation:',
+        'item_id', '23298665306',
+        'model_id', '0',
+        'mapping_id', '11111111-1111-4111-8111-111111111111',
+        'composition_position', 1
+      )
+    )
+  );
+
+  v_order_id := (v_result->>'order_id')::uuid;
+
+  SELECT sum(quantity::numeric * unit_price)
+    INTO v_stored_total
+  FROM public.order_items
+  WHERE order_id = v_order_id;
+
+  IF round(v_stored_total, 2) <> 40.42 THEN
+    RAISE EXCEPTION 'F6-I alfajor monetary reconciliation mismatch: %', v_stored_total;
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM public.order_items
+    WHERE order_id = v_order_id
+      AND commercial_presentation_id IS NULL
+      AND commercial_presentation_name IS NULL
+      AND commercial_unit_label IS NULL
+      AND commercial_conversion_factor IS NULL
+      AND commercial_quantity IS NULL
+      AND physical_unit_label IS NULL
+  ) <> 2 THEN
+    RAISE EXCEPTION 'F6-I alfajor commercial snapshot must remain null';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.order_items
+    WHERE order_id = v_order_id
+      AND variant_id = v_white
+      AND quantity = 6
+      AND unit_price = 6.7366666667
+  ) THEN
+    RAISE EXCEPTION 'F6-I alfajor physical unit price precision mismatch';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.order_items
+    WHERE order_id = v_order_id
+      AND variant_id = v_dark
+      AND quantity = 6
+      AND unit_price = 0
+  ) THEN
+    RAISE EXCEPTION 'F6-I alfajor secondary composition line must keep zero price';
+  END IF;
+END;
+$alfajor_money$;
 
 DO $isolation$
 DECLARE v_row record; v_count bigint; v_hash text;
