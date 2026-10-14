@@ -59,3 +59,127 @@ test('authorized Shopee Live OAuth paths are delegated without exposing new gene
   assert.equal(response.status, 302);
   assert.equal(response.headers.Location, 'https://partner.shopeemobile.com/');
 });
+
+
+test('private Shopee intake preview route is POST-only and hard-wires preview mode', async () => {
+  let observed;
+  const response = await handleRequest(
+    {
+      method: 'POST',
+      path: '/internal/shopee/live/orders/intake/preview',
+      query: {},
+      headers: {},
+    },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => name === 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID' ? 'account-123' : undefined,
+      runShopeePreview: async (input) => {
+        observed = input;
+        return {
+          ok: true,
+          marketplaceAccount: 'SHOPEE VIVIANE',
+          selected: 2,
+          ready: 2,
+          blocked: 0,
+          written: 0,
+          sourceCounts: {
+            selected: 2,
+            skipped_existing: 1,
+            skipped_status: 0,
+            skipped_malformed: 0,
+          },
+          results: [
+            { orderSn: 'A', status: 'ready', blockers: [], write: { forbidden: true } },
+            { orderSn: 'B', status: 'ready', blockers: [], write: null },
+          ],
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observed, {
+    channelAccountId: 'account-123',
+    limit: 5,
+    mode: 'preview',
+  });
+  assert.deepEqual(JSON.parse(response.body), {
+    status: 'ok',
+    mode: 'preview',
+    marketplaceAccount: 'SHOPEE VIVIANE',
+    selected: 2,
+    ready: 2,
+    blocked: 0,
+    written: 0,
+    sourceCounts: {
+      selected: 2,
+      skipped_existing: 1,
+      skipped_status: 0,
+      skipped_malformed: 0,
+    },
+    results: [
+      { orderSn: 'A', status: 'ready', blockers: [] },
+      { orderSn: 'B', status: 'ready', blockers: [] },
+    ],
+  });
+
+  const getResponse = await handleRequest(
+    { method: 'GET', path: '/internal/shopee/live/orders/intake/preview', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => 'account-123',
+      runShopeePreview: async () => {
+        throw new Error('must not run');
+      },
+    },
+  );
+  assert.equal(getResponse.status, 405);
+});
+
+test('private Shopee intake preview route fails closed when runtime account is missing', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/preview', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => undefined,
+      runShopeePreview: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), { error: 'runtime_not_configured' });
+  assert.equal(calls, 0);
+});
+
+test('private Shopee intake preview route sanitizes failures and never exposes writer payloads', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/preview', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => 'account-123',
+      runShopeePreview: async () => ({
+        ok: false,
+        selected: 3,
+        ready: 0,
+        blocked: 3,
+        written: 9,
+        payload: { secret: 'forbidden' },
+      }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: 'degraded',
+    mode: 'preview',
+    selected: 3,
+    ready: 0,
+    blocked: 3,
+    written: 0,
+    results: [],
+  });
+});
