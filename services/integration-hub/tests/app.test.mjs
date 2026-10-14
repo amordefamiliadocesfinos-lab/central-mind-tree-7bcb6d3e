@@ -183,3 +183,181 @@ test('private Shopee intake preview route sanitizes failures and never exposes w
     results: [],
   });
 });
+
+
+test('F6-K commit-one route is disabled unless all server-side guards are present', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/commit-one', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => {
+        if (name === 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') return 'account-123';
+        if (name === 'SHOPEE_LIVE_COMMIT_ORDER_SN') return 'ORDER-1';
+        return undefined;
+      },
+      runShopeeCommit: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), { error: 'commit_not_enabled' });
+  assert.equal(calls, 0);
+});
+
+test('F6-K commit-one route hard-wires one exact server-side target and commit mode', async () => {
+  let observed;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/commit-one', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_COMMIT_ORDER_SN: 'ORDER-1',
+        SHOPEE_LIVE_COMMIT_ENABLED: 'true',
+      })[name],
+      runShopeeCommit: async (input) => {
+        observed = input;
+        return {
+          ok: true,
+          selected: 1,
+          ready: 1,
+          blocked: 0,
+          written: 1,
+          results: [{
+            orderSn: 'ORDER-1',
+            status: 'written',
+            blockers: [],
+            write: {
+              alreadyRegistered: false,
+              orderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              separationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+              forbidden: 'do-not-forward',
+            },
+          }],
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observed, {
+    channelAccountId: 'account-123',
+    limit: 5,
+    mode: 'commit',
+    expectedOrderSn: 'ORDER-1',
+  });
+  assert.deepEqual(JSON.parse(response.body), {
+    status: 'ok',
+    mode: 'commit',
+    targetOrderSn: 'ORDER-1',
+    selected: 1,
+    ready: 1,
+    blocked: 0,
+    written: 1,
+    result: {
+      orderSn: 'ORDER-1',
+      status: 'written',
+      alreadyRegistered: false,
+      orderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      separationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    },
+  });
+});
+
+test('F6-K commit-one route rejects query controls before executor runs', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    {
+      method: 'POST',
+      path: '/internal/shopee/live/orders/intake/commit-one',
+      query: { orderSn: 'attacker-controlled' },
+      headers: {},
+    },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => 'true',
+      runShopeeCommit: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(JSON.parse(response.body), { error: 'query_not_allowed' });
+  assert.equal(calls, 0);
+});
+
+test('F6-K commit-one route fails closed when executor returns the wrong target or shape', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/commit-one', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_COMMIT_ORDER_SN: 'ORDER-1',
+        SHOPEE_LIVE_COMMIT_ENABLED: 'true',
+      })[name],
+      runShopeeCommit: async () => ({
+        ok: true,
+        selected: 1,
+        ready: 1,
+        blocked: 0,
+        written: 1,
+        results: [{
+          orderSn: 'ORDER-2',
+          status: 'written',
+          blockers: [],
+          write: { alreadyRegistered: false },
+        }],
+      }),
+    },
+  );
+
+  assert.equal(response.status, 409);
+  const body = JSON.parse(response.body);
+  assert.equal(body.status, 'blocked');
+  assert.equal(body.targetOrderSn, 'ORDER-1');
+  assert.equal(body.result.orderSn, 'ORDER-2');
+});
+
+test('F6-K commit-one route accepts idempotent already-registered replay with zero new writes', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/commit-one', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_COMMIT_ORDER_SN: 'ORDER-1',
+        SHOPEE_LIVE_COMMIT_ENABLED: 'TRUE',
+      })[name],
+      runShopeeCommit: async () => ({
+        ok: true,
+        selected: 1,
+        ready: 1,
+        blocked: 0,
+        written: 0,
+        results: [{
+          orderSn: 'ORDER-1',
+          status: 'already_registered',
+          blockers: [],
+          write: {
+            alreadyRegistered: true,
+            orderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            separationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          },
+        }],
+      }),
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const body = JSON.parse(response.body);
+  assert.equal(body.written, 0);
+  assert.equal(body.result.status, 'already_registered');
+  assert.equal(body.result.alreadyRegistered, true);
+});
