@@ -3,6 +3,7 @@ import { probeCoreBridge } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
+import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -31,6 +32,7 @@ export async function handleRequest(
     runShopeePreview = runShopeeControlledAutoIntake,
     runShopeeCommit = runShopeeControlledAutoIntake,
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
+    refreshShopeeOauth = refreshShopeeOauthOnce,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -42,6 +44,46 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  if (normalizedPath === '/internal/shopee/live/oauth/refresh-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+
+    const enabled = String(getEnv('SHOPEE_LIVE_OAUTH_REFRESH_ENABLED') ?? '')
+      .trim()
+      .toLowerCase() === 'true';
+    if (!enabled) return json(503, { error: 'oauth_refresh_not_enabled' });
+
+    try {
+      const result = await refreshShopeeOauth();
+      if (!result?.ok) {
+        return json(503, {
+          status: 'degraded',
+          mode: 'oauth_refresh_once',
+          code: result?.code ?? 'unknown_error',
+          shopee_status: Number(result?.shopee_status ?? 0) || null,
+          shopee_error: result?.shopee_error ?? null,
+          before: result?.before ?? null,
+        });
+      }
+
+      return json(200, {
+        status: 'ok',
+        mode: 'oauth_refresh_once',
+        code: result.code,
+        before: result.before ?? null,
+        after: result.after ?? null,
+      });
+    } catch {
+      return json(503, {
+        status: 'degraded',
+        mode: 'oauth_refresh_once',
+        code: 'runtime_exception',
+      });
+    }
+  }
 
   if (normalizedPath === '/internal/shopee/live/logistics/inspect') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
