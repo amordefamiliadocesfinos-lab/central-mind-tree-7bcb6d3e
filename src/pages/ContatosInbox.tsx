@@ -14,7 +14,7 @@ import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { MergeDuplicatesDialog } from '@/components/crm/MergeDuplicatesDialog';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Search, Zap, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Search, Zap, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useContactTags } from '@/hooks/useContactTags';
 import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
@@ -151,8 +151,20 @@ export default function ContatosInbox() {
   const actionRequestSequenceRef = useRef(0);
   // Em telas intermediárias a lateral funciona sob demanda; no desktop amplo já nasce aberta.
   const [leadPanelOpen, setLeadPanelOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
-  const [contextTab, setContextTab] = useState<'assistant' | 'lead'>('lead');
+  const [contextTab, setContextTab] = useState<'assistant' | 'lead' | 'action'>('lead');
   const [assistantPortalTarget, setAssistantPortalTarget] = useState<HTMLDivElement | null>(null);
+  const [actionPortalTarget, setActionPortalTarget] = useState<HTMLDivElement | null>(null);
+  const [activeActionMode, setActiveActionMode] = useState<'outcome' | 'snooze' | null>(null);
+  const [orientationExpanded, setOrientationExpanded] = useState(false);
+  const handleAttendanceModeChange = useCallback((mode: 'outcome' | 'snooze' | null) => {
+    setActiveActionMode(mode);
+    if (mode && !isMobile) {
+      setLeadPanelOpen(true);
+      setContextTab('action');
+    } else if (!mode) {
+      setContextTab(current => current === 'action' ? 'lead' : current);
+    }
+  }, [isMobile]);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
   const [tagFilter, setTagFilter] = useState<string>('all');
@@ -169,6 +181,8 @@ export default function ContatosInbox() {
     setReplyFocusRequest(null);
     setDetailTab('conversa');
     setContextTab('lead');
+    setActiveActionMode(null);
+    setOrientationExpanded(false);
     setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
@@ -1241,7 +1255,7 @@ export default function ContatosInbox() {
   };
 
   return (
-    <div className="h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden bg-background flex flex-col">
+    <div className="h-[calc(100dvh-var(--footer-effective-h,0px))] min-h-[560px] overflow-hidden bg-background flex flex-col">
       {/* Header */}
       <div className="z-30 shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-2 p-3">
@@ -1547,23 +1561,33 @@ export default function ContatosInbox() {
                   key={`${selectedOrientation.contactId}|${selectedOrientation.conversationId ?? ''}`}
                   aria-label="Orientação operacional do contato"
                   aria-live="polite"
-                  className="mx-3 mt-2 shrink-0 rounded-md border bg-muted/30 px-3 py-2 text-xs"
+                  className="mx-3 mt-1.5 shrink-0 rounded-md border bg-muted/30 px-2 py-1.5 text-xs"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                    <span className="font-medium">Orientação · {selectedOrientation.title}</span>
-                    <span className="text-muted-foreground">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="min-w-0 flex-1 truncate font-medium" title={selectedOrientation.title}>Orientação · {selectedOrientation.title}</span>
+                    <span className="shrink-0 text-muted-foreground">
                       {selectedOrientation.mode === 'action' ? 'Ação' : selectedOrientation.mode === 'verify' ? 'Conferir' : 'Aguardar'} · {selectedOrientation.priorityLevel} · {selectedOrientation.priorityLabel}
                       {selectedIsOutOfQueue ? ' · Fora da fila' : ''}
                     </span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1.5">
-                    <p className="min-w-0 flex-1 text-muted-foreground">{selectedOrientation.explanation}</p>
                     {orientationShortcut && (
-                      <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2 text-[10px]"
+                      <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2 text-[11px]"
                         onClick={prepareOrientationShortcut}>
                         {orientationShortcut.label}
                       </Button>
                     )}
+                    <Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-2 text-[11px]"
+                      onClick={() => setOrientationExpanded(value => !value)} aria-expanded={orientationExpanded}
+                      aria-label={orientationExpanded ? 'Ocultar detalhes da orientação' : 'Ver detalhes da orientação'}>
+                      {orientationExpanded ? 'Recolher' : 'Detalhes'} <ChevronDown className={cn('ml-1 h-3 w-3 transition-transform', orientationExpanded && 'rotate-180')} />
+                    </Button>
+                  </div>
+                  {selectedOrientation.handoffUnverified && !orientationExpanded && (
+                    <p className="mt-1 text-amber-700 dark:text-amber-300">Atenção: continuidade operacional ainda não verificada. Consulte os detalhes.</p>
+                  )}
+                  {orientationExpanded && (
+                    <>
+                  <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="min-w-0 flex-1 text-muted-foreground">{selectedOrientation.explanation}</p>
                   </div>
                   {(selectedOrientation.obligation || selectedOrientation.handoffUnverified || selectedOrientation.lastResultResponsibility) && (
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
@@ -1610,6 +1634,8 @@ export default function ContatosInbox() {
                         </div>
                       )}
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               )}
@@ -1693,7 +1719,7 @@ export default function ContatosInbox() {
                           Sem fato novo — retirar da prioridade
                         </Button>
                       )}
-                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selectedOrientation?.obligation?.title ?? selected.next_action_title ?? null} />
+                    <AttendanceActionBar busy={attendanceBusy} contextKey={`${selected.id}|${selected.conversation_id ?? ''}`} onOutcome={registerOutcome} onSnooze={snoozeSelected} presetResultCode={suggestedResultCode} openModeRequest={attendanceActionRequest} taskContextTitle={selectedOrientation?.obligation?.title ?? selected.next_action_title ?? null} formPortalTarget={!isMobile && leadPanelOpen ? actionPortalTarget : null} onModeChange={handleAttendanceModeChange} />
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
@@ -1718,11 +1744,13 @@ export default function ContatosInbox() {
               <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 p-0.5" role="group" aria-label="Conteúdo do painel contextual">
                 <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('assistant')} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
                 <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Detalhes do lead</Button>
+                {activeActionMode && <Button type="button" size="sm" variant={contextTab === 'action' ? 'secondary' : 'ghost'} className="h-8 px-2 text-xs" onClick={() => setContextTab('action')} aria-pressed={contextTab === 'action'}>Ação</Button>}
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setLeadPanelOpen(false)} aria-label="Fechar painel contextual" title="Ocultar painel"><X className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => setLeadPanelOpen(false)} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {/* Target estável: alternar a visualização não desmonta a análise do Assistente. */}
+              <div ref={setActionPortalTarget} className={cn('space-y-2 p-3', contextTab !== 'action' && 'hidden')} role="region" aria-label="Ação de atendimento" />
               <div ref={setAssistantPortalTarget} className={cn('space-y-2 p-3', contextTab !== 'assistant' && 'hidden')} role="region" aria-label="Assistente CRM">
                 <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
               </div>
