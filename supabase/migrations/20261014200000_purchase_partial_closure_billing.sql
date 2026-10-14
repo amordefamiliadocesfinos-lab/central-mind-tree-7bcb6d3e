@@ -77,12 +77,10 @@ BEGIN
   FROM public.purchase_order_items
   WHERE purchase_order_id = p_purchase_order_id;
 
-  SELECT effective_amount INTO v_total FROM public.purchase_final_closures
-  WHERE purchase_order_id = p_purchase_order_id AND effective_amount > 0
-  UNION ALL SELECT v_total WHERE NOT EXISTS (
-    SELECT 1 FROM public.purchase_final_closures WHERE purchase_order_id = p_purchase_order_id
-  )
-  LIMIT 1;
+  IF EXISTS (SELECT 1 FROM public.purchase_final_closures WHERE purchase_order_id = p_purchase_order_id) THEN
+    SELECT effective_amount INTO v_total FROM public.purchase_final_closures
+    WHERE purchase_order_id = p_purchase_order_id;
+  END IF;
 
   IF v_total <= 0 THEN
     RAISE EXCEPTION 'O total comercial da compra deve ser maior que zero.';
