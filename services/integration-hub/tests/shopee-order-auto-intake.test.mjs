@@ -242,3 +242,115 @@ test('contract keeps selection server-controlled and commit opt-in', () => {
     'order_separation',
   ]);
 });
+
+
+test('exact target commit processes only the pinned order from a broader server batch', async () => {
+  const target = '261014HRQJ4QHT';
+  const other = '261013HKHWK3V7';
+  const payload = batchPayload({
+    snapshots: [snapshot(other), snapshot(target)],
+    counts: { selected: 2, skipped_existing: 1, skipped_status: 0, skipped_malformed: 0 },
+  });
+  const writtenOrders = [];
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, status: 200, payload }),
+    persistOrder: async (contract) => {
+      writtenOrders.push(contract.order.orderNumber);
+      return {
+        ok: true,
+        status: 200,
+        payload: {
+          order_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          separation_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          already_registered: false,
+        },
+      };
+    },
+  });
+
+  const result = await run({
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    limit: 5,
+    mode: 'commit',
+    expectedOrderSn: target,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selected, 1);
+  assert.equal(result.ready, 1);
+  assert.equal(result.blocked, 0);
+  assert.equal(result.written, 1);
+  assert.deepEqual(writtenOrders, [target]);
+  assert.equal(result.results[0].orderSn, target);
+  assert.equal(result.results[0].status, 'written');
+});
+
+test('exact target commit fails closed when the pinned order is not in the server batch', async () => {
+  let writes = 0;
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, status: 200, payload: batchPayload() }),
+    persistOrder: async () => {
+      writes += 1;
+      return { ok: true, status: 200, payload: {} };
+    },
+  });
+
+  const result = await run({
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    mode: 'commit',
+    expectedOrderSn: 'NOT-IN-BATCH',
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'expected_order_unavailable');
+  assert.equal(result.selected, 0);
+  assert.equal(result.written, 0);
+  assert.equal(writes, 0);
+});
+
+test('idempotent already-registered result is successful but does not count as a new write', async () => {
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, status: 200, payload: batchPayload() }),
+    persistOrder: async () => ({
+      ok: true,
+      status: 200,
+      payload: {
+        order_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        separation_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        already_registered: true,
+      },
+    }),
+  });
+
+  const result = await run({
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    mode: 'commit',
+    expectedOrderSn: '261014HRQJ4QHT',
+  });
+
+  assert.equal(result.ready, 1);
+  assert.equal(result.written, 0);
+  assert.equal(result.results[0].status, 'already_registered');
+  assert.equal(result.results[0].write.alreadyRegistered, true);
+});
+
+test('writer exception is classified as write_failed and not as pipeline exception', async () => {
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, status: 200, payload: batchPayload() }),
+    persistOrder: async () => {
+      throw new Error('synthetic writer outage');
+    },
+  });
+
+  const result = await run({
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    mode: 'commit',
+    expectedOrderSn: '261014HRQJ4QHT',
+  });
+
+  assert.equal(result.ready, 1);
+  assert.equal(result.blocked, 0);
+  assert.equal(result.written, 0);
+  assert.equal(result.results[0].status, 'write_failed');
+  assert.deepEqual(result.results[0].blockers, ['writer_exception']);
+});

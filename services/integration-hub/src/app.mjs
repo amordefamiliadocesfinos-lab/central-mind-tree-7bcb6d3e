@@ -23,6 +23,7 @@ export async function handleRequest(
     probeCore = probeCoreBridge,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
+    runShopeeCommit = runShopeeControlledAutoIntake,
     getEnv = (name) => process.env[name],
   } = {},
 ) {
@@ -31,6 +32,86 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  if (normalizedPath === '/internal/shopee/live/orders/intake/commit-one') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+
+    const channelAccountId = String(getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') ?? '').trim();
+    const expectedOrderSn = String(getEnv('SHOPEE_LIVE_COMMIT_ORDER_SN') ?? '').trim();
+    const commitEnabled = String(getEnv('SHOPEE_LIVE_COMMIT_ENABLED') ?? '').trim().toLowerCase() === 'true';
+
+    if (!channelAccountId || !expectedOrderSn || !commitEnabled) {
+      return json(503, { error: 'commit_not_enabled' });
+    }
+
+    try {
+      const result = await runShopeeCommit({
+        channelAccountId,
+        limit: 5,
+        mode: 'commit',
+        expectedOrderSn,
+      });
+
+      const entry = Array.isArray(result?.results) ? result.results[0] : null;
+      const acceptableStatus = entry?.status === 'written' || entry?.status === 'already_registered';
+      const exactTarget = entry?.orderSn === expectedOrderSn;
+
+      if (!result?.ok
+        || Number(result.selected ?? 0) !== 1
+        || Number(result.ready ?? 0) !== 1
+        || Number(result.blocked ?? 0) !== 0
+        || !entry
+        || !acceptableStatus
+        || !exactTarget) {
+        return json(409, {
+          status: 'blocked',
+          mode: 'commit',
+          targetOrderSn: expectedOrderSn,
+          selected: Number(result?.selected ?? 0),
+          ready: Number(result?.ready ?? 0),
+          blocked: Number(result?.blocked ?? 0),
+          written: Number(result?.written ?? 0),
+          result: entry
+            ? {
+              orderSn: entry.orderSn ?? null,
+              status: entry.status ?? null,
+              blockers: Array.isArray(entry.blockers) ? entry.blockers : [],
+            }
+            : null,
+        });
+      }
+
+      return json(200, {
+        status: 'ok',
+        mode: 'commit',
+        targetOrderSn: expectedOrderSn,
+        selected: 1,
+        ready: 1,
+        blocked: 0,
+        written: Number(result.written ?? 0),
+        result: {
+          orderSn: entry.orderSn,
+          status: entry.status,
+          alreadyRegistered: entry?.write?.alreadyRegistered === true,
+          orderId: typeof entry?.write?.orderId === 'string' ? entry.write.orderId : null,
+          separationId: typeof entry?.write?.separationId === 'string' ? entry.write.separationId : null,
+        },
+      });
+    } catch {
+      return json(503, {
+        status: 'degraded',
+        mode: 'commit',
+        selected: 0,
+        ready: 0,
+        blocked: 0,
+        written: 0,
+        result: null,
+      });
+    }
+  }
 
   if (normalizedPath === '/internal/shopee/live/orders/intake/preview') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });

@@ -25,6 +25,7 @@ export function createShopeeControlledAutoIntake({
     channelAccountId,
     limit = 5,
     mode = 'preview',
+    expectedOrderSn = null,
   } = {}) {
     if (typeof channelAccountId !== 'string' || channelAccountId.trim() === '') {
       throw new TypeError('channelAccountId is required');
@@ -33,6 +34,12 @@ export function createShopeeControlledAutoIntake({
       throw new TypeError('limit must be an integer between 1 and 20');
     }
     if (!MODES.has(mode)) throw new TypeError('mode must be preview or commit');
+    if (expectedOrderSn !== null
+      && (typeof expectedOrderSn !== 'string'
+        || expectedOrderSn.trim() === ''
+        || expectedOrderSn.trim().length > 300)) {
+      throw new TypeError('expectedOrderSn must be null or a non-empty string up to 300 chars');
+    }
 
     const batch = await readBatch({
       channel_account_id: channelAccountId.trim(),
@@ -84,12 +91,34 @@ export function createShopeeControlledAutoIntake({
       };
     }
 
+    const exactOrderSn = expectedOrderSn === null ? null : expectedOrderSn.trim();
+    const selectedSnapshots = exactOrderSn === null
+      ? payload.snapshots
+      : payload.snapshots.filter((snapshot) => snapshot?.external_entity_id === exactOrderSn);
+
+    if (exactOrderSn !== null && selectedSnapshots.length !== 1) {
+      return {
+        ok: false,
+        code: 'expected_order_unavailable',
+        status: batch?.status ?? null,
+        mode,
+        channelAccountId: channelAccountId.trim(),
+        marketplaceAccount,
+        selected: 0,
+        ready: 0,
+        blocked: 0,
+        written: 0,
+        sourceCounts: payload.counts ?? null,
+        results: [],
+      };
+    }
+
     const results = [];
     let ready = 0;
     let blocked = 0;
     let written = 0;
 
-    for (const snapshot of payload.snapshots) {
+    for (const snapshot of selectedSnapshots) {
       let orderSn = typeof snapshot?.external_entity_id === 'string'
         ? snapshot.external_entity_id
         : null;
@@ -144,7 +173,19 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
-        const persisted = await persistOrder(contract);
+        let persisted;
+        try {
+          persisted = await persistOrder(contract);
+        } catch {
+          results.push({
+            orderSn,
+            status: 'write_failed',
+            blockers: ['writer_exception'],
+            write: null,
+          });
+          continue;
+        }
+
         const safeWrite = sanitizeResult(persisted);
         if (!safeWrite.ok) {
           results.push({
@@ -156,7 +197,7 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
-        written += 1;
+        if (!safeWrite.alreadyRegistered) written += 1;
         results.push({
           orderSn,
           status: safeWrite.alreadyRegistered ? 'already_registered' : 'written',
@@ -179,7 +220,7 @@ export function createShopeeControlledAutoIntake({
       mode,
       channelAccountId: channelAccountId.trim(),
       marketplaceAccount,
-      selected: payload.snapshots.length,
+      selected: selectedSnapshots.length,
       ready,
       blocked,
       written,
@@ -196,6 +237,7 @@ export const SHOPEE_CONTROLLED_AUTO_INTAKE_CONTRACT = Object.freeze({
   commitRequiresExplicitMode: true,
   eligibleStatusesAreServerControlled: true,
   rawSelectionIsServerControlled: true,
+  exactCommitTargetSupported: true,
   writes: Object.freeze(['orders', 'order_items', 'order_separation']),
   prohibitedWrites: Object.freeze([
     'inventory',
