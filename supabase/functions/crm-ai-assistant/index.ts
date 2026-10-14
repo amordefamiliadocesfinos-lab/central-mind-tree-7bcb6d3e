@@ -1,4 +1,5 @@
 import { requiresLiveStockForReply } from '../_shared/crm/reply-live-stock.ts';
+import { hasUnverifiedFinancialIdentifier, requiresOfficialPixKnowledge } from '../_shared/crm/reply-financial-guard.ts';
 
 // FRENTE 4.2 — Inteligência Assistida CRM: sugestão de Resultado.
 // A função é SOMENTE LEITURA: recebe o CrmAiContext montado no frontend (F4.1),
@@ -312,7 +313,21 @@ async function handleReplyMode(body: any, apiKey: string) {
   // FAQ estável e diretamente aplicável vence memória interpretativa e qualquer
   // inferência do modelo. O helper pode combinar até três fatos explícitos da
   // mesma pergunta; fatos dinâmicos jamais chegam por esta via.
+  // C2: o chamador não pode apresentar chave Pix por FAQ fornecida no
+  // payload ou por inferência. A Inbox consulta a fonte oficial ativa.
+  if (lastIsInbound && requiresOfficialPixKnowledge(context?.messages)) {
+    return json({
+      suggested_reply: null,
+      reason: 'Chave Pix requer a entrada oficial ativa. Consulte-a na Inbox antes de responder.',
+      tone: null, intent: 'none', length: 'short',
+    });
+  }
   if (lastIsInbound && authoritativeKnowledgeAnswer) {
+    if (hasUnverifiedFinancialIdentifier(authoritativeKnowledgeAnswer)) {
+      return json({ suggested_reply: null,
+        reason: 'Identificador financeiro não pode ser obtido de FAQ fornecida pelo chamador.',
+        tone: null, intent: 'none', length: 'short' });
+    }
     return json({
       suggested_reply: authoritativeKnowledgeAnswer,
       reason: 'Resposta baseada em conhecimento estável aplicável.',
@@ -374,8 +389,8 @@ async function handleReplyMode(body: any, apiKey: string) {
   // como resposta comercial, mesmo quando chamado fora da Inbox.
   const financialPlaceholder = reply && /\b(?:pix|chave|cnpj)\b/i.test(reply)
     && (/\b0{2}\.0{3}\.0{3}\/0{4}-0{2}\b/.test(reply) || /\b0{11,14}\b/.test(reply));
-  if (financialPlaceholder) {
-    return json({ suggested_reply: null, reason: 'Chave Pix/CNPJ fictício bloqueado. Consulte a base oficial.', tone: null });
+  if (financialPlaceholder || hasUnverifiedFinancialIdentifier(reply)) {
+    return json({ suggested_reply: null, reason: 'Identificador financeiro não verificado bloqueado. Consulte a fonte oficial.', tone: null });
   }
   const reason = typeof parsed?.reason === "string" && parsed.reason.trim()
     ? parsed.reason.trim().slice(0, 280)
