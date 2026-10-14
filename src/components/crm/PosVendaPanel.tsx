@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
-import { useContacts, Contact } from '@/hooks/useContacts';
+import { useContacts, type Contact } from '@/hooks/useContacts';
+import { evaluatePostSalePanelOutreach } from '@/lib/crm/postSalePanelOutreach';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +31,15 @@ const TEMPLATES = {
   satisfacao: (name: string) =>
     `Oi ${name.split(' ')[0] || ''}! 😊 Tudo bem? Aqui é da equipe — queremos saber: como foi sua experiência com a sua última compra? Sua opinião nos ajuda muito a melhorar! ⭐`,
   recompra: (name: string) =>
-    `Oi ${name.split(' ')[0] || ''}! 👋 Faz um tempinho que não falamos. Preparamos uma condição especial pra você voltar a comprar com a gente. Posso te mandar as novidades?`,
+    `Oi ${name.split(' ')[0] || ''}! 👋 Tudo bem? Gostaria de saber se você precisa repor algum produto ou receber novidades da Amor de Família. Posso te contar?`,
   fidelizacao: (name: string) =>
-    `Oi ${name.split(' ')[0] || ''}! 💎 Você é um cliente especial pra gente. Quero te apresentar nosso programa de fidelidade com vantagens exclusivas. Posso te explicar?`,
+    `Oi ${name.split(' ')[0] || ''}! 💎 Obrigado por comprar com a Amor de Família! Gostaria de saber como podemos te atender melhor e compartilhar nossas novidades. Posso te enviar?`,
 };
 
 export function PosVendaPanel({ open, onOpenChange }: Props) {
-  const { contacts, fetchContacts } = useContacts();
+  const { contacts } = useContacts();
+  const navigate = useNavigate();
+  const [preparingContactId, setPreparingContactId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [bucket, setBucket] = useState<BucketKey>('30');
   const [historyContact, setHistoryContact] = useState<Contact | null>(null);
@@ -86,27 +90,64 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
     );
   }, [buckets, bucket, search]);
 
-  const prepareMessage = (c: Contact, type: 'satisfacao' | 'recompra' | 'fidelizacao') => {
-    const phone = c.whatsapp || c.phone || c.mobile;
-    if (!phone) {
-      toast.error('Contato sem telefone/WhatsApp');
-      return;
+  const prepareMessage = async (c: Contact, type: 'satisfacao' | 'recompra' | 'fidelizacao') => {
+    if (preparingContactId) return;
+    setPreparingContactId(c.id);
+    try {
+      // Mesmo rascunho externo exige opt-out ATUAL e ausência de pendência na Inbox.
+      // Não usamos o snapshot em lista como autorização.
+      const [{ data: freshContact, error: contactError }, { data: conversations, error: conversationError }] = await Promise.all([
+        supabase.from('contacts').select('id,is_active,commercial_opt_out').eq('id', c.id).maybeSingle(),
+        supabase.from('service_conversations')
+          .select('status,attendance_state,needs_reply,last_inbound_at,last_outbound_at')
+          .eq('contact_id', c.id)
+          .eq('status', 'open')
+          .limit(100),
+      ]);
+      if (contactError || conversationError) {
+        toast.error('Não foi possível verificar as restrições do contato. Tente novamente ou abra a Inbox.');
+        return;
+      }
+      const decision = evaluatePostSalePanelOutreach(
+        freshContact ? {
+          isActive: freshContact.is_active === true,
+          commercialOptOut: freshContact.commercial_opt_out === true,
+        } : null,
+        (conversations ?? []).map(conversation => ({
+          status: conversation.status ?? null,
+          attendanceState: conversation.attendance_state ?? null,
+          needsReply: conversation.needs_reply === true,
+          lastInboundAt: conversation.last_inbound_at ?? null,
+          lastOutboundAt: conversation.last_outbound_at ?? null,
+        })),
+      );
+      if (!decision.allowed) {
+        toast.message(decision.reason);
+        return;
+      }
+      const phone = c.whatsapp || c.phone || c.mobile;
+      if (!phone) {
+        toast.error('Contato sem telefone/WhatsApp');
+        return;
+      }
+      const status = prepareExternalWhatsAppDraft(phone, TEMPLATES[type](c.name || ''), openWhatsApp);
+      if (status === 'blocked') {
+        toast.error('Não foi possível abrir o WhatsApp. Confira o telefone e os pop-ups.');
+        return;
+      }
+      // Abrir um rascunho externo não comprova envio nem entrega.
+      // Não registra Resultado, reativação, pesquisa respondida ou campanha enviada.
+      toast.message('Rascunho aberto no WhatsApp. Revise e envie por lá; envio não confirmado no CRM.');
+    } catch {
+      toast.error('Não foi possível verificar a segurança da abordagem. Abra a Inbox do contato.');
+    } finally {
+      setPreparingContactId(null);
     }
-    const msg = TEMPLATES[type](c.name || '');
-    const status = prepareExternalWhatsAppDraft(phone, msg, openWhatsApp);
-    if (status === 'blocked') {
-      toast.error('Não foi possível abrir o WhatsApp. Confira o telefone e os pop-ups.');
-      return;
-    }
-    // Abrir um rascunho externo não comprova envio nem entrega.
-    // Não registrar "survey_sent"/reativação como fato realizado.
-    toast.message('Mensagem preparada no WhatsApp. Revise e envie por lá; envio não confirmado no CRM.');
   };
 
-  const markAsPosVenda = async (c: Contact) => {
-    await supabase.from('contacts').update({ funnel_status: 'pos_venda' as any }).eq('id', c.id);
-    toast.success(`${c.name} movido para Pós-Venda`);
-    fetchContacts();
+  const openInInbox = (c: Contact) => {
+    onOpenChange(false);
+    navigate(`/contatos/inbox?contact=${encodeURIComponent(c.id)}&attend=1`);
   };
 
   const renderContact = (c: Contact) => {
@@ -136,23 +177,21 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-3">
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'satisfacao')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" disabled={preparingContactId !== null} onClick={() => void prepareMessage(c, 'satisfacao')}>
             <Star className="h-3.5 w-3.5 text-amber-500" />Satisfação
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'recompra')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" disabled={preparingContactId !== null} onClick={() => void prepareMessage(c, 'recompra')}>
             <RotateCcw className="h-3.5 w-3.5 text-blue-600" />Recompra
           </Button>
-          <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => prepareMessage(c, 'fidelizacao')}>
+          <Button size="sm" variant="outline" className="gap-1 h-7" disabled={preparingContactId !== null} onClick={() => void prepareMessage(c, 'fidelizacao')}>
             <Gift className="h-3.5 w-3.5 text-pink-600" />Fidelizar
           </Button>
           <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => setHistoryContact(c)}>
             <History className="h-3.5 w-3.5" />Histórico
           </Button>
-          {c.funnel_status !== 'pos_venda' && (
-            <Button size="sm" variant="ghost" className="gap-1 h-7 text-pink-700" onClick={() => markAsPosVenda(c)}>
-              <Heart className="h-3.5 w-3.5" />Mover p/ Pós-Venda
-            </Button>
-          )}
+          <Button size="sm" variant="ghost" className="gap-1 h-7 text-pink-700" onClick={() => openInInbox(c)}>
+            <MessageCircle className="h-3.5 w-3.5" />Atender na Inbox
+          </Button>
         </div>
       </Card>
     );
