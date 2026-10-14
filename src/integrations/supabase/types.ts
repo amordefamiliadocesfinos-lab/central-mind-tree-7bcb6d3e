@@ -1117,6 +1117,80 @@ export type Database = {
           },
         ]
       }
+      crm_campaign_recipient_reconciliations: {
+        Row: {
+          actor_app_user_id: string
+          actor_auth_user_id: string
+          after_status: string
+          before_status: string
+          campaign_id: string
+          evidence_delivery_status: string
+          evidence_snapshot: Json
+          id: string
+          provider_message_id: string
+          recipient_id: string
+          reconciled_at: string
+          service_message_id: string
+        }
+        Insert: {
+          actor_app_user_id: string
+          actor_auth_user_id: string
+          after_status: string
+          before_status: string
+          campaign_id: string
+          evidence_delivery_status: string
+          evidence_snapshot: Json
+          id?: string
+          provider_message_id: string
+          recipient_id: string
+          reconciled_at?: string
+          service_message_id: string
+        }
+        Update: {
+          actor_app_user_id?: string
+          actor_auth_user_id?: string
+          after_status?: string
+          before_status?: string
+          campaign_id?: string
+          evidence_delivery_status?: string
+          evidence_snapshot?: Json
+          id?: string
+          provider_message_id?: string
+          recipient_id?: string
+          reconciled_at?: string
+          service_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaign_recipient_reconciliations_actor_app_user_id_fkey"
+            columns: ["actor_app_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipient_reconciliations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "crm_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipient_reconciliations_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: true
+            referencedRelation: "crm_campaign_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipient_reconciliations_service_message_id_fkey"
+            columns: ["service_message_id"]
+            isOneToOne: false
+            referencedRelation: "service_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_campaign_recipients: {
         Row: {
           campaign_id: string
@@ -8338,6 +8412,10 @@ export type Database = {
       recalculate_purchase_order_receiving_status: {
         Args: { p_purchase_order_id: string }
         Returns: string
+      }
+      reconcile_crm_campaign_recipient: {
+        Args: { p_recipient_id: string; p_service_message_id: string }
+        Returns: Json
       }
       reconcile_marketplace_settlement: {
         Args: { p_entry_ids: string[]; p_payload: Json }
