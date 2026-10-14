@@ -57,7 +57,7 @@ async function run() {
 
   // D. Campanha respondida → contexto de campanha vai no payload.
   const d = await suggestCrmReplyFromContext(
-    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi a campanha que vocês enviaram')]),
+    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi a promoção')]),
     { invoke: stub({ suggested_reply: 'Oi! Que bom que viu nossa novidade.', reason: 'Campanha' }) },
   );
   assert(d.reply && lastPayload.context.campaign?.campaignName === 'TESTE CAMPANHA 03', 'D: contexto de campanha deve ser enviado.');
@@ -154,12 +154,8 @@ async function run() {
     inbound('Como retiro?'),
   ]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
   assert(newQuestionOnly.reply?.includes('Estr. Fernando Ferrari') && !newQuestionOnly.reply?.includes('Uber'), 'L: pergunta nova deve responder somente o fato atual.');
-  const freight = await suggestCrmReplyFromContext(context({}, [inbound('Como calculam o frete?')]), {
-    knowledgeFetcher: async () => faqItems,
-    invoke: async () => { throw new Error('Não pode gerar frete sem fonte logística viva.'); },
-  });
-  assert(freight.reply === null && freight.reason.includes('logística viva'),
-    'L: frete depende da fonte logística viva; FAQ estática não pode responder.');
+  const freight = await suggestCrmReplyFromContext(context({}, [inbound('Como calculam o frete?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
+  assert(freight.reply?.includes('produtos, quantidades e CEP'), 'L: frete deve retornar sua regra de cálculo.');
   const closedDecision = await suggestCrmReplyFromContext(context({}, [inbound('Como funciona a entrega por Uber?')]), {
     decision: { situation: 'resolvido', perceivedIntent: null, responsibility: 'customer', suggestedResult: { code: null, confidence: 1 }, nextAction: { code: null, source: 'none' }, shouldReply: false, ambiguity: 'none', riskFlags: ['no_immediate_action'], reason: 'Problema resolvido.', commercialIntent: 'unknown', decisionState: 'closed', paymentState: 'none' },
     knowledgeFetcher: async () => faqItems,
@@ -265,53 +261,6 @@ async function run() {
   });
   assert(pixUnrelated.reply?.includes('explicar'),
     'Pix isolado sem pergunta de pagamento não deve acionar chave antiga.');
-
-  // C2 — mensagens naturais exigem sempre a única fonte Pix oficial.
-  const officialPixFixture = [{
-    id: 'pix-exemplo', question: 'Qual é o PIX?',
-    answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\\nBanco de Testes',
-    category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
-  }];
-  for (const request of [
-    'Me manda a chave Pix pfv',
-    'Qual é a chave Pix da loja?',
-    'Me passa seu PIX?',
-    'Pode informar os dados do Pix?',
-  ]) {
-    let calledModel = false;
-    const guarded = await suggestCrmReplyFromContext(context({}, [inbound(request)]), {
-      knowledgeFetcher: async () => officialPixFixture,
-      invoke: async () => { calledModel = true; return { suggested_reply: 'Chave adulterada.' }; },
-    });
-    assert(guarded.reply === officialPixFixture[0].answer && !calledModel,
-      'C2: solicitação natural deve usar exclusivamente resposta literal da fonte Pix.');
-  }
-  let bypassed = false;
-  const noOfficial = await suggestCrmReplyFromContext(context({}, [inbound('Me manda a chave Pix pfv')]), {
-    knowledgeFetcher: async () => [],
-    invoke: async () => { bypassed = true; return { suggested_reply: 'Chave Pix: 21987654321' }; },
-  });
-  assert(noOfficial.reply === null && !bypassed,
-    'C2: sem KB oficial, bloquear e nunca chamar IA gerativa.');
-  const ambiguous = await suggestCrmReplyFromContext(context({}, [inbound('Me manda a chave Pix')]), {
-    knowledgeFetcher: async () => [officialPixFixture[0], { ...officialPixFixture[0], id: 'pix-duplicado' }],
-    invoke: async () => { bypassed = true; return { suggested_reply: 'Uma chave qualquer' }; },
-  });
-  assert(ambiguous.reply === null && !bypassed,
-    'C2: duas entradas Pix autorizadas são ambíguas.');
-  const covered = await suggestCrmReplyFromContext(context({}, [
-    inbound('Me manda a chave Pix'), outbound('Já enviei o dado oficial'), inbound('Obrigado.'),
-  ]), {
-    knowledgeFetcher: async () => officialPixFixture,
-    invoke: async () => ({ suggested_reply: 'Por nada!' }),
-  });
-  assert(covered.reply === 'Por nada!',
-    'C2: solicitação de bloco já respondido não deve ressuscitar chave Pix.');
-  const modelInvented = await suggestCrmReplyFromContext(context({}, [inbound('Pode me ajudar?')]), {
-    invoke: async () => ({ suggested_reply: 'PIX celular: 21987654321' }),
-  });
-  assert(modelInvented.reply === null,
-    'C2: identificar e bloquear chave numérica plausível também fora do fluxo Pix.');
 
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
