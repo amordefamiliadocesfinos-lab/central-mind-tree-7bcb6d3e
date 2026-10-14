@@ -86,6 +86,6 @@ export function evaluateCrmHandoffEvidence(input: {
     handoffReceivedVerified: false,
     message: cancelled
       ? 'Pedido vinculado ao último Resultado, mas cancelado. Não comprova continuidade operacional.'
-      : 'Pedido vinculado explicitamente ao último Resultado. O recebimento do handoff por Operações não está comprovado.',
+      : 'Pedido vinculado ao último Resultado. A entrada na Separação e o início do atendimento são conferidos separadamente abaixo.',
   };
 }
