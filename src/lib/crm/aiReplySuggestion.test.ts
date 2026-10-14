@@ -154,8 +154,12 @@ async function run() {
     inbound('Como retiro?'),
   ]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
   assert(newQuestionOnly.reply?.includes('Estr. Fernando Ferrari') && !newQuestionOnly.reply?.includes('Uber'), 'L: pergunta nova deve responder somente o fato atual.');
-  const freight = await suggestCrmReplyFromContext(context({}, [inbound('Como calculam o frete?')]), { knowledgeFetcher: async () => faqItems, invoke: async () => ({}) });
-  assert(freight.reply?.includes('produtos, quantidades e CEP'), 'L: frete deve retornar sua regra de cálculo.');
+  const freight = await suggestCrmReplyFromContext(context({}, [inbound('Como calculam o frete?')]), {
+    knowledgeFetcher: async () => faqItems,
+    invoke: async () => { throw new Error('Não pode gerar frete sem fonte logística viva.'); },
+  });
+  assert(freight.reply === null && freight.reason.includes('logística viva'),
+    'L: frete depende da fonte logística viva; FAQ estática não pode responder.');
   const closedDecision = await suggestCrmReplyFromContext(context({}, [inbound('Como funciona a entrega por Uber?')]), {
     decision: { situation: 'resolvido', perceivedIntent: null, responsibility: 'customer', suggestedResult: { code: null, confidence: 1 }, nextAction: { code: null, source: 'none' }, shouldReply: false, ambiguity: 'none', riskFlags: ['no_immediate_action'], reason: 'Problema resolvido.', commercialIntent: 'unknown', decisionState: 'closed', paymentState: 'none' },
     knowledgeFetcher: async () => faqItems,
