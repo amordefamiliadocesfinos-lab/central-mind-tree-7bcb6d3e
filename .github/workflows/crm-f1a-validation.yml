@@ -65,7 +65,7 @@ jobs:
             src/lib/crm/officialTask.test.ts \
             src/lib/crm/aiContext.test.ts \
             src/lib/crm/replyFinancialGuard.test.ts \
-            src/lib/crm/aiReplySuggestion.test.ts; do
+            src/lib/crm/financialReplyIntegration.test.ts; do
             echo "::group::Test ${file}"
             npx --yes vite-node@3.2.4 "$file" || status=1
             echo "::endgroup::"
