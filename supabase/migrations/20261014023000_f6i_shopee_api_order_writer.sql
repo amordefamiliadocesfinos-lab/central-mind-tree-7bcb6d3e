@@ -36,7 +36,6 @@ DECLARE
   v_commercial_quantity numeric;
   v_multiplier numeric;
   v_unit_price numeric;
-  v_physical_unit_price numeric;
 BEGIN
   IF v_channel_account_id IS NULL OR v_order_number IS NULL OR v_order_date IS NULL THEN
     RAISE EXCEPTION 'F6-I: channel_account_id, order_number e order_date são obrigatórios.';
