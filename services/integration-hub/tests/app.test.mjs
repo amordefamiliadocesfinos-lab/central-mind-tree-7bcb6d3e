@@ -361,3 +361,212 @@ test('F6-K commit-one route accepts idempotent already-registered replay with ze
   assert.equal(body.result.status, 'already_registered');
   assert.equal(body.result.alreadyRegistered, true);
 });
+
+
+test('F6-L recurring intake route is disabled by default', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/run', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => name === 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID' ? 'account-123' : undefined,
+      runShopeeCommit: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      logEvent: () => {},
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), { error: 'auto_commit_not_enabled' });
+  assert.equal(calls, 0);
+});
+
+test('F6-L recurring intake route rejects query controls', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    {
+      method: 'POST',
+      path: '/internal/shopee/live/orders/intake/run',
+      query: { limit: '20' },
+      headers: {},
+    },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => 'true',
+      runShopeeCommit: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      logEvent: () => {},
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(JSON.parse(response.body), { error: 'query_not_allowed' });
+  assert.equal(calls, 0);
+});
+
+test('F6-L recurring intake route uses frozen policy and emits sanitized round audit', async () => {
+  let observed;
+  const logs = [];
+  let tick = 0;
+
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/run', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_AUTO_COMMIT_ENABLED: 'true',
+      })[name],
+      makeRunId: () => 'run-1',
+      now: () => (++tick === 1 ? '2026-10-14T10:00:00.000Z' : '2026-10-14T10:00:01.000Z'),
+      logEvent: (event) => logs.push(event),
+      runShopeeCommit: async (input) => {
+        observed = input;
+        return {
+          ok: true,
+          selected: 2,
+          ready: 2,
+          blocked: 0,
+          written: 1,
+          roundStopped: false,
+          stopReason: null,
+          results: [
+            {
+              orderSn: 'ORDER-1',
+              status: 'written',
+              blockers: [],
+              write: { alreadyRegistered: false, secret: 'do-not-log' },
+            },
+            {
+              orderSn: 'ORDER-2',
+              status: 'already_registered',
+              blockers: [],
+              write: { alreadyRegistered: true, secret: 'do-not-log' },
+            },
+          ],
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observed, {
+    channelAccountId: 'account-123',
+    limit: 5,
+    mode: 'commit',
+  });
+
+  const body = JSON.parse(response.body);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.runId, 'run-1');
+  assert.equal(body.selected, 2);
+  assert.equal(body.ready, 2);
+  assert.equal(body.written, 1);
+  assert.equal(body.success, 2);
+  assert.equal(body.retryable, 0);
+  assert.deepEqual(body.results, [
+    { orderSn: 'ORDER-1', status: 'written', blockers: [], alreadyRegistered: false },
+    { orderSn: 'ORDER-2', status: 'already_registered', blockers: [], alreadyRegistered: true },
+  ]);
+
+  assert.equal(logs.length, 1);
+  assert.deepEqual(logs[0], {
+    event: 'shopee_intake_round',
+    runId: 'run-1',
+    startedAt: '2026-10-14T10:00:00.000Z',
+    finishedAt: '2026-10-14T10:00:01.000Z',
+    channelAccountId: 'account-123',
+    ok: true,
+    roundStopped: false,
+    stopReason: null,
+    summary: {
+      selected: 2,
+      ready: 2,
+      blocked: 0,
+      written: 1,
+      success: 2,
+      retryable: 0,
+      unknown: 0,
+      statuses: { written: 1, already_registered: 1 },
+    },
+  });
+});
+
+test('F6-L recurring intake route returns 503 when policy stops the round', async () => {
+  const logs = [];
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/run', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_AUTO_COMMIT_ENABLED: 'TRUE',
+      })[name],
+      makeRunId: () => 'run-stop',
+      now: () => '2026-10-14T10:00:00.000Z',
+      logEvent: (event) => logs.push(event),
+      runShopeeCommit: async () => ({
+        ok: true,
+        selected: 2,
+        ready: 1,
+        blocked: 0,
+        written: 0,
+        roundStopped: true,
+        stopReason: 'writer_exception',
+        results: [{
+          orderSn: 'ORDER-1',
+          status: 'write_failed',
+          blockers: ['writer_exception'],
+          write: null,
+        }],
+      }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  const body = JSON.parse(response.body);
+  assert.equal(body.status, 'degraded');
+  assert.equal(body.roundStopped, true);
+  assert.equal(body.stopReason, 'writer_exception');
+  assert.equal(body.retryable, 1);
+  assert.equal(logs.length, 1);
+});
+
+test('F6-L recurring intake route reports business blockers without infrastructure retry', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/orders/intake/run', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => ({
+        SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'account-123',
+        SHOPEE_LIVE_AUTO_COMMIT_ENABLED: 'true',
+      })[name],
+      makeRunId: () => 'run-attention',
+      now: () => '2026-10-14T10:00:00.000Z',
+      logEvent: () => {},
+      runShopeeCommit: async () => ({
+        ok: true,
+        selected: 2,
+        ready: 1,
+        blocked: 1,
+        written: 1,
+        roundStopped: false,
+        stopReason: null,
+        results: [
+          { orderSn: 'ORDER-1', status: 'written', blockers: [], write: { alreadyRegistered: false } },
+          { orderSn: 'ORDER-2', status: 'blocked', blockers: ['mapping_needs_mapping'], write: null },
+        ],
+      }),
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const body = JSON.parse(response.body);
+  assert.equal(body.status, 'attention');
+  assert.equal(body.blocked, 1);
+  assert.equal(body.written, 1);
+});
