@@ -1,23 +1,18 @@
 import {
   readLiveShopeeOauthConnection,
-  refreshLiveShopeeOauthConnection,
 } from './core-bridge.mjs';
 import {
   getOrderDetail,
   getShippingDocumentParameter,
   getShippingParameter,
   parseShopeeError,
-  refreshToken,
 } from './connectors/shopee-protocol.mjs';
-import { decryptShopeeToken, encryptShopeeToken } from './shopee-token-crypto.mjs';
+import { decryptShopeeToken } from './shopee-token-crypto.mjs';
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
 const SHIPPING_PARAMETER_PATH = '/api/v2/logistics/get_shipping_parameter';
 const SHIPPING_DOCUMENT_PARAMETER_PATH = '/api/v2/logistics/get_shipping_document_parameter';
-const REFRESH_PATH = '/api/v2/auth/access_token/get';
-const ACCESS_TOKEN_FALLBACK_TTL_MS = 4 * 60 * 60 * 1000;
-const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function requiredEnv(getEnv, name) {
   const value = getEnv(name);
@@ -38,14 +33,6 @@ function positiveInteger(value, field) {
 function tokenIsExpired(expiresAt, nowMs, safetyMs = 60_000) {
   const parsed = Date.parse(String(expiresAt ?? ''));
   return !Number.isFinite(parsed) || parsed <= nowMs + safetyMs;
-}
-
-function accessTokenExpiry(expireIn, nowMs) {
-  const seconds = Number(expireIn);
-  if (Number.isFinite(seconds) && seconds > 0 && seconds <= 7 * 24 * 60 * 60) {
-    return new Date(nowMs + seconds * 1000).toISOString();
-  }
-  return new Date(nowMs + ACCESS_TOKEN_FALLBACK_TTL_MS).toISOString();
 }
 
 function firstOrder(payload) {
@@ -93,10 +80,7 @@ export function createShopeeLiveLogisticsInspector({
   getEnv = (name) => process.env[name],
   now = Date.now,
   readConnection = readLiveShopeeOauthConnection,
-  persistRefreshedConnection = refreshLiveShopeeOauthConnection,
   decryptToken = decryptShopeeToken,
-  encryptToken = encryptShopeeToken,
-  refreshAccessToken = refreshToken,
   readOrderDetail = getOrderDetail,
   readShippingParameter = getShippingParameter,
   readShippingDocumentParameter = getShippingDocumentParameter,
@@ -117,52 +101,18 @@ export function createShopeeLiveLogisticsInspector({
     const shopId = positiveInteger(connection.payload?.shop_id, 'stored shop_id');
     if (storedPartnerId !== partnerId) return { ok: false, code: 'partner_id_mismatch' };
 
-    let accessToken;
     if (tokenIsExpired(connection.payload?.access_token_expires_at, now())) {
-      if (tokenIsExpired(connection.payload?.refresh_token_expires_at, now(), 0)) {
-        return { ok: false, code: 'refresh_token_expired', shop_id: shopId };
-      }
-
-      const storedRefreshToken = await decryptToken(
-        connection.payload?.refresh_token_ciphertext,
-        tokenEncryptionKey,
-      );
-      const refreshResult = await refreshAccessToken({
-        apiBaseUrl: API_BASE_URL,
-        refreshPath: REFRESH_PATH,
-        partnerId,
-        partnerKey,
-        refreshToken: storedRefreshToken,
-        shopId,
-      });
-
-      if (!refreshResult.response.ok || parseShopeeError(refreshResult.payload)) {
-        return { ok: false, code: 'token_refresh_rejected', shop_id: shopId };
-      }
-
-      const refreshedAccessToken = String(refreshResult.payload?.access_token ?? '');
-      const refreshedRefreshToken = String(refreshResult.payload?.refresh_token ?? '');
-      if (!refreshedAccessToken || !refreshedRefreshToken) {
-        return { ok: false, code: 'token_refresh_incomplete', shop_id: shopId };
-      }
-
-      const refreshedAtMs = now();
-      const refreshedAt = new Date(refreshedAtMs).toISOString();
-      const persistedRefresh = await persistRefreshedConnection({
-        channel_account_id: channelAccountId,
-        access_token_ciphertext: await encryptToken(refreshedAccessToken, tokenEncryptionKey),
-        refresh_token_ciphertext: await encryptToken(refreshedRefreshToken, tokenEncryptionKey),
-        access_token_expires_at: accessTokenExpiry(refreshResult.payload?.expire_in, refreshedAtMs),
-        refresh_token_expires_at: new Date(refreshedAtMs + REFRESH_TTL_MS).toISOString(),
-        last_refreshed_at: refreshedAt,
-      });
-      if (!persistedRefresh?.ok) {
-        return { ok: false, code: 'token_refresh_persistence_failed', shop_id: shopId };
-      }
-      accessToken = refreshedAccessToken;
-    } else {
-      accessToken = await decryptToken(connection.payload?.access_token_ciphertext, tokenEncryptionKey);
+      return {
+        ok: false,
+        code: 'access_token_expired_read_only',
+        shop_id: shopId,
+      };
     }
+
+    const accessToken = await decryptToken(
+      connection.payload?.access_token_ciphertext,
+      tokenEncryptionKey,
+    );
 
     const detailResult = await readOrderDetail({
       apiBaseUrl: API_BASE_URL,

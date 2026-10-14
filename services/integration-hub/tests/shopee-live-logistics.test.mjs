@@ -180,9 +180,13 @@ test('F6-O.1b reports logistics endpoint rejection without failing the whole ins
   });
 });
 
-test('F6-O.1b refreshes token only through the existing OAuth persistence path', async () => {
-  let refreshed = 0;
-  let persisted = 0;
+
+test('F6-O.1c fails closed when access token is expired and performs no refresh or persistence', async () => {
+  let refreshCalls = 0;
+  let persistCalls = 0;
+  let decryptCalls = 0;
+  let externalReads = 0;
+
   const inspect = createShopeeLiveLogisticsInspector({
     getEnv,
     now: () => Date.parse('2026-10-14T19:00:00.000Z'),
@@ -197,44 +201,41 @@ test('F6-O.1b refreshes token only through the existing OAuth persistence path',
         refresh_token_expires_at: '2026-11-14T23:00:00.000Z',
       },
     }),
-    decryptToken: async (ciphertext) => ciphertext === 'cipher-refresh' ? 'refresh-token' : 'old-access',
-    encryptToken: async (value) => `enc:${value}`,
-    refreshAccessToken: async () => {
-      refreshed += 1;
-      return {
-        response: { ok: true, status: 200 },
-        payload: {
-          access_token: 'new-access',
-          refresh_token: 'new-refresh',
-          expire_in: 14400,
-        },
-      };
+    decryptToken: async () => {
+      decryptCalls += 1;
+      return 'must-not-decrypt';
     },
-    persistRefreshedConnection: async (payload) => {
-      persisted += 1;
-      assert.equal(payload.access_token_ciphertext, 'enc:new-access');
-      assert.equal(payload.refresh_token_ciphertext, 'enc:new-refresh');
+    refreshAccessToken: async () => {
+      refreshCalls += 1;
+      return { response: { ok: true }, payload: {} };
+    },
+    persistRefreshedConnection: async () => {
+      persistCalls += 1;
       return { ok: true };
     },
-    readOrderDetail: async (input) => {
-      assert.equal(input.accessToken, 'new-access');
-      return {
-        response: { ok: true, status: 200 },
-        payload: { response: { order_list: [{ order_sn: '261013HKHWK3V7' }] } },
-      };
+    readOrderDetail: async () => {
+      externalReads += 1;
+      throw new Error('must not execute');
     },
-    readShippingParameter: async () => ({
-      response: { ok: true, status: 200 },
-      payload: { response: { info_needed: {} } },
-    }),
-    readShippingDocumentParameter: async () => ({
-      response: { ok: true, status: 200 },
-      payload: { response: { result_list: [] } },
-    }),
+    readShippingParameter: async () => {
+      externalReads += 1;
+      throw new Error('must not execute');
+    },
+    readShippingDocumentParameter: async () => {
+      externalReads += 1;
+      throw new Error('must not execute');
+    },
   });
 
   const result = await inspect({ orderSn: '261013HKHWK3V7' });
-  assert.equal(result.ok, true);
-  assert.equal(refreshed, 1);
-  assert.equal(persisted, 1);
+
+  assert.deepEqual(result, {
+    ok: false,
+    code: 'access_token_expired_read_only',
+    shop_id: 531736366,
+  });
+  assert.equal(refreshCalls, 0);
+  assert.equal(persistCalls, 0);
+  assert.equal(decryptCalls, 0);
+  assert.equal(externalReads, 0);
 });
