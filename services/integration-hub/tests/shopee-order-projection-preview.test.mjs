@@ -232,3 +232,79 @@ test('contract is preview-only and side-effect free by design', () => {
     projectionStatuses: ['ready', 'blocked'],
   });
 });
+
+const blockerCases = [
+  ['missing_order_sn', (n) => { n.orders[0].orderSn = null; }],
+  ['missing_order_date', (n) => { n.orders[0].createdAt = 'invalid'; }],
+  ['no_items', (n, m) => { n.orders[0].items = []; m.orders[0].items = []; }],
+  ['mapping_item_count_mismatch', (n, m) => { m.orders[0].items = []; }],
+  ['invalid_commercial_quantity', (n, m) => { m.orders[0].items[0].quantity = true; }],
+  ...['needs_mapping', 'ambiguous', 'invalid_mapping'].map(status => [`mapping_${status}`, (n, m) => { m.orders[0].items[0].mappingStatus = status; }]),
+  ['missing_components', (n, m) => { m.orders[0].items[0].components = []; }],
+  ['missing_product', (n, m) => { m.orders[0].items[0].components[0].productId = null; }],
+  ['invalid_multiplier', (n, m) => { m.orders[0].items[0].components[0].physicalMultiplier = Infinity; }],
+  ['invalid_physical_quantity', (n, m) => { m.orders[0].items[0].components[0].physicalQuantity = 7; }],
+];
+
+for (const [blocker, mutate] of blockerCases) {
+  test(`projection fails closed for ${blocker}`, () => {
+    const n = normalizedPayload();
+    const m = mappingPreview();
+    mutate(n, m);
+    const result = buildShopeeOrderProjectionPreview(n, m, { marketplaceAccount: ACCOUNT });
+    assert.equal(result.orders[0].projectionStatus, 'blocked');
+    assert.ok(result.orders[0].blockers.some(value => value.split(':').at(-1) === blocker));
+    assert.equal(result.writeReady, false);
+  });
+}
+
+test('missing prices and totals stay null and missing discounted price falls back to original', () => {
+  for (const absent of [null, undefined, '', ' ', true, [], {}]) {
+    const n = normalizedPayload();
+    const m = mappingPreview();
+    n.orders[0].totalAmount = absent;
+    m.orders[0].items[0].discountedUnitPrice = absent;
+    m.orders[0].items[0].originalUnitPrice = 30;
+    const result = buildShopeeOrderProjectionPreview(n, m, { marketplaceAccount: ACCOUNT });
+    assert.equal(result.orders[0].candidate.totalValue, null);
+    assert.equal(result.orders[0].candidate.items[0].unitPrice, 30);
+    m.orders[0].items[0].originalUnitPrice = absent;
+    assert.equal(buildShopeeOrderProjectionPreview(n, m, { marketplaceAccount: ACCOUNT }).orders[0].candidate.items[0].unitPrice, null);
+  }
+});
+
+test('component commercial quantity must agree with the external quantity', () => {
+  for (const quantity of [null, true, 1, Infinity]) {
+    const m = mappingPreview();
+    m.orders[0].items[0].components[0].commercialQuantity = quantity;
+    const result = buildShopeeOrderProjectionPreview(normalizedPayload(), m, { marketplaceAccount: ACCOUNT });
+    assert.equal(result.orders[0].projectionStatus, 'blocked');
+    assert.ok(result.orders[0].blockers.includes('item_0:invalid_commercial_quantity'));
+  }
+});
+
+test('candidate preserves identity and commercial fields without mutating inputs', () => {
+  const n = normalizedPayload();
+  const m = mappingPreview();
+  const before = JSON.stringify({ n, m });
+  const result = buildShopeeOrderProjectionPreview(n, m, { marketplaceAccount: ACCOUNT });
+  const candidate = result.orders[0].candidate;
+  assert.equal(candidate.orderNumber, n.orders[0].orderSn);
+  assert.equal(candidate.channelAccountId, CHANNEL_ACCOUNT_ID);
+  assert.equal(candidate.orderDate, '2026-10-13');
+  assert.equal(candidate.totalValue, 59.9);
+  assert.equal(candidate.paymentMethod, 'Credit Card');
+  assert.equal(result.operationalWrites, false);
+  const lines = candidate.items;
+  assert.deepEqual(lines.map(line => [line.itemId, line.modelId, line.mappingId, line.externalItemKey, line.productId, line.variantId, line.physicalQuantity, line.physicalMultiplier]), [
+    ['23298665306', '0', 'map-alfajor', 'code:SH-002-015|variation:', 'alfajor', 'branco', 6, 3],
+    ['23298665306', '0', 'map-alfajor', 'code:SH-002-015|variation:', 'alfajor', 'meio-amargo', 6, 3],
+  ]);
+  assert.equal(lines.reduce((sum, line) => sum + line.commercialQuantity * line.unitPrice, 0), 59.9);
+  const glucodry = result.orders[1].candidate.items;
+  assert.equal(glucodry.length, 1);
+  assert.equal(glucodry[0].commercialQuantity, 1);
+  assert.equal(glucodry[0].physicalMultiplier, 1000);
+  assert.equal(glucodry[0].physicalQuantity, 1000);
+  assert.equal(JSON.stringify({ n, m }), before);
+});

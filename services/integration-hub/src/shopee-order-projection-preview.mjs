@@ -3,9 +3,15 @@ function nullableText(value) {
   return normalized === '' ? null : normalized;
 }
 
-function finitePositive(value) {
+function finiteNumber(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') return null;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function finitePositive(value) {
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 }
 
 function dateOnly(value) {
@@ -17,10 +23,10 @@ function dateOnly(value) {
 }
 
 function lineUnitPrice(item) {
-  const discounted = Number(item?.discountedUnitPrice);
-  if (Number.isFinite(discounted) && discounted >= 0) return discounted;
-  const original = Number(item?.originalUnitPrice);
-  if (Number.isFinite(original) && original >= 0) return original;
+  const discounted = finiteNumber(item?.discountedUnitPrice);
+  if (discounted !== null && discounted >= 0) return discounted;
+  const original = finiteNumber(item?.originalUnitPrice);
+  if (original !== null && original >= 0) return original;
   return null;
 }
 
@@ -34,6 +40,7 @@ function buildProjectionLines(item) {
     productId: nullableText(component.productId),
     variantId: nullableText(component.variantId),
     quantity: finitePositive(component.physicalQuantity),
+    physicalQuantity: finitePositive(component.physicalQuantity),
     commercialQuantity: finitePositive(component.commercialQuantity),
     physicalMultiplier: finitePositive(component.physicalMultiplier),
     unitPrice: index === 0 ? commercialUnitPrice : 0,
@@ -76,7 +83,14 @@ function buildBlockers(normalizedOrder, mappingOrder, duplicate) {
       const component = item.components[componentIndex];
       if (!nullableText(component?.productId)) blockers.push(`item_${index}:component_${componentIndex}:missing_product`);
       if (!finitePositive(component?.physicalMultiplier)) blockers.push(`item_${index}:component_${componentIndex}:invalid_multiplier`);
-      if (!finitePositive(component?.physicalQuantity)) blockers.push(`item_${index}:component_${componentIndex}:invalid_physical_quantity`);
+      if (!finitePositive(component?.commercialQuantity) || finitePositive(component.commercialQuantity) !== quantity) {
+        blockers.push(`item_${index}:invalid_commercial_quantity`);
+      }
+      const physicalQuantity = finitePositive(component?.physicalQuantity);
+      const expectedQuantity = quantity * finitePositive(component?.physicalMultiplier);
+      if (!physicalQuantity || !Number.isFinite(expectedQuantity) || physicalQuantity !== expectedQuantity) {
+        blockers.push(`item_${index}:component_${componentIndex}:invalid_physical_quantity`);
+      }
     }
   }
 
@@ -128,9 +142,7 @@ export function buildShopeeOrderProjectionPreview(
         channelAccountId: nullableText(normalizedPayload.channelAccountId),
         marketplaceAccount: account,
         orderDate: dateOnly(normalizedOrder.createdAt),
-        totalValue: Number.isFinite(Number(normalizedOrder.totalAmount))
-          ? Number(normalizedOrder.totalAmount)
-          : null,
+        totalValue: finiteNumber(normalizedOrder.totalAmount),
         paymentMethod: nullableText(normalizedOrder.paymentMethod),
         internalStatus: null,
         operationalStatus: null,
