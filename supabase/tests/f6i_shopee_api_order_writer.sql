@@ -198,7 +198,7 @@ BEGIN
     OR (SELECT count(*) FROM public.order_separation WHERE order_id = v_order_id AND separation_status = 'todo') <> 1 THEN
     RAISE EXCEPTION 'F6-I duplicate items or separation created';
   END IF;
-END $;
+END $$;
 
 DO $alfajor_money$
 DECLARE
