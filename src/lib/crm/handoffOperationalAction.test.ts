@@ -14,7 +14,7 @@ const linked = evaluateCrmHandoffEvidence({
     sale_origin: 'crm_inbox', operational_status: 'finalized' },
 });
 const row: CrmOrderSeparationEvidenceRow = {
-  order_id: orderId, separation_status: 'finalized',
+  order_id: orderId, separation_status: 'finalized', created_at: '2026-10-12T11:00:00Z',
   first_printed_at: '2026-10-12T12:00:00Z', first_printed_by: 'operator-a',
   finalized_at: '2026-10-12T14:00:00Z', finalized_by: 'operator-b',
 };
