@@ -39,6 +39,7 @@ import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervised
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
 import { evaluateCrmOperationalActionEvidence, type CrmOrderSeparationEvidenceRow, type CrmSeparationLookup } from '@/lib/crm/handoffOperationalAction';
+import { evaluateCrmHandoffQueueEvidence } from '@/lib/crm/handoffQueueEvidence';
 import { resolveCampaignContext, type CampaignContext } from '@/lib/crm/campaignContext';
 
 interface InboxItem {
@@ -780,7 +781,7 @@ export default function ContatosInbox() {
     let cancelled = false;
     setSeparationLookup({ contextKey, lookup: 'loading', separation: null });
     void supabase.from('order_separation')
-      .select('order_id,separation_status,first_printed_at,first_printed_by,finalized_at,finalized_by')
+      .select('order_id,separation_status,created_at,first_printed_at,first_printed_by,finalized_at,finalized_by')
       .eq('order_id', verifiedOrderId)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -793,6 +794,15 @@ export default function ContatosInbox() {
       });
     return () => { cancelled = true; };
   }, [selectedHandoffKey, verifiedOrderId]);
+  const handoffQueueEvidence = handoffEvidence
+    ? evaluateCrmHandoffQueueEvidence({
+        orderLink: handoffEvidence,
+        lookup: separationLookup?.contextKey === selectedHandoffKey
+          ? separationLookup.lookup : 'not_requested',
+        separation: separationLookup?.contextKey === selectedHandoffKey
+          ? separationLookup.separation : null,
+      })
+    : null;
   const operationalActionEvidence = handoffEvidence
     ? evaluateCrmOperationalActionEvidence({
         orderLink: handoffEvidence,
@@ -1618,6 +1628,20 @@ export default function ContatosInbox() {
                       {handoffEvidence.message}
                       {handoffEvidence.operationalStatus && (
                         <span> · Estado do Pedido em Operações: {handoffEvidence.operationalStatus}.</span>
+                      )}
+                      {handoffQueueEvidence
+                        && handoffQueueEvidence.state !== 'not_applicable'
+                        && handoffQueueEvidence.state !== 'cancelled' && (
+                        <div className="mt-0.5">
+                          <span className={handoffQueueEvidence.queueRegistrationVerified
+                            ? 'font-medium text-foreground/80' : ''}>
+                            Entrada na Separação ·{' '}
+                          </span>
+                          {handoffQueueEvidence.message}
+                          {handoffQueueEvidence.registeredAt && (
+                            <span> · {format(parseISO(handoffQueueEvidence.registeredAt), 'dd/MM/yyyy HH:mm')}</span>
+                          )}
+                        </div>
                       )}
                       {operationalActionEvidence
                         && operationalActionEvidence.state !== 'not_applicable'
