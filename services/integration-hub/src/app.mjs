@@ -2,6 +2,7 @@ import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
+import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -29,6 +30,7 @@ export async function handleRequest(
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
     runShopeeCommit = runShopeeControlledAutoIntake,
+    inspectShopeeLogistics = inspectShopeeLiveLogistics,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -40,6 +42,43 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  if (normalizedPath === '/internal/shopee/live/logistics/inspect') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+
+    const orderSn = String(getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN') ?? '').trim();
+    if (!orderSn) return json(503, { error: 'logistics_probe_not_configured' });
+
+    try {
+      const result = await inspectShopeeLogistics({ orderSn });
+      if (!result?.ok) {
+        return json(503, {
+          status: 'degraded',
+          mode: 'read_only',
+          orderSn,
+          code: result?.code ?? 'unknown_error',
+        });
+      }
+
+      return json(200, {
+        status: 'ok',
+        mode: 'read_only',
+        order: result.order ?? null,
+        shipping_parameter: result.shipping_parameter ?? null,
+        shipping_document_parameter: result.shipping_document_parameter ?? null,
+      });
+    } catch {
+      return json(503, {
+        status: 'degraded',
+        mode: 'read_only',
+        orderSn,
+        code: 'runtime_exception',
+      });
+    }
+  }
 
   if (normalizedPath === '/internal/shopee/live/orders/intake/run') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
