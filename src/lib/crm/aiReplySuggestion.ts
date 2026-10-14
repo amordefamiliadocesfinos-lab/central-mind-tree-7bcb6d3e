@@ -21,6 +21,12 @@ import { getUnsupportedCrmLiveDataRequirement, type CrmUnsupportedLiveDataRequir
 import { defaultCrmKnowledgeFetcher, resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 import { isWaitingCustomerState } from './priority';
+import {
+  hasUnverifiedFinancialIdentifier,
+  isPixMethodChoice,
+  requiresOfficialPixKnowledge,
+  verifiedOfficialPixReply,
+} from '../../../supabase/functions/_shared/crm/reply-financial-guard';
 
 export interface CrmReplySuggestion extends CrmCommunicationDraft {
   /** null = não há motivo real para responder agora. */
@@ -147,18 +153,16 @@ export function guardShippingDataRepeat(
 
 /** Resposta curta "Pix" só autoriza recuperar uma chave oficial existente. */
 export function isPixPaymentMethodChoice(messages: CrmAiContext['messages']): boolean {
-  const last = messages?.[messages.length - 1];
-  if (last?.direction !== 'inbound' || !/^\s*pix[.!]?\s*$/i.test(String(last.content ?? ''))) return false;
-  const previous = [...messages.slice(0, -1)].reverse().find(message => message?.direction === 'outbound');
-  return Boolean(previous && /\b(forma|meio|modo|opcao|opção).{0,35}pagamento\b|\bpagamento.{0,35}(forma|meio|modo|opcao|opção)\b|\b(pix|cartao|cartão)\b/i.test(String(previous.content ?? '')));
+  return isPixMethodChoice(messages);
 }
 
 export function isUnsafePixReply(reply: string): boolean {
   const normalized = reply.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return /\b(?:pix|chave|cnpj)\b/.test(normalized)
-    && (/\b0{2}\.0{3}\.0{3}\/0{4}-0{2}\b/.test(normalized)
-      || /\b0{11,14}\b/.test(normalized)
-      || /\b(?:chave|cnpj)\s*(?:pix)?\s*[:=-]?\s*(?:xxxx+|000[.\d\/-]*)\b/.test(normalized));
+  return hasUnverifiedFinancialIdentifier(reply)
+    || (/\b(?:pix|chave|cnpj)\b/.test(normalized)
+      && (/\b0{2}\.0{3}\.0{3}\/0{4}-0{2}\b/.test(normalized)
+        || /\b0{11,14}\b/.test(normalized)
+        || /\b(?:chave|cnpj)\s*(?:pix)?\s*[:=-]?\s*(?:xxxx+|000[.\d\/-]*)\b/.test(normalized)));
 }
 
 function blockedPixReply(reason: string): CrmReplySuggestion {
@@ -244,21 +248,24 @@ export async function suggestCrmReplyFromContext(
     };
   }
 
-  // Chave Pix é identificador financeiro, nunca inferência do modelo.
-  if (isPixPaymentMethodChoice(context.messages)) {
+  // C2: qualquer pedido direto de chave Pix no bloco inbound atual consulta
+  // exclusivamente a KB ATIVA via fetcher oficial (inclusive "Me manda a
+  // chave Pix pfv"). Nenhuma geração livre pode substituir a conferência.
+  if (requiresOfficialPixKnowledge(context.messages)) {
     try {
-      const items = await (options?.knowledgeFetcher ?? defaultCrmKnowledgeFetcher)(context.conversation?.platformId ?? null);
-      const official = items.filter(item => /^\s*qual (?:e|é) o pix\??\s*$/i.test(item.question));
-      if (official.length === 1 && official[0].answer.trim()
-        && !isUnsafePixReply(official[0].answer)
-        && /\bpix\b/i.test(official[0].answer)) {
-        const reply = official[0].answer.trim();
-        return { reply, message: reply, reason: 'Chave Pix extraída da base oficial ativa; sem geração livre.', rationale: 'Chave Pix extraída da base oficial ativa; sem geração livre.', tone: 'objetivo', intent: 'answer', length: 'short' };
+      const platformId = context.conversation?.platformId ?? null;
+      const items = await (options?.knowledgeFetcher ?? defaultCrmKnowledgeFetcher)(platformId);
+      const reply = verifiedOfficialPixReply(items, platformId);
+      if (reply) {
+        return { reply, message: reply,
+          reason: 'Resposta integral da única entrada Pix oficial ativa; confira antes de enviar.',
+          rationale: 'Resposta integral da única entrada Pix oficial ativa; confira antes de enviar.',
+          tone: 'objetivo', intent: 'answer', length: 'short' };
       }
     } catch {
-      // Falha de leitura: não recorrer à geração livre de chave financeira.
+      // Sem alternativa generativa se leitura da fonte oficial falhar.
     }
-    return blockedPixReply('Não foi possível confirmar uma única chave Pix oficial ativa. Confira a base de conhecimento antes de responder.');
+    return blockedPixReply('Chave Pix oficial indisponível ou ambígua. Confira a Base de Conhecimento antes de responder.');
   }
 
   const invoke = options?.invoke ?? (async (payload: unknown) => {
@@ -287,6 +294,11 @@ export async function suggestCrmReplyFromContext(
   // aprovada. Não chamamos o modelo para reescrever números, quantidades ou
   // endereços e, assim, eliminamos variação entre recarregamentos.
   if (lastIsInbound && knowledgeContext.authoritativeAnswer) {
+    // O ranking genérico de FAQ não pode promover dados bancários ou chave
+    // Pix, ainda que um item não canônico tenha pontuado bem.
+    if (hasUnverifiedFinancialIdentifier(knowledgeContext.authoritativeAnswer)) {
+      return blockedPixReply('Informação financeira requer a entrada Pix oficial, não uma FAQ aproximada.');
+    }
     return guardShippingDataRepeat({
       reply: knowledgeContext.authoritativeAnswer,
       message: knowledgeContext.authoritativeAnswer,
@@ -312,6 +324,6 @@ export async function suggestCrmReplyFromContext(
   });
   if (raw?.error) throw new Error(String(raw.error));
   const suggestion = guardShippingDataRepeat(guardTreatableObjectionReply(normalizeReplyResponse(raw), options?.decision), context.messages);
-  if (suggestion.reply && isUnsafePixReply(suggestion.reply)) return blockedPixReply('Sugestão bloqueada: identificador Pix/CNPJ fictício. Confira a fonte oficial.');
+  if (suggestion.reply && isUnsafePixReply(suggestion.reply)) return blockedPixReply('Sugestão bloqueada: identificador financeiro não verificado na fonte oficial.');
   return suggestion;
 }
