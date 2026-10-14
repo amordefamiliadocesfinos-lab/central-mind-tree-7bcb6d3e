@@ -59,6 +59,7 @@ jobs:
             src/lib/crm/campaignIntelligentSafety.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
+            src/lib/crm/pendingReply.test.ts \
             src/lib/crm/canonical/transitions.test.ts \
             src/lib/crm/canonical/operationalResponsibility.test.ts \
             src/lib/crm/officialTask.test.ts \
