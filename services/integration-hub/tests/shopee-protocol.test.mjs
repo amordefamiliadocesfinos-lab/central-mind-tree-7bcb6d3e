@@ -7,6 +7,8 @@ import {
   exchangeToken,
   getOrderDetail,
   getOrderList,
+  getShippingDocumentParameter,
+  getShippingParameter,
   getShopInfo,
   parseShopeeError,
   refreshToken,
@@ -253,5 +255,94 @@ test('getOrderList rejects inverted time windows before calling Shopee', async (
       timestamp,
     }),
     /timeTo must be greater than or equal to timeFrom/,
+  );
+});
+
+
+test('F6-O.1 getShippingParameter signs a read-only logistics POST', async () => {
+  let observed;
+  const fetchImpl = async (url, init) => {
+    observed = { url: new URL(url), init };
+    return new Response(JSON.stringify({
+      response: { info_needed: { pickup: ['address_id', 'pickup_time_id'] } },
+      request_id: 'req-shipping-parameter',
+    }), { status: 200 });
+  };
+
+  const result = await getShippingParameter({
+    apiBaseUrl: 'https://partner.shopeemobile.com',
+    shippingParameterPath: '/api/v2/logistics/get_shipping_parameter',
+    partnerId,
+    partnerKey,
+    accessToken: 'access-value',
+    shopId: 531736366,
+    orderSn: '261013HKHWK3V7',
+    packageNumber: 'PKG-1',
+    fetchImpl,
+    timestamp,
+  });
+
+  assert.equal(observed.init.method, 'POST');
+  assert.equal(observed.url.pathname, '/api/v2/logistics/get_shipping_parameter');
+  assert.deepEqual(JSON.parse(observed.init.body), {
+    order_sn: '261013HKHWK3V7',
+    package_number: 'PKG-1',
+  });
+  assert.equal(observed.url.searchParams.get('shop_id'), '531736366');
+  assert.equal(observed.url.searchParams.get('sign'), createHmac('sha256', partnerKey)
+    .update(`${partnerId}/api/v2/logistics/get_shipping_parameter${timestamp}access-value531736366`).digest('hex'));
+  assert.deepEqual(result.payload.response.info_needed.pickup, ['address_id', 'pickup_time_id']);
+});
+
+test('F6-O.1 getShippingDocumentParameter sends only order identity list', async () => {
+  let observed;
+  const fetchImpl = async (url, init) => {
+    observed = { url: new URL(url), init };
+    return new Response(JSON.stringify({
+      response: {
+        result_list: [{
+          order_sn: '261013HKHWK3V7',
+          selectable_shipping_document_type: ['NORMAL_AIR_WAYBILL'],
+          suggested_shipping_document_type: 'NORMAL_AIR_WAYBILL',
+        }],
+      },
+      request_id: 'req-document-parameter',
+    }), { status: 200 });
+  };
+
+  const result = await getShippingDocumentParameter({
+    apiBaseUrl: 'https://partner.shopeemobile.com',
+    shippingDocumentParameterPath: '/api/v2/logistics/get_shipping_document_parameter',
+    partnerId,
+    partnerKey,
+    accessToken: 'access-value',
+    shopId: 531736366,
+    orderList: [{ order_sn: '261013HKHWK3V7' }],
+    fetchImpl,
+    timestamp,
+  });
+
+  assert.equal(observed.init.method, 'POST');
+  assert.equal(observed.url.pathname, '/api/v2/logistics/get_shipping_document_parameter');
+  assert.deepEqual(JSON.parse(observed.init.body), {
+    order_list: [{ order_sn: '261013HKHWK3V7' }],
+  });
+  assert.equal(result.payload.response.result_list[0].suggested_shipping_document_type, 'NORMAL_AIR_WAYBILL');
+});
+
+test('F6-O.1 getShippingDocumentParameter fails closed above Shopee batch limit', () => {
+  assert.throws(
+    () => getShippingDocumentParameter({
+      apiBaseUrl: 'https://partner.shopeemobile.com',
+      shippingDocumentParameterPath: '/api/v2/logistics/get_shipping_document_parameter',
+      partnerId,
+      partnerKey,
+      accessToken: 'access-value',
+      shopId: 531736366,
+      orderList: Array.from({ length: 51 }, (_, i) => ({ order_sn: `ORDER-${i + 1}` })),
+      fetchImpl: async () => { throw new Error('must not execute'); },
+      timestamp,
+    }),
+    /between 1 and 50/,
   );
 });
