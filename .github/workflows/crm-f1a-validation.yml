@@ -10,6 +10,7 @@ on:
       - 'src/pages/Contatos.tsx'
       - 'src/hooks/useCrmCampaigns.ts'
       - 'src/components/crm/CampaignReviewDialog.tsx'
+      - 'src/components/crm/CampaignCreateDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
       - 'supabase/functions/whatsapp-send/index.ts'
       - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
@@ -54,6 +55,7 @@ jobs:
             src/lib/crm/handoffQueueEvidence.test.ts \
             src/lib/crm/postSalePanelOutreach.test.ts \
             src/lib/crm/postSalePanelLifecycle.test.ts \
+            src/lib/crm/campaignIntelligentAudience.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/canonical/transitions.test.ts \
