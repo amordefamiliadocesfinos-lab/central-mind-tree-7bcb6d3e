@@ -10,6 +10,7 @@ import type { CrmHandoffEvidence } from './handoffEvidence';
 export interface CrmOrderSeparationEvidenceRow {
   order_id: string;
   separation_status: string | null;
+  created_at: string | null;
   first_printed_at: string | null;
   first_printed_by: string | null;
   finalized_at: string | null;
