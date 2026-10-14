@@ -3,8 +3,8 @@ import type { CrmOrderSeparationEvidenceRow, CrmSeparationLookup } from './hando
 
 /**
  * F4-C.1: a existência datada da linha canônica de Separação comprova
- * entrada do Pedido na fila operacional, NÃO aceite/assunção humana.
- * O aceite formal depende de fato novo cuja autoridade é Operações.
+ * entrada do Pedido na fila operacional, NÃO assunção de atendimento.
+ * F4-C.2 usa atos já registrados pelo módulo Operações; sem ação adicional.
  */
 export type CrmHandoffQueueState =
   | 'not_applicable'
@@ -66,6 +66,6 @@ export function evaluateCrmHandoffQueueEvidence(input: {
     registeredAt,
     queueRegistrationVerified: true,
     handoffFormallyAcceptedVerified: false,
-    message: 'Pedido registrado na fila de Separação. Isso comprova encaminhamento técnico, não aceite ou assunção formal por Operações.',
+    message: 'Pedido registrado na fila de Separação. A entrada na fila não comprova, por si só, início do atendimento.',
   };
 }
