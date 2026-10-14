@@ -7,6 +7,7 @@ const TIMEOUT_MS = 5000;
 // Core Bridge responses remain small and sanitized, including Shopee Live actions.
 // Keep the original F3 response ceiling so oversized upstream responses fail closed.
 const MAX_RESPONSE_BYTES = 1024;
+const MAX_INTAKE_RESPONSE_BYTES = 64 * 1024;
 
 export const CORE_BRIDGE_ACTIONS = Object.freeze({
   HEALTH: 'health',
@@ -19,6 +20,7 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT: 'shopee.raw_order_list_snapshot.upsert',
   SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
   SHOPEE_ORDER_CREATE: 'shopee.order.create',
+  SHOPEE_ORDER_INTAKE_BATCH_READ: 'shopee.order_intake_batch.read',
 });
 
 export function sha256Hex(bytes) {
@@ -46,7 +48,7 @@ export function buildSignedHeaders({
   };
 }
 
-async function readJsonResponse(response) {
+async function readJsonResponse(response, maxBytes = MAX_RESPONSE_BYTES) {
   if (response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return null;
   if (!response.body) return null;
   const reader = response.body.getReader();
@@ -57,7 +59,7 @@ async function readJsonResponse(response) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         return null;
       }
@@ -110,7 +112,12 @@ export async function callCoreBridgeAction({
       signal: AbortSignal.timeout(timeoutMs),
     });
     status = response.status;
-    payload = await readJsonResponse(response);
+    payload = await readJsonResponse(
+      response,
+      action === CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ
+        ? MAX_INTAKE_RESPONSE_BYTES
+        : MAX_RESPONSE_BYTES,
+    );
     const responseRequestId = payload && typeof payload === 'object' ? payload.request_id : null;
     const ok = status === 200 && responseRequestId === requestId;
 
@@ -221,6 +228,14 @@ export function createLiveShopeeOrder(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_CREATE,
+    data,
+  });
+}
+
+export function readLiveShopeeOrderIntakeBatch(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ,
     data,
   });
 }
