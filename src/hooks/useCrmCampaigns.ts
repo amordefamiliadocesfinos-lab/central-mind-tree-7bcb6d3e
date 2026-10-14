@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { verifyCurrentIntelligentCampaignAudience } from '@/lib/crm/campaignIntelligentSafety';
 import { toast } from 'sonner';
 import { CAMPAIGN_UNCONFIRMED_CODE, canSafelyRequeueCampaignRecipient, isCampaignDispatchProtocolV2 } from '@/lib/crm/campaignReplaySafety';
 import {
@@ -163,6 +164,14 @@ export function useCrmCampaigns() {
   );
 
   const markPrepared = useCallback(async (campaignId: string) => {
+    try {
+      // F5-B: campanhas inteligentes exigem elegibilidade atual integral.
+      // Para campanhas tradicionais, o helper apenas lê segment_filters.
+      await verifyCurrentIntelligentCampaignAudience(campaignId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Critério inteligente indisponível.');
+      return false;
+    }
     const { error } = await db
       .from('crm_campaigns')
       .update({ status: 'prepared', updated_at: new Date().toISOString() })
@@ -326,6 +335,9 @@ export async function sendCampaignViaApi(
   if (campaignError || !liveCampaign || !['prepared', 'sending'].includes(liveCampaign.status)) {
     throw new Error('Campanha não está preparada ou já foi concluída/cancelada. Atualize a tela.');
   }
+  // F5-B: antes de qualquer alteração/envio, valide todos os destinatários
+  // inteligentes pendentes. Fatos novos podem invalidar o rascunho antigo.
+  await verifyCurrentIntelligentCampaignAudience(campaign.id);
   const { data, error: queueError } = await db
     .from('crm_campaign_recipients')
     .select('id, contact_id, conversation_id, rendered_message, status, delivery_mode')
@@ -364,6 +376,15 @@ export async function sendCampaignViaApi(
       if (moved) result.movedToManual++; else result.alreadyProcessed++;
       onProgress?.(++done, queue.length);
       continue;
+    }
+
+    // F5-B: conferência do recipient específico imediatamente antes de
+    // solicitar disparo. Se o sinal mudar, interromper, sem tentar reenvio.
+    try {
+      await verifyCurrentIntelligentCampaignAudience(campaign.id, [r.id]);
+    } catch (error) {
+      await refreshCampaignCounters(campaign.id);
+      throw error;
     }
 
     // F0-B: a Edge Function possui a reserva atômica real. Envia-se um ID
