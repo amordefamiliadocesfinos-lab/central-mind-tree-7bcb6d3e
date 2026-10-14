@@ -74,12 +74,12 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
 
   return (
     <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" className="h-8 flex-1 gap-1 text-xs" disabled={busy} onClick={() => setMode(mode === 'outcome' ? null : 'outcome')}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'outcome' ? null : 'outcome')}>
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
           Registrar resultado <ChevronDown className="h-3 w-3" />
         </Button>
-        <Button size="sm" variant="outline" className="h-8 flex-1 gap-1 text-xs" disabled={busy} onClick={() => setMode(mode === 'snooze' ? null : 'snooze')}>
+        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'snooze' ? null : 'snooze')}>
           <CalendarClock className="h-3.5 w-3.5" /> Adiar
         </Button>
       </div>
