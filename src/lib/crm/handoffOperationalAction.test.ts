@@ -124,7 +124,7 @@ const latePrint = evaluateCrmOperationalActionEvidence({
 assert(latePrint.assumedInFlowAt === row.finalized_at,
   'evento de impressão posterior à finalização não altera a primeira assunção');
 
-assert(!wrong.assumedInFlowVerified && !cancelledActivity.assumedInFlowVerified
+assert(!wrongOrder.assumedInFlowVerified && !cancelledActivity.assumedInFlowVerified
   && !pending.assumedInFlowVerified && !unavailable.assumedInFlowVerified
   && !missing.assumedInFlowVerified,
   'falha de identidade, cancelamento ou consulta nunca cria aceite presumido');
