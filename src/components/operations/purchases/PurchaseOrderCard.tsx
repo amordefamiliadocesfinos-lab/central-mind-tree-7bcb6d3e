@@ -150,7 +150,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
 
         <div className="flex flex-col gap-3 rounded-xl border-2 border-slate-300 bg-slate-100 p-4 dark:border-slate-600 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-bold text-slate-900 dark:text-white">
-            Total da compra: <span className="text-xl font-extrabold text-slate-950 dark:text-white">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
+            {order.closure ? 'Total efetivo: ' : 'Total da compra: '}<span className="text-xl font-extrabold text-slate-950 dark:text-white">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />{order.billing_status === 'pending' && order.status !== 'rascunho' ? 'NF / Documentos' : 'Documentos'}</Button>
@@ -159,7 +159,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
             {order.status === 'rascunho' && (
               <><Button size="sm" disabled={busy} onClick={() => void onConfirmOrder(order)}>Confirmar pedido</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
             )}
-            {order.status !== 'rascunho' && order.status !== 'cancelado' && !order.closure && order.billing_status === 'pending' && (
+            {order.status !== 'rascunho' && order.status !== 'cancelado' && order.billing_status === 'pending' && (
               <Button size="sm" variant="outline" disabled={busy} onClick={() => void onRegisterBilling(order)}>
                 Registrar faturamento
               </Button>
