@@ -3,6 +3,8 @@ export {
   exchangeToken,
   getOrderDetail,
   getOrderList,
+  getShippingDocumentParameter,
+  getShippingParameter,
   getShopInfo,
   parseShopeeError,
   refreshToken,
