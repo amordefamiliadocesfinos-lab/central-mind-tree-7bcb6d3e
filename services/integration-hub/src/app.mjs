@@ -2,6 +2,11 @@ import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
+import {
+  SHOPEE_OPERATIONAL_COMMIT_POLICY,
+  summarizeShopeeControlledRound,
+} from './shopee-intake-policy.mjs';
+import { randomUUID } from 'node:crypto';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -25,6 +30,9 @@ export async function handleRequest(
     runShopeePreview = runShopeeControlledAutoIntake,
     runShopeeCommit = runShopeeControlledAutoIntake,
     getEnv = (name) => process.env[name],
+    makeRunId = randomUUID,
+    now = () => new Date().toISOString(),
+    logEvent = (event) => console.log(JSON.stringify(event)),
   } = {},
 ) {
   const shopeeLiveResponse = await handleShopeeLive(request);
@@ -32,6 +40,106 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  if (normalizedPath === '/internal/shopee/live/orders/intake/run') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+
+    const channelAccountId = String(getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') ?? '').trim();
+    const autoCommitEnabled = String(getEnv('SHOPEE_LIVE_AUTO_COMMIT_ENABLED') ?? '')
+      .trim()
+      .toLowerCase() === 'true';
+
+    if (!channelAccountId || !autoCommitEnabled) {
+      return json(503, { error: 'auto_commit_not_enabled' });
+    }
+
+    const runId = makeRunId();
+    const startedAt = now();
+
+    try {
+      const result = await runShopeeCommit({
+        channelAccountId,
+        limit: SHOPEE_OPERATIONAL_COMMIT_POLICY.batchLimit,
+        mode: 'commit',
+      });
+      const finishedAt = now();
+      const summary = summarizeShopeeControlledRound(result);
+
+      logEvent({
+        event: 'shopee_intake_round',
+        runId,
+        startedAt,
+        finishedAt,
+        channelAccountId,
+        ok: result?.ok === true,
+        roundStopped: result?.roundStopped === true,
+        stopReason: result?.stopReason ?? null,
+        summary,
+      });
+
+      const sanitizedResults = Array.isArray(result?.results)
+        ? result.results.map((entry) => ({
+          orderSn: entry?.orderSn ?? null,
+          status: entry?.status ?? null,
+          blockers: Array.isArray(entry?.blockers) ? entry.blockers : [],
+          alreadyRegistered: entry?.write?.alreadyRegistered === true,
+        }))
+        : [];
+
+      if (!result?.ok || result?.roundStopped === true) {
+        return json(503, {
+          status: 'degraded',
+          mode: 'commit',
+          runId,
+          ...summary,
+          roundStopped: result?.roundStopped === true,
+          stopReason: result?.stopReason ?? null,
+          results: sanitizedResults,
+        });
+      }
+
+      return json(200, {
+        status: summary.blocked > 0 || summary.retryable > 0 ? 'attention' : 'ok',
+        mode: 'commit',
+        runId,
+        ...summary,
+        roundStopped: false,
+        stopReason: null,
+        results: sanitizedResults,
+      });
+    } catch {
+      const finishedAt = now();
+      logEvent({
+        event: 'shopee_intake_round',
+        runId,
+        startedAt,
+        finishedAt,
+        channelAccountId,
+        ok: false,
+        roundStopped: true,
+        stopReason: 'runtime_exception',
+      });
+      return json(503, {
+        status: 'degraded',
+        mode: 'commit',
+        runId,
+        selected: 0,
+        ready: 0,
+        blocked: 0,
+        written: 0,
+        success: 0,
+        retryable: 0,
+        unknown: 0,
+        statuses: {},
+        roundStopped: true,
+        stopReason: 'runtime_exception',
+        results: [],
+      });
+    }
+  }
 
   if (normalizedPath === '/internal/shopee/live/orders/intake/commit-one') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
