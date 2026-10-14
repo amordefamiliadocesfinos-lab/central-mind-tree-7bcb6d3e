@@ -53,6 +53,7 @@ jobs:
             src/lib/crm/handoffOperationalAction.test.ts \
             src/lib/crm/handoffQueueEvidence.test.ts \
             src/lib/crm/postSalePanelOutreach.test.ts \
+            src/lib/crm/postSalePanelLifecycle.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/canonical/transitions.test.ts \

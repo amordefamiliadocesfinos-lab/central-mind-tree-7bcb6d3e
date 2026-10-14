@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useContacts, type Contact } from '@/hooks/useContacts';
 import { evaluatePostSalePanelOutreach } from '@/lib/crm/postSalePanelOutreach';
+import { loadPostSalePanelLifecycleInsight, type PostSalePanelLifecycleInsight } from '@/lib/crm/postSalePanelLifecycle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,11 @@ interface Props {
 }
 
 type BucketKey = '30' | '60' | '90' | 'all';
+type InsightStatus =
+  | { state: 'loading' }
+  | { state: 'ready'; insight: PostSalePanelLifecycleInsight }
+  | { state: 'error' };
+const PAGE_SIZE = 8;
 
 const TEMPLATES = {
   satisfacao: (name: string) =>
@@ -43,6 +49,10 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [bucket, setBucket] = useState<BucketKey>('30');
   const [historyContact, setHistoryContact] = useState<Contact | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [insights, setInsights] = useState<Record<string, InsightStatus>>({});
+  const analyzingIds = useRef(new Set<string>());
+  const analysisEpoch = useRef(0);
 
   const customers = useMemo(() => {
     return contacts.filter(c =>
@@ -89,6 +99,56 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
       c.whatsapp?.includes(q)
     );
   }, [buckets, bucket, search]);
+
+  // A leitura dos sinais é progressiva. Evita consultar milhares de fatos do
+  // CRM simultaneamente e não inicializa a memória interpretativa do Assistente.
+  const visibleCustomers = useMemo(
+    () => filtered.slice(0, visibleCount), [filtered, visibleCount],
+  );
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [bucket, search]);
+  useEffect(() => {
+    if (!open) return;
+    const epoch = analysisEpoch.current;
+    const pending = visibleCustomers.filter(c =>
+      !insights[c.id] && !analyzingIds.current.has(c.id));
+    if (pending.length === 0) return;
+
+    for (const c of pending) analyzingIds.current.add(c.id);
+    setInsights(prev => ({
+      ...prev,
+      ...Object.fromEntries(pending.map(c => [c.id, { state: 'loading' as const }])),
+    }));
+
+    let next = 0;
+    async function worker() {
+      while (epoch === analysisEpoch.current && next < pending.length) {
+        const contactId = pending[next++].id;
+        try {
+          const insight = await loadPostSalePanelLifecycleInsight(contactId);
+          if (epoch === analysisEpoch.current) setInsights(prev => ({
+            ...prev, [contactId]: { state: 'ready', insight },
+          }));
+        } catch {
+          if (epoch === analysisEpoch.current) setInsights(prev => ({
+            ...prev, [contactId]: { state: 'error' },
+          }));
+        } finally {
+          if (epoch === analysisEpoch.current) analyzingIds.current.delete(contactId);
+        }
+      }
+    }
+    void Promise.all(Array.from({ length: Math.min(2, pending.length) }, () => worker()));
+    // Mudanças de aba não descartam as consultas já iniciadas. Fechar o painel
+    // invalida a geração anterior para impedir retorno obsoleto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, visibleCustomers]);
+  useEffect(() => {
+    if (!open) {
+      analysisEpoch.current += 1;
+      analyzingIds.current.clear();
+      setInsights({});
+    }
+  }, [open]);
 
   const prepareMessage = async (c: Contact, type: 'satisfacao' | 'recompra' | 'fidelizacao') => {
     if (preparingContactId) return;
@@ -156,6 +216,10 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
     const ltv = Number(c.lifetime_value ?? 0);
     const orders = c.paid_orders_count ?? 0;
     const isVip = c.client_classification === 'vip' || c.funnel_status === 'vip';
+    const signal = insights[c.id];
+    const insight = signal?.state === 'ready' ? signal.insight : null;
+    const kind = insight?.opportunity.kind ?? 'none';
+    const isRestricted = Boolean(insight?.restricted || c.commercial_opt_out);
 
     return (
       <Card key={c.id} className="p-3 hover:shadow-md transition-shadow">
@@ -166,6 +230,15 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
               <p className="font-semibold truncate">{c.name}</p>
               {isVip && <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1"><Award className="h-3 w-3" />VIP</Badge>}
               {days !== null && days >= 90 && <Badge variant="destructive" className="gap-1"><Clock className="h-3 w-3" />{days}d sem comprar</Badge>}
+              {isRestricted && <Badge variant="outline">Contato restrito</Badge>}
+              {signal?.state === 'loading' && <Badge variant="outline">Analisando fatos...</Badge>}
+              {signal?.state === 'error' && <Badge variant="outline">Sinal indisponível</Badge>}
+              {insight && kind === 'post_sale' && <Badge variant="secondary">Pós-venda elegível</Badge>}
+              {insight && kind === 'repurchase' && (
+                <Badge variant="secondary">{insight.opportunity.repurchase?.status === 'explicit'
+                  ? 'Recompra solicitada' : 'Recompra provável'}</Badge>
+              )}
+              {insight && kind === 'none' && <Badge variant="outline">Sem oportunidade comprovada</Badge>}
               {days !== null && days >= 60 && days < 90 && <Badge className="bg-orange-100 text-orange-800 border-orange-300 gap-1"><Clock className="h-3 w-3" />{days}d</Badge>}
               {days !== null && days >= 30 && days < 60 && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 gap-1"><Clock className="h-3 w-3" />{days}d</Badge>}
             </div>
@@ -174,6 +247,12 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
               <span>{orders} {orders === 1 ? 'pedido pago' : 'pedidos pagos'}</span>
               {ltv > 0 && <span className="text-green-700 font-medium">LTV R$ {ltv.toFixed(2)}</span>}
             </div>
+            {insight && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {insight.opportunity.reason}
+                {isRestricted ? ' · Abordagem comercial não autorizada enquanto houver opt-out.' : ''}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-3">
@@ -219,18 +298,22 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
               />
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              Tempo sem comprar não é confirmação de recompra. Os sinais abaixo seguem as
+              regras do Assistente CRM, apenas para consulta; atendimentos continuam na Inbox.
+            </p>
             <Tabs value={bucket} onValueChange={(v) => setBucket(v as BucketKey)}>
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="30" className="gap-1.5">
-                  <span className="hidden sm:inline">Sem comprar há</span> 30d
+                  <span className="hidden sm:inline">Sem comprar</span> 30–59d
                   <Badge variant="secondary" className="ml-1">{buckets['30'].length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="60" className="gap-1.5">
-                  <span className="hidden sm:inline">há</span> 60d
+                  <span className="hidden sm:inline">Sem comprar</span> 60–89d
                   <Badge variant="secondary" className="ml-1">{buckets['60'].length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="90" className="gap-1.5">
-                  <span className="hidden sm:inline">há</span> 90d+
+                  <span className="hidden sm:inline">Sem comprar</span> 90d+
                   <Badge variant="destructive" className="ml-1">{buckets['90'].length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="all">
@@ -245,7 +328,14 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
                     Nenhum cliente neste período.
                   </div>
                 ) : (
-                  filtered.map(renderContact)
+                  <>
+                    {visibleCustomers.map(renderContact)}
+                    {filtered.length > visibleCount && (
+                      <Button type="button" variant="outline" className="w-full" onClick={() => setVisibleCount(n => n + PAGE_SIZE)}>
+                        Mostrar mais {Math.min(PAGE_SIZE, filtered.length - visibleCount)} clientes
+                      </Button>
+                    )}
+                  </>
                 )}
               </TabsContent>
             </Tabs>
