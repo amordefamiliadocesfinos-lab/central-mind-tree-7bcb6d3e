@@ -6040,6 +6040,80 @@ export type Database = {
           },
         ]
       }
+      purchase_final_closure_items: {
+        Row: {
+          not_delivered_qty: number
+          ordered_qty: number
+          purchase_order_id: string
+          purchase_order_item_id: string
+          received_qty: number
+          unit_price: number
+        }
+        Insert: {
+          not_delivered_qty: number
+          ordered_qty: number
+          purchase_order_id: string
+          purchase_order_item_id: string
+          received_qty: number
+          unit_price: number
+        }
+        Update: {
+          not_delivered_qty?: number
+          ordered_qty?: number
+          purchase_order_id?: string
+          purchase_order_item_id?: string
+          received_qty?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_final_closure_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_final_closures"
+            referencedColumns: ["purchase_order_id"]
+          },
+          {
+            foreignKeyName: "purchase_final_closure_items_purchase_order_item_id_fkey"
+            columns: ["purchase_order_item_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_final_closures: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_amount: number
+          purchase_order_id: string
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_amount: number
+          purchase_order_id: string
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_amount?: number
+          purchase_order_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_final_closures_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_order_items: {
         Row: {
           conversion_factor: number
@@ -8307,6 +8381,10 @@ export type Database = {
       finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
       finalize_order_separation_unguarded_01b: {
         Args: { p_order_id: string }
+        Returns: Json
+      }
+      finalize_partial_purchase: {
+        Args: { p_id: string; p_reason: string }
         Returns: Json
       }
       get_purchase_price_reference: {
