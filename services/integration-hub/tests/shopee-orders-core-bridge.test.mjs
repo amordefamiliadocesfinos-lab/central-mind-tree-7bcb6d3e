@@ -7,6 +7,7 @@ import {
   CORE_BRIDGE_URL,
   callCoreBridgeAction,
   createLiveShopeeOrder,
+  readLiveShopeeOrderIntakeBatch,
   readLiveShopeeOauthConnection,
   refreshLiveShopeeOauthConnection,
   upsertLiveShopeeOrderListSnapshot,
@@ -43,6 +44,7 @@ test('F6-B registers the localized Shopee Live Bridge actions', () => {
     'shopee.raw_order_list_snapshot.upsert',
     'shopee.raw_order_snapshot.upsert',
     'shopee.order.create',
+    'shopee.order_intake_batch.read',
   ]) {
     assert.ok(BRIDGE_LIVE_ACTIONS.includes(action));
   }
@@ -447,5 +449,85 @@ test('F6-I accepts coherent integer quantities within the defined numeric tolera
       fetchImpl:bridgeFetch(async payload => {executions += 1; return {status:200,body:{status:'ok',action:payload.action}};}),
     });
     assert.equal(r.status, 200); assert.equal(executions, 1);
+  }
+});
+
+
+test('F6-J intake batch read sends only channel account and bounded limit', async () => {
+  let observed;
+  const largeMappings = Array.from({ length: 30 }, (_, index) => ({
+    id: `mapping-${index}`,
+    marketplace: 'shopee',
+    marketplace_account: 'SHOPEE VIVIANE',
+    external_item_key: `code:SH-TEST-${index}|variation:`,
+    components: [],
+  }));
+
+  const result = await readLiveShopeeOrderIntakeBatch({
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    limit: 5,
+  }, {
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async (payload) => {
+      observed = payload;
+      return {
+        status: 200,
+        body: {
+          status: 'ok',
+          action: payload.action,
+          channel_account_id: CHANNEL_ACCOUNT_ID,
+          marketplace_account: 'SHOPEE VIVIANE',
+          eligible_statuses: ['PROCESSED', 'READY_TO_SHIP'],
+          snapshots: [],
+          mappings: largeMappings,
+          counts: {
+            selected: 0,
+            skipped_existing: 1,
+            skipped_status: 0,
+            skipped_malformed: 0,
+          },
+        },
+      };
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(observed, {
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ,
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    limit: 5,
+  });
+  assert.equal(result.payload.mappings.length, 30);
+});
+
+test('F6-J intake batch read rejects caller-controlled eligibility filters and oversized limits', async () => {
+  for (const data of [
+    {
+      channel_account_id: CHANNEL_ACCOUNT_ID,
+      limit: 5,
+      eligible_statuses: ['COMPLETED'],
+    },
+    {
+      channel_account_id: CHANNEL_ACCOUNT_ID,
+      limit: 21,
+    },
+  ]) {
+    let executions = 0;
+    const result = await callCoreBridgeAction({
+      action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ,
+      data,
+      url: CORE_BRIDGE_URL,
+      secret: SECRET,
+      logger: () => {},
+      fetchImpl: bridgeFetch(async () => {
+        executions += 1;
+        return { status: 200, body: {} };
+      }),
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 400);
+    assert.equal(executions, 0);
   }
 });
