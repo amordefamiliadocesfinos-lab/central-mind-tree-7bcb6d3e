@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { MessageCircle, CheckCircle2, SkipForward, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { verifyCurrentIntelligentCampaignAudience } from '@/lib/crm/campaignIntelligentSafety';
 import {
   CrmCampaignRecipient,
   blockRecipientByOptOut,
@@ -56,6 +57,9 @@ export function CampaignManualQueue({ open, onOpenChange, campaignId, campaignMe
         onChanged?.();
         return;
       }
+      // F5-B: antes de abrir o WhatsApp, confira o critério inteligente atual.
+      // Registrar um envio já realizado continua permitido para auditoria.
+      await verifyCurrentIntelligentCampaignAudience(campaignId, [current.id]);
       const ok = openWhatsApp(current.phone_normalized, current.rendered_message || campaignMessage);
       if (!ok) toast.error('Não foi possível abrir o WhatsApp.');
       else toast.message('Mensagem preparada. Envio depende da sua confirmação no WhatsApp e nesta fila.');
