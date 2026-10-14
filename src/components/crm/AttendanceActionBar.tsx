@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarClock, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +20,12 @@ interface Props {
   openModeRequest?: { mode: 'outcome' | 'snooze'; id: number; contextKey?: string } | null;
   /** F1: obrigação oficial em execução. Só ordena/destaca Resultados; nunca bloqueia opções. */
   taskContextTitle?: string | null;
+  /** UX-CRM-02: apresenta o formulário no painel contextual sem encolher mensagens. */
+  formPortalTarget?: HTMLElement | null;
+  onModeChange?: (mode: 'outcome' | 'snooze' | null) => void;
 }
 
-export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode, openModeRequest, taskContextTitle }: Props) {
+export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSnooze, presetResultCode, openModeRequest, taskContextTitle, formPortalTarget, onModeChange }: Props) {
   const [mode, setMode] = useState<'outcome' | 'snooze' | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -64,6 +68,10 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     setTime('');
   }, [openModeRequest]);
 
+  useEffect(() => {
+    onModeChange?.(mode);
+  }, [mode, onModeChange]);
+
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;
     await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null, contextKey);
@@ -72,17 +80,9 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     setDate(''); setTime('');
   };
 
-  return (
-    <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'outcome' ? null : 'outcome')}>
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-          Registrar resultado <ChevronDown className="h-3 w-3" />
-        </Button>
-        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'snooze' ? null : 'snooze')}>
-          <CalendarClock className="h-3.5 w-3.5" /> Adiar
-        </Button>
-      </div>
+  const activeForm = (
+    <div className="space-y-2" aria-label={mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}>
+      <h3 className="text-sm font-semibold">{mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}</h3>
       {mode === 'outcome' && (
         <div className="space-y-2 rounded-md border bg-background p-2">
           <Select value={resultCode} onValueChange={value => setResultCode(value as CrmResultCode)}>
@@ -148,8 +148,24 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
             <Input type="date" className="h-8 text-xs" value={date} min={new Date().toISOString().slice(0, 10)} onChange={event => setDate(event.target.value)} />
             <Button size="sm" className="h-8 text-xs" disabled={!date} onClick={async () => { await onSnooze(date); setMode(null); setDate(''); }}>Confirmar</Button>
           </div>
+          <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setDate(''); setTime(''); }}>Cancelar adiamento</Button>
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-1.5 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'outcome' ? null : 'outcome')}>
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+          Registrar resultado <ChevronDown className="h-3 w-3" />
+        </Button>
+        <Button size="sm" variant="outline" className="h-9 w-auto shrink-0 gap-1.5 px-3 text-sm" disabled={busy} onClick={() => setMode(mode === 'snooze' ? null : 'snooze')}>
+          <CalendarClock className="h-3.5 w-3.5" /> Adiar
+        </Button>
+      </div>
+      {mode && (formPortalTarget ? createPortal(activeForm, formPortalTarget) : activeForm)}
     </div>
   );
 }
