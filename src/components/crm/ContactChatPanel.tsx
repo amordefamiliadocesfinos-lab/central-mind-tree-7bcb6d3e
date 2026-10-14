@@ -59,6 +59,8 @@ interface ContactChatPanelProps {
   assistantPortalTarget?: HTMLElement | null;
   onAssistantRequested?: () => void;
   onMessageSent?: (content: string) => void | Promise<void>;
+  /** C1-B: atualizar a fila após QUALQUER envio confirmado, sem criar Resultado. */
+  onOutboundConfirmed?: () => void | Promise<void>;
   /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
   onUseSuggestedResult?: (resultCode: string) => void;
   /** F5.2.3: abre o agendamento manual oficial após o limite do ciclo. */
@@ -80,7 +82,7 @@ function CrmAssistantPortal({ target, children }: { target?: HTMLElement | null;
   return target ? createPortal(children, target) : <>{children}</>;
 }
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, assistantPortalTarget, onAssistantRequested, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, assistantPortalTarget, onAssistantRequested, onMessageSent, onOutboundConfirmed, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -438,6 +440,14 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
       setText('');
       setAttachment(null);
       setAiDraftStamp(null);
+      // C1-B: o Edge Function já confirmou a execução. A Inbox precisa
+      // recarregar o estado independentemente do follow-up automático.
+      try {
+        await onOutboundConfirmed?.();
+      } catch (refreshError) {
+        // Falha de atualização visual NÃO significa falha do envio.
+        console.warn('Mensagem enviada; atualização da Inbox indisponível:', refreshError);
+      }
       if (response?.preserved_existing_obligation === true) {
         toast.success('Mensagem enviada · Próxima Ação preservada até você registrar o Resultado.');
       } else if (response?.automatic_follow_up_scheduled === true) {
