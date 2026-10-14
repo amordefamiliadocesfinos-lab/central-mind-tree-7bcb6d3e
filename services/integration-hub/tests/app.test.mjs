@@ -681,3 +681,121 @@ test('F6-O.1b logistics inspect route sanitizes upstream failure', async () => {
     code: 'order_detail_rejected',
   });
 });
+
+
+test('F6-O.1R OAuth refresh-once route is disabled by default', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/oauth/refresh-once', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => undefined,
+      refreshShopeeOauth: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), { error: 'oauth_refresh_not_enabled' });
+  assert.equal(calls, 0);
+});
+
+test('F6-O.1R OAuth refresh-once route rejects caller-controlled query', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    {
+      method: 'POST',
+      path: '/internal/shopee/live/oauth/refresh-once',
+      query: { shopId: 'attacker-controlled' },
+      headers: {},
+    },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => 'true',
+      refreshShopeeOauth: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(JSON.parse(response.body), { error: 'query_not_allowed' });
+  assert.equal(calls, 0);
+});
+
+test('F6-O.1R OAuth refresh-once route exposes only sanitized metadata', async () => {
+  let calls = 0;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/oauth/refresh-once', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => name === 'SHOPEE_LIVE_OAUTH_REFRESH_ENABLED' ? 'TRUE' : undefined,
+      refreshShopeeOauth: async () => {
+        calls += 1;
+        return {
+          ok: true,
+          code: 'oauth_refreshed',
+          before: {
+            channel_account_id: 'account-1',
+            partner_id: 2047685,
+            shop_id: 531736366,
+            access_token_expires_at: 'before-access',
+            refresh_token_expires_at: 'before-refresh',
+            last_refreshed_at: 'before-last',
+          },
+          after: {
+            channel_account_id: 'account-1',
+            partner_id: 2047685,
+            shop_id: 531736366,
+            access_token_expires_at: 'after-access',
+            refresh_token_expires_at: 'after-refresh',
+            last_refreshed_at: 'after-last',
+          },
+          secret: 'must-not-leak',
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls, 1);
+  const body = JSON.parse(response.body);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.mode, 'oauth_refresh_once');
+  assert.equal(body.code, 'oauth_refreshed');
+  assert.equal(body.before.shop_id, 531736366);
+  assert.equal(body.after.shop_id, 531736366);
+  assert.equal(Object.hasOwn(body, 'secret'), false);
+});
+
+test('F6-O.1R OAuth refresh-once route reports expired refresh token without token data', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/oauth/refresh-once', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => name === 'SHOPEE_LIVE_OAUTH_REFRESH_ENABLED' ? 'true' : undefined,
+      refreshShopeeOauth: async () => ({
+        ok: false,
+        code: 'refresh_token_expired',
+        before: {
+          channel_account_id: 'account-1',
+          partner_id: 2047685,
+          shop_id: 531736366,
+          access_token_expires_at: 'expired',
+          refresh_token_expires_at: 'expired',
+          last_refreshed_at: null,
+        },
+        access_token: 'must-not-leak',
+      }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  const body = JSON.parse(response.body);
+  assert.equal(body.code, 'refresh_token_expired');
+  assert.equal(body.mode, 'oauth_refresh_once');
+  assert.equal(Object.hasOwn(body, 'access_token'), false);
+});
