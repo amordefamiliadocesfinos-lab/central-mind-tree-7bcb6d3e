@@ -21,9 +21,15 @@ function nullableText(value) {
   return normalized === '' ? null : normalized;
 }
 
-function finiteNonNegative(value) {
+function finiteNumber(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') return null;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function finiteNonNegative(value) {
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed >= 0 ? parsed : null;
 }
 
 function assertReadyProjection(order) {
@@ -34,16 +40,16 @@ function assertReadyProjection(order) {
   if (!order.candidate || typeof order.candidate !== 'object') {
     throw new TypeError('projection candidate is required');
   }
-  if (Array.isArray(order.blockers) && order.blockers.length > 0) {
+  if (!Array.isArray(order.blockers) || order.blockers.length > 0) {
     throw new TypeError('ready projection cannot contain blockers');
   }
 }
 
 function normalizeLine(line, index) {
   const productId = nullableText(line?.productId);
-  const quantity = Number(line?.quantity);
-  const commercialQuantity = Number(line?.commercialQuantity);
-  const physicalMultiplier = Number(line?.physicalMultiplier);
+  const quantity = finiteNumber(line?.quantity);
+  const commercialQuantity = finiteNumber(line?.commercialQuantity);
+  const physicalMultiplier = finiteNumber(line?.physicalMultiplier);
 
   if (!productId) throw new TypeError(`item_${index}: productId is required`);
   if (!Number.isFinite(quantity) || quantity <= 0) throw new TypeError(`item_${index}: physical quantity must be positive`);

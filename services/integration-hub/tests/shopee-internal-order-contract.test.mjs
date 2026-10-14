@@ -150,3 +150,85 @@ test('contract freezes stock change to internal finalization, not external statu
   assert.equal(SHOPEE_INTERNAL_ORDER_CONTRACT.writerAuthorized, false);
   assert.equal(SHOPEE_INTERNAL_ORDER_CONTRACT.operationalWrites, false);
 });
+
+for (const field of ['orderNumber', 'channelAccountId', 'marketplaceAccount', 'orderDate']) {
+  test(`rejects missing ${field}`, () => {
+    const p = readyProjection();
+    p.candidate[field] = null;
+    assert.throws(() => applyShopeeInternalOrderContract(p), new RegExp(`${field} is required`));
+  });
+}
+
+test('rejects ready projections with blockers and malformed blocker evidence', () => {
+  for (const blockers of [['already_imported'], 'already_imported', null, {}]) {
+    assert.throws(() => applyShopeeInternalOrderContract(readyProjection({ blockers })), /cannot contain blockers/);
+  }
+});
+
+test('rejects absent candidate, empty items and missing product', () => {
+  assert.throws(() => applyShopeeInternalOrderContract(readyProjection({ candidate: null })), /candidate is required/);
+  const p = readyProjection();
+  p.candidate.items = [];
+  assert.throws(() => applyShopeeInternalOrderContract(p), /at least one/);
+  const noProduct = readyProjection();
+  noProduct.candidate.items[0].productId = null;
+  assert.throws(() => applyShopeeInternalOrderContract(noProduct), /productId is required/);
+});
+
+for (const field of ['quantity', 'commercialQuantity', 'physicalMultiplier']) {
+  test(`rejects nonpositive and nonnumeric ${field}`, () => {
+    for (const value of [0, -1, Infinity, NaN, null, undefined, '', ' ', true, false, [], {}, 'invalid']) {
+      const p = readyProjection();
+      p.candidate.items[0][field] = value;
+      assert.throws(() => applyShopeeInternalOrderContract(p), /must be positive/);
+    }
+  });
+}
+
+test('invalid prices and missing totals stay null rather than inventing zero', () => {
+  for (const value of [null, undefined, '', ' ', true, false, [], {}, -1, NaN, Infinity, 'invalid']) {
+    const p = readyProjection();
+    p.candidate.items[0].unitPrice = value;
+    p.candidate.totalValue = value;
+    const result = applyShopeeInternalOrderContract(p);
+    assert.equal(result.items[0].unitPrice, null);
+    assert.equal(result.order.totalValue, null);
+  }
+  const free = readyProjection();
+  free.candidate.items[0].unitPrice = 0;
+  assert.equal(applyShopeeInternalOrderContract(free).items[0].unitPrice, 0);
+});
+
+test('every external status remains metadata while internal states and effects stay fixed', () => {
+  for (const status of ['READY_TO_SHIP', 'PROCESSED', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'UNPAID', null]) {
+    const p = readyProjection();
+    p.externalStatus = status;
+    p.candidate.marketplaceMetadata.externalStatus = status;
+    const result = applyShopeeInternalOrderContract(p);
+    assert.equal(result.order.marketplaceMetadata.externalStatus, status);
+    assert.deepEqual([result.order.status, result.order.operationalStatus, result.order.orderType, result.order.paymentStatus], ['pendente', 'todo', 'stock', 'pendente']);
+    assert.deepEqual([result.order.contactId, result.order.customerName, result.order.customerContact], [null, null, null]);
+    for (const key of ['stockAction', 'financialAction', 'crmAction', 'contactAction', 'productionOrderAction']) assert.equal(result.effects[key], null);
+    assert.equal(result.effects.separationAction, 'create_todo_record_with_order');
+  }
+});
+
+test('same external order in another account has a distinct stable identity', () => {
+  const first = applyShopeeInternalOrderContract(readyProjection());
+  const p = readyProjection();
+  p.candidate.channelAccountId = 'other-account';
+  p.candidate.marketplaceAccount = 'OTHER ACCOUNT';
+  const second = applyShopeeInternalOrderContract(p);
+  assert.notEqual(first.idempotency.key, second.idempotency.key);
+  assert.equal(first.order.orderNumber, second.order.orderNumber);
+  assert.equal(second.idempotency.key, applyShopeeInternalOrderContract(p).idempotency.key);
+});
+
+test('preserves all item contract fields without manufacturing presentation or mutating inputs', () => {
+  const p = readyProjection();
+  const before = JSON.stringify(p);
+  const result = applyShopeeInternalOrderContract(p);
+  assert.deepEqual(result.items[0], p.candidate.items[0]);
+  assert.equal(JSON.stringify(p), before);
+  assert.equal(Object.keys(result.items[0]).some(k => /presentation/i.test(k)), false);
+});
