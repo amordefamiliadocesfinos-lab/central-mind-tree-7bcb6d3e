@@ -256,6 +256,122 @@ async function signedShopGet({
   return { response, payload: parseJsonPayload(rawText), rawText };
 }
 
+
+async function signedShopPost({
+  apiBaseUrl,
+  path,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  body = {},
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
+  const normalizedPartnerId = requiredPositiveInteger(partnerId, 'partnerId');
+  const normalizedShopId = requiredPositiveInteger(shopId, 'shopId');
+  const normalizedPath = requiredText(path, 'path');
+  const normalizedAccessToken = requiredText(accessToken, 'accessToken');
+  const signature = await signShopRequest({
+    partnerId: normalizedPartnerId,
+    partnerKey,
+    path: normalizedPath,
+    accessToken: normalizedAccessToken,
+    shopId: normalizedShopId,
+    timestamp,
+  });
+
+  const url = new URL(normalizedPath, requiredText(apiBaseUrl, 'apiBaseUrl'));
+  url.searchParams.set('partner_id', String(normalizedPartnerId));
+  url.searchParams.set('timestamp', String(signature.timestamp));
+  url.searchParams.set('access_token', normalizedAccessToken);
+  url.searchParams.set('shop_id', String(normalizedShopId));
+  url.searchParams.set('sign', signature.sign);
+
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  const rawText = await response.text();
+  return { response, payload: parseJsonPayload(rawText), rawText };
+}
+
+export function getShippingParameter({
+  apiBaseUrl,
+  shippingParameterPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSn,
+  packageNumber = null,
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  const body = {
+    order_sn: requiredText(orderSn, 'orderSn'),
+  };
+  if (packageNumber !== null && packageNumber !== undefined && String(packageNumber).trim() !== '') {
+    body.package_number = String(packageNumber).trim();
+  }
+
+  return signedShopPost({
+    apiBaseUrl,
+    path: shippingParameterPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    body,
+    fetchImpl,
+    timestamp,
+  });
+}
+
+export function getShippingDocumentParameter({
+  apiBaseUrl,
+  shippingDocumentParameterPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderList,
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (!Array.isArray(orderList) || orderList.length === 0 || orderList.length > 50) {
+    throw new TypeError('orderList must contain between 1 and 50 entries');
+  }
+
+  const normalizedOrderList = orderList.map((entry, index) => {
+    const normalized = {
+      order_sn: requiredText(entry?.order_sn, `orderList[${index}].order_sn`),
+    };
+    if (entry?.package_number !== null && entry?.package_number !== undefined
+      && String(entry.package_number).trim() !== '') {
+      normalized.package_number = String(entry.package_number).trim();
+    }
+    return normalized;
+  });
+
+  return signedShopPost({
+    apiBaseUrl,
+    path: shippingDocumentParameterPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    body: { order_list: normalizedOrderList },
+    fetchImpl,
+    timestamp,
+  });
+}
+
 export function getOrderList({
   apiBaseUrl,
   orderListPath,
