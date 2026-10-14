@@ -10,6 +10,8 @@ on:
       - 'src/pages/Contatos.tsx'
       - 'src/hooks/useCrmCampaigns.ts'
       - 'src/components/crm/CampaignReviewDialog.tsx'
+      - 'src/components/crm/CampaignsListDialog.tsx'
+      - 'src/components/crm/CampaignPerformancePanel.tsx'
       - 'src/components/crm/InboxSaleDialog.tsx'
       - 'src/components/crm/CampaignCreateDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
@@ -67,7 +69,8 @@ jobs:
             src/lib/crm/aiContext.test.ts \
             src/lib/crm/crmPaymentSafety.test.ts \
             src/lib/crm/aiResultSuggestion.test.ts \
-            src/lib/crm/campaignSales.test.ts; do
+            src/lib/crm/campaignSales.test.ts \
+            src/lib/crm/campaignPerformance.test.ts; do
             echo "::group::Test ${file}"
             npx --yes vite-node@3.2.4 "$file" || status=1
             echo "::endgroup::"
