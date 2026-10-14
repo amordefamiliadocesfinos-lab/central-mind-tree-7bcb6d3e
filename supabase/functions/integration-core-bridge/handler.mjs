@@ -19,6 +19,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.raw_shop_snapshot.upsert',
   'shopee.raw_order_list_snapshot.upsert',
   'shopee.raw_order_snapshot.upsert',
+  'shopee.order.create',
 ]);
 
 function json(status, body) {
@@ -152,6 +153,61 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_name, 300, { nullable: true })
       && isBoundedText(payload.region, 64, { nullable: true })
       && isBoundedText(payload.shop_status, 128, { nullable: true });
+  }
+
+  if (payload.action === 'shopee.order.create') {
+    const required = [
+      'action',
+      'channel_account_id',
+      'marketplace_account',
+      'order_number',
+      'order_date',
+      'total_value',
+      'payment_method',
+      'external_status',
+      'items',
+    ];
+    if (!hasExactKeys(payload, required)) return false;
+    if (!UUID.test(payload.channel_account_id)
+      || !isBoundedText(payload.marketplace_account, 200)
+      || !isBoundedText(payload.order_number, 300)
+      || !/^\d{4}-\d{2}-\d{2}$/.test(payload.order_date)
+      || !Number.isFinite(Date.parse(payload.order_date + 'T00:00:00.000Z'))
+      || !(payload.total_value === null || (typeof payload.total_value === 'number' && Number.isFinite(payload.total_value) && payload.total_value >= 0))
+      || !isBoundedText(payload.payment_method, 200, { nullable: true })
+      || !isBoundedText(payload.external_status, 200, { nullable: true })
+      || !Array.isArray(payload.items)
+      || payload.items.length === 0
+      || payload.items.length > 200) return false;
+
+    return payload.items.every((item) => {
+      const itemRequired = [
+        'product_id',
+        'variant_id',
+        'quantity',
+        'commercial_quantity',
+        'physical_multiplier',
+        'unit_price',
+        'external_item_key',
+        'item_id',
+        'model_id',
+        'mapping_id',
+        'composition_position',
+      ];
+      if (!hasExactKeys(item, itemRequired)) return false;
+      return UUID.test(item.product_id)
+        && (item.variant_id === null || UUID.test(item.variant_id))
+        && Number.isSafeInteger(item.quantity) && item.quantity > 0
+        && typeof item.commercial_quantity === 'number' && Number.isFinite(item.commercial_quantity) && item.commercial_quantity > 0
+        && typeof item.physical_multiplier === 'number' && Number.isFinite(item.physical_multiplier) && item.physical_multiplier > 0
+        && Math.abs(item.quantity - (item.commercial_quantity * item.physical_multiplier)) <= 0.000001
+        && (item.unit_price === null || (typeof item.unit_price === 'number' && Number.isFinite(item.unit_price) && item.unit_price >= 0))
+        && isBoundedText(item.external_item_key, 500)
+        && isBoundedText(item.item_id, 100, { nullable: true })
+        && isBoundedText(item.model_id, 100, { nullable: true })
+        && (item.mapping_id === null || UUID.test(item.mapping_id))
+        && Number.isSafeInteger(item.composition_position) && item.composition_position >= 0;
+    });
   }
 
   if (
