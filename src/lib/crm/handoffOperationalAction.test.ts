@@ -21,6 +21,7 @@ const row: CrmOrderSeparationEvidenceRow = {
 
 const finalized = evaluateCrmOperationalActionEvidence({ orderLink: linked, lookup: 'found', separation: row });
 assert(finalized.state === 'separation_finalized' && finalized.operationalActionVerified
+  && finalized.assumedInFlowVerified && finalized.assumedInFlowAt === row.first_printed_at
   && !finalized.handoffFormallyAcceptedVerified && finalized.activityAt === row.finalized_at,
   'Finalização com data e ator comprova atuação, jamais aceite formal do handoff.');
 
@@ -29,6 +30,7 @@ const printed = evaluateCrmOperationalActionEvidence({
   separation: { ...row, finalized_at: null, finalized_by: null, separation_status: 'preparing' },
 });
 assert(printed.state === 'print_requested' && printed.operationalActionVerified
+  && printed.assumedInFlowVerified && printed.assumedInFlowAt === row.first_printed_at
   && !printed.handoffFormallyAcceptedVerified && printed.message.includes('Não confirma impressão física'),
   'RPC de impressão comprova acionamento, não emissão física nem recebimento formal.');
 
@@ -80,4 +82,51 @@ assert(unavailable.state === 'unavailable' && !unavailable.operationalActionVeri
   'Falha de consulta não é ausência afirmativa nem comprovante.');
 assert(missing.state === 'no_verified_action' && !missing.operationalActionVerified,
   'Ausência de separação não comprova ação de Operações.');
+// F4-C.2: finalização direta também constitui primeiro ato quando não houve impressão.
+const directFinalization = evaluateCrmOperationalActionEvidence({
+  orderLink: linked, lookup: 'found',
+  separation: { ...row, first_printed_at: null, first_printed_by: null },
+});
+assert(directFinalization.state === 'separation_finalized'
+  && directFinalization.assumedInFlowVerified
+  && directFinalization.assumedInFlowAt === row.finalized_at,
+  'finalização com data e operador autoriza assunção no próprio fluxo');
+
+const queueOnly = evaluateCrmOperationalActionEvidence({
+  orderLink: linked, lookup: 'found',
+  separation: { ...row, separation_status: 'todo',
+    first_printed_at: null, first_printed_by: null,
+    finalized_at: null, finalized_by: null },
+});
+assert(!queueOnly.assumedInFlowVerified && queueOnly.assumedInFlowAt === null,
+  'linha de Separação em A Fazer não significa aceite');
+
+const revertedToTodo = evaluateCrmOperationalActionEvidence({
+  orderLink: linked, lookup: 'found',
+  separation: { ...row, separation_status: 'todo', finalized_at: null, finalized_by: null },
+});
+assert(revertedToTodo.operationalActionVerified && !revertedToTodo.assumedInFlowVerified,
+  'carimbo de impressão histórico não significa assunção ativa após retorno a A Fazer');
+
+const oldStatusNoUser = evaluateCrmOperationalActionEvidence({
+  orderLink: linked, lookup: 'found',
+  separation: { ...row, separation_status: 'finalized',
+    first_printed_at: row.first_printed_at, first_printed_by: null,
+    finalized_at: row.finalized_at, finalized_by: null },
+});
+assert(!oldStatusNoUser.assumedInFlowVerified,
+  'Pedido finalizado legado sem ator não é considerado assumido');
+
+const latePrint = evaluateCrmOperationalActionEvidence({
+  orderLink: linked, lookup: 'found',
+  separation: { ...row, first_printed_at: '2026-10-12T15:00:00Z' },
+});
+assert(latePrint.assumedInFlowAt === row.finalized_at,
+  'evento de impressão posterior à finalização não altera a primeira assunção');
+
+assert(!wrongOrder.assumedInFlowVerified && !cancelledActivity.assumedInFlowVerified
+  && !pending.assumedInFlowVerified && !unavailable.assumedInFlowVerified
+  && !missing.assumedInFlowVerified,
+  'falha de identidade, cancelamento ou consulta nunca cria aceite presumido');
+
 console.log('handoffOperationalAction.test: OK');

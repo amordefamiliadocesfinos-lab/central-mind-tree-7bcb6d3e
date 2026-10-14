@@ -4,8 +4,9 @@ import type { CrmHandoffEvidence } from './handoffEvidence';
  * F4-B: fatos registrados pelo módulo Operações em order_separation.
  * A primeira impressão é um registro de acionamento do fluxo de impressão,
  * não garantia física de impressão. A finalização é uma operação confirmada.
- * Nenhum dos dois equivale ao aceite formal do handoff, que não possui fonte
- * canônica identificada nesta fase.
+ * F4-C.2: o primeiro ato de trabalho com data e operador autorizado
+ * caracteriza assunção NO FLUXO, sem criar botão, evento ou registro paralelo.
+ * Isso não é um aceite formal independente nem prova impressão física.
  */
 export interface CrmOrderSeparationEvidenceRow {
   order_id: string;
@@ -33,7 +34,11 @@ export interface CrmOperationalActionEvidence {
   /** Só identifica a origem do fato; não expõe identificador do operador na Inbox. */
   source: 'order_separation' | null;
   operationalActionVerified: boolean;
-  /** Não foi encontrada fonte de aceite formal do handoff CRM→Operações. */
+  /** F4-C.2: o fluxo existente registrou um primeiro ato operacional atribuível. */
+  assumedInFlowVerified: boolean;
+  /** Momento do primeiro ato válido (impressão solicitada ou finalização). */
+  assumedInFlowAt: string | null;
+  /** Nenhum aceite formal separado foi criado. */
   handoffFormallyAcceptedVerified: false;
   message: string;
 }
@@ -55,6 +60,8 @@ export function evaluateCrmOperationalActionEvidence(input: {
     activityAt: null,
     source: null,
     operationalActionVerified: false,
+    assumedInFlowVerified: false,
+    assumedInFlowAt: null,
     handoffFormallyAcceptedVerified: false as const,
   };
   if (!input.orderLink.explicitOrderLinkVerified || !input.orderLink.orderId) {
@@ -78,24 +85,42 @@ export function evaluateCrmOperationalActionEvidence(input: {
     return { ...base, state: 'no_verified_action',
       message: 'Não há ação operacional comprovada para este Pedido nos registros consultados.' };
   }
-  if (validRecordedAction(row.finalized_at, row.finalized_by)) {
+  // O ato já existente no Kanban assume a operação sem exigir confirmação adicional.
+  // A fila 'todo', mesmo com carimbo histórico, não comprova assunção ATUAL.
+  // Preferimos a data do primeiro ato, não a da conclusão mais recente.
+  const isWorkStage = row.separation_status === 'preparing' || row.separation_status === 'finalized';
+  const validPrint = validRecordedAction(row.first_printed_at, row.first_printed_by);
+  const validFinalization = row.separation_status === 'finalized'
+    && validRecordedAction(row.finalized_at, row.finalized_by);
+  const acts = [
+    validPrint ? row.first_printed_at : null,
+    validFinalization ? row.finalized_at : null,
+  ].filter((at): at is string => Boolean(at)).sort((a, b) => Date.parse(a) - Date.parse(b));
+  const assumedInFlowAt = isWorkStage ? acts[0] ?? null : null;
+  const assumedInFlowVerified = assumedInFlowAt !== null;
+
+  if (validFinalization) {
     return {
       state: 'separation_finalized',
       activityAt: row.finalized_at,
       source: 'order_separation',
       operationalActionVerified: true,
+      assumedInFlowVerified,
+      assumedInFlowAt,
       handoffFormallyAcceptedVerified: false,
-      message: 'Finalização da separação registrada por usuário de Operações. Aceite formal do handoff ainda não comprovado.',
+      message: 'Finalização da Separação registrada por usuário autorizado. O atendimento foi assumido pelas ações do fluxo, sem aceite separado.',
     };
   }
-  if (validRecordedAction(row.first_printed_at, row.first_printed_by)) {
+  if (validPrint) {
     return {
       state: 'print_requested',
       activityAt: row.first_printed_at,
       source: 'order_separation',
       operationalActionVerified: true,
+      assumedInFlowVerified,
+      assumedInFlowAt,
       handoffFormallyAcceptedVerified: false,
-      message: 'Acionamento de impressão registrado por usuário de Operações. Não confirma impressão física nem aceite formal do handoff.',
+      message: 'Acionamento de impressão registrado por usuário autorizado. Não confirma impressão física; representa início operacional somente em Em preparação ou Finalizado.',
     };
   }
   return { ...base, state: 'no_verified_action',
