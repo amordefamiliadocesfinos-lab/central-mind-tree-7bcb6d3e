@@ -52,6 +52,7 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [insights, setInsights] = useState<Record<string, InsightStatus>>({});
   const analyzingIds = useRef(new Set<string>());
+  const analysisEpoch = useRef(0);
 
   const customers = useMemo(() => {
     return contacts.filter(c =>
@@ -107,7 +108,7 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
   useEffect(() => { setVisibleCount(PAGE_SIZE); }, [bucket, search]);
   useEffect(() => {
     if (!open) return;
-    let active = true;
+    const epoch = analysisEpoch.current;
     const pending = visibleCustomers.filter(c =>
       !insights[c.id] && !analyzingIds.current.has(c.id));
     if (pending.length === 0) return;
@@ -120,30 +121,30 @@ export function PosVendaPanel({ open, onOpenChange }: Props) {
 
     let next = 0;
     async function worker() {
-      while (active && next < pending.length) {
+      while (epoch === analysisEpoch.current && next < pending.length) {
         const contactId = pending[next++].id;
         try {
           const insight = await loadPostSalePanelLifecycleInsight(contactId);
-          if (active) setInsights(prev => ({
+          if (epoch === analysisEpoch.current) setInsights(prev => ({
             ...prev, [contactId]: { state: 'ready', insight },
           }));
         } catch {
-          if (active) setInsights(prev => ({
+          if (epoch === analysisEpoch.current) setInsights(prev => ({
             ...prev, [contactId]: { state: 'error' },
           }));
         } finally {
-          analyzingIds.current.delete(contactId);
+          if (epoch === analysisEpoch.current) analyzingIds.current.delete(contactId);
         }
       }
     }
     void Promise.all(Array.from({ length: Math.min(2, pending.length) }, () => worker()));
-    return () => { active = false; };
-    // Mudanças na lista visível são o gatilho; alterações dos próprios insights
-    // não devem abortar as consultas que estão em andamento.
+    // Mudanças de aba não descartam as consultas já iniciadas. Fechar o painel
+    // invalida a geração anterior para impedir retorno obsoleto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, visibleCustomers]);
   useEffect(() => {
     if (!open) {
+      analysisEpoch.current += 1;
       analyzingIds.current.clear();
       setInsights({});
     }
