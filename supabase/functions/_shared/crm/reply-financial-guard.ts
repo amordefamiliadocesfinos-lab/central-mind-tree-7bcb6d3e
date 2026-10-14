@@ -17,7 +17,8 @@ export function isExplicitPixKeyRequest(content: string | null | undefined): boo
   if (!text.includes('pix')) return false;
   return /\b(?:chave|dados|numero|telefone|celular|cnpj|cpf|e-?mail)\b.{0,50}\bpix\b/.test(text)
     || /\bpix\b.{0,50}\b(?:chave|dados|numero|telefone|celular|cnpj|cpf|e-?mail)\b/.test(text)
-    || /\b(?:qual|quais|manda|mandar|envia|enviar|passa|passar|informa|informar|fornece|fornecer|me diz|me da|me de)\b.{0,48}\bpix\b/.test(text)
+    || /\bqual\s+(?:(?:e|seria)\s+)?(?:(?:o|seu|da|do)\s+)?pix\b/.test(text)
+    || /\b(?:manda|mandar|envia|enviar|passa|passar|informa|informar|fornece|fornecer|diz|da|de)\s+(?:(?:o|a|seu|sua|meu|minha)\s+)?pix\b/.test(text)
     || /\bpix\b\s+(?:da|do|de)\s+(?:empresa|loja|voces|vossa)\b/.test(text);
 }
 
