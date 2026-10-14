@@ -8212,6 +8212,10 @@ export type Database = {
         Args: { p_end_date: string; p_notes?: string; p_start_date: string }
         Returns: Json
       }
+      create_shopee_api_order: {
+        Args: { p_items: Json; p_order: Json }
+        Returns: Json
+      }
       create_unified_sale: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
