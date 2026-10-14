@@ -35,6 +35,7 @@ interface PurchaseOrderCardProps {
   onRegisterBilling: (order: PurchaseOrder) => Promise<void> | void;
   onMarkInTransit: (order: PurchaseOrder) => Promise<void>;
   onReceive: (order: PurchaseOrder) => void;
+  onFinalizePartial: (order: PurchaseOrder) => void;
   onEdit: (order: PurchaseOrder) => void;
   onDelete: (order: PurchaseOrder) => Promise<void>;
   onCancel: (order: PurchaseOrder) => Promise<void>;
@@ -89,10 +90,10 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   );
 }
 
-export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onEdit, onDelete, onCancel, onRefresh }: PurchaseOrderCardProps) {
+export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onFinalizePartial, onEdit, onDelete, onCancel, onRefresh }: PurchaseOrderCardProps) {
   const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
   const [documentsOpen, setDocumentsOpen] = useState(false);
-  const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
+  const canReceive = !order.closure && ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
   const hasPhysicalReceipt = confirmedReceipts.length > 0;
   const canEdit = order.status === 'rascunho';
