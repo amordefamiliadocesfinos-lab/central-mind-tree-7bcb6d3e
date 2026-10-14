@@ -114,6 +114,8 @@ export function PurchasesTab({ products }: { products: Product[] }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
+  const [closureOrder, setClosureOrder] = useState<PurchaseOrder | null>(null);
+  const [closureReason, setClosureReason] = useState('Fornecedor não entregará o saldo restante.');
   const [financialConditionOrder, setFinancialConditionOrder] = useState<PurchaseOrder | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [supplierDeliveryPlan, setSupplierDeliveryPlan] = useState<SupplierDeliveryPlan | null>(null);
@@ -708,6 +710,7 @@ export function PurchasesTab({ products }: { products: Product[] }) {
               onRegisterBilling={setFinancialConditionOrder}
               onMarkInTransit={current => changeStatus(current, 'em_transito')}
               onReceive={setReceiptOrder}
+              onFinalizePartial={setClosureOrder}
               onEdit={order => void openEdit(order)}
               onDelete={deleteDraft}
               onCancel={cancelPurchase}
@@ -830,6 +833,41 @@ export function PurchasesTab({ products }: { products: Product[] }) {
         onValidated={installments => void confirmFinancialCondition(installments)}
       />
 
+      <ResponsiveDialog
+        open={Boolean(closureOrder)}
+        onOpenChange={open => !open && setClosureOrder(null)}
+        title={`Encerrar saldo não entregue · ${closureOrder?.internal_purchase_number ?? 'Compra'}`}
+        description="O pedido original será preservado. O saldo não entregue não entrará no estoque."
+        footer={<Button disabled={busyAction === 'closure' || closureReason.trim().length < 5} onClick={async () => {
+          if (!closureOrder) return;
+          setBusyAction('closure');
+          try {
+            await purchases.finalizePartial(closureOrder.id, closureReason);
+            toastSuccess('Saldo não entregue encerrado e registrado.');
+            setClosureOrder(null);
+          } catch (error) {
+            toastError(errorMessage(error, 'Não foi possível encerrar a compra.'));
+          } finally {
+            setBusyAction(null);
+          }
+        }}>Confirmar encerramento definitivo</Button>}
+      >
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">Itens pendentes que não serão entregues:</p>
+          {(closureOrder?.items ?? []).map(item => {
+            const received = (closureOrder?.receipts ?? []).filter(r => r.status === 'confirmed')
+              .flatMap(r => r.items ?? []).filter(r => r.purchase_order_item_id === item.id)
+              .reduce((sum, row) => sum + Number(row.received_purchase_qty ?? 0), 0);
+            const missing = Math.max(0, Number(item.ordered_purchase_qty) - received);
+            return missing > 0 ? <p className="rounded-md border p-3 text-sm" key={item.id}>
+              {item.product?.name ?? 'Produto'} · <strong>{missing} {item.purchase_unit_label}</strong> não entregue(s)
+            </p> : null;
+          })}
+          <Label htmlFor="closure-reason">Motivo do encerramento</Label>
+          <Textarea id="closure-reason" value={closureReason} onChange={event => setClosureReason(event.target.value)} />
+          <p className="text-xs text-muted-foreground">Esta ação não fatura nem movimenta estoque. O valor comercial efetivo será registrado no encerramento; o faturamento seguirá integração financeira específica.</p>
+        </div>
+      </ResponsiveDialog>
       <PurchaseReceiptDialog
         order={receiptOrder}
         locations={locations}
