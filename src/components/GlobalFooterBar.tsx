@@ -240,6 +240,8 @@ export function GlobalFooterBar() {
   useEffect(() => {
     localStorage.setItem("footerHeight", String(footerHeight));
     document.documentElement.style.setProperty("--footer-h", `${footerHeight}px`);
+    // UX-CRM-02: altura realmente ocupada pelo rodapé (zero quando recolhido).
+    document.documentElement.style.setProperty("--footer-effective-h", `${footerHidden ? 0 : footerHeight}px`);
     // buttons ~ 92% of bar, icons ~ 50%
     document.documentElement.style.setProperty("--footer-btn", `${Math.round(footerHeight * 0.92)}px`);
     document.documentElement.style.setProperty("--footer-icon", `${Math.max(12, Math.round(footerHeight * 0.5))}px`);
