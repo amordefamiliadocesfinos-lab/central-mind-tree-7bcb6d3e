@@ -57,7 +57,7 @@ async function run() {
 
   // D. Campanha respondida → contexto de campanha vai no payload.
   const d = await suggestCrmReplyFromContext(
-    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi a promoção')]),
+    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi a campanha que vocês enviaram')]),
     { invoke: stub({ suggested_reply: 'Oi! Que bom que viu nossa novidade.', reason: 'Campanha' }) },
   );
   assert(d.reply && lastPayload.context.campaign?.campaignName === 'TESTE CAMPANHA 03', 'D: contexto de campanha deve ser enviado.');
@@ -238,7 +238,7 @@ async function run() {
   ]);
   const pixOfficial = await suggestCrmReplyFromContext(pixContext, {
     knowledgeFetcher: async () => [{
-      id: 'pix', question: 'Qual é o PIX?', answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\nBanco Exemplo',
+      id: 'pix', question: 'Qual é o PIX?', answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\nBanco de Testes',
       category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
     }],
     invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave CNPJ 00.000.000/0001-00' }; },
@@ -265,7 +265,7 @@ async function run() {
   // C2 — mensagens naturais exigem sempre a única fonte Pix oficial.
   const officialPixFixture = [{
     id: 'pix-exemplo', question: 'Qual é o PIX?',
-    answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\\nBanco Exemplo',
+    answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\\nBanco de Testes',
     category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
   }];
   for (const request of [
