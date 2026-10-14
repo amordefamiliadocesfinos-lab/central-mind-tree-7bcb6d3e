@@ -47,9 +47,10 @@ export function CampaignsListDialog({ open, onOpenChange, onOpenCampaign }: Prop
         </div>
       }
     >
-      <CampaignPerformancePanel campaigns={campaigns} open={open} refreshKey={refreshKey} />
-      <ScrollArea className="h-[310px]">
-        <div className="divide-y">
+      <ScrollArea className="h-[min(70dvh,640px)]">
+        <div className="space-y-3 p-2">
+          <CampaignPerformancePanel campaigns={campaigns} open={open} refreshKey={refreshKey} />
+          <div className="divide-y rounded-lg border">
           {loading && <p className="p-4 text-sm text-muted-foreground">Carregando campanhas...</p>}
           {!loading && campaigns.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">Nenhuma campanha criada ainda.</p>
@@ -83,6 +84,7 @@ export function CampaignsListDialog({ open, onOpenChange, onOpenCampaign }: Prop
               </button>
             );
           })}
+          </div>
         </div>
       </ScrollArea>
     </ResponsiveDialog>
