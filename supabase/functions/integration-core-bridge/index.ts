@@ -209,6 +209,51 @@ async function executeAction(payload: Record<string, unknown>) {
       : { status: 200, body: { status: 'ok', action: payload.action } };
   }
 
+  if (payload.action === 'shopee.order.create') {
+    const channelAccountId = String(payload.channel_account_id);
+    const account = await activeChannelAccount(core, channelAccountId);
+    if (account.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!account.ok) return { status: 409, body: { error: 'channel_account_unavailable' } };
+
+    const { data, error } = await core.rpc('create_shopee_api_order', {
+      p_order: {
+        channel_account_id: channelAccountId,
+        marketplace_account: String(payload.marketplace_account),
+        order_number: String(payload.order_number),
+        order_date: String(payload.order_date),
+        total_value: payload.total_value,
+        payment_method: payload.payment_method,
+        external_status: payload.external_status,
+      },
+      p_items: payload.items,
+    });
+
+    if (error) {
+      const semanticConflict = error.code === '23505'
+        || error.code === '22P02'
+        || error.code === 'P0001';
+      return {
+        status: semanticConflict ? 409 : 503,
+        body: { error: semanticConflict ? 'shopee_order_rejected' : 'shopee_order_persistence_failed' },
+      };
+    }
+
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !data.order_id) {
+      return { status: 503, body: { error: 'shopee_order_persistence_failed' } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        status: 'ok',
+        action: payload.action,
+        order_id: String(data.order_id),
+        separation_id: data.separation_id == null ? null : String(data.separation_id),
+        already_registered: data.already_registered === true,
+      },
+    };
+  }
+
   if (payload.action === 'shopee.raw_shop_snapshot.upsert') {
     return persistRawSnapshot(core, payload, {
       externalEntityType: 'shop',

@@ -18,6 +18,7 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_RAW_SHOP_SNAPSHOT_UPSERT: 'shopee.raw_shop_snapshot.upsert',
   SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT: 'shopee.raw_order_list_snapshot.upsert',
   SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
+  SHOPEE_ORDER_CREATE: 'shopee.order.create',
 });
 
 export function sha256Hex(bytes) {
@@ -212,6 +213,14 @@ export function upsertLiveShopeeOrderSnapshot(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT,
+    data,
+  });
+}
+
+export function createLiveShopeeOrder(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_CREATE,
     data,
   });
 }

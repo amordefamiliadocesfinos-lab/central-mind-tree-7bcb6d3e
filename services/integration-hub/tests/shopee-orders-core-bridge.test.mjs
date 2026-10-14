@@ -6,6 +6,7 @@ import {
   CORE_BRIDGE_LIVE_CONTENT_TYPE,
   CORE_BRIDGE_URL,
   callCoreBridgeAction,
+  createLiveShopeeOrder,
   readLiveShopeeOauthConnection,
   refreshLiveShopeeOauthConnection,
   upsertLiveShopeeOrderListSnapshot,
@@ -41,6 +42,7 @@ test('F6-B registers the localized Shopee Live Bridge actions', () => {
     'shopee.oauth_connection.refresh',
     'shopee.raw_order_list_snapshot.upsert',
     'shopee.raw_order_snapshot.upsert',
+    'shopee.order.create',
   ]) {
     assert.ok(BRIDGE_LIVE_ACTIONS.includes(action));
   }
@@ -258,5 +260,192 @@ test('order Raw Snapshot actions reject caller attempts to override server-fixed
     assert.equal(result.ok, false);
     assert.equal(result.status, 400);
     assert.equal(executions, 0);
+  }
+});
+
+
+test('F6-I order writer sends only the approved narrow payload', async () => {
+  let observed;
+  const data = {
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: 'SHOPEE VIVIANE',
+    order_number: '261014HX0XSUQU',
+    order_date: '2026-10-14',
+    total_value: 39.9,
+    payment_method: 'Pix',
+    external_status: 'READY_TO_SHIP',
+    items: [{
+      product_id: '92088a70-8cc0-40ef-a39d-564603df6866',
+      variant_id: null,
+      quantity: 1000,
+      commercial_quantity: 1,
+      physical_multiplier: 1000,
+      unit_price: 39.9,
+      external_item_key: 'code:SH-002-006|variation:1 kg',
+      item_id: '58261505740',
+      model_id: '149554569657',
+      mapping_id: 'dbc15870-e45a-4fe5-a86b-114208d1b5ed',
+      composition_position: 0,
+    }],
+  };
+
+  const result = await createLiveShopeeOrder(data, {
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async (payload) => {
+      observed = payload;
+      return {
+        status: 200,
+        body: {
+          status: 'ok',
+          action: payload.action,
+          order_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          separation_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          already_registered: false,
+        },
+      };
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(observed, {
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_CREATE,
+    ...data,
+  });
+});
+
+test('F6-I bridge rejects attempts to control internal state or side effects', async () => {
+  const base = {
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: 'SHOPEE VIVIANE',
+    order_number: '261014HX0XSUQU',
+    order_date: '2026-10-14',
+    total_value: 39.9,
+    payment_method: null,
+    external_status: 'READY_TO_SHIP',
+    items: [{
+      product_id: '92088a70-8cc0-40ef-a39d-564603df6866',
+      variant_id: null,
+      quantity: 1000,
+      commercial_quantity: 1,
+      physical_multiplier: 1000,
+      unit_price: null,
+      external_item_key: 'code:SH-002-006|variation:1 kg',
+      item_id: '58261505740',
+      model_id: '149554569657',
+      mapping_id: 'dbc15870-e45a-4fe5-a86b-114208d1b5ed',
+      composition_position: 0,
+    }],
+  };
+
+  for (const forbidden of [
+    ['status', 'enviado'],
+    ['operational_status', 'finalized'],
+    ['order_type', 'production'],
+    ['payment_status', 'pago'],
+    ['stock_event', 'external_shipped'],
+    ['financial_action', 'create'],
+    ['crm_action', 'create'],
+    ['contact_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'],
+    ['customer_name', 'synthetic'],
+    ['inventory', {}],
+    ['production_order', {}],
+  ]) {
+    let executions = 0;
+    const result = await callCoreBridgeAction({
+      action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_CREATE,
+      data: { ...base, [forbidden[0]]: forbidden[1] },
+      url: CORE_BRIDGE_URL,
+      secret: SECRET,
+      logger: () => {},
+      fetchImpl: bridgeFetch(async () => {
+        executions += 1;
+        return { status: 200, body: {} };
+      }),
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 400);
+    assert.equal(executions, 0);
+  }
+});
+
+test('F6-I bridge rejects incoherent physical quantity before Core execution', async () => {
+  let executions = 0;
+  const result = await createLiveShopeeOrder({
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: 'SHOPEE VIVIANE',
+    order_number: '261014HX0XSUQU',
+    order_date: '2026-10-14',
+    total_value: 39.9,
+    payment_method: null,
+    external_status: 'READY_TO_SHIP',
+    items: [{
+      product_id: '92088a70-8cc0-40ef-a39d-564603df6866',
+      variant_id: null,
+      quantity: 999,
+      commercial_quantity: 1,
+      physical_multiplier: 1000,
+      unit_price: null,
+      external_item_key: 'code:SH-002-006|variation:1 kg',
+      item_id: '58261505740',
+      model_id: '149554569657',
+      mapping_id: 'dbc15870-e45a-4fe5-a86b-114208d1b5ed',
+      composition_position: 0,
+    }],
+  }, {
+    url: CORE_BRIDGE_URL,
+    secret: SECRET,
+    logger: () => {},
+    fetchImpl: bridgeFetch(async () => {
+      executions += 1;
+      return { status: 200, body: {} };
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 400);
+  assert.equal(executions, 0);
+});
+
+function f6iValidRequest() {
+  return { channel_account_id: CHANNEL_ACCOUNT_ID, marketplace_account: 'SHOPEE VIVIANE',
+    order_number: 'F6I-TEST', order_date: '2026-10-14', total_value: 39.9,
+    payment_method: null, external_status: 'PROCESSED', items: [{
+      product_id: '92088a70-8cc0-40ef-a39d-564603df6866', variant_id: null,
+      quantity: 1000, commercial_quantity: 1, physical_multiplier: 1000,
+      unit_price: null, external_item_key: 'code:SH-002-006|variation:1 kg',
+      item_id: '58261505740', model_id: '149554569657',
+      mapping_id: 'dbc15870-e45a-4fe5-a86b-114208d1b5ed', composition_position: 0,
+    }] };
+}
+
+test('F6-I rejects extra item fields and invalid date, integer range and quantities before execution', async () => {
+  for (const mutate of [
+    p => { p.items[0].status = 'enviado'; },
+    p => { p.order_date = '2026-02-30'; },
+    p => { p.items = null; },
+    p => { p.items[0].quantity = 2147483648; p.items[0].physical_multiplier = 2147483648; },
+    p => { p.items[0].quantity = 1.5; },
+    p => { p.items[0].commercial_quantity = 0; },
+    p => { p.items[0].physical_multiplier = 0; },
+  ]) {
+    const p = f6iValidRequest(); mutate(p);
+    let executions = 0;
+    const r = await createLiveShopeeOrder(p, { url: CORE_BRIDGE_URL, secret: SECRET, logger: () => {},
+      fetchImpl: bridgeFetch(async () => { executions += 1; return {status:200,body:{}}; }),
+    });
+    assert.equal(r.status, 400); assert.equal(executions, 0);
+  }
+});
+
+test('F6-I accepts coherent integer quantities within the defined numeric tolerance', async () => {
+  for (const [quantity, multiplier] of [[2147483647, 2147483647], [1000, 1000.0000005]]) {
+    const p = f6iValidRequest(); p.items[0].quantity = quantity; p.items[0].physical_multiplier = multiplier;
+    let executions = 0;
+    const r = await createLiveShopeeOrder(p, {url:CORE_BRIDGE_URL,secret:SECRET,logger:()=>{},
+      fetchImpl:bridgeFetch(async payload => {executions += 1; return {status:200,body:{status:'ok',action:payload.action}};}),
+    });
+    assert.equal(r.status, 200); assert.equal(executions, 1);
   }
 });
