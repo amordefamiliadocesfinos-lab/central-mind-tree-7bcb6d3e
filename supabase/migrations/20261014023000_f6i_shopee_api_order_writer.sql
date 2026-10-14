@@ -36,6 +36,7 @@ DECLARE
   v_commercial_quantity numeric;
   v_multiplier numeric;
   v_unit_price numeric;
+  v_physical_unit_price numeric;
 BEGIN
   IF v_channel_account_id IS NULL OR v_order_number IS NULL OR v_order_date IS NULL THEN
     RAISE EXCEPTION 'F6-I: channel_account_id, order_number e order_date são obrigatórios.';
@@ -225,20 +226,29 @@ BEGIN
       (v_item->>'product_id')::uuid,
       NULLIF(btrim(v_item->>'variant_id'), '')::uuid,
       (v_item->>'quantity')::integer,
-      NULLIF(v_item->>'unit_price', '')::numeric,
+      CASE
+        WHEN NULLIF(v_item->>'unit_price', '') IS NULL THEN NULL
+        ELSE (
+          (v_item->>'commercial_quantity')::numeric
+          * (v_item->>'unit_price')::numeric
+        ) / (v_item->>'quantity')::numeric
+      END,
       concat_ws(' | ',
         'Shopee Open Platform',
         'external_item_key=' || COALESCE(NULLIF(v_item->>'external_item_key', ''), 'null'),
         'item_id=' || COALESCE(NULLIF(v_item->>'item_id', ''), 'null'),
         'model_id=' || COALESCE(NULLIF(v_item->>'model_id', ''), 'null'),
         'mapping_id=' || COALESCE(NULLIF(v_item->>'mapping_id', ''), 'null'),
-        'composition_position=' || COALESCE(NULLIF(v_item->>'composition_position', ''), (v_position - 1)::text)
+        'composition_position=' || COALESCE(NULLIF(v_item->>'composition_position', ''), (v_position - 1)::text),
+        'commercial_quantity=' || COALESCE(NULLIF(v_item->>'commercial_quantity', ''), 'null'),
+        'physical_multiplier=' || COALESCE(NULLIF(v_item->>'physical_multiplier', ''), 'null'),
+        'external_commercial_unit_price=' || COALESCE(NULLIF(v_item->>'unit_price', ''), 'null')
       ),
       NULL,
       NULL,
       NULL,
-      (v_item->>'physical_multiplier')::numeric,
-      (v_item->>'commercial_quantity')::numeric,
+      NULL,
+      NULL,
       NULL
     );
   END LOOP;
