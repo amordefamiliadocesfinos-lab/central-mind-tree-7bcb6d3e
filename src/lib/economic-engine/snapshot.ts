@@ -1,7 +1,7 @@
 import { composeEconomicResult } from './composer';
 import type { EconomicBlock, EconomicComponent, EconomicCompleteness, EconomicRevenueInput } from './domain';
 
-export const GENERAL_ECONOMIC_SNAPSHOT_SCHEMA_VERSION = '2.1.0';
+export const GENERAL_ECONOMIC_SNAPSHOT_SCHEMA_VERSION = '2.2.0';
 
 export type EconomicBlockSnapshot = {
   block: EconomicBlock;

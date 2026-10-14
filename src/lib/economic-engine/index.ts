@@ -11,3 +11,4 @@ export * from './channelAdapter';
 export * from './shopeeAdapter';
 export * from './snapshot';
 export * from './generalReconciliation';
+export * from './intelligence';

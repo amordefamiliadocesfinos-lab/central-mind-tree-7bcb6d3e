@@ -25,6 +25,7 @@ import { buildGeneralEconomicSnapshot } from '@/lib/economic-engine/snapshot';
 import { noB7Occurrence } from '@/lib/economic-engine/b7';
 import { buildB8Components } from '@/lib/economic-engine/b8';
 import { buildB9Components } from '@/lib/economic-engine/b9';
+import { analyzeEconomicIntelligence } from '@/lib/economic-engine/intelligence';
 import { useProductsList } from '@/hooks/useProductsList';
 import { useProductVariants } from '@/hooks/useProductVariants';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
@@ -466,6 +467,29 @@ export function ShopeeEconomicMotor() {
   } = channelAdapter.scenario;
   const commonInput = { q: Math.max(1, Math.floor(q || 1)) };
   const tsiBand = result.tsiBand?.label ?? 'PENDENTE';
+  const economicIntelligence = useMemo(() => analyzeEconomicIntelligence({
+    snapshot: generalEconomicSnapshot,
+    context: {
+      channelConfidence: rreResolution.confidence,
+      channelWarnings: rreResolution.warnings,
+      isDominated,
+      recoveryPrice: recovery?.recoveryPrice ?? null,
+      currentPrice: agreedPrice,
+      repasse: result.repasse,
+      ticket: result.ticket,
+      marginCurrent,
+    },
+  }), [
+    generalEconomicSnapshot,
+    rreResolution.confidence,
+    rreResolution.warnings,
+    isDominated,
+    recovery?.recoveryPrice,
+    agreedPrice,
+    result.repasse,
+    result.ticket,
+    marginCurrent,
+  ]);
 
   const confidence = {
     label: rreResolution.confidence === 'high'
@@ -487,7 +511,7 @@ export function ShopeeEconomicMotor() {
     if (!accountId || !productId) return;
 
     await createSnapshot({
-      snapshot_schema_version: '2.1.0',
+      snapshot_schema_version: '2.2.0',
       engine_key: 'shopee-economic-v2',
       engine_version: rreResolution.regime?.engineVersion ?? '2.0.0',
       rule_version_id: rreResolution.regime?.id ?? null,
@@ -595,6 +619,7 @@ export function ShopeeEconomicMotor() {
         pmr,
         tceBe,
         economic: generalEconomicSnapshot,
+        intelligence: economicIntelligence,
       },
       evidence_snapshot: {
         confidence: rreResolution.confidence,
@@ -1238,6 +1263,63 @@ export function ShopeeEconomicMotor() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" /> G10 — Inteligência Econômica
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={
+                  economicIntelligence.readiness === 'READY'
+                    ? 'default'
+                    : economicIntelligence.readiness === 'BLOCKED'
+                      ? 'destructive'
+                      : 'secondary'
+                }>
+                  {economicIntelligence.readiness}
+                </Badge>
+                <span className="text-muted-foreground">
+                  custo direto conhecido {money(economicIntelligence.directKnownCost)}
+                </span>
+                {economicIntelligence.contributionKnown !== null && (
+                  <span className="text-muted-foreground">
+                    · contribuição conhecida {money(economicIntelligence.contributionKnown)}
+                  </span>
+                )}
+              </div>
+
+              {economicIntelligence.topKnownCostBlock && (
+                <p className="text-xs text-muted-foreground">
+                  Maior bloco conhecido: <strong>{economicIntelligence.topKnownCostBlock.block}</strong>
+                  {' · '}{money(economicIntelligence.topKnownCostBlock.amount)}.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {economicIntelligence.signals.slice(0, 6).map((signal) => (
+                  <div key={signal.id} className={cn(
+                    'rounded-md border p-2',
+                    signal.severity === 'critical' && 'border-destructive/40 bg-destructive/5',
+                    signal.severity === 'attention' && 'border-amber-500/40 bg-amber-500/5',
+                    signal.severity === 'positive' && 'border-emerald-500/40 bg-emerald-500/5',
+                  )}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{signal.title}</span>
+                      <Badge variant="outline">{signal.kind}</Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{signal.message}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                A inteligência apenas interpreta a verdade econômica disponível. Ela não cria custo, tarifa, rateio ou fato ausente.
+              </p>
+            </CardContent>
+          </Card>
 
           <Card className={cn('border-dashed', wallTone === 'danger' && 'border-destructive/50')}>
             <CardContent className="p-4 text-sm">
