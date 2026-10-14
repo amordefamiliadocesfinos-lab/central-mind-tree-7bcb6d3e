@@ -53,7 +53,7 @@ assert(hasUnverifiedFinancialIdentifier('Chave Pix: 123e4567-e89b-12d3-a456-4266
   'identificador aleatório não confirmado');
 const official = {
   question: 'Qual é o PIX?', category: 'Pagamento', platformId: null,
-  answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\nBanco Exemplo',
+  answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\nBanco de Testes',
 };
 assert(verifiedOfficialPixReply([official]) === official.answer,
   'uma única fonte oficial estruturada permite copiar resposta literal');
