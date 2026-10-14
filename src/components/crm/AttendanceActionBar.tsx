@@ -82,6 +82,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
 
   const activeForm = (
     <div className="space-y-2" aria-label={mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}>
+      <h3 className="text-sm font-semibold">{mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}</h3>
       {mode === 'outcome' && (
         <div className="space-y-2 rounded-md border bg-background p-2">
           <Select value={resultCode} onValueChange={value => setResultCode(value as CrmResultCode)}>
@@ -147,6 +148,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
             <Input type="date" className="h-8 text-xs" value={date} min={new Date().toISOString().slice(0, 10)} onChange={event => setDate(event.target.value)} />
             <Button size="sm" className="h-8 text-xs" disabled={!date} onClick={async () => { await onSnooze(date); setMode(null); setDate(''); }}>Confirmar</Button>
           </div>
+          <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setDate(''); setTime(''); }}>Cancelar adiamento</Button>
         </div>
       )}
     </div>
