@@ -29,4 +29,4 @@ async function test() {
   assert(after.matched.length !== rows.length, 'pós-venda realizado após criação invalida público');
   console.log('campaignIntelligentSafety.test: OK');
 }
-void test();
+await test();
