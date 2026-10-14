@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { resolveCrmCanonicalReplyState } from './pendingReply';
 import { clearCrmNextAction, setCrmNextAction, syncCrmNextActionTask } from '@/lib/crm/nextAction';
 import { refreshCrmLiveContext } from '@/lib/crm/liveContext';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
@@ -89,7 +90,7 @@ export async function applyCanonicalAttendanceResult(input: {
 
   const { data: conversation, error: conversationError } = await supabase
     .from('service_conversations')
-    .select('status, attendance_state, return_at, needs_reply')
+    .select('status, attendance_state, return_at, needs_reply, last_inbound_at, last_outbound_at')
     .eq('id', input.conversationId)
     .eq('contact_id', input.contactId)
     .maybeSingle();
@@ -194,22 +195,46 @@ export async function applyCanonicalAttendanceResult(input: {
     nextAction,
     nextActionScheduled: shouldSchedule,
   });
-  const attendanceState = resolvesConversation
-    ? 'concluido'
-    : waitingForCustomer
-      ? 'aguardando_cliente'
-      : returnAt
-        ? 'retornar_em'
-        : 'em_atendimento';
-  const { error: conversationUpdateError } = await supabase.from('service_conversations').update({
-    attendance_state: attendanceState,
+  // C1-A: Resultado descreve um FATO comercial; não constitui mensagem enviada.
+  // Só um outbound realmente posterior ao último inbound encerra o "Responder".
+  const replyState = resolveCrmCanonicalReplyState({
+    timeline: {
+      needsReply: conversation.needs_reply ?? false,
+      lastInboundAt: conversation.last_inbound_at,
+      lastOutboundAt: conversation.last_outbound_at,
+    },
+    resolvesConversation,
+    waitingForCustomer,
+    hasReturnAt: Boolean(returnAt),
+  });
+
+  // Guardas contra chegada de novo inbound/outbound enquanto o Resultado era
+  // registrado: não sobrescrever a obrigação de uma conversa que mudou.
+  let conversationUpdate = supabase.from('service_conversations').update({
+    attendance_state: replyState.attendanceState,
     status: resolvesConversation ? 'resolved' : 'open',
     resolved_at: resolvesConversation ? now : null,
-    needs_reply: false,
+    needs_reply: replyState.needsReply,
     unread_count: 0,
     return_at: returnAt,
-  }).eq('id', input.conversationId);
+  })
+    .eq('id', input.conversationId)
+    .eq('contact_id', input.contactId)
+    .eq('status', conversation.status)
+    .eq('needs_reply', conversation.needs_reply);
+  conversationUpdate = conversation.last_inbound_at
+    ? conversationUpdate.eq('last_inbound_at', conversation.last_inbound_at)
+    : conversationUpdate.is('last_inbound_at', null);
+  conversationUpdate = conversation.last_outbound_at
+    ? conversationUpdate.eq('last_outbound_at', conversation.last_outbound_at)
+    : conversationUpdate.is('last_outbound_at', null);
+  const { data: updatedConversation, error: conversationUpdateError } = await conversationUpdate
+    .select('id')
+    .maybeSingle();
   if (conversationUpdateError) throw conversationUpdateError;
+  if (!updatedConversation) {
+    throw new Error('A conversa mudou durante o registro. Atualize o atendimento e confira o Resultado antes de tentar novamente.');
+  }
 
   const postSaleOrderContext = getMatchingPostSaleOrderContext({
     contactId: input.contactId,
