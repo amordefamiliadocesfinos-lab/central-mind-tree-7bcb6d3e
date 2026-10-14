@@ -570,3 +570,114 @@ test('F6-L recurring intake route reports business blockers without infrastructu
   assert.equal(body.blocked, 1);
   assert.equal(body.written, 1);
 });
+
+
+test('F6-O.1b private logistics inspect route uses only server-side order target', async () => {
+  let observed;
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/logistics/inspect', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: (name) => name === 'SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN' ? '261013HKHWK3V7' : undefined,
+      inspectShopeeLogistics: async (input) => {
+        observed = input;
+        return {
+          ok: true,
+          order: {
+            order_sn: '261013HKHWK3V7',
+            order_status: 'PROCESSED',
+            shipping_carrier: 'SPX',
+            package_number: 'PKG-1',
+            invoice_status: 'valid',
+            invoice_pending_reason: null,
+          },
+          shipping_parameter: {
+            ok: true,
+            error: null,
+            info_needed: { pickup: ['address_id', 'pickup_time_id'] },
+          },
+          shipping_document_parameter: {
+            ok: true,
+            error: null,
+            results: [{
+              order_sn: '261013HKHWK3V7',
+              package_number: 'PKG-1',
+              suggested_shipping_document_type: 'NORMAL_AIR_WAYBILL',
+              selectable_shipping_document_type: ['NORMAL_AIR_WAYBILL'],
+            }],
+          },
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(observed, { orderSn: '261013HKHWK3V7' });
+  const body = JSON.parse(response.body);
+  assert.equal(body.mode, 'read_only');
+  assert.equal(body.order.order_sn, '261013HKHWK3V7');
+  assert.deepEqual(body.shipping_parameter.info_needed, {
+    pickup: ['address_id', 'pickup_time_id'],
+  });
+  assert.equal(body.shipping_document_parameter.results[0].suggested_shipping_document_type, 'NORMAL_AIR_WAYBILL');
+});
+
+test('F6-O.1b logistics inspect route rejects caller-controlled query and missing target', async () => {
+  let calls = 0;
+  const queryResponse = await handleRequest(
+    {
+      method: 'POST',
+      path: '/internal/shopee/live/logistics/inspect',
+      query: { orderSn: 'attacker-controlled' },
+      headers: {},
+    },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => '261013HKHWK3V7',
+      inspectShopeeLogistics: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+  assert.equal(queryResponse.status, 400);
+  assert.deepEqual(JSON.parse(queryResponse.body), { error: 'query_not_allowed' });
+
+  const missingResponse = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/logistics/inspect', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => undefined,
+      inspectShopeeLogistics: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+    },
+  );
+  assert.equal(missingResponse.status, 503);
+  assert.deepEqual(JSON.parse(missingResponse.body), { error: 'logistics_probe_not_configured' });
+  assert.equal(calls, 0);
+});
+
+test('F6-O.1b logistics inspect route sanitizes upstream failure', async () => {
+  const response = await handleRequest(
+    { method: 'POST', path: '/internal/shopee/live/logistics/inspect', query: {}, headers: {} },
+    {
+      handleShopeeLive: async () => null,
+      getEnv: () => '261013HKHWK3V7',
+      inspectShopeeLogistics: async () => ({
+        ok: false,
+        code: 'order_detail_rejected',
+        payload: { secret: 'must-not-leak' },
+      }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: 'degraded',
+    mode: 'read_only',
+    orderSn: '261013HKHWK3V7',
+    code: 'order_detail_rejected',
+  });
+});
