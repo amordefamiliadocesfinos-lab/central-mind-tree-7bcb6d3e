@@ -149,7 +149,8 @@ export default function ContatosInbox() {
   const [detailTab, setDetailTab] = useState<'conversa' | 'historico'>('conversa');
   const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string; conversationId: string | null; prepareAssistant: boolean } | null>(null);
   const actionRequestSequenceRef = useRef(0);
-  const [leadPanelOpen, setLeadPanelOpen] = useState(true);
+  // Em telas intermediárias a lateral funciona sob demanda; no desktop amplo já nasce aberta.
+  const [leadPanelOpen, setLeadPanelOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
   const [contextTab, setContextTab] = useState<'assistant' | 'lead'>('lead');
   const [assistantPortalTarget, setAssistantPortalTarget] = useState<HTMLDivElement | null>(null);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
