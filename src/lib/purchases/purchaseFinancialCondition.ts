@@ -15,7 +15,8 @@ export function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function getPurchaseCommercialTotal(order: Pick<PurchaseOrder, 'items' | 'freight_amount'>) {
+export function getPurchaseCommercialTotal(order: Pick<PurchaseOrder, 'items' | 'freight_amount'> & { closure?: { effective_amount: number } | null }) {
+  if (order.closure) return roundMoney(Number(order.closure.effective_amount));
   const itemsTotal = (order.items ?? []).reduce((total, item) => {
     const qty = Number(item.ordered_purchase_qty) || 0;
     const price = item.unit_price === null ? 0 : Number(item.unit_price) || 0;
