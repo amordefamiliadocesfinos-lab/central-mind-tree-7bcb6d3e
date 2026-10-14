@@ -204,6 +204,12 @@ BEGIN
   )
   RETURNING * INTO v_order;
 
+  -- Monetary precision policy:
+  -- order_items.unit_price is numeric(20,10). Some commercial totals are not
+  -- exactly divisible by physical quantity (for example 40.42 / 6).
+  -- Persist the physical unit price at the column's 10-decimal precision and
+  -- compare/reconcile monetary totals at currency precision (2 decimals).
+  -- Literal decimal equality before monetary rounding is not a valid invariant.
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
     v_position := v_position + 1;
 
@@ -227,10 +233,10 @@ BEGIN
       (v_item->>'quantity')::integer,
       CASE
         WHEN NULLIF(v_item->>'unit_price', '') IS NULL THEN NULL
-        ELSE (
+        ELSE round((
           (v_item->>'commercial_quantity')::numeric
           * (v_item->>'unit_price')::numeric
-        ) / (v_item->>'quantity')::numeric
+        ) / (v_item->>'quantity')::numeric, 10)
       END,
       concat_ws(' | ',
         'Shopee Open Platform',
