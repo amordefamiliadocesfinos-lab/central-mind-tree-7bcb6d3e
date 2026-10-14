@@ -110,11 +110,15 @@ BEGIN
       AND product_id = v_product_id
       AND variant_id IS NULL
       AND quantity = 1000
-      AND commercial_quantity = 1
-      AND commercial_conversion_factor = 1000
-      AND unit_price = 39.90
+      AND commercial_presentation_id IS NULL
+      AND commercial_presentation_name IS NULL
+      AND commercial_unit_label IS NULL
+      AND commercial_conversion_factor IS NULL
+      AND commercial_quantity IS NULL
+      AND physical_unit_label IS NULL
+      AND unit_price = 0.0399
   ) THEN
-    RAISE EXCEPTION 'F6-I order item contract mismatch';
+    RAISE EXCEPTION 'F6-I physical order item / commercial snapshot contract mismatch';
   END IF;
 
   IF NOT EXISTS (
