@@ -163,10 +163,17 @@ export function guardCrmResultFactualCoherence(
       'Saudação isolada não comprova interesse, proposta aceita ou outra decisão comercial. Qualifique o motivo do contato.');
   }
 
-  if (isCrmPixKeyRequest(context.messages)
+  const lastInbound = plainCrmText(pending[pending.length - 1] ?? '');
+  const choosingPixMethod = /^(?:pagamento\s*(?:por|no)?\s*pix|pix)[!?.,\s]*$/.test(lastInbound);
+  if ((isCrmPixKeyRequest(context.messages) || choosingPixMethod)
       && ['CRM-RES-018', 'CRM-RES-019', 'CRM-RES-020'].includes(suggestion.code)) {
     return toCrmResultHypothesis(suggestion,
       'Solicitar a chave Pix não comprova pagamento pendente já orientado, pagamento informado ou pagamento confirmado. Primeiro confira e encaminhe os dados oficiais.');
+  }
+
+  if (suggestion.code === 'CRM-RES-018' && PAYMENT_REPORTED.test(current)) {
+    return toCrmResultHypothesis(suggestion,
+      'O cliente declarou que pagou; Aguardando pagamento não representa essa informação. Confira o pagamento antes de classificar.');
   }
 
   if (suggestion.code === 'CRM-RES-020' && PAYMENT_REPORTED.test(current)) {
