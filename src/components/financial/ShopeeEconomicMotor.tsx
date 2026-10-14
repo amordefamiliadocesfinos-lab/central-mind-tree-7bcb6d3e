@@ -511,7 +511,7 @@ export function ShopeeEconomicMotor() {
     if (!accountId || !productId) return;
 
     await createSnapshot({
-      snapshot_schema_version: '2.1.0',
+      snapshot_schema_version: '2.2.0',
       engine_key: 'shopee-economic-v2',
       engine_version: rreResolution.regime?.engineVersion ?? '2.0.0',
       rule_version_id: rreResolution.regime?.id ?? null,
