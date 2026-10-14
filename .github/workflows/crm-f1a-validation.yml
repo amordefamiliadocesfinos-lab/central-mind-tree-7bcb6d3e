@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'package-lock.json'
       - 'src/lib/crm/**'
       - 'src/pages/ContatosInbox.tsx'
       - 'src/pages/Contatos.tsx'
