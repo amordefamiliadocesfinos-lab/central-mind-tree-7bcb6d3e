@@ -57,7 +57,7 @@ async function run() {
 
   // D. Campanha respondida → contexto de campanha vai no payload.
   const d = await suggestCrmReplyFromContext(
-    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi a promoção')]),
+    context({ campaign: { campaignId: 'x', campaignName: 'TESTE CAMPANHA 03', sentAt: '2026-08-30', responded: true } as any }, [inbound('Oi, vi sua mensagem da campanha')]),
     { invoke: stub({ suggested_reply: 'Oi! Que bom que viu nossa novidade.', reason: 'Campanha' }) },
   );
   assert(d.reply && lastPayload.context.campaign?.campaignName === 'TESTE CAMPANHA 03', 'D: contexto de campanha deve ser enviado.');
@@ -262,6 +262,49 @@ async function run() {
   assert(pixUnrelated.reply?.includes('explicar'),
     'Pix isolado sem pergunta de pagamento não deve acionar chave antiga.');
 
+  // C2: forma natural deve acessar apenas a FAQ oficial, nunca o gateway.
+  const naturalPix = [
+    'Me manda a chave Pix pfv',
+    'Qual é o Pix?',
+    'Pode passar os dados do Pix?',
+    'Qual a chave para pagar via Pix?',
+  ];
+  for (const phrase of naturalPix) {
+    gatewayCalled = false;
+    const reply = await suggestCrmReplyFromContext(context({}, [inbound(phrase)]), {
+      knowledgeFetcher: async () => [{
+        id: 'official-pix', question: 'Qual é o PIX?',
+        answer: 'PIX celular: 51981204596\nAmor de Família Doces Finos e Artesanais\nBanco Nubank',
+        category: 'Pagamento', keywords: ['pix'], platformId: null,
+      }],
+      invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave inventada' }; },
+    });
+    assert(reply.reply?.includes('51981204596') && !gatewayCalled,
+      'C2: chave pedida em linguagem natural vem apenas da fonte oficial: ' + phrase);
+    const noSource = await suggestCrmReplyFromContext(context({}, [inbound(phrase)]), {
+      knowledgeFetcher: async () => [],
+      invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave inventada' }; },
+    });
+    assert(noSource.reply === null && !gatewayCalled,
+      'C2: fonte ausente bloqueia a resposta: ' + phrase);
+  }
+  const ambiguousPix = await suggestCrmReplyFromContext(context({}, [inbound('Me manda a chave Pix')]), {
+    knowledgeFetcher: async () => [
+      { id: 'a', question: 'Qual é o PIX?', answer: 'Pix celular: 51981204596', category: 'Pagamento', keywords: [], platformId: null },
+      { id: 'b', question: 'Qual é o PIX?', answer: 'Pix celular: 51999999999', category: 'Pagamento', keywords: [], platformId: null },
+    ],
+    invoke: async () => { throw Error('Modelo nunca deve ser acionado para credencial'); },
+  });
+  assert(ambiguousPix.reply === null, 'C2: chaves conflitantes não são selecionadas');
+  const fakeBank = await suggestCrmReplyFromContext(context({}, [inbound('Oi')]), {
+    invoke: async () => ({ suggested_reply: 'Pode transferir para a chave Pix 51988887777 agora.' }),
+  });
+  assert(fakeBank.reply === null, 'C2: número bancário gerado sem fonte não deve ser exibido');
+  const paidNotice = await suggestCrmReplyFromContext(context({}, [inbound('Já fiz o pix, segue comprovante')]), {
+    invoke: async () => ({ suggested_reply: 'Recebi sua mensagem e vou conferir o pagamento.' }),
+  });
+  assert(paidNotice.reply?.includes('conferir'), 'C2: comprovante não se confunde com solicitação de chave');
+  
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
   assert(empty.reply === null, 'H/I: resposta vazia vira null; nada é enviado automaticamente.');
