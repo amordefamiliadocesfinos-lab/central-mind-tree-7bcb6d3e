@@ -259,14 +259,14 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
               {sending ? `Enviando ${progress.done}/${progress.total}` : `Enviar via API (${apiCount})`}
             </Button>
           )}
-          {manualCount > 0 && (
+          {manualCount > 0 && ['prepared', 'sending'].includes(campaign.status) && (
             <Button variant="secondary" onClick={() => setQueueOpen(true)}>
               <PlayCircle className="h-4 w-4 mr-2" />
               Fila manual ({manualCount})
             </Button>
           )}
           {campaign.status === 'draft' && (
-            <Button onClick={async () => { await markPrepared(campaign.id); onOpenChange(false); }}>
+            <Button onClick={async () => { if (await markPrepared(campaign.id)) onOpenChange(false); }}>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Marcar como preparada
             </Button>
@@ -289,6 +289,11 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
           </Button>
           {protectionError && protectionCampaignId === campaign.id && (
             <span className="text-xs text-destructive">{protectionError}</span>
+          )}
+          {campaign.segment_filters?.crm_lifecycle_criterion && (
+            <Badge variant="outline" className="border-violet-400/60">
+              Público inteligente · revalidação exigida na preparação e execução
+            </Badge>
           )}
           <Badge variant="outline">Selecionados: {campaign.total_selected}</Badge>
           <Badge variant="outline" className="text-emerald-600 border-emerald-300">Elegíveis: {campaign.total_eligible}</Badge>
