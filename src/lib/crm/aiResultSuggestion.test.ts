@@ -1,4 +1,4 @@
-import { guardCrmResultFactualCoherence, guardShortConfirmationStrongResult, normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult } from './aiResultSuggestion';
+import { guardCrmResultFactualCoherence, guardShortConfirmationStrongResult, normalizeSuggestionResponse, normalizeSuggestionTemporalReason, suggestCrmResult, suggestCrmResultFromContext } from './aiResultSuggestion';
 import type { CrmAiContextSources } from './aiContext';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -161,6 +161,28 @@ async function run() {
     ] } as any,
   );
   assert(outboundLast.code === null, 'C3: depois do outbound não inventar novo Resultado.');
+
+  const turnContext = (turn: string) => ({
+    messages: [{ direction: 'inbound', content: turn, createdAt: '2026-10-14T18:45:00Z' }],
+  }) as any;
+  const endToEndGreeting = await suggestCrmResultFromContext(
+    turnContext('Oii'),
+    async () => ({ suggested_result_code: 'CRM-RES-001', confidence: 0.93, reason: 'Retomada pelo histórico.', evidence_quotes: ['Oii'] }),
+  );
+  assert(endToEndGreeting.code === null && endToEndGreeting.tentativeCode === 'CRM-RES-001',
+    'C3 integração: hipótese sem evidência não deve dirigir Próxima Ação.');
+  const endToEndPix = await suggestCrmResultFromContext(
+    turnContext('Pagamento pix'),
+    async () => ({ suggested_result_code: 'CRM-RES-018', confidence: 0.97, reason: 'Vai pagar.', evidence_quotes: ['Pagamento pix'] }),
+  );
+  assert(endToEndPix.code === null && endToEndPix.tentativeCode === 'CRM-RES-018',
+    'C3 integração: escolha do método Pix ainda não prova pagamento aguardado.');
+  const endToEndInterest = await suggestCrmResultFromContext(
+    turnContext('Quero 50 trufas de 30g e saber o frete'),
+    async () => ({ suggested_result_code: 'CRM-RES-001', confidence: 0.92, reason: 'Interesse explícito.', evidence_quotes: ['Quero 50 trufas de 30g'] }),
+  );
+  assert(endToEndInterest.code === 'CRM-RES-001',
+    'C3 integração: pedido explícito mantém Resultado acionável.');
 
   // Fluxo completo com invoke simulado
   const suggestion = await suggestCrmResult('c1', 'conv1', {
