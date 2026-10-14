@@ -173,7 +173,19 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
-        const persisted = await persistOrder(contract);
+        let persisted;
+        try {
+          persisted = await persistOrder(contract);
+        } catch {
+          results.push({
+            orderSn,
+            status: 'write_failed',
+            blockers: ['writer_exception'],
+            write: null,
+          });
+          continue;
+        }
+
         const safeWrite = sanitizeResult(persisted);
         if (!safeWrite.ok) {
           results.push({
@@ -185,7 +197,7 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
-        written += 1;
+        if (!safeWrite.alreadyRegistered) written += 1;
         results.push({
           orderSn,
           status: safeWrite.alreadyRegistered ? 'already_registered' : 'written',
