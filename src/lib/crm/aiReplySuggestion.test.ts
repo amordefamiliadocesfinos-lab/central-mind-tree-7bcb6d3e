@@ -238,12 +238,12 @@ async function run() {
   ]);
   const pixOfficial = await suggestCrmReplyFromContext(pixContext, {
     knowledgeFetcher: async () => [{
-      id: 'pix', question: 'Qual é o PIX?', answer: 'PIX celular: 51981204596\nAmor de Família Doces Finos e Artesanais\nBanco Nubank',
+      id: 'pix', question: 'Qual é o PIX?', answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\nBanco Exemplo',
       category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
     }],
     invoke: async () => { gatewayCalled = true; return { suggested_reply: 'Chave CNPJ 00.000.000/0001-00' }; },
   });
-  assert(pixOfficial.reply?.includes('51981204596') && !gatewayCalled,
+  assert(pixOfficial.reply?.includes('123e4567-e89b-12d3-a456-426614174000') && !gatewayCalled,
     'PIX contextual precisa usar chave da FAQ, sem chamada ao modelo.');
   const pixMissing = await suggestCrmReplyFromContext(pixContext, {
     knowledgeFetcher: async () => [],
@@ -261,6 +261,53 @@ async function run() {
   });
   assert(pixUnrelated.reply?.includes('explicar'),
     'Pix isolado sem pergunta de pagamento não deve acionar chave antiga.');
+
+  // C2 — mensagens naturais exigem sempre a única fonte Pix oficial.
+  const officialPixFixture = [{
+    id: 'pix-exemplo', question: 'Qual é o PIX?',
+    answer: 'PIX chave aleatória: 123e4567-e89b-12d3-a456-426614174000\\nBanco Exemplo',
+    category: 'Pagamento', keywords: ['pix', 'chave'], platformId: null,
+  }];
+  for (const request of [
+    'Me manda a chave Pix pfv',
+    'Qual é a chave Pix da loja?',
+    'Me passa seu PIX?',
+    'Pode informar os dados do Pix?',
+  ]) {
+    let calledModel = false;
+    const guarded = await suggestCrmReplyFromContext(context({}, [inbound(request)]), {
+      knowledgeFetcher: async () => officialPixFixture,
+      invoke: async () => { calledModel = true; return { suggested_reply: 'Chave adulterada.' }; },
+    });
+    assert(guarded.reply === officialPixFixture[0].answer && !calledModel,
+      'C2: solicitação natural deve usar exclusivamente resposta literal da fonte Pix.');
+  }
+  let bypassed = false;
+  const noOfficial = await suggestCrmReplyFromContext(context({}, [inbound('Me manda a chave Pix pfv')]), {
+    knowledgeFetcher: async () => [],
+    invoke: async () => { bypassed = true; return { suggested_reply: 'Chave Pix: 21987654321' }; },
+  });
+  assert(noOfficial.reply === null && !bypassed,
+    'C2: sem KB oficial, bloquear e nunca chamar IA gerativa.');
+  const ambiguous = await suggestCrmReplyFromContext(context({}, [inbound('Me manda a chave Pix')]), {
+    knowledgeFetcher: async () => [officialPixFixture[0], { ...officialPixFixture[0], id: 'pix-duplicado' }],
+    invoke: async () => { bypassed = true; return { suggested_reply: 'Uma chave qualquer' }; },
+  });
+  assert(ambiguous.reply === null && !bypassed,
+    'C2: duas entradas Pix autorizadas são ambíguas.');
+  const covered = await suggestCrmReplyFromContext(context({}, [
+    inbound('Me manda a chave Pix'), outbound('Já enviei o dado oficial'), inbound('Obrigado.'),
+  ]), {
+    knowledgeFetcher: async () => officialPixFixture,
+    invoke: async () => ({ suggested_reply: 'Por nada!' }),
+  });
+  assert(covered.reply === 'Por nada!',
+    'C2: solicitação de bloco já respondido não deve ressuscitar chave Pix.');
+  const modelInvented = await suggestCrmReplyFromContext(context({}, [inbound('Pode me ajudar?')]), {
+    invoke: async () => ({ suggested_reply: 'PIX celular: 21987654321' }),
+  });
+  assert(modelInvented.reply === null,
+    'C2: identificar e bloquear chave numérica plausível também fora do fluxo Pix.');
 
   // M. Normalização nunca envia mensagem nem inventa texto.
   const empty = normalizeReplyResponse({ suggested_reply: '   ', reason: '' });
