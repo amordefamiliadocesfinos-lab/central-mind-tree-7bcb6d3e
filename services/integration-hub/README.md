@@ -26,3 +26,16 @@ Nesta etapa o Hub também não recebe `service_role`, não acessa o Supabase dir
 - F4 em diante: reutilização controlada das primitivas Shopee existentes e primeiro conector Live.
 
 A F1 Sandbox Shopee existente permanece intacta e fora deste serviço.
+
+
+## Estado vigente e mapa operacional
+
+A fundação acima descreve a origem do Hub. O estado atual da integração Shopee,
+incluindo F6-J/F6-K já comprovadas, política de automação futura e a nova frente
+fiscal/logística com objetivo de trazer a etiqueta pronta para a Central de
+Separação, está consolidado em:
+
+`docs/operations/MAPA_MESTRE_INTEGRACAO_SHOPEE_PAINEL_CENTRAL_V2.md`
+
+Esse documento é o mapa operacional vigente para continuidade da integração
+Shopee ↔ Painel Central.
