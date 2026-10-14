@@ -35,6 +35,7 @@ interface PurchaseOrderCardProps {
   onRegisterBilling: (order: PurchaseOrder) => Promise<void> | void;
   onMarkInTransit: (order: PurchaseOrder) => Promise<void>;
   onReceive: (order: PurchaseOrder) => void;
+  onFinalizePartial: (order: PurchaseOrder) => void;
   onEdit: (order: PurchaseOrder) => void;
   onDelete: (order: PurchaseOrder) => Promise<void>;
   onCancel: (order: PurchaseOrder) => Promise<void>;
@@ -89,10 +90,10 @@ function PurchaseOrderLine({ order, item, onCompare }: { order: PurchaseOrder; i
   );
 }
 
-export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onEdit, onDelete, onCancel, onRefresh }: PurchaseOrderCardProps) {
+export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilling, onMarkInTransit, onReceive, onFinalizePartial, onEdit, onDelete, onCancel, onRefresh }: PurchaseOrderCardProps) {
   const [intelligenceItem, setIntelligenceItem] = useState<PurchaseItem | null>(null);
   const [documentsOpen, setDocumentsOpen] = useState(false);
-  const canReceive = ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
+  const canReceive = !order.closure && ['confirmado', 'em_transito', 'parcialmente_recebido'].includes(order.status);
   const confirmedReceipts = (order.receipts ?? []).filter(receipt => receipt.status === 'confirmed');
   const hasPhysicalReceipt = confirmedReceipts.length > 0;
   const canEdit = order.status === 'rascunho';
@@ -114,6 +115,7 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {order.closure && <Badge className="bg-emerald-700 text-white">Encerrado parcial definitivo</Badge>}
             <Badge variant="outline" className={`border px-3 py-1.5 text-[13px] font-bold shadow-none ${STATUS_TONE[order.status]}`}>{PURCHASE_STATUS_LABEL[order.status]}</Badge>
             {order.status !== 'rascunho' && order.status !== 'cancelado' && (
               <Badge variant="outline" className={`px-2.5 py-1 text-xs font-medium ${order.billing_status === 'invoiced' ? 'border-violet-300 bg-violet-700 text-white dark:border-violet-600 dark:bg-violet-700 dark:text-white' : 'border-slate-500 bg-slate-700 text-white dark:border-slate-500 dark:bg-slate-700 dark:text-white'}`}>
@@ -148,10 +150,11 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
 
         <div className="flex flex-col gap-3 rounded-xl border-2 border-slate-300 bg-slate-100 p-4 dark:border-slate-600 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-bold text-slate-900 dark:text-white">
-            Total da compra: <span className="text-xl font-extrabold text-slate-950 dark:text-white">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
+            {order.closure ? 'Total efetivo: ' : 'Total da compra: '}<span className="text-xl font-extrabold text-slate-950 dark:text-white">{formatCurrency(getPurchaseCommercialTotal(order))}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setDocumentsOpen(true)}><FileText className="mr-1 h-4 w-4" />{order.billing_status === 'pending' && order.status !== 'rascunho' ? 'NF / Documentos' : 'Documentos'}</Button>
+            {order.closure && <span className="rounded-md bg-emerald-100 px-3 py-2 text-sm font-bold text-emerald-900">Recebimento encerrado: {formatCurrency(Number(order.closure.effective_amount))}</span>}
             {canEdit && <Button size="sm" variant="outline" disabled={busy} onClick={() => onEdit(order)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
             {order.status === 'rascunho' && (
               <><Button size="sm" disabled={busy} onClick={() => void onConfirmOrder(order)}>Confirmar pedido</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void onDelete(order)}><Trash2 className="mr-1 h-4 w-4" />Excluir</Button></>
@@ -167,6 +170,9 @@ export function PurchaseOrderCard({ order, busy, onConfirmOrder, onRegisterBilli
               </Button>{!hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}</>
             )}
             {order.status === 'em_transito' && !hasPhysicalReceipt && <Button size="sm" variant="outline" disabled={busy} onClick={() => void onCancel(order)}><X className="mr-1 h-4 w-4" />Cancelar</Button>}
+            {order.status === 'parcialmente_recebido' && !order.closure && order.billing_status === 'pending' && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => onFinalizePartial(order)}>Encerrar saldo não entregue</Button>
+            )}
             {canReceive && (
               <Button size="sm" disabled={busy} onClick={() => onReceive(order)}>
                 <PackageCheck className="mr-1 h-4 w-4" />Registrar recebimento
