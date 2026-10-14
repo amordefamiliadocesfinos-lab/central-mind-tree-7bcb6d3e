@@ -1815,6 +1815,7 @@ export default function ContatosInbox() {
           open={saleOpen}
           onOpenChange={setSaleOpen}
           contactId={selected.id}
+          conversationId={selected.conversation_id ?? null}
           contactName={selected.name}
           contactHandle={selected.whatsapp || selected.phone}
           onCreated={load}
