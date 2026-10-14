@@ -25,6 +25,7 @@ import type { CommercialPresentation } from '@/lib/products/commercialPresentati
 import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
+import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
 
 interface SaleItem {
   product_id: string;
@@ -40,6 +41,7 @@ interface InboxSaleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contactId: string;
+  conversationId?: string | null;
   contactName: string;
   contactHandle?: string | null;
   onCreated?: () => void;
@@ -54,7 +56,7 @@ const CHANNELS: Array<[string, string]> = [
   ['social', 'Redes Sociais'],
 ];
 
-export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, contactHandle, onCreated, onSaleCreated }: InboxSaleDialogProps) {
+export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId, contactName, contactHandle, onCreated, onSaleCreated }: InboxSaleDialogProps) {
   const { products } = useProductsList();
   const commercialPresentations = useCommercialPresentations();
   const inventory = useAppStore((state) => state.inventory);
@@ -182,6 +184,19 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, contactName, co
         if (!product) throw new Error('Produto não encontrado.');
         return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
       }));
+      // F5-C: aproveita o ato REAL de registrar Venda na Inbox.
+      // A consulta valida envio + resposta na mesma conversa + Pedido real.
+      // Um erro no vínculo jamais causa novo createUnifiedSale ou falso rollback.
+      try {
+        await recordInboxCampaignSaleTrace({
+          contactId,
+          conversationId: conversationId ?? null,
+          orderId: result.order_id,
+        });
+      } catch (traceError) {
+        console.warn('F5-C: venda confirmada, vínculo com campanha não registrado:', traceError);
+        toast.warning('Venda registrada; não foi possível comprovar vínculo com campanha.');
+      }
       if (registerLogisticsCost) {
         await upsertOrderLogisticsExpense({
           orderId: result.order_id,
