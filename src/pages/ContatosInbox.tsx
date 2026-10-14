@@ -766,7 +766,8 @@ export default function ContatosInbox() {
     order: handoffLookup?.contextKey === selectedHandoffKey ? handoffLookup.order : null,
   }) : null;
   // F4-B: só consulta Separação após a F4-A comprovar ID do Pedido e contato.
-  // first_printed_at/by e finalized_at/by registram atuação, NÃO aceite formal.
+  // F4-C.2: a primeira ação registrada com operador faz a assunção no fluxo,
+  // sem clique adicional e sem alegar aceite formal independente.
   const [separationLookup, setSeparationLookup] = useState<{
     contextKey: string;
     lookup: CrmSeparationLookup;
@@ -1647,14 +1648,18 @@ export default function ContatosInbox() {
                         && operationalActionEvidence.state !== 'not_applicable'
                         && operationalActionEvidence.state !== 'cancelled' && (
                         <div className="mt-0.5">
-                          <span className={operationalActionEvidence.operationalActionVerified
+                          <span className={operationalActionEvidence.assumedInFlowVerified
                             ? 'font-medium text-foreground/80' : ''}>
-                            {operationalActionEvidence.operationalActionVerified
-                              ? 'Atuação operacional registrada · ' : 'Atuação operacional · '}
+                            {operationalActionEvidence.assumedInFlowVerified
+                              ? 'Assumido no fluxo · ' : 'Atuação operacional · '}
                           </span>
                           {operationalActionEvidence.message}
-                          {operationalActionEvidence.activityAt && (
-                            <span> · {format(parseISO(operationalActionEvidence.activityAt), 'dd/MM/yyyy HH:mm')}</span>
+                          {operationalActionEvidence.assumedInFlowAt && (
+                            <span> · Início: {format(parseISO(operationalActionEvidence.assumedInFlowAt), 'dd/MM/yyyy HH:mm')}</span>
+                          )}
+                          {operationalActionEvidence.activityAt
+                            && operationalActionEvidence.activityAt !== operationalActionEvidence.assumedInFlowAt && (
+                            <span> · Última ação: {format(parseISO(operationalActionEvidence.activityAt), 'dd/MM/yyyy HH:mm')}</span>
                           )}
                         </div>
                       )}
