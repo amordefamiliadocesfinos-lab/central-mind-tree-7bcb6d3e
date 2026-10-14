@@ -173,6 +173,7 @@ function validateActionPayload(payload, nowMs) {
       || !isBoundedText(payload.order_number, 300)
       || !/^\d{4}-\d{2}-\d{2}$/.test(payload.order_date)
       || !Number.isFinite(Date.parse(payload.order_date + 'T00:00:00.000Z'))
+      || new Date(payload.order_date + 'T00:00:00.000Z').toISOString().slice(0, 10) !== payload.order_date
       || !(payload.total_value === null || (typeof payload.total_value === 'number' && Number.isFinite(payload.total_value) && payload.total_value >= 0))
       || !isBoundedText(payload.payment_method, 200, { nullable: true })
       || !isBoundedText(payload.external_status, 200, { nullable: true })
@@ -197,7 +198,7 @@ function validateActionPayload(payload, nowMs) {
       if (!hasExactKeys(item, itemRequired)) return false;
       return UUID.test(item.product_id)
         && (item.variant_id === null || UUID.test(item.variant_id))
-        && Number.isSafeInteger(item.quantity) && item.quantity > 0
+        && Number.isSafeInteger(item.quantity) && item.quantity > 0 && item.quantity <= 2147483647
         && typeof item.commercial_quantity === 'number' && Number.isFinite(item.commercial_quantity) && item.commercial_quantity > 0
         && typeof item.physical_multiplier === 'number' && Number.isFinite(item.physical_multiplier) && item.physical_multiplier > 0
         && Math.abs(item.quantity - (item.commercial_quantity * item.physical_multiplier)) <= 0.000001

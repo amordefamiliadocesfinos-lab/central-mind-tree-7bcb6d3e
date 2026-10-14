@@ -1,6 +1,39 @@
 -- F6-I verification. Execute only inside an explicit transaction and ROLLBACK.
 BEGIN;
 
+-- Test-only trigger: assign a synthetic internal number before the real numbering
+-- trigger, so nextval() cannot leave a persistent sequence increment on rollback.
+CREATE TEMP TABLE f6i_test_context (marker integer) ON COMMIT DROP;
+CREATE FUNCTION pg_temp.f6i_test_internal_number()
+RETURNS trigger LANGUAGE plpgsql AS $test$
+BEGIN
+  IF NEW.order_number LIKE 'F6I-VALIDATION-%' THEN
+    NEW.internal_order_number := NEW.order_number;
+  END IF;
+  RETURN NEW;
+END;
+$test$;
+CREATE TRIGGER aaa_f6i_test_internal_number BEFORE INSERT ON public.orders
+FOR EACH ROW EXECUTE FUNCTION pg_temp.f6i_test_internal_number();
+
+CREATE TEMP TABLE f6i_sequence_before AS
+SELECT last_value, is_called FROM public.orders_internal_number_seq;
+CREATE TEMP TABLE f6i_prohibited_before (
+  table_name text PRIMARY KEY, row_count bigint, fingerprint text
+) ON COMMIT DROP;
+DO $baseline$
+DECLARE v_table text; v_count bigint; v_hash text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY['inventory', 'inventory_movements', 'financial_entries',
+    'financial_movements', 'contacts', 'contact_history', 'service_conversations', 'production_orders']
+  LOOP
+    EXECUTE format('SELECT count(*), md5(coalesce(string_agg(to_jsonb(x)::text, ''|'' ORDER BY to_jsonb(x)::text), '''')) FROM public.%I x', v_table)
+      INTO v_count, v_hash;
+    INSERT INTO f6i_prohibited_before VALUES (v_table, v_count, v_hash);
+  END LOOP;
+END;
+$baseline$;
+
 DO $$
 DECLARE
   v_order_number text := 'F6I-VALIDATION-261014';
@@ -10,10 +43,12 @@ DECLARE
   v_second jsonb;
   v_order_id uuid;
 BEGIN
-  DELETE FROM public.orders
+  IF EXISTS (SELECT 1 FROM public.orders
   WHERE channel = 'shopee'
     AND channel_account_id = v_channel_account_id
-    AND order_number = v_order_number;
+    AND order_number = v_order_number) THEN
+    RAISE EXCEPTION 'F6-I validation identity already exists; do not delete existing data';
+  END IF;
 
   v_first := public.create_shopee_api_order(
     jsonb_build_object(
@@ -90,6 +125,10 @@ BEGIN
     RAISE EXCEPTION 'F6-I separation TODO missing';
   END IF;
 
+  IF (SELECT count(*) FROM public.order_separation WHERE order_id = v_order_id) <> 1 THEN
+    RAISE EXCEPTION 'F6-I separation count mismatch';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.inventory_movements
     WHERE reference_id = v_order_id
@@ -137,7 +176,8 @@ BEGIN
   );
 
   IF NOT COALESCE((v_second->>'already_registered')::boolean, false)
-    OR (v_second->>'order_id')::uuid <> v_order_id THEN
+    OR (v_second->>'order_id')::uuid <> v_order_id
+    OR v_second->>'separation_id' IS DISTINCT FROM v_first->>'separation_id' THEN
     RAISE EXCEPTION 'F6-I idempotency mismatch';
   END IF;
 
@@ -150,6 +190,26 @@ BEGIN
   ) <> 1 THEN
     RAISE EXCEPTION 'F6-I duplicate order created';
   END IF;
+  IF (SELECT count(*) FROM public.order_items WHERE order_id = v_order_id) <> 1
+    OR (SELECT count(*) FROM public.order_separation WHERE order_id = v_order_id AND separation_status = 'todo') <> 1 THEN
+    RAISE EXCEPTION 'F6-I duplicate items or separation created';
+  END IF;
 END $$;
+
+DO $isolation$
+DECLARE v_row record; v_count bigint; v_hash text;
+BEGIN
+  FOR v_row IN SELECT * FROM f6i_prohibited_before LOOP
+    EXECUTE format('SELECT count(*), md5(coalesce(string_agg(to_jsonb(x)::text, ''|'' ORDER BY to_jsonb(x)::text), '''')) FROM public.%I x', v_row.table_name)
+      INTO v_count, v_hash;
+    IF v_count IS DISTINCT FROM v_row.row_count OR v_hash IS DISTINCT FROM v_row.fingerprint THEN
+      RAISE EXCEPTION 'F6-I prohibited write on %', v_row.table_name;
+    END IF;
+  END LOOP;
+  IF EXISTS (SELECT last_value, is_called FROM public.orders_internal_number_seq EXCEPT SELECT * FROM f6i_sequence_before) THEN
+    RAISE EXCEPTION 'F6-I validation changed the persistent numbering sequence';
+  END IF;
+END;
+$isolation$;
 
 ROLLBACK;

@@ -20,7 +20,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_channel_account_id uuid := NULLIF(btrim(p_order->>'channel_account_id'), '')::uuid;
-  v_requested_account text := NULLIF(btrim(p_order->>'marketplace_account'), '');
+  v_requested_account text := p_order->>'marketplace_account';
   v_account text;
   v_order_number text := NULLIF(btrim(p_order->>'order_number'), '');
   v_order_date date := NULLIF(p_order->>'order_date', '')::date;
@@ -45,7 +45,7 @@ BEGIN
     RAISE EXCEPTION 'F6-I: order_number excede o limite.';
   END IF;
 
-  IF v_total IS NOT NULL AND v_total < 0 THEN
+  IF v_total IS NOT NULL AND (v_total < 0 OR v_total::text IN ('NaN', 'Infinity', '-Infinity')) THEN
     RAISE EXCEPTION 'F6-I: total_value inválido.';
   END IF;
 
@@ -67,7 +67,10 @@ BEGIN
     RAISE EXCEPTION 'F6-I: marketplace_account diverge da conta canônica.';
   END IF;
 
-  IF jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
+  IF p_items IS NULL OR jsonb_typeof(p_items) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'F6-I: o pedido precisa de ao menos um item.';
+  END IF;
+  IF jsonb_array_length(p_items) = 0 THEN
     RAISE EXCEPTION 'F6-I: o pedido precisa de ao menos um item.';
   END IF;
 
@@ -123,19 +126,22 @@ BEGIN
     v_multiplier := NULLIF(v_item->>'physical_multiplier', '')::numeric;
     v_unit_price := NULLIF(v_item->>'unit_price', '')::numeric;
 
-    IF v_quantity IS NULL OR v_quantity <= 0 OR trunc(v_quantity) <> v_quantity THEN
+    IF v_quantity IS NULL OR v_quantity <= 0 OR v_quantity > 2147483647
+      OR v_quantity::text IN ('NaN', 'Infinity', '-Infinity') OR trunc(v_quantity) <> v_quantity THEN
       RAISE EXCEPTION 'F6-I: quantity física deve ser inteiro positivo.';
     END IF;
-    IF v_commercial_quantity IS NULL OR v_commercial_quantity <= 0 THEN
+    IF v_commercial_quantity IS NULL OR v_commercial_quantity <= 0
+      OR v_commercial_quantity::text IN ('NaN', 'Infinity', '-Infinity') THEN
       RAISE EXCEPTION 'F6-I: commercial_quantity inválida.';
     END IF;
-    IF v_multiplier IS NULL OR v_multiplier <= 0 THEN
+    IF v_multiplier IS NULL OR v_multiplier <= 0
+      OR v_multiplier::text IN ('NaN', 'Infinity', '-Infinity') THEN
       RAISE EXCEPTION 'F6-I: physical_multiplier inválido.';
     END IF;
     IF abs(v_quantity - (v_commercial_quantity * v_multiplier)) > 0.000001 THEN
       RAISE EXCEPTION 'F6-I: quantity diverge de commercial_quantity × physical_multiplier.';
     END IF;
-    IF v_unit_price IS NOT NULL AND v_unit_price < 0 THEN
+    IF v_unit_price IS NOT NULL AND (v_unit_price < 0 OR v_unit_price::text IN ('NaN', 'Infinity', '-Infinity')) THEN
       RAISE EXCEPTION 'F6-I: unit_price inválido.';
     END IF;
   END LOOP;

@@ -105,9 +105,23 @@ test('rejects any drift in the frozen internal initial state', () => {
 });
 
 test('rejects side-effect drift before any Core Bridge call can be built', () => {
-  const contract = readyContract();
-  contract.effects.stockAction = 'external_shipped';
-  assert.throws(() => buildShopeeOrderCreateRequest(contract), /side-effect policy diverged/);
+  for (const key of ['stockAction', 'financialAction', 'crmAction', 'contactAction', 'productionOrderAction', 'separationAction']) {
+    const contract = readyContract();
+    contract.effects[key] = 'invalid';
+    assert.throws(() => buildShopeeOrderCreateRequest(contract), /side-effect policy diverged/);
+  }
+});
+
+test('rejects non-ready contracts, flag drift and empty items', () => {
+  for (const mutate of [
+    c => { c.contractStatus = 'blocked'; },
+    c => { c.operationalWrites = true; },
+    c => { c.writerAuthorized = true; },
+    c => { c.items = []; },
+  ]) {
+    const c = readyContract(); mutate(c);
+    assert.throws(() => buildShopeeOrderCreateRequest(c), TypeError);
+  }
 });
 
 test('writer scope is only Pedido + items + Separação TODO', () => {
