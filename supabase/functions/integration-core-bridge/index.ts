@@ -166,7 +166,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
       .is('deleted_at', null)
       .in('order_number', orderNumbers);
     if (existingError) return { status: 503, body: { error: 'intake_existing_order_read_failed' } };
-    existingOrders = new Set((existing ?? []).map((row) => String(row.order_number)));
+    existingOrders = new Set((existing ?? []).map((row: { order_number: string | null }) => String(row.order_number)));
   }
 
   const snapshots: Record<string, unknown>[] = [];
