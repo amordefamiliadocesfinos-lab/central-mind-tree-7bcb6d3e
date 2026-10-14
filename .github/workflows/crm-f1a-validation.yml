@@ -30,6 +30,27 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      # DIAGNÓSTICO TEMPORÁRIO: gerar delta do lock npm 10; remover antes da integração.
+      - name: Diagnose missing npm lock entries
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const prior=JSON.parse(execFileSync('git', ['show', 'HEAD:package-lock.json'], { encoding: 'utf8', maxBuffer: 100*1024*1024 }));
+          const current=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const oldPaths=prior.packages || {};
+          const newPaths=current.packages || {};
+          const altered={};
+          for (const path of Object.keys(newPaths)) {
+            if(JSON.stringify(newPaths[path])!==JSON.stringify(oldPaths[path]))altered[path]=newPaths[path];
+          }
+          const removed=Object.keys(oldPaths).filter(path=>!Object.hasOwn(newPaths,path));
+          const delta=JSON.stringify({lockfileVersion:current.lockfileVersion,altered,removed});
+          console.log('LOCKDIAG_META '+JSON.stringify({old:Object.keys(oldPaths).length,new:Object.keys(newPaths).length,changed:Object.keys(altered).length,removed:removed.length,bytes:delta.length}));
+          for(let i=0;i<delta.length;i+=3500)console.log('LOCKDIAG_PART '+String(i/3500).padStart(4,'0')+' '+delta.slice(i,i+3500));
+          console.log('LOCKDIAG_END');
+          NODE
       - run: npm ci
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
