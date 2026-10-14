@@ -4,6 +4,10 @@ import { buildShopeeMappingPreview } from './shopee-mapping-preview.mjs';
 import { buildShopeeOrderProjectionPreview } from './shopee-order-projection-preview.mjs';
 import { applyShopeeInternalOrderContract } from './shopee-internal-order-contract.mjs';
 import { persistShopeeOrderContract } from './shopee-order-writer.mjs';
+import {
+  SHOPEE_OPERATIONAL_COMMIT_POLICY,
+  shouldStopShopeeControlledRound,
+} from './shopee-intake-policy.mjs';
 
 const MODES = new Set(['preview', 'commit']);
 
@@ -23,7 +27,7 @@ export function createShopeeControlledAutoIntake({
 } = {}) {
   return async function runShopeeControlledAutoIntake({
     channelAccountId,
-    limit = 5,
+    limit = SHOPEE_OPERATIONAL_COMMIT_POLICY.batchLimit,
     mode = 'preview',
     expectedOrderSn = null,
   } = {}) {
@@ -117,6 +121,8 @@ export function createShopeeControlledAutoIntake({
     let ready = 0;
     let blocked = 0;
     let written = 0;
+    let roundStopped = false;
+    let stopReason = null;
 
     for (const snapshot of selectedSnapshots) {
       let orderSn = typeof snapshot?.external_entity_id === 'string'
@@ -183,6 +189,11 @@ export function createShopeeControlledAutoIntake({
             blockers: ['writer_exception'],
             write: null,
           });
+          if (shouldStopShopeeControlledRound({ writerException: true })) {
+            roundStopped = true;
+            stopReason = 'writer_exception';
+            break;
+          }
           continue;
         }
 
@@ -225,6 +236,8 @@ export function createShopeeControlledAutoIntake({
       blocked,
       written,
       sourceCounts: payload.counts ?? null,
+      roundStopped,
+      stopReason,
       results,
     };
   };
@@ -238,6 +251,10 @@ export const SHOPEE_CONTROLLED_AUTO_INTAKE_CONTRACT = Object.freeze({
   eligibleStatusesAreServerControlled: true,
   rawSelectionIsServerControlled: true,
   exactCommitTargetSupported: true,
+  operationalPolicyVersion: SHOPEE_OPERATIONAL_COMMIT_POLICY.version,
+  automaticBatchLimit: SHOPEE_OPERATIONAL_COMMIT_POLICY.batchLimit,
+  automaticConcurrency: SHOPEE_OPERATIONAL_COMMIT_POLICY.concurrency,
+  automaticRetryStrategy: SHOPEE_OPERATIONAL_COMMIT_POLICY.retryStrategy,
   writes: Object.freeze(['orders', 'order_items', 'order_separation']),
   prohibitedWrites: Object.freeze([
     'inventory',

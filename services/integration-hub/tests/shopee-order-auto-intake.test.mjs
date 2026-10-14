@@ -354,3 +354,39 @@ test('writer exception is classified as write_failed and not as pipeline excepti
   assert.equal(result.results[0].status, 'write_failed');
   assert.deepEqual(result.results[0].blockers, ['writer_exception']);
 });
+
+
+test('F6-K.1 stops the controlled round after infrastructure writer exception', async () => {
+  const first = '261014HRQJ4QHT';
+  const second = '261013HKHWK3V7';
+  const payload = batchPayload({
+    snapshots: [snapshot(first), snapshot(second)],
+    counts: { selected: 2, skipped_existing: 0, skipped_status: 0, skipped_malformed: 0 },
+  });
+
+  const attempted = [];
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, status: 200, payload }),
+    persistOrder: async (contract) => {
+      attempted.push(contract.order.orderNumber);
+      throw new Error('synthetic infrastructure outage');
+    },
+  });
+
+  const result = await run({
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    limit: 5,
+    mode: 'commit',
+  });
+
+  assert.deepEqual(attempted, [first]);
+  assert.equal(result.roundStopped, true);
+  assert.equal(result.stopReason, 'writer_exception');
+  assert.equal(result.selected, 2);
+  assert.equal(result.ready, 1);
+  assert.equal(result.written, 0);
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].orderSn, first);
+  assert.equal(result.results[0].status, 'write_failed');
+  assert.deepEqual(result.results[0].blockers, ['writer_exception']);
+});
