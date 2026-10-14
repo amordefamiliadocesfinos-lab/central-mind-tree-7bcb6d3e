@@ -63,18 +63,18 @@ export function CrmAssistantCard({
   const hasAnything = Boolean(result?.code || tentativeResult || nextAction || reply?.reply || reply?.reason || postSale || repurchase);
 
   return (
-    <div className="rounded-md border bg-muted/30 px-2.5 py-2 text-[11px] space-y-1.5">
+    <div className="rounded-md border bg-muted/30 px-3 py-3 text-sm leading-relaxed space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Assistente CRM</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assistente CRM</span>
         {!analyzing && (
-          <button type="button" onClick={onDismiss} className="text-[10px] text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onDismiss} className="text-xs text-muted-foreground hover:text-foreground">
             Ignorar
           </button>
         )}
       </div>
 
       {!analyzing && (
-        <div className="rounded border border-dashed px-2 py-1 text-[10px] text-muted-foreground">
+        <div className="rounded border border-dashed px-2 py-1 text-xs text-muted-foreground">
           <div className="flex items-center justify-between gap-2">
             <span>Perfil de comunicação · Em construção</span>
             <button type="button" className="underline hover:text-foreground" onClick={() => setShowProfileHelp(value => !value)}>
@@ -95,7 +95,7 @@ export function CrmAssistantCard({
       {!analyzing && error && (
         <div className="space-y-1.5">
           <p className="text-muted-foreground">Não foi possível analisar o atendimento agora.</p>
-          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={onRetry}>Tentar de novo</Button>
+          <Button size="sm" variant="outline" className="h-7 text-sm" onClick={onRetry}>Tentar de novo</Button>
         </div>
       )}
 
@@ -107,7 +107,7 @@ export function CrmAssistantCard({
         <div className="space-y-1.5">
           {result?.code && (
             <div className="space-y-0.5">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Resultado provável</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Resultado provável</div>
               <div className="font-medium text-foreground">{result.label}</div>
               <div className="text-muted-foreground">Confiança {Math.round(result.confidence * 100)}%</div>
               {result.reason && (
@@ -129,7 +129,7 @@ export function CrmAssistantCard({
           {tentativeResult && (
             <div className="rounded border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
               <div className="font-medium">Hipótese de Resultado: {tentativeResult.tentativeLabel}</div>
-              <div className="text-[10px] text-amber-900/80 dark:text-amber-200/80">
+              <div className="text-xs text-amber-900/80 dark:text-amber-200/80">
                 Confiança {Math.round(tentativeResult.confidence * 100)}% · baixa confiança, não aplicada e sem Próxima Ação derivada.
               </div>
             </div>
@@ -162,14 +162,14 @@ export function CrmAssistantCard({
 
           {reply?.reply && (
             <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
-              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Resposta sugerida</div>
+              <div className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">Resposta sugerida</div>
               <p className="whitespace-pre-wrap text-foreground/90">{reply.reply}</p>
             </div>
           )}
 
           {reply && !reply.reply && reply.reason && (
             <div className="rounded border border-dashed bg-background/60 px-2 py-1.5">
-              <div className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Orientação do Assistente</div>
+              <div className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">Orientação do Assistente</div>
               <p className="text-foreground/90">{reply.reason}</p>
             </div>
           )}
@@ -179,13 +179,13 @@ export function CrmAssistantCard({
               <div className="font-medium">Pós-venda elegível</div>
               <p className="mt-0.5 text-sky-900/80 dark:text-sky-200/80">{postSale.reason}</p>
               {postSale.deliveryDate && (
-                <p className="mt-1 text-[10px] text-sky-900/75 dark:text-sky-200/75">
+                <p className="mt-1 text-xs text-sky-900/75 dark:text-sky-200/75">
                   Entrega registrada em {new Date(`${postSale.deliveryDate}T12:00:00`).toLocaleDateString('pt-BR')} · acompanhamento sugerido, sem ação automática.
                 </p>
               )}
               {onPreparePostSale && (
                 <div className="mt-1.5">
-                  <Button size="sm" variant="outline" className="h-7 border-sky-300 bg-transparent px-2 text-[10px] hover:bg-sky-100 dark:border-sky-800 dark:hover:bg-sky-900/40" onClick={onPreparePostSale}>
+                  <Button size="sm" variant="outline" className="h-7 border-sky-300 bg-transparent px-2 text-xs hover:bg-sky-100 dark:border-sky-800 dark:hover:bg-sky-900/40" onClick={onPreparePostSale}>
                     Preparar mensagem
                   </Button>
                 </div>
@@ -198,22 +198,22 @@ export function CrmAssistantCard({
               <div className="font-medium">Oportunidade de recompra</div>
               <p className="mt-0.5 text-amber-900/80 dark:text-amber-200/80">{repurchase.reason}</p>
               {showRepurchaseDetails && (
-                <p className="mt-1 text-[10px] text-amber-900/75 dark:text-amber-200/75">
+                <p className="mt-1 text-xs text-amber-900/75 dark:text-amber-200/75">
                   {repurchase.purchaseCount} compras confirmadas
                   {repurchase.lastPurchaseAt ? ` · última compra em ${new Date(repurchase.lastPurchaseAt).toLocaleDateString('pt-BR')}` : ''}
                   {repurchase.likelyProducts.length ? ' · há produtos recorrentes no histórico' : ''}
                 </p>
               )}
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={() => setShowRepurchaseDetails(value => !value)}>
+                <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-xs hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={() => setShowRepurchaseDetails(value => !value)}>
                   Analisar
                 </Button>
                 {onPrepareRepurchase && (
-                  <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-[10px] hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={onPrepareRepurchase}>
+                  <Button size="sm" variant="outline" className="h-7 border-amber-300 bg-transparent px-2 text-xs hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40" onClick={onPrepareRepurchase}>
                     Preparar mensagem
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => setRepurchaseDismissed(true)}>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setRepurchaseDismissed(true)}>
                   Ignorar
                 </Button>
               </div>
@@ -222,7 +222,7 @@ export function CrmAssistantCard({
 
           <div className="flex flex-wrap justify-end gap-1.5 pt-0.5">
             {result?.code && onUseResult && (
-              <Button size="sm" className="h-7 text-[11px]" onClick={() => onUseResult(result.code!)}>
+              <Button size="sm" className="h-7 text-sm" onClick={() => onUseResult(result.code!)}>
                 Usar resultado
               </Button>
             )}
@@ -231,7 +231,7 @@ export function CrmAssistantCard({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-sm"
                   onClick={() => onUseReply(reply.reply!)}
                 >
                   Usar resposta
@@ -239,7 +239,7 @@ export function CrmAssistantCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-sm"
                   onClick={() => { navigator.clipboard?.writeText(reply.reply!); toast.success('Resposta copiada'); }}
                 >
                   Copiar

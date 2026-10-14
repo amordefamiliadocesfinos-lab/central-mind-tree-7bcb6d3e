@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,6 +55,9 @@ interface ContactChatPanelProps {
   knownCommercialOptOut?: boolean;
   /** Classe de altura do painel. Padrão: h-[60vh] min-h-[400px] */
   heightClassName?: string;
+  /** A apresentação da IA pode ficar no painel contextual sem mover seus estados. */
+  assistantPortalTarget?: HTMLElement | null;
+  onAssistantRequested?: () => void;
   onMessageSent?: (content: string) => void | Promise<void>;
   /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
   onUseSuggestedResult?: (resultCode: string) => void;
@@ -71,7 +75,12 @@ const CHAT_FONT_KEY = 'crm-chat-font-size';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
+/** Move somente a apresentação; não cria outra instância do motor de IA. */
+function CrmAssistantPortal({ target, children }: { target?: HTMLElement | null; children: ReactNode }) {
+  return target ? createPortal(children, target) : <>{children}</>;
+}
+
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, assistantPortalTarget, onAssistantRequested, onMessageSent, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -460,6 +469,7 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
   // sugerido, Próxima Ação canônica e resposta sugerida, a partir do mesmo
   // CrmAiContext. Nenhum efeito colateral: nada é gravado nem enviado.
   const handleAnalyze = async () => {
+    onAssistantRequested?.();
     const requestedStamp = contextStamp;
     // Dois cliques no mesmo contexto não geram duas análises simultâneas.
     if (analyzingStampRef.current === requestedStamp) return;
@@ -634,7 +644,8 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
       <div className="border-t pt-1.5 mt-1.5 space-y-1.5 bg-background/95">
         {/* F4.5 — card único do Assistente CRM (compacto, só aparece sob demanda). */}
-        <CrmAssistantCard
+        <CrmAssistantPortal target={assistantPortalTarget}>
+          <CrmAssistantCard
           analyzing={analyzing}
           analysis={analysis}
           error={analysisError}
@@ -716,7 +727,8 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
               toast.error('Não foi possível preparar a mensagem agora.');
             }
           }}
-        />
+          />
+        </CrmAssistantPortal>
 
         {followUpCycle && getFollowUpCycleLabel(followUpCycle) && (
           <p className="px-1 text-[10px] text-muted-foreground">

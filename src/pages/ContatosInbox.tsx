@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { getCrmStageLabel, normalizeCrmStage } from '@/lib/crm/model';
 import { useActiveUser } from '@/hooks/useActiveUser';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
@@ -120,6 +121,7 @@ function isPureSupplier(item: InboxItem) {
 export default function ContatosInbox() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeUserId, isLinked } = useActiveUser();
+  const isMobile = useIsMobile();
   const deepLinkHandled = useRef<string | null>(null);
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,7 +149,10 @@ export default function ContatosInbox() {
   const [detailTab, setDetailTab] = useState<'conversa' | 'historico'>('conversa');
   const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string; conversationId: string | null; prepareAssistant: boolean } | null>(null);
   const actionRequestSequenceRef = useRef(0);
-  const [leadPanelOpen, setLeadPanelOpen] = useState(false);
+  // Em telas intermediárias a lateral funciona sob demanda; no desktop amplo já nasce aberta.
+  const [leadPanelOpen, setLeadPanelOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
+  const [contextTab, setContextTab] = useState<'assistant' | 'lead'>('lead');
+  const [assistantPortalTarget, setAssistantPortalTarget] = useState<HTMLDivElement | null>(null);
   const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
   const [tagFilter, setTagFilter] = useState<string>('all');
@@ -163,6 +168,7 @@ export default function ContatosInbox() {
     setAttendanceActionRequest(null);
     setReplyFocusRequest(null);
     setDetailTab('conversa');
+    setContextTab('lead');
     setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
@@ -1331,7 +1337,9 @@ export default function ContatosInbox() {
         </div>
       </div>
 
-      <div className={cn('grid flex-1 min-h-0 gap-0 md:p-2', leadPanelOpen ? 'md:grid-cols-[320px_minmax(0,1fr)_300px]' : 'md:grid-cols-[340px_minmax(0,1fr)]')}>
+      <div className={cn('grid flex-1 min-h-0 gap-0 md:p-2', leadPanelOpen
+          ? 'md:grid-cols-[minmax(240px,30%)_minmax(0,1fr)] xl:grid-cols-[minmax(230px,20%)_minmax(0,53%)_minmax(290px,27%)]'
+          : 'md:grid-cols-[minmax(240px,26%)_minmax(0,1fr)]')}>
         {/* Lista */}
         <div className={cn('min-h-0 overflow-y-auto md:border md:rounded-l-lg md:bg-card', selected && 'hidden md:block')}>
           {loading ? (
@@ -1539,7 +1547,7 @@ export default function ContatosInbox() {
                   key={`${selectedOrientation.contactId}|${selectedOrientation.conversationId ?? ''}`}
                   aria-label="Orientação operacional do contato"
                   aria-live="polite"
-                  className="mx-3 mt-2 shrink-0 rounded-md border bg-muted/30 px-3 py-2 text-[11px]"
+                  className="mx-3 mt-2 shrink-0 rounded-md border bg-muted/30 px-3 py-2 text-xs"
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                     <span className="font-medium">Orientação · {selectedOrientation.title}</span>
@@ -1631,6 +1639,8 @@ export default function ContatosInbox() {
                     knownConversationId={selected.conversation_id || null}
                     knownCommercialOptOut={selected.commercial_opt_out}
                     heightClassName="min-h-0 flex-1"
+                    assistantPortalTarget={!isMobile && leadPanelOpen ? assistantPortalTarget : null}
+                    onAssistantRequested={() => { setLeadPanelOpen(true); setContextTab('assistant'); }}
                     focusRequest={replyFocusRequest}
                     onPreparationHandled={id => setReplyFocusRequest(current => current?.id === id ? null : current)}
                     onMessageSent={() => setSendConfirmation(true)}
@@ -1703,12 +1713,20 @@ export default function ContatosInbox() {
           )}
         </div>
         {leadPanelOpen && selected && (
-          <aside className="hidden md:flex min-h-0 flex-col overflow-hidden border-y border-r rounded-r-lg bg-card">
+          <aside className="hidden md:fixed md:right-2 md:top-44 md:bottom-16 md:z-40 md:w-[min(360px,calc(100vw-1rem))] md:flex md:flex-col md:overflow-hidden md:rounded-lg md:border md:bg-card md:shadow-xl xl:static xl:top-auto xl:bottom-auto xl:right-auto xl:z-auto xl:w-auto xl:rounded-r-lg xl:rounded-l-none xl:shadow-none">
             <div className="flex items-center justify-between border-b px-3 py-2">
-              <span className="text-sm font-semibold">Detalhes do lead</span>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setLeadPanelOpen(false)} title="Ocultar detalhes"><X className="h-4 w-4" /></Button>
+              <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 p-0.5" role="group" aria-label="Conteúdo do painel contextual">
+                <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('assistant')} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
+                <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Detalhes do lead</Button>
+              </div>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setLeadPanelOpen(false)} aria-label="Fechar painel contextual" title="Ocultar painel"><X className="h-4 w-4" /></Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {/* Target estável: alternar a visualização não desmonta a análise do Assistente. */}
+              <div ref={setAssistantPortalTarget} className={cn('space-y-2 p-3', contextTab !== 'assistant' && 'hidden')} role="region" aria-label="Assistente CRM">
+                <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
+              </div>
+              <div className={cn('space-y-4 p-4', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Detalhes do lead">
               <div className="flex flex-col items-center gap-2 text-center">
                 <ContactAvatar name={selected.name} photoUrl={selected.photo_url} size="lg" editable onPhotoChange={updateSelectedPhoto} />
                 <div><div className="font-medium">{selected.name}</div><div className="text-xs text-muted-foreground">{selected.whatsapp || selected.phone || 'Sem telefone'}</div></div>
@@ -1725,6 +1743,7 @@ export default function ContatosInbox() {
                 <Pencil className="h-3.5 w-3.5" /> Editar dados
               </Button>
               <Link to={`/contatos?contact=${selected.id}`} className="block"><Button variant="outline" size="sm" className="w-full gap-2"><ExternalLink className="h-3.5 w-3.5" /> Abrir cadastro completo</Button></Link>
+              </div>
             </div>
           </aside>
         )}
