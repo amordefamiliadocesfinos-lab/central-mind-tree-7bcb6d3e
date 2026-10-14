@@ -20,6 +20,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.raw_order_list_snapshot.upsert',
   'shopee.raw_order_snapshot.upsert',
   'shopee.order.create',
+  'shopee.order_intake_batch.read',
 ]);
 
 function json(status, body) {
@@ -153,6 +154,13 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_name, 300, { nullable: true })
       && isBoundedText(payload.region, 64, { nullable: true })
       && isBoundedText(payload.shop_status, 128, { nullable: true });
+  }
+
+  if (payload.action === 'shopee.order_intake_batch.read') {
+    if (!hasExactKeys(payload, ['action', 'channel_account_id'], ['limit'])) return false;
+    return UUID.test(payload.channel_account_id)
+      && (payload.limit === undefined
+        || (Number.isSafeInteger(payload.limit) && payload.limit >= 1 && payload.limit <= 20));
   }
 
   if (payload.action === 'shopee.order.create') {
