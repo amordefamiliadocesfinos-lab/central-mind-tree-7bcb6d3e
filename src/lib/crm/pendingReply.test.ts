@@ -1,4 +1,5 @@
 import { hasCrmUnansweredInbound, resolveCrmCanonicalReplyState } from './pendingReply';
+import { getCrmPriority } from './priority';
 
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(`CRM C1: ${message}`);
@@ -13,6 +14,17 @@ const interest = resolveCrmCanonicalReplyState({
 });
 assert(interest.needsReply && interest.attendanceState === 'em_atendimento',
   'Interesse demonstrado não consome obrigação de responder (P0 preservado)');
+const priorityAfterResult = getCrmPriority({
+  status: 'open',
+  needs_reply: interest.needsReply,
+  attendance_state: interest.attendanceState,
+  last_inbound_at: customerWaiting.lastInboundAt,
+  last_outbound_at: customerWaiting.lastOutboundAt,
+  last_message_at: customerWaiting.lastInboundAt,
+  last_result_at: '2026-10-14T15:40:00Z',
+}, new Date('2026-10-14T15:41:00Z'));
+assert(priorityAfterResult.level === 'P0' && priorityAfterResult.reason === 'needs_reply',
+  'Resultado mantém P0 até a mensagem de saída realmente ocorrer');
 
 // Corrige flag legada falsamente negativa se a entrada é posterior à saída.
 assert(hasCrmUnansweredInbound({ ...customerWaiting, needsReply: false }),
