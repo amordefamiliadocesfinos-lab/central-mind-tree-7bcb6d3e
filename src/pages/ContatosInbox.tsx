@@ -1532,8 +1532,9 @@ export default function ContatosInbox() {
                     size="icon"
                     variant={leadPanelOpen ? 'secondary' : 'ghost'}
                     className="h-8 w-8"
+                    disabled={Boolean(activeActionMode)}
                     onClick={() => setLeadPanelOpen((v) => !v)}
-                    title={leadPanelOpen ? 'Ocultar detalhes do lead' : 'Mostrar detalhes do lead'}
+                    title={activeActionMode ? 'Conclua ou cancele a ação antes de ocultar o painel' : leadPanelOpen ? 'Ocultar detalhes do lead' : 'Mostrar detalhes do lead'}
                   >
                     <PanelRight className="h-4 w-4" />
                   </Button>
