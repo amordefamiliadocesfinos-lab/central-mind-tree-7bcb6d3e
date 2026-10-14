@@ -19,7 +19,7 @@ for (const text of [
   assert(isExplicitPixKeyRequest(text), 'deve reconhecer solicitação natural: ' + text);
   assert(requiresOfficialPixKnowledge([inbound(text)]), 'deve exigir KB: ' + text);
 }
-for (const text of ['Pagamento pix', 'Paguei com Pix', 'Aceitam pix?', 'Já fiz o Pix', 'Posso pagar por pix?']) {
+for (const text of ['Pagamento pix', 'Paguei com Pix', 'Aceitam pix?', 'Já fiz o Pix', 'Posso pagar por pix?', 'Qual forma de pagamento aceita Pix?', 'Me informa se aceita Pix?']) {
   assert(!isExplicitPixKeyRequest(text), 'não presumir solicitação de chave: ' + text);
 }
 assert(isPixMethodChoice([outbound('QUAL FORMA DE PAGAMENTO?'), inbound('Pix')]),
