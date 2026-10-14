@@ -2,14 +2,14 @@
  * FRENTE 3.6 — Campanhas CRM: visão operacional simples.
  * Somente leitura + abertura da revisão. Não envia mensagens.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Megaphone, RefreshCw } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/dateUtils';
-import { countCampaignResponses } from '@/lib/crm/campaignContext';
+import { CampaignPerformancePanel } from './CampaignPerformancePanel';
 import { CrmCampaign, useCrmCampaigns } from '@/hooks/useCrmCampaigns';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -28,47 +28,34 @@ interface Props {
 
 export function CampaignsListDialog({ open, onOpenChange, onOpenCampaign }: Props) {
   const { campaigns, loading, fetchCampaigns } = useCrmCampaigns();
-  const [responses, setResponses] = useState<Record<string, { sent: number; responded: number }>>({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const ids = useMemo(() => campaigns.map(c => c.id).join(','), [campaigns]);
-
-  useEffect(() => {
-    if (!open || !campaigns.length) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        campaigns.map(async c => [c.id, await countCampaignResponses(c.id)] as const),
-      );
-      if (!cancelled) setResponses(Object.fromEntries(entries));
-    })();
-    return () => { cancelled = true; };
-  }, [open, ids]);
 
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
       title="Campanhas CRM"
-      description="Acompanhamento das campanhas criadas. Nenhum envio ocorre nesta tela."
+      description="Campanhas e indicadores comerciais oficiais. Nenhum envio ocorre nesta tela."
       className="sm:max-w-3xl"
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => fetchCampaigns()}>
+          <Button variant="ghost" onClick={() => { void fetchCampaigns().then(() => setRefreshKey(v => v + 1)); }}>
             <RefreshCw className="h-4 w-4 mr-2" /> Atualizar
           </Button>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>Fechar</Button>
         </div>
       }
     >
-      <ScrollArea className="h-[420px]">
-        <div className="divide-y">
+      <ScrollArea className="h-[min(70dvh,640px)]">
+        <div className="space-y-3 p-2">
+          <CampaignPerformancePanel campaigns={campaigns} open={open} refreshKey={refreshKey} />
+          <div className="divide-y rounded-lg border">
           {loading && <p className="p-4 text-sm text-muted-foreground">Carregando campanhas...</p>}
           {!loading && campaigns.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">Nenhuma campanha criada ainda.</p>
           )}
           {campaigns.map(c => {
-            const r = responses[c.id];
-            const rate = r && r.sent > 0 ? Math.round((r.responded / r.sent) * 100) : null;
             return (
               <button
                 key={c.id}
@@ -91,12 +78,13 @@ export function CampaignsListDialog({ open, onOpenChange, onOpenCampaign }: Prop
                   <Badge variant="outline" className="text-[10px]">Enviados: {c.total_sent}</Badge>
                   <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">Falhas: {c.total_failed}</Badge>
                   <Badge variant="outline" className="text-[10px] text-sky-600 border-sky-300">
-                    Respostas: {r ? `${r.responded}${rate !== null ? ` (${rate}%)` : ''}` : '—'}
+                    Respostas e Pedidos: ver indicadores acima
                   </Badge>
                 </div>
               </button>
             );
           })}
+          </div>
         </div>
       </ScrollArea>
     </ResponsiveDialog>

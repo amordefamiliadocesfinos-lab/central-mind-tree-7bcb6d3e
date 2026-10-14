@@ -101,21 +101,27 @@ export async function resolveCampaignContext(params: {
  * (recipients enviados + last_inbound_at posterior ao envio). Sem coluna nova.
  */
 export async function countCampaignResponses(campaignId: string): Promise<{ sent: number; responded: number }> {
-  const { data } = await db
+  const { data, error: recipientError } = await db
     .from('crm_campaign_recipients')
     .select('id, conversation_id, sent_at, status')
     .eq('campaign_id', campaignId)
-    .eq('status', 'sent');
+    .eq('status', 'sent').limit(1000);
 
-  const rows = (data || []) as RecipientRow[];
+  if (recipientError || !Array.isArray(data) || data.length >= 1000) {
+    throw new Error('Leitura dos destinatários enviados indisponível ou incompleta.');
+  }
+  const rows = data as RecipientRow[];
   const convIds = rows.map((r) => r.conversation_id).filter(Boolean) as string[];
   if (!convIds.length) return { sent: rows.length, responded: 0 };
 
-  const { data: convs } = await db
+  const { data: convs, error: conversationError } = await db
     .from('service_conversations')
     .select('id, last_inbound_at')
-    .in('id', convIds);
+    .in('id', [...new Set(convIds)]);
 
+  if (conversationError || !Array.isArray(convs) || convs.length >= 1000) {
+    throw new Error('Leitura das conversas indisponível ou incompleta.');
+  }
   const inboundById = new Map<string, string | null>((convs || []).map((c: any) => [c.id, c.last_inbound_at]));
   const responded = rows.filter((r) => {
     const inbound = r.conversation_id ? inboundById.get(r.conversation_id) : null;

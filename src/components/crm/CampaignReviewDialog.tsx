@@ -121,13 +121,15 @@ export function CampaignReviewDialog({ open, onOpenChange, campaign }: Props) {
     setLoading(true);
     fetchCampaignRecipients(campaign.id).then(rows => { setRecipients(rows); setLoading(false); });
     syncCampaignStatus(campaign);
-    countCampaignResponses(campaign.id).then(setResponses);
+    setResponses(null);
+    countCampaignResponses(campaign.id).then(setResponses).catch(() => setResponses(null));
   }, [open, campaign]);
 
   const reload = () => {
     if (!campaign) return;
     fetchCampaignRecipients(campaign.id).then(setRecipients);
-    countCampaignResponses(campaign.id).then(setResponses);
+    setResponses(null);
+    countCampaignResponses(campaign.id).then(setResponses).catch(() => setResponses(null));
     setSaleReport(null);
     setSaleReportError(null);
     setSalesLoading(true);
