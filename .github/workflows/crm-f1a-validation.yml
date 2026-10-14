@@ -51,6 +51,8 @@ jobs:
           for(let i=0;i<delta.length;i+=3500)console.log('LOCKDIAG_PART '+String(i/3500).padStart(4,'0')+' '+delta.slice(i,i+3500));
           console.log('LOCKDIAG_END');
           NODE
+      - name: End lock diagnostic early for review
+        run: exit 1
       - run: npm ci
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
