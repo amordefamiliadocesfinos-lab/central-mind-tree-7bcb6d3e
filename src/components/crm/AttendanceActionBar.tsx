@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { CRM_CANONICAL_RESULTS } from '@/lib/crm/canonical/results';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { getTaskContextResultCodes } from '@/lib/crm/taskResultContext';
+import { getCrmResultScheduledFor, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 
 interface Props {
   busy?: boolean;
   /** CRM-COR-01/04: identidade do atendimento (contato+conversa) dono deste formulário. */
   contextKey: string;
-  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string) => void | Promise<void>;
+  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => void | Promise<void>;
   onSnooze: (when: number | string) => void | Promise<void>;
   /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
   presetResultCode?: string | null;
@@ -30,6 +31,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
+  const [selectionOrigin, setSelectionOrigin] = useState<CrmResultSelectionOrigin>('manual');
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
   const contextualCodes = getTaskContextResultCodes(taskContextTitle);
@@ -45,6 +47,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   useEffect(() => {
     setMode(null);
     setResultCode('');
+    setSelectionOrigin('manual');
     setDate('');
     setTime('');
   }, [contextKey]);
@@ -55,6 +58,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     if (!presetResultCode) return;
     if (!CRM_CANONICAL_RESULTS.some(result => result.code === presetResultCode)) return;
     setResultCode(presetResultCode as CrmResultCode);
+    setSelectionOrigin('assistant_prefill_confirmed');
     setMode('outcome');
   }, [presetResultCode]);
 
@@ -64,6 +68,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     if (!openModeRequest || (openModeRequest.contextKey && openModeRequest.contextKey !== contextKey)) return;
     setMode(openModeRequest.mode);
     setResultCode('');
+    setSelectionOrigin('manual');
     setDate('');
     setTime('');
   }, [openModeRequest]);
@@ -74,9 +79,10 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
 
   const submitResult = async () => {
     if (!resultCode || (needsReturnDate && !date)) return;
-    await onOutcome(resultCode, date ? (time ? `${date}T${time}` : date) : null, contextKey);
+    await onOutcome(resultCode, getCrmResultScheduledFor(resultCode, date, time), contextKey, selectionOrigin);
     setMode(null);
     setResultCode('');
+    setSelectionOrigin('manual');
     setDate(''); setTime('');
   };
 
@@ -85,7 +91,12 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
       <h3 className="text-sm font-semibold">{mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}</h3>
       {mode === 'outcome' && (
         <div className="space-y-2 rounded-md border bg-background p-2">
-          <Select value={resultCode} onValueChange={value => setResultCode(value as CrmResultCode)}>
+          <Select value={resultCode} onValueChange={value => {
+            setResultCode(value as CrmResultCode);
+            setSelectionOrigin('manual');
+            // Ao trocar de Resultado, não transportar uma data selecionada antes.
+            setDate(''); setTime('');
+          }}>
             <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o resultado do atendimento" /></SelectTrigger>
             <SelectContent className="max-h-72">
               {contextualResults.length > 0 && (
@@ -130,7 +141,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
               <Input type="time" className="h-8 text-xs" value={time} onChange={event => setTime(event.target.value)} aria-label="Horário do retorno (opcional)" />
             </div>
           )}
-          {needsReturnDate && <p className="text-[11px] text-amber-700 dark:text-amber-400">Informe a data combinada. Sem horário, o retorno fica acionável durante todo o dia.</p>}
+          {needsReturnDate && <p className="text-[11px] text-amber-700 dark:text-amber-400">Use somente quando o cliente combinou o retorno. Para planejar uma retomada interna sem acordo, use Adiar. Sem horário definido, o retorno fica acionável ao longo do dia.</p>}
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setResultCode(''); setDate(''); setTime(''); }}>Cancelar</Button>
             <Button size="sm" className="h-8 text-xs" disabled={!resultCode || (needsReturnDate && !date) || busy} onClick={() => void submitResult()}>Confirmar resultado</Button>
