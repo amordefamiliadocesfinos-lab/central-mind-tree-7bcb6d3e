@@ -372,6 +372,13 @@ export function useOrders() {
       return;
     }
 
+    // Cancelamento não deve recriar contas a receber.
+    if (status === 'cancelado') {
+      toast.success('Pedido cancelado e retirado da Separação.');
+      await fetchOrders();
+      return;
+    }
+
     // Ensure financial entry exists for this order (safety check)
     if (currentOrder && (currentOrder.total_value || 0) > 0) {
       const { data: existingEntry } = await supabase
