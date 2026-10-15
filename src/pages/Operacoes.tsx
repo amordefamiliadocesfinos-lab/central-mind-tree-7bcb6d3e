@@ -941,7 +941,27 @@ export default function Operacoes() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
+                        <Select
+                          value={item.commercial_presentation?.id ?? '__direct__'}
+                          disabled={!item.product_id}
+                          onValueChange={(value) => {
+                            const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
+                            updateSaleItem(i, 'commercial_presentation', presentation as any);
+                            if (presentation?.composition_mode === 'composite') updateSaleItem(i, 'variant_id', null);
+                            updateSaleItem(i, 'commercial_quantity', 1);
+                            const product = rawProducts.find(candidate => candidate.id === item.product_id);
+                            const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
+                            updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0);
+                            updateSaleItem(i, '_unit_price_text', null);
+                          }}
+                        >
+                          <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__direct__">Unidade direta</SelectItem>
+                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                           <Select
                             value={item.variant_id ?? ''}
                             onValueChange={(variantId) => {
@@ -964,26 +984,6 @@ export default function Operacoes() {
                             </SelectContent>
                           </Select>
                         ) : <div className="hidden sm:block" />}
-                        <Select
-                          value={item.commercial_presentation?.id ?? '__direct__'}
-                          disabled={!item.product_id}
-                          onValueChange={(value) => {
-                            const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
-                            updateSaleItem(i, 'commercial_presentation', presentation as any);
-                            if (presentation?.composition_mode === 'composite') updateSaleItem(i, 'variant_id', null);
-                            updateSaleItem(i, 'commercial_quantity', 1);
-                            const product = rawProducts.find(candidate => candidate.id === item.product_id);
-                            const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
-                            updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0);
-                            updateSaleItem(i, '_unit_price_text', null);
-                          }}
-                        >
-                          <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__direct__">Unidade direta</SelectItem>
-                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
                         <Input
                           type="number"
                           className="h-10"
