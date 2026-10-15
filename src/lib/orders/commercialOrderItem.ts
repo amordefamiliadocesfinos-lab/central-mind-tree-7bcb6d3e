@@ -79,3 +79,47 @@ export function formatCommercialQuantity(item: { quantity: number; commercial_qu
   }
   return `${item.quantity} ${item.physical_unit_label ?? item.commercial_unit_label ?? 'un'}`;
 }
+
+/**
+ * Canonical expansion. A mixed presentation owns a composition rather than
+ * a physical variant. Each component becomes an independently separable line.
+ * Values are allocated proportionally, preserving the negotiated tray total.
+ */
+export function expandCommercialOrderItem(
+  product: PhysicalProduct,
+  variant: PhysicalVariant,
+  commercialQuantity: number,
+  unitPrice: number,
+  presentation?: CommercialPresentation | null,
+  notes?: string | null,
+) {
+  if (presentation?.composition_mode !== 'composite') {
+    return [buildCommercialOrderItem(product, variant, commercialQuantity, unitPrice, presentation, notes)];
+  }
+  const components = presentation.components ?? [];
+  const total = components.reduce((n, component) => n + Number(component.quantity), 0);
+  if (!components.length || total !== Number(presentation.conversion_factor)) {
+    throw new Error('Apresentação composta sem composição física válida.');
+  }
+  if (!Number.isFinite(commercialQuantity) || commercialQuantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+    throw new Error('Quantidade ou preço inválido para a apresentação composta.');
+  }
+  const note = [notes, `Apresentação: ${presentation.name} · ${commercialQuantity} bandeja(s)`].filter(Boolean).join(' | ');
+  return components.map(component => {
+    if (component.product_id !== product.id) throw new Error('Componente físico fora do Produto Mestre.');
+    const qty = Number(component.quantity) * commercialQuantity;
+    return {
+      product_id: product.id,
+      variant_id: component.variant_id,
+      quantity: qty,
+      unit_price: unitPrice / total,
+      notes: note,
+      commercial_presentation_id: null,
+      commercial_presentation_name: presentation.name,
+      commercial_unit_label: 'un',
+      commercial_conversion_factor: 1,
+      commercial_quantity: qty,
+      physical_unit_label: getPhysicalIdentityUnit(product, { id: component.variant_id }),
+    };
+  });
+}
