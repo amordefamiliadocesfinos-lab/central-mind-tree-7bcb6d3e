@@ -404,3 +404,49 @@ O próximo marco é:
 O marco operacional posterior é:
 
 **pedido Shopee aparecer na Central de Separação já com a etiqueta pronta para imprimir.**
+
+---
+
+## 10. F6-O — FLUXO OPERACIONAL DE SEPARAÇÃO CONGELADO (15/10/2026)
+
+**Decisão vigente aprovada após observação do Seller Center e da Central de Separação.** Esta seção refina a descrição fiscal/logística genérica anterior, sem substituir as regras soberanas das seções 1–2 nem criar outro Kanban.
+
+### 10.1 Experiência-alvo
+
+**Pedido Shopee com composição e etiqueta disponível → IMPRIMIR → separar/embalar → entregar fisicamente → integração confirma coleta/postagem → FINALIZADO.**
+
+Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARAÇÃO (preparing)** e **FINALIZADO (finalized)**.
+
+- **A FAZER:** mostrar itens, variações, quantidades físicas, etiqueta Shopee oficial quando disponível e estado claro quando pendente. A ação principal IMPRIMIR abre a etiqueta; resumo interno de composição deve permanecer acessível quando necessário. São documentos distintos.
+- **EM PREPARAÇÃO:** após acesso válido à impressão, operador separa, embala e encaminha ao ponto de coleta. Exibir **Aguardando coleta** como informação dentro da coluna, não como quarto status.
+- **FINALIZADO:** finalizar a separação só com confirmação confiável de coleta/postagem física pela transportadora, recebida via Shopee, ou contingência manual controlada. Finalizar separação não conclui automaticamente o pedido comercial.
+
+**Não considerar** geração de etiqueta, rastreio, Organizar Envio nem o texto genérico SHIPPED, isoladamente, como prova de coleta física. Comprovar a semântica do evento logístico antes de habilitar finalização automática.
+
+### 10.2 Variação fiscal e documental
+
+- **Conta CPF (fluxo observado):** Organizar Envio → rastreio → etiqueta oficial e DACE, quando aplicável.
+- **Conta PJ (fluxo observado):** emissão/validação de NF-e pode ser exigida antes de Organizar Envio. Determinar pendência por conta e pedido; não impor NF-e universalmente apenas pelo perfil CPF/PJ.
+- A Shopee permanece origem fiscal/logística. Não criar emissor fiscal paralelo por padrão.
+- Etiqueta Shopee, resumo interno, DACE e NF-e são documentos de finalidades diferentes; preservar tipo, origem, vínculo com conta, pedido e pacote.
+- Impressão individual confiável é prioridade; emissão/impressão em massa é evolução futura, não bloqueio inicial.
+
+### 10.3 Evento físico, estoque e contingência
+
+- Impressão não é postagem e **não baixa estoque**. Documento indisponível ou abertura bloqueada não deve marcar impresso nem mover A FAZER para EM PREPARAÇÃO.
+- A finalização atual centraliza baixa física idempotente na RPC **finalize_order_separation**; automação futura deve reutilizar caminho seguro no Core, identificar precisamente conta + pedido + pacote, deduplicar e auditar.
+- Confirmar coleta por sinal confiável de transportadora/postagem real, com referência temporal, evento e testes no piloto, antes de disparar a finalização e respectiva saída física.
+- Sem evidência suficiente, manter EM PREPARAÇÃO, indicar aguardando coleta e permitir contingência manual conforme permissões existentes.
+- Outros canais e modalidades logísticas não são alterados; respeitar as regras de estoque e destino físico. Hub não pode escrever diretamente entidades soberanas do Core.
+
+### 10.4 Execução progressiva
+
+1. **F6-O.2a — Impressão segura no Painel:** quando existir documento shipping_label, priorizá-lo em IMPRIMIR; manter composição interna disponível. Uma falha ao abrir documento não pode marcar a impressão. PR e preview antes de uso real.
+2. **F6-O.2b — Etiqueta oficial Shopee:** consultar disponibilidade, tipo, tarefa e download usando API autorizada, vincular documento à separação e identificar pendências. Geração de documento ou mudança externa de envio depende de janela específica de autorização.
+3. **F6-O.2c — Coleta confirmada → finalização:** investigar eventos de rastreio/webhook, comprovar semântica de coleta real, sincronizar pelo Hub/Core de maneira idempotente e registrar saída física no evento correto. Nunca finalizar por SHIPPED isoladamente.
+4. **F6-O.2d — Exceções e evolução:** falha fiscal, etiqueta indisponível, divergência de pacote, falta de confirmação, fallback manual e depois lote/impressão em massa.
+
+**Estado da F6-O.1d em 15/10/2026:** Hub publicou SHA a0db175e0f2ebd6e9f93cac28d55ae3361611477 e comprovou saúde. A prova Live no pedido 261013HKHWK3V7, estado SHIPPED, teve GET get_shipping_parameter rejeitado por error_param (causa específica não comprovada), mas POST get_shipping_document_parameter aceito com tipos NORMAL_AIR_WAYBILL e THERMAL_AIR_WAYBILL. Isso não significa etiqueta gerada. Não insistir no GET de pedido já expedido por tentativa e erro.
+
+**Congelado como regra, NÃO como implementação concluída:** O.2b/O.2c dependem de código, testes e autorização produtiva específicos; scheduler e gates permanecem desarmados.
+
