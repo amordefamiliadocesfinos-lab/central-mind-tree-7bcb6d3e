@@ -1013,7 +1013,11 @@ export default function Operacoes() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(rawProducts.find(product => product.id === item.product_id), item.variant_id ? saleVariants.find(variant => variant.id === item.variant_id) : null)}</p>
+                      {item.commercial_presentation?.composition_mode === 'composite' ? (
+                        <p className="text-xs text-muted-foreground">
+                          Composição para separação: {(item.commercial_presentation.components ?? []).map(c => `${Number(c.quantity) * Number(item.commercial_quantity)} un. de ${saleVariants.find(v => v.id === c.variant_id)?.variant_name ?? 'variante'}`).join(' + ')}
+                        </p>
+                      ) : <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(rawProducts.find(product => product.id === item.product_id), item.variant_id ? saleVariants.find(variant => variant.id === item.variant_id) : null)}</p>}
                       </div>
                     ))}
                     {missingSaleVariantProduct && (
