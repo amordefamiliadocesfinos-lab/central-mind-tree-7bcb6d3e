@@ -32,6 +32,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
+import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
@@ -1111,7 +1112,7 @@ export default function ContatosInbox() {
     await openConversation(next);
   };
 
-  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string) => {
+  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => {
     if (!selected) return;
     // CRM-COR-04: trava de integridade — o formulário precisa pertencer ao atendimento atual.
     const currentContextKey = `${selected.id}|${selected.conversation_id ?? ''}`;
@@ -1123,7 +1124,7 @@ export default function ContatosInbox() {
     const operationContextKey = currentContextKey;
     setAttendanceBusy(true);
     try {
-      const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor });
+      const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor, selectionOrigin });
       // A gravação pertence ao contato capturado acima. Depois dela, só efeitos
       // visuais pertencentes ao mesmo contexto podem tocar a Inbox atual.
       if (selectedContextRef.current !== operationContextKey) return;
@@ -1131,7 +1132,7 @@ export default function ContatosInbox() {
         ? `Etapa: ${getCrmStageLabel(result.stage.previousStage)} → ${getCrmStageLabel(result.stage.nextStage)}`
         : `Etapa: ${getCrmStageLabel(result.stage.previousStage)} — mantida`;
       const nextActionSummary = result.nextActionLabel
-        ? `Próxima ação: ${result.nextActionLabel}${result.nextActionDate ? ` em ${format(parseISO(result.nextActionDate), 'dd/MM HH:mm')}` : ''}`
+        ? `Próxima ação: ${result.nextActionLabel}${formatCrmResultNextActionDate(result.nextActionDate, scheduledFor)}`
         : 'Próxima ação: nenhuma ação comercial';
       const conversationSummary = result.conversationResolved ? 'Conversa encerrada' : 'Conversa mantida aberta';
       toast.success('Resultado registrado', { description: `${result.label} · ${stageSummary} · ${nextActionSummary} · ${conversationSummary}` });
