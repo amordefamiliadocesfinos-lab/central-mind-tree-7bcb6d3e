@@ -259,7 +259,7 @@ test('getOrderList rejects inverted time windows before calling Shopee', async (
 });
 
 
-test('F6-O.1 getShippingParameter signs a read-only logistics POST', async () => {
+test('F6-O.1 getShippingParameter signs a read-only logistics GET', async () => {
   let observed;
   const fetchImpl = async (url, init) => {
     observed = { url: new URL(url), init };
@@ -282,12 +282,10 @@ test('F6-O.1 getShippingParameter signs a read-only logistics POST', async () =>
     timestamp,
   });
 
-  assert.equal(observed.init.method, 'POST');
+  assert.equal(observed.init?.method, undefined);
   assert.equal(observed.url.pathname, '/api/v2/logistics/get_shipping_parameter');
-  assert.deepEqual(JSON.parse(observed.init.body), {
-    order_sn: '261013HKHWK3V7',
-    package_number: 'PKG-1',
-  });
+  assert.equal(observed.url.searchParams.get('order_sn'), '261013HKHWK3V7');
+  assert.equal(observed.url.searchParams.get('package_number'), 'PKG-1');
   assert.equal(observed.url.searchParams.get('shop_id'), '531736366');
   assert.equal(observed.url.searchParams.get('sign'), createHmac('sha256', partnerKey)
     .update(`${partnerId}/api/v2/logistics/get_shipping_parameter${timestamp}access-value531736366`).digest('hex'));

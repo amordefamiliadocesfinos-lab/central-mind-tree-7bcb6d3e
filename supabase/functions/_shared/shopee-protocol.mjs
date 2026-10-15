@@ -313,26 +313,25 @@ export function getShippingParameter({
   fetchImpl = globalThis.fetch,
   timestamp,
 }) {
-  const body = {
+  const query = {
     order_sn: requiredText(orderSn, 'orderSn'),
   };
   if (packageNumber !== null && packageNumber !== undefined && String(packageNumber).trim() !== '') {
-    body.package_number = String(packageNumber).trim();
+    query.package_number = String(packageNumber).trim();
   }
 
-  return signedShopPost({
+  return signedShopGet({
     apiBaseUrl,
     path: shippingParameterPath,
     partnerId,
     partnerKey,
     accessToken,
     shopId,
-    body,
+    query,
     fetchImpl,
     timestamp,
   });
 }
-
 export function getShippingDocumentParameter({
   apiBaseUrl,
   shippingDocumentParameterPath,
