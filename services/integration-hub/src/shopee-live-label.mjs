@@ -193,11 +193,12 @@ export function createShopeeLabelSynchronizer({
       redirect: 'error',
       signal: AbortSignal.timeout(15000),
     });
-    if (!uploaded.ok) return { ok: false, code: 'private_storage_upload_failed' };
-
+    // A prior attempt may have uploaded the immutable object before metadata failed.
+    // Never overwrite it: Core must re-read and verify identity, size and SHA-256
+    // before recovering the attachment, even when Storage rejected this upload.
     const committed = await callCore({ action: 'shopee.shipping_label.commit', data: metadata });
     if (!committed?.ok || committed.payload?.status !== 'ok') {
-      return { ok: false, code: 'core_label_commit_failed' };
+      return { ok: false, code: uploaded.ok ? 'core_label_commit_failed' : 'private_storage_upload_failed' };
     }
     return {
       ok: true, code: committed.payload.already_exists ? 'already_available' : 'label_attached',

@@ -303,7 +303,13 @@ async function persistRawSnapshot(
 const LABEL_BUCKET = 'shopee-labels';
 const LABEL_MAX_BYTES = 4 * 1024 * 1024;
 
-async function labelDocumentLocator(core: CoreClient, payload: Record<string, unknown>) {
+type LabelDocumentLocator =
+  | { status: number; error: string }
+  | { orderId: string; storagePath: string; existingId: string | null };
+
+async function labelDocumentLocator(
+  core: CoreClient, payload: Record<string, unknown>,
+): Promise<LabelDocumentLocator> {
   const channelAccountId = String(payload.channel_account_id);
   const shopId = Number(payload.shop_id);
   const orderSn = String(payload.order_sn);
@@ -333,12 +339,13 @@ async function labelDocumentLocator(core: CoreClient, payload: Record<string, un
   const key = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const storagePath = orderId + '/shopee-' + key + '.pdf';
   const existing = await core.from('order_documents')
-    .select('id,document_type,source').eq('storage_bucket', LABEL_BUCKET)
+    .select('id,order_id,document_type,source').eq('storage_bucket', LABEL_BUCKET)
     .eq('storage_path', storagePath).limit(2);
   if (existing.error) return { status: 503, error: 'label_document_lookup_failed' };
   if ((existing.data ?? []).length > 1) return { status: 409, error: 'label_document_duplicate' };
   if (existing.data?.length === 1 && (
-    existing.data[0].document_type !== 'shipping_label'
+    existing.data[0].order_id !== orderId
+    || existing.data[0].document_type !== 'shipping_label'
     || existing.data[0].source !== 'shopee_open_platform'
   )) return { status: 409, error: 'label_document_conflict' };
   return { orderId, storagePath, existingId: existing.data?.[0]?.id ?? null };

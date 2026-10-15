@@ -2,7 +2,10 @@
 -- Armazenamento de etiquetas com informações pessoais, isolado dos PDFs legados.
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('shopee-labels', 'shopee-labels', false, 4194304, ARRAY['application/pdf']::text[])
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+SET public = false,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 -- Leitura restrita aos mesmos papéis operacionais que executam a separação.
 -- Sem políticas INSERT/UPDATE/DELETE para usuários autenticados neste bucket;
@@ -21,11 +24,13 @@ CREATE POLICY "Shopee label metadata operational access"
 ON public.order_documents AS RESTRICTIVE
 FOR ALL TO authenticated
 USING (
-  source IS DISTINCT FROM 'shopee_open_platform'
+  (source IS DISTINCT FROM 'shopee_open_platform'
+   AND storage_bucket IS DISTINCT FROM 'shopee-labels')
   OR public.current_app_user_role() IN ('Administrador', 'VENDA', 'LIDER PRODUÇÃO')
 )
 WITH CHECK (
-  source IS DISTINCT FROM 'shopee_open_platform'
+  (source IS DISTINCT FROM 'shopee_open_platform'
+   AND storage_bucket IS DISTINCT FROM 'shopee-labels')
   OR public.current_app_user_role() IN ('Administrador', 'VENDA', 'LIDER PRODUÇÃO')
 );
 

@@ -151,6 +151,89 @@ test('O.2b existing document is idempotent and does not upload', async () => {
   assert.equal(calls.filter(x => x[0] === 'core').length, 1);
 });
 
+test('O.2b retry recovers an uploaded PDF after metadata persistence failed, without overwrite', async () => {
+  let stored = false;
+  let commits = 0;
+  let uploads = 0;
+  const { inspect } = fixtures({
+    uploadFetch: async () => {
+      uploads++;
+      if (stored) return { ok: false, status: 409 };
+      stored = true;
+      return { ok: true };
+    },
+    callCore: async input => {
+      if (input.action === 'shopee.shipping_label.prepare') {
+        return { ok: true, payload: { status: 'ok', upload_url: storageUrl, already_exists: false } };
+      }
+      commits++;
+      return commits === 1
+        ? { ok: false, payload: { error: 'label_document_persistence_failed' } }
+        : { ok: true, payload: { status: 'ok', document_id: 'recovered', already_exists: false } };
+    },
+  });
+  assert.equal((await inspect()).code, 'core_label_commit_failed');
+  const retry = await inspect();
+  assert.equal(retry.ok, true);
+  assert.equal(retry.document_id, 'recovered');
+  assert.equal(uploads, 2);
+  assert.equal(commits, 2);
+});
+
+test('O.2b failed upload cannot attach an absent or unverified object', async () => {
+  const { inspect } = fixtures({
+    uploadFetch: async () => ({ ok: false, status: 403 }),
+    callCore: async input => input.action.endsWith('.prepare')
+      ? { ok: true, payload: { status: 'ok', upload_url: storageUrl } }
+      : { ok: false, payload: { error: 'label_integrity_mismatch' } },
+  });
+  assert.deepEqual(await inspect(), { ok: false, code: 'private_storage_upload_failed' });
+});
+
+for (const [description, body, headers] of [
+  ['unbounded stream', Buffer.concat([pdf, Buffer.alloc(4 * 1024 * 1024)]), {}],
+  ['lying Content-Length', Buffer.concat([pdf, Buffer.alloc(4 * 1024 * 1024)]), { 'content-length': '20' }],
+  ['oversized declared length', pdf, { 'content-length': String(4 * 1024 * 1024 + 1) }],
+  ['HTML with PDF content type', Buffer.from('<html>not a PDF</html>'), {}],
+]) {
+  test('O.2b rejects ' + description + ' before preparing Storage', async () => {
+    const { inspect } = fixtures({
+      downloadDocument: async () => ({ response: new Response(body, { headers: { 'content-type': 'application/pdf', ...headers } }) }),
+      callCore: async () => { throw Error('no Storage preparation allowed'); },
+    });
+    assert.equal((await inspect()).code, 'document_pdf_invalid_or_unavailable');
+  });
+}
+
+for (const [description, orderSn, packageNumber] of [
+  ['foreign order', 'OTHERORDER123', pkg],
+  ['foreign package', target, 'OTHERPACKAGE'],
+]) {
+  test('O.2b rejects document status for ' + description, async () => {
+    const { inspect } = fixtures({
+      readDocumentResult: async () => ({ response: { ok: true }, payload: { response: { result_list: [{ order_sn: orderSn, package_number: packageNumber, status: 'READY' }] } } }),
+      downloadDocument: async () => { throw Error('must not download'); },
+    });
+    assert.equal((await inspect()).code, 'document_status_identity_mismatch');
+  });
+}
+
+test('O.2b FAILED is terminal and never downloads or creates a document', async () => {
+  const { inspect } = fixtures({
+    readDocumentResult: async () => ({ response: { ok: true }, payload: { response: { result_list: [{ order_sn: target, package_number: pkg, status: 'FAILED' }] } } }),
+    downloadDocument: async () => { throw Error('must not download'); },
+  });
+  assert.equal((await inspect()).code, 'document_failed');
+});
+
+test('O.2b refuses signed upload URL outside canonical Storage', async () => {
+  const { inspect } = fixtures({
+    callCore: async () => ({ ok: true, payload: { status: 'ok', upload_url: 'https://untrusted.invalid/upload' } }),
+    uploadFetch: async () => { throw Error('must not upload'); },
+  });
+  assert.equal((await inspect()).code, 'upload_url_untrusted');
+});
+
 test('O.2b private route is fail-closed by default and POST-only', async () => {
   let count = 0;
   const deps = {
