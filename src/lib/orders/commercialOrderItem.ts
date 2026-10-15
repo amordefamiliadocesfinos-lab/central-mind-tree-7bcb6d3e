@@ -105,20 +105,27 @@ export function expandCommercialOrderItem(
     throw new Error('Quantidade ou preço inválido para a apresentação composta.');
   }
   const note = [notes, `Apresentação: ${presentation.name} · ${commercialQuantity} bandeja(s)`].filter(Boolean).join(' | ');
-  return components.map(component => {
+  const totalCents = Math.round(unitPrice * 100);
+  let allocatedCents = 0;
+  return components.map((component, index) => {
     if (component.product_id !== product.id) throw new Error('Componente físico fora do Produto Mestre.');
-    const qty = Number(component.quantity) * commercialQuantity;
+    const factor = Number(component.quantity);
+    const qty = factor * commercialQuantity;
+    const cents = index === components.length - 1
+      ? totalCents - allocatedCents
+      : Math.round(totalCents * factor / total);
+    allocatedCents += cents;
     return {
       product_id: product.id,
       variant_id: component.variant_id,
       quantity: qty,
-      unit_price: unitPrice / total,
+      unit_price: cents / 100, // Preço comercial da parcela da bandeja
       notes: note,
       commercial_presentation_id: null,
       commercial_presentation_name: presentation.name,
-      commercial_unit_label: 'un',
-      commercial_conversion_factor: 1,
-      commercial_quantity: qty,
+      commercial_unit_label: 'bandeja',
+      commercial_conversion_factor: factor,
+      commercial_quantity: commercialQuantity,
       physical_unit_label: getPhysicalIdentityUnit(product, { id: component.variant_id }),
     };
   });
