@@ -48,6 +48,13 @@ interface InboxSaleDialogProps {
   onSaleCreated?: () => void;
 }
 
+const ALFAJOR_ID = '62cf9f63-be04-4261-ad11-569028dd1125';
+const ALFAJOR_BRANCO = 'd89e1dba-ca80-4136-b9f3-225fb80b6dfb';
+const ALFAJOR_PRETO = 'e4d756c8-f324-4ac0-b9ff-6adae24f5310';
+const MIXES: Record<string, [number, number]> = {
+  'Bandeja 18 — 9BRANCO + 9PRETO': [9, 9],
+  'Bandeja 18 — 6BRANCO + 12PRETO': [6, 12],
+};
 const CHANNELS: Array<[string, string]> = [
   ['direto', 'Venda Direta'],
   ['whatsapp', 'WhatsApp'],
@@ -124,6 +131,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     if (!productId || presentationsByIdentity[presentationKey(productId, variantId)]) return;
     try {
       const data = await commercialPresentations.list(productId, variantId, false);
+      if (productId === ALFAJOR_ID && variantId) {
+        const mixes = await commercialPresentations.list(productId, null, false);
+        data.push(...mixes.filter(entry => Object.prototype.hasOwnProperty.call(MIXES, entry.name)));
+      }
       setPresentationsByIdentity(current => ({ ...current, [presentationKey(productId, variantId)]: data }));
     } catch (error) { console.error('Erro ao carregar apresentações comerciais', error); }
   };
@@ -178,11 +189,21 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
         operational_destination_details: operationalDestinationDetails,
         sale_origin: 'crm_inbox', sale_request_key: saleRequestKeyRef.current,
         crm_order_confirmed: true,
-      }, pricedItems.map(({ item, price }) => {
+      }, pricedItems.flatMap(({ item, price }) => {
         const product = products.find(candidate => candidate.id === item.product_id);
         const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
         if (!product) throw new Error('Produto não encontrado.');
-        return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
+        const name = item.commercial_presentation?.name ?? '';
+        if (product.id === ALFAJOR_ID && Object.prototype.hasOwnProperty.call(MIXES, name)) {
+          const [white, dark] = MIXES[name];
+          const commercialQty = item.commercial_quantity || 0;
+          const baseNote = `${name} · ${commercialQty} bandeja(s) · composição fixa`;
+          return [
+            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_BRANCO), commercialQty * white, price!.number * white / 18, null, baseNote),
+            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_PRETO), commercialQty * dark, price!.number * dark / 18, null, baseNote),
+          ];
+        }
+        return [buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation)];
       }));
       // F5-C: aproveita o ato REAL de registrar Venda na Inbox.
       // A consulta valida envio + resposta na mesma conversa + Pedido real.
