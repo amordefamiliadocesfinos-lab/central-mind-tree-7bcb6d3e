@@ -82,7 +82,7 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -484,11 +484,11 @@ export default function Operacoes() {
       toast.error('Selecione a conta que pagou o frete.');
       return;
     }
-    const mappedItems = pricedItems.map(({ item, price }) => {
+    const mappedItems = pricedItems.flatMap(({ item, price }) => {
       const product = rawProducts.find(candidate => candidate.id === item.product_id);
       const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
       if (!product) throw new Error('Produto não encontrado.');
-      return buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
+      return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
     });
     const result = await createOrder(
       { ...saleData, contact_id: newSale.contact_id || undefined },
@@ -589,12 +589,12 @@ export default function Operacoes() {
     });
   };
 
-  const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
+  const presentationKey = (productId: string, _variantId: string | null) => productId;
   const loadPresentations = useCallback(async (productId: string, variantId: string | null) => {
     const key = presentationKey(productId, variantId);
     if (!productId || presentationsByIdentity[key]) return;
     try {
-      const data = await commercialPresentations.list(productId, variantId, false);
+      const data = await commercialPresentations.listForProduct(productId);
       setPresentationsByIdentity(current => ({ ...current, [key]: data }));
     } catch (error) { console.error('Erro ao carregar apresentações comerciais', error); }
   }, [commercialPresentations, presentationsByIdentity]);
@@ -602,7 +602,7 @@ export default function Operacoes() {
   useEffect(() => {
     newSale.items.forEach(item => {
       const product = rawProducts.find(candidate => candidate.id === item.product_id);
-      if (product && (product.variation_mode !== 'variacoes_fisicas' || item.variant_id)) {
+      if (product) {
         void loadPresentations(item.product_id, item.variant_id);
       }
     });
@@ -941,7 +941,7 @@ export default function Operacoes() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' ? (
+                        {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                           <Select
                             value={item.variant_id ?? ''}
                             onValueChange={(variantId) => {
@@ -966,10 +966,11 @@ export default function Operacoes() {
                         ) : <div className="hidden sm:block" />}
                         <Select
                           value={item.commercial_presentation?.id ?? '__direct__'}
-                          disabled={!item.product_id || (rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}
+                          disabled={!item.product_id}
                           onValueChange={(value) => {
                             const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
                             updateSaleItem(i, 'commercial_presentation', presentation as any);
+                            if (presentation?.composition_mode === 'composite') updateSaleItem(i, 'variant_id', null);
                             updateSaleItem(i, 'commercial_quantity', 1);
                             const product = rawProducts.find(candidate => candidate.id === item.product_id);
                             const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
@@ -980,7 +981,7 @@ export default function Operacoes() {
                           <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__direct__">Unidade direta</SelectItem>
-                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
+                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <Input
