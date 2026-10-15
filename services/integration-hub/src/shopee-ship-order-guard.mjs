@@ -67,7 +67,7 @@ export function createGuardedShopeeShipOrder({
       const expiry = envRequired(getEnv, 'SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT');
       const expiryMs = Date.parse(expiry);
       const left = expiryMs - now();
-      if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$/.test(expiry)
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(expiry)
           || !Number.isFinite(expiryMs) || left <= 60_000 || left > 30 * 60_000) {
         return { ok: false, code: 'ship_order_window_inactive' };
       }
