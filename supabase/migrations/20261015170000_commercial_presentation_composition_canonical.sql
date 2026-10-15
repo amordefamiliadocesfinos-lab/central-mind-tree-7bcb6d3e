@@ -48,3 +48,22 @@ WHERE cp.product_id='62cf9f63-be04-4261-ad11-569028dd1125'
 AND cp.composition_mode='composite'
 AND cp.name IN ('Bandeja 18 — 9BRANCO + 9PRETO','Bandeja 18 — 6BRANCO + 12PRETO')
 ON CONFLICT(presentation_id,product_id,variant_id) DO UPDATE SET quantity=EXCLUDED.quantity;
+
+GRANT SELECT ON public.commercial_presentation_components TO authenticated;
+CREATE OR REPLACE FUNCTION public.assert_commercial_component_identity()
+RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$
+BEGIN
+ IF NOT EXISTS(
+  SELECT 1 FROM public.commercial_presentations cp
+  WHERE cp.id=NEW.presentation_id AND cp.product_id=NEW.product_id
+    AND cp.composition_mode='composite'
+ ) THEN RAISE EXCEPTION 'Componente nao pertence a apresentacao composta do produto.'; END IF;
+ IF NOT EXISTS(
+  SELECT 1 FROM public.product_variants v
+  WHERE v.id=NEW.variant_id AND v.product_id=NEW.product_id
+ ) THEN RAISE EXCEPTION 'Variante de componente nao pertence ao Produto Mestre.'; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER commercial_component_identity_guard
+BEFORE INSERT OR UPDATE ON public.commercial_presentation_components
+FOR EACH ROW EXECUTE FUNCTION public.assert_commercial_component_identity();
