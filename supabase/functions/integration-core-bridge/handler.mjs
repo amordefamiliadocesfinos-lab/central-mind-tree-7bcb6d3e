@@ -23,6 +23,8 @@ const LIVE_ACTIONS = new Set([
   'shopee.order_intake_batch.read',
   'shopee.shipping_label.prepare',
   'shopee.shipping_label.commit',
+  'shopee.shipping_arrangement.claim',
+  'shopee.shipping_arrangement.resolve',
 ]);
 
 function json(status, body) {
@@ -158,6 +160,25 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_status, 128, { nullable: true });
   }
 
+
+
+  // Only the trusted IAM Hub can reach these actions over the existing HMAC v1
+  // bridge. No browser-facing or Shopee Live route is added in this phase.
+  if (payload.action === 'shopee.shipping_arrangement.claim') {
+    return hasExactKeys(payload, [
+      'action','channel_account_id','shop_id','order_sn','package_number','request_hash',
+    ]) && UUID.test(payload.channel_account_id)
+      && Number.isSafeInteger(payload.shop_id) && payload.shop_id > 0
+      && isBoundedText(payload.order_sn,100) && /^[A-Za-z0-9]{8,100}$/.test(payload.order_sn)
+      && isBoundedText(payload.package_number,100) && /^[A-Za-z0-9_-]{1,100}$/.test(payload.package_number)
+      && SHA256.test(payload.request_hash);
+  }
+  if (payload.action === 'shopee.shipping_arrangement.resolve') {
+    return hasExactKeys(payload, ['action','attempt_id','request_hash','outcome'])
+      && UUID.test(payload.attempt_id)
+      && SHA256.test(payload.request_hash)
+      && ['succeeded','uncertain'].includes(payload.outcome);
+  }
 
   if (payload.action === 'shopee.shipping_label.prepare' || payload.action === 'shopee.shipping_label.commit') {
     return hasExactKeys(payload, [
