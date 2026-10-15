@@ -146,8 +146,15 @@ export function useOrderSeparation(orders: Order[]) {
       return;
     }
     if (!document.file_url) throw new Error('Documento sem local de arquivo disponível.');
-    const documentWindow = window.open(document.file_url, '_blank', 'noopener,noreferrer');
+    const documentWindow = window.open('', '_blank');
     if (!documentWindow) throw new Error('O navegador bloqueou a abertura do documento.');
+    documentWindow.opener = null;
+    try {
+      documentWindow.location.assign(document.file_url);
+    } catch (error) {
+      documentWindow.close();
+      throw error;
+    }
   }, []);
 
   return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, updateOrderOperationalDestination, uploadDocument, refreshDocumentsForOrder, openDocument, refetch: fetchSeparation };
