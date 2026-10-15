@@ -1234,9 +1234,10 @@ export default function Operacoes() {
           separationByOrderId={separation.separationByOrderId}
           documentsByOrderId={separation.documentsByOrderId}
           onPrint={async (order, document) => {
-            await separation.markPrinted(order.id);
+            // Se não for possível acessar o documento, o pedido continua em A FAZER.
             if (document) await separation.openDocument(document);
             else printOrderSummary(order);
+            await separation.markPrinted(order.id);
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
           }}
           onFinalize={async order => {
