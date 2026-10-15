@@ -52,7 +52,7 @@ function groupedItems(order: Order) {
 function printOrderSummary(order: Order) {
   const lines = (order.items ?? []).map(item => `${formatCommercialQuantity(item)} · ${item.product?.name ?? 'Produto'}${item.variant?.variant_name ? ` — ${item.variant.variant_name}` : ''}`);
   const page = window.open('', '_blank');
-  if (!page) return;
+  if (!page) throw new Error('O navegador bloqueou a impressão do resumo interno.');
   page.opener = null;
   page.document.write(`<title>Pedido ${orderReference(order)}</title><style>html,body{margin:0;min-height:100%;font-family:Arial,sans-serif}body{display:flex;align-items:center;justify-content:center;text-align:center}main{width:88%;max-width:900px;padding:48px 32px}h1{font-size:42px;margin:0 0 36px}h2{font-size:32px;margin:42px 0 20px}p,li{font-size:28px;line-height:1.45;margin:12px 0}ul{display:inline-block;text-align:left;margin:0;padding-left:36px}@media print{main{padding:0}}</style><main><h1>Pedido ${orderReference(order)}</h1><p>Cliente: ${order.customer_name ?? 'Não informado'}</p><p>Canal: ${order.channel ?? 'Não informado'}</p><h2>Itens</h2><ul>${lines.map(line => `<li>${line}</li>`).join('')}</ul></main>`);
   page.document.close();
@@ -113,6 +113,12 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
   };
 
   const requestPrint = (order: Order, documents: OrderDocument[]) => {
+    // A etiqueta oficial é o documento principal quando disponível.
+    const shippingLabel = documents.find(document => document.document_type === 'shipping_label');
+    if (shippingLabel) {
+      void run(order.id, () => onPrint(order, shippingLabel));
+      return;
+    }
     if (documents.length > 1) {
       setPrintSelectionOrder(order);
       return;
@@ -164,6 +170,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
           <div className="space-y-3">{columnOrders.map(order => {
             const separation = separationByOrderId.get(order.id);
             const documents = documentsByOrderId.get(order.id) ?? [];
+            const hasShippingLabel = documents.some(document => document.document_type === 'shipping_label');
             const busy = busyOrderId === order.id;
             const itemGroups = groupedItems(order);
             const payment = getOrderPaymentPresentation(order.payment_status);
@@ -176,6 +183,7 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
               {documents.length > 0 && <div className="space-y-1 rounded-md border p-2"><p className="text-xs font-medium">Documentos anexados</p>{documents.map(document => <div key={document.id} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate">{documentTypeLabel(document.document_type)} · {document.file_name ?? 'Documento'}{document.created_at ? ` · ${new Date(document.created_at).toLocaleDateString('pt-BR')}` : ''}</span><Button variant="link" className="h-auto p-0 text-xs" disabled={busy} onClick={() => void run(order.id, () => onPrint(order, document))}>Abrir / Imprimir</Button></div>)}</div>}
               {column.status === 'todo' && <div className="flex gap-2"><Button className="flex-1" size="sm" disabled={busy} onClick={() => requestPrint(order, documents)}><Printer className="mr-1 h-4 w-4" />IMPRIMIR</Button><Button variant="outline" size="icon" aria-label="Anexar documento" disabled={busy} onClick={() => setDocumentOrder(order)}><Upload className="h-4 w-4" /></Button></div>}
               {column.status === 'preparing' && <div className="flex gap-2"><Button variant="outline" className="flex-1" size="sm" disabled={busy} onClick={() => requestPrint(order, documents)}><Printer className="mr-1 h-4 w-4" />IMPRIMIR</Button><Button className="flex-1" size="sm" disabled={busy} onClick={() => void run(order.id, () => onFinalize(order))}><PackageCheck className="mr-1 h-4 w-4" />FINALIZAR</Button><Button variant="outline" size="icon" aria-label="Anexar documento" disabled={busy} onClick={() => setDocumentOrder(order)}><Upload className="h-4 w-4" /></Button></div>}
+              {hasShippingLabel && <Button variant="ghost" size="sm" className="w-full text-xs" disabled={busy} onClick={() => void run(order.id, () => onPrint(order))}><Printer className="mr-1 h-3.5 w-3.5" />IMPRIMIR COMPOSIÇÃO INTERNA</Button>}
               {column.status === 'finalized' && <div className="space-y-2"><p className="text-xs text-emerald-700">Finalizado em {separation?.finalized_at ? new Date(separation.finalized_at).toLocaleString('pt-BR') : '—'} · Impressões: {separation?.print_count ?? 0}</p><div className="flex gap-2"><Button variant="outline" className="flex-1" size="sm" disabled={busy} onClick={() => requestPrint(order, documents)}><Printer className="mr-1 h-4 w-4" />REIMPRIMIR</Button><Button variant="outline" size="icon" aria-label="Anexar documento" disabled={busy} onClick={() => setDocumentOrder(order)}><Upload className="h-4 w-4" /></Button></div></div>}
             </CardContent></Card>;
           })}{columnOrders.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Nenhum pedido</p>}</div>
