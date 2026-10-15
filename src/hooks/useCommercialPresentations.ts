@@ -65,5 +65,13 @@ export function useCommercialPresentations() {
     return data as CommercialPresentation;
   }, []);
 
-  return { list, create, update };
+  const listForProduct = useCallback(async (productId: string) => {
+    const { data, error } = await db.from('commercial_presentations')
+      .select('*, components:commercial_presentation_components(product_id,variant_id,quantity)')
+      .eq('product_id', productId).eq('is_active', true).order('name');
+    if (error) throw error;
+    return (data ?? []) as CommercialPresentation[];
+  }, []);
+
+  return { list, listForProduct, create, update };
 }

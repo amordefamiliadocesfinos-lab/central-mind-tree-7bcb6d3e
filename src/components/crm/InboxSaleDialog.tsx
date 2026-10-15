@@ -22,7 +22,7 @@ import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { buildCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
@@ -48,13 +48,6 @@ interface InboxSaleDialogProps {
   onSaleCreated?: () => void;
 }
 
-const ALFAJOR_ID = '62cf9f63-be04-4261-ad11-569028dd1125';
-const ALFAJOR_BRANCO = 'd89e1dba-ca80-4136-b9f3-225fb80b6dfb';
-const ALFAJOR_PRETO = 'e4d756c8-f324-4ac0-b9ff-6adae24f5310';
-const MIXES: Record<string, [number, number]> = {
-  'Bandeja 18 — 9BRANCO + 9PRETO': [9, 9],
-  'Bandeja 18 — 6BRANCO + 12PRETO': [6, 12],
-};
 const CHANNELS: Array<[string, string]> = [
   ['direto', 'Venda Direta'],
   ['whatsapp', 'WhatsApp'],
@@ -126,15 +119,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, _unit_price_text: undefined, commercial_presentation: null, commercial_quantity: 1 });
   };
 
-  const presentationKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? 'direct'}`;
+  const presentationKey = (productId: string, _variantId: string | null) => productId;
   const loadPresentations = async (productId: string, variantId: string | null) => {
     if (!productId || presentationsByIdentity[presentationKey(productId, variantId)]) return;
     try {
-      const data = await commercialPresentations.list(productId, variantId, false);
-      if (productId === ALFAJOR_ID && variantId) {
-        const mixes = variantId === ALFAJOR_BRANCO ? [] : await commercialPresentations.list(productId, ALFAJOR_BRANCO, false);
-        data.push(...mixes.filter(entry => Object.prototype.hasOwnProperty.call(MIXES, entry.name)));
-      }
+      const data = await commercialPresentations.listForProduct(productId);
       setPresentationsByIdentity(current => ({ ...current, [presentationKey(productId, variantId)]: data }));
     } catch (error) { console.error('Erro ao carregar apresentações comerciais', error); }
   };
@@ -142,7 +131,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   useEffect(() => {
     items.forEach((item) => {
       const product = products.find(candidate => candidate.id === item.product_id);
-      if (product && (product.variation_mode !== 'variacoes_fisicas' || item.variant_id)) {
+      if (product) {
         void loadPresentations(item.product_id, item.variant_id ?? null);
       }
     });
@@ -165,7 +154,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     const validItems = items.filter(item => item.product_id && item.quantity > 0);
     if (!validItems.length) return toast.error('Adicione ao menos um produto para registrar a venda.');
     const missingVariant = validItems.map(item => ({ item, product: products.find(product => product.id === item.product_id) }))
-      .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id);
+      .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id && item.commercial_presentation?.composition_mode !== 'composite');
     if (missingVariant?.product) return toast.error(`Selecione a variante física de ${missingVariant.product.name}.`);
     const pricedItems = validItems.map((item) => ({ item, price: parseBrazilianCurrencyInput(item._unit_price_text ?? String(item.unit_price ?? '')) }));
     if (pricedItems.some(({ price }) => !price)) return toast.error('Informe um valor unitário válido para cada item.');
@@ -193,17 +182,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
         const product = products.find(candidate => candidate.id === item.product_id);
         const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
         if (!product) throw new Error('Produto não encontrado.');
-        const name = item.commercial_presentation?.name ?? '';
-        if (product.id === ALFAJOR_ID && Object.prototype.hasOwnProperty.call(MIXES, name)) {
-          const [white, dark] = MIXES[name];
-          const commercialQty = item.commercial_quantity || 0;
-          const baseNote = `${name} · ${commercialQty} bandeja(s) · composição fixa`;
-          return [
-            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_BRANCO), commercialQty * white, price!.number / 18, null, baseNote),
-            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_PRETO), commercialQty * dark, price!.number / 18, null, baseNote),
-          ];
-        }
-        return [buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation)];
+        return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
       }));
       // F5-C: aproveita o ato REAL de registrar Venda na Inbox.
       // A consulta valida envio + resposta na mesma conversa + Pedido real.
@@ -330,7 +309,16 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     ))}
                   </SelectContent>
                 </Select>
-                {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' ? (
+                <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
+                  const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
+                  const product = products.find(candidate => candidate.id === item.product_id);
+                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
+                  updateItem(index, { commercial_presentation: presentation, variant_id: presentation?.composition_mode === 'composite' ? null : item.variant_id, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
+                }} disabled={!item.product_id}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                  <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
+                </Select>
+                {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                   <Select value={item.variant_id || ''} onValueChange={(value) => pickVariant(index, value)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
                     <SelectContent>
@@ -340,15 +328,6 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     </SelectContent>
                   </Select>
                 ) : <div className="hidden sm:block" />}
-                <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
-                  const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
-                  const product = products.find(candidate => candidate.id === item.product_id);
-                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
-                  updateItem(index, { commercial_presentation: presentation, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
-                }} disabled={!item.product_id || (products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && !item.variant_id)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
-                  <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
-                </Select>
                 <Input
                   type="number" inputMode="decimal" className="h-8 text-xs" value={item.commercial_quantity}
                   onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
@@ -370,9 +349,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
                 </div>
-                {item.product_id === ALFAJOR_ID && item.commercial_presentation && MIXES[item.commercial_presentation.name] ? (
+                {item.commercial_presentation?.composition_mode === 'composite' ? (
                   <p className="text-[11px] text-muted-foreground">
-                    Composição física: {(item.commercial_quantity || 0) * MIXES[item.commercial_presentation.name][0]} Branco + {(item.commercial_quantity || 0) * MIXES[item.commercial_presentation.name][1]} Preto · separação por variante
+                    Composição: {(item.commercial_presentation.components ?? []).map(c => `${Number(c.quantity) * Number(item.commercial_quantity)} un. de ${variants.find(v => v.id === c.variant_id)?.variant_name ?? 'variante'}`).join(' + ')}
                   </p>
                 ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
               </div>
