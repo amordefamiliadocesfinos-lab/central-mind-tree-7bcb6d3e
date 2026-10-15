@@ -183,7 +183,7 @@ export function createShopeeLabelSynchronizer({
     let uploadUrl;
     try { uploadUrl = new URL(signedUrl); } catch { return { ok: false, code: 'upload_url_invalid' }; }
     if (uploadUrl.origin !== CORE_ORIGIN
-        || !uploadUrl.pathname.startsWith('/storage/v1/object/upload/sign/order-documents/')) {
+        || !uploadUrl.pathname.startsWith('/storage/v1/object/upload/sign/shopee-labels/')) {
       return { ok: false, code: 'upload_url_untrusted' };
     }
     const uploaded = await uploadFetch(uploadUrl, {
