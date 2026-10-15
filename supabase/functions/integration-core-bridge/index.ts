@@ -300,7 +300,7 @@ async function persistRawSnapshot(
 }
 
 
-const LABEL_BUCKET = 'order-documents';
+const LABEL_BUCKET = 'shopee-labels';
 const LABEL_MAX_BYTES = 4 * 1024 * 1024;
 
 async function labelDocumentLocator(core: CoreClient, payload: Record<string, unknown>) {
