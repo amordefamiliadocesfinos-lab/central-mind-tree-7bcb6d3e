@@ -1239,7 +1239,8 @@ export default function Operacoes() {
               .some(item => item.document_type === 'shipping_label');
             if (document) await separation.openDocument(document);
             else printOrderSummary(order);
-            if (hasShippingLabel && document?.document_type !== 'shipping_label') {
+            if ((order.sale_origin === 'shopee_open_platform' || hasShippingLabel)
+                && document?.document_type !== 'shipping_label') {
               toast.success('Documento complementar aberto; separação preservada.');
               return;
             }
