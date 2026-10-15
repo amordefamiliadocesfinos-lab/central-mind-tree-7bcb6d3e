@@ -130,7 +130,8 @@ export function useOrderSeparation(orders: Order[]) {
   const openDocument = useCallback(async (document: OrderDocument) => {
     if (document.storage_bucket && document.storage_path) {
       const documentWindow = window.open('', '_blank');
-      if (documentWindow) documentWindow.opener = null;
+      if (!documentWindow) throw new Error('O navegador bloqueou a abertura do documento.');
+      documentWindow.opener = null;
       try {
         const { data, error } = await db.storage
           .from(document.storage_bucket)
@@ -145,7 +146,8 @@ export function useOrderSeparation(orders: Order[]) {
       return;
     }
     if (!document.file_url) throw new Error('Documento sem local de arquivo disponível.');
-    window.open(document.file_url, '_blank', 'noopener,noreferrer');
+    const documentWindow = window.open(document.file_url, '_blank', 'noopener,noreferrer');
+    if (!documentWindow) throw new Error('O navegador bloqueou a abertura do documento.');
   }, []);
 
   return { loading, separationByOrderId, documentsByOrderId, markPrinted, finalize, updateOrderOperationalDestination, uploadDocument, refreshDocumentsForOrder, openDocument, refetch: fetchSeparation };
