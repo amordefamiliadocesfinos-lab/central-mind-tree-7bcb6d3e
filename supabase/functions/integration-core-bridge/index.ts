@@ -413,6 +413,59 @@ async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
 
+
+  // F6-O.2e.2c — ledger-only actions. SQL RPCs perform all identity checks
+  // and uniqueness atomically; no Shopee API transport occurs in the Core.
+  if (payload.action === 'shopee.shipping_arrangement.claim') {
+    const { data, error } = await core.rpc('claim_shopee_shipping_arrangement', {
+      p_channel_account_id: String(payload.channel_account_id),
+      p_shop_id: Number(payload.shop_id),
+      p_order_sn: String(payload.order_sn),
+      p_package_number: String(payload.package_number),
+      p_request_hash: String(payload.request_hash),
+    });
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)
+        || typeof data.status !== 'string') {
+      return { status: 503, body: { error: 'shipping_claim_core_unavailable' } };
+    }
+    if (data.status === 'claimed' && data.fresh === true && typeof data.attempt_id === 'string') {
+      return { status: 200, body: {
+        status: 'claimed', fresh: true, attempt_id: data.attempt_id,
+      } };
+    }
+    const allowedBlocked = [
+      'already_claimed', 'already_succeeded', 'uncertain_requires_reconciliation',
+      'claim_fingerprint_mismatch', 'account_or_shop_mismatch',
+      'order_not_unique_or_missing', 'invalid_request',
+    ];
+    return allowedBlocked.includes(data.status)
+      ? { status: 409, body: { status: 'blocked', code: data.status } }
+      : { status: 503, body: { error: 'shipping_claim_core_unavailable' } };
+  }
+
+  if (payload.action === 'shopee.shipping_arrangement.resolve') {
+    const { data, error } = await core.rpc('resolve_shopee_shipping_arrangement', {
+      p_attempt_id: String(payload.attempt_id),
+      p_request_hash: String(payload.request_hash),
+      p_outcome: String(payload.outcome),
+    });
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)
+        || typeof data.status !== 'string') {
+      return { status: 503, body: { error: 'shipping_resolution_core_unavailable' } };
+    }
+    if (data.status === 'resolved' || data.status === 'already_resolved') {
+      return { status: 200, body: {
+        status: data.status, state: data.state,
+      } };
+    }
+    const allowedBlocked = [
+      'invalid_request', 'attempt_missing', 'claim_fingerprint_mismatch', 'transition_forbidden',
+    ];
+    return allowedBlocked.includes(data.status)
+      ? { status: 409, body: { status: 'blocked', code: data.status } }
+      : { status: 503, body: { error: 'shipping_resolution_core_unavailable' } };
+  }
+
   if (payload.action === 'shopee.shipping_label.prepare' || payload.action === 'shopee.shipping_label.commit') {
     return executeLabelAction(core, payload);
   }
