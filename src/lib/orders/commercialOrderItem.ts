@@ -126,7 +126,7 @@ export function expandCommercialOrderItem(
       commercial_unit_label: 'bandeja',
       commercial_conversion_factor: factor,
       commercial_quantity: commercialQuantity,
-      physical_unit_label: getPhysicalIdentityUnit(product, { id: component.variant_id }),
+      physical_unit_label: getPhysicalIdentityUnit(product, null),
     };
   });
 }
