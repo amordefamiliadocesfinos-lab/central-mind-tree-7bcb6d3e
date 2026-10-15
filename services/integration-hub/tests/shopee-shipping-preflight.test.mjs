@@ -174,6 +174,26 @@ test('info_needed unknown fields cannot authorize shipping', () => {
   }).code, 'shipping_mode_not_identified');
 });
 
+test('empty dropoff requirements are a valid choice requiring no extra fields', () => {
+  const result = summarizeShippingRequirements({
+    response: { info_needed: { dropoff: [] }, dropoff: {} },
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.modes, ['dropoff']);
+  assert.equal(result.autoArrangementAuthorized, false);
+});
+
+test('available shipping modes never authorize ship_order or mutate any state', () => {
+  const result = summarizeShippingRequirements({
+    response: {
+      info_needed: { pickup: ['address_id', 'pickup_time_id'], dropoff: [] },
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.modes, ['dropoff', 'pickup']);
+  assert.equal(result.autoArrangementAuthorized, false);
+});
+
 test('preflight endpoint defaults to disabled, disallows GET and query', async () => {
   let count = 0;
   const path = '/internal/shopee/live/logistics/shipping/preflight-once';
