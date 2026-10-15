@@ -1234,9 +1234,16 @@ export default function Operacoes() {
           separationByOrderId={separation.separationByOrderId}
           documentsByOrderId={separation.documentsByOrderId}
           onPrint={async (order, document) => {
-            // Se não for possível acessar o documento, o pedido continua em A FAZER.
+            // Apenas a etiqueta oficial inicia a separação quando ela está disponível.
+            const hasShippingLabel = (separation.documentsByOrderId.get(order.id) ?? [])
+              .some(item => item.document_type === 'shipping_label');
             if (document) await separation.openDocument(document);
             else printOrderSummary(order);
+            if (hasShippingLabel && document?.document_type !== 'shipping_label') {
+              toast.success('Documento complementar aberto; separação preservada.');
+              return;
+            }
+            // Falha ao abrir não marca impressão nem avança A FAZER → EM PREPARAÇÃO.
             await separation.markPrinted(order.id);
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
           }}
