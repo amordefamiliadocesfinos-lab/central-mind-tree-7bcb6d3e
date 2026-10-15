@@ -12,6 +12,13 @@ const activeEnv = {
   SHOPEE_LIVE_SHIP_ORDER_ENABLED: 'true',
   SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN: order,
   SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: channel,
+  SHOPEE_LIVE_SHIPPING_FISCAL_MODE: 'pj_shopee_issuer',
+  SHOPEE_LIVE_SHIP_ORDER_PILOT_ORDER_SN: order,
+  SHOPEE_LIVE_SHIP_ORDER_PILOT_PACKAGE_NUMBER: pkg,
+  SHOPEE_LIVE_SHIP_ORDER_PILOT_ACCOUNT_ID: channel,
+  SHOPEE_LIVE_SHIP_ORDER_PILOT_SHOP_ID: String(shop),
+  SHOPEE_LIVE_SHIP_ORDER_PILOT_FISCAL_MODE: 'pj_shopee_issuer',
+  SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT: '2026-10-15T18:15:00Z',
   SHOPEE_LIVE_PARTNER_ID: '2047685',
   SHOPEE_LIVE_PARTNER_KEY: 'fake-key',
   SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY: 'fake-encryption-key',
@@ -25,6 +32,8 @@ function fixture(overrides = {}) {
     preflight: async () => {
       calls.push('preflight');
       return { ok: true, order_sn: order, package_number: pkg, shop_id: shop,
+        order_status: 'READY_TO_SHIP', package_logistics_status: 'LOGISTICS_READY',
+        fiscal: 'fiscal_valid',
         modes: ['dropoff'], simple_dropoff_confirmed: true };
     },
     readConnection: async () => {
@@ -189,9 +198,9 @@ test('untrusted redirect host is blocked and outcome remains uncertain', async (
   assert.equal(calls.some(c => c?.[0] === 'transport'), false);
 });
 
-test('no executable HTTP route or scheduler is exposed', async () => {
+test('HTTP route is protected by disabled gates by default', async () => {
   const response = await handleRequest({
     method: 'POST', path: '/internal/shopee/live/logistics/shipping/ship-once', query: {},
   }, { handleShopeeLive: async () => null });
-  assert.equal(response.status, 404);
+  assert.equal(response.status, 503);
 });
