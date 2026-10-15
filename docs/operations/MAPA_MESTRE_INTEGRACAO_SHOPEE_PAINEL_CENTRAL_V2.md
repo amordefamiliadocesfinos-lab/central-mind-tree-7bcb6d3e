@@ -466,3 +466,37 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 - A sincronização periódica/por pedido ainda não é ativada nesta entrega piloto; requer validação do caminho privado e política de agendamento e idempotência apropriadas.
 
 **Evidência técnica para revisão:** Guia de Logistics para Brasil (cópia de referência Shopee Open Platform) e FAQ integrado indicam download após READY e PDF binário, não URL do Seller Center. Não reutilizar links de sessão de navegador como fontes permanentes de etiqueta.
+
+
+---
+
+## 11. F6-O — AUTOMACAO DE PREPARACAO, FISCAL POR CONTA (15/10/2026)
+
+**Decisão operacional aprovada:** priorizar o recebimento e a preparação de pedidos 100% automáticos até a disponibilização da etiqueta oficial na Central de Separação, sem exigir operação diária no Seller Center. O operador deve concentrar-se em **IMPRIMIR, SEPARAR, EMBALAR E ENTREGAR**; confirmação confiável de coleta finaliza a Separação posteriormente (F6-O.2c). Isso refina as seções 10.2–10.4, sem reabrir ou invalidar O.2a/O.2b.
+
+### 11.1 Dois caminhos por conta, sem presumir pela etiqueta ou pelo nome
+
+- **Fluxo operacional CPF:** no funcionamento mostrado pelo usuário, a conta prepara envio sem etapa de emissão de NF-e no Seller Center. O Painel deve seguir as exigências efetivas do pedido e as obrigações fiscais aplicáveis; perfil CPF não comprova dispensa fiscal universal.
+- **Fluxo operacional PJ:** a conta piloto utiliza emissor fiscal **da própria Shopee**, já configurado no Seller Center. **Primeira opção é reutilizar esse emissor, sem usar o Fiscal Pro como rotina.** O Hub deve ler `invoice_data.status`/`pending_reason` e só avançar logisticamente quando a validação fiscal estiver adequada.
+- **Decisão de roteamento precisa de perfil explícito por conta, e não inferência por nome:** natureza da conta, origem do emissor e regras aplicáveis devem ser verificáveis e auditáveis. Atualmente o cadastro de `channel_accounts` não possui perfil fiscal dedicado; `metadata` das contas Shopee ativas está vazio, e apenas **SHOPEE VIVIANE** possui OAuth Live registrado. Não ativar automaticamente fluxo CPF para uma loja sem conexão.
+- **Fallback desejado:** se a API/conta não suportar a emissão fiscal Shopee ou a organização de envio/etiqueta, o operador resolve **somente a etapa indisponível** no Seller Center; após confirmação por API, a automação retoma as etapas seguintes. Não obrigar operador a fazer tudo manualmente.
+
+### 11.2 Matriz de capacidade: existente ≠ comprovado na conta
+
+- **Pedido → Core:** importação/persistência real já comprovadas em piloto; automatização contínua de novos pedidos depende da ativação controlada do pipeline existente.
+- **Status fiscal:** Open API `get_order_detail` informa `invoice_data.status` (`pending`/`valid`) e motivo da pendência; validação de elegibilidade por loja/pedido é obrigatória.
+- **Emissão fiscal pelo emissor nativo Shopee:** funcionalidade do Seller Center informada como já configurada pelo operador; **NÃO foi identificada ainda operação pública Open Platform comprovada que acione esse emissor diretamente em pedidos comuns do Brasil**. Não confundir com `add_invoice_data` (informar nota existente), `download_invoice_doc` (baixar documento previamente disponibilizado), nem `generate_fbs_invoices` (documentos FBS).
+- **Organizar envio:** `get_shipping_parameter` seguido de `ship_order` é capacidade documentada; exige parâmetros elegíveis e estado logístico correto. A implementação atual do Hub ainda não invoca `ship_order`; esse writer requer janela de autorização, idempotência, logs e fail closed.
+- **Etiqueta:** `get_tracking_number` → `create_shipping_document` (quando faltar tarefa) → `get_shipping_document_result=READY` → `download_shipping_document`; F6-O.2b implementou **somente consulta/download de documento READY**, não solicitação de tarefa nem preparo de envio.
+- **Coleta física:** deve continuar independente da criação da etiqueta ou do status genérico SHIPPED; automatização de finalização/baixa apenas com evento de transportadora devidamente comprovado.
+
+### 11.3 Próxima execução técnica e evidências exigidas
+
+1. **F6-O.2e.1 — laboratório fiscal/logístico somente leitura:** verificar capacidades da conta-piloto PJ no contrato autenticado Shopee Open Platform (principalmente a possibilidade real de acionar emissor nativo) e observar `invoice_data.status`, `pending_reason`, `package_detail` e opções de envio em pedidos elegíveis. Evidência da interface Seller Center serve para compreender fluxo, mas não prova acesso pela API.
+2. **F6-O.2e.2 — preparação logística piloto:** se API suportar, implementar `get_shipping_parameter` → `ship_order` para um pedido elegível com gates próprios, anti-replay, conta/pacote exatos, sem baixa de estoque e sem ativação geral.
+3. **F6-O.2e.3 — completar geração de etiqueta:** após rastreio disponível, implementar `create_shipping_document`, aguardar `READY` e reutilizar download privado F6-O.2b. Tratar indisponibilidade fiscal ou do documento como exceção legível no card.
+4. **F6-O.2e.4 — dois fluxos e escalonamento:** habilitar progressivamente por conta, após prova CPF/PJ e perfil fiscal explícito; fluxo manual estritamente limitado ao bloqueio comprovado do emissor/etiqueta.
+5. **F6-O.2c — confirmação de coleta e finalização física:** permanece como frente distinta e posterior, com evidência externa e writer idempotente do Core.
+
+**Não autorizado por este registro:** emissão fiscal, `ship_order`, `create_shipping_document`, refresh OAuth, mudanças no scheduler/gates, alterações fiscais, migrations, Cloud Run ou writes produtivos. Não habilitar integração para outras contas sem vínculo OAuth válido e regras por loja comprovadas.
+
