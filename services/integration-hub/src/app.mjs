@@ -4,6 +4,7 @@ import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
 import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
+import { syncReadyShopeeLabel } from './shopee-live-label.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -33,6 +34,7 @@ export async function handleRequest(
     runShopeeCommit = runShopeeControlledAutoIntake,
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
+    syncShopeeLabel = syncReadyShopeeLabel,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -82,6 +84,33 @@ export async function handleRequest(
         mode: 'oauth_refresh_once',
         code: 'runtime_exception',
       });
+    }
+  }
+
+
+  // Ação restrita ao pedido piloto configurado no runtime. Desabilitada por padrão.
+  if (normalizedPath === '/internal/shopee/live/logistics/label/sync-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+    const enabled = String(getEnv('SHOPEE_LIVE_LABEL_SYNC_ENABLED') ?? '').trim().toLowerCase() === 'true';
+    if (!enabled) return json(503, { error: 'label_sync_not_enabled' });
+    if (!String(getEnv('SHOPEE_LIVE_LABEL_ORDER_SN') ?? '').trim()) {
+      return json(503, { error: 'label_target_not_configured' });
+    }
+    try {
+      const result = await syncShopeeLabel();
+      if (!result?.ok) {
+        return json(503, { status: 'degraded', mode: 'label_sync_once', code: result?.code ?? 'unknown_error' });
+      }
+      return json(200, {
+        status: 'ok', mode: 'label_sync_once', code: result.code,
+        document_type: result.document_type ?? 'shipping_label',
+        document_id: result.document_id ?? null,
+      });
+    } catch {
+      return json(503, { status: 'degraded', mode: 'label_sync_once', code: 'runtime_exception' });
     }
   }
 

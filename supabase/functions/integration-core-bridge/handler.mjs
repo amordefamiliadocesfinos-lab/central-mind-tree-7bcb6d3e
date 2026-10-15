@@ -21,6 +21,8 @@ const LIVE_ACTIONS = new Set([
   'shopee.raw_order_snapshot.upsert',
   'shopee.order.create',
   'shopee.order_intake_batch.read',
+  'shopee.shipping_label.prepare',
+  'shopee.shipping_label.commit',
 ]);
 
 function json(status, body) {
@@ -154,6 +156,22 @@ function validateActionPayload(payload, nowMs) {
       && isBoundedText(payload.shop_name, 300, { nullable: true })
       && isBoundedText(payload.region, 64, { nullable: true })
       && isBoundedText(payload.shop_status, 128, { nullable: true });
+  }
+
+
+  if (payload.action === 'shopee.shipping_label.prepare' || payload.action === 'shopee.shipping_label.commit') {
+    return hasExactKeys(payload, [
+      'action', 'channel_account_id', 'shop_id', 'order_sn', 'package_number',
+      'sha256', 'file_size',
+    ]) && UUID.test(payload.channel_account_id)
+      && Number.isSafeInteger(payload.shop_id) && payload.shop_id > 0
+      && isBoundedText(payload.order_sn, 100) && /^[A-Za-z0-9]+$/.test(payload.order_sn)
+      && (payload.package_number === null || (
+        isBoundedText(payload.package_number, 100) && /^[A-Za-z0-9_-]+$/.test(payload.package_number)
+      ))
+      && SHA256.test(payload.sha256)
+      && Number.isSafeInteger(payload.file_size)
+      && payload.file_size >= 16 && payload.file_size <= 4 * 1024 * 1024;
   }
 
   if (payload.action === 'shopee.order_intake_batch.read') {

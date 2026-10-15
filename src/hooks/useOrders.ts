@@ -72,6 +72,7 @@ export interface Order {
   id: string;
   order_number: string | null;
   internal_order_number?: string | null;
+  sale_origin?: string | null;
   operational_status?: 'todo' | 'preparing' | 'finalized' | 'cancelled';
   operational_destination?: OperationalDestination | null;
   logistics_mode?: string | null;

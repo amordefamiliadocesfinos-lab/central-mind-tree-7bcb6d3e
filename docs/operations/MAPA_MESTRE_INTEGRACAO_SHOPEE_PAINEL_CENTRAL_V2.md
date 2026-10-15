@@ -450,3 +450,19 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 
 **Congelado como regra, NÃO como implementação concluída:** O.2b/O.2c dependem de código, testes e autorização produtiva específicos; scheduler e gates permanecem desarmados.
 
+
+
+### 10.5 F6-O.2b — Sincronização de etiqueta pronta (implementação em validação)
+
+**Escopo em branch (não comprova deploy nem prova Live):**
+- Fonte oficial BR: get_shipping_document_parameter → create_shipping_document (quando necessário; NÃO acionado aqui) → get_shipping_document_result (somente consulta) → download_shipping_document (somente se READY).
+- O.2b suporta **PDF NORMAL_AIR_WAYBILL** único de um pedido/pacote piloto, previamente preparado pela Shopee; impede PDF/ZIP/HTML inválido, múltiplos pacotes, status PROCESSING/FAILED e token expirado.
+- O Hub possui rota privada POST /internal/shopee/live/logistics/label/sync-once, sem corpo nem query; pedido fixado pelo ambiente e gate SHOPEE_LIVE_LABEL_SYNC_ENABLED **false por padrão**.
+- O Hub obtém o PDF somente de Shopee, valida tipo, tamanho máximo 4 MiB, assinatura PDF e SHA-256. A Edge Function Core verifica conta/pedido Shop-ID e emite URL temporária de upload privado; o Hub envia bytes diretamente ao bucket privado dedicado shopee-labels (acesso restrito por papel operacional); o Core baixa de novo, confere tamanho/hash/assinatura e registra order_documents.shipping_label.
+- Vinculação é determinística e deve ser única por storage_bucket/storage_path; migration da unicidade precisa ser aplicada no Lovable Cloud **antes de autorizar sync-once em produção**, mediante aprovação específica.
+- O Painel já consulta a metadata order_documents na Central de Separação em tempo real; PR #272 prioriza shipping_label no botão IMPRIMIR. A RLS existente para documentos legados era ampla, portanto a migration inclui bucket isolado shopee-labels e restrição específica para metadados Shopee sem alterar documentos de outras origens. Nenhum endereço assinado ou credencial aparece no frontend; somente documento autorizado com URL temporária privada.
+- O operador **não** recebe mensagem de sucesso sem documento persistido. A funcionalidade não cria tarefas de documento, organiza envio, emite NF-e ou finaliza separação.
+- Enquanto não houver documento READY, mostrar indisponibilidade e manter trabalho manual normal no Seller Center. Fluxo de geração da tarefa, tratamento de formatos ZIP/ZPL e operação em massa ficam para uma etapa explicitamente autorizada.
+- A sincronização periódica/por pedido ainda não é ativada nesta entrega piloto; requer validação do caminho privado e política de agendamento e idempotência apropriadas.
+
+**Evidência técnica para revisão:** Guia de Logistics para Brasil (cópia de referência Shopee Open Platform) e FAQ integrado indicam download após READY e PDF binário, não URL do Seller Center. Não reutilizar links de sessão de navegador como fontes permanentes de etiqueta.
