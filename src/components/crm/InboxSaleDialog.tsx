@@ -132,7 +132,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     try {
       const data = await commercialPresentations.list(productId, variantId, false);
       if (productId === ALFAJOR_ID && variantId) {
-        const mixes = await commercialPresentations.list(productId, null, false);
+        const mixes = variantId === ALFAJOR_BRANCO ? [] : await commercialPresentations.list(productId, ALFAJOR_BRANCO, false);
         data.push(...mixes.filter(entry => Object.prototype.hasOwnProperty.call(MIXES, entry.name)));
       }
       setPresentationsByIdentity(current => ({ ...current, [presentationKey(productId, variantId)]: data }));
