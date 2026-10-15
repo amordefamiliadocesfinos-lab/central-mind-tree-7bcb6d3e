@@ -104,7 +104,7 @@ test('tracking query is signed GET and includes package number', async () => {
     },
   });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].options.method, 'GET');
+  assert.equal(new Request(calls[0].url, calls[0].options).method, 'GET');
   assert.equal(calls[0].options.body, undefined);
   assert.equal(calls[0].url.searchParams.get('order_sn'), base.orderSn);
   assert.equal(calls[0].url.searchParams.get('package_number'), base.packageNumber);
@@ -121,4 +121,45 @@ test('no route is created to invoke ship_order in the deployed Hub', async () =>
     handleShopeeLive: async () => null,
   });
   assert.equal(result.status, 404);
+});
+
+for (const extra of [{ pickup: {} }, { dropoff: { branch_id: 123 } }, { body: {} }, { query: {} }]) {
+  test('rejects extra primitive parameters before any transport: ' + Object.keys(extra)[0], () => {
+    let count = 0;
+    const fetchImpl = async () => { count++; throw Error('must not execute'); };
+    assert.throws(() => shipOrderSimpleDropoff({
+      ...base, shipOrderPath: '/api/v2/logistics/ship_order', infoNeeded: simpleDropoff,
+      fetchImpl, ...extra,
+    }), TypeError);
+    assert.throws(() => getTrackingNumber({
+      ...base, getTrackingNumberPath: '/api/v2/logistics/get_tracking_number', fetchImpl, ...extra,
+    }), TypeError);
+    assert.equal(count, 0);
+  });
+}
+
+test('request builder rejects additional operational fields', () => {
+  assert.throws(() => buildSimpleDropoffRequest({
+    orderSn: base.orderSn, packageNumber: base.packageNumber,
+    infoNeeded: simpleDropoff, pickup: {},
+  }), TypeError);
+});
+
+test('uncertain ship response is never retried automatically', async () => {
+  let count = 0;
+  await assert.rejects(shipOrderSimpleDropoff({
+    ...base, shipOrderPath: '/api/v2/logistics/ship_order', infoNeeded: simpleDropoff,
+    fetchImpl: async () => { count++; throw Error('uncertain-response'); },
+  }), /uncertain-response/);
+  assert.equal(count, 1);
+});
+
+test('empty tracking remains empty and does not trigger another operation', async () => {
+  let count = 0;
+  const result = await getTrackingNumber({
+    ...base, getTrackingNumberPath: '/api/v2/logistics/get_tracking_number',
+    fetchImpl: async () => { count++; return new Response(JSON.stringify({ error: '', response: { tracking_number: '' } })); },
+  });
+  assert.equal(result.payload.response.tracking_number, '');
+  assert.equal(count, 1);
 });

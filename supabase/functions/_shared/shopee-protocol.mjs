@@ -547,7 +547,8 @@ export function downloadShippingDocument({
  * an atomic durable idempotency claim and explicit feature gate BEFORE
  * invoking this mutating Shopee API. No route invokes it in this phase.
  */
-export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded }) {
+export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded, ...additional }) {
+  if (Reflect.ownKeys(additional).length !== 0) throw new TypeError('unsupported_shipping_parameters');
   const order = requiredText(orderSn, 'orderSn');
   const pkg = requiredText(packageNumber, 'packageNumber');
   if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)) {
@@ -573,7 +574,9 @@ export function shipOrderSimpleDropoff({
   infoNeeded,
   fetchImpl = globalThis.fetch,
   timestamp,
+  ...additional
 }) {
+  if (Reflect.ownKeys(additional).length !== 0) throw new TypeError('unsupported_shipping_parameters');
   const body = buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded });
   return signedShopPost({
     apiBaseUrl,
@@ -603,7 +606,9 @@ export function getTrackingNumber({
   packageNumber,
   fetchImpl = globalThis.fetch,
   timestamp,
+  ...additional
 }) {
+  if (Reflect.ownKeys(additional).length !== 0) throw new TypeError('unsupported_tracking_parameters');
   const order = requiredText(orderSn, 'orderSn');
   const pkg = requiredText(packageNumber, 'packageNumber');
   if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)) {
