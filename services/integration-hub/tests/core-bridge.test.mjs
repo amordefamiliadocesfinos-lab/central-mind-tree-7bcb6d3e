@@ -166,3 +166,41 @@ test('real local server serves /health without secrets and degrades /health/core
     }
   }
 });
+
+
+test('F6-O.2b HMAC Bridge accepts bounded label prepare/commit and rejects forged fields', async () => {
+  const received = [];
+  const handler = createBridgeHandler({
+    getSecret: () => SECRET,
+    checkCore: async () => true,
+    executeAction: async payload => {
+      received.push(payload.action);
+      return { status: 200, body: { status: 'ok', action: payload.action } };
+    },
+  });
+  const metadata = {
+    channel_account_id: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
+    shop_id: 531736366,
+    order_sn: '261013HKHWK3V7',
+    package_number: 'OFG245605119132474',
+    sha256: 'a'.repeat(64),
+    file_size: 1536,
+  };
+  const send = async payload => {
+    const body = JSON.stringify(payload);
+    return handler(new Request('https://core.example.test/', {
+      method: 'POST',
+      headers: buildSignedHeaders({
+        secret: SECRET,
+        body,
+        contentType: 'application/vnd.painel.shopee-live-v1+json',
+      }),
+      body,
+    }));
+  };
+  assert.equal((await send({ action: 'shopee.shipping_label.prepare', ...metadata })).status, 200);
+  assert.equal((await send({ action: 'shopee.shipping_label.commit', ...metadata })).status, 200);
+  assert.equal((await send({ action: 'shopee.shipping_label.commit', ...metadata, file_size: 5 * 1024 * 1024 })).status, 400);
+  assert.equal((await send({ action: 'shopee.shipping_label.prepare', ...metadata, signed_upload_url: 'evil' })).status, 400);
+  assert.deepEqual(received, ['shopee.shipping_label.prepare', 'shopee.shipping_label.commit']);
+});
