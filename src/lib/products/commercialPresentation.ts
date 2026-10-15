@@ -7,6 +7,8 @@ export type CommercialPresentation = {
   id: string;
   product_id: string;
   variant_id: string | null;
+  composition_mode?: 'single' | 'composite';
+  components?: Array<{ product_id: string; variant_id: string; quantity: number }>;
   name: string;
   commercial_unit_label: string;
   conversion_factor: number;
