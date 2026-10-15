@@ -539,6 +539,23 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 
 **Hub:** `createGuardedShopeeShipOrder()` está preparado como biblioteca interna, **sem rota HTTP e sem agendamento**, com gate extra `SHOPEE_LIVE_SHIP_ORDER_ENABLED` desabilitado por padrão. Só admite preflight fiscal/logístico atual bem-sucedido para **pedido/pacote exatos** com `info_needed={dropoff: []}`, perfil configurado e OAuth válido; obtém claim fresco no Core antes de chamar `ship_order` exatamente uma vez. Um retorno positivo da API registra `succeeded`; timeout/erro/resposta ambígua vira `uncertain`, sem assumir postagem/coleta física. Se o resultado não puder ser registrado no Core, a reserva permanece bloqueada: reportar `sent_but_core_confirmation_missing` e reconciliar antes de qualquer novo envio.
 
-**Condição de implantação:** revisão da migration e RPCs em Postgres local (incluindo concorrência, acesso sem permissão e replay), testes Node22/Docker e Deno check; PR/merge, migration e publicação são passos distintos e controlados. A criação de rota `ship-once`, a seleção de pedido piloto, habilitação temporária de gates e a prova Shopee Live requerem frente/janela específicas posteriores. Não sincronizar etiquetas nem finalizar separação como efeito implícito de `ship_order`.
+**Validação concluída:** PR #278 aprovada, testes Node22 316/316 PASS, Docker e Deno PASS, concorrência PostgreSQL local 100 tentativas = 1 claim; merge `5eff0025b40c24ca6e6d3cb0fbe9dab3c55ae8e7`. A migration continua **não aplicada** ao Lovable Cloud. A publicação do Hub/Core e a ativação produtiva continuam separadas. A criação de rota `ship-once`, a seleção de pedido piloto, habilitação temporária de gates e a prova Shopee Live requerem frente/janela específicas posteriores. Não sincronizar etiquetas nem finalizar separação como efeito implícito de `ship_order`.
 
 **Estados não são os três status do Kanban:** este ledger é técnico e independente das colunas `A FAZER → EM PREPARAÇÃO → FINALIZADO`, que permanecem inalteradas. A coleta física ainda precisa de comprovação F6-O.2c.
+
+
+### 11.7 F6-O.2e.2d — Rota privada de execução única (em validação, sem deploy)
+
+**Entregável:** conectar o executor interno já protegido por `claim → ship_order → resolve` à rota **IAM privada** `POST /internal/shopee/live/logistics/shipping/ship-once`, exclusivamente para **um pedido-piloto conhecido**. Continua desligada por padrão; nenhum disparo por scheduler, UI ou pedido novo nesta etapa.
+
+**Travas cumulativas:**
+- `SHOPEE_LIVE_SHIP_ORDER_ROUTE_ENABLED=true` **e** `SHOPEE_LIVE_SHIP_ORDER_ENABLED=true`; sem ambos, HTTP 503 antes de chamar preflight/Core/Shopee.
+- Escopo do piloto precisa coincidir com `SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN`, `SHOPEE_LIVE_CHANNEL_ACCOUNT_ID` e `SHOPEE_LIVE_SHIPPING_FISCAL_MODE` por meio de `SHOPEE_LIVE_SHIP_ORDER_PILOT_ORDER_SN`, `_PILOT_ACCOUNT_ID` e `_PILOT_FISCAL_MODE`, além de `_PILOT_PACKAGE_NUMBER` e `_PILOT_SHOP_ID`. Nenhum parâmetro de pedido vindo do request.
+- `SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT` explícito em UTC, expirando **no máximo 30 minutos** à frente e exigindo mais de 60 segundos restantes no início/antes do claim. Janela encerrada bloqueia; se expirar após claim, proibir POST e reter resultado incerto bloqueado.
+- Pedido atual `READY_TO_SHIP`; **somente** pacote `LOGISTICS_READY`, excluindo `LOGISTICS_PICKUP_RETRY` e reagendamentos no primeiro piloto. Apenas `get_shipping_parameter.info_needed = { dropoff: [] }`, sem pickup, filial extra nem dados de coleta. Fiscal conforme perfil explícito da conta: PJ requer `invoice_data.status=valid`; CPF não presume dispensa legal nem ignora pendência informada pela Shopee.
+- OAuth Live válido da conta autorizada, Shop-ID e parceiro exatos; nenhuma renovação automática dentro da rota. Claim durável fresco no Core obrigatório antes de 1 POST; reserva anterior, conflito, erro fiscal, retorno incerto ou falha de confirmação impedem novo `ship_order`.
+- Resposta e log sanitizados sem token, assinatura, comprador, endereço, XML/NF-e, payload ou URL assinada. HTTP 200 significa apenas **API confirmou organizar envio**, não prova postagem/coleta e não afeta Kanban/estoque.
+
+**Proibições explícitas:** não aplicar migration `20261015233000` neste PR, não acionar Shopee Live nem OAuth, não publicar Hub/Edge, não habilitar gates/scheduler, não gerar etiqueta automaticamente, não marcar `FINALIZADO`. Só após testes da PR será preparada uma janela separada para migration, publicação e uma prova real autorizada.
+
+**Nota de continuidade:** a rota de preflight read-only continua separada, e o fluxo F6-O.2e.3 de criação/recuperação de etiqueta não é substituído por `ship_order`.
