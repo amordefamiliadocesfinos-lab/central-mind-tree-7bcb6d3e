@@ -643,9 +643,56 @@ export type Database = {
           },
         ]
       }
+      commercial_presentation_components: {
+        Row: {
+          id: string
+          presentation_id: string
+          product_id: string
+          quantity: number
+          variant_id: string
+        }
+        Insert: {
+          id?: string
+          presentation_id: string
+          product_id: string
+          quantity: number
+          variant_id: string
+        }
+        Update: {
+          id?: string
+          presentation_id?: string
+          product_id?: string
+          quantity?: number
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_presentation_components_presentation_id_fkey"
+            columns: ["presentation_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_presentation_components_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_presentation_components_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commercial_presentations: {
         Row: {
           commercial_unit_label: string
+          composition_mode: string
           conversion_factor: number
           created_at: string
           id: string
@@ -658,6 +705,7 @@ export type Database = {
         }
         Insert: {
           commercial_unit_label: string
+          composition_mode?: string
           conversion_factor: number
           created_at?: string
           id?: string
@@ -670,6 +718,7 @@ export type Database = {
         }
         Update: {
           commercial_unit_label?: string
+          composition_mode?: string
           conversion_factor?: number
           created_at?: string
           id?: string
