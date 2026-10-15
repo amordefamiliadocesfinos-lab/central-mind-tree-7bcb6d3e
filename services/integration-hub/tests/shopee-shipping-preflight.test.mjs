@@ -6,6 +6,8 @@ import {
   summarizeShippingRequirements,
 } from '../src/shopee-shipping-preflight.mjs';
 import { handleRequest } from '../src/app.mjs';
+import { getShippingParameter } from '../src/connectors/shopee-protocol.mjs';
+import { createHmac } from 'node:crypto';
 
 const ORDER = '261014HX0XSUQU';
 const ACCOUNT = '8a8ad166-0317-4597-8be6-e43fb46b4d1b';
@@ -24,7 +26,7 @@ function fixture(overrides = {}) {
   const env = { ...DEFAULT_ENV, ...(overrides.env ?? {}) };
   const order = {
     order_sn: ORDER, order_status: 'READY_TO_SHIP',
-    package_list: [{ package_number: PKG }],
+    package_list: [{ package_number: PKG, logistics_status: 'LOGISTICS_READY' }],
     invoice_data: { status: 'valid' },
     ...overrides.order,
   };
@@ -104,6 +106,74 @@ test('CPF with Shopee invoice pending still blocks', () => {
     'cpf_no_invoice_step').ready, false);
 });
 
+for (const mode of ['pj_shopee_issuer', 'cpf_no_invoice_step']) {
+  for (const status of ['pending', 'valid']) {
+    test(mode + ' fiscal ' + status + ' controls logistics consultation only', async () => {
+      const { calls, run } = fixture({
+        env: { SHOPEE_LIVE_SHIPPING_FISCAL_MODE: mode },
+        order: { invoice_data: { status } },
+      });
+      const result = await run();
+      assert.equal(result.ok, status === 'valid');
+      assert.equal(calls.some(x => x[0] === 'shipping_parameter'), status === 'valid');
+      assert.notEqual(result.auto_arrangement_authorized, true);
+    });
+  }
+}
+
+test('preflight uses real protocol GET, exact order/package and canonical HMAC', async () => {
+  const observed = [];
+  const { run } = fixture({ dependencies: {
+    readShippingParameter: request => getShippingParameter({
+      ...request,
+      timestamp: 1700000000,
+      fetchImpl: async (url, options) => {
+        observed.push({ url: new URL(url), options });
+        return new Response(JSON.stringify({ error: '', response: { info_needed: { dropoff: [] } } }),
+          { headers: { 'content-type': 'application/json' } });
+      },
+    }),
+  } });
+  assert.equal((await run()).ok, true);
+  assert.equal(observed.length, 1);
+  const { url, options } = observed[0];
+  assert.equal(new Request(url, options).method, 'GET');
+  assert.equal(options.body, undefined);
+  assert.equal(url.pathname, '/api/v2/logistics/get_shipping_parameter');
+  assert.equal(url.searchParams.get('order_sn'), ORDER);
+  assert.equal(url.searchParams.get('package_number'), PKG);
+  const signature = createHmac('sha256', DEFAULT_ENV.SHOPEE_LIVE_PARTNER_KEY)
+    .update('2047685/api/v2/logistics/get_shipping_parameter1700000000fake-test-token531736366')
+    .digest('hex');
+  assert.equal(url.searchParams.get('sign'), signature);
+});
+
+test('partner mismatch blocks before decryption and Shopee reads', async () => {
+  const { calls, run } = fixture({ env: { SHOPEE_LIVE_PARTNER_ID: '999' } });
+  assert.equal((await run()).code, 'partner_id_mismatch');
+  assert.deepEqual(calls.map(x => x[0]), ['oauth_read']);
+});
+
+test('full preflight serialization excludes injected PII and secret material', async () => {
+  const sensitive = 'SYNTHETIC-PRIVATE-DO-NOT-EXPOSE';
+  const { run } = fixture({
+    order: { recipient_address: { full_address: sensitive }, buyer_username: sensitive,
+      invoice_data: { status: 'valid', access_key: sensitive } },
+    dependencies: {
+      readShippingParameter: async () => ({ response: { ok: true }, payload: { response: {
+        info_needed: { pickup: ['address_id', 'pickup_time_id'] },
+        pickup: { address_list: [{ address: sensitive }] }, secret: sensitive,
+      } } }),
+    },
+  });
+  const result = await run();
+  assert.equal(result.ok, true);
+  const serialized = JSON.stringify(result);
+  for (const value of [sensitive, 'fake-test-token', 'ciphertext', DEFAULT_ENV.SHOPEE_LIVE_PARTNER_KEY]) {
+    assert.equal(serialized.includes(value), false);
+  }
+});
+
 for (const status of ['SHIPPED', 'PROCESSED', 'CANCELLED', 'COMPLETED']) {
   test('status ' + status + ' is not eligible for first arrangement preflight', async () => {
     const { calls, run } = fixture({ order: { order_status: status } });
@@ -117,6 +187,36 @@ test('multiple Shopee packages never silently select first', async () => {
     order: { package_list: [{ package_number: PKG }, { package_number: 'PK2' }] },
   });
   assert.equal((await run()).code, 'multiple_or_unknown_packages');
+  assert.equal(calls.some(x => x[0] === 'shipping_parameter'), false);
+});
+
+for (const logisticsStatus of [
+  'LOGISTICS_REQUEST_CREATED', 'LOGISTICS_PICKUP_DONE',
+  'LOGISTICS_DELIVERY_DONE', 'LOGISTICS_REQUEST_CANCELED',
+  'LOGISTICS_INVALID', 'UNKNOWN', undefined,
+]) {
+  test('package status ' + logisticsStatus + ' blocks before shipping_parameter', async () => {
+    const { calls, run } = fixture({ order: {
+      package_list: [{ package_number: PKG, logistics_status: logisticsStatus }],
+    } });
+    const result = await run();
+    assert.equal(result.ok, false);
+    assert.equal(calls.some(x => x[0] === 'shipping_parameter'), false);
+  });
+}
+
+test('documented pickup-retry eligibility remains read-only', async () => {
+  const { run } = fixture({ order: {
+    package_list: [{ package_number: PKG, logistics_status: 'LOGISTICS_PICKUP_RETRY' }],
+  } });
+  const result = await run();
+  assert.equal(result.ok, true);
+  assert.equal(result.auto_arrangement_authorized, false);
+});
+
+test('missing package evidence cannot establish logistics eligibility', async () => {
+  const { calls, run } = fixture({ order: { package_list: undefined } });
+  assert.equal((await run()).ok, false);
   assert.equal(calls.some(x => x[0] === 'shipping_parameter'), false);
 });
 

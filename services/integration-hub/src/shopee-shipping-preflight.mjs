@@ -13,6 +13,10 @@ const PILOT_MODES = new Set(['pj_shopee_issuer', 'cpf_no_invoice_step']);
 const PACKAGE_RE = /^[A-Za-z0-9_-]{1,100}$/;
 const ORDER_RE = /^[A-Za-z0-9]{8,100}$/;
 const REQUIREMENT_KEYS = new Set(['pickup', 'dropoff', 'non_integrated']);
+// get_shipping_parameter requires package-level eligibility, not only order status.
+// LOGISTICS_REQUEST_CREATED additionally requires Instant Order reschedule rules,
+// which this initial read-only preflight does not implement.
+const ELIGIBLE_PACKAGE_STATUSES = new Set(['LOGISTICS_READY', 'LOGISTICS_PICKUP_RETRY']);
 
 function requiredEnv(getEnv, key) {
   const value = getEnv(key);
@@ -36,7 +40,7 @@ function singlePackage(order) {
   }
   const packageNumber = String(packages[0]?.package_number ?? '').trim();
   return PACKAGE_RE.test(packageNumber)
-    ? { ok: true, packageNumber }
+    ? { ok: true, packageNumber, logisticsStatus: packages[0]?.logistics_status }
     : { ok: false, code: 'package_identity_missing' };
 }
 
@@ -148,6 +152,14 @@ export function createShopeeShippingPreflight({
     const fiscal = assessFiscalReadiness(order, fiscalMode);
     if (!fiscal.ready) {
       return { ok: false, code: fiscal.code, order_status: orderStatus };
+    }
+    if (!ELIGIBLE_PACKAGE_STATUSES.has(pkg.logisticsStatus)) {
+      return {
+        ok: false,
+        code: pkg.logisticsStatus === 'LOGISTICS_REQUEST_CREATED'
+          ? 'package_reschedule_not_supported' : 'package_not_ready_for_shipping_parameter',
+        order_status: orderStatus,
+      };
     }
     const params = await readShippingParameter({
       ...signed, shippingParameterPath: SHIPPING_PARAMETER_PATH,
