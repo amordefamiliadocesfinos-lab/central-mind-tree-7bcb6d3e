@@ -199,8 +199,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           const commercialQty = item.commercial_quantity || 0;
           const baseNote = `${name} · ${commercialQty} bandeja(s) · composição fixa`;
           return [
-            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_BRANCO), commercialQty * white, price!.number * white / 18, null, baseNote),
-            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_PRETO), commercialQty * dark, price!.number * dark / 18, null, baseNote),
+            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_BRANCO), commercialQty * white, price!.number / 18, null, baseNote),
+            buildCommercialOrderItem(product, variants.find(candidate => candidate.id === ALFAJOR_PRETO), commercialQty * dark, price!.number / 18, null, baseNote),
           ];
         }
         return [buildCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation)];
