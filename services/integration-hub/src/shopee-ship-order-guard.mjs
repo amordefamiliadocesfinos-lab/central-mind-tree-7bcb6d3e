@@ -88,7 +88,9 @@ export function createGuardedShopeeShipOrder({
       package_number: proof.package_number,
       request_hash: requestHash,
     };
-    const reserved = await claim(metadata);
+    let reserved;
+    try { reserved = await claim(metadata); }
+    catch { return { ok: false, code: 'shipping_claim_not_acquired' }; }
     if (reserved?.ok !== true || reserved.payload?.status !== 'claimed'
         || reserved.payload?.fresh !== true
         || typeof reserved.payload?.attempt_id !== 'string') {
