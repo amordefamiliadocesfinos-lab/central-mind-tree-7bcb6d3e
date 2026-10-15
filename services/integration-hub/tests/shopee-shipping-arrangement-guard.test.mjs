@@ -285,3 +285,22 @@ test('window expiring during slow read-only preflight stops before any durable c
   assert.equal(calls.some(x=>x?.[0]==='claim'),false);
   assert.equal(calls.some(x=>x?.[0]==='ship'),false);
 });
+
+
+test('window expiration after durable claim refuses shipping and leaves a locked uncertain attempt', async () => {
+  let clock=Date.parse('2026-10-15T18:00:00Z');
+  const {calls,run}=fixture({
+    now:()=>clock,
+    claim:async data=>{
+      calls.push(['claim',data]);
+      clock=Date.parse('2026-10-15T18:16:00Z');
+      return {ok:true,payload:{
+        status:'claimed',fresh:true,attempt_id:'123e4567-e89b-42d3-a456-426614174000',
+      }};
+    },
+  });
+  assert.equal((await run()).code,'ship_order_uncertain_requires_reconciliation');
+  assert.equal(calls.filter(x=>x?.[0]==='claim').length,1);
+  assert.equal(calls.some(x=>x?.[0]==='ship'),false);
+  assert.equal(calls.find(x=>x?.[0]==='resolve')?.[1].outcome,'uncertain');
+});
