@@ -309,6 +309,15 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
+                  const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
+                  const product = products.find(candidate => candidate.id === item.product_id);
+                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
+                  updateItem(index, { commercial_presentation: presentation, variant_id: presentation?.composition_mode === 'composite' ? null : item.variant_id, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
+                }} disabled={!item.product_id}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                  <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
+                </Select>
                 {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                   <Select value={item.variant_id || ''} onValueChange={(value) => pickVariant(index, value)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
@@ -319,15 +328,6 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     </SelectContent>
                   </Select>
                 ) : <div className="hidden sm:block" />}
-                <Select value={item.commercial_presentation?.id ?? '__direct__'} onValueChange={(value) => {
-                  const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).find(candidate => candidate.id === value) ?? null;
-                  const product = products.find(candidate => candidate.id === item.product_id);
-                  const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
-                  updateItem(index, { commercial_presentation: presentation, variant_id: presentation?.composition_mode === 'composite' ? null : item.variant_id, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
-                }} disabled={!item.product_id}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
-                  <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
-                </Select>
                 <Input
                   type="number" inputMode="decimal" className="h-8 text-xs" value={item.commercial_quantity}
                   onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
