@@ -538,3 +538,86 @@ export function downloadShippingDocument({
     responseMode: 'raw',
   });
 }
+
+
+/**
+ * F6-O.2e.2b — Signed transport primitive ONLY, NOT a runnable workflow.
+ * Restricted to the documented BR case info_needed={dropoff: []}.
+ * A future caller MUST establish fresh order+package+fiscal eligibility,
+ * an atomic durable idempotency claim and explicit feature gate BEFORE
+ * invoking this mutating Shopee API. No route invokes it in this phase.
+ */
+export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded }) {
+  const order = requiredText(orderSn, 'orderSn');
+  const pkg = requiredText(packageNumber, 'packageNumber');
+  if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)) {
+    throw new TypeError('invalid_shipping_identity');
+  }
+  if (infoNeeded === null || typeof infoNeeded !== 'object' || Array.isArray(infoNeeded)
+      || Object.keys(infoNeeded).length !== 1 || !Object.hasOwn(infoNeeded, 'dropoff')
+      || !Array.isArray(infoNeeded.dropoff) || infoNeeded.dropoff.length !== 0) {
+    throw new TypeError('simple_dropoff_requires_empty_dropoff_only');
+  }
+  return { order_sn: order, package_number: pkg, dropoff: {} };
+}
+
+export function shipOrderSimpleDropoff({
+  apiBaseUrl,
+  shipOrderPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSn,
+  packageNumber,
+  infoNeeded,
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  const body = buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded });
+  return signedShopPost({
+    apiBaseUrl,
+    path: shipOrderPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    body,
+    fetchImpl,
+    timestamp,
+  });
+}
+
+/**
+ * Signed read-only tracking query; may have no tracking number immediately
+ * after arrangement. Callers must not treat an empty result as success.
+ */
+export function getTrackingNumber({
+  apiBaseUrl,
+  getTrackingNumberPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSn,
+  packageNumber,
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  const order = requiredText(orderSn, 'orderSn');
+  const pkg = requiredText(packageNumber, 'packageNumber');
+  if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)) {
+    throw new TypeError('invalid_tracking_identity');
+  }
+  return signedShopGet({
+    apiBaseUrl,
+    path: getTrackingNumberPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    query: { order_sn: order, package_number: pkg },
+    fetchImpl,
+    timestamp,
+  });
+}
