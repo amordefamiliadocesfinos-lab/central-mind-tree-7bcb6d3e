@@ -115,12 +115,12 @@ test('tracking query is signed GET and includes package number', async () => {
   assert.equal(calls[0].url.searchParams.get('sign'), sign);
 });
 
-test('no route is created to invoke ship_order in the deployed Hub', async () => {
+test('ship_order route remains disabled by default before reaching library', async () => {
   const path = '/internal/shopee/live/logistics/shipping/ship-once';
   const result = await handleRequest({ method: 'POST', path, query: {} }, {
     handleShopeeLive: async () => null,
   });
-  assert.equal(result.status, 404);
+  assert.equal(result.status, 503);
 });
 
 for (const extra of [{ pickup: {} }, { dropoff: { branch_id: 123 } }, { body: {} }, { query: {} }]) {
