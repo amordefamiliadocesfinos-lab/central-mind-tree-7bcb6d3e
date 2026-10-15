@@ -267,6 +267,7 @@ async function signedShopPost({
   body = {},
   fetchImpl = globalThis.fetch,
   timestamp,
+  responseMode = 'json',
 }) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   const normalizedPartnerId = requiredPositiveInteger(partnerId, 'partnerId');
@@ -297,6 +298,7 @@ async function signedShopPost({
     },
     body: JSON.stringify(body ?? {}),
   });
+  if (responseMode === 'raw') return { response };
   const rawText = await response.text();
   return { response, payload: parseJsonPayload(rawText), rawText };
 }
@@ -460,4 +462,79 @@ export function getOrderDetail({
 export function parseShopeeError(payload) {
   const error = payload && typeof payload.error === 'string' ? payload.error : '';
   return error.trim();
+}
+
+
+const SHIPPING_DOCUMENT_TYPES = new Set(['NORMAL_AIR_WAYBILL', 'THERMAL_AIR_WAYBILL']);
+
+function normalizeSingleShippingDocumentOrder(orderSn, packageNumber) {
+  const entry = { order_sn: requiredText(orderSn, 'orderSn') };
+  if (packageNumber !== null && packageNumber !== undefined && String(packageNumber).trim() !== '') {
+    entry.package_number = String(packageNumber).trim();
+  }
+  return [entry];
+}
+
+export function getShippingDocumentResult({
+  apiBaseUrl,
+  shippingDocumentResultPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSn,
+  packageNumber = null,
+  shippingDocumentType = 'NORMAL_AIR_WAYBILL',
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (!SHIPPING_DOCUMENT_TYPES.has(shippingDocumentType)) {
+    throw new TypeError('unsupported shipping document type');
+  }
+  const orderList = normalizeSingleShippingDocumentOrder(orderSn, packageNumber);
+  orderList[0].shipping_document_type = shippingDocumentType;
+  return signedShopPost({
+    apiBaseUrl,
+    path: shippingDocumentResultPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    body: { order_list: orderList },
+    fetchImpl,
+    timestamp,
+  });
+}
+
+export function downloadShippingDocument({
+  apiBaseUrl,
+  downloadShippingDocumentPath,
+  partnerId,
+  partnerKey,
+  accessToken,
+  shopId,
+  orderSn,
+  packageNumber = null,
+  shippingDocumentType = 'NORMAL_AIR_WAYBILL',
+  fetchImpl = globalThis.fetch,
+  timestamp,
+}) {
+  if (shippingDocumentType !== 'NORMAL_AIR_WAYBILL') {
+    throw new TypeError('F6-O.2b pilot only accepts NORMAL_AIR_WAYBILL PDF');
+  }
+  return signedShopPost({
+    apiBaseUrl,
+    path: downloadShippingDocumentPath,
+    partnerId,
+    partnerKey,
+    accessToken,
+    shopId,
+    body: {
+      order_list: normalizeSingleShippingDocumentOrder(orderSn, packageNumber),
+      shipping_document_type: shippingDocumentType,
+    },
+    fetchImpl,
+    timestamp,
+    responseMode: 'raw',
+  });
 }
