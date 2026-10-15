@@ -16,6 +16,8 @@ on:
       - 'src/components/crm/CampaignCreateDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
       - 'supabase/functions/whatsapp-send/index.ts'
+      - 'supabase/functions/crm-ai-assistant/index.ts'
+      - 'supabase/functions/_shared/crm/reply-financial-guard.ts'
       - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
       - 'src/components/crm/PosVendaPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
@@ -68,6 +70,7 @@ jobs:
             src/lib/crm/officialTask.test.ts \
             src/lib/crm/aiContext.test.ts \
             src/lib/crm/crmPaymentSafety.test.ts \
+            src/lib/crm/replyFinancialGuard.test.ts \
             src/lib/crm/aiResultSuggestion.test.ts \
             src/lib/crm/campaignSales.test.ts \
             src/lib/crm/campaignPerformance.test.ts; do
