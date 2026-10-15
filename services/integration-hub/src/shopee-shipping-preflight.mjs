@@ -177,6 +177,16 @@ export function createShopeeShippingPreflight({
       fiscal: fiscal.code,
       modes: shipping.modes,
       auto_arrangement_authorized: false,
+      // Internal-only proof fields, never returned by the HTTP preflight route.
+      // Caller must still acquire a durable Core claim before any Shopee POST.
+      order_sn: orderSn,
+      package_number: pkg.packageNumber,
+      shop_id: shopId,
+      simple_dropoff_confirmed: (
+        Object.keys(params.payload?.response?.info_needed ?? {}).length === 1
+        && Array.isArray(params.payload?.response?.info_needed?.dropoff)
+        && params.payload.response.info_needed.dropoff.length === 0
+      ),
       // Deliberately no raw address, branch, signature, token, invoice or buyer PII.
     };
   };
