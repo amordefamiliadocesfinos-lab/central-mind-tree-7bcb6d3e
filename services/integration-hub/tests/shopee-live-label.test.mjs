@@ -9,7 +9,7 @@ const target = '261013HKHWK3V7';
 const pkg = 'OFG245605119132474';
 const channel = '8a8ad166-0317-4597-8be6-e43fb46b4d1b';
 const pdf = Buffer.from('%PDF-1.4\n1 0 obj\nendobj\n%%EOF\n');
-const storageUrl = 'https://xkskyutmtlhivvpfxkjg.supabase.co/storage/v1/object/upload/sign/order-documents/a.pdf?token=dummy';
+const storageUrl = 'https://xkskyutmtlhivvpfxkjg.supabase.co/storage/v1/object/upload/sign/shopee-labels/a.pdf?token=dummy';
 const env = {
   SHOPEE_LIVE_PARTNER_ID: '2047685',
   SHOPEE_LIVE_PARTNER_KEY: 'fake-partner-key',
