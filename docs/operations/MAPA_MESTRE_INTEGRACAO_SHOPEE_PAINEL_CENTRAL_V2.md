@@ -513,4 +513,17 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 - Se elegível, chama **apenas GET assinado** de `get_shipping_parameter`; a saída sanitiza as modalidades `pickup`, `dropoff` ou `non_integrated`, sem devolver endereços, campos pessoais nem tokens.
 - A saída fixa `auto_arrangement_authorized=false` até existir política explícita de escolha de modalidade/endereço/filial e writer idempotente persistido no Core. Não chamar `ship_order`, `create_shipping_document`, `get_tracking_number` ou qualquer operação de escrita nesta etapa.
 
-**Estado:** PR em validação; nenhuma execução Shopee Live ou implantação. Próximo passo: validar testes e critérios fiscais, merge em main e preparar futura prova read-only separadamente. Somente depois projetar escrita controlada do `ship_order` com trilha, idempotência e rollback lógico.
+**Estado:** F6-O.2e.2a aprovada, testes 268/268 PASS no ambiente Codex/Node22 e Docker, integrada à main pela PR #276 no merge `309b2a706ffb5e9ab9565873c70413ea8f373b1a` (15/10/2026). Rota preflight permanece desligada; nenhuma execução Shopee Live nem implantação da nova rota. Próxima prova read-only exige janela própria. Organizar envio requer writer idempotente separado.
+
+
+### 11.5 F6-O.2e.2b — Contratos assinados de `ship_order` / rastreio (código em validação)
+
+**Escopo estritamente de biblioteca — NÃO acionável em produção nesta etapa.** `shipOrderSimpleDropoff()` monta uma chamada POST assinada Shopee `/api/v2/logistics/ship_order` com pedido e pacote exatos, **somente** quando `get_shipping_parameter.info_needed` contém exclusivamente `dropoff: []`. O payload é `{order_sn,package_number,dropoff:{}}`. Outros requisitos (`sender_real_name`, `branch_id`, pickup, não integrado, campos adicionais, multimodalidade) bloqueiam, sem adivinhar parâmetros. `getTrackingNumber()` implementa GET assinado para ler rastreio do pedido/pacote; resultado vazio não é confirmação de postagem.
+
+- Não expor rota `ship_order`, não acrescentar scheduler nem ativar gate nesta PR. O cliente da Open Platform é capaz de enviar POST **somente se uma futura camada de orquestração chamá-lo**. A implementação atual não efetua chamadas por si mesma.
+- **Futura condição obrigatória:** confirmar evidência atualizada de conta, perfil fiscal, pedido, pacote e parâmetros, garantir token íntegro, política logística permitida e adquirir **claim durável atômico de idempotência no Core** para conta + pedido + pacote + operação antes de qualquer writer.
+- Após POST, registrar request_id, resposta/situação, transições e ambiguidades com trilha auditável; timeout/resultado incerto deve impedir retry cego e exigir reconciliação por leitura.
+- A devolução de rastreio não prova coleta física. A finalização/baixa continua exclusiva do processo F6-O.2c mediante sinal confiável de evento físico.
+- Referências contratuais: [ship_order](https://open.shopee.com/documents/v2/v2.logistics.ship_order?module=95&type=1), [get_tracking_number](https://open.shopee.com/documents/v2/v2.logistics.get_tracking_number?module=95&type=1). Para Brasil, `dropoff: []` documentado em anúncio Shopee de 19/01/2026; seguir estritamente `info_needed` do pedido real.
+
+**Estado:** PR draft de preparação de biblioteca; testes sintéticos escritos, ainda sem execução validada. Sem alteração de production, sem emissão fiscal, sem writer executável.
