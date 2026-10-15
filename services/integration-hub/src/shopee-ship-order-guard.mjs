@@ -140,6 +140,14 @@ export function createGuardedShopeeShipOrder({
     // After reservation, ANY transport ambiguity must keep the one-shot claim.
     let outcome = 'uncertain';
     try {
+      // A claim may take time to persist. Refuse transport if the approved
+      // window expired after reservation; retain an uncertain locked attempt.
+      const remainingAfterClaim = Date.parse(
+        String(getEnv('SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT') ?? '')
+      ) - now();
+      if (!Number.isFinite(remainingAfterClaim) || remainingAfterClaim <= 0) {
+        throw new Error('window_expired_after_claim');
+      }
       const response = await ship({
         apiBaseUrl: API_BASE, shipOrderPath: SHIPPING_PATH,
         partnerId, partnerKey, accessToken, shopId,
