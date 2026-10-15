@@ -13,6 +13,7 @@ import { canSetReturnAt } from '@/lib/crm/canonical/temporal';
 import { classifyTemporalFact, getTemporalInvalidations, type TemporalSchedule } from '@/lib/crm/temporalAuthority';
 import { clearPostSaleOrderContext, getMatchingPostSaleOrderContext } from '@/lib/crm/postSaleOrderContext';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
+import type { CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 
 export type AttendanceOutcome =
   | 'awaiting_response' | 'proposal_sent' | 'negotiation' | 'sale_closed'
@@ -76,6 +77,7 @@ export async function applyCanonicalAttendanceResult(input: {
   conversationId: string;
   resultCode: CrmResultCode;
   scheduledFor?: string | null;
+  selectionOrigin?: CrmResultSelectionOrigin;
 }) {
   const now = new Date().toISOString();
   const canonicalResult = getCanonicalResult(input.resultCode);
@@ -249,6 +251,8 @@ export async function applyCanonicalAttendanceResult(input: {
     event_code: CRM_EVENT_CODES.CONTACT_ATTEMPTED,
     event_metadata: {
       source: 'inbox_canonical_result',
+      // O modelo pode sugerir, mas o operador sempre confirma a escolha.
+      selection_origin: input.selectionOrigin ?? 'unspecified',
       result_code: input.resultCode,
       next_action_code: decision.nextAction.value,
       next_action_date: shouldSchedule ? scheduledAt : null,

@@ -13,6 +13,7 @@ on:
       - 'src/components/crm/CampaignsListDialog.tsx'
       - 'src/components/crm/CampaignPerformancePanel.tsx'
       - 'src/components/crm/InboxSaleDialog.tsx'
+      - 'src/components/crm/AttendanceActionBar.tsx'
       - 'src/components/crm/CampaignCreateDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
       - 'supabase/functions/whatsapp-send/index.ts'
@@ -72,6 +73,7 @@ jobs:
             src/lib/crm/crmPaymentSafety.test.ts \
             src/lib/crm/replyFinancialGuard.test.ts \
             src/lib/crm/aiResultSuggestion.test.ts \
+            src/lib/crm/resultRegistrationPresentation.test.ts \
             src/lib/crm/campaignSales.test.ts \
             src/lib/crm/campaignPerformance.test.ts; do
             echo "::group::Test ${file}"
