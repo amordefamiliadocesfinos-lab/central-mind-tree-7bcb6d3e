@@ -21,6 +21,8 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
   SHOPEE_ORDER_CREATE: 'shopee.order.create',
   SHOPEE_ORDER_INTAKE_BATCH_READ: 'shopee.order_intake_batch.read',
+  SHOPEE_SHIPPING_LABEL_PREPARE: 'shopee.shipping_label.prepare',
+  SHOPEE_SHIPPING_LABEL_COMMIT: 'shopee.shipping_label.commit',
 });
 
 export function sha256Hex(bytes) {
