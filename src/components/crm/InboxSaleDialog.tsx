@@ -370,7 +370,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>
+                {item.product_id === ALFAJOR_ID && item.commercial_presentation && MIXES[item.commercial_presentation.name] ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Composição física: {(item.commercial_quantity || 0) * MIXES[item.commercial_presentation.name][0]} Branco + {(item.commercial_quantity || 0) * MIXES[item.commercial_presentation.name][1]} Preto · separação por variante
+                  </p>
+                ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
               </div>
             ))}
           </div>
