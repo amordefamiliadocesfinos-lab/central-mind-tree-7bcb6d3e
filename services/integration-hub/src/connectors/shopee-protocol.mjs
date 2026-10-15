@@ -4,6 +4,8 @@ export {
   getOrderDetail,
   getOrderList,
   getShippingDocumentParameter,
+  getShippingDocumentResult,
+  downloadShippingDocument,
   getShippingParameter,
   getShopInfo,
   parseShopeeError,
