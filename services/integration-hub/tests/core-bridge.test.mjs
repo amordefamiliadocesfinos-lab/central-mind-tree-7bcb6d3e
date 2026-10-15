@@ -204,3 +204,56 @@ test('F6-O.2b HMAC Bridge accepts bounded label prepare/commit and rejects forge
   assert.equal((await send({ action: 'shopee.shipping_label.prepare', ...metadata, signed_upload_url: 'evil' })).status, 400);
   assert.deepEqual(received, ['shopee.shipping_label.prepare', 'shopee.shipping_label.commit']);
 });
+
+
+test('F6-O.2e.2c HMAC Core Bridge only accepts exact claim/resolve shapes', async () => {
+  const accepted = [];
+  const bridge = createBridgeHandler({
+    getSecret: () => SECRET,
+    checkCore: async () => true,
+    executeAction: async payload => {
+      accepted.push(payload.action);
+      return { status: 200, body: { status: 'ok' } };
+    },
+  });
+  const claim = {
+    action: 'shopee.shipping_arrangement.claim',
+    channel_account_id: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
+    shop_id: 531736366,
+    order_sn: '261014HX0XSUQU',
+    package_number: 'OFG245605119132474',
+    request_hash: 'a'.repeat(64),
+  };
+  const resolution = {
+    action: 'shopee.shipping_arrangement.resolve',
+    attempt_id: '123e4567-e89b-42d3-a456-426614174000',
+    request_hash: 'a'.repeat(64),
+    outcome: 'uncertain',
+  };
+  const send = async payload => {
+    const body = JSON.stringify(payload);
+    return bridge(new Request(CORE_BRIDGE_URL, {
+      method: 'POST', body,
+      headers: buildSignedHeaders({
+        secret: SECRET, body,
+        contentType: 'application/vnd.painel.shopee-live-v1+json',
+      }),
+    }));
+  };
+  assert.equal((await send(claim)).status, 200);
+  assert.equal((await send(resolution)).status, 200);
+  for (const bad of [
+    { ...claim, shop_id: -1 },
+    { ...claim, order_sn: '../unsafe' },
+    { ...claim, package_number: null },
+    { ...claim, request_hash: 'not-a-sha' },
+    { ...claim, force: true },
+    { ...resolution, outcome: 'retry' },
+    { ...resolution, outcome: 'succeeded', proof: 'fabricated' },
+    { ...resolution, attempt_id: 'abc' },
+  ]) {
+    assert.equal((await send(bad)).status, 400);
+  }
+  assert.deepEqual(accepted,
+    ['shopee.shipping_arrangement.claim', 'shopee.shipping_arrangement.resolve']);
+});

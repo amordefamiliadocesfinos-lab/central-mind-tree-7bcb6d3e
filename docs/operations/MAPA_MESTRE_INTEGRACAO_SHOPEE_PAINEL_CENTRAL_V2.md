@@ -526,4 +526,19 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 - A devolução de rastreio não prova coleta física. A finalização/baixa continua exclusiva do processo F6-O.2c mediante sinal confiável de evento físico.
 - Referências contratuais: [ship_order](https://open.shopee.com/documents/v2/v2.logistics.ship_order?module=95&type=1), [get_tracking_number](https://open.shopee.com/documents/v2/v2.logistics.get_tracking_number?module=95&type=1). Para Brasil, `dropoff: []` documentado em anúncio Shopee de 19/01/2026; seguir estritamente `info_needed` do pedido real.
 
-**Estado:** PR draft de preparação de biblioteca; testes sintéticos escritos, ainda sem execução validada. Sem alteração de production, sem emissão fiscal, sem writer executável.
+**Estado:** PR #277 aprovada (295/295 testes PASS, build Docker PASS), mesclada na `main` pelo commit `3f76bc8178f7c78a68394d4492f9170b13b32f23`. Biblioteca assinada presente no código, sem rota executável nem deploy posterior ao F6-O.2b.
+
+
+### 11.6 F6-O.2e.2c — Controle durável de idempotência de `ship_order` (em implementação isolada)
+
+**Alvo:** impedir que instâncias concorrentes do Hub, dois cliques, timeouts ou reprocessamentos organizem o mesmo envio da Shopee mais de uma vez. A **reserva e a verdade das tentativas são soberanas do Core**, jamais gravadas diretamente pelo Hub ou no browser.
+
+**Novo ledger preparado:** `public.shopee_shipping_arrangement_attempts` com identidade única `(channel_account_id,order_sn,package_number,operation)`, vínculo com o pedido canônico, shop_id da conexão OAuth, hash SHA-256 do payload de POST, estado `claimed | succeeded | uncertain`, instante de claim e resolução. Sem autoexpiração do claim, sem retry automático e com RLS sem políticas de leitura/escrita para usuários; duas RPCs `claim_shopee_shipping_arrangement` e `resolve_shopee_shipping_arrangement` somente `service_role`. A nova migration `20261015233000_shopee_shipping_arrangement_idempotency.sql` **NÃO FOI APLICADA**.
+
+**Core Bridge:** apenas ações HMAC v1 `shopee.shipping_arrangement.claim` e `shopee.shipping_arrangement.resolve`, schema estrito. O Core valida conta Shopee ativa, Shop-ID OAuth Live, um pedido canônico da mesma conta, operação limitada a `ship_order`; claim concorrente é barrado no índice único. Status já `claimed`, `succeeded`, `uncertain` ou alteração de hash/Shop-ID não permite nova autorização de envio.
+
+**Hub:** `createGuardedShopeeShipOrder()` está preparado como biblioteca interna, **sem rota HTTP e sem agendamento**, com gate extra `SHOPEE_LIVE_SHIP_ORDER_ENABLED` desabilitado por padrão. Só admite preflight fiscal/logístico atual bem-sucedido para **pedido/pacote exatos** com `info_needed={dropoff: []}`, perfil configurado e OAuth válido; obtém claim fresco no Core antes de chamar `ship_order` exatamente uma vez. Um retorno positivo da API registra `succeeded`; timeout/erro/resposta ambígua vira `uncertain`, sem assumir postagem/coleta física. Se o resultado não puder ser registrado no Core, a reserva permanece bloqueada: reportar `sent_but_core_confirmation_missing` e reconciliar antes de qualquer novo envio.
+
+**Condição de implantação:** revisão da migration e RPCs em Postgres local (incluindo concorrência, acesso sem permissão e replay), testes Node22/Docker e Deno check; PR/merge, migration e publicação são passos distintos e controlados. A criação de rota `ship-once`, a seleção de pedido piloto, habilitação temporária de gates e a prova Shopee Live requerem frente/janela específicas posteriores. Não sincronizar etiquetas nem finalizar separação como efeito implícito de `ship_order`.
+
+**Estados não são os três status do Kanban:** este ledger é técnico e independente das colunas `A FAZER → EM PREPARAÇÃO → FINALIZADO`, que permanecem inalteradas. A coleta física ainda precisa de comprovação F6-O.2c.

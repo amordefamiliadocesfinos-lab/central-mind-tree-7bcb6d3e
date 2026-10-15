@@ -23,6 +23,8 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_ORDER_INTAKE_BATCH_READ: 'shopee.order_intake_batch.read',
   SHOPEE_SHIPPING_LABEL_PREPARE: 'shopee.shipping_label.prepare',
   SHOPEE_SHIPPING_LABEL_COMMIT: 'shopee.shipping_label.commit',
+  SHOPEE_SHIPPING_ARRANGEMENT_CLAIM: 'shopee.shipping_arrangement.claim',
+  SHOPEE_SHIPPING_ARRANGEMENT_RESOLVE: 'shopee.shipping_arrangement.resolve',
 });
 
 export function sha256Hex(bytes) {
@@ -238,6 +240,25 @@ export function readLiveShopeeOrderIntakeBatch(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ,
+    data,
+  });
+}
+
+
+// Prepared library endpoints only: the Hub has no route invoking ship_order.
+// These requests can claim/resolve ledger state, not modify a Shopee order.
+export function claimShopeeShippingArrangement(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_SHIPPING_ARRANGEMENT_CLAIM,
+    data,
+  });
+}
+
+export function resolveShopeeShippingArrangement(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_SHIPPING_ARRANGEMENT_RESOLVE,
     data,
   });
 }
