@@ -5,6 +5,7 @@ import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
 import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
 import { syncReadyShopeeLabel } from './shopee-live-label.mjs';
+import { inspectShopeeShippingPreflight } from './shopee-shipping-preflight.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -35,6 +36,7 @@ export async function handleRequest(
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
     syncShopeeLabel = syncReadyShopeeLabel,
+    inspectShippingPreflight = inspectShopeeShippingPreflight,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -87,6 +89,39 @@ export async function handleRequest(
     }
   }
 
+
+
+  // Diagnóstico fiscal/logístico read-only do pedido piloto: desligado por padrão.
+  // Não chama ship_order, create_shipping_document ou escritores do Core.
+  if (normalizedPath === '/internal/shopee/live/logistics/shipping/preflight-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+    const enabled = String(getEnv('SHOPEE_LIVE_SHIPPING_PREFLIGHT_ENABLED') ?? '')
+      .trim().toLowerCase() === 'true';
+    if (!enabled) return json(503, { error: 'shipping_preflight_not_enabled' });
+    const orderSn = String(getEnv('SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN') ?? '').trim();
+    const fiscalMode = String(getEnv('SHOPEE_LIVE_SHIPPING_FISCAL_MODE') ?? '').trim();
+    if (!orderSn || !['pj_shopee_issuer', 'cpf_no_invoice_step'].includes(fiscalMode)) {
+      return json(503, { error: 'shipping_preflight_not_configured' });
+    }
+    try {
+      const result = await inspectShippingPreflight();
+      const response = {
+        status: result?.ok === true ? 'ok' : 'blocked',
+        mode: 'read_only',
+        code: result?.code ?? 'unknown_error',
+        order_status: result?.order_status ?? null,
+        fiscal: result?.fiscal ?? null,
+        modes: Array.isArray(result?.modes) ? result.modes : [],
+        auto_arrangement_authorized: false,
+      };
+      return json(result?.ok === true ? 200 : 409, response);
+    } catch {
+      return json(503, { status: 'degraded', mode: 'read_only', code: 'runtime_exception' });
+    }
+  }
 
   // Ação restrita ao pedido piloto configurado no runtime. Desabilitada por padrão.
   if (normalizedPath === '/internal/shopee/live/logistics/label/sync-once') {

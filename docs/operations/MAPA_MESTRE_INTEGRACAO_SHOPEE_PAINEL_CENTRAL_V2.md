@@ -500,3 +500,17 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 
 **Não autorizado por este registro:** emissão fiscal, `ship_order`, `create_shipping_document`, refresh OAuth, mudanças no scheduler/gates, alterações fiscais, migrations, Cloud Run ou writes produtivos. Não habilitar integração para outras contas sem vínculo OAuth válido e regras por loja comprovadas.
 
+
+### 11.4 F6-O.2e.2a — Pré-check fiscal e logístico read-only (código em validação)
+
+**Entrega mínima anterior a qualquer writer `ship_order`.** Em branch, o Hub expõe a rota IAM privada `POST /internal/shopee/live/logistics/shipping/preflight-once`, desligada por padrão pela variável `SHOPEE_LIVE_SHIPPING_PREFLIGHT_ENABLED`. A rota não aceita filtros de pedido enviados pelo cliente; consulta apenas o pedido-piloto fixado em `SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN`.
+
+- `SHOPEE_LIVE_SHIPPING_FISCAL_MODE` **não tem default**: piloto exige configuração explícita `pj_shopee_issuer` ou `cpf_no_invoice_step`; **não equivale a dispensa fiscal legal** e não habilita fluxo produtivo.
+- Exige conexão OAuth piloto válida e parceiro correto, sem executar refresh.
+- Consulta pedido Shopee (ordem e pacote único exatos) e rejeita status diferente de `READY_TO_SHIP` para primeira organização de envio. Estados de reagendamento e múltiplos pacotes são casos posteriores.
+- Antes de `get_shipping_parameter`, exige evidência em `package_list[].logistics_status`: `LOGISTICS_READY` ou `LOGISTICS_PICKUP_RETRY`. Pacote/status ausente ou desconhecido bloqueia. `LOGISTICS_REQUEST_CREATED` exige condições específicas de reagendamento não implementadas e permanece bloqueado. Contratos: [parâmetros de envio](https://open.shopee.com/documents/v2/v2.logistics.get_shipping_parameter?module=95&type=1) e [detalhe do pedido](https://open.shopee.com/documents/v2/v2.order.get_order_detail?module=94&type=1).
+- PJ exige `invoice_data.status=valid`; pendência fiscal detectada bloqueia ambos os modos. Estado fiscal ausente no PJ bloqueia. O preflight não emite, envia nem baixa NF-e.
+- Se elegível, chama **apenas GET assinado** de `get_shipping_parameter`; a saída sanitiza as modalidades `pickup`, `dropoff` ou `non_integrated`, sem devolver endereços, campos pessoais nem tokens.
+- A saída fixa `auto_arrangement_authorized=false` até existir política explícita de escolha de modalidade/endereço/filial e writer idempotente persistido no Core. Não chamar `ship_order`, `create_shipping_document`, `get_tracking_number` ou qualquer operação de escrita nesta etapa.
+
+**Estado:** PR em validação; nenhuma execução Shopee Live ou implantação. Próximo passo: validar testes e critérios fiscais, merge em main e preparar futura prova read-only separadamente. Somente depois projetar escrita controlada do `ship_order` com trilha, idempotência e rollback lógico.
