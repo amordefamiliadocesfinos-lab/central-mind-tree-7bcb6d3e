@@ -299,9 +299,116 @@ async function persistRawSnapshot(
     : { status: 200, body: { status: 'ok', action: payload.action } };
 }
 
+
+const LABEL_BUCKET = 'order-documents';
+const LABEL_MAX_BYTES = 4 * 1024 * 1024;
+
+async function labelDocumentLocator(core: CoreClient, payload: Record<string, unknown>) {
+  const channelAccountId = String(payload.channel_account_id);
+  const shopId = Number(payload.shop_id);
+  const orderSn = String(payload.order_sn);
+  const packageNumber = payload.package_number === null ? null : String(payload.package_number);
+
+  const account = await activeChannelAccount(core, channelAccountId);
+  if (account.unavailable) return { status: 503, error: 'core_unavailable' };
+  if (!account.ok) return { status: 409, error: 'channel_account_unavailable' };
+
+  const [oauth, found] = await Promise.all([
+    core.from('shopee_oauth_connections').select('shop_id')
+      .eq('channel_account_id', channelAccountId).eq('environment', LIVE).maybeSingle(),
+    core.from('orders').select('id,order_number')
+      .eq('channel_account_id', channelAccountId)
+      .eq('order_number', orderSn)
+      .eq('sale_origin', 'shopee_open_platform')
+      .limit(2),
+  ]);
+  if (oauth.error || found.error) return { status: 503, error: 'label_reference_lookup_failed' };
+  if (Number(oauth.data?.shop_id) !== shopId || (found.data ?? []).length !== 1) {
+    return { status: 409, error: 'label_order_account_mismatch' };
+  }
+
+  const orderId = String(found.data[0].id);
+  const keyBytes = new TextEncoder().encode([channelAccountId, shopId, orderSn, packageNumber ?? ''].join(':'));
+  const digest = await crypto.subtle.digest('SHA-256', keyBytes);
+  const key = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  const storagePath = orderId + '/shopee-' + key + '.pdf';
+  const existing = await core.from('order_documents')
+    .select('id,document_type,source').eq('storage_bucket', LABEL_BUCKET)
+    .eq('storage_path', storagePath).limit(2);
+  if (existing.error) return { status: 503, error: 'label_document_lookup_failed' };
+  if ((existing.data ?? []).length > 1) return { status: 409, error: 'label_document_duplicate' };
+  if (existing.data?.length === 1 && (
+    existing.data[0].document_type !== 'shipping_label'
+    || existing.data[0].source !== 'shopee_open_platform'
+  )) return { status: 409, error: 'label_document_conflict' };
+  return { orderId, storagePath, existingId: existing.data?.[0]?.id ?? null };
+}
+
+async function executeLabelAction(core: CoreClient, payload: Record<string, unknown>) {
+  const locator = await labelDocumentLocator(core, payload);
+  if ('error' in locator) return { status: locator.status, body: { error: locator.error } };
+  if (locator.existingId) {
+    return {
+      status: 200,
+      body: { status: 'ok', action: payload.action, already_exists: true, document_id: locator.existingId },
+    };
+  }
+
+  if (payload.action === 'shopee.shipping_label.prepare') {
+    const { data, error } = await core.storage.from(LABEL_BUCKET).createSignedUploadUrl(locator.storagePath);
+    if (error || !data?.signedUrl) {
+      return { status: 503, body: { error: 'label_upload_prepare_failed' } };
+    }
+    return {
+      status: 200,
+      body: { status: 'ok', action: payload.action, already_exists: false,
+        upload_url: data.signedUrl, storage_path: locator.storagePath },
+    };
+  }
+
+  // Commit somente depois de ler o arquivo privado e verificar integridade e identidade.
+  const downloaded = await core.storage.from(LABEL_BUCKET).download(locator.storagePath);
+  if (downloaded.error || !downloaded.data) {
+    return { status: 409, body: { error: 'label_upload_missing' } };
+  }
+  const bytes = new Uint8Array(await downloaded.data.arrayBuffer());
+  if (bytes.length !== Number(payload.file_size)
+      || bytes.length > LABEL_MAX_BYTES || bytes.length < 16
+      || String.fromCharCode(...bytes.slice(0, 5)) !== '%PDF-') {
+    return { status: 409, body: { error: 'label_pdf_invalid' } };
+  }
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const actualHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  if (actualHash !== payload.sha256) {
+    return { status: 409, body: { error: 'label_integrity_mismatch' } };
+  }
+
+  const inserted = await core.from('order_documents').insert({
+    order_id: locator.orderId,
+    document_type: 'shipping_label',
+    file_url: null,
+    file_name: 'shopee-' + String(payload.order_sn) + '.pdf',
+    source: 'shopee_open_platform',
+    storage_bucket: LABEL_BUCKET,
+    storage_path: locator.storagePath,
+    mime_type: 'application/pdf',
+    file_size: bytes.length,
+  }).select('id').single();
+  if (inserted.error || !inserted.data?.id) {
+    // Unique storage locator constraint makes concurrent duplicates fail closed.
+    return { status: 503, body: { error: 'label_document_persistence_failed' } };
+  }
+  return { status: 200, body: { status: 'ok', action: payload.action,
+    already_exists: false, document_id: String(inserted.data.id) } };
+}
+
 async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
+
+  if (payload.action === 'shopee.shipping_label.prepare' || payload.action === 'shopee.shipping_label.commit') {
+    return executeLabelAction(core, payload);
+  }
 
   if (payload.action === 'shopee.oauth_state.create') {
     const channelAccountId = String(payload.channel_account_id);
