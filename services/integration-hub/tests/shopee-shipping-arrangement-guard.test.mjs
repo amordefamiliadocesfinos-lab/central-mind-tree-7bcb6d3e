@@ -204,3 +204,84 @@ test('HTTP route is protected by disabled gates by default', async () => {
   }, { handleShopeeLive: async () => null });
   assert.equal(response.status, 503);
 });
+
+
+test('pilot window missing or expired cannot touch preflight or Core', async () => {
+  for(const expire of [undefined,'2026-10-15T17:59:00Z','2026-10-15T18:00:30Z',
+    '2026-10-15T18:31:00Z','not-date']) {
+    const env={...activeEnv,SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT:expire};
+    const {calls,run}=fixture({env});
+    assert.equal((await run()).code,expire===undefined?'ship_order_pilot_not_configured':'ship_order_window_inactive');
+    assert.deepEqual(calls,[]);
+  }
+});
+
+test('pilot expected order, account, profile, package or shop mismatch stops before network', async () => {
+  const changes=[
+    {SHOPEE_LIVE_SHIP_ORDER_PILOT_ORDER_SN:'OTHERORDER123'},
+    {SHOPEE_LIVE_SHIP_ORDER_PILOT_ACCOUNT_ID:'00000000-0000-4000-8000-000000000001'},
+    {SHOPEE_LIVE_SHIP_ORDER_PILOT_FISCAL_MODE:'cpf_no_invoice_step'},
+    {SHOPEE_LIVE_SHIP_ORDER_PILOT_PACKAGE_NUMBER:'OTHERPKG'},
+    {SHOPEE_LIVE_SHIP_ORDER_PILOT_SHOP_ID:'1234'},
+  ];
+  for(const update of changes) {
+    const {calls,run}=fixture({env:{...activeEnv,...update}});
+    assert.equal((await run()).code,'ship_order_pilot_scope_mismatch');
+    assert.deepEqual(calls,[]);
+  }
+});
+
+test('logistics pickup retry may pass read-only preflight but cannot execute first-time ship_order', async () => {
+  const {calls,run}=fixture({preflight: async()=>{
+    calls.push('preflight');
+    return {ok:true,order_sn:order,package_number:pkg,shop_id:shop,
+      order_status:'READY_TO_SHIP',package_logistics_status:'LOGISTICS_PICKUP_RETRY',
+      fiscal:'fiscal_valid',modes:['dropoff'],simple_dropoff_confirmed:true};
+  }});
+  assert.equal((await run()).code,'preflight_not_eligible');
+  assert.deepEqual(calls,['preflight']);
+});
+
+test('pilot cannot claim if preflight proves different package, shop or fiscal status', async () => {
+  const original={ok:true,order_sn:order,package_number:pkg,shop_id:shop,
+    order_status:'READY_TO_SHIP',package_logistics_status:'LOGISTICS_READY',
+    fiscal:'fiscal_valid',modes:['dropoff'],simple_dropoff_confirmed:true};
+  for(const change of [
+    {package_number:'OTHERPKG'},{shop_id:321},{fiscal:'invoice_pending_in_seller_center'},
+    {order_status:'SHIPPED'}, {package_logistics_status:undefined},
+  ]) {
+    const {calls,run}=fixture({preflight:async()=>{calls.push('preflight');return {...original,...change};}});
+    assert.equal((await run()).code,'preflight_not_eligible');
+    assert.deepEqual(calls,['preflight']);
+  }
+});
+
+test('CPF profile is allowed only on explicitly scoped CPF pilot with corresponding fiscal proof', async () => {
+  const env={...activeEnv,
+    SHOPEE_LIVE_SHIPPING_FISCAL_MODE:'cpf_no_invoice_step',
+    SHOPEE_LIVE_SHIP_ORDER_PILOT_FISCAL_MODE:'cpf_no_invoice_step',
+  };
+  const {run}=fixture({env,preflight:async()=>({
+    ok:true,order_sn:order,package_number:pkg,shop_id:shop,
+    order_status:'READY_TO_SHIP',package_logistics_status:'LOGISTICS_READY',
+    fiscal:'cpf_flow_fiscal_check_passed',modes:['dropoff'],simple_dropoff_confirmed:true,
+  })});
+  assert.equal((await run()).code,'ship_order_api_acknowledged_not_collected');
+});
+
+test('window expiring during slow read-only preflight stops before any durable claim', async () => {
+  let clock=Date.parse('2026-10-15T18:00:00Z');
+  const {calls,run}=fixture({
+    now:()=>clock,
+    preflight:async()=>{
+      calls.push('preflight');
+      clock=Date.parse('2026-10-15T18:14:45Z');
+      return {ok:true,order_sn:order,package_number:pkg,shop_id:shop,
+        order_status:'READY_TO_SHIP',package_logistics_status:'LOGISTICS_READY',
+        fiscal:'fiscal_valid',modes:['dropoff'],simple_dropoff_confirmed:true};
+    },
+  });
+  assert.equal((await run()).code,'ship_order_window_inactive');
+  assert.equal(calls.some(x=>x?.[0]==='claim'),false);
+  assert.equal(calls.some(x=>x?.[0]==='ship'),false);
+});
