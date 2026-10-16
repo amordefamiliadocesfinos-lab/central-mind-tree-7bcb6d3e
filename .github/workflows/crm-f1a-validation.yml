@@ -44,7 +44,7 @@ jobs:
       - run: npm ci
       - name: Confirm legacy quick-conversation entry points are absent
         run: |
-          if git grep -niE 'QuickConversation(FAB|Dialog)|Registrar conversa|pc\\.quickconv\\.fab\\.position|⌘⇧W' -- src; then
+          if git grep -niE 'QuickConversation(FAB|Dialog)|Registrar conversa|pc[.]quickconv[.]fab[.]position|⌘⇧W' -- src; then
             echo "::error::Legacy quick-conversation entry point remains under src/"
             exit 1
           fi
