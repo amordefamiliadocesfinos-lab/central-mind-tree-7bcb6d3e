@@ -78,6 +78,7 @@ jobs:
             src/lib/crm/postSalePanelOutreach.test.ts \
             src/lib/crm/postSalePanelLifecycle.test.ts \
             src/lib/crm/startOpportunityCandidates.test.ts \
+            src/lib/crm/startOpportunityRecommendation.test.ts \
             src/lib/crm/campaignIntelligentAudience.test.ts \
             src/lib/crm/campaignIntelligentSafety.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
