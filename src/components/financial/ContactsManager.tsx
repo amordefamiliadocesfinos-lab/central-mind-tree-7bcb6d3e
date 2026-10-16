@@ -44,6 +44,7 @@ import { useContacts, Contact } from '@/hooks/useContacts';
 
 import { ContactFormDialog } from './ContactFormDialog';
 import { updateContactOfficialNextAction } from '@/lib/crm/contactProfileWriter';
+import { toast } from 'sonner';
 import { isCrmNextActionChanged } from '@/lib/crm/contactEditContract';
 import { ContactOrderHistory } from './ContactOrderHistory';
 import { Skeleton } from '@/components/ui/skeleton';
