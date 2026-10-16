@@ -140,6 +140,36 @@ export default function ContatosInbox() {
   const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(false);
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Proteção B-03: impedir troca de contato com uma seção cadastral em edição.
+  const editingProfileRef = useRef(false);
+  const [, setProfileEditing] = useState(false);
+  const onProfileEditingChange = useCallback((editing: boolean) => {
+    editingProfileRef.current = editing;
+    setProfileEditing(editing);
+  }, []);
+  const guardProfileExit = useCallback(() => {
+    if (!editingProfileRef.current) return true;
+    toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato ou área.');
+    return false;
+  }, []);
+  const onProfileSaved = useCallback((updated: Contact) => {
+    setLeadContact(current => current?.id === updated.id ? updated : current);
+    setItems(current => current.map(item => item.id === updated.id ? {
+      ...item,
+      name: updated.name,
+      whatsapp: updated.whatsapp || null,
+      phone: updated.phone || null,
+    } : item));
+  }, []);
+  const guardedSelectContact = useCallback((id: string | null) => {
+    if (editingProfileRef.current && id !== selectedId) {
+      toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato.');
+      return false;
+    }
+    setSelectedId(id);
+    return true;
+  }, [selectedId]);
+
   const [attendanceQueueScope, setAttendanceQueueScope] = useState<string[]>(readAttendanceQueueScope);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -175,6 +205,32 @@ export default function ContatosInbox() {
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
   const [operationalHandoff, setOperationalHandoff] = useState<{ resultCode: string; label: string } | null>(null);
 
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!editingProfileRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, []);
+  // Intercept links within the Inbox while the edit section is active.
+  useEffect(() => {
+    const preventLinkChange = (event: MouseEvent) => {
+      if (!editingProfileRef.current) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>('a[href]');
+      if (!anchor) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toast.warning('Conclua ou cancele a edição da ficha antes de navegar.');
+    };
+    document.addEventListener('click', preventLinkChange, true);
+    return () => document.removeEventListener('click', preventLinkChange, true);
+  }, []);
   // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
   // anterior é descartado (Resultado sugerido, confirmação de envio).
   useEffect(() => {
@@ -632,7 +688,7 @@ export default function ContatosInbox() {
         return;
       }
       await load();
-      setSelectedId(contactId);
+      guardedSelectContact(contactId);
       setSearchParams({}, { replace: true });
     };
 
@@ -866,6 +922,7 @@ export default function ContatosInbox() {
   }, [selected?.id, selected?.conversation_id, selected?.last_inbound_at]);
 
   const openConversation = async (item: InboxItem) => {
+    if (!guardProfileExit()) return;
     // Contato sem conversa: cria o atendimento na hora para não existir cadastro
     // "invisível" na caixa de entrada.
     if (!item.conversation_id) {
@@ -889,10 +946,10 @@ export default function ContatosInbox() {
         return;
       }
       setItems(current => current.map(row => row.id === item.id ? { ...row, conversation_id: created.id } : row));
-      setSelectedId(item.id);
+      guardedSelectContact(item.id);
       return;
     }
-    setSelectedId(item.id);
+    guardedSelectContact(item.id);
     const priority = getCrmPriority(toCrmPriorityInput(item), new Date());
     if (item.status === 'resolved' && [
       'reactivation_overdue',
@@ -958,7 +1015,7 @@ export default function ContatosInbox() {
           .eq('tag_id', outOfQueueTag.id);
         if (error) throw error;
         await fetchTags();
-        setSelectedId(fallbackNext?.id ?? null);
+        guardedSelectContact(fallbackNext?.id ?? null);
         toast.success('Contato voltou para a fila.');
         return;
       }
@@ -969,7 +1026,7 @@ export default function ContatosInbox() {
         .insert({ contact_id: currentContactId, tag_id: tagId });
       if (error && error.code !== '23505') throw error;
       await fetchTags();
-      setSelectedId(fallbackNext?.id ?? null);
+      guardedSelectContact(fallbackNext?.id ?? null);
       toast.success('Contato retirado da fila. Conversas e histórico foram preservados.');
     } catch (error) {
       console.error(error);
@@ -1045,7 +1102,7 @@ export default function ContatosInbox() {
       setLeadEditOpen(false);
       const refreshedItems = await load();
       if (refreshedItems === null) {
-        setSelectedId(null);
+        guardedSelectContact(null);
         toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
         return;
       }
@@ -1066,7 +1123,7 @@ export default function ContatosInbox() {
       if (next) {
         await openConversation(next);
       } else {
-        setSelectedId(null);
+        guardedSelectContact(null);
       }
       toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
     } catch (error) {
@@ -1278,7 +1335,7 @@ export default function ContatosInbox() {
       {/* A3.1 — faixa única: somente apresentação; filtros e callbacks preservados. */}
       <div className="z-30 shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap px-3 py-2 [scrollbar-width:thin]" aria-label="Controles da Caixa de Entrada; role horizontalmente para acessar todas as opções">
-          <Link to="/contatos" className="shrink-0">
+          <Link to="/contatos" className="shrink-0" onClick={(event) => { if (!guardProfileExit()) event.preventDefault(); }}>
             <Button variant="ghost" size="sm" className="h-8 gap-1.5" title="Voltar à Gestão">
               <ArrowLeft className="h-4 w-4" /><span>Gestão</span>
             </Button>
@@ -1506,7 +1563,7 @@ export default function ContatosInbox() {
                   variant="ghost"
                   size="icon"
                   className="md:hidden h-8 w-8"
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => guardedSelectContact(null)}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -1813,11 +1870,11 @@ export default function ContatosInbox() {
           <aside className="hidden md:fixed md:right-2 md:top-44 md:bottom-16 md:z-40 md:w-[min(360px,calc(100vw-1rem))] md:flex md:flex-col md:overflow-hidden md:rounded-lg md:border md:bg-card md:shadow-xl xl:static xl:top-auto xl:bottom-auto xl:right-auto xl:z-auto xl:w-auto xl:rounded-r-lg xl:rounded-l-none xl:shadow-none">
             <div className="flex items-center justify-between border-b px-3 py-2">
               <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 p-0.5" role="group" aria-label="Conteúdo do painel contextual">
-                <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('assistant')} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
+                <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => { if (guardProfileExit()) setContextTab('assistant'); }} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
                 <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Ficha do contato</Button>
-                {activeActionMode && <Button type="button" size="sm" variant={contextTab === 'action' ? 'secondary' : 'ghost'} className="h-8 px-2 text-xs" onClick={() => setContextTab('action')} aria-pressed={contextTab === 'action'}>Ação</Button>}
+                {activeActionMode && <Button type="button" size="sm" variant={contextTab === 'action' ? 'secondary' : 'ghost'} className="h-8 px-2 text-xs" onClick={() => { if (guardProfileExit()) setContextTab('action'); }} aria-pressed={contextTab === 'action'}>Ação</Button>}
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => setLeadPanelOpen(false)} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => { if (guardProfileExit()) setLeadPanelOpen(false); }} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {/* Target estável: alternar a visualização não desmonta a análise do Assistente. */}
@@ -1826,7 +1883,7 @@ export default function ContatosInbox() {
                 <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
               </div>
               <div className={cn('space-y-3 p-3', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Ficha do contato">
-                <ContactProfileOverview contact={leadContact} />
+                <ContactProfileOverview contact={leadContact} onSaved={onProfileSaved} onEditingChange={onProfileEditingChange} />
                 <InboxNoteBlock contactId={selected.id} conversationId={selected.conversation_id} onSaved={load} onRegisterSale={() => setSaleOpen(true)} />
                 {/* Acessos legados preservados até B-06, após validação integral da ficha editável. */}
                 <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setLeadEditOpen(true)}>

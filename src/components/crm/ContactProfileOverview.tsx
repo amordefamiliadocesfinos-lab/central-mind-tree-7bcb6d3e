@@ -1,5 +1,12 @@
 /** CRM–UX 02 B-02: ficha integral em consulta, antes da ativação da edição. */
 import type { Contact } from '@/hooks/useContacts';
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { saveContactProfile } from '@/lib/crm/contactProfileWriter';
+import { toast } from 'sonner';
+
 import { ContactAvatar } from './ContactAvatar';
 import { ContactOrdersList } from './ContactOrdersList';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -93,10 +100,131 @@ function showValue(contact: Contact, key: keyof Contact): string {
   return String(value);
 }
 
-export function ContactProfileOverview({ contact }: { contact: Contact | null }) {
+
+type SaveState = 'pendente' | 'salvando' | 'salvo' | 'erro';
+const BASIC_KEYS = new Set<keyof Contact>([
+  'name', 'fantasy_name', 'company_name', 'phone', 'whatsapp', 'mobile',
+  'email', 'website', 'notes', 'origem_lead', 'salesperson', 'profession', 'birthplace',
+]);
+const BASIC_SECTIONS = new Set(['principal', 'contato', 'comercial', 'adicionais']);
+
+interface ProfileProps {
+  contact: Contact | null;
+  onSaved?: (contact: Contact) => void;
+  onEditingChange?: (editing: boolean) => void;
+}
+
+export function ContactProfileOverview({ contact, onSaved, onEditingChange }: ProfileProps) {
+  const [activeEdit, setActiveEdit] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<Contact>>({});
+  const [statuses, setStatuses] = useState<Record<string, SaveState>>({});
+  const [savingCount, setSavingCount] = useState(0);
+  const baselineRef = useRef<Contact | null>(contact);
+  const draftRef = useRef<Partial<Contact>>({});
+  const pendingRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const queuedRef = useRef<Promise<void>>(Promise.resolve());
+  const errorsRef = useRef<Set<string>>(new Set());
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
+
+  useEffect(() => {
+    Object.values(pendingRef.current).forEach(clearTimeout);
+    pendingRef.current = {};
+    baselineRef.current = contact;
+    draftRef.current = contact ? { ...contact } : {};
+    setDraft(draftRef.current);
+    setStatuses({});
+    setActiveEdit(null);
+    errorsRef.current.clear();
+  }, [contact?.id]);
+
+  useEffect(() => {
+    onEditingChange?.(activeEdit !== null);
+  }, [activeEdit, onEditingChange]);
+
+  useEffect(() => () => {
+    Object.values(pendingRef.current).forEach(clearTimeout);
+  }, []);
+
+  const enqueueSave = (key: keyof Contact, value: string) => {
+    const id = contact?.id;
+    if (!id) return Promise.resolve();
+    if (pendingRef.current[key]) {
+      clearTimeout(pendingRef.current[key]);
+      delete pendingRef.current[key];
+    }
+    setStatuses((previous) => ({ ...previous, [key]: 'salvando' }));
+    setSavingCount((count) => count + 1);
+    const next = queuedRef.current.catch(() => undefined).then(async () => {
+      const baseline = baselineRef.current;
+      if (!baseline || baseline.id !== id) throw new Error('Contato mudou durante a gravação.');
+      const result = await saveContactProfile({
+        contactId: id, baseline, draft: { [key]: value },
+      });
+      baselineRef.current = result.contact;
+      if (draftRef.current[key] === value) {
+        errorsRef.current.delete(key);
+        setStatuses((previous) => ({ ...previous, [key]: 'salvo' }));
+      }
+      onSavedRef.current?.(result.contact);
+    }).catch((error) => {
+      errorsRef.current.add(key);
+      setStatuses((previous) => ({ ...previous, [key]: 'erro' }));
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar campo do contato.');
+    }).finally(() => setSavingCount((count) => Math.max(0, count - 1)));
+    queuedRef.current = next;
+    return next;
+  };
+
+  const changeField = (key: keyof Contact, value: string) => {
+    const next = { ...draftRef.current, [key]: value };
+    draftRef.current = next;
+    setDraft(next);
+    errorsRef.current.delete(key);
+    setStatuses((previous) => ({ ...previous, [key]: 'pendente' }));
+    if (pendingRef.current[key]) clearTimeout(pendingRef.current[key]);
+    pendingRef.current[key] = setTimeout(() => {
+      void enqueueSave(key, value);
+    }, key === 'notes' ? 1100 : 850);
+  };
+
+  const flushField = (key: keyof Contact) => {
+    if (!pendingRef.current[key]) return;
+    clearTimeout(pendingRef.current[key]);
+    delete pendingRef.current[key];
+    void enqueueSave(key, String(draftRef.current[key] ?? ''));
+  };
+
+  const finishEdit = async () => {
+    const keys = Object.keys(pendingRef.current) as Array<keyof Contact>;
+    for (const key of keys) {
+      clearTimeout(pendingRef.current[key]);
+      delete pendingRef.current[key];
+      void enqueueSave(key, String(draftRef.current[key] ?? ''));
+    }
+    await queuedRef.current;
+    if (errorsRef.current.size > 0) {
+      toast.error('Existem campos com erro. Corrija ou tente salvar novamente antes de sair.');
+      return;
+    }
+    setActiveEdit(null);
+  };
+
+  const discardEdit = () => {
+    if (savingCount) return;
+    Object.values(pendingRef.current).forEach(clearTimeout);
+    pendingRef.current = {};
+    draftRef.current = baselineRef.current ? { ...baselineRef.current } : {};
+    setDraft(draftRef.current);
+    setStatuses({});
+    errorsRef.current.clear();
+    setActiveEdit(null);
+  };
+
   if (!contact) return <p className="p-3 text-xs text-muted-foreground">Carregando ficha completa...</p>;
+
   return (
-    <div className="space-y-2" aria-label="Ficha completa do contato em consulta">
+    <div className="space-y-2" aria-label="Ficha completa do contato">
       <div className="flex items-center gap-2 rounded-lg border p-2">
         <ContactAvatar name={contact.name} photoUrl={contact.photo_url} size="md" />
         <div className="min-w-0">
@@ -104,27 +232,74 @@ export function ContactProfileOverview({ contact }: { contact: Contact | null })
           <p className="truncate text-[11px] text-muted-foreground">{contact.whatsapp || contact.phone || 'Sem telefone'}</p>
         </div>
       </div>
+      {activeEdit && (
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-md border bg-background p-2 text-xs">
+          <span>{savingCount ? 'Salvando...' : 'Edição em andamento — finalize antes de navegar'}</span>
+          <div className="flex shrink-0 gap-1">
+            <Button type="button" size="sm" variant="outline" disabled={savingCount > 0} onClick={discardEdit}>Cancelar</Button>
+            <Button type="button" size="sm" onClick={() => void finishEdit()}>Concluir</Button>
+          </div>
+        </div>
+      )}
       {SECTIONS.map((section, index) => (
         <Collapsible key={contact.id + '-' + section.key} defaultOpen={index === 0} className="rounded-lg border">
-          <CollapsibleTrigger asChild>
-            <button type="button" className="group flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold hover:bg-muted/60"
-              aria-label={'Expandir ou recolher ' + section.title}>
-              <span>{section.title}</span>
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-            </button>
-          </CollapsibleTrigger>
+          <div className="flex items-center gap-1 pr-2">
+            <CollapsibleTrigger asChild>
+              <button type="button" className="group flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold hover:bg-muted/60"
+                aria-label={'Expandir ou recolher ' + section.title}>
+                <span>{section.title}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            {BASIC_SECTIONS.has(section.key) && (
+              <Button type="button" variant="ghost" size="sm"
+                disabled={activeEdit !== null && activeEdit !== section.key}
+                onClick={() => {
+                  if (activeEdit === section.key) void finishEdit();
+                  else if (!activeEdit) setActiveEdit(section.key);
+                }}>
+                {activeEdit === section.key ? 'Concluir' : 'Editar'}
+              </Button>
+            )}
+          </div>
           <CollapsibleContent className="space-y-2 border-t px-3 py-3">
-            {section.fields.map(([key, label]) => (
-              <div key={key} className="grid gap-0.5">
-                <span className="text-[10px] text-muted-foreground">{label}</span>
-                <span className="break-words text-xs whitespace-pre-wrap">{showValue(contact, key)}</span>
-              </div>
-            ))}
+            {section.fields.map(([key, label]) => {
+              const canEdit = activeEdit === section.key && BASIC_KEYS.has(key);
+              const status = statuses[key];
+              return (
+                <div key={key} className="grid gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">{label}</span>
+                  {canEdit ? (
+                    <>
+                      {key === 'notes' ? (
+                        <Textarea value={String(draft[key] ?? '')}
+                          disabled={savingCount > 0}
+                          onChange={(e) => changeField(key, e.target.value)}
+                          onBlur={() => flushField(key)} rows={3} className="text-xs" />
+                      ) : (
+                        <Input value={String(draft[key] ?? '')} disabled={savingCount > 0}
+                          onChange={(e) => changeField(key, e.target.value)}
+                          onBlur={() => flushField(key)} className="h-8 text-xs" />
+                      )}
+                      {status && <span role="status" className="text-[10px] text-muted-foreground">
+                        {status === 'erro' ? 'Erro — edite novamente para tentar salvar' :
+                          status === 'salvando' ? 'Salvando...' :
+                          status === 'pendente' ? 'Pendente' : 'Salvo'}
+                      </span>}
+                    </>
+                  ) : (
+                    <span className="break-words whitespace-pre-wrap text-xs">{showValue(contact, key)}</span>
+                  )}
+                </div>
+              );
+            })}
             {section.orders && <ContactOrdersList contactId={contact.id} />}
           </CollapsibleContent>
         </Collapsible>
       ))}
-      <p className="text-[10px] text-muted-foreground">Consulta cadastral. A edição integrada será habilitada na etapa seguinte.</p>
+      <p className="text-[10px] text-muted-foreground">
+        Consulta por padrão. Dados simples podem ser editados na seção, com salvamento automático.
+      </p>
     </div>
   );
 }
