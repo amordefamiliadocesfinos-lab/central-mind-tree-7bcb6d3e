@@ -22,8 +22,8 @@
 | B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Merge/CI aprovadas; preview/UAT pendente | [#287](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/287) |
 | B-03 | Edição simples, confirmação visual e proteção de troca de contexto | B-02 | Debounce, erros, troca contato, aba e seção sem perda | Merge/CI aprovadas; UAT pendente | [#290](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/290) |
 | B-04 | Edição fiscal/endereço/financeiro; Salvar/Cancelar por seção | B-03 | Campos completos, CEP, crédito, canais, sem sobrescrita | Merge/CI aprovadas; UAT pendente | [#291](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/291) |
-| B-05 | Próxima Ação canônica, opt-out, reativação/vínculos; harmonização controlada Gestão/Financeiro | B-04 | Uma obrigação oficial; sem reativação após opt-out; histórico/pedidos íntegros | Código preparado; CI do HEAD final pendente; NÃO integrada | [#294](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/294) |
-| B-06 | Responsividade da ficha, remover apenas acessos redundantes da Inbox | B-05 | UAT em preview; nenhuma abertura de modal/drawer/cadastro externo; conversa preservada | Código preparado; PR Draft, sem CI final, sem merge | [#293](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/293) |
+| B-05 | Próxima Ação canônica, opt-out, reativação/vínculos; harmonização controlada Gestão/Financeiro | B-04 | Uma obrigação oficial; sem reativação após opt-out; histórico/pedidos íntegros | Merge/CI aprovadas; UAT pendente | [#296](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/296) |
+| B-06 | Responsividade da ficha, remover apenas acessos redundantes da Inbox | B-05 | UAT em preview; nenhuma abertura de modal/drawer/cadastro externo; conversa preservada | Merge/CI aprovadas; UAT pendente | [#297](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/297) |
 
 ## Contrato de integridade para B-01...B-06
 1. Todo update precisa de `contactId` explícito e imutável e leitura do registro completo.
@@ -59,3 +59,12 @@ Responsável técnico: CRM 7; experiência: UX/UI; aprovação de produto e exec
 - **Não publicar/deployar PRs #294 e #293** até validação de seus próprios SHAs. Manter todos os editores existentes da Inbox na `main` enquanto a B-06 não for integrada.
 - O especialista UX deve verificar em preview autenticado a cobertura por seção, a alternância conversa/ficha sem overlay, os fluxos de upload/foto, as ações críticas e a preservação da experiência mobile. Esse teste exige sessão autenticada e não foi concluído pelo CRM 7.
 - A sincronização Lovable↔GitHub e o deploy serão conferidos novamente somente após novas merges autorizadas/validadas.
+
+## Checkpoint de integração CRM–UX 02 — 2026-10-16, após PRs #296 e #297
+
+- **B-05:** PR #296 integrada, commit `5a74ad60a821e1df4d58be191c2b2b67be8b73f1`. GitHub Actions: TypeScript, build e regressões CRM aprovadas. Validação adicional em clone isolado Lovable no SHA `11316dea42a7eccd4162ca9eac7a154db8e6afc8`: 26/26 testes CRM, build e TypeScript PASS, sem alterar main.
+- **B-06:** PR #297 integrada, commit `900685c991a182790cef249c1be042df7bb92719`. GitHub Actions: TypeScript, build e regressões CRM aprovadas.
+- **PRs antigas substituídas:** #292 (versão inicial B-05), #294 (conflicto documental), #293 (versão inicial B-06 Draft). Não usar para novas merges.
+- **Cobertura técnica:** preservados `ContactFormDialog` para Gestão/Financeiro e funcionalidades canônicas; acessos redundantes à edição removidos somente da Inbox.
+- **NÃO homologado em uso real:** validar visualmente em sessão autenticada desktop/intermediário/mobile: a faixa de filtros A3.1, ficha terceira coluna, dados principais, fiscais, endereços e financeiros, links de pedidos, foto/IA, escrita segura de Próxima Ação, opt-out, edição concorrente, proteção de navegação, Assistente CRM e Ação, além da presença dos comandos essenciais Concluir atendimento, Registrar venda e Tirar/Voltar para fila.
+- **Status global:** 8/8 incrementos integrados e CI aprovada; UAT autenticada e refinamentos de experiência posteriores ainda pendentes. Não afirmar que a homologação operacional foi concluída.
