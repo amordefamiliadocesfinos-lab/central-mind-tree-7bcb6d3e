@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { usePlatforms } from '@/hooks/usePlatforms';
+import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarchicalPicker';
+import { PROFILE_EDITABLE_KEYS } from '@/lib/crm/contactEditContract';
 import { saveContactProfile } from '@/lib/crm/contactProfileWriter';
 import { toast } from 'sonner';
 
@@ -44,6 +47,7 @@ const SECTIONS: readonly Section[] = [
     ['billing_number', 'Número'], ['billing_complement', 'Complemento'],
   ] },
   { key: 'comercial', title: 'Dados comerciais', fields: [
+    ['type', 'Cliente / fornecedor'], ['contact_type', 'Tipo de contato'],
     ['funnel_status', 'Etapa comercial'], ['temperatura_lead', 'Temperatura'],
     ['client_classification', 'Classificação do cliente'], ['valor_estimado', 'Valor potencial'],
     ['origem_lead', 'Origem'], ['salesperson', 'Vendedor'],
@@ -104,9 +108,22 @@ function showValue(contact: Contact, key: keyof Contact): string {
 type SaveState = 'pendente' | 'salvando' | 'salvo' | 'erro';
 const BASIC_KEYS = new Set<keyof Contact>([
   'name', 'fantasy_name', 'company_name', 'phone', 'whatsapp', 'mobile',
-  'email', 'website', 'notes', 'origem_lead', 'salesperson', 'profession', 'birthplace',
+  'email', 'website', 'notes', 'origem_lead', 'salesperson', 'city', 'landline',
+  'fax', 'nfe_email', 'skype', 'mobile_carrier', 'contact_info', 'next_visit',
 ]);
-const BASIC_SECTIONS = new Set(['principal', 'contato', 'comercial', 'adicionais']);
+const BASIC_SECTIONS = new Set(['principal', 'contato']);
+const CONTROLLED_SECTIONS = new Set(['fiscal', 'endereco', 'cobranca', 'financeiro', 'comercial', 'vinculos', 'adicionais']);
+const PROFILE_EDITABLE = new Set<string>(PROFILE_EDITABLE_KEYS as readonly string[]);
+const SELECT_OPTIONS: Record<string, readonly [string, string][]> = {
+  person_type: [['fisica', 'Pessoa física'], ['juridica', 'Pessoa jurídica']],
+  type: [['cliente', 'Cliente'], ['fornecedor', 'Fornecedor'], ['ambos', 'Ambos']],
+  credit_limit_type: [['unlimited', 'Ilimitado'], ['custom', 'Personalizado'], ['zero', 'Limite zero']],
+  contact_type: [['revendedor', 'Revendedor'], ['cliente_final', 'Cliente final'], ['atacado', 'Atacado']],
+  client_classification: [['vip', 'VIP'], ['alto_potencial', 'Alto potencial'], ['medio', 'Médio'], ['baixo_potencial', 'Baixo potencial']],
+  taxpayer_type: [['9', 'Não contribuinte'], ['1', 'Contribuinte ICMS'], ['2', 'Contribuinte isento']],
+  category: [['sem_categoria', 'Sem categoria'], ['vip', 'VIP'], ['regular', 'Regular'], ['novo', 'Novo']],
+};
+
 
 interface ProfileProps {
   contact: Contact | null;
@@ -116,6 +133,7 @@ interface ProfileProps {
 
 export function ContactProfileOverview({ contact, onSaved, onEditingChange }: ProfileProps) {
   const [activeEdit, setActiveEdit] = useState<string | null>(null);
+  const { activePlatforms } = usePlatforms();
   const [draft, setDraft] = useState<Partial<Contact>>({});
   const [statuses, setStatuses] = useState<Record<string, SaveState>>({});
   const [savingCount, setSavingCount] = useState(0);
@@ -195,7 +213,86 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
     void enqueueSave(key, String(draftRef.current[key] ?? ''));
   };
 
+
+  const changeControlledField = (key: keyof Contact, value: unknown) => {
+    const next = { ...draftRef.current, [key]: value };
+    draftRef.current = next;
+    setDraft(next);
+    errorsRef.current.delete(key);
+    setStatuses((previous) => ({ ...previous, [key]: 'pendente' }));
+  };
+
+  const saveControlledSection = async (key: string) => {
+    if (!contact) return false;
+    const section = SECTIONS.find((item) => item.key === key);
+    if (!section) return false;
+    const changes: Partial<Contact> = {};
+    for (const [field] of section.fields) {
+      if (!PROFILE_EDITABLE.has(field)) continue;
+      if (draftRef.current[field] === undefined) continue;
+      (changes as Record<string, unknown>)[field] = draftRef.current[field];
+    }
+    setSavingCount((count) => count + 1);
+    try {
+      const base = baselineRef.current;
+      if (!base || base.id !== contact.id) throw new Error('Contato alterado durante a edição.');
+      const saved = await saveContactProfile({
+        contactId: contact.id,
+        baseline: base,
+        draft: changes,
+      });
+      baselineRef.current = saved.contact;
+      draftRef.current = { ...saved.contact };
+      setDraft(draftRef.current);
+      errorsRef.current.clear();
+      setStatuses({});
+      onSavedRef.current?.(saved.contact);
+      toast.success('Seção salva.');
+      return true;
+    } catch (error) {
+      errorsRef.current.add(key);
+      setStatuses((previous) => ({ ...previous, [key]: 'erro' }));
+      toast.error(error instanceof Error ? error.message : 'Falha ao salvar a seção.');
+      return false;
+    } finally {
+      setSavingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
+  const searchCep = async (billing: boolean) => {
+    const prefix = billing ? 'billing_' : '';
+    const zipField = (prefix + 'zip_code') as keyof Contact;
+    const cep = String(draftRef.current[zipField] ?? '').replace(/\D/g, '');
+    if (cep.length !== 8) { toast.error('CEP deve ter 8 dígitos.'); return; }
+    setSavingCount((count) => count + 1);
+    try {
+      const response = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+      if (!response.ok) throw new Error('CEP indisponível.');
+      const address = await response.json();
+      if (address.erro) throw new Error('CEP não encontrado.');
+      const additions = {
+        [prefix + 'zip_code']: cep,
+        [prefix + 'state']: address.uf,
+        [prefix + 'city']: address.localidade,
+        [prefix + 'neighborhood']: address.bairro,
+        [prefix + 'address']: address.logradouro,
+      };
+      const next = { ...draftRef.current, ...additions };
+      draftRef.current = next;
+      setDraft(next);
+      toast.success('Endereço consultado. Confirme em Salvar seção.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao consultar CEP.');
+    } finally {
+      setSavingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const finishEdit = async () => {
+    if (activeEdit && CONTROLLED_SECTIONS.has(activeEdit)) {
+      if (await saveControlledSection(activeEdit)) setActiveEdit(null);
+      return;
+    }
     const keys = Object.keys(pendingRef.current) as Array<keyof Contact>;
     for (const key of keys) {
       clearTimeout(pendingRef.current[key]);
@@ -237,7 +334,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
           <span>{savingCount ? 'Salvando...' : 'Edição em andamento — finalize antes de navegar'}</span>
           <div className="flex shrink-0 gap-1">
             <Button type="button" size="sm" variant="outline" disabled={savingCount > 0} onClick={discardEdit}>Cancelar</Button>
-            <Button type="button" size="sm" onClick={() => void finishEdit()}>Concluir</Button>
+            <Button type="button" size="sm" onClick={() => void finishEdit()}>{activeEdit && CONTROLLED_SECTIONS.has(activeEdit) ? 'Salvar seção' : 'Concluir'}</Button>
           </div>
         </div>
       )}
@@ -251,27 +348,78 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
                 <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </CollapsibleTrigger>
-            {BASIC_SECTIONS.has(section.key) && (
+            {(BASIC_SECTIONS.has(section.key) || CONTROLLED_SECTIONS.has(section.key)) && (
               <Button type="button" variant="ghost" size="sm"
                 disabled={activeEdit !== null && activeEdit !== section.key}
                 onClick={() => {
                   if (activeEdit === section.key) void finishEdit();
                   else if (!activeEdit) setActiveEdit(section.key);
                 }}>
-                {activeEdit === section.key ? 'Concluir' : 'Editar'}
+                {activeEdit === section.key ? (CONTROLLED_SECTIONS.has(section.key) ? 'Salvar seção' : 'Concluir') : 'Editar'}
               </Button>
             )}
           </div>
           <CollapsibleContent className="space-y-2 border-t px-3 py-3">
             {section.fields.map(([key, label]) => {
-              const canEdit = activeEdit === section.key && BASIC_KEYS.has(key);
+              const controlled = CONTROLLED_SECTIONS.has(section.key);
+              const canEdit = activeEdit === section.key && PROFILE_EDITABLE.has(key)
+                && (controlled || BASIC_KEYS.has(key));
               const status = statuses[key];
               return (
                 <div key={key} className="grid gap-0.5">
                   <span className="text-[10px] text-muted-foreground">{label}</span>
                   {canEdit ? (
                     <>
-                      {key === 'notes' ? (
+                      {controlled ? (
+                        key === 'sales_channels' ? (
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-1">
+                              {((draft.sales_channels || []) as NonNullable<Contact['sales_channels']>).map((channel, i) => {
+                                const name = activePlatforms.find((item) => item.id === channel.platform_id)?.name || 'Canal';
+                                return (
+                                  <Button key={channel.platform_id + i} variant="outline" size="sm" className="h-7 text-xs"
+                                    disabled={savingCount > 0}
+                                    onClick={() => changeControlledField('sales_channels',
+                                      (draft.sales_channels || []).filter((_, idx) => idx !== i))}>
+                                    {name} ×
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            <PlatformHierarchicalPicker
+                              platforms={activePlatforms}
+                              value={null}
+                              placeholder="+ Adicionar canal"
+                              excludedPlatformIds={(draft.sales_channels || []).map((item) => item.platform_id)}
+                              onChange={(id) => {
+                                if (!id || savingCount) return;
+                                changeControlledField('sales_channels', [
+                                  ...(draftRef.current.sales_channels || []),
+                                  { platform_id: id, added_at: new Date().toISOString() },
+                                ]);
+                              }}
+                              size="sm"
+                            />
+                          </div>
+                        ) : SELECT_OPTIONS[key] ? (
+                          <select className="h-9 w-full rounded-md border bg-background px-2 text-xs"
+                            value={String(draft[key] ?? '')} disabled={savingCount > 0}
+                            onChange={(event) => changeControlledField(key, event.target.value)}>
+                            <option value="">Não informado</option>
+                            {SELECT_OPTIONS[key].map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                          </select>
+                        ) : (
+                          <Input type={key === 'credit_limit_value' || key === 'valor_estimado' || key === 'avg_load_percentage' ? 'number' :
+                            ['customer_since', 'birth_date', 'next_visit'].includes(key) ? 'date' : 'text'}
+                            value={String(draft[key] ?? '')}
+                            disabled={savingCount > 0}
+                            onChange={(event) => changeControlledField(key,
+                              ['credit_limit_value', 'valor_estimado', 'avg_load_percentage'].includes(key)
+                                ? (event.target.value === '' ? null : Number(event.target.value))
+                                : event.target.value)}
+                            className="h-8 text-xs" />
+                        )
+                      ) : key === 'notes' ? (
                         <Textarea value={String(draft[key] ?? '')}
                           disabled={savingCount > 0}
                           onChange={(e) => changeField(key, e.target.value)}
@@ -293,12 +441,19 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
                 </div>
               );
             })}
+            {activeEdit === section.key && (section.key === 'endereco' || section.key === 'cobranca') && (
+              <Button type="button" variant="outline" size="sm" className="w-full" disabled={savingCount > 0}
+                onClick={() => void searchCep(section.key === 'cobranca')}>Consultar CEP</Button>
+            )}
+            {activeEdit === section.key && CONTROLLED_SECTIONS.has(section.key) && (
+              <p className="text-[10px] text-muted-foreground">Alterações nesta seção exigem Salvar/Concluir. Cancelar descarta alterações não salvas.</p>
+            )}
             {section.orders && <ContactOrdersList contactId={contact.id} />}
           </CollapsibleContent>
         </Collapsible>
       ))}
       <p className="text-[10px] text-muted-foreground">
-        Consulta por padrão. Dados simples podem ser editados na seção, com salvamento automático.
+        Consulta por padrão. Dados simples salvam automaticamente; dados fiscais, financeiros, endereços e canais requerem confirmação por seção.
       </p>
     </div>
   );
