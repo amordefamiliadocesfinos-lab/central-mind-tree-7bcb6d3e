@@ -761,7 +761,16 @@ export default function Contatos() {
         if (Boolean(title) !== Boolean(dueAt)) {
           throw new Error('Próxima Ação exige título e data.');
         }
-        if (title && dueAt) await setCrmNextAction({ contactId: newContact.id, title, dueAt });
+        if (title && dueAt) {
+          try {
+            await setCrmNextAction({ contactId: newContact.id, title, dueAt });
+          } catch {
+            toast.error('Lead criado, mas a Próxima Ação precisa ser conferida. Não cadastre novamente.');
+            setFormOpen(false);
+            setEditingContact(undefined);
+            return;
+          }
+        }
       }
       if (newContact?.id) {
         await addEntry(newContact.id, 'lead_criado', 'Lead criado', new Date().toISOString(), CRM_EVENT_CODES.LEAD_CREATED);
