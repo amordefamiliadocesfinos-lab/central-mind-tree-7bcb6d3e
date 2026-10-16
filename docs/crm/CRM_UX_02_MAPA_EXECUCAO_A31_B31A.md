@@ -16,7 +16,7 @@
 ## Matriz de execução e acompanhamento
 | ID | Escopo congelado | Dependência | Evidência mínima | Status | PR |
 |---|---|---|---|---|---|
-| A-01 | Faixa única do cabeçalho; busca/4 filtros críticos, menu Filtros, Escopo e Mais | nenhuma | Filtros e ações existentes preservados; TypeScript/build/CRM CI | Autorizado, pendente | — |
+| A-01 | Faixa única do cabeçalho; busca/4 filtros críticos, menu Filtros, Escopo e Mais | nenhuma | Filtros e ações existentes preservados; TypeScript/build/CRM CI | Em execução / CI | [#283](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/283) |
 | A-02 | Estados visíveis (consulta geral, filtros ativos, limpar), responsive | A-01 | Busca/etapa/fornecedor crítico/Fora da fila/etapas e largura de tela | Autorizado, pendente | — |
 | B-01 | Contrato compartilhado de leitura + gravação parcial, escritor canônico para Próxima Ação | A-02, independente de layout | Testes de alteração parcial, opt-out, título/data, erros, concorrência | Autorizado, pendente | — |
 | B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Autorizado, pendente | — |

@@ -13,8 +13,10 @@ import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { MergeDuplicatesDialog } from '@/components/crm/MergeDuplicatesDialog';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Search, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Search, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useContactTags } from '@/hooks/useContactTags';
 import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
 import { InboxSaleDialog } from '@/components/crm/InboxSaleDialog';
@@ -1266,93 +1268,110 @@ export default function ContatosInbox() {
 
   return (
     <div className="h-[calc(100dvh-var(--footer-effective-h,0px))] min-h-[560px] overflow-hidden bg-background flex flex-col">
-      {/* Header */}
+      {/* A3.1 — faixa única: somente apresentação; filtros e callbacks preservados. */}
       <div className="z-30 shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center gap-2 p-3">
-          <Link to="/contatos">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap px-3 py-2">
+          <Link to="/contatos" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5" title="Voltar à Gestão">
+              <ArrowLeft className="h-4 w-4" /><span>Gestão</span>
             </Button>
           </Link>
-          <h1 className="text-base font-semibold flex-1">Caixa de Entrada</h1>
-          <Button size="sm" variant="outline" onClick={() => setMergeOpen(true)} className="gap-1.5 h-8" title="Mesclar contatos duplicados">
-            <Merge className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Duplicados</span>
-          </Button>
-        </div>
-        <div className="px-3 pb-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <h1 className="shrink-0 text-sm font-semibold">Inbox</h1>
+          <div className="relative w-[clamp(150px,20vw,300px)] shrink-0">
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
             <Input
+              aria-label="Buscar contato ou conversa"
               placeholder="Buscar contato ou conversa..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-9"
+              className="h-8 pl-8 text-xs"
             />
           </div>
-          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-            {([
-              ['priority', 'Prioridade'],
-              ['needs_reply', 'Responder'],
-              ['today', 'Hoje'],
-              ['overdue', 'Atrasados'],
-              ['cooling', 'Esfriando'],
-            ] as Array<[InboxFilter, string]>).map(([key, label]) => (
-              <Button key={key} size="sm" variant={inboxFilter === key ? 'default' : 'outline'} className="h-7 shrink-0 text-[11px]" onClick={() => setInboxFilter(key)}>
-                {label}
-              </Button>
-            ))}
-            <Select value={conversationScope} onValueChange={(value) => setConversationScope(value as ConversationScope)}>
-              <SelectTrigger className="h-7 w-[150px] shrink-0 text-[11px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="commercial" className="text-xs">Comercial</SelectItem>
-                <SelectItem value="suppliers" className="text-xs">Fornecedores / outras</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="h-7 w-[145px] shrink-0 text-[11px]"><SelectValue placeholder="Etapa comercial" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">Todas as etapas</SelectItem>
-                {[
-                  ['novo_lead', 'Novo Lead'], ['contato_realizado', 'Contato Realizado'],
-                  ['proposta_enviada', 'Proposta Enviada'], ['negociacao', 'Negociação'],
-                  ['fechado', 'Fechado'], ['pos_venda', 'Pós-Venda'],
-                  ['cadencia', 'Cadência'], ['perdido', 'Perdido'],
-                ].map(([value, label]) => <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={assignmentFilter} onValueChange={(value) => setAssignmentFilter(value as AssignmentFilter)}>
-              <SelectTrigger className="h-7 w-[140px] shrink-0 text-[11px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">Responsável: todos</SelectItem>
-                <SelectItem value="assigned" className="text-xs">Com responsável</SelectItem>
-                <SelectItem value="unassigned" className="text-xs">Sem responsável</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button size="sm" variant={waitingCustomerOnly ? 'secondary' : 'outline'} className="h-7 shrink-0 text-[11px]" onClick={() => setWaitingCustomerOnly((value) => !value)}>
-              Aguardando cliente
+          {([
+            ['priority', 'Prioridade'],
+            ['needs_reply', 'Responder'],
+            ['today', 'Hoje'],
+            ['overdue', 'Atrasados'],
+          ] as Array<[InboxFilter, string]>).map(([key, label]) => (
+            <Button key={key} size="sm" variant={inboxFilter === key ? 'default' : 'outline'}
+              className="h-8 shrink-0 px-2.5 text-xs" onClick={() => setInboxFilter(key)}>
+              {label}
             </Button>
-            <Select value={tagFilter} onValueChange={setTagFilter}>
-              <SelectTrigger className="h-7 w-[132px] shrink-0 text-[11px]">
-                <div className="flex items-center gap-1 truncate">
-                  <Tag className="h-3 w-3" />
-                  <SelectValue placeholder="Tag" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">Todas as tags</SelectItem>
-                {tags.map((tag) => (
-                  <SelectItem key={tag.id} value={tag.id} className="text-xs">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
-                      {tag.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+          ))}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant={inboxFilter === 'cooling' ? 'secondary' : 'outline'}
+                className="h-8 shrink-0 gap-1.5 px-2.5 text-xs" aria-label="Filtros adicionais">
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-1rem))] max-h-[min(75vh,550px)] overflow-y-auto p-3">
+              <div className="space-y-3">
+                <div className="text-xs font-semibold">Filtros adicionais</div>
+                <Button size="sm" variant={inboxFilter === 'cooling' ? 'secondary' : 'outline'}
+                  className="w-full justify-start text-xs" onClick={() => setInboxFilter('cooling')}>
+                  Esfriando
+                </Button>
+                <Select value={stageFilter} onValueChange={setStageFilter}>
+                  <SelectTrigger className="h-9 w-full text-xs"><SelectValue placeholder="Etapa comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todas as etapas</SelectItem>
+                    {[
+                      ['novo_lead', 'Novo Lead'], ['contato_realizado', 'Contato Realizado'],
+                      ['proposta_enviada', 'Proposta Enviada'], ['negociacao', 'Negociação'],
+                      ['fechado', 'Fechado'], ['pos_venda', 'Pós-Venda'],
+                      ['cadencia', 'Cadência'], ['perdido', 'Perdido'],
+                    ].map(([value, label]) => <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={assignmentFilter} onValueChange={(value) => setAssignmentFilter(value as AssignmentFilter)}>
+                  <SelectTrigger className="h-9 w-full text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Responsável: todos</SelectItem>
+                    <SelectItem value="assigned" className="text-xs">Com responsável</SelectItem>
+                    <SelectItem value="unassigned" className="text-xs">Sem responsável</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant={waitingCustomerOnly ? 'secondary' : 'outline'}
+                  className="w-full justify-start text-xs"
+                  onClick={() => setWaitingCustomerOnly((value) => !value)}>Aguardando cliente</Button>
+                <Select value={tagFilter} onValueChange={setTagFilter}>
+                  <SelectTrigger className="h-9 w-full text-xs">
+                    <div className="flex items-center gap-1 truncate"><Tag className="h-3 w-3" /><SelectValue placeholder="Tag" /></div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Todas as tags</SelectItem>
+                    {tags.map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id} className="text-xs">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />{tag.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Select value={conversationScope} onValueChange={(value) => setConversationScope(value as ConversationScope)}>
+            <SelectTrigger className="h-8 w-[150px] shrink-0 text-xs" aria-label="Escopo da consulta"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="commercial" className="text-xs">Comercial</SelectItem>
+              <SelectItem value="suppliers" className="text-xs">Fornecedores / outras</SelectItem>
+            </SelectContent>
+          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs">
+                <MoreHorizontal className="h-4 w-4" /> Mais
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setMergeOpen(true)}>
+                <Merge className="mr-2 h-3.5 w-3.5" /> Mesclar duplicados
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
