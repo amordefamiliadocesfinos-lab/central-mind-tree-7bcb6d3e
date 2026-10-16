@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Factory, RefreshCw, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Factory, RefreshCw, Users, Wallet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +10,12 @@ type Entry = {
   total_value: number | string;
   production_fact: {
     id: string; status: string; quantity: number | string; occurred_at: string;
-    product: { name: string; cover_image_url: string | null } | null;
+    product: { id: string; name: string; cover_image_url: string | null } | null;
     variant: { variant_name: string } | null;
   } | null;
 };
-type Fact = { id: string; name: string; variant: string; image: string | null; quantity: number; date: string; workers: Map<string, number> };
+type Fact = { id: string; productId: string; name: string; variant: string; image: string | null; quantity: number; date: string; workers: Map<string, number> };
+type ProductGroup = { id: string; name: string; image: string | null; quantity: number; facts: Fact[] };
 const currency = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const localDate = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 const formatDate = (date: string) => date.split('-').reverse().join('/');
@@ -35,6 +36,7 @@ export function ProductionTeamSummary({ onProduce, onSignOut }: { onProduce: () 
   const [rows, setRows] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expandedProducts, setExpandedProducts] = useState<string[]>([]);
   const range = custom ? { from: customFrom, to: customTo } : presetDates(year, month, half);
   const changeMonth = (delta: number) => {
     const d = new Date(Date.UTC(year, month - 1 + delta, 1));
@@ -51,7 +53,7 @@ export function ProductionTeamSummary({ onProduce, onSignOut }: { onProduce: () 
       .select(`id,production_fact_id,operator_name,operator_user_id,total_value,
         production_fact:production_facts!production_fact_process_entries_production_fact_id_fkey(
           id,status,quantity,occurred_at,
-          product:products!production_facts_product_id_fkey(name,cover_image_url),
+          product:products!production_facts_product_id_fkey(id,name,cover_image_url),
           variant:product_variants!production_facts_variant_id_fkey(variant_name)
         )`)
       .gte('occurred_at', `${range.from}T00:00:00-03:00`)
@@ -77,7 +79,7 @@ export function ProductionTeamSummary({ onProduce, onSignOut }: { onProduce: () 
       const key = row.operator_user_id || name;
       const value = Number(row.total_value || 0);
       const fact = grouped.get(p.id) ?? {
-        id: p.id, name: p.product?.name ?? 'Produto acabado', variant: p.variant?.variant_name ?? '',
+        id: p.id, productId: p.product?.id ?? p.id, name: p.product?.name ?? 'Produto acabado', variant: p.variant?.variant_name ?? '',
         image: p.product?.cover_image_url ?? null, quantity: Number(p.quantity || 0),
         date: localDate(new Date(p.occurred_at)), workers: new Map<string, number>(),
       };
@@ -91,6 +93,20 @@ export function ProductionTeamSummary({ onProduce, onSignOut }: { onProduce: () 
       total: [...summaries.values()].reduce((a,b)=>a+b,0),
     };
   }, [rows]);
+
+  const products = useMemo<ProductGroup[]>(() => {
+    const byProduct = new Map<string, ProductGroup>();
+    for (const fact of facts) {
+      const current = byProduct.get(fact.productId) ?? { id: fact.productId, name: fact.name, image: fact.image, quantity: 0, facts: [] };
+      current.quantity += fact.quantity;
+      current.facts.push(fact);
+      byProduct.set(fact.productId, current);
+    }
+    return [...byProduct.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [facts]);
+  const toggleProduct = (id: string) => {
+    setExpandedProducts(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
+  };
 
   return <main className="min-h-[100dvh] bg-[#f2f7fb] pb-[max(28px,env(safe-area-inset-bottom))] text-slate-900">
     <div className="mx-auto w-full max-w-xl px-4 pt-[max(18px,env(safe-area-inset-top))]">
@@ -126,17 +142,42 @@ export function ProductionTeamSummary({ onProduce, onSignOut }: { onProduce: () 
       {loading && <p className="rounded-2xl bg-white p-6 text-center text-lg font-semibold">Carregando produção...</p>}
       {error && <p role="alert" className="mb-3 rounded-2xl bg-amber-100 p-4 text-base font-semibold text-amber-900">{error}</p>}
       {!loading && facts.length===0 && <p className="rounded-2xl bg-white p-6 text-center text-lg">Nenhuma produção registrada neste período.</p>}
-      <div className="space-y-4">{!loading && facts.map(fact=><article key={fact.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          {fact.image ? <img src={fact.image} alt="" className="h-24 w-24 shrink-0 rounded-2xl object-cover"/> : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-sky-50"><Factory className="h-11 w-11 text-sky-700"/></div>}
-          <div className="min-w-0"><h3 className="text-lg font-extrabold leading-snug">{fact.name}</h3>{fact.variant && <p className="text-base font-semibold text-slate-600">{fact.variant}</p>}
-          <p className="mt-1 text-base text-slate-600">{formatDate(fact.date)}</p></div>
-        </div>
-        <div className="my-4 rounded-2xl bg-sky-100 px-4 py-3 text-center text-2xl font-black text-sky-900">{fact.quantity.toLocaleString('pt-BR')} prontos</div>
-        <p className="mb-2 text-lg font-extrabold">Quem trabalhou</p>
-        {[...fact.workers.entries()].map(([name,value])=><div key={name} className="flex items-start justify-between gap-2 border-t border-slate-100 py-3 text-lg"><span className="min-w-0 font-bold">{name}</span><strong className="shrink-0 text-emerald-800">{currency(value)}</strong></div>)}
-        <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-100 px-3 py-3 text-lg font-extrabold"><span>Total</span><span>{currency([...fact.workers.values()].reduce((a,b)=>a+b,0))}</span></div>
-      </article>)}</div>
+      <div className="space-y-4">{!loading && products.map(product => {
+        const expanded = expandedProducts.includes(product.id);
+        return <section key={product.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <button type="button" aria-expanded={expanded} aria-controls={`production-product-${product.id}`}
+            onClick={() => toggleProduct(product.id)}
+            className="flex min-h-32 w-full items-center gap-3 p-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sky-700">
+            {product.image
+              ? <img src={product.image} alt="" className="h-24 w-24 shrink-0 rounded-2xl object-cover"/>
+              : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-sky-50"><Factory className="h-11 w-11 text-sky-700"/></div>}
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg font-extrabold leading-snug">{product.name}</h3>
+              <p className="mt-2 text-2xl font-black text-sky-900">{product.quantity.toLocaleString('pt-BR')} prontos</p>
+              <p className="mt-1 text-base font-bold text-sky-700">{expanded ? 'Ocultar lançamentos' : 'Ver lançamentos'}</p>
+            </div>
+            <ChevronDown className={`h-7 w-7 shrink-0 text-sky-800 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true"/>
+          </button>
+          {expanded && <div id={`production-product-${product.id}`} className="space-y-3 border-t border-slate-200 bg-slate-50 p-3">
+            {product.facts.map(fact => <article key={fact.id} className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><p className="text-lg font-extrabold">{formatDate(fact.date)}</p>
+                  {fact.variant && <p className="text-base font-semibold text-slate-600">{fact.variant}</p>}</div>
+                <strong className="rounded-xl bg-sky-100 px-3 py-2 text-xl text-sky-900">{fact.quantity.toLocaleString('pt-BR')} prontos</strong>
+              </div>
+              <p className="mb-1 mt-4 text-lg font-extrabold">Quem trabalhou</p>
+              {[...fact.workers.entries()].map(([name,value]) =>
+                <div key={name} className="flex items-start justify-between gap-2 border-t border-slate-100 py-3 text-lg">
+                  <span className="min-w-0 font-bold">{name}</span>
+                  <strong className="shrink-0 text-emerald-800">{currency(value)}</strong>
+                </div>)}
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-100 px-3 py-3 text-lg font-extrabold">
+                <span>Total</span><span>{currency([...fact.workers.values()].reduce((a,b)=>a+b,0))}</span>
+              </div>
+            </article>)}
+          </div>}
+        </section>;
+      })}</div>
       {!loading && workers.length>0 && <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="mb-3 flex items-center gap-2 text-2xl font-extrabold"><Users className="h-6 w-6 text-sky-700"/>Valor por operador</h2>
         {workers.map(person=><div key={person.name} className="flex items-start justify-between gap-2 border-t border-slate-100 py-4 text-lg"><span className="font-bold">{person.name}</span><strong className="shrink-0 text-emerald-800">{currency(person.value)}</strong></div>)}
