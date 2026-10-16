@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Product } from '@/hooks/useOrders';
 import { ProductionFactMobile } from '@/components/operations/ProductionFactMobile';
 import { IntermediateBatchProduction } from '@/components/operations/IntermediateBatchProduction';
-import { ProductionOperatorHistory } from '@/components/operations/ProductionOperatorHistory';
+import { ProductionTeamSummary } from '@/components/operations/ProductionTeamSummary';
 
 type Mode = 'produce' | 'history';
 
@@ -52,9 +52,7 @@ export default function ProductionOperator() {
 
   if (mode === 'history') {
     return (
-      <ProductionOperatorHistory
-        operatorId={appUser.id}
-        operatorName={appUser.name}
+      <ProductionTeamSummary
         onProduce={() => {
           setIntermediateProductId(null);
           setMode('produce');
