@@ -15,7 +15,6 @@ import { LightboxProvider, LightboxRoot } from "@/components/lightbox";
 import { UndoRedoProvider } from "@/contexts/UndoRedoContext";
 import { LinesModeProvider } from "@/contexts/LinesModeContext";
 import { StockCheckWizard } from "@/components/stock-check";
-import { AssistantPanel } from "@/components/assistant";
 import { SwipeNavigationWrapper } from "@/components/SwipeNavigationWrapper";
 import { AnimatePresence, motion, Variants } from "framer-motion";
 import Index from "./pages/Index";
@@ -44,13 +43,10 @@ import Nucleo from "./pages/Nucleo";
 import CapturaCentral from "./pages/CapturaCentral";
 import OAuthConsent from "./pages/OAuthConsent";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
-import { NucleoLauncherButton } from "@/components/NucleoLauncherButton";
 import NotFound from "./pages/NotFound";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
-import { RoutineAlertsToggleButton } from "@/components/routine/RoutineAlertsToggleButton";
 import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
-import { ActiveUserPicker } from "@/components/ActiveUserPicker";
 import { useScheduledTaskPromotion } from "./hooks/useScheduledTaskPromotion";
 import { useKeyboardAware } from "./hooks/useKeyboardAware";
 
@@ -106,12 +102,6 @@ function AuthenticatedShell() {
 
   return (
     <>
-      <div className="fixed z-40 right-3 bottom-16 md:bottom-20 md:right-4 flex items-center gap-1 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border border-border rounded-full shadow-md px-1.5 py-1">
-        <NucleoLauncherButton />
-        <ActiveUserPicker />
-        <RoutineAlertsToggleButton />
-        <AssistantPanel />
-      </div>
       <GlobalSearchBar />
       <OperationalContextTracker />
       <SwipeNavigationWrapper>
