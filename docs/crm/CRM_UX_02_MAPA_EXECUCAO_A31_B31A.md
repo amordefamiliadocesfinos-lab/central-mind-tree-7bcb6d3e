@@ -17,8 +17,8 @@
 | ID | Escopo congelado | Dependência | Evidência mínima | Status | PR |
 |---|---|---|---|---|---|
 | A-01 | Faixa única do cabeçalho; busca/4 filtros críticos, menu Filtros, Escopo e Mais | nenhuma | Filtros e ações existentes preservados; TypeScript/build/CRM CI | Merge/CI aprovadas; preview/UAT pendente | [#283](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/283) |
-| A-02 | Estados visíveis (consulta geral, filtros ativos, limpar), responsive | A-01 | Busca/etapa/fornecedor crítico/Fora da fila/etapas e largura de tela | Em validação/CI | [#284](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/284) |
-| B-01 | Contrato compartilhado de leitura + gravação parcial, escritor canônico para Próxima Ação | A-02, independente de layout | Testes de alteração parcial, opt-out, título/data, erros, concorrência | Autorizado, pendente | — |
+| A-02 | Estados visíveis (consulta geral, filtros ativos, limpar), responsive | A-01 | Busca/etapa/fornecedor crítico/Fora da fila/etapas e largura de tela | Merge/CI aprovadas; preview/UAT pendente | [#284](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/284) |
+| B-01 | Contrato compartilhado de leitura + gravação parcial, escritor canônico para Próxima Ação | A-02, independente de layout | Testes de alteração parcial, opt-out, título/data, erros, concorrência | Em validação/CI | [#286](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/286) |
 | B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Autorizado, pendente | — |
 | B-03 | Edição simples, confirmação visual e proteção de troca de contexto | B-02 | Debounce, erros, troca contato, aba e seção sem perda | Autorizado, pendente | — |
 | B-04 | Edição fiscal/endereço/financeiro; Salvar/Cancelar por seção | B-03 | Campos completos, CEP, crédito, canais, sem sobrescrita | Autorizado, pendente | — |
