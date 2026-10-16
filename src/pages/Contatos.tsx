@@ -108,6 +108,7 @@ import { useWhatsAppWithLog, type WhatsAppOperationalResult } from '@/hooks/useW
 import { getTodayISO } from '@/lib/dateUtils';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
 import { clearCrmNextAction, setCrmNextAction } from '@/lib/crm/nextAction';
+import { isCrmNextActionChanged } from '@/lib/crm/contactEditContract';
 import { CrmTodayView } from '@/components/crm/CrmTodayView';
 import { applyAttendanceOutcome, snoozeAttendance, type AttendanceOutcome } from '@/lib/crm/attendance';
 
@@ -714,9 +715,14 @@ export default function Contatos() {
       const newContact2 = (data.next_contact_date as string) || '';
 
       const actionChanged = ['next_action_text', 'next_action_date', 'next_contact_date']
-        .some((key) => Object.prototype.hasOwnProperty.call(data, key));
+        .some((key) => Object.prototype.hasOwnProperty.call(data, key))
+        && isCrmNextActionChanged(editingContact, {
+          title: data.next_action_text?.trim() || null,
+          dueAt: data.next_action_date || data.next_contact_date || null,
+        });
       const { next_action_text, next_action_date, next_contact_date, ...contactUpdates } = data;
-      await updateContact(editingContact.id, actionChanged ? contactUpdates : data);
+      // Próxima Ação nunca trafega pelo update cadastral direto.
+      await updateContact(editingContact.id, contactUpdates);
 
       if (actionChanged) {
         const title = next_action_text || editingContact.next_action_text;
@@ -747,7 +753,25 @@ export default function Contatos() {
       }
     } else {
       // This screen is an explicit commercial action: creating here creates a lead.
-      const newContact = await createContact({ ...data, funnel_status: data.funnel_status || 'novo_lead' });
+      const { next_action_text, next_action_date, next_contact_date, ...leadData } = data;
+      const newContact = await createContact({ ...leadData, funnel_status: data.funnel_status || 'novo_lead' });
+      if (newContact?.id && (next_action_text || next_action_date || next_contact_date)) {
+        const title = next_action_text?.trim() || null;
+        const dueAt = next_action_date || next_contact_date || null;
+        if (Boolean(title) !== Boolean(dueAt)) {
+          throw new Error('Próxima Ação exige título e data.');
+        }
+        if (title && dueAt) {
+          try {
+            await setCrmNextAction({ contactId: newContact.id, title, dueAt });
+          } catch {
+            toast.error('Lead criado, mas a Próxima Ação precisa ser conferida. Não cadastre novamente.');
+            setFormOpen(false);
+            setEditingContact(undefined);
+            return;
+          }
+        }
+      }
       if (newContact?.id) {
         await addEntry(newContact.id, 'lead_criado', 'Lead criado', new Date().toISOString(), CRM_EVENT_CODES.LEAD_CREATED);
       }
