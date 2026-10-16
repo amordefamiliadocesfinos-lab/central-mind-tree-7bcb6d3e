@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'src/pages/ProductionOperator.tsx'
+      - 'src/pages/ProductionTeamAdmin.tsx'
+      - 'src/pages/Operacoes.tsx'
+      - 'src/App.tsx'
       - 'src/components/operations/ProductionTeamSummary.tsx'
       - '.github/workflows/production-operator-mobile-validation.yml'
 jobs:
