@@ -19,7 +19,7 @@
 | A-01 | Faixa única do cabeçalho; busca/4 filtros críticos, menu Filtros, Escopo e Mais | nenhuma | Filtros e ações existentes preservados; TypeScript/build/CRM CI | Merge/CI aprovadas; preview/UAT pendente | [#283](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/283) |
 | A-02 | Estados visíveis (consulta geral, filtros ativos, limpar), responsive | A-01 | Busca/etapa/fornecedor crítico/Fora da fila/etapas e largura de tela | Merge/CI aprovadas; preview/UAT pendente | [#284](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/284) |
 | B-01 | Contrato compartilhado de leitura + gravação parcial, escritor canônico para Próxima Ação | A-02, independente de layout | Testes de alteração parcial, opt-out, título/data, erros, concorrência | Merge/CI aprovadas; integração na UI pendente | [#286](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/286) |
-| B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Em validação/CI | [#287](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/287) |
+| B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Merge/CI aprovadas; preview/UAT pendente | [#287](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/287) |
 | B-03 | Edição simples, confirmação visual e proteção de troca de contexto | B-02 | Debounce, erros, troca contato, aba e seção sem perda | Autorizado, pendente | — |
 | B-04 | Edição fiscal/endereço/financeiro; Salvar/Cancelar por seção | B-03 | Campos completos, CEP, crédito, canais, sem sobrescrita | Autorizado, pendente | — |
 | B-05 | Próxima Ação canônica, opt-out, reativação/vínculos; harmonização controlada Gestão/Financeiro | B-04 | Uma obrigação oficial; sem reativação após opt-out; histórico/pedidos íntegros | Autorizado, pendente | — |
@@ -41,3 +41,12 @@
 `main` atualizada → branch isolada → commit(s) → PR → TypeScript + build + testes CRM → revisão de diff → merge controlado → conferir SHA GitHub/Lovable → preview → observação real.  
 Nenhum deploy/publicação extra ou migration fica implícito. Toda PR deve atualizar este mapa com status/links e registrar pendências de UAT.  
 Responsável técnico: CRM 7; experiência: UX/UI; aprovação de produto e execução: usuário; impacto transversal: especialista do módulo envolvido.
+
+## Checkpoint técnico — 2026-10-16
+- **A-01:** PR #283 integrada; TypeScript, build e regressões CRM aprovados; UAT autenticado pendente.
+- **A-02:** PR #284 integrada; TypeScript, build e regressões CRM aprovados; UAT autenticado pendente.
+- **B-01:** PR #286 integrada; infraestrutura de leitura/gravação parcial e teste de contrato aprovados; ainda **não conectada** aos editores da Gestão/Financeiro nem à nova ficha.
+- **B-02:** PR #287 integrada; ficha na terceira coluna **somente leitura**, com seções expansíveis; mantém editores antigos na Inbox até B-06. Regressões/TypeScript/build aprovados; UAT autenticado pendente.
+- **B-03–B-06:** permanecem autorizadas mas **não implementadas**. Não declarar a B3.1-A finalizada nem retirar acessos de edição enquanto não houver proteção de rascunho, integração de gravação e validação funcional.
+- **Lovable:** sincronização SHA da main confirmada no commit 09f92169a2dbff26e56fd5ac17634aba1dbf9ff3 na verificação deste checkpoint. Isso não equivale a publicação adicional nem prova de experiência autenticada.
+- **Roteiro objetivo de UAT:** revisar cabeçalho em desktop/intermediário/mobile, chips/menus e avisos de filtros; abrir contato com ficha na terceira coluna, expandir dados fiscal/endereço/financeiro; alternar Assistente/Ação; executar Anotação rápida; confirmar que a conversa permanece operável; verificar Registrar conversa extinto. Não editar dados reais para testar B-01 pois a ficha ainda é somente leitura.
