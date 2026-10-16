@@ -21,9 +21,9 @@
 | B-01 | Contrato compartilhado de leitura + gravação parcial, escritor canônico para Próxima Ação | A-02, independente de layout | Testes de alteração parcial, opt-out, título/data, erros, concorrência | Merge/CI aprovadas; integração na UI pendente | [#286](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/286) |
 | B-02 | Ficha integral somente consulta na terceira coluna, seções expansíveis | B-01 | Todos os grupos e vínculos; assistente/ação/conversa | Merge/CI aprovadas; preview/UAT pendente | [#287](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/287) |
 | B-03 | Edição simples, confirmação visual e proteção de troca de contexto | B-02 | Debounce, erros, troca contato, aba e seção sem perda | Merge/CI aprovadas; UAT pendente | [#290](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/290) |
-| B-04 | Edição fiscal/endereço/financeiro; Salvar/Cancelar por seção | B-03 | Campos completos, CEP, crédito, canais, sem sobrescrita | CI da PR #291 em andamento | [#291](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/291) |
-| B-05 | Próxima Ação canônica, opt-out, reativação/vínculos; harmonização controlada Gestão/Financeiro | B-04 | Uma obrigação oficial; sem reativação após opt-out; histórico/pedidos íntegros | Em validação; depende da #291 | PR B-05 em preparação |
-| B-06 | Responsividade da ficha, remover apenas acessos redundantes da Inbox | B-05 | UAT em preview; nenhuma abertura de modal/drawer/cadastro externo; conversa preservada | Autorizado, pendente | — |
+| B-04 | Edição fiscal/endereço/financeiro; Salvar/Cancelar por seção | B-03 | Campos completos, CEP, crédito, canais, sem sobrescrita | Merge/CI aprovadas; UAT pendente | [#291](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/291) |
+| B-05 | Próxima Ação canônica, opt-out, reativação/vínculos; harmonização controlada Gestão/Financeiro | B-04 | Uma obrigação oficial; sem reativação após opt-out; histórico/pedidos íntegros | Em CI | [#292](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/292) |
+| B-06 | Responsividade da ficha, remover apenas acessos redundantes da Inbox | B-05 | UAT em preview; nenhuma abertura de modal/drawer/cadastro externo; conversa preservada | Em desenvolvimento/CI; UAT necessária | PR B-06 em preparação |
 
 ## Contrato de integridade para B-01...B-06
 1. Todo update precisa de `contactId` explícito e imutável e leitura do registro completo.
@@ -50,3 +50,11 @@ Responsável técnico: CRM 7; experiência: UX/UI; aprovação de produto e exec
 - **B-03–B-06:** permanecem autorizadas mas **não implementadas**. Não declarar a B3.1-A finalizada nem retirar acessos de edição enquanto não houver proteção de rascunho, integração de gravação e validação funcional.
 - **Lovable:** sincronização SHA da main confirmada no commit 09f92169a2dbff26e56fd5ac17634aba1dbf9ff3 na verificação deste checkpoint. Isso não equivale a publicação adicional nem prova de experiência autenticada.
 - **Roteiro objetivo de UAT:** revisar cabeçalho em desktop/intermediário/mobile, chips/menus e avisos de filtros; abrir contato com ficha na terceira coluna, expandir dados fiscal/endereço/financeiro; alternar Assistente/Ação; executar Anotação rápida; confirmar que a conversa permanece operável; verificar Registrar conversa extinto. Não editar dados reais para testar B-01 pois a ficha ainda é somente leitura.
+
+## Complemento B-06 — restrições de aceite
+- Não remover `LeadDetailDrawer.tsx` nem `ContactFormDialog.tsx` de Gestão/Financeiro. Apenas os acessos concorrentes da Inbox são retirados.
+- Desktop/intermediário: painel contextual ocupa coluna da grade, sem `fixed`/drawer.
+- Mobile: alternância interna entre conversa e ficha, sem rota de edição externa.
+- Foto e extração por IA continuam possíveis na ficha; IA exige revisão explícita antes de salvar dados.
+- O novo link para pedido abre Operações somente para a operação de pedido, não para editar o contato.
+- Conferência visual autenticada, inclusive em celular, é obrigatória antes de marcar UAT como aprovada.
