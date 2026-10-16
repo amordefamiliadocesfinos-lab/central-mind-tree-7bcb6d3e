@@ -753,7 +753,16 @@ export default function Contatos() {
       }
     } else {
       // This screen is an explicit commercial action: creating here creates a lead.
-      const newContact = await createContact({ ...data, funnel_status: data.funnel_status || 'novo_lead' });
+      const { next_action_text, next_action_date, next_contact_date, ...leadData } = data;
+      const newContact = await createContact({ ...leadData, funnel_status: data.funnel_status || 'novo_lead' });
+      if (newContact?.id && (next_action_text || next_action_date || next_contact_date)) {
+        const title = next_action_text?.trim() || null;
+        const dueAt = next_action_date || next_contact_date || null;
+        if (Boolean(title) !== Boolean(dueAt)) {
+          throw new Error('Próxima Ação exige título e data.');
+        }
+        if (title && dueAt) await setCrmNextAction({ contactId: newContact.id, title, dueAt });
+      }
       if (newContact?.id) {
         await addEntry(newContact.id, 'lead_criado', 'Lead criado', new Date().toISOString(), CRM_EVENT_CODES.LEAD_CREATED);
       }
