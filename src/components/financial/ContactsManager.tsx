@@ -156,9 +156,16 @@ export function ContactsManager() {
       const title = next_action_text?.trim() || null;
       const dueAt = next_action_date || next_contact_date || null;
       if (created?.id && (title || dueAt)) {
-        await updateContactOfficialNextAction({
-          contactId: created.id, baseline: created, title, dueAt,
-        });
+        try {
+          await updateContactOfficialNextAction({
+            contactId: created.id, baseline: created, title, dueAt,
+          });
+        } catch (error) {
+          toast.error('Contato criado, mas a Próxima Ação precisa ser conferida. Evite cadastrar novamente.');
+          setFormOpen(false);
+          setEditingContact(undefined);
+          return;
+        }
       }
     }
     setFormOpen(false);
