@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePlatforms } from '@/hooks/usePlatforms';
 import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarchicalPicker';
 import { PROFILE_EDITABLE_KEYS } from '@/lib/crm/contactEditContract';
-import { saveContactProfile } from '@/lib/crm/contactProfileWriter';
+import { saveContactProfile, updateContactCommercialOptOut, updateContactOfficialNextAction } from '@/lib/crm/contactProfileWriter';
+import { ContactTasksPanel } from '@/components/crm/ContactTasksPanel';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 import { ContactAvatar } from './ContactAvatar';
@@ -127,14 +129,17 @@ interface ProfileProps {
   contact: Contact | null;
   onSaved?: (contact: Contact) => void;
   onEditingChange?: (editing: boolean) => void;
+  conversationId?: string | null;
 }
 
-export function ContactProfileOverview({ contact, onSaved, onEditingChange }: ProfileProps) {
+export function ContactProfileOverview({ contact, onSaved, onEditingChange, conversationId }: ProfileProps) {
   const [activeEdit, setActiveEdit] = useState<string | null>(null);
   const { activePlatforms } = usePlatforms();
   const [draft, setDraft] = useState<Partial<Contact>>({});
   const [statuses, setStatuses] = useState<Record<string, SaveState>>({});
   const [savingCount, setSavingCount] = useState(0);
+  const [actionTitle, setActionTitle] = useState('');
+  const [actionWhen, setActionWhen] = useState('');
   const baselineRef = useRef<Contact | null>(contact);
   const draftRef = useRef<Partial<Contact>>({});
   const pendingRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -151,6 +156,9 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
     setDraft(draftRef.current);
     setStatuses({});
     setActiveEdit(null);
+    setActionTitle(contact?.next_action_text || '');
+    setActionWhen(contact?.next_action_date
+      ? format(new Date(contact.next_action_date), "yyyy-MM-dd'T'HH:mm") : '');
     errorsRef.current.clear();
   }, [contact?.id]);
 
@@ -287,6 +295,31 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
   };
 
   const finishEdit = async () => {
+    if (activeEdit === 'compromissos') {
+      if (!contact) return;
+      setSavingCount((count) => count + 1);
+      try {
+        const baseline = baselineRef.current;
+        if (!baseline) throw new Error('Ficha não carregada.');
+        const next = await updateContactOfficialNextAction({
+          contactId: contact.id, baseline,
+          title: actionTitle.trim() || null,
+          dueAt: actionWhen ? new Date(actionWhen).toISOString() : null,
+          conversationId: conversationId ?? null,
+        });
+        baselineRef.current = next;
+        onSavedRef.current?.(next);
+        setStatuses((before) => ({ ...before, next_action_text: 'salvo' }));
+        setActiveEdit(null);
+        toast.success('Próxima Ação atualizada.');
+      } catch (error) {
+        setStatuses((before) => ({ ...before, next_action_text: 'erro' }));
+        toast.error(error instanceof Error ? error.message : 'Não foi possível confirmar a Próxima Ação.');
+      } finally {
+        setSavingCount((count) => Math.max(0, count - 1));
+      }
+      return;
+    }
     if (activeEdit && CONTROLLED_SECTIONS.has(activeEdit)) {
       if (await saveControlledSection(activeEdit)) setActiveEdit(null);
       return;
@@ -305,6 +338,28 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
     setActiveEdit(null);
   };
 
+
+  const changeOptOut = async () => {
+    if (!contact || savingCount || activeEdit) return;
+    setSavingCount((count) => count + 1);
+    try {
+      const base = baselineRef.current;
+      if (!base) throw new Error('Ficha não carregada.');
+      const result = await updateContactCommercialOptOut({
+        contactId: contact.id,
+        baseline: base,
+        value: !Boolean(base.commercial_opt_out),
+      });
+      baselineRef.current = result;
+      onSavedRef.current?.(result);
+      toast.success(result.commercial_opt_out ? 'Opt-out comercial ativado.' : 'Opt-out comercial removido.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao alterar o opt-out.');
+    } finally {
+      setSavingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const discardEdit = () => {
     if (savingCount) return;
     Object.values(pendingRef.current).forEach(clearTimeout);
@@ -313,6 +368,9 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
     setDraft(draftRef.current);
     setStatuses({});
     errorsRef.current.clear();
+    setActionTitle(baselineRef.current?.next_action_text || '');
+    setActionWhen(baselineRef.current?.next_action_date
+      ? format(new Date(baselineRef.current.next_action_date), "yyyy-MM-dd'T'HH:mm") : '');
     setActiveEdit(null);
   };
 
@@ -346,12 +404,19 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
                 <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </CollapsibleTrigger>
-            {(BASIC_SECTIONS.has(section.key) || CONTROLLED_SECTIONS.has(section.key)) && (
+            {(BASIC_SECTIONS.has(section.key) || CONTROLLED_SECTIONS.has(section.key) || section.key === 'compromissos') && (
               <Button type="button" variant="ghost" size="sm"
                 disabled={activeEdit !== null && activeEdit !== section.key}
                 onClick={() => {
                   if (activeEdit === section.key) void finishEdit();
-                  else if (!activeEdit) setActiveEdit(section.key);
+                  else if (!activeEdit) {
+                    if (section.key === 'compromissos') {
+                      setActionTitle(baselineRef.current?.next_action_text || '');
+                      setActionWhen(baselineRef.current?.next_action_date
+                        ? format(new Date(baselineRef.current.next_action_date), "yyyy-MM-dd'T'HH:mm") : '');
+                    }
+                    setActiveEdit(section.key);
+                  }
                 }}>
                 {activeEdit === section.key ? 'Concluir' : 'Editar'}
               </Button>
@@ -445,6 +510,32 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
             )}
             {activeEdit === section.key && CONTROLLED_SECTIONS.has(section.key) && (
               <p className="text-[10px] text-muted-foreground">Alterações nesta seção exigem Salvar/Concluir. Cancelar descarta alterações não salvas.</p>
+            )}
+            {section.key === 'compromissos' && (
+              <div className="space-y-2 rounded-md border p-2">
+                {activeEdit === 'compromissos' && (
+                  <>
+                    <label className="grid gap-1 text-xs">Próxima Ação
+                      <Input className="h-8 text-xs" value={actionTitle} disabled={savingCount > 0}
+                        onChange={(event) => setActionTitle(event.target.value)} />
+                    </label>
+                    <label className="grid gap-1 text-xs">Data e hora
+                      <Input className="h-8 text-xs" type="datetime-local" value={actionWhen}
+                        disabled={savingCount > 0} onChange={(event) => setActionWhen(event.target.value)} />
+                    </label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Concluir usa o escritor oficial e sincroniza a tarefa. Ambos vazios cancelam a Próxima Ação.
+                    </p>
+                    {statuses.next_action_text === 'erro' && <p className="text-xs text-destructive">Erro de sincronização: confira os dados e tente novamente.</p>}
+                  </>
+                )}
+                <Button type="button" variant={contact.commercial_opt_out ? 'outline' : 'secondary'}
+                  disabled={savingCount > 0 || activeEdit !== null} onClick={() => void changeOptOut()}
+                  size="sm" className="w-full whitespace-normal text-xs">
+                  {contact.commercial_opt_out ? 'Remover opt-out comercial' : 'Marcar: não deseja contato comercial'}
+                </Button>
+                <ContactTasksPanel contactId={contact.id} commercialOptOut={Boolean(contact.commercial_opt_out)} />
+              </div>
             )}
             {section.orders && <ContactOrdersList contactId={contact.id} />}
           </CollapsibleContent>
