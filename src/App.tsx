@@ -46,7 +46,6 @@ import OAuthConsent from "./pages/OAuthConsent";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import { NucleoLauncherButton } from "@/components/NucleoLauncherButton";
 import NotFound from "./pages/NotFound";
-import { QuickConversationFAB } from "@/components/crm/QuickConversationFAB";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
 import { RoutineAlertsToggleButton } from "@/components/routine/RoutineAlertsToggleButton";
@@ -119,7 +118,6 @@ function AuthenticatedShell() {
         <AnimatedRoutes />
       </SwipeNavigationWrapper>
       <GlobalFooterBar />
-      <QuickConversationFAB />
       <CapturaCentralFAB />
       <StockCheckWizard />
       <RoutineAlertOverlay />
