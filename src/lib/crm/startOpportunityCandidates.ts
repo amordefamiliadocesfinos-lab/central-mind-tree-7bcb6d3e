@@ -143,14 +143,16 @@ export function assessStartOpportunityCandidate(
   if (opportunity.kind === 'repurchase' && opportunity.repurchase?.status === 'explicit') {
     return blocked(contactId, 'Recompra solicitada pelo cliente deve seguir para o atendimento da Inbox.');
   }
-  if (opportunity.kind === 'post_sale' && opportunity.postSale?.eligible === true && opportunity.postSale.deliveryDate) {
+  if (opportunity.kind === 'post_sale' && opportunity.postSale?.eligible === true) {
+    if (!opportunity.postSale.deliveryDate) return insufficient(contactId, 'Pós-venda sinalizado sem data de entrega comprovada.');
     return { contactId, state: 'available', reason: opportunity.reason, opportunity, canRecommend: true };
   }
-  if (opportunity.kind === 'repurchase' && opportunity.repurchase?.status === 'probable'
-    && opportunity.repurchase.purchaseCount >= 3
-    && opportunity.repurchase.lastPurchaseAt
-    && opportunity.repurchase.typicalIntervalDays !== null
-    && opportunity.repurchase.typicalIntervalDays > 0) {
+  if (opportunity.kind === 'repurchase' && opportunity.repurchase?.status === 'probable') {
+    const signal = opportunity.repurchase;
+    if (signal.purchaseCount < 3 || !signal.lastPurchaseAt
+      || signal.typicalIntervalDays === null || signal.typicalIntervalDays <= 0) {
+      return insufficient(contactId, 'Recompra provável sem histórico ou intervalo típico comprovado.');
+    }
     return { contactId, state: 'available', reason: opportunity.reason, opportunity, canRecommend: true };
   }
   return { contactId, state: 'no_signal', reason: opportunity.reason, opportunity, canRecommend: false };
