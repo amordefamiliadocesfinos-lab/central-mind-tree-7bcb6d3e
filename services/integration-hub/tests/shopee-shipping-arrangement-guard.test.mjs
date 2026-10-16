@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
+import { claimShopeeShippingArrangement, resolveShopeeShippingArrangement, CORE_BRIDGE_URL } from '../src/core-bridge.mjs';
+import { shipOrderSimpleDropoff } from '../src/connectors/shopee-protocol.mjs';
 import { createGuardedShopeeShipOrder } from '../src/shopee-ship-order-guard.mjs';
 import { handleRequest } from '../src/app.mjs';
 
@@ -216,19 +218,127 @@ test('pilot window missing or expired cannot touch preflight or Core', async () 
   }
 });
 
-test('pilot expected order, account, profile, package or shop mismatch stops before network', async () => {
+test('pilot configured order, account or profile mismatch stops before preflight', async () => {
   const changes=[
     {SHOPEE_LIVE_SHIP_ORDER_PILOT_ORDER_SN:'OTHERORDER123'},
     {SHOPEE_LIVE_SHIP_ORDER_PILOT_ACCOUNT_ID:'00000000-0000-4000-8000-000000000001'},
     {SHOPEE_LIVE_SHIP_ORDER_PILOT_FISCAL_MODE:'cpf_no_invoice_step'},
-    {SHOPEE_LIVE_SHIP_ORDER_PILOT_PACKAGE_NUMBER:'OTHERPKG'},
-    {SHOPEE_LIVE_SHIP_ORDER_PILOT_SHOP_ID:'1234'},
   ];
   for(const update of changes) {
     const {calls,run}=fixture({env:{...activeEnv,...update}});
     assert.equal((await run()).code,'ship_order_pilot_scope_mismatch');
     assert.deepEqual(calls,[]);
   }
+});
+
+test('pilot package or shop mismatch is detected by fresh preflight before claim', async () => {
+  for (const update of [
+    { SHOPEE_LIVE_SHIP_ORDER_PILOT_PACKAGE_NUMBER: 'OTHERPKG' },
+    { SHOPEE_LIVE_SHIP_ORDER_PILOT_SHOP_ID: '1234' },
+  ]) {
+    const { calls, run } = fixture({ env: { ...activeEnv, ...update } });
+    assert.equal((await run()).code, 'preflight_not_eligible');
+    assert.deepEqual(calls, ['preflight']);
+  }
+});
+
+test('invalid calendar date cannot create an authorization window by Date.parse rollover', async () => {
+  const { calls, run } = fixture({
+    now: () => Date.parse('2026-03-02T18:00:00Z'),
+    env: { ...activeEnv, SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT: '2026-02-30T18:15:00Z' },
+  });
+  assert.equal((await run()).code, 'ship_order_window_inactive');
+  assert.deepEqual(calls, []);
+});
+
+test('window expiring during request preparation blocks the actual transport', async () => {
+  let clock = Date.parse('2026-10-15T18:00:00Z');
+  const { calls, run } = fixture({
+    now: () => clock,
+    ship: async ({ fetchImpl }) => {
+      calls.push(['ship']);
+      clock = Date.parse('2026-10-15T18:16:00Z');
+      await fetchImpl('https://partner.shopeemobile.com/api/v2/logistics/ship_order', { method: 'POST' });
+      return { response: { ok: true }, payload: { error: '', response: {} } };
+    },
+  });
+  assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
+  assert.equal(calls.some(x => x?.[0] === 'transport'), false);
+  assert.equal(calls.find(x => x?.[0] === 'resolve')[1].outcome, 'uncertain');
+});
+
+for (const [expiry, eligible] of [
+  ['2026-10-15T18:30:00Z', true],
+  ['2026-10-15T18:30:00.001Z', false],
+  ['2026-10-15T18:01:00Z', false],
+  ['2026-10-15T15:15:00-03:00', false],
+  ['2026-10-15T18:15:00', false],
+]) {
+  test('UTC window boundary: ' + expiry, async () => {
+    const { calls, run } = fixture({ env: { ...activeEnv, SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT: expiry } });
+    const result = await run();
+    assert.equal(result.ok, eligible);
+    if (!eligible) assert.deepEqual(calls, []);
+  });
+}
+
+test('real HMAC Core wrappers and signed Shopee primitive preserve claim-before-ship order', async () => {
+  const events = [];
+  const coreOptions = {
+    url: CORE_BRIDGE_URL, secret: 'synthetic-core-key', logger: () => {},
+    fetchImpl: async (_url, options) => {
+      const h = options.headers;
+      const hash = createHash('sha256').update(options.body).digest('hex');
+      const canonical = `v1\n${h['X-Integration-Hub-Timestamp']}\n${h['X-Integration-Hub-Request-Id']}\n${hash}`;
+      assert.equal(h['X-Integration-Hub-Signature'], createHmac('sha256', 'synthetic-core-key').update(canonical).digest('hex'));
+      const payload = JSON.parse(options.body);
+      const claiming = payload.action.endsWith('.claim');
+      events.push(claiming ? 'claim' : 'resolve');
+      const body = claiming
+        ? { status: 'claimed', fresh: true, attempt_id: '123e4567-e89b-42d3-a456-426614174000' }
+        : { status: 'resolved', state: payload.outcome };
+      return new Response(JSON.stringify({ ...body, request_id: h['X-Integration-Hub-Request-Id'] }), { headers: { 'content-type': 'application/json' } });
+    },
+  };
+  const { run } = fixture({
+    preflight: async () => { events.push('preflight'); return {
+      ok: true, order_sn: order, package_number: pkg, shop_id: shop,
+      order_status: 'READY_TO_SHIP', package_logistics_status: 'LOGISTICS_READY',
+      fiscal: 'fiscal_valid', modes: ['dropoff'], simple_dropoff_confirmed: true,
+    }; },
+    claim: data => claimShopeeShippingArrangement(data, coreOptions),
+    resolve: data => resolveShopeeShippingArrangement(data, coreOptions),
+    ship: shipOrderSimpleDropoff,
+    fetchImpl: async (url, options) => {
+      events.push('ship_order');
+      assert.equal(options.method, 'POST');
+      assert.deepEqual(JSON.parse(options.body), { order_sn: order, package_number: pkg, dropoff: {} });
+      const parsed = new URL(url);
+      const canonical = '2047685/api/v2/logistics/ship_order' + parsed.searchParams.get('timestamp') + 'synthetic-access-token' + shop;
+      assert.equal(parsed.searchParams.get('sign'), createHmac('sha256', 'fake-key').update(canonical).digest('hex'));
+      return new Response(JSON.stringify({ error: '', response: {} }));
+    },
+  });
+  assert.equal((await run()).ok, true);
+  assert.deepEqual(events, ['preflight', 'claim', 'ship_order', 'resolve']);
+});
+
+test('100 concurrent invocations and lost resolution cannot cause a second dispatch', async () => {
+  let reserved = false, dispatches = 0;
+  const { run } = fixture({
+    claim: async () => {
+      if (reserved) return { ok: false, payload: { code: 'already_claimed' } };
+      reserved = true;
+      return { ok: true, payload: { status: 'claimed', fresh: true, attempt_id: '123e4567-e89b-42d3-a456-426614174000' } };
+    },
+    ship: async () => { dispatches++; throw Error('timeout without known outcome'); },
+    resolve: async () => { throw Error('confirmation lost'); },
+  });
+  const results = await Promise.all(Array.from({ length: 100 }, () => run()));
+  assert.equal(dispatches, 1);
+  assert.equal(results.filter(r => r.code === 'sent_but_core_confirmation_missing').length, 1);
+  assert.equal((await run()).code, 'already_claimed');
+  assert.equal(dispatches, 1);
 });
 
 test('logistics pickup retry may pass read-only preflight but cannot execute first-time ship_order', async () => {

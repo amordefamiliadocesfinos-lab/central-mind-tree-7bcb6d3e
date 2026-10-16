@@ -27,7 +27,7 @@ function positiveSafeInteger(value) {
 }
 
 /**
- * Prepared executor, NOT exposed by any HTTP route/scheduler.
+ * Executor for the gated private pilot route; never scheduled automatically.
  * The caller can never bypass a fresh Shopee preflight or the durable
  * Core claim. The only supported form is simple dropoff with empty info_needed.
  */
@@ -47,7 +47,7 @@ export function createGuardedShopeeShipOrder({
     if (String(getEnv('SHOPEE_LIVE_SHIP_ORDER_ENABLED') ?? '').trim().toLowerCase() !== 'true') {
       return { ok: false, code: 'ship_order_disabled' };
     }
-    let orderSn, channelAccountId, pilotPackageNumber, pilotShopId, fiscalMode;
+    let orderSn, channelAccountId, pilotPackageNumber, pilotShopId, fiscalMode, windowExpiresAt;
     try {
       orderSn = envRequired(getEnv, 'SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN');
       channelAccountId = envRequired(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
@@ -68,9 +68,12 @@ export function createGuardedShopeeShipOrder({
       const expiryMs = Date.parse(expiry);
       const left = expiryMs - now();
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(expiry)
-          || !Number.isFinite(expiryMs) || left <= 60_000 || left > 30 * 60_000) {
+          || !Number.isFinite(expiryMs)
+          || new Date(expiryMs).toISOString().slice(0, 19) !== expiry.slice(0, 19)
+          || left <= 60_000 || left > 30 * 60_000) {
         return { ok: false, code: 'ship_order_window_inactive' };
       }
+      windowExpiresAt = expiryMs;
     } catch {
       return { ok: false, code: 'ship_order_pilot_not_configured' };
     }
@@ -121,7 +124,7 @@ export function createGuardedShopeeShipOrder({
     };
     // The window is checked again immediately before acquiring an irreversible
     // claim. A claim never authorizes automatic retries after expiry.
-    const remaining = Date.parse(getEnv('SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT')) - now();
+    const remaining = windowExpiresAt - now();
     if (!Number.isFinite(remaining) || remaining <= 60_000) {
       return { ok: false, code: 'ship_order_window_inactive' };
     }
@@ -142,9 +145,7 @@ export function createGuardedShopeeShipOrder({
     try {
       // A claim may take time to persist. Refuse transport if the approved
       // window expired after reservation; retain an uncertain locked attempt.
-      const remainingAfterClaim = Date.parse(
-        String(getEnv('SHOPEE_LIVE_SHIP_ORDER_WINDOW_EXPIRES_AT') ?? '')
-      ) - now();
+      const remainingAfterClaim = windowExpiresAt - now();
       if (!Number.isFinite(remainingAfterClaim) || remainingAfterClaim <= 0) {
         throw new Error('window_expired_after_claim');
       }
@@ -153,12 +154,19 @@ export function createGuardedShopeeShipOrder({
         partnerId, partnerKey, accessToken, shopId,
         orderSn, packageNumber: proof.package_number, infoNeeded: { dropoff: [] },
         fetchImpl: (url, options) => {
+          // Signing/preparation can cross the deadline after the earlier check.
+          // Keep the originally approved expiry and check at the network boundary.
+          const remainingAtTransport = windowExpiresAt - now();
+          if (!Number.isFinite(remainingAtTransport) || remainingAtTransport <= 0) {
+            throw new Error('window_expired_before_transport');
+          }
           const parsed = new URL(url);
           if (parsed.origin !== API_BASE || parsed.pathname !== SHIPPING_PATH) {
             throw new Error('untrusted_shopee_transport');
           }
           return fetchImpl(url, {
-            ...options, redirect: 'error', signal: AbortSignal.timeout(15000),
+            ...options, redirect: 'error',
+            signal: AbortSignal.timeout(Math.max(1, Math.min(15000, Math.floor(remainingAtTransport)))),
           });
         },
       });
