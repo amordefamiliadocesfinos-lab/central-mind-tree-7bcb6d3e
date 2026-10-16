@@ -439,7 +439,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
             </CollapsibleTrigger>
             {(BASIC_SECTIONS.has(section.key) || CONTROLLED_SECTIONS.has(section.key) || section.key === 'compromissos') && (
               <Button type="button" variant="ghost" size="sm"
-                disabled={activeEdit !== null && activeEdit !== section.key}
+                disabled={mediaBusy || (activeEdit !== null && activeEdit !== section.key)}
                 onClick={() => {
                   if (activeEdit === section.key) void finishEdit();
                   else if (!activeEdit) {
