@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import ProductionOperator from "./pages/ProductionOperator";
+import ProductionTeamAdmin from "./pages/ProductionTeamAdmin";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { GlobalFooterBar } from "@/components/GlobalFooterBar";
 import { OperationalContextTracker } from "@/components/OperationalContextTracker";
@@ -72,6 +73,7 @@ function AnimatedRoutes() {
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/rotina" element={<Rotina />} />
           <Route path="/operacoes" element={<Operacoes />} />
+          <Route path="/operacoes/nossa-producao" element={<ProductionTeamAdmin />} />
           <Route path="/digital" element={<Digital />} />
           <Route path="/planilhas" element={<Planilhas />} />
           <Route path="/reunioes" element={<Reunioes />} />
