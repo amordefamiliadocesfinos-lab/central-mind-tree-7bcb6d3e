@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePlatforms } from '@/hooks/usePlatforms';
 import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarchicalPicker';
 import { PROFILE_EDITABLE_KEYS } from '@/lib/crm/contactEditContract';
-import { saveContactProfile, updateContactCommercialOptOut, updateContactOfficialNextAction } from '@/lib/crm/contactProfileWriter';
+import { saveContactProfile, updateContactCommercialOptOut, updateContactOfficialNextAction, updateContactActiveState } from '@/lib/crm/contactProfileWriter';
+import { ContactProfileMediaImport } from '@/components/crm/ContactProfileMediaImport';
+import { Link } from 'react-router-dom';
 import { ContactTasksPanel } from '@/components/crm/ContactTasksPanel';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -124,6 +126,9 @@ const SELECT_OPTIONS: Record<string, readonly [string, string][]> = {
   client_classification: [['vip', 'VIP'], ['alto_potencial', 'Alto potencial'], ['medio', 'Médio'], ['baixo_potencial', 'Baixo potencial']],
   taxpayer_type: [['9', 'Não contribuinte'], ['1', 'Contribuinte ICMS'], ['2', 'Contribuinte isento']],
   category: [['sem_categoria', 'Sem categoria'], ['vip', 'VIP'], ['regular', 'Regular'], ['novo', 'Novo']],
+  marital_status: ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'Separado(a)', 'União Estável'].map((value) => [value, value] as [string, string]),
+  gender: [['masculino', 'Masculino'], ['feminino', 'Feminino'], ['outro', 'Outro']],
+  mobile_carrier: ['Vivo', 'Claro', 'Tim', 'Oi', 'Outros'].map((value) => [value, value] as [string, string]),
 };
 
 
@@ -132,9 +137,10 @@ interface ProfileProps {
   onSaved?: (contact: Contact) => void;
   onEditingChange?: (editing: boolean) => void;
   conversationId?: string | null;
+  onPhotoChange?: (photo: string | null) => Promise<void> | void;
 }
 
-export function ContactProfileOverview({ contact, onSaved, onEditingChange, conversationId }: ProfileProps) {
+export function ContactProfileOverview({ contact, onSaved, onEditingChange, conversationId, onPhotoChange }: ProfileProps) {
   const [activeEdit, setActiveEdit] = useState<string | null>(null);
   const { activePlatforms } = usePlatforms();
   const [draft, setDraft] = useState<Partial<Contact>>({});
@@ -142,6 +148,8 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
   const [savingCount, setSavingCount] = useState(0);
   const [actionTitle, setActionTitle] = useState('');
   const [actionWhen, setActionWhen] = useState('');
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [confirmActive, setConfirmActive] = useState(false);
   const baselineRef = useRef<Contact | null>(contact);
   const draftRef = useRef<Partial<Contact>>({});
   const pendingRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -162,11 +170,13 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
     setActionWhen(contact?.next_action_date
       ? format(new Date(contact.next_action_date), "yyyy-MM-dd'T'HH:mm") : '');
     errorsRef.current.clear();
+    setMediaBusy(false);
+    setConfirmActive(false);
   }, [contact?.id]);
 
   useEffect(() => {
-    onEditingChange?.(activeEdit !== null);
-  }, [activeEdit, onEditingChange]);
+    onEditingChange?.(activeEdit !== null || mediaBusy);
+  }, [activeEdit, mediaBusy, onEditingChange]);
 
   useEffect(() => () => {
     Object.values(pendingRef.current).forEach(clearTimeout);
@@ -341,6 +351,26 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
   };
 
 
+  const toggleActiveState = async () => {
+    if (!contact || savingCount || activeEdit || mediaBusy) return;
+    setSavingCount((count) => count + 1);
+    try {
+      const base = baselineRef.current;
+      if (!base) throw new Error('Ficha não carregada.');
+      const result = await updateContactActiveState({
+        contactId: contact.id, baseline: base, isActive: !Boolean(base.is_active),
+      });
+      baselineRef.current = result;
+      onSavedRef.current?.(result);
+      setConfirmActive(false);
+      toast.success(result.is_active ? 'Cadastro ativado.' : 'Cadastro inativado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao alterar a situação do cadastro.');
+    } finally {
+      setSavingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const changeOptOut = async () => {
     if (!contact || savingCount || activeEdit) return;
     setSavingCount((count) => count + 1);
@@ -381,7 +411,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
   return (
     <div className="space-y-2" aria-label="Ficha completa do contato">
       <div className="flex items-center gap-2 rounded-lg border p-2">
-        <ContactAvatar name={contact.name} photoUrl={contact.photo_url} size="md" />
+        <ContactAvatar name={contact.name} photoUrl={contact.photo_url} size="md" editable={Boolean(onPhotoChange)} onPhotoChange={(url) => void onPhotoChange?.(url)} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{contact.name}</p>
           <p className="truncate text-[11px] text-muted-foreground">{contact.whatsapp || contact.phone || 'Sem telefone'}</p>
@@ -401,6 +431,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
           <div className="flex items-center gap-1 pr-2">
             <CollapsibleTrigger asChild>
               <button type="button" className="group flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold hover:bg-muted/60"
+                disabled={mediaBusy && section.key === 'principal'}
                 aria-label={'Expandir ou recolher ' + section.title}>
                 <span>{section.title}</span>
                 <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
@@ -408,7 +439,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
             </CollapsibleTrigger>
             {(BASIC_SECTIONS.has(section.key) || CONTROLLED_SECTIONS.has(section.key) || section.key === 'compromissos') && (
               <Button type="button" variant="ghost" size="sm"
-                disabled={activeEdit !== null && activeEdit !== section.key}
+                disabled={mediaBusy || (activeEdit !== null && activeEdit !== section.key)}
                 onClick={() => {
                   if (activeEdit === section.key) void finishEdit();
                   else if (!activeEdit) {
@@ -484,6 +515,15 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
                                 : event.target.value)}
                             className="h-8 text-xs" />
                         )
+                      ) : SELECT_OPTIONS[key] ? (
+                        <select className="h-9 w-full rounded-md border bg-background px-2 text-xs"
+                          value={String(draft[key] ?? '')}
+                          disabled={savingCount > 0}
+                          onChange={(event) => changeField(key, event.target.value)}
+                          onBlur={() => flushField(key)}>
+                          <option value="">Não informado</option>
+                          {SELECT_OPTIONS[key].map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                        </select>
                       ) : key === 'notes' ? (
                         <Textarea value={String(draft[key] ?? '')}
                           disabled={savingCount > 0}
@@ -539,7 +579,44 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
                 <ContactTasksPanel contactId={contact.id} commercialOptOut={Boolean(contact.commercial_opt_out)} />
               </div>
             )}
-            {section.orders && <ContactOrdersList contactId={contact.id} />}
+            {section.key === 'principal' && !activeEdit && (
+              <ContactProfileMediaImport contact={contact} onSaved={(updated) => {
+                baselineRef.current = updated;
+                draftRef.current = { ...updated };
+                setDraft(draftRef.current);
+                onSavedRef.current?.(updated);
+              }} onPhotoChange={onPhotoChange} onBusyChange={setMediaBusy} />
+            )}
+            {section.key === 'estado' && (
+              <div className="space-y-2 rounded-md border p-2">
+                {confirmActive ? (
+                  <>
+                    <p className="text-xs">
+                      Confirma {contact.is_active ? 'inativar' : 'reativar'} este cadastro? Pedidos e histórico permanecem vinculados.
+                    </p>
+                    <div className="flex gap-1">
+                      <Button type="button" size="sm" disabled={savingCount > 0} onClick={() => void toggleActiveState()}>Confirmar</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setConfirmActive(false)}>Cancelar</Button>
+                    </div>
+                  </>
+                ) : (
+                  <Button type="button" size="sm" variant="outline" disabled={activeEdit !== null || mediaBusy}
+                    onClick={() => setConfirmActive(true)}>
+                    {contact.is_active ? 'Inativar cadastro' : 'Reativar cadastro'}
+                  </Button>
+                )}
+              </div>
+            )}
+            {section.orders && (
+              <div className="space-y-2">
+                <ContactOrdersList contactId={contact.id} />
+                <Button size="sm" variant="outline" className="w-full text-xs" asChild>
+                  <Link to={'/operacoes?tab=orders&newOrder=true&contactId=' + encodeURIComponent(contact.id)}>
+                    Novo pedido em Operações
+                  </Link>
+                </Button>
+              </div>
+            )}
           </CollapsibleContent>
         </Collapsible>
       ))}
