@@ -6,6 +6,7 @@ import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
 import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
 import { syncReadyShopeeLabel } from './shopee-live-label.mjs';
 import { inspectShopeeShippingPreflight } from './shopee-shipping-preflight.mjs';
+import { guardedShopeeShipOrder } from './shopee-ship-order-guard.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -37,6 +38,7 @@ export async function handleRequest(
     refreshShopeeOauth = refreshShopeeOauthOnce,
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
+    shipShopeeOrderOnce = guardedShopeeShipOrder,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -121,6 +123,74 @@ export async function handleRequest(
     } catch {
       return json(503, { status: 'degraded', mode: 'read_only', code: 'runtime_exception' });
     }
+  }
+
+
+  // F6-O.2e.2d: private IAM one-pilot shipping. Never a scheduler or browser action.
+  // Requires two independent OFF-by-default flags plus an expiring scope
+  // rechecked in the guarded executor before Core claim / external POST.
+  if (normalizedPath === '/internal/shopee/live/logistics/shipping/ship-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) {
+      return json(400, { error: 'query_not_allowed' });
+    }
+    const headers = request.headers ?? {};
+    const length = headers['content-length'];
+    if (headers['transfer-encoding'] !== undefined
+        || (length !== undefined && length !== '0')) {
+      return json(400, { error: 'body_not_allowed' });
+    }
+    const routeEnabled = String(getEnv('SHOPEE_LIVE_SHIP_ORDER_ROUTE_ENABLED') ?? '')
+      .trim().toLowerCase() === 'true';
+    const writerEnabled = String(getEnv('SHOPEE_LIVE_SHIP_ORDER_ENABLED') ?? '')
+      .trim().toLowerCase() === 'true';
+    if (!routeEnabled || !writerEnabled) {
+      return json(503, { error: 'ship_order_not_enabled' });
+    }
+    const runId = makeRunId();
+    const startedAt = now();
+    // Only allow known, non-sensitive result codes. Never include Shopee response,
+    // token, request payload, invoice, buyer details, or package address in logs.
+    const knownCodes = new Set([
+      'ship_order_api_acknowledged_not_collected',
+      'ship_order_disabled', 'ship_order_pilot_not_configured',
+      'ship_order_pilot_scope_mismatch', 'ship_order_window_inactive',
+      'partner_not_configured', 'preflight_unavailable',
+      'preflight_not_eligible', 'preflight_shop_missing',
+      'connection_identity_mismatch', 'access_token_expired_no_refresh',
+      'token_unavailable', 'shipping_claim_not_acquired',
+      'already_claimed', 'already_succeeded', 'uncertain_requires_reconciliation',
+      'claim_fingerprint_mismatch', 'account_or_shop_mismatch',
+      'order_not_unique_or_missing', 'invalid_request',
+      'ship_order_uncertain_requires_reconciliation',
+      'sent_but_core_confirmation_missing',
+    ]);
+    let code = 'runtime_exception';
+    let success = false;
+    try {
+      const result = await shipShopeeOrderOnce();
+      code = knownCodes.has(result?.code) ? result.code : 'runtime_exception';
+      success = result?.ok === true && code === 'ship_order_api_acknowledged_not_collected';
+    } catch { /* Sanitized, no retry. */ }
+    const status = success ? 200
+      : ['runtime_exception','ship_order_pilot_not_configured','ship_order_window_inactive',
+          'partner_not_configured','preflight_unavailable','shipping_claim_not_acquired',
+          'sent_but_core_confirmation_missing'].includes(code) ? 503 : 409;
+    try {
+      logEvent({
+        event: 'shopee_ship_order_once',
+        runId, startedAt, finishedAt: now(),
+        status: success ? 'api_acknowledged' : 'blocked',
+        code,
+      });
+    } catch { /* Logging never changes the request outcome. */ }
+    return json(status, {
+      status: success ? 'ok' : 'blocked',
+      mode: 'single_pilot_ship_order',
+      code,
+      // This is NOT proof of physical posting or stock movement.
+      physical_handoff_confirmed: false,
+    });
   }
 
   // Ação restrita ao pedido piloto configurado no runtime. Desabilitada por padrão.

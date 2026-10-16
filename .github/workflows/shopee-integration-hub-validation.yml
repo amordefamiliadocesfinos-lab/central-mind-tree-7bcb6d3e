@@ -1,0 +1,50 @@
+name: Shopee Integration Hub Tests and Docker
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/integration-hub/**'
+      - 'supabase/functions/_shared/shopee-protocol.mjs'
+      - 'supabase/functions/integration-core-bridge/handler.mjs'
+      - '.github/workflows/shopee-integration-hub-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  hub-node22-and-container:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout the pull request commit (read-only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node 22 full Integration Hub suite
+        working-directory: services/integration-hub
+        run: npm test
+      - name: Build canonical runtime Dockerfile (no push)
+        run: docker build --file services/integration-hub/Dockerfile --tag painel-shopee-hub-ci:${{ github.sha }} .
+      - name: Run full tests inside built image, without network
+        run: |
+          docker run --rm --network none \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/services/integration-hub/tests,target=/workspace/services/integration-hub/tests,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/supabase/functions/integration-core-bridge,target=/workspace/supabase/functions/integration-core-bridge,readonly" \
+            painel-shopee-hub-ci:${{ github.sha }} \
+            sh -c 'node --test tests/*.test.mjs'
+      - name: Runtime default-off protection in the built image
+        run: |
+          docker run --rm --network none painel-shopee-hub-ci:${{ github.sha }} \
+            node --input-type=module -e "
+              import { handleRequest } from './src/app.mjs';
+              const outcome = await handleRequest(
+                { method: 'POST', path: '/internal/shopee/live/logistics/shipping/ship-once', query: {}, headers: {} },
+                { handleShopeeLive: async () => null, getEnv: () => undefined }
+              );
+              if (outcome.status !== 503 || JSON.parse(outcome.body).error !== 'ship_order_not_enabled') process.exit(1);
+              console.log('ship-once OFF by default, HTTP 503');
+            "

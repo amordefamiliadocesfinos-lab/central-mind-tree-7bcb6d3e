@@ -181,6 +181,7 @@ export function createShopeeShippingPreflight({
       // Caller must still acquire a durable Core claim before any Shopee POST.
       order_sn: orderSn,
       package_number: pkg.packageNumber,
+      package_logistics_status: pkg.logisticsStatus,
       shop_id: shopId,
       simple_dropoff_confirmed: (
         Object.keys(params.payload?.response?.info_needed ?? {}).length === 1
