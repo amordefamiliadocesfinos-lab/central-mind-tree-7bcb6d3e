@@ -692,7 +692,6 @@ export function GlobalFooterBar() {
   }
 
   return (
-    {/* Keep the dock flush with the viewport: the old pb-safe-bottom added 4rem even on desktop. */}
     <div data-global-footer="true" className="fixed inset-x-0 bottom-0 z-[9999] flex justify-center pointer-events-none" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* Single global dock: centered, content-sized and flush with the viewport bottom. */}
       <div
