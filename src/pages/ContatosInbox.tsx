@@ -22,6 +22,7 @@ import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
 import { InboxSaleDialog } from '@/components/crm/InboxSaleDialog';
 import type { Contact } from '@/hooks/useContacts';
 import { LeadDetailDrawer } from '@/components/crm/LeadDetailDrawer';
+import { ContactProfileOverview } from '@/components/crm/ContactProfileOverview';
 
 import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
@@ -1813,7 +1814,7 @@ export default function ContatosInbox() {
             <div className="flex items-center justify-between border-b px-3 py-2">
               <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 p-0.5" role="group" aria-label="Conteúdo do painel contextual">
                 <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('assistant')} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
-                <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Detalhes do lead</Button>
+                <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Ficha do contato</Button>
                 {activeActionMode && <Button type="button" size="sm" variant={contextTab === 'action' ? 'secondary' : 'ghost'} className="h-8 px-2 text-xs" onClick={() => setContextTab('action')} aria-pressed={contextTab === 'action'}>Ação</Button>}
               </div>
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => setLeadPanelOpen(false)} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
@@ -1824,23 +1825,18 @@ export default function ContatosInbox() {
               <div ref={setAssistantPortalTarget} className={cn('space-y-2 p-3', contextTab !== 'assistant' && 'hidden')} role="region" aria-label="Assistente CRM">
                 <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
               </div>
-              <div className={cn('space-y-4 p-4', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Detalhes do lead">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <ContactAvatar name={selected.name} photoUrl={selected.photo_url} size="lg" editable onPhotoChange={updateSelectedPhoto} />
-                <div><div className="font-medium">{selected.name}</div><div className="text-xs text-muted-foreground">{selected.whatsapp || selected.phone || 'Sem telefone'}</div></div>
-              </div>
-              <div className="grid gap-2 text-xs">
-                <div className="rounded-md border p-2"><span className="text-muted-foreground">Etapa comercial</span><div className="mt-0.5 font-medium">{getCrmStageLabel(selected.funnel_status)}</div></div>
-                <div className="rounded-md border p-2"><span className="text-muted-foreground">Estado do atendimento</span><div className="mt-0.5 font-medium">{selected.attendance_state ? ATTENDANCE_STATE_LABELS[selected.attendance_state] || selected.attendance_state : 'Sem estado'}</div></div>
-                <div className="rounded-md border p-2"><span className="text-muted-foreground">Última interação</span><div className="mt-0.5 font-medium">{formatLastDate(selected.last_date)}</div></div>
-              </div>
-              <InboxNoteBlock contactId={selected.id} conversationId={selected.conversation_id} onSaved={load} onRegisterSale={() => setSaleOpen(true)} />
-              {leadContact && <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-6">{leadContact.notes || 'Nenhuma observação cadastrada.'}</p>}
-
-              <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setLeadEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" /> Editar dados
-              </Button>
-              <Link to={`/contatos?contact=${selected.id}`} className="block"><Button variant="outline" size="sm" className="w-full gap-2"><ExternalLink className="h-3.5 w-3.5" /> Abrir cadastro completo</Button></Link>
+              <div className={cn('space-y-3 p-3', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Ficha do contato">
+                <ContactProfileOverview contact={leadContact} />
+                <InboxNoteBlock contactId={selected.id} conversationId={selected.conversation_id} onSaved={load} onRegisterSale={() => setSaleOpen(true)} />
+                {/* Acessos legados preservados até B-06, após validação integral da ficha editável. */}
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setLeadEditOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar dados
+                </Button>
+                <Link to={`/contatos?contact=${selected.id}`} className="block">
+                  <Button variant="outline" size="sm" className="w-full gap-2">
+                    <ExternalLink className="h-3.5 w-3.5" /> Abrir cadastro completo
+                  </Button>
+                </Link>
               </div>
             </div>
           </aside>
