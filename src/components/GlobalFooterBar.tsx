@@ -29,6 +29,10 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLinesMode } from "@/contexts/LinesModeContext";
 import { CollaboratorsPanel } from "./CollaboratorsPanel";
+import { NucleoLauncherButton } from "./NucleoLauncherButton";
+import { ActiveUserPicker } from "./ActiveUserPicker";
+import { RoutineAlertsToggleButton } from "./routine/RoutineAlertsToggleButton";
+import { AssistantPanel } from "./assistant";
 
 interface Task {
   id: string;
@@ -240,14 +244,15 @@ export function GlobalFooterBar() {
   useEffect(() => {
     localStorage.setItem("footerHeight", String(footerHeight));
     document.documentElement.style.setProperty("--footer-h", `${footerHeight}px`);
-    // UX-CRM-02: altura realmente ocupada pelo rodapé (zero quando recolhido).
-    document.documentElement.style.setProperty("--footer-effective-h", `${footerHidden ? 0 : footerHeight}px`);
+    // A docked toolbar must reserve its real minimum height without shrinking buttons.
+    const effectiveDesktopHeight = footerHidden || footerHeight === 0 ? 0 : Math.max(footerHeight, 36);
+    document.documentElement.style.setProperty("--footer-effective-h", `${effectiveDesktopHeight}px`);
     // buttons ~ 92% of bar, icons ~ 50%
     document.documentElement.style.setProperty("--footer-btn", `${Math.round(footerHeight * 0.92)}px`);
     document.documentElement.style.setProperty("--footer-icon", `${Math.max(12, Math.round(footerHeight * 0.5))}px`);
     document.documentElement.style.setProperty("--footer-font", `${Math.max(10, Math.round(footerHeight * 0.36))}px`);
     if (window.matchMedia("(min-width: 768px)").matches) {
-      document.body.style.paddingBottom = footerHidden ? "0px" : `${footerHeight}px`;
+      document.body.style.paddingBottom = `${effectiveDesktopHeight}px`;
     }
     return () => {
       // do not clear; user expects persistence across renders
@@ -687,10 +692,10 @@ export function GlobalFooterBar() {
   }
 
   return (
-    <div data-global-footer="true" className="fixed bottom-0 left-0 right-0 z-[9999] bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-1px_8px_rgba(0,0,0,0.08)] pb-safe-bottom">
-      {/* Windows 11 style: full-width thin bar, content centered with auto width */}
+    <div data-global-footer="true" className="fixed inset-x-0 bottom-0 z-[9999] flex justify-center pointer-events-none pb-safe-bottom">
+      {/* Single global dock: centered, content-sized and flush with the viewport bottom. */}
       <div
-        className="flex flex-wrap md:flex-nowrap items-center md:items-end justify-between md:justify-center px-2 md:px-4 gap-1.5 md:gap-1.5 md:max-w-[1100px] md:mx-auto md:[min-height:var(--footer-h,30px)] md:pb-0"
+        className="pointer-events-auto flex w-full md:w-max max-w-full md:max-w-[calc(100vw-0.5rem)] flex-wrap md:flex-nowrap items-center justify-between md:justify-center gap-1.5 md:gap-1 rounded-t-2xl border border-b-0 border-border bg-background/95 px-2 md:px-3 shadow-[0_-2px_16px_rgba(0,0,0,0.12)] backdrop-blur-md md:[min-height:var(--footer-h,30px)] md:overflow-x-auto scrollbar-none"
       >
         {/* Left: Task status counters + Lines mode (only when showTaskBar is true) */}
         {showTaskBar && tasks.length > 0 ? (
@@ -827,7 +832,7 @@ export function GlobalFooterBar() {
         )}
 
         {/* Center: Navigation */}
-          <div className="basis-full md:basis-auto order-last md:order-none w-full md:w-auto md:flex-1 border-t md:border-t-0 border-border md:border-0">
+          <div className="basis-full md:basis-auto order-last md:order-none min-w-0 w-full md:w-auto md:flex-none border-t md:border-t-0 border-border md:border-0">
           {isMobile ? (
             <div className="grid grid-cols-5 gap-0.5 h-12 items-stretch">
               {mobilePrimaryItems.map((item) => {
@@ -898,7 +903,7 @@ export function GlobalFooterBar() {
               </DropdownMenu>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full md:flex-1 justify-center h-11 md:h-auto px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
+            <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto w-full md:w-auto md:flex-none justify-center h-11 md:h-auto px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
               {desktopPrimaryItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -979,7 +984,7 @@ export function GlobalFooterBar() {
         />
 
         {/* Right: Footer height adjuster + Timer */}
-        <div className="flex items-center gap-1 md:gap-2">
+        <div className="flex shrink-0 items-center gap-1 md:gap-2">
           {/* Hide footer button */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1127,6 +1132,15 @@ export function GlobalFooterBar() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Global controls now share the same footer dock on every authenticated route. */}
+        <div className="hidden md:block h-5 w-px shrink-0 bg-border mx-1" aria-hidden="true" />
+        <div className="flex shrink-0 items-center gap-1" aria-label="Controles globais do Painel Central">
+          <NucleoLauncherButton />
+          <ActiveUserPicker />
+          <RoutineAlertsToggleButton />
+          <AssistantPanel />
         </div>
       </div>
     </div>
