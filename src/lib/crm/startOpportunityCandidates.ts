@@ -82,8 +82,8 @@ export function assessStartOpportunitySafety(
   now = new Date(),
 ): { allowed: boolean; reason: string; insufficient: boolean } {
   const contact = facts.contact;
-  if (!contact || contact.id !== contactId || contact.is_active === null
-    || contact.commercial_opt_out === null || facts.conversationsTruncated) {
+  if (!contact || contact.id !== contactId || typeof contact.is_active !== 'boolean'
+    || typeof contact.commercial_opt_out !== 'boolean' || facts.conversationsTruncated) {
     return { allowed: false, insufficient: true, reason: 'Cadastro ou histórico de atendimento não verificado integralmente.' };
   }
   if (!contact.is_active) return { allowed: false, insufficient: false, reason: 'Contato inativo.' };
