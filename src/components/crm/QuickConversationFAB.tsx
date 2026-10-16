@@ -23,7 +23,13 @@ function getDefaultPosition() {
 export function QuickConversationFAB() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const isAllowed = ALLOWED_PREFIXES.some((p) => location.pathname.startsWith(p));
+  // UX02: a Inbox não oferece mais este registro legado. Outros módulos continuam intactos.
+  const isInbox = location.pathname === '/contatos/inbox' || location.pathname.startsWith('/contatos/inbox/');
+  const isAllowed = !isInbox && ALLOWED_PREFIXES.some((p) => location.pathname.startsWith(p));
+
+  useEffect(() => {
+    if (isInbox) setOpen(false);
+  }, [isInbox]);
 
   const [position, setPosition] = useState(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
@@ -49,14 +55,14 @@ export function QuickConversationFAB() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'w') {
+      if (!isInbox && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'w') {
         e.preventDefault();
         setOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [isInbox]);
 
   useEffect(() => {
     const handleResize = () => {

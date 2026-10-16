@@ -9,12 +9,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ContactTimeline } from '@/components/crm/ContactTimeline';
 import { ContactChatPanel } from '@/components/crm/ContactChatPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { QuickConversationDialog } from '@/components/crm/QuickConversationDialog';
 import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { MergeDuplicatesDialog } from '@/components/crm/MergeDuplicatesDialog';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Search, Zap, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Search, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useContactTags } from '@/hooks/useContactTags';
 import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
@@ -139,7 +138,6 @@ export default function ContatosInbox() {
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attendanceQueueScope, setAttendanceQueueScope] = useState<string[]>(readAttendanceQueueScope);
-  const [quickOpen, setQuickOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summary, setSummary] = useState('');
@@ -1281,11 +1279,6 @@ export default function ContatosInbox() {
             <Merge className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Duplicados</span>
           </Button>
-          <Button size="sm" onClick={() => setQuickOpen(true)} className="gap-1.5 h-8">
-            <Zap className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Registrar conversa</span>
-            <span className="sm:hidden">Nova</span>
-          </Button>
         </div>
         <div className="px-3 pb-3">
           <div className="relative">
@@ -1373,10 +1366,6 @@ export default function ContatosInbox() {
           ) : prioritized.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               {search ? 'Nenhum resultado' : 'Nenhuma conversa registrada ainda.'}
-              <br />
-              <Button size="sm" variant="link" onClick={() => setQuickOpen(true)} className="mt-2">
-                Registrar primeira conversa
-              </Button>
             </div>
           ) : (
             <div className="divide-y">
@@ -1854,12 +1843,6 @@ export default function ContatosInbox() {
       />
       <MergeDuplicatesDialog open={mergeOpen} onOpenChange={setMergeOpen} onMerged={load} />
 
-      <QuickConversationDialog
-        open={quickOpen}
-        onOpenChange={setQuickOpen}
-        initialContactId={selected?.id}
-        onSaved={() => load()}
-      />
 
       {/* Summary modal */}
       {summaryOpen && (
