@@ -47,6 +47,7 @@ const SECTIONS: readonly Section[] = [
     ['billing_number', 'Número'], ['billing_complement', 'Complemento'],
   ] },
   { key: 'comercial', title: 'Dados comerciais', fields: [
+    ['type', 'Cliente / fornecedor'], ['contact_type', 'Tipo de contato'],
     ['funnel_status', 'Etapa comercial'], ['temperatura_lead', 'Temperatura'],
     ['client_classification', 'Classificação do cliente'], ['valor_estimado', 'Valor potencial'],
     ['origem_lead', 'Origem'], ['salesperson', 'Vendedor'],
@@ -107,10 +108,11 @@ function showValue(contact: Contact, key: keyof Contact): string {
 type SaveState = 'pendente' | 'salvando' | 'salvo' | 'erro';
 const BASIC_KEYS = new Set<keyof Contact>([
   'name', 'fantasy_name', 'company_name', 'phone', 'whatsapp', 'mobile',
-  'email', 'website', 'notes', 'origem_lead', 'salesperson', 'profession', 'birthplace',
+  'email', 'website', 'notes', 'origem_lead', 'salesperson', 'city', 'landline',
+  'fax', 'nfe_email', 'skype', 'mobile_carrier', 'contact_info', 'next_visit',
 ]);
-const BASIC_SECTIONS = new Set(['principal', 'contato', 'adicionais']);
-const CONTROLLED_SECTIONS = new Set(['fiscal', 'endereco', 'cobranca', 'financeiro', 'comercial', 'vinculos']);
+const BASIC_SECTIONS = new Set(['principal', 'contato']);
+const CONTROLLED_SECTIONS = new Set(['fiscal', 'endereco', 'cobranca', 'financeiro', 'comercial', 'vinculos', 'adicionais']);
 const PROFILE_EDITABLE = new Set<string>(PROFILE_EDITABLE_KEYS as readonly string[]);
 const SELECT_OPTIONS: Record<string, readonly [string, string][]> = {
   person_type: [['fisica', 'Pessoa física'], ['juridica', 'Pessoa jurídica']],
@@ -332,7 +334,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
           <span>{savingCount ? 'Salvando...' : 'Edição em andamento — finalize antes de navegar'}</span>
           <div className="flex shrink-0 gap-1">
             <Button type="button" size="sm" variant="outline" disabled={savingCount > 0} onClick={discardEdit}>Cancelar</Button>
-            <Button type="button" size="sm" onClick={() => void finishEdit()}>Concluir</Button>
+            <Button type="button" size="sm" onClick={() => void finishEdit()}>{activeEdit && CONTROLLED_SECTIONS.has(activeEdit) ? 'Salvar seção' : 'Concluir'}</Button>
           </div>
         </div>
       )}
@@ -353,7 +355,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange }: Pr
                   if (activeEdit === section.key) void finishEdit();
                   else if (!activeEdit) setActiveEdit(section.key);
                 }}>
-                {activeEdit === section.key ? 'Concluir' : 'Editar'}
+                {activeEdit === section.key ? (CONTROLLED_SECTIONS.has(section.key) ? 'Salvar seção' : 'Concluir') : 'Editar'}
               </Button>
             )}
           </div>
