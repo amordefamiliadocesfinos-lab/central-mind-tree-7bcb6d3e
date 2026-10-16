@@ -692,7 +692,7 @@ export function GlobalFooterBar() {
   }
 
   return (
-    <div data-global-footer="true" className="fixed inset-x-0 bottom-0 z-[9999] flex justify-center pointer-events-none pb-safe-bottom">
+    <div data-global-footer="true" className="fixed inset-x-0 bottom-0 z-[9999] flex justify-center pointer-events-none" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* Single global dock: centered, content-sized and flush with the viewport bottom. */}
       <div
         className="pointer-events-auto flex w-full md:w-max max-w-full md:max-w-[calc(100vw-0.5rem)] flex-wrap md:flex-nowrap items-center justify-between md:justify-center gap-1.5 md:gap-1 rounded-t-2xl border border-b-0 border-border bg-background/95 px-2 md:px-3 shadow-[0_-2px_16px_rgba(0,0,0,0.12)] backdrop-blur-md md:[min-height:var(--footer-h,30px)] md:overflow-x-auto scrollbar-none"

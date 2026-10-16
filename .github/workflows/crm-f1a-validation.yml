@@ -9,6 +9,7 @@ on:
       - 'src/pages/ContatosInbox.tsx'
       - 'src/pages/Contatos.tsx'
       - 'src/App.tsx'
+      - 'src/components/GlobalFooterBar.tsx'
       - 'src/components/crm/QuickConversationFAB.tsx'
       - 'src/components/crm/QuickConversationDialog.tsx'
       - 'src/hooks/useCrmCampaigns.ts'
