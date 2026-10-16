@@ -126,6 +126,9 @@ const SELECT_OPTIONS: Record<string, readonly [string, string][]> = {
   client_classification: [['vip', 'VIP'], ['alto_potencial', 'Alto potencial'], ['medio', 'Médio'], ['baixo_potencial', 'Baixo potencial']],
   taxpayer_type: [['9', 'Não contribuinte'], ['1', 'Contribuinte ICMS'], ['2', 'Contribuinte isento']],
   category: [['sem_categoria', 'Sem categoria'], ['vip', 'VIP'], ['regular', 'Regular'], ['novo', 'Novo']],
+  marital_status: ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'Separado(a)', 'União Estável'].map((value) => [value, value] as [string, string]),
+  gender: [['masculino', 'Masculino'], ['feminino', 'Feminino'], ['outro', 'Outro']],
+  mobile_carrier: ['Vivo', 'Claro', 'Tim', 'Oi', 'Outros'].map((value) => [value, value] as [string, string]),
 };
 
 
@@ -511,6 +514,15 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
                                 : event.target.value)}
                             className="h-8 text-xs" />
                         )
+                      ) : SELECT_OPTIONS[key] ? (
+                        <select className="h-9 w-full rounded-md border bg-background px-2 text-xs"
+                          value={String(draft[key] ?? '')}
+                          disabled={savingCount > 0}
+                          onChange={(event) => changeField(key, event.target.value)}
+                          onBlur={() => flushField(key)}>
+                          <option value="">Não informado</option>
+                          {SELECT_OPTIONS[key].map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                        </select>
                       ) : key === 'notes' ? (
                         <Textarea value={String(draft[key] ?? '')}
                           disabled={savingCount > 0}
