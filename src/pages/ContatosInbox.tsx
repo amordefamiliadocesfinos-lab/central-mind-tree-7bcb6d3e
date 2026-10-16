@@ -13,7 +13,7 @@ import { ContactAvatar } from '@/components/crm/ContactAvatar';
 import { MergeDuplicatesDialog } from '@/components/crm/MergeDuplicatesDialog';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Search, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Pencil, Eye, EyeOff, ChevronDown, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Search, MessageCircle, Phone, ExternalLink, Sparkles, Loader2, Merge, Clock, UserCheck, UserMinus, CheckCircle2, RotateCcw, ArrowRight, PanelRight, Archive, X, Tag, ShoppingCart, Eye, EyeOff, ChevronDown, SlidersHorizontal, MoreHorizontal } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -21,7 +21,6 @@ import { useContactTags } from '@/hooks/useContactTags';
 import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
 import { InboxSaleDialog } from '@/components/crm/InboxSaleDialog';
 import type { Contact } from '@/hooks/useContacts';
-import { LeadDetailDrawer } from '@/components/crm/LeadDetailDrawer';
 import { ContactProfileOverview } from '@/components/crm/ContactProfileOverview';
 
 import { openWhatsApp } from '@/lib/whatsapp';
@@ -186,7 +185,8 @@ export default function ContatosInbox() {
   const [replyFocusRequest, setReplyFocusRequest] = useState<{ id: number; contactId: string; conversationId: string | null; prepareAssistant: boolean } | null>(null);
   const actionRequestSequenceRef = useRef(0);
   // Em telas intermediárias a lateral funciona sob demanda; no desktop amplo já nasce aberta.
-  const [leadPanelOpen, setLeadPanelOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
+  const [leadPanelOpen, setLeadPanelOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
   const [contextTab, setContextTab] = useState<'assistant' | 'lead' | 'action'>('lead');
   const [assistantPortalTarget, setAssistantPortalTarget] = useState<HTMLDivElement | null>(null);
   const [actionPortalTarget, setActionPortalTarget] = useState<HTMLDivElement | null>(null);
@@ -201,7 +201,6 @@ export default function ContatosInbox() {
       setContextTab(current => current === 'action' ? 'lead' : current);
     }
   }, [isMobile]);
-  const [leadEditOpen, setLeadEditOpen] = useState(false);
   const [leadContact, setLeadContact] = useState<Contact | null>(null);
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [saleOpen, setSaleOpen] = useState(false);
@@ -243,6 +242,7 @@ export default function ContatosInbox() {
     setReplyFocusRequest(null);
     setDetailTab('conversa');
     setContextTab('lead');
+    setMobileProfileOpen(false);
     setActiveActionMode(null);
     setOrientationExpanded(false);
     setOperationalHandoff(null);
@@ -262,7 +262,7 @@ export default function ContatosInbox() {
   // Carrega a ficha do lead para a barra lateral (somente quando visível).
   useEffect(() => {
 
-    if ((!leadPanelOpen && !leadEditOpen) || !selectedId) return;
+    if (!leadPanelOpen || !selectedId) return;
     let cancelled = false;
     setLeadContact(null);
     void supabase.from('contacts').select('*').eq('id', selectedId).maybeSingle().then(({ data }) => {
@@ -270,7 +270,7 @@ export default function ContatosInbox() {
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadPanelOpen, leadEditOpen, selectedId]);
+  }, [leadPanelOpen, selectedId]);
 
   // Busca com debounce: dispara consulta ao banco, não filtra só a página.
   const [deferredSearch, setDeferredSearch] = useState('');
@@ -1066,20 +1066,7 @@ export default function ContatosInbox() {
     }
   };
 
-  const updateLeadContextually = async (contactId: string, updates: Partial<Contact>) => {
-    const { error } = await supabase.from('contacts').update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    } as any).eq('id', contactId);
-    if (error) throw error;
-    setLeadContact(current => current?.id === contactId ? { ...current, ...updates } : current);
-    setItems(current => current.map(item => item.id === contactId ? {
-      ...item,
-      ...(updates.name !== undefined ? { name: updates.name } : {}),
-      ...(updates.whatsapp !== undefined ? { whatsapp: updates.whatsapp || null } : {}),
-      ...(updates.phone !== undefined ? { phone: updates.phone || null } : {}),
-    } : item));
-  };
+
 
   const archiveSelectedConversation = async () => {
     if (!selected) return;
@@ -1102,7 +1089,7 @@ export default function ContatosInbox() {
       }).eq('id', selected.conversation_id);
       if (error) throw error;
       setLeadPanelOpen(false);
-      setLeadEditOpen(false);
+      setMobileProfileOpen(false);
       const refreshedItems = await load();
       if (refreshedItems === null) {
         guardedSelectContact(null);
@@ -1467,7 +1454,7 @@ export default function ContatosInbox() {
       </div>
 
       <div className={cn('grid flex-1 min-h-0 gap-0 md:p-2', leadPanelOpen
-          ? 'md:grid-cols-[minmax(240px,30%)_minmax(0,1fr)] xl:grid-cols-[minmax(230px,20%)_minmax(0,53%)_minmax(290px,27%)]'
+          ? 'md:grid-cols-[minmax(170px,23%)_minmax(230px,1fr)_minmax(250px,30%)] xl:grid-cols-[minmax(230px,20%)_minmax(0,53%)_minmax(290px,27%)]'
           : 'md:grid-cols-[minmax(240px,26%)_minmax(0,1fr)]')}>
         {/* Lista */}
         <div className={cn('min-h-0 overflow-y-auto md:border md:rounded-l-lg md:bg-card', selected && 'hidden md:block')}>
@@ -1552,7 +1539,7 @@ export default function ContatosInbox() {
         </div>
 
         {/* Painel detalhe */}
-        <div className={cn('min-h-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col', !selected && 'hidden md:flex')}>
+        <div className={cn('min-h-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col', !selected && 'hidden md:flex', mobileProfileOpen && 'hidden md:flex')}>
           {!selected ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
               <MessageCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
@@ -1641,28 +1628,21 @@ export default function ContatosInbox() {
                   </Button>
                   <Button
                     size="icon"
-                    variant={leadPanelOpen ? 'secondary' : 'ghost'}
+                    variant={(isMobile ? mobileProfileOpen : leadPanelOpen) ? 'secondary' : 'ghost'}
                     className="h-8 w-8"
                     disabled={Boolean(activeActionMode)}
-                    onClick={() => setLeadPanelOpen((v) => !v)}
-                    title={activeActionMode ? 'Conclua ou cancele a ação antes de ocultar o painel' : leadPanelOpen ? 'Ocultar detalhes do lead' : 'Mostrar detalhes do lead'}
+                    onClick={() => {
+                      if (!guardProfileExit()) return;
+                      if (isMobile) {
+                        setLeadPanelOpen(true);
+                        setMobileProfileOpen((v) => !v);
+                      } else setLeadPanelOpen((v) => !v);
+                    }}
+                    title={activeActionMode ? 'Conclua ou cancele a ação antes de ocultar o painel' : isMobile ? (mobileProfileOpen ? 'Voltar à conversa' : 'Mostrar ficha do contato') : leadPanelOpen ? 'Ocultar ficha do contato' : 'Mostrar ficha do contato'}
                   >
                     <PanelRight className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={() => setLeadEditOpen(true)}
-                    title="Editar dados do contato sem sair da conversa"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Link to={`/contatos?contact=${selected.id}`}>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Abrir ficha completa">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </Link>
+
 
                 </div>
               </div>
@@ -1870,14 +1850,18 @@ export default function ContatosInbox() {
           )}
         </div>
         {leadPanelOpen && selected && (
-          <aside className="hidden md:fixed md:right-2 md:top-44 md:bottom-16 md:z-40 md:w-[min(360px,calc(100vw-1rem))] md:flex md:flex-col md:overflow-hidden md:rounded-lg md:border md:bg-card md:shadow-xl xl:static xl:top-auto xl:bottom-auto xl:right-auto xl:z-auto xl:w-auto xl:rounded-r-lg xl:rounded-l-none xl:shadow-none">
+          <aside className={cn('min-h-0 flex-col overflow-hidden rounded-lg border bg-card md:flex md:rounded-l-none md:rounded-r-lg', mobileProfileOpen ? 'flex' : 'hidden')}>
             <div className="flex items-center justify-between border-b px-3 py-2">
               <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 p-0.5" role="group" aria-label="Conteúdo do painel contextual">
                 <Button type="button" size="sm" variant={contextTab === 'assistant' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => { if (guardProfileExit()) setContextTab('assistant'); }} aria-pressed={contextTab === 'assistant'}>Assistente CRM</Button>
                 <Button type="button" size="sm" variant={contextTab === 'lead' ? 'secondary' : 'ghost'} className="h-8 px-3 text-xs" onClick={() => setContextTab('lead')} aria-pressed={contextTab === 'lead'}>Ficha do contato</Button>
                 {activeActionMode && <Button type="button" size="sm" variant={contextTab === 'action' ? 'secondary' : 'ghost'} className="h-8 px-2 text-xs" onClick={() => { if (guardProfileExit()) setContextTab('action'); }} aria-pressed={contextTab === 'action'}>Ação</Button>}
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => { if (guardProfileExit()) setLeadPanelOpen(false); }} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={Boolean(activeActionMode)} onClick={() => {
+                if (!guardProfileExit()) return;
+                if (isMobile) setMobileProfileOpen(false);
+                else setLeadPanelOpen(false);
+              }} aria-label="Fechar painel contextual" title={activeActionMode ? "Conclua ou cancele a ação antes de fechar" : "Ocultar painel"}><X className="h-4 w-4" /></Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {/* Target estável: alternar a visualização não desmonta a análise do Assistente. */}
@@ -1886,17 +1870,9 @@ export default function ContatosInbox() {
                 <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
               </div>
               <div className={cn('space-y-3 p-3', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Ficha do contato">
-                <ContactProfileOverview contact={leadContact} conversationId={selected.conversation_id} onSaved={onProfileSaved} onEditingChange={onProfileEditingChange} />
+                <ContactProfileOverview contact={leadContact} conversationId={selected.conversation_id} onSaved={onProfileSaved} onEditingChange={onProfileEditingChange} onPhotoChange={updateSelectedPhoto} />
                 <InboxNoteBlock contactId={selected.id} conversationId={selected.conversation_id} onSaved={load} onRegisterSale={() => setSaleOpen(true)} />
-                {/* Acessos legados preservados até B-06, após validação integral da ficha editável. */}
-                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setLeadEditOpen(true)}>
-                  <Pencil className="h-3.5 w-3.5" /> Editar dados
-                </Button>
-                <Link to={`/contatos?contact=${selected.id}`} className="block">
-                  <Button variant="outline" size="sm" className="w-full gap-2">
-                    <ExternalLink className="h-3.5 w-3.5" /> Abrir cadastro completo
-                  </Button>
-                </Link>
+
               </div>
             </div>
           </aside>
@@ -1939,13 +1915,7 @@ export default function ContatosInbox() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <LeadDetailDrawer
-        contact={leadContact}
-        open={leadEditOpen}
-        onOpenChange={setLeadEditOpen}
-        onSave={updateLeadContextually}
-        onOpenFull={() => window.open(`/contatos?contact=${selected?.id}`, '_blank', 'noopener,noreferrer')}
-      />
+
       <MergeDuplicatesDialog open={mergeOpen} onOpenChange={setMergeOpen} onMerged={load} />
 
 
