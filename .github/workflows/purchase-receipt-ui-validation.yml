@@ -1,0 +1,39 @@
+name: Purchase Receipt UI Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/operations/purchases/PurchaseReceiptDialog.tsx'
+      - 'src/components/ui/responsive-dialog.tsx'
+      - 'src/lib/purchases/receiptContract.ts'
+      - 'src/lib/purchases/receiptContract.test.ts'
+      - '.github/workflows/purchase-receipt-ui-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Receipt dialog retains internal scrolling
+        run: |
+          if ! grep -Eq '^[[:space:]]+scrollable[[:space:]]*$' src/components/operations/purchases/PurchaseReceiptDialog.tsx; then
+            echo "::error::Purchase receipt dialog must keep header/footer visible while items scroll"
+            exit 1
+          fi
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build
+        run: npm run build
+      - name: Purchase receipt contract regressions
+        run: npx --yes vite-node@3.2.4 src/lib/purchases/receiptContract.test.ts
