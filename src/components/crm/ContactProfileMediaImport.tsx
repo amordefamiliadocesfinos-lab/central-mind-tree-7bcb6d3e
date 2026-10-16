@@ -57,6 +57,7 @@ export function ContactProfileMediaImport({
   const busy = analyzing || applying || Boolean(proposal) || Boolean(crop);
 
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
   useEffect(() => {
     setProposal(null);
     setCrop(null);
