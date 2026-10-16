@@ -1235,7 +1235,7 @@ const MAPA_GERAL_CONTENT =
   "Automação:\n" +
   "• AutomationRulesPanel.\n\n" +
   "CRM (src/components/crm):\n" +
-  "• BulkWhatsAppDispatch, ContactActivitiesPanel, ContactAvatar, ContactCard, ContactChatPanel, ContactOrdersList, ContactTagsManager, ContactTasksPanel, ContactTimeline, FunnelAutomationsPanel, KommoFunnelView, LeadDetailDrawer, LeadImportDialog, LeadOriginPicker, LeadsNeedContactPanel, LostReasonDialog, MergeDuplicatesDialog, NextBestAction, PosVendaPanel, QuickConversationDialog, QuickConversationFAB, WhatsAppAttachments, WhatsAppMessageSelector.\n\n" +
+  "• BulkWhatsAppDispatch, ContactActivitiesPanel, ContactAvatar, ContactCard, ContactChatPanel, ContactOrdersList, ContactTagsManager, ContactTasksPanel, ContactTimeline, FunnelAutomationsPanel, KommoFunnelView, LeadDetailDrawer, LeadImportDialog, LeadOriginPicker, LeadsNeedContactPanel, LostReasonDialog, MergeDuplicatesDialog, NextBestAction, PosVendaPanel, WhatsAppAttachments, WhatsAppMessageSelector.\n\n" +
   "Dashboard:\n" +
   "• BottleneckCard, CampaignResults, CommercialDashboard, CompanyStatus, DailyPerformance, DailyPriorities, DailySummary, NextActionsCard, QuickFinance.\n\n" +
   "Digital (src/components/digital):\n" +
@@ -1413,8 +1413,7 @@ const ARQUITETURA_ATUAL_CONTENT =
   "                  │   ├── GlobalSearchBar (topo)\n" +
   "                  │   ├── SwipeNavigationWrapper → AnimatedRoutes\n" +
   "                  │   ├── GlobalFooterBar (rodapé com toolbar)\n" +
-  "                  │   ├── QuickConversationFAB (CRM)\n" +
-  "                  │   ├── StockCheckAlert + StockCheckWizard\n" +
+    "                  │   ├── StockCheckAlert + StockCheckWizard\n" +
   "                  │   └── RoutineAlertOverlay\n" +
   "                  └── LightboxRoot\n\n" +
   "Hooks globais montados em AppContent: useScheduledTaskPromotion, useKeyboardAware.\n\n" +
@@ -1428,7 +1427,7 @@ const ARQUITETURA_ATUAL_CONTENT =
   "• Mídia global: LightboxProvider, LightboxRoot, LightboxImage, LightboxVideo, MediaUploader, ProductGallery.\n" +
   "• Assistente IA: AssistantPanel, CEOChat.\n" +
   "• Estoque/Produção: BOMEditor, MRPPanel, InventoryMovementDialog, ProductMovementHistory.\n" +
-  "• CRM: FunnelView, KommoFunnelView, LeadDetailDrawer, ContactCard, ContactTimeline, QuickConversationFAB, BulkWhatsAppDispatch.\n" +
+  "• CRM: FunnelView, KommoFunnelView, LeadDetailDrawer, ContactCard, ContactTimeline, BulkWhatsAppDispatch.\n" +
   "• Financeiro: FinancialDashboard, FinancialEntriesList, FinancialEntryForm, PricingManagerV2, InvoicesManager.\n" +
   "• Rotina: RoutineAlertOverlay, MTWorkspaceBar, RoutineDay/Week/MonthView, CustomAlarmsPanel.\n" +
   "• Verificação de estoque: StockCheckAlert, StockCheckWizard.\n" +
@@ -1825,7 +1824,7 @@ const INTEGRACOES_CONTENT =
   "  – Mobile: https://api.whatsapp.com/send?phone=...&text=...\n" +
   "  – Desktop: https://wa.me/<numero>?text=...\n" +
   "• Utilitários: src/lib/whatsapp.ts, src/lib/whatsappShare.ts, src/lib/whatsappTemplates.ts.\n" +
-  "• Componentes: BulkWhatsAppDispatch, WhatsAppMessageSelector, WhatsAppAttachments, QuickConversationDialog.\n" +
+  "• Componentes: BulkWhatsAppDispatch, WhatsAppMessageSelector, WhatsAppAttachments.\n" +
   "• Toda ação de envio é registrada automaticamente na timeline do contato (contact_history) via useWhatsAppWithLog.\n" +
   "• Anexos: estratégia multi-tier (link, arquivo, mídia da biblioteca) — ver memória whatsapp-file-sharing-strategy.\n\n" +
   "6. Upload e Gestão de Arquivos\n" +
