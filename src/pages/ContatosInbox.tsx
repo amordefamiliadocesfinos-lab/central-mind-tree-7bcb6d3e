@@ -159,6 +159,9 @@ export default function ContatosInbox() {
       name: updated.name,
       whatsapp: updated.whatsapp || null,
       phone: updated.phone || null,
+      commercial_opt_out: Boolean(updated.commercial_opt_out),
+      next_action_text: updated.next_action_text || null,
+      next_action_date: updated.next_action_date || null,
     } : item));
   }, []);
   const guardedSelectContact = useCallback((id: string | null) => {
@@ -1883,7 +1886,7 @@ export default function ContatosInbox() {
                 <p className="text-xs text-muted-foreground">As sugestões aparecem aqui ao solicitar uma análise da conversa.</p>
               </div>
               <div className={cn('space-y-3 p-3', contextTab !== 'lead' && 'hidden')} role="region" aria-label="Ficha do contato">
-                <ContactProfileOverview contact={leadContact} onSaved={onProfileSaved} onEditingChange={onProfileEditingChange} />
+                <ContactProfileOverview contact={leadContact} conversationId={selected.conversation_id} onSaved={onProfileSaved} onEditingChange={onProfileEditingChange} />
                 <InboxNoteBlock contactId={selected.id} conversationId={selected.conversation_id} onSaved={load} onRegisterSale={() => setSaleOpen(true)} />
                 {/* Acessos legados preservados até B-06, após validação integral da ficha editável. */}
                 <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setLeadEditOpen(true)}>
