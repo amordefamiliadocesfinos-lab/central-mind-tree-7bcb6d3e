@@ -1266,17 +1266,29 @@ export default function ContatosInbox() {
     }
   };
 
+  // A3.1-A02: estado puramente visual; não altera o predicado da fila.
+  const isConsultingAllContacts = Boolean(search.trim()) || stageFilter !== 'all';
+  const activeDetailedFilters = Number(stageFilter !== 'all')
+    + Number(assignmentFilter !== 'all') + Number(waitingCustomerOnly)
+    + Number(tagFilter !== 'all') + Number(inboxFilter === 'cooling');
+
   return (
     <div className="h-[calc(100dvh-var(--footer-effective-h,0px))] min-h-[560px] overflow-hidden bg-background flex flex-col">
       {/* A3.1 — faixa única: somente apresentação; filtros e callbacks preservados. */}
       <div className="z-30 shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap px-3 py-2 [scrollbar-width:thin]" aria-label="Controles da Caixa de Entrada; role horizontalmente para acessar todas as opções">
           <Link to="/contatos" className="shrink-0">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5" title="Voltar à Gestão">
               <ArrowLeft className="h-4 w-4" /><span>Gestão</span>
             </Button>
           </Link>
           <h1 className="shrink-0 text-sm font-semibold">Inbox</h1>
+          {isConsultingAllContacts && (
+            <Badge variant="outline" className="h-7 shrink-0 border-amber-500/60 bg-amber-500/10 px-2 text-[10px]"
+              title="A busca e a etapa consultam contatos além da fila operacional e do escopo selecionado">
+              Consulta geral
+            </Badge>
+          )}
           <div className="relative w-[clamp(150px,20vw,300px)] shrink-0">
             <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1303,6 +1315,12 @@ export default function ContatosInbox() {
               <Button size="sm" variant={inboxFilter === 'cooling' ? 'secondary' : 'outline'}
                 className="h-8 shrink-0 gap-1.5 px-2.5 text-xs" aria-label="Filtros adicionais">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
+                {activeDetailedFilters > 0 && (
+                  <span aria-label={String(activeDetailedFilters) + ' filtros detalhados ativos'}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground">
+                    {activeDetailedFilters}
+                  </span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-1rem))] max-h-[min(75vh,550px)] overflow-y-auto p-3">
@@ -1350,6 +1368,18 @@ export default function ContatosInbox() {
                     ))}
                   </SelectContent>
                 </Select>
+                {activeDetailedFilters > 0 && (
+                  <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-xs"
+                    onClick={() => {
+                      setStageFilter('all');
+                      setAssignmentFilter('all');
+                      setWaitingCustomerOnly(false);
+                      setTagFilter('all');
+                      if (inboxFilter === 'cooling') setInboxFilter('priority');
+                    }}>
+                    Limpar filtros detalhados
+                  </Button>
+                )}
               </div>
             </PopoverContent>
           </Popover>
