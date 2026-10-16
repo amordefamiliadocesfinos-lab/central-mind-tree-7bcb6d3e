@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
+import { useAuth } from '@/contexts/AuthContext';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { ContactFormDialog } from '@/components/financial/ContactFormDialog';
 import { useOrders } from '@/hooks/useOrders';
@@ -115,6 +116,7 @@ export default function Operacoes() {
     refetch,
   } = useOrders();
   const separation = useOrderSeparation(rawOrders);
+  const { appUser } = useAuth();
   const commercialPresentations = useCommercialPresentations();
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, CommercialPresentation[]>>({});
 
@@ -1553,7 +1555,16 @@ export default function Operacoes() {
         );
 
       case 'production':
-        return <ProductionTab products={rawProducts} onRefetch={refetch} />;
+        return <div className="space-y-4">
+          {appUser?.role?.trim().toLocaleUpperCase('pt-BR') === 'ADMINISTRADOR' && (
+            <Link to="/operacoes/nossa-producao" className="block">
+              <Button className="h-14 w-full rounded-xl text-lg font-bold" type="button">
+                <Factory className="mr-2 h-5 w-5" /> Nossa Produção — acompanhar equipe
+              </Button>
+            </Link>
+          )}
+          <ProductionTab products={rawProducts} onRefetch={refetch} />
+        </div>;
 
       case 'purchases':
         return <PurchasesTab products={rawProducts} />;
