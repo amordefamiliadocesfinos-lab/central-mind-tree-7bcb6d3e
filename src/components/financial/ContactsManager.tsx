@@ -43,6 +43,8 @@ import { useNavigate } from 'react-router-dom';
 import { useContacts, Contact } from '@/hooks/useContacts';
 
 import { ContactFormDialog } from './ContactFormDialog';
+import { updateContactOfficialNextAction } from '@/lib/crm/contactProfileWriter';
+import { isCrmNextActionChanged } from '@/lib/crm/contactEditContract';
 import { ContactOrderHistory } from './ContactOrderHistory';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -136,7 +138,18 @@ export function ContactsManager() {
 
   const handleSave = async (data: Partial<Contact>) => {
     if (editingContact) {
-      await updateContact(editingContact.id, data);
+      const { next_action_text, next_action_date, next_contact_date, ...general } = data;
+      const desired = {
+        title: next_action_text?.trim() || null,
+        dueAt: next_action_date || next_contact_date || null,
+      };
+      if (isCrmNextActionChanged(editingContact, desired)) {
+        await updateContactOfficialNextAction({
+          contactId: editingContact.id, baseline: editingContact,
+          title: desired.title, dueAt: desired.dueAt,
+        });
+      }
+      await updateContact(editingContact.id, general);
     } else {
       await createContact(data);
     }
