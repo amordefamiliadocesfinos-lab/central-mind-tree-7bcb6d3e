@@ -97,9 +97,12 @@ export function ContactProfileMediaImport({
       }
       const bbox = extracted.profile_photo_bbox;
       const hasPhoto = Boolean(extracted.has_profile_photo);
-      if (hasPhoto && bbox && typeof bbox === 'object' && 'x' in bbox && typeof bbox.x === 'number') {
-        setCrop({ blob: uploaded, bbox: bbox as Crop['bbox'] });
-      }
+      // Reutiliza o recorte interativo mesmo quando a IA não localizar um avatar.
+      setCrop({
+        blob: uploaded,
+        bbox: hasPhoto && bbox && typeof bbox === 'object' && 'x' in bbox && typeof bbox.x === 'number'
+          ? bbox as Crop['bbox'] : null,
+      });
       setProposal(proposed as Partial<Contact>);
       toast.success('Extração concluída. Confira os dados antes de aplicar.');
     } catch (error) {
