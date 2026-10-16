@@ -1,0 +1,22 @@
+name: Production Operator Mobile Validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/pages/ProductionOperator.tsx'
+      - 'src/components/operations/ProductionTeamSummary.tsx'
+      - '.github/workflows/production-operator-mobile-validation.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build
+        run: npm run build
