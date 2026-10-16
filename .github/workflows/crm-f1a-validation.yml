@@ -60,6 +60,7 @@ jobs:
         run: |
           status=0
           for file in \
+            src/lib/crm/contactEditContract.test.ts \
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
             src/lib/crm/handoffEvidence.test.ts \
