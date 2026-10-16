@@ -108,3 +108,27 @@ export async function updateContactOfficialNextAction(input: {
   }
   return readContactProfile(input.contactId);
 }
+
+
+/** Situação do cadastro: ação administrativa explícita e protegida contra concorrência. */
+export async function updateContactActiveState(input: {
+  contactId: string;
+  baseline: Contact;
+  isActive: boolean;
+}): Promise<Contact> {
+  if (input.baseline.id !== input.contactId) throw new Error('Contato alterado durante a edição.');
+  const latest = await readContactProfile(input.contactId);
+  if (latest.is_active === input.isActive) return latest;
+  if (input.baseline.is_active !== latest.is_active) {
+    throw new ContactEditConflictError(['is_active']);
+  }
+  const { data, error } = await supabase.from('contacts')
+    .update({ is_active: input.isActive, updated_at: new Date().toISOString() })
+    .eq('id', input.contactId)
+    .eq('updated_at', latest.updated_at)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ContactEditConflictError(['updated_at']);
+  return data as unknown as Contact;
+}
