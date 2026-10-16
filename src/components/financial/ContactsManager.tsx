@@ -151,7 +151,15 @@ export function ContactsManager() {
       }
       await updateContact(editingContact.id, general);
     } else {
-      await createContact(data);
+      const { next_action_text, next_action_date, next_contact_date, ...general } = data;
+      const created = await createContact(general);
+      const title = next_action_text?.trim() || null;
+      const dueAt = next_action_date || next_contact_date || null;
+      if (created?.id && (title || dueAt)) {
+        await updateContactOfficialNextAction({
+          contactId: created.id, baseline: created, title, dueAt,
+        });
+      }
     }
     setFormOpen(false);
     setEditingContact(undefined);
