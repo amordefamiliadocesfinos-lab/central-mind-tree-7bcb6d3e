@@ -1338,7 +1338,7 @@ export default function ContatosInbox() {
               onClick={() => setMobileStartVisible(value => !value)}>
               {mobileStartVisible ? 'Ver fila' : 'Start — Oportunidades'}
             </Button>
-          )
+          )}
           {isConsultingAllContacts && (
             <Badge variant="outline" className="h-7 shrink-0 border-amber-500/60 bg-amber-500/10 px-2 text-[10px]"
               title="A busca e a etapa consultam contatos além da fila operacional e do escopo selecionado">
