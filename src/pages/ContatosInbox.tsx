@@ -220,7 +220,7 @@ export default function ContatosInbox() {
       if (!editingProfileRef.current) return;
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const anchor = target.closest('a[href]');
+      const anchor = target.closest<HTMLAnchorElement>('a[href]');
       if (!anchor) return;
       const url = new URL(anchor.href, window.location.href);
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
