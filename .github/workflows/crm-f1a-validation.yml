@@ -27,6 +27,7 @@ on:
       - 'src/components/crm/PosVendaPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
       - 'src/components/crm/ContactProfileOverview.tsx'
+      - 'src/components/financial/ContactsManager.tsx'
       - 'src/components/crm/ContactProfileMediaImport.tsx'
       - 'src/lib/crm/contactProfileWriter.ts'
       - 'src/lib/crm/contactEditContract.ts'
