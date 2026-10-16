@@ -108,6 +108,7 @@ import { useWhatsAppWithLog, type WhatsAppOperationalResult } from '@/hooks/useW
 import { getTodayISO } from '@/lib/dateUtils';
 import { CRM_EVENT_CODES, normalizeCrmStage } from '@/lib/crm/model';
 import { clearCrmNextAction, setCrmNextAction } from '@/lib/crm/nextAction';
+import { isCrmNextActionChanged } from '@/lib/crm/contactEditContract';
 import { CrmTodayView } from '@/components/crm/CrmTodayView';
 import { applyAttendanceOutcome, snoozeAttendance, type AttendanceOutcome } from '@/lib/crm/attendance';
 
@@ -714,9 +715,14 @@ export default function Contatos() {
       const newContact2 = (data.next_contact_date as string) || '';
 
       const actionChanged = ['next_action_text', 'next_action_date', 'next_contact_date']
-        .some((key) => Object.prototype.hasOwnProperty.call(data, key));
+        .some((key) => Object.prototype.hasOwnProperty.call(data, key))
+        && isCrmNextActionChanged(editingContact, {
+          title: data.next_action_text?.trim() || null,
+          dueAt: data.next_action_date || data.next_contact_date || null,
+        });
       const { next_action_text, next_action_date, next_contact_date, ...contactUpdates } = data;
-      await updateContact(editingContact.id, actionChanged ? contactUpdates : data);
+      // Próxima Ação nunca trafega pelo update cadastral direto.
+      await updateContact(editingContact.id, contactUpdates);
 
       if (actionChanged) {
         const title = next_action_text || editingContact.next_action_text;
