@@ -50,7 +50,7 @@ assert(assessStartOpportunityCandidate('restricted', clearFacts('restricted'), i
   'restrição do resolvedor bloqueia sugestão');
 assert(assessStartOpportunityCandidate('uncertain', clearFacts('uncertain'), insight(
   { ...postSale, deliveryDate: null }, null,
-), date).state === 'no_signal', 'não recomendar pós-venda sem evidência da entrega');
+), date).state === 'insufficient', 'não confundir sinal sem entrega comprovada com ausência de oportunidade');
 
 const assertBlocked = (name: string, patch: Partial<StartOpportunitySafetyFacts>) => {
   const f = { ...clearFacts(name), ...patch };
