@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoRedoContext } from "@/contexts/UndoRedoContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
+import { CRM_GLOBAL_ENTRY_PATH, isGlobalNavigationItemActive } from "@/lib/crm/crmGlobalNavigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLinesMode } from "@/contexts/LinesModeContext";
 import { CollaboratorsPanel } from "./CollaboratorsPanel";
@@ -50,7 +51,7 @@ const NAV_ITEMS = [
   { path: "/planilhas", label: "Planilhas", shortLabel: "Planilhas", icon: FileSpreadsheet },
   { path: "/reunioes", label: "Reuniões", shortLabel: "Reuniões", icon: Users },
   { path: "/minha-area", label: "Minha Área", shortLabel: "Minha", icon: User },
-  { path: "/contatos", label: "Contatos", shortLabel: "CRM", icon: UserPlus },
+  { path: CRM_GLOBAL_ENTRY_PATH, label: "CRM", shortLabel: "CRM", icon: UserPlus },
   { path: "/rotas", label: "Rotas", shortLabel: "Rotas", icon: Truck },
   { path: "/financeiro", label: "Financeiro", shortLabel: "Financeiro", icon: DollarSign },
   { path: "/academia", label: "Academia", shortLabel: "Academia", icon: GraduationCap },
@@ -59,9 +60,9 @@ const NAV_ITEMS = [
   { path: "/captura", label: "Captura Central", shortLabel: "Captura", icon: Inbox },
 ] as const;
 
-const MOBILE_PRIMARY_PATHS = ["/dashboard", "/foco", "/contatos", "/operacoes", "/captura"] as const;
+const MOBILE_PRIMARY_PATHS = ["/dashboard", "/foco", CRM_GLOBAL_ENTRY_PATH, "/operacoes", "/captura"] as const;
 const MOBILE_FALLBACK_PATH = "/financeiro";
-const DESKTOP_PRIMARY_PATHS = ["/dashboard", "/foco", "/contatos", "/operacoes", "/rotina", "/digital", "/financeiro", "/captura"] as const;
+const DESKTOP_PRIMARY_PATHS = ["/dashboard", "/foco", CRM_GLOBAL_ENTRY_PATH, "/operacoes", "/rotina", "/digital", "/financeiro", "/captura"] as const;
 const FOOTER_NAV_LABEL_CLASS = "text-[11px] font-medium leading-none";
 const FOOTER_MOBILE_LABEL_CLASS = "block w-full max-w-[3.75rem] overflow-hidden truncate text-center";
 
@@ -264,7 +265,7 @@ export function GlobalFooterBar() {
   const { notify, requestPermission, permission } = useNotifications();
   const isMobile = useIsMobile();
   const { linesMode, setLinesMode, showTaskBar } = useLinesMode();
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => isGlobalNavigationItemActive(location.pathname, path);
   const activeMobileItem = NAV_ITEMS.find((item) => isActive(item.path));
   const mobilePrimaryItems = NAV_ITEMS.filter((item) => MOBILE_PRIMARY_PATHS.includes(item.path as (typeof MOBILE_PRIMARY_PATHS)[number]));
   const mobileOverflowItems = NAV_ITEMS.filter((item) => !MOBILE_PRIMARY_PATHS.includes(item.path as (typeof MOBILE_PRIMARY_PATHS)[number]));
