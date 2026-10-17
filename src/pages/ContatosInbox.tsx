@@ -1620,109 +1620,157 @@ export default function ContatosInbox() {
           </div>
           {selected && (
             <div className="flex min-h-0 flex-1 flex-col">
-              {/* Header do contato */}
-              <div className="border-b px-3 py-2 flex items-center gap-3 shrink-0 bg-card z-10">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden h-8 w-8"
-                  onClick={() => {
-                    if (guardedSelectContact(null)) setMobileStartVisible(true);
-                  }}
-                  aria-label="Voltar à Start de oportunidades"
-                  title="Voltar à Start"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <ContactAvatar name={selected.name} photoUrl={selected.photo_url} size="md" editable onPhotoChange={updateSelectedPhoto} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{selected.name}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {selected.whatsapp || selected.phone || 'Sem telefone'} · {getCrmStageLabel(selected.funnel_status)} · {selected.platform_name || selected.channel || 'Canal não informado'}
-                  </div>
-                  {campaignContext && (
-                    <div className="text-[10px] text-muted-foreground/80 truncate">
-                      Origem: Campanha — {campaignContext.campaignName}
-                      {campaignContext.responded ? ' · respondeu' : ''}
+              {/* D-02 — identidade, responsabilidade, comandos essenciais e suporte contextual.
+                  Os handlers da D-01 permanecem inalterados; apenas a apresentação muda. */}
+              <header className="shrink-0 border-b bg-card px-2 py-1.5 md:px-3 md:py-2" aria-label="Cabeçalho do atendimento">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 md:hidden"
+                    onClick={() => {
+                      if (guardedSelectContact(null)) setMobileStartVisible(true);
+                    }}
+                    aria-label="Voltar à Start de oportunidades"
+                    title="Voltar à Start"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <ContactAvatar name={selected.name} photoUrl={selected.photo_url} size="md" editable onPhotoChange={updateSelectedPhoto} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium" title={selected.name}>{selected.name}</div>
+                    <div className="truncate text-[11px] text-muted-foreground" title={[selected.whatsapp || selected.phone || 'Sem telefone', getCrmStageLabel(selected.funnel_status), selected.platform_name || selected.channel || 'Canal não informado'].join(' · ')}>
+                      {selected.whatsapp || selected.phone || 'Sem telefone'} · {getCrmStageLabel(selected.funnel_status)} · {selected.platform_name || selected.channel || 'Canal não informado'}
                     </div>
-                  )}
+                    {campaignContext && (
+                      <div className="truncate text-[10px] text-muted-foreground/80">
+                        Origem: Campanha — {campaignContext.campaignName}
+                        {campaignContext.responded ? ' · respondeu' : ''}
+                      </div>
+                    )}
+                  </div>
+                  <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-7 shrink-0 px-1.5 text-[10px] sm:px-2" />
                 </div>
-                <div className="flex gap-1">
-                  <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-8 px-2 text-[10px]" />
+
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-[11px] text-muted-foreground">
+                    {selected.status === 'resolved' ? 'Atendimento resolvido' : selected.assigned_to ? 'Responsável atribuído' : 'Sem responsável'}
+                  </span>
+                  {selectedIsOutOfQueue && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">Fora da fila</Badge>
+                  )}
                   {!selected.assigned_to && (
-                    <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!isLinked || attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}>
+                    <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
+                      disabled={!isLinked || attendanceBusy || saleDecisionBusy}
+                      onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}
+                    >
                       <UserCheck className="h-3.5 w-3.5" /> Assumir
                     </Button>
                   )}
                   {selected.assigned_to && selected.status !== 'resolved' && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')} title="Liberar atendimento">
-                      <UserMinus className="h-4 w-4" />
+                    <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs"
+                      disabled={attendanceBusy || saleDecisionBusy}
+                      onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')}
+                    >
+                      <UserMinus className="h-3.5 w-3.5" /> Liberar
                     </Button>
                   )}
-                  {selected.status === 'resolved' ? (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')} title="Reabrir atendimento">
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')} title="Concluir atendimento">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    </Button>
+                  {attendanceBusy && (
+                    <span role="status" className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Salvando atendimento...
+                    </span>
                   )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={() => handleSummarize(selected.id)}
-                    title="Gerar resumo do contato com IA"
-                  >
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => { if (guardProfileExit()) setSaleOpen(true); }} title="Registrar venda deste contato">
-                    <ShoppingCart className="h-4 w-4 text-emerald-600" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant={selectedIsOutOfQueue ? 'secondary' : 'ghost'}
-                    className="h-8 w-8"
-                    disabled={attendanceBusy || saleDecisionBusy}
-                    onClick={() => void toggleSelectedOutOfQueue()}
-                    title={selectedIsOutOfQueue ? 'Voltar para fila' : 'Tirar da fila'}
-                  >
-                    {selectedIsOutOfQueue ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
-                    <Archive className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    disabled={!selected.whatsapp && !selected.phone}
-                    onClick={() => openWhatsApp(selected.whatsapp || selected.phone || '')}
-                    title="Abrir WhatsApp"
-                  >
-                    <Phone className="h-4 w-4 text-green-600" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant={(isMobile ? mobileProfileOpen : leadPanelOpen) ? 'secondary' : 'ghost'}
-                    className="h-8 w-8"
-                    disabled={Boolean(activeActionMode)}
-                    onClick={() => {
-                      if (!guardProfileExit()) return;
-                      if (isMobile) {
-                        setLeadPanelOpen(true);
-                        setMobileProfileOpen((v) => !v);
-                      } else setLeadPanelOpen((v) => !v);
-                    }}
-                    title={activeActionMode ? 'Conclua ou cancele a ação antes de ocultar o painel' : isMobile ? (mobileProfileOpen ? 'Voltar à conversa' : 'Mostrar ficha do contato') : leadPanelOpen ? 'Ocultar ficha do contato' : 'Mostrar ficha do contato'}
-                  >
-                    <PanelRight className="h-4 w-4" />
-                  </Button>
-
-
                 </div>
-              </div>
+
+                <div className="mt-2 flex min-w-0 flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-2 lg:gap-y-1.5">
+                  <div className="grid min-w-0 grid-cols-2 gap-1 sm:flex sm:flex-wrap sm:items-center" role="group" aria-label="Comandos essenciais do atendimento">
+                    {selected.status === 'resolved' ? (
+                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                        disabled={attendanceBusy || saleDecisionBusy}
+                        onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')}
+                        title="Reabrir o atendimento resolvido"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 shrink-0" /> Reabrir
+                      </Button>
+                    ) : (
+                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                        disabled={attendanceBusy || saleDecisionBusy}
+                        onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')}
+                        title="Concluir atendimento; não registra Resultado comercial nem encerra tarefas oficiais"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" /> Concluir
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                      disabled={attendanceBusy || saleDecisionBusy}
+                      onClick={() => { if (guardProfileExit()) setSaleOpen(true); }}
+                      title="Registrar venda deste contato no fluxo oficial"
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5 shrink-0 text-emerald-600" /> Registrar venda
+                    </Button>
+                    <Button type="button" size="sm"
+                      variant={selectedIsOutOfQueue ? 'secondary' : 'outline'}
+                      className="col-span-2 h-8 min-w-0 gap-1 px-2 text-xs sm:col-auto"
+                      disabled={attendanceBusy || saleDecisionBusy}
+                      onClick={() => void toggleSelectedOutOfQueue()}
+                      title={selectedIsOutOfQueue ? 'Voltar para a fila operacional, sem reabrir conversa' : 'Tirar da fila operacional, sem arquivar ou concluir'}
+                      aria-label={selectedIsOutOfQueue ? 'Voltar para fila' : 'Tirar da fila'}
+                    >
+                      {selectedIsOutOfQueue
+                        ? <Eye className="h-3.5 w-3.5 shrink-0" />
+                        : <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      {selectedIsOutOfQueue ? 'Voltar à fila' : 'Tirar da fila'}
+                    </Button>
+                  </div>
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-1" role="group" aria-label="Acesso e ferramentas de suporte">
+                    <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 px-2 text-xs"
+                      disabled={!selected.whatsapp && !selected.phone}
+                      onClick={() => openWhatsApp(selected.whatsapp || selected.phone || '')}
+                      title="Abrir WhatsApp; abrir não registra envio ou Resultado"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-green-600" /> WhatsApp
+                    </Button>
+                    <Button type="button" size="sm"
+                      variant={(isMobile ? mobileProfileOpen : leadPanelOpen) ? 'secondary' : 'ghost'}
+                      className="h-8 gap-1 px-2 text-xs"
+                      disabled={Boolean(activeActionMode)}
+                      onClick={() => {
+                        if (!guardProfileExit()) return;
+                        if (isMobile) {
+                          setLeadPanelOpen(true);
+                          setMobileProfileOpen((v) => !v);
+                        } else setLeadPanelOpen((v) => !v);
+                      }}
+                      aria-expanded={isMobile ? mobileProfileOpen : leadPanelOpen}
+                      title={activeActionMode ? 'Conclua ou cancele a ação antes de ocultar o painel' : isMobile ? (mobileProfileOpen ? 'Voltar à conversa' : 'Mostrar ficha do contato') : leadPanelOpen ? 'Ocultar ficha do contato' : 'Mostrar ficha do contato'}
+                    >
+                      <PanelRight className="h-3.5 w-3.5" /> Ficha
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 px-2 text-xs" aria-label="Ferramentas do atendimento">
+                          <MoreHorizontal className="h-3.5 w-3.5" /> Ferramentas
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem disabled={summaryLoading || attendanceBusy || saleDecisionBusy}
+                          onSelect={() => void handleSummarize(selected.id)}>
+                          <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                          Gerar resumo com IA
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={attendanceBusy || saleDecisionBusy}
+                          onSelect={() => void archiveSelectedConversation()}>
+                          <Archive className="mr-2 h-4 w-4 text-muted-foreground" />
+                          Arquivar conversa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </header>
 
               {/* F2-A — orientação compacta, exclusivamente de leitura. */}
               {selectedOrientation && selectedOrientation.contactId === selected.id && (
