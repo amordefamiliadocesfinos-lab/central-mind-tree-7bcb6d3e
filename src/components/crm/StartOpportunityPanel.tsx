@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowRight, CalendarCheck, CheckCircle2, Info, Loader2, RefreshCw, Sparkles, Target } from 'lucide-react';
+import { AlertCircle, ArrowRight, CalendarCheck, HeartHandshake, Info, Loader2, Megaphone, RefreshCw, Repeat2, Sparkles, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import {
   type StartOpportunityCandidate,
 } from '@/lib/crm/startOpportunityCandidates';
 import { selectStartRecommendedOpportunity } from '@/lib/crm/startOpportunityRecommendation';
+import { buildCrmStartDestination } from '@/lib/crm/startOpportunityNavigation';
 
 type PoolContact = { id: string; name: string | null };
 type ScanState = {
@@ -210,10 +211,55 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
           </Button>
         </div>
       </Card>
-      <p className="flex items-start gap-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Pós-venda, Recompra e Campanhas segmentadas terão seus acessos oficiais integrados no incremento C2-03.
-      </p>
+      {/* C2-03: caminhos estratégicos, sem criar nova fila nem executar ações comerciais. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card className="flex min-w-0 flex-col gap-3 p-3 md:p-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <HeartHandshake className="h-4 w-4 shrink-0" /> Pós-venda estratégico
+          </h3>
+          <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
+            Explore clientes com entregas e histórico de acompanhamento. A elegibilidade será avaliada pelos critérios oficiais, não apenas por dias sem comprar.
+          </p>
+          <Button type="button" size="sm" variant="outline" asChild className="self-start">
+            <Link to={buildCrmStartDestination('post_sale')}>
+              Explorar Pós-venda <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </Card>
+        <Card className="flex min-w-0 flex-col gap-3 p-3 md:p-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Repeat2 className="h-4 w-4 shrink-0" /> Recompra
+          </h3>
+          <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
+            Consulte padrões de compras e possíveis ciclos de reposição no painel oficial, sem transformar estimativas em obrigações.
+          </p>
+          <Button type="button" size="sm" variant="outline" asChild className="self-start">
+            <Link to={buildCrmStartDestination('repurchase')}>
+              Analisar Recompra <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </Card>
+      </div>
+      <Card className="space-y-3 p-3 md:p-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Megaphone className="h-4 w-4 shrink-0" /> Campanhas segmentadas
+        </h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Identifique públicos comerciais e abra campanhas existentes. A Start não cria campanhas nem envia mensagens; validação e revisão permanecem na Gestão CRM.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link to={buildCrmStartDestination('segment')}>
+              Segmentar clientes <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link to={buildCrmStartDestination('campaigns')}>
+              Campanhas CRM <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      </Card>
     </section>
   );
 }
