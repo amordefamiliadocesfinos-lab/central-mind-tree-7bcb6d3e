@@ -172,134 +172,28 @@ async function loadOfficialPdf(documentRecord: OrderDocument): Promise<Uint8Arra
   return bytes;
 }
 
-function openPrintWindow(): Window {
-  // Called synchronously from the button click, before awaiting the private PDF.
-  const target = window.open('about:blank', '_blank');
-  if (!target) throw new Error('Permita pop-ups para abrir a impressão combinada.');
-  target.opener = null;
-  target.document.open();
-  target.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Preparando etiqueta combinada</title></head><body><p>Preparando etiqueta e composição interna...</p></body></html>');
-  target.document.close();
-  return target;
-}
 
 function asPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(blob => {
       if (blob && blob.size > 0) resolve(blob);
-      else reject(new Error('Não foi possível gerar a página de impressão.'));
+      else reject(new Error('Não foi possível renderizar a página da etiqueta.'));
     }, 'image/png');
   });
 }
 
 /**
- * Resolve ONLY when every preview image is decoded and actually present
- * in the pop-up. The previous fire-and-forget image callbacks incorrectly
- * reported success while the operator still saw "Preparando...".
+ * Runs while the Painel tab is foregrounded. In Chrome, a background opener
+ * may be throttled while the new tab is active, which previously left it
+ * showing "Preparando..." until the operator returned to the Painel.
  *
- * Explicit print button remains available even when automatic printing is
- * blocked after an asynchronous browser task.
+ * No popup is opened here: the operator sees the result in a Painel dialog
+ * and explicitly requests a print tab after all pages are ready.
  */
-async function showPrintPages(target: Window, pages: PrintPage[], onPrintRequested: () => Promise<void>): Promise<void> {
-  if (target.closed) throw new Error('A aba de impressão foi fechada.');
-  const urls: string[] = [];
+export async function prepareCombinedShopeeLabel(order: Order, official: OrderDocument): Promise<Blob[]> {
+  const bytes = await loadOfficialPdf(official);
+  const task = getDocument({ data: bytes });
   try {
-    for (const page of pages) {
-      const image = await asPngBlob(page.canvas);
-      urls.push(URL.createObjectURL(image));
-    }
-    if (target.closed) throw new Error('A aba de impressão foi fechada.');
-
-    const doc = target.document;
-    doc.open();
-    doc.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Etiqueta Shopee + Composição</title><style>'
-      + '@page{size:A4 portrait;margin:0}'
-      + 'html,body{margin:0;padding:0;font-family:Arial,sans-serif;background:#e5e7eb}'
-      + '.controls{position:sticky;top:0;z-index:10;background:#fff;box-shadow:0 1px 5px #aaa;padding:12px 20px;display:flex;gap:12px;align-items:center;justify-content:center}'
-      + 'button{padding:12px 22px;background:#111827;color:white;border:0;border-radius:6px;cursor:pointer;font-weight:600;font-size:15px}'
-      + 'button:disabled{opacity:.5;cursor:wait}'
-      + '.sheet{width:210mm;height:297mm;break-after:page;page-break-after:always;overflow:hidden;background:#fff;margin:12px auto;box-shadow:0 1px 6px #aaa}'
-      + '.sheet:last-child{break-after:auto;page-break-after:auto}'
-      + '.sheet img{display:block;width:210mm;height:297mm;object-fit:fill}'
-      + '@media print{html,body{background:#fff}.controls{display:none!important}.sheet{margin:0;box-shadow:none}}'
-      + '</style></head><body><div class="controls"><button id="printButton" disabled>Preparando...</button>'
-      + '<span id="loadStatus" role="status">Carregando as páginas...</span></div><main id="sheets"></main></body></html>');
-    doc.close();
-
-    const button = doc.getElementById('printButton') as HTMLButtonElement | null;
-    const status = doc.getElementById('loadStatus');
-    const list = doc.getElementById('sheets');
-    if (!button || !status || !list) throw new Error('Não foi possível iniciar a aba de impressão.');
-
-    const images: HTMLImageElement[] = [];
-    for (const url of urls) {
-      const sheet = doc.createElement('section');
-      sheet.className = 'sheet';
-      const img = doc.createElement('img');
-      img.alt = 'Etiqueta Shopee oficial com composição interna';
-      img.src = url;
-      sheet.appendChild(img);
-      list.appendChild(sheet);
-      images.push(img);
-    }
-
-    let deadline: number | null = null;
-    try {
-      await Promise.race([
-        Promise.all(images.map(img => img.decode())),
-        new Promise<never>((_, reject) => {
-          deadline = window.setTimeout(
-            () => reject(new Error('A visualização demorou demais para carregar. Tente novamente.')),
-            20000,
-          );
-        }),
-      ]);
-    } finally {
-      if (deadline !== null) window.clearTimeout(deadline);
-    }
-    if (target.closed || !images.every(img => img.complete && img.naturalWidth > 0)) {
-      throw new Error('Falha ao exibir a etiqueta combinada.');
-    }
-
-    button.disabled = false;
-    button.textContent = 'Imprimir / Salvar como PDF';
-    status.textContent = 'Documento combinado pronto para visualização.';
-    button.addEventListener('click', () => {
-      target.print();
-      // Register the operational print event only when the operator actually
-      // chooses to print, never when they merely open the preview.
-      void onPrintRequested().catch(() => {
-        if (!target.closed) status.textContent = 'Visualização aberta, mas o registro da impressão falhou.';
-      });
-    });
-    target.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)), { once: true });
-    target.focus();
-  } catch (error) {
-    urls.forEach(url => URL.revokeObjectURL(url));
-    if (!target.closed) {
-      // Leave a visible error in the operator's new tab, rather than a
-      // misleading success toast or a permanently blank "Preparando..." tab.
-      target.document.body.textContent = 'Não foi possível gerar a impressão combinada. '
-        + (error instanceof Error ? error.message : 'Erro inesperado.')
-        + ' A etiqueta oficial continua disponível no Painel Central.';
-    }
-    throw error;
-  }
-}
-
-/**
- * Called from a user click, opening a blank popup before the first await.
- * The only printable change is in the new temporary copy, not in Storage.
- */
-export async function printCombinedShopeeLabel(
-  order: Order,
-  official: OrderDocument,
-  onPrintRequested: () => Promise<void>,
-): Promise<void> {
-  const popup = openPrintWindow();
-  try {
-    const bytes = await loadOfficialPdf(official);
-    const task = getDocument({ data: bytes });
     const pdf = await task.promise;
     if (pdf.numPages < 1 || pdf.numPages > 4) throw new Error('Formato de etiqueta não suportado.');
 
@@ -310,9 +204,8 @@ export async function printCombinedShopeeLabel(
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: SCALE });
-      // This pilot is A4. Other layouts need an explicit print-specific adapter.
       if (Math.abs(viewport.width / viewport.height - 210 / 297) > 0.035) {
-        throw new Error('A impressão combinada ainda não suporta esse formato de etiqueta. Use a impressão oficial.');
+        throw new Error('O formato da etiqueta não é A4. Use a etiqueta oficial.');
       }
       if (i === 1) { width = Math.round(viewport.width); height = Math.round(viewport.height); }
       if (Math.abs(viewport.width - width) > 3 || Math.abs(viewport.height - height) > 3) {
@@ -323,15 +216,79 @@ export async function printCombinedShopeeLabel(
       originalLastInk = lastInkY(printedPage.context, width, height);
       pages.push(printedPage);
     }
+
     const rows = buildTextRows(pages[pages.length - 1].context, order, width - 2 * MARGIN);
     drawRows(rows, pages, originalLastInk + BOTTOM_GAP, width, height, pdf.numPages !== 1);
-    await showPrintPages(popup, pages, onPrintRequested);
+
+    // Fully render images before opening ANY new tab. This is the core fix.
+    return await Promise.all(pages.map(page => asPngBlob(page.canvas)));
+  } finally {
     await task.destroy();
-  } catch (err) {
-    // Do not auto-close: the operator needs to see why composition failed.
-    if (!popup.closed && popup.document.body.textContent?.includes('Preparando etiqueta')) {
-      popup.document.body.textContent = 'Falha ao preparar a etiqueta combinada. A etiqueta oficial não foi modificada.';
+  }
+}
+
+/**
+ * Runs only when the operator clicks "Abrir impressão" from the ready preview.
+ * window.open is synchronous under that click; the new tab receives already
+ * prepared image blobs. No background computation and no blank waiting tab.
+ *
+ * Each new window owns its own object URLs, independent of the Painel preview.
+ */
+export function openPreparedCombinedShopeeLabel(
+  images: Blob[],
+  onPrintRequested: () => Promise<void>,
+): void {
+  if (!images.length || images.length > MAX_PAGES) throw new Error('Páginas de impressão inválidas.');
+  const popup = window.open('about:blank', '_blank');
+  if (!popup) throw new Error('Permita pop-ups para abrir a impressão combinada.');
+
+  popup.opener = null;
+  const urls: string[] = [];
+  try {
+    const doc = popup.document;
+    doc.open();
+    doc.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Etiqueta Shopee + Composição</title><style>'
+      + '@page{size:A4 portrait;margin:0}'
+      + 'html,body{margin:0;padding:0;font-family:Arial,sans-serif;background:#e5e7eb}'
+      + '.controls{position:sticky;top:0;z-index:10;background:#fff;box-shadow:0 1px 5px #aaa;padding:12px 20px;display:flex;gap:12px;align-items:center;justify-content:center}'
+      + 'button{padding:12px 22px;background:#111827;color:white;border:0;border-radius:6px;cursor:pointer;font-weight:600;font-size:15px}'
+      + '.sheet{width:210mm;height:297mm;break-after:page;page-break-after:always;overflow:hidden;background:#fff;margin:12px auto;box-shadow:0 1px 6px #aaa}'
+      + '.sheet:last-child{break-after:auto;page-break-after:auto}'
+      + '.sheet img{display:block;width:210mm;height:297mm;object-fit:fill}'
+      + '@media print{html,body{background:#fff}.controls{display:none!important}.sheet{margin:0;box-shadow:none}}'
+      + '</style></head><body><div class="controls"><button id="printButton" type="button">Imprimir / Salvar como PDF</button>'
+      + '<span>Etiqueta combinada preparada. Confira as páginas antes de imprimir.</span></div><main id="sheets"></main></body></html>');
+    doc.close();
+
+    const list = doc.getElementById('sheets');
+    const button = doc.getElementById('printButton');
+    if (!list || !button) throw new Error('A aba de impressão não foi inicializada.');
+    for (const blob of images) {
+      const url = URL.createObjectURL(blob);
+      urls.push(url);
+      const sheet = doc.createElement('section');
+      sheet.className = 'sheet';
+      const img = doc.createElement('img');
+      img.alt = 'Etiqueta oficial Shopee e composição interna';
+      img.src = url;
+      sheet.appendChild(img);
+      list.appendChild(sheet);
     }
-    throw err;
+
+    button.addEventListener('click', () => {
+      // Clicking print is the physical operator's decision; opening the
+      // composed preview alone never changes separation or its print counter.
+      popup.print();
+      void onPrintRequested().catch(() => {
+        const status = doc.querySelector('.controls span');
+        if (status) status.textContent = 'Impressão aberta, mas o registro operacional não pôde ser atualizado.';
+      });
+    });
+
+    popup.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)), { once: true });
+  } catch (error) {
+    urls.forEach(url => URL.revokeObjectURL(url));
+    if (!popup.closed) popup.close();
+    throw error;
   }
 }

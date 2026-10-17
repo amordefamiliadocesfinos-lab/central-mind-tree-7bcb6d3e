@@ -53,7 +53,7 @@ import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
-import { printCombinedShopeeLabel } from '@/lib/orders/printCombinedShopeeLabel';
+import { prepareCombinedShopeeLabel, openPreparedCombinedShopeeLabel } from '@/lib/orders/printCombinedShopeeLabel';
 import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
 import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
@@ -255,6 +255,7 @@ export default function Operacoes() {
   const [showProductConversion, setShowProductConversion] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [combinedPrintPreview, setCombinedPrintPreview] = useState<{ orderId: string; pages: Blob[]; urls: string[] } | null>(null);
   const [movementProduct, setMovementProduct] = useState<{ id: string; name: string; variantId?: string | null } | null>(null);
   const [masterVariants, setMasterVariants] = useState<Record<string, { id: string; variant_name: string; sku: string }[]>>({});
   const storeInventory = useAppStore((s) => s.inventory);
@@ -1252,8 +1253,15 @@ export default function Operacoes() {
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
           }}
           onPrintCombined={async (order, label) => {
-            await printCombinedShopeeLabel(order, label, () => separation.markPrinted(order.id));
-            toast.success('Etiqueta combinada carregada. Use "Imprimir / Salvar como PDF" na nova aba.');
+            const toastId = toast.loading('Preparando etiqueta combinada. Aguarde nesta aba do Painel...');
+            try {
+              const pages = await prepareCombinedShopeeLabel(order, label);
+              const urls = pages.map(page => URL.createObjectURL(page));
+              setCombinedPrintPreview({ orderId: order.id, pages, urls });
+              toast.success('Etiqueta combinada pronta para conferência.');
+            } finally {
+              toast.dismiss(toastId);
+            }
           }}
           onFinalize={async order => {
             const result = await separation.finalize(order.id);
@@ -1890,6 +1898,55 @@ export default function Operacoes() {
         productName={deletingProduct?.name || ''}
         onConfirm={handleDeleteProduct}
       />
+
+      {/* A impressão combinada é montada enquanto o Painel está em primeiro plano.
+          Somente depois de pronta o usuário pode abrir a aba de impressão. */}
+      <Dialog
+        open={!!combinedPrintPreview}
+        onOpenChange={open => {
+          if (!open && combinedPrintPreview) {
+            combinedPrintPreview.urls.forEach(url => URL.revokeObjectURL(url));
+            setCombinedPrintPreview(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Etiqueta Shopee + Composição Interna</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Documento preparado no Painel. Confira a etiqueta e a composição antes de abrir a impressão.
+          </p>
+          <div className="max-h-[58vh] space-y-3 overflow-y-auto rounded border bg-muted/40 p-2">
+            {combinedPrintPreview?.urls.map((url, index) => (
+              <img
+                key={url}
+                src={url}
+                alt={`Página ${index + 1} da etiqueta combinada`}
+                className="mx-auto w-full max-w-[550px] bg-white shadow-sm"
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              if (!combinedPrintPreview) return;
+              combinedPrintPreview.urls.forEach(url => URL.revokeObjectURL(url));
+              setCombinedPrintPreview(null);
+            }}>Fechar</Button>
+            <Button disabled={!combinedPrintPreview} onClick={() => {
+              if (!combinedPrintPreview) return;
+              try {
+                openPreparedCombinedShopeeLabel(
+                  combinedPrintPreview.pages,
+                  () => separation.markPrinted(combinedPrintPreview.orderId),
+                );
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Não foi possível abrir a impressão.');
+              }
+            }}>Abrir impressão / Salvar PDF</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Edit Dialog */}
       <OrderEditDialog
