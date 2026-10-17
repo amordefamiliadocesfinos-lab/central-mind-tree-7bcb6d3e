@@ -97,7 +97,6 @@ export function createShopeeLiveOrdersReader({
       'total_amount',
       'pay_time',
       'recipient_address',
-      'message_to_seller',
     ],
   } = {}) {
     const started = now();
