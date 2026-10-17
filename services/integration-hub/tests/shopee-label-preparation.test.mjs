@@ -9,7 +9,7 @@ import { buildSignedHeaders, CORE_BRIDGE_URL } from '../src/core-bridge.mjs';
 import { createBridgeHandler } from '../../../supabase/functions/integration-core-bridge/handler.mjs';
 import { createShopeeLabelSynchronizer } from '../src/shopee-live-label.mjs';
 
-const order='261016Q0YF8VVT', pkg='OFG245791336122517', account='8a8ad166-0317-4597-8be6-e43fb46b4d1b';
+const order='261017T5TF35CH', pkg='OFG245899610150874', account='8a8ad166-0317-4597-8be6-e43fb46b4d1b';
 const id='123e4567-e89b-42d3-a456-426614174000';
 const baseTime=Date.parse('2026-10-16T22:00:00Z');
 const env={ SHOPEE_LIVE_LABEL_CREATE_ENABLED:'true',SHOPEE_LIVE_LABEL_SYNC_ENABLED:'true',
@@ -37,6 +37,31 @@ function fixture(overrides={}) {
   return {calls,deps,run:createShopeeLabelPreparation(deps),advance:ms=>{clock+=ms;}};
 }
 const count=(f,name)=>f.calls.filter(c=>c[0]===name).length;
+
+test('previous pilot is refused before any network or durable claim',async()=>{
+ const previous={...env,SHOPEE_LIVE_LABEL_ORDER_SN:'261016Q0YF8VVT',SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:'OFG245791336122517'};
+ const f=fixture({getEnv:k=>previous[k]});
+ assert.equal((await f.run()).code,'label_pilot_scope_mismatch');
+ assert.deepEqual(f.calls,[]);
+});
+
+test('new pilot gates false refuse preparation before any side effect',async()=>{
+ const f=fixture({getEnv:k=>k==='SHOPEE_LIVE_LABEL_CREATE_ENABLED'||k==='SHOPEE_LIVE_LABEL_SYNC_ENABLED'?'false':env[k]});
+ assert.equal((await f.run()).code,'label_create_not_enabled');
+ assert.deepEqual(f.calls,[]);
+});
+
+test('reused synchronizer queries only the new pilot order and package',async()=>{
+ const observed=[];
+ const sync=createShopeeLabelSynchronizer({getEnv:k=>env[k],now:()=>baseTime,
+  readConnection:async data=>{assert.equal(data.channel_account_id,account);return {ok:true,payload:{partner_id:2047685,shop_id:531736366,access_token_expires_at:'2026-10-17T02:00:00Z',access_token_ciphertext:'synthetic'}};},
+  decryptToken:async()=> 'synthetic',
+  readOrderDetail:async data=>{assert.equal(data.shopId,531736366);assert.equal(data.partnerId,2047685);observed.push(data.orderSnList);return api({order_list:[{order_sn:order,package_list:[{package_number:pkg}]}]});},
+  readParameter:async data=>{observed.push(data.orderList);return {response:{ok:false},payload:{error:'synthetic_stop'}};},
+  downloadDocument:async()=>{assert.fail('must not download');}});
+ assert.equal((await sync()).code,'document_parameter_unavailable');
+ assert.deepEqual(observed,[[order],[{order_sn:order,package_number:pkg}]]);
+});
 
 test('label preparation performs tracking -> durable claim -> create -> acknowledgement -> READY -> existing sync',async()=>{
  const f=fixture();assert.equal((await f.run()).code,'label_attached');
