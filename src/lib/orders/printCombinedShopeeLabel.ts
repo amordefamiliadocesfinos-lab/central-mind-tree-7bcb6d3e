@@ -200,7 +200,7 @@ function asPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
  * Explicit print button remains available even when automatic printing is
  * blocked after an asynchronous browser task.
  */
-async function showPrintPages(target: Window, pages: PrintPage[]): Promise<void> {
+async function showPrintPages(target: Window, pages: PrintPage[], onPrintRequested: () => Promise<void>): Promise<void> {
   if (target.closed) throw new Error('A aba de impressão foi fechada.');
   const urls: string[] = [];
   try {
@@ -264,7 +264,14 @@ async function showPrintPages(target: Window, pages: PrintPage[]): Promise<void>
     button.disabled = false;
     button.textContent = 'Imprimir / Salvar como PDF';
     status.textContent = 'Documento combinado pronto para visualização.';
-    button.addEventListener('click', () => target.print());
+    button.addEventListener('click', () => {
+      target.print();
+      // Register the operational print event only when the operator actually
+      // chooses to print, never when they merely open the preview.
+      void onPrintRequested().catch(() => {
+        if (!target.closed) status.textContent = 'Visualização aberta, mas o registro da impressão falhou.';
+      });
+    });
     target.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)), { once: true });
     target.focus();
   } catch (error) {
@@ -284,7 +291,11 @@ async function showPrintPages(target: Window, pages: PrintPage[]): Promise<void>
  * Called from a user click, opening a blank popup before the first await.
  * The only printable change is in the new temporary copy, not in Storage.
  */
-export async function printCombinedShopeeLabel(order: Order, official: OrderDocument): Promise<void> {
+export async function printCombinedShopeeLabel(
+  order: Order,
+  official: OrderDocument,
+  onPrintRequested: () => Promise<void>,
+): Promise<void> {
   const popup = openPrintWindow();
   try {
     const bytes = await loadOfficialPdf(official);
@@ -314,7 +325,7 @@ export async function printCombinedShopeeLabel(order: Order, official: OrderDocu
     }
     const rows = buildTextRows(pages[pages.length - 1].context, order, width - 2 * MARGIN);
     drawRows(rows, pages, originalLastInk + BOTTOM_GAP, width, height, pdf.numPages !== 1);
-    await showPrintPages(popup, pages);
+    await showPrintPages(popup, pages, onPrintRequested);
     await task.destroy();
   } catch (err) {
     // Do not auto-close: the operator needs to see why composition failed.
