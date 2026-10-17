@@ -248,7 +248,7 @@ export async function printCombinedShopeeLabel(order: Order, official: OrderDocu
     const rows = buildTextRows(pages[pages.length - 1].context, order, width - 2 * MARGIN);
     drawRows(rows, pages, originalLastInk + BOTTOM_GAP, width, height, pdf.numPages !== 1);
     showPrintPages(popup, pages);
-    await pdf.destroy();
+    await task.destroy();
   } catch (err) {
     if (!popup.closed) popup.close();
     throw err;
