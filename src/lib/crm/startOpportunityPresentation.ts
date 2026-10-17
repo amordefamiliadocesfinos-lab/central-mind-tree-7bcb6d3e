@@ -20,5 +20,6 @@ export function resolveStartOpportunityDisplayState(input: StartOpportunityPrese
   if (input.candidates.some(c => c.state === 'insufficient')) return 'insufficient';
   if (input.candidates.some(c => c.state === 'blocked')) return 'blocked';
   if (input.analyzedCount === 0 && !input.hasMore) return 'empty';
+  if (input.analyzedCount === 0) return 'loading'; // consulta inicial ainda não completou
   return 'no_signal';
 }
