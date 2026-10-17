@@ -123,6 +123,7 @@ const LeadImportDialog = lazy(() => import('@/components/crm/LeadImportDialog').
 import { supabase } from '@/integrations/supabase/client';
 import type { CrmCampaign } from '@/hooks/useCrmCampaigns';
 import { isSupplierOnly } from '@/lib/crm/campaignEligibility';
+import { CRM_START_INTENT_PARAM, parseCrmStartIntent, removeCrmStartIntent } from '@/lib/crm/startOpportunityNavigation';
 const ContactActivitiesPanel = lazy(() => import('@/components/crm/ContactActivitiesPanel').then(m => ({ default: m.ContactActivitiesPanel })));
 const BulkWhatsAppDispatch = lazy(() => import('@/components/crm/BulkWhatsAppDispatch').then(m => ({ default: m.BulkWhatsAppDispatch })));
 const CampaignCreateDialog = lazy(() => import('@/components/crm/CampaignCreateDialog').then(m => ({ default: m.CampaignCreateDialog })));
@@ -365,6 +366,29 @@ export default function Contatos() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [automationsOpen, setAutomationsOpen] = useState(false);
   const [posVendaOpen, setPosVendaOpen] = useState(false);
+  const [posVendaInitialBucket, setPosVendaInitialBucket] = useState<'30' | 'all'>('30');
+
+  // C2-03: somente entrada em componentes oficiais da Gestão. A intenção é
+  // consumida uma vez e retirada da URL, sem acionar o fluxo operacional attend=1.
+  useEffect(() => {
+    if (!searchParams.has(CRM_START_INTENT_PARAM) || searchParams.has('contact')) return;
+    const intent = parseCrmStartIntent(searchParams);
+    if (intent === 'post_sale' || intent === 'repurchase') {
+      // A visão "Todos" evita ocultar entregas e ciclos recentes, sem alterar
+      // os predicados de elegibilidade do painel de Pós-venda/Recompra.
+      setPosVendaInitialBucket('all');
+      setPosVendaOpen(true);
+    } else if (intent === 'segment') {
+      setSegmentationMode(true);
+      setViewMode('list');
+      setAttentionFilter('all');
+      setQualityOnly(false);
+    } else if (intent === 'campaigns') {
+      setCampaignsListOpen(true);
+    }
+    // Inclusive intenções inválidas são descartadas: nunca iniciam ações.
+    setSearchParams(removeCrmStartIntent(searchParams), { replace: true });
+  }, [searchParams, setSearchParams]);
   const [detailContact, setDetailContact] = useState<Contact | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
@@ -1510,7 +1534,7 @@ export default function Contatos() {
             <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
             <span className="text-xs">Qualidade ({qualityIssueByContact.size})</span>
           </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setPosVendaOpen(true)} title="Pós-Venda">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => { setPosVendaInitialBucket('30'); setPosVendaOpen(true); }} title="Pós-Venda">
             <Heart className="h-4 w-4 text-pink-600" />
             <span className="hidden sm:inline text-xs">Pós-Venda</span>
           </Button>
@@ -2054,7 +2078,7 @@ export default function Contatos() {
         )}
 
         {posVendaOpen && (
-          <PosVendaPanel open={posVendaOpen} onOpenChange={setPosVendaOpen} />
+          <PosVendaPanel open={posVendaOpen} onOpenChange={setPosVendaOpen} initialBucket={posVendaInitialBucket} />
         )}
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
