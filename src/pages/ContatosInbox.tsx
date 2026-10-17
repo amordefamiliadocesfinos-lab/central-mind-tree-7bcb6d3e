@@ -1190,8 +1190,12 @@ export default function ContatosInbox() {
     toast.success('Fila de hoje concluída.');
   };
 
-  const nextAttendance = async (refreshedItems?: InboxItem[] | null) => {
+  const nextAttendance = async (refreshedItems?: InboxItem[] | null, fromActiveOperation = false) => {
     if (!selected || attendanceQueueScope.length === 0) return;
+    if (attendanceWriteGateRef.current.locked() && !fromActiveOperation) {
+      toast.warning('Aguarde a gravação antes de avançar na fila.');
+      return;
+    }
 
     // A lista salva apenas delimita o escopo inicial. A decisão é feita com os
     // dados recém-carregados, para não reabrir atendimento já concluído ou adiado.
@@ -1210,7 +1214,7 @@ export default function ContatosInbox() {
       return;
     }
 
-    await openConversation(next);
+    await openConversation(next, fromActiveOperation);
   };
 
   const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => {
@@ -1223,7 +1227,7 @@ export default function ContatosInbox() {
       return;
     }
     const operationContextKey = currentContextKey;
-    setAttendanceBusy(true);
+    if (!beginAttendanceOperation(true)) return;
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor, selectionOrigin });
       // A gravação pertence ao contato capturado acima. Depois dela, só efeitos
@@ -1241,12 +1245,12 @@ export default function ContatosInbox() {
       setOperationalHandoff(result.handoffPending ? { resultCode, label: result.label } : null);
       const refreshedItems = await load();
       if (refreshedItems === null) return;
-      if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems);
+      if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems, true);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível registrar o resultado do atendimento.');
     } finally {
-      if (selectedContextRef.current === operationContextKey) setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
@@ -1264,7 +1268,7 @@ export default function ContatosInbox() {
       toast.error('Ainda existe uma obrigação ou mensagem que precisa ser tratada pelo Resultado.');
       return;
     }
-    setAttendanceBusy(true);
+    if (!beginAttendanceOperation(true)) return;
     try {
       const { data: latest, error: readError } = await supabase.from('service_conversations')
         .select('last_inbound_at,last_outbound_at,needs_reply,attendance_state')
@@ -1293,26 +1297,25 @@ export default function ContatosInbox() {
       console.error('CRM revisão sem fato novo:', error);
       toast.error('Não foi possível registrar a revisão do atendimento.');
     } finally {
-      setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
   const snoozeSelected = async (when: number | string) => {
-    if (!selected) return;
-    setAttendanceBusy(true);
+    if (!selected || !beginAttendanceOperation(true)) return;
     try {
       await snoozeAttendance({ contactId: selected.id, conversationId: selected.conversation_id, when });
       toast.success('Atendimento adiado e próxima ação atualizada.');
       setSendConfirmation(false);
-      await nextAttendance();
+      await nextAttendance(undefined, true);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível adiar o atendimento.');
-    } finally { setAttendanceBusy(false); }
+    } finally { finishAttendanceOperation(); }
   };
 
   const concludeSaleAttendance = async () => {
-    if (!selected) return;
+    if (!selected || !beginAttendanceOperation(true)) return;
     setSaleDecisionBusy(true);
     try {
       const result = await applyAttendanceOutcome({
@@ -1330,6 +1333,7 @@ export default function ContatosInbox() {
       toast.error('A venda foi registrada, mas não foi possível concluir o atendimento. Tente novamente ou mantenha a conversa aberta.');
     } finally {
       setSaleDecisionBusy(false);
+      finishAttendanceOperation();
     }
   };
 
