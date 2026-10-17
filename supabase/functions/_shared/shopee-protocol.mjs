@@ -595,6 +595,31 @@ export function shipOrderSimpleDropoff({
  * Signed read-only tracking query; may have no tracking number immediately
  * after arrangement. Callers must not treat an empty result as success.
  */
+export function createShippingDocument({
+  apiBaseUrl, partnerId, partnerKey, accessToken, shopId,
+  orderSn, packageNumber, trackingNumber,
+  shippingDocumentType = 'NORMAL_AIR_WAYBILL',
+  fetchImpl = globalThis.fetch, timestamp, ...additional
+}) {
+  if (Reflect.ownKeys(additional).length) throw new TypeError('unsupported_document_parameters');
+  const order = requiredText(orderSn, 'orderSn');
+  const pkg = requiredText(packageNumber, 'packageNumber');
+  const tracking = requiredText(trackingNumber, 'trackingNumber');
+  // This controlled BR pilot requires tracking even for channels that permit
+  // printing before arrangement. Those exceptions need a separate contract.
+  if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)
+      || !/^[A-Za-z0-9_-]{1,100}$/.test(tracking)
+      || shippingDocumentType !== 'NORMAL_AIR_WAYBILL') {
+    throw new TypeError('invalid_document_identity');
+  }
+  return signedShopPost({
+    apiBaseUrl, path: '/api/v2/logistics/create_shipping_document',
+    partnerId, partnerKey, accessToken, shopId, timestamp, fetchImpl,
+    body: { order_list: [{ order_sn: order, package_number: pkg,
+      tracking_number: tracking, shipping_document_type: shippingDocumentType }] },
+  });
+}
+
 export function getTrackingNumber({
   apiBaseUrl,
   getTrackingNumberPath,

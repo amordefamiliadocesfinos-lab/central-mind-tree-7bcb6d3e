@@ -25,6 +25,8 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_SHIPPING_LABEL_COMMIT: 'shopee.shipping_label.commit',
   SHOPEE_SHIPPING_ARRANGEMENT_CLAIM: 'shopee.shipping_arrangement.claim',
   SHOPEE_SHIPPING_ARRANGEMENT_RESOLVE: 'shopee.shipping_arrangement.resolve',
+  SHOPEE_SHIPPING_DOCUMENT_CLAIM: 'shopee.shipping_document.claim',
+  SHOPEE_SHIPPING_DOCUMENT_RESOLVE: 'shopee.shipping_document.resolve',
 });
 
 export function sha256Hex(bytes) {
@@ -261,4 +263,12 @@ export function resolveShopeeShippingArrangement(data, options = {}) {
     action: CORE_BRIDGE_ACTIONS.SHOPEE_SHIPPING_ARRANGEMENT_RESOLVE,
     data,
   });
+}
+
+export function claimShopeeShippingDocument(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_SHIPPING_DOCUMENT_CLAIM, data });
+}
+
+export function resolveShopeeShippingDocument(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_SHIPPING_DOCUMENT_RESOLVE, data });
 }

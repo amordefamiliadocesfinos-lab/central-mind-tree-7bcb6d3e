@@ -7,6 +7,7 @@ import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
 import { syncReadyShopeeLabel } from './shopee-live-label.mjs';
 import { inspectShopeeShippingPreflight } from './shopee-shipping-preflight.mjs';
 import { guardedShopeeShipOrder } from './shopee-ship-order-guard.mjs';
+import { prepareShopeeLabelOnce } from './shopee-label-preparation.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   summarizeShopeeControlledRound,
@@ -39,6 +40,7 @@ export async function handleRequest(
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
     shipShopeeOrderOnce = guardedShopeeShipOrder,
+    prepareShopeeLabel = prepareShopeeLabelOnce,
     getEnv = (name) => process.env[name],
     makeRunId = randomUUID,
     now = () => new Date().toISOString(),
@@ -50,6 +52,28 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  if (normalizedPath === '/internal/shopee/live/logistics/label/prepare-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length) return json(400, { error: 'query_not_allowed' });
+    if (Number(request.headers?.['content-length'] ?? 0) !== 0 || request.headers?.['transfer-encoding']
+        || (request.body != null && request.body !== '')) return json(400, { error: 'body_not_allowed' });
+    if (String(getEnv('SHOPEE_LIVE_LABEL_CREATE_ENABLED') ?? '').trim().toLowerCase() !== 'true') {
+      return json(503, { error: 'label_create_not_enabled' });
+    }
+    if (String(getEnv('SHOPEE_LIVE_LABEL_SYNC_ENABLED') ?? '').trim().toLowerCase() !== 'true') {
+      return json(503, { error: 'label_sync_not_enabled' });
+    }
+    try {
+      const result = await prepareShopeeLabel();
+      // Never serialize arbitrary connector exceptions or raw upstream payloads.
+      return json(result?.ok === true ? 200 : 503, {
+        status: result?.ok === true ? 'ok' : 'blocked', mode: 'label_prepare_once',
+        code: result?.code ?? 'label_preparation_unavailable',
+        document_id: result?.ok === true ? result.document_id ?? null : null,
+      });
+    } catch { return json(503, { error: 'label_preparation_unavailable' }); }
+  }
 
   if (normalizedPath === '/internal/shopee/live/oauth/refresh-once') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });

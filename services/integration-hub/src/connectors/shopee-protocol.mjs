@@ -10,6 +10,7 @@ export {
   buildSimpleDropoffRequest,
   shipOrderSimpleDropoff,
   getTrackingNumber,
+  createShippingDocument,
   getShopInfo,
   parseShopeeError,
   refreshToken,

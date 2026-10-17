@@ -413,6 +413,32 @@ async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
 
+  if (payload.action === 'shopee.shipping_document.claim' || payload.action === 'shopee.shipping_document.resolve') {
+    const claiming = payload.action === 'shopee.shipping_document.claim';
+    const { data, error } = await core.rpc(claiming ? 'claim_shopee_shipping_document' : 'resolve_shopee_shipping_document',
+      claiming ? {
+        p_channel_account_id: String(payload.channel_account_id), p_shop_id: Number(payload.shop_id),
+        p_order_sn: String(payload.order_sn), p_package_number: String(payload.package_number),
+        p_document_type: String(payload.document_type), p_request_hash: String(payload.request_hash),
+      } : { p_attempt_id: String(payload.attempt_id), p_request_hash: String(payload.request_hash), p_outcome: String(payload.outcome) });
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return { status: 503, body: { error: 'document_ledger_unavailable' } };
+    }
+    if (claiming && ['claimed','already_succeeded'].includes(data.status)
+        && data.fresh === (data.status === 'claimed') && typeof data.attempt_id === 'string') {
+      return { status: 200, body: { status: data.status, fresh: data.fresh, attempt_id: data.attempt_id } };
+    }
+    if (!claiming && ['resolved','already_resolved'].includes(data.status) && ['succeeded','uncertain'].includes(data.state)) {
+      return { status: 200, body: { status: data.status, state: data.state } };
+    }
+    const blocked = ['already_claimed','uncertain_requires_reconciliation','claim_fingerprint_mismatch',
+      'account_or_shop_mismatch','order_not_unique_or_missing','invalid_request','attempt_missing','transition_forbidden',
+      'duplicate_documents_require_reconciliation','existing_document_requires_reconciliation'];
+    return blocked.includes(data.status)
+      ? { status: 409, body: { status: 'blocked', code: data.status } }
+      : { status: 503, body: { error: 'document_ledger_unavailable' } };
+  }
+
 
   // F6-O.2e.2c — ledger-only actions. SQL RPCs perform all identity checks
   // and uniqueness atomically; no Shopee API transport occurs in the Core.

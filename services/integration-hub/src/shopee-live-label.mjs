@@ -100,6 +100,8 @@ export function createShopeeLabelSynchronizer({
     if (!connection?.ok) return { ok: false, code: 'oauth_connection_unavailable' };
     const oauth = connection.payload ?? {};
     const shopId = validPositiveInteger(oauth.shop_id);
+    const fixedShop = getEnv('SHOPEE_LIVE_LABEL_SHOP_ID');
+    if (fixedShop != null && String(shopId) !== String(fixedShop)) return { ok: false, code: 'label_shop_identity_mismatch' };
     if (validPositiveInteger(oauth.partner_id) !== partnerId) return { ok: false, code: 'partner_id_mismatch' };
     const expiresAt = Date.parse(String(oauth.access_token_expires_at ?? ''));
     if (!Number.isFinite(expiresAt) || expiresAt <= now() + 60_000) {
@@ -120,6 +122,8 @@ export function createShopeeLabelSynchronizer({
     const pkg = uniquePackageNumber(orderList[0]);
     if (!pkg.ok) return { ok: false, code: pkg.code };
     const packageNumber = pkg.value;
+    const fixedPackage = getEnv('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER');
+    if (fixedPackage != null && packageNumber !== fixedPackage) return { ok: false, code: 'label_package_identity_mismatch' };
 
     const parameters = await readParameter({
       ...shared, shippingDocumentParameterPath: PARAMETER_PATH,
