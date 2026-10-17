@@ -68,6 +68,7 @@ function normalizeOrder(order, index) {
     shipByDate: epochSecondsToIso(order?.ship_by_date),
     currency: nullableText(order?.currency),
     totalAmount: finiteNumber(order?.total_amount),
+    buyerMessage: nullableText(order?.message_to_seller),
     paymentMethod: nullableText(order?.payment_method),
     shippingCarrier: nullableText(order?.shipping_carrier),
     packageCount: packages.length,
