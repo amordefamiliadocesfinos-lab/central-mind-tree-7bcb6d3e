@@ -228,6 +228,9 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
             <p aria-live="polite">{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
             <p>O resultado é parcial: não representa todas as oportunidades do CRM.</p>
             {lastCheckedLabel && <p>Última verificação: {lastCheckedLabel}.</p>}
+            {(failed > 0 || insufficient > 0) && (
+              <p>Verificações incompletas neste recorte: {failed} falha(s) e {insufficient} evidência(s) insuficiente(s).</p>
+            )}
             {scan.isLoading && scan.checked > 0 && <p role="status">Analisando novo lote; os resultados anteriores continuam parciais.</p>}
             {scan.error && <p role="alert" className="text-destructive">{scan.error}</p>}
           </div>
