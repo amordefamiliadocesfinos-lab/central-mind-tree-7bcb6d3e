@@ -8,7 +8,7 @@ import { createShopeeLabelSynchronizer } from './shopee-live-label.mjs';
 const API = 'https://partner.shopeemobile.com';
 const TYPE = 'NORMAL_AIR_WAYBILL';
 const PILOT = Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
-  shop: 531736366, partner: 2047685, order: '261016Q0YF8VVT', package: 'OFG245791336122517' });
+  shop: 531736366, partner: 2047685, order: '261017T5TF35CH', package: 'OFG245899610150874' });
 const PATHS = new Set(['/api/v2/order/get_order_detail', '/api/v2/logistics/get_tracking_number',
   '/api/v2/logistics/get_shipping_document_parameter', '/api/v2/logistics/create_shipping_document',
   '/api/v2/logistics/get_shipping_document_result']);
