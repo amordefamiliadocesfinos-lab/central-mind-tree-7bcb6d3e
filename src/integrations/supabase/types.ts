@@ -7550,6 +7550,69 @@ export type Database = {
           },
         ]
       }
+      shopee_shipping_document_attempts: {
+        Row: {
+          channel_account_id: string
+          claimed_at: string
+          document_type: string
+          id: string
+          operation: string
+          order_id: string
+          order_sn: string
+          outcome_source: string | null
+          package_number: string
+          request_hash: string
+          resolved_at: string | null
+          shop_id: number
+          state: string
+        }
+        Insert: {
+          channel_account_id: string
+          claimed_at?: string
+          document_type: string
+          id?: string
+          operation?: string
+          order_id: string
+          order_sn: string
+          outcome_source?: string | null
+          package_number: string
+          request_hash: string
+          resolved_at?: string | null
+          shop_id: number
+          state?: string
+        }
+        Update: {
+          channel_account_id?: string
+          claimed_at?: string
+          document_type?: string
+          id?: string
+          operation?: string
+          order_id?: string
+          order_sn?: string
+          outcome_source?: string | null
+          package_number?: string
+          request_hash?: string
+          resolved_at?: string | null
+          shop_id?: number
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_shipping_document_attempts_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopee_shipping_document_attempts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storage_locations: {
         Row: {
           created_at: string
@@ -8363,6 +8426,17 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_shopee_shipping_document: {
+        Args: {
+          p_channel_account_id: string
+          p_document_type: string
+          p_order_sn: string
+          p_package_number: string
+          p_request_hash: string
+          p_shop_id: number
+        }
+        Returns: Json
+      }
       complete_campaign: {
         Args: { _campaign_id: string }
         Returns: {
@@ -8710,6 +8784,14 @@ export type Database = {
         Returns: Json
       }
       resolve_shopee_shipping_arrangement: {
+        Args: {
+          p_attempt_id: string
+          p_outcome: string
+          p_request_hash: string
+        }
+        Returns: Json
+      }
+      resolve_shopee_shipping_document: {
         Args: {
           p_attempt_id: string
           p_outcome: string
