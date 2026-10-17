@@ -69,6 +69,7 @@ jobs:
           for file in \
             src/lib/crm/contactEditContract.test.ts \
             src/lib/crm/attendanceCommandSafety.test.ts \
+            src/lib/crm/attendanceCommandPresentation.test.ts \
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
             src/lib/crm/handoffEvidence.test.ts \

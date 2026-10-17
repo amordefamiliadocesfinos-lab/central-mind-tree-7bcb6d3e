@@ -34,6 +34,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
+import { getConcludeAttendanceWarning, getArchiveAttendanceWarning } from '@/lib/crm/attendanceCommandPresentation';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
@@ -220,6 +221,7 @@ export default function ContatosInbox() {
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
+  const [concludeIntent, setConcludeIntent] = useState<{ contactId: string; conversationId: string | null; warning: string } | null>(null);
   const [operationalHandoff, setOperationalHandoff] = useState<{ resultCode: string; label: string } | null>(null);
 
   useEffect(() => {
@@ -261,6 +263,7 @@ export default function ContatosInbox() {
     setActiveActionMode(null);
     setOrientationExpanded(false);
     setOperationalHandoff(null);
+    setConcludeIntent(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
   // D-01: uma única trava síncrona para comandos que gravam estado operacional.
@@ -1105,6 +1108,31 @@ export default function ContatosInbox() {
     }
   };
 
+  // D-03: sem novo writer. Avisar antes de concluir apenas quando há pendência.
+  const concludeSelectedConversation = () => {
+    if (!selected) return;
+    void updateAttendance({
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      attendance_state: 'concluido',
+      needs_reply: false,
+      unread_count: 0,
+    }, 'Atendimento concluído.');
+  };
+  const requestConcludeSelectedConversation = () => {
+    if (!selected || !guardProfileExit()) return;
+    const warning = getConcludeAttendanceWarning({
+      pendingResult: getCrmPriority(toCrmPriorityInput(selected)).reason === 'pending_result',
+      officialTaskPresent: selected.official_task_present,
+      operationalReturnScheduled: Boolean(selected.return_at),
+    });
+    if (warning) {
+      setConcludeIntent({ contactId: selected.id, conversationId: selected.conversation_id, warning });
+    } else {
+      concludeSelectedConversation();
+    }
+  };
+
   const updateSelectedPhoto = async (photoUrl: string | null) => {
     if (!selected) return;
     try {
@@ -1127,7 +1155,7 @@ export default function ContatosInbox() {
     if (!selected) return;
     if (!selected.conversation_id) { toast.error('Conversa operacional inexistente; nada foi arquivado.'); return; }
     if (!guardProfileExit()) return;
-    const confirmed = window.confirm(`Arquivar esta conversa de "${selected.name}"? Ela será encerrada e o retorno operacional será removido. O contato, histórico e demais obrigações serão preservados.`);
+    const confirmed = window.confirm(`Arquivar esta conversa de "${selected.name}"?\n\n${getArchiveAttendanceWarning({ officialTaskPresent: selected.official_task_present })}`);
     if (!confirmed || !beginAttendanceOperation()) return;
     // C2: captura o próximo item visível/priorizado antes de arquivar, para
     // manter a continuidade operacional sem criar nova regra de prioridade.
@@ -1650,13 +1678,14 @@ export default function ContatosInbox() {
                       </div>
                     )}
                   </div>
-                  <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-7 shrink-0 px-1.5 text-[10px] sm:px-2" />
+                  <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="hidden h-7 shrink-0 px-1.5 text-[10px] sm:inline-flex sm:px-2" />
                 </div>
 
                 <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-[11px] text-muted-foreground">
                     {selected.status === 'resolved' ? 'Atendimento resolvido' : selected.assigned_to ? 'Responsável atribuído' : 'Sem responsável'}
                   </span>
+                  <MetaWindowBadge lastInboundAt={selected.last_inbound_at} compact className="h-5 shrink-0 px-1.5 text-[9px] sm:hidden" />
                   {selectedIsOutOfQueue && (
                     <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">Fora da fila</Badge>
                   )}
@@ -1683,10 +1712,10 @@ export default function ContatosInbox() {
                   )}
                 </div>
 
-                <div className="mt-2 flex min-w-0 flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-2 lg:gap-y-1.5">
+                <div className="mt-1.5 flex min-w-0 flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-2 lg:gap-y-1.5">
                   <div className="grid min-w-0 grid-cols-2 gap-1 sm:flex sm:flex-wrap sm:items-center" role="group" aria-label="Comandos essenciais do atendimento">
                     {selected.status === 'resolved' ? (
-                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 justify-center gap-1 whitespace-nowrap px-2 text-xs"
                         disabled={attendanceBusy || saleDecisionBusy}
                         onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')}
                         title="Reabrir o atendimento resolvido"
@@ -1694,15 +1723,15 @@ export default function ContatosInbox() {
                         <RotateCcw className="h-3.5 w-3.5 shrink-0" /> Reabrir
                       </Button>
                     ) : (
-                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                      <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 justify-center gap-1 whitespace-nowrap px-2 text-xs"
                         disabled={attendanceBusy || saleDecisionBusy}
-                        onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')}
+                        onClick={requestConcludeSelectedConversation}
                         title="Concluir atendimento; não registra Resultado comercial nem encerra tarefas oficiais"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" /> Concluir
                       </Button>
                     )}
-                    <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 gap-1 px-2 text-xs"
+                    <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 justify-center gap-1 whitespace-nowrap px-2 text-xs"
                       disabled={attendanceBusy || saleDecisionBusy}
                       onClick={() => { if (guardProfileExit()) setSaleOpen(true); }}
                       title="Registrar venda deste contato no fluxo oficial"
@@ -1711,7 +1740,7 @@ export default function ContatosInbox() {
                     </Button>
                     <Button type="button" size="sm"
                       variant={selectedIsOutOfQueue ? 'secondary' : 'outline'}
-                      className="col-span-2 h-8 min-w-0 gap-1 px-2 text-xs sm:col-auto"
+                      className="col-span-2 h-8 min-w-0 justify-center gap-1 whitespace-nowrap px-2 text-xs sm:col-auto"
                       disabled={attendanceBusy || saleDecisionBusy}
                       onClick={() => void toggleSelectedOutOfQueue()}
                       title={selectedIsOutOfQueue ? 'Voltar para a fila operacional, sem reabrir conversa' : 'Tirar da fila operacional, sem arquivar ou concluir'}
@@ -2037,6 +2066,31 @@ export default function ContatosInbox() {
               void concludeSaleAttendance();
             }}>
               {saleDecisionBusy ? 'Agendando pós-venda...' : 'Concluir atendimento e agendar pós-venda'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* D-03: confirmação contextual não altera a regra canônica de Concluir. */}
+      <AlertDialog open={Boolean(concludeIntent)} onOpenChange={(open) => { if (!open) setConcludeIntent(null); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir atendimento com pendências?</AlertDialogTitle>
+            <AlertDialogDescription>{concludeIntent?.warning}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Voltar ao atendimento</AlertDialogCancel>
+            <AlertDialogAction disabled={attendanceBusy || saleDecisionBusy}
+              onClick={() => {
+                const intent = concludeIntent;
+                setConcludeIntent(null);
+                if (!intent || selectedContextRef.current !== `${intent.contactId}|${intent.conversationId ?? ''}`) {
+                  toast.warning('O contato mudou. Revise o atendimento antes de concluir.');
+                  return;
+                }
+                concludeSelectedConversation();
+              }}>
+              Concluir somente a conversa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
