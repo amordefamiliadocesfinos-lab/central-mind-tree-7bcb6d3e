@@ -23,7 +23,7 @@ caseIs('Evidência insuficiente prevalece sobre sem sinal', { candidates: [{ sta
 caseIs('Impedimento preservado', { candidates: [{ state: 'blocked' }] }, 'blocked');
 caseIs('Sem sinal verificado', {}, 'no_signal');
 caseIs('Recorte sem registros', { analyzedCount: 0, hasMore: false, candidates: [] }, 'empty');
-caseIs('Só recorte vazio com consulta concluída', { analyzedCount: 0, hasMore: true, candidates: [] }, 'no_signal');
+caseIs('Antes da primeira consulta não existe zero comprovado', { analyzedCount: 0, hasMore: true, candidates: [] }, 'loading');
 caseIs('Candidato verificado preserva destaque mesmo com outras falhas', {
   hasRecommendation: true, candidates: [{ state: 'available' }, { state: 'error' }],
 }, 'recommended');
