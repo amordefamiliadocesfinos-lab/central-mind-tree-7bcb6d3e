@@ -662,6 +662,7 @@ async function executeAction(payload: Record<string, unknown>) {
         total_value: payload.total_value,
         payment_method: payload.payment_method,
         external_status: payload.external_status,
+        buyer_message: payload.buyer_message ?? null,
       },
       p_items: payload.items,
     });

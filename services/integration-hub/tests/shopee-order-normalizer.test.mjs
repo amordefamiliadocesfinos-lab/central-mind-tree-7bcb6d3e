@@ -202,3 +202,12 @@ test('contract remains read-only and PII-suppressed', () => {
     piiSuppressed: true,
   });
 });
+
+
+test('buyer message is captured for the internal projection, but omitted from safe diagnostics', () => {
+  const payload = structuredClone(PAYLOAD);
+  payload.response.order_list[0].message_to_seller = 'Separar o pedido com cuidado';
+  const normalized = normalizeShopeeOrderDetailPayload(payload);
+  assert.equal(normalized.orders[0].buyerMessage, 'Separar o pedido com cuidado');
+  assert.equal(JSON.stringify(buildShopeeOrderSafePreview(normalized)).includes('Separar o pedido com cuidado'), false);
+});

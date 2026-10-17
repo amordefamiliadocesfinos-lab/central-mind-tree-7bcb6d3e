@@ -232,3 +232,13 @@ test('preserves all item contract fields without manufacturing presentation or m
   assert.equal(JSON.stringify(p), before);
   assert.equal(Object.keys(result.items[0]).some(k => /presentation/i.test(k)), false);
 });
+
+
+test('keeps buyer note separate from editable internal notes', () => {
+  const projection = readyProjection();
+  projection.candidate.buyerMessage = 'Favor embalar com cuidado';
+  const result = applyShopeeInternalOrderContract(projection);
+  assert.equal(result.order.marketplaceMetadata.buyerMessage, 'Favor embalar com cuidado');
+  assert.equal(result.order.customerName, null);
+  assert.equal(result.effects.stockAction, null);
+});

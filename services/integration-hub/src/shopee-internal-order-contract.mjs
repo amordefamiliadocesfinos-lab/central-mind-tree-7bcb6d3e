@@ -136,6 +136,7 @@ export function applyShopeeInternalOrderContract(projectionOrder, {
         source: nullableText(candidate?.marketplaceMetadata?.source) ?? 'shopee_open_platform',
         environment: nullableText(candidate?.marketplaceMetadata?.environment) ?? 'live',
         externalStatus,
+        buyerMessage: nullableText(candidate.buyerMessage),
       },
     },
     items,

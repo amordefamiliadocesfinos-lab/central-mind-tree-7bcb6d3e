@@ -144,6 +144,7 @@ export function buildShopeeOrderProjectionPreview(
         orderDate: dateOnly(normalizedOrder.createdAt),
         totalValue: finiteNumber(normalizedOrder.totalAmount),
         paymentMethod: nullableText(normalizedOrder.paymentMethod),
+        buyerMessage: nullableText(normalizedOrder.buyerMessage),
         internalStatus: null,
         operationalStatus: null,
         orderType: null,

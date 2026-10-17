@@ -62,6 +62,7 @@ test('builds the exact narrow Core Bridge writer payload', () => {
     total_value: 39.9,
     payment_method: 'Pix',
     external_status: 'READY_TO_SHIP',
+    buyer_message: null,
     items: [{
       product_id: '92088a70-8cc0-40ef-a39d-564603df6866',
       variant_id: null,
@@ -143,4 +144,13 @@ test('writer scope is only Pedido + items + Separação TODO', () => {
   ]) {
     assert.ok(SHOPEE_ORDER_WRITER_CONTRACT.prohibitedWrites.includes(table));
   }
+});
+
+
+test('sends the optional buyer message to Core without touching order notes', () => {
+  const contract = readyContract();
+  contract.order.marketplaceMetadata.buyerMessage = 'Separar sabores conforme pedido';
+  const request = buildShopeeOrderCreateRequest(contract);
+  assert.equal(request.buyer_message, 'Separar sabores conforme pedido');
+  assert.equal('notes' in request, false);
 });
