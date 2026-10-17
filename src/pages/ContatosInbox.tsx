@@ -22,6 +22,7 @@ import { InboxNoteBlock } from '@/components/crm/InboxNoteBlock';
 import { InboxSaleDialog } from '@/components/crm/InboxSaleDialog';
 import type { Contact } from '@/hooks/useContacts';
 import { ContactProfileOverview } from '@/components/crm/ContactProfileOverview';
+import { StartOpportunityPanel } from '@/components/crm/StartOpportunityPanel';
 
 import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
@@ -139,6 +140,7 @@ export default function ContatosInbox() {
   const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(false);
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileStartVisible, setMobileStartVisible] = useState(true);
   // Proteção B-03: impedir troca de contato com uma seção cadastral em edição.
   const editingProfileRef = useRef(false);
   const [, setProfileEditing] = useState(false);
@@ -1331,6 +1333,12 @@ export default function ContatosInbox() {
             </Button>
           </Link>
           <h1 className="shrink-0 text-sm font-semibold">Inbox</h1>
+          {!selected && (
+            <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 text-xs md:hidden"
+              onClick={() => setMobileStartVisible(value => !value)}>
+              {mobileStartVisible ? 'Ver fila' : 'Start — Oportunidades'}
+            </Button>
+          )}
           {isConsultingAllContacts && (
             <Badge variant="outline" className="h-7 shrink-0 border-amber-500/60 bg-amber-500/10 px-2 text-[10px]"
               title="A busca e a etapa consultam contatos além da fila operacional e do escopo selecionado">
@@ -1453,11 +1461,13 @@ export default function ContatosInbox() {
         </div>
       </div>
 
-      <div className={cn('grid flex-1 min-h-0 gap-0 md:p-2', leadPanelOpen
-          ? 'md:grid-cols-[minmax(170px,23%)_minmax(230px,1fr)_minmax(250px,30%)] xl:grid-cols-[minmax(230px,20%)_minmax(0,53%)_minmax(290px,27%)]'
-          : 'md:grid-cols-[minmax(240px,26%)_minmax(0,1fr)]')}>
+      <div className={cn('grid flex-1 min-h-0 gap-0 md:p-2', !selected
+          ? 'md:grid-cols-[minmax(240px,26%)_minmax(0,1fr)]'
+          : leadPanelOpen
+            ? 'md:grid-cols-[minmax(170px,23%)_minmax(230px,1fr)_minmax(250px,30%)] xl:grid-cols-[minmax(230px,20%)_minmax(0,53%)_minmax(290px,27%)]'
+            : 'md:grid-cols-[minmax(240px,26%)_minmax(0,1fr)]')}>
         {/* Lista */}
-        <div className={cn('min-h-0 overflow-y-auto md:border md:rounded-l-lg md:bg-card', selected && 'hidden md:block')}>
+        <div className={cn('min-h-0 overflow-y-auto md:border md:rounded-l-lg md:bg-card', (selected || mobileStartVisible) && 'hidden md:block')}>
           {loading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Carregando...</div>
           ) : prioritized.length === 0 ? (
@@ -1539,13 +1549,14 @@ export default function ContatosInbox() {
         </div>
 
         {/* Painel detalhe */}
-        <div className={cn('min-h-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col', !selected && 'hidden md:flex', mobileProfileOpen && 'hidden md:flex')}>
-          {!selected ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              <MessageCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              Selecione um contato para ver a conversa
-            </div>
-          ) : (
+        <div className={cn('min-h-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col',
+          !selected && !mobileStartVisible && 'hidden md:flex',
+          mobileProfileOpen && 'hidden md:flex')}>
+          {/* A Start permanece montada para preservar o resultado do lote inicial durante atendimentos. */}
+          <div className={cn('min-h-0 flex-1 overflow-y-auto', selected && 'hidden')}>
+            <StartOpportunityPanel active={!selected && !loading} />
+          </div>
+          {selected && (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Header do contato */}
               <div className="border-b px-3 py-2 flex items-center gap-3 shrink-0 bg-card z-10">
