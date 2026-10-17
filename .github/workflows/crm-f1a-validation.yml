@@ -25,6 +25,7 @@ on:
       - 'supabase/functions/_shared/crm/reply-financial-guard.ts'
       - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
       - 'src/components/crm/PosVendaPanel.tsx'
+      - 'src/components/crm/StartOpportunityPanel.tsx'
       - 'src/components/crm/ContactChatPanel.tsx'
       - 'src/components/crm/ContactProfileOverview.tsx'
       - 'src/components/financial/ContactsManager.tsx'
@@ -79,6 +80,7 @@ jobs:
             src/lib/crm/postSalePanelLifecycle.test.ts \
             src/lib/crm/startOpportunityCandidates.test.ts \
             src/lib/crm/startOpportunityRecommendation.test.ts \
+            src/lib/crm/startOpportunityNavigation.test.ts \
             src/lib/crm/campaignIntelligentAudience.test.ts \
             src/lib/crm/campaignIntelligentSafety.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
