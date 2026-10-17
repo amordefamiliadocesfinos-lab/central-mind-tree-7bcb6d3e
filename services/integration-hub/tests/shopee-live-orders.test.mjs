@@ -330,7 +330,7 @@ test('reads one small Live order window and persists only Raw list/detail snapsh
   assert.ok(detailArgs.responseOptionalFields.includes('recipient_address'));
   assert.deepEqual(detailArgs.responseOptionalFields, [
     'item_list', 'package_list', 'shipping_carrier', 'payment_method',
-    'total_amount', 'pay_time', 'recipient_address',
+    'total_amount', 'pay_time', 'recipient_address', 'message_to_seller',
   ]);
 
   assert.equal(orderSnapshots.length, 2);
