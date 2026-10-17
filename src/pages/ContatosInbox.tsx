@@ -1120,7 +1120,7 @@ export default function ContatosInbox() {
     if (!selected) return;
     if (!selected.conversation_id) { toast.error('Conversa operacional inexistente; nada foi arquivado.'); return; }
     if (!guardProfileExit()) return;
-    const confirmed = window.confirm(`Arquivar a conversa de "${selected.name}"? O contato, histórico e demais vínculos serão preservados.`);
+    const confirmed = window.confirm(`Arquivar esta conversa de "${selected.name}"? Ela será encerrada e o retorno operacional será removido. O contato, histórico e demais obrigações serão preservados.`);
     if (!confirmed || !beginAttendanceOperation()) return;
     // C2: captura o próximo item visível/priorizado antes de arquivar, para
     // manter a continuidade operacional sem criar nova regra de prioridade.
@@ -1643,21 +1643,21 @@ export default function ContatosInbox() {
                 <div className="flex gap-1">
                   <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-8 px-2 text-[10px]" />
                   {!selected.assigned_to && (
-                    <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!isLinked} onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}>
+                    <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!isLinked || attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}>
                       <UserCheck className="h-3.5 w-3.5" /> Assumir
                     </Button>
                   )}
                   {selected.assigned_to && selected.status !== 'resolved' && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')} title="Liberar atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')} title="Liberar atendimento">
                       <UserMinus className="h-4 w-4" />
                     </Button>
                   )}
                   {selected.status === 'resolved' ? (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')} title="Reabrir atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')} title="Reabrir atendimento">
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')} title="Concluir atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')} title="Concluir atendimento">
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     </Button>
                   )}
@@ -1670,20 +1670,20 @@ export default function ContatosInbox() {
                   >
                     <Sparkles className="h-4 w-4 text-primary" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSaleOpen(true)} title="Registrar venda deste contato">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => { if (guardProfileExit()) setSaleOpen(true); }} title="Registrar venda deste contato">
                     <ShoppingCart className="h-4 w-4 text-emerald-600" />
                   </Button>
                   <Button
                     size="icon"
                     variant={selectedIsOutOfQueue ? 'secondary' : 'ghost'}
                     className="h-8 w-8"
-                    disabled={attendanceBusy}
+                    disabled={attendanceBusy || saleDecisionBusy}
                     onClick={() => void toggleSelectedOutOfQueue()}
                     title={selectedIsOutOfQueue ? 'Voltar para fila' : 'Tirar da fila'}
                   >
                     {selectedIsOutOfQueue ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
                     <Archive className="h-4 w-4 text-muted-foreground" />
                   </Button>
                   <Button
@@ -1904,7 +1904,7 @@ export default function ContatosInbox() {
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
-                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" onClick={() => nextAttendance()}>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" disabled={attendanceBusy || saleDecisionBusy} onClick={() => nextAttendance()}>
                           Próximo atendimento <ArrowRight className="h-3 w-3" />
                         </Button>
                       </div>
