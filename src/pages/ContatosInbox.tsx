@@ -33,6 +33,7 @@ import { useActiveUser } from '@/hooks/useActiveUser';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
+import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
@@ -140,6 +141,7 @@ export default function ContatosInbox() {
   const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(false);
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const attendanceWriteGateRef = useRef(createAttendanceWriteGate());
   const [mobileStartVisible, setMobileStartVisible] = useState(true);
   // Proteção B-03: impedir troca de contato com uma seção cadastral em edição.
   const editingProfileRef = useRef(false);
@@ -165,7 +167,11 @@ export default function ContatosInbox() {
       next_action_date: updated.next_action_date || null,
     } : item));
   }, []);
-  const guardedSelectContact = useCallback((id: string | null) => {
+  const guardedSelectContact = useCallback((id: string | null, fromActiveOperation = false) => {
+    if (!fromActiveOperation && attendanceWriteGateRef.current.locked() && id !== selectedId) {
+      toast.warning('Aguarde a gravação do atendimento antes de trocar de contato.');
+      return false;
+    }
     if (editingProfileRef.current && id !== selectedId) {
       toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato.');
       return false;
@@ -250,6 +256,28 @@ export default function ContatosInbox() {
     setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
+  // D-01: uma única trava síncrona para comandos que gravam estado operacional.
+  // Os controles visuais usam attendanceBusy, mas o ref previne duplo clique no mesmo frame.
+  const beginAttendanceOperation = (fromResultOrSnooze = false): boolean => {
+    if (saleDecisionBusy || (!fromResultOrSnooze && activeActionMode)) {
+      toast.warning('Conclua ou cancele a ação em andamento antes de usar outro comando.');
+      return false;
+    }
+    if (!attendanceWriteGateRef.current.acquire()) {
+      toast.warning('Aguarde a conclusão da gravação atual.');
+      return false;
+    }
+    if (!guardProfileExit()) {
+      attendanceWriteGateRef.current.release();
+      return false;
+    }
+    setAttendanceBusy(true);
+    return true;
+  };
+  const finishAttendanceOperation = () => {
+    attendanceWriteGateRef.current.release();
+    setAttendanceBusy(false);
+  };
   const { tags, assignments, fetchTags } = useContactTags();
   const outOfQueueTag = useMemo(
     () => tags.find((tag) => tag.name.trim().toLocaleLowerCase('pt-BR') === OUT_OF_QUEUE_TAG_NAME.toLocaleLowerCase('pt-BR')) ?? null,
@@ -926,7 +954,11 @@ export default function ContatosInbox() {
     return () => { cancelled = true; };
   }, [selected?.id, selected?.conversation_id, selected?.last_inbound_at]);
 
-  const openConversation = async (item: InboxItem) => {
+  const openConversation = async (item: InboxItem, fromActiveOperation = false) => {
+    if (!fromActiveOperation && attendanceWriteGateRef.current.locked()) {
+      toast.warning('Aguarde a gravação do atendimento antes de abrir outro contato.');
+      return;
+    }
     if (!guardProfileExit()) return;
     // Contato sem conversa: cria o atendimento na hora para não existir cadastro
     // "invisível" na caixa de entrada.
@@ -951,10 +983,10 @@ export default function ContatosInbox() {
         return;
       }
       setItems(current => current.map(row => row.id === item.id ? { ...row, conversation_id: created.id } : row));
-      guardedSelectContact(item.id);
+      guardedSelectContact(item.id, fromActiveOperation);
       return;
     }
-    guardedSelectContact(item.id);
+    guardedSelectContact(item.id, fromActiveOperation);
     const priority = getCrmPriority(toCrmPriorityInput(item), new Date());
     if (item.status === 'resolved' && [
       'reactivation_overdue',
@@ -1043,13 +1075,28 @@ export default function ContatosInbox() {
 
   const updateAttendance = async (patch: Record<string, unknown>, successMessage: string) => {
     if (!selected) return;
-    const { error } = await supabase.from('service_conversations').update(patch).eq('id', selected.conversation_id);
-    if (error) {
-      toast.error('Não foi possível atualizar o atendimento.');
+    const { id: contactId, conversation_id: conversationId } = selected;
+    if (!conversationId) {
+      toast.error('Este contato ainda não possui uma conversa operacional para atualizar.');
       return;
     }
-    toast.success(successMessage);
-    await load();
+    if (!beginAttendanceOperation()) return;
+    try {
+      const { data, error } = await supabase.from('service_conversations')
+        .update(patch).eq('id', conversationId).eq('contact_id', contactId).select('id').maybeSingle();
+      if (error) throw error;
+      if (!isConfirmedAttendanceMutation(data, conversationId)) {
+        toast.error('Nenhuma conversa foi atualizada. Reabra o atendimento antes de tentar novamente.');
+        return;
+      }
+      toast.success(successMessage);
+      await load();
+    } catch (error) {
+      console.error('CRM D-01: updateAttendance', error);
+      toast.error('Não foi possível atualizar o atendimento.');
+    } finally {
+      finishAttendanceOperation();
+    }
   };
 
   const updateSelectedPhoto = async (photoUrl: string | null) => {
