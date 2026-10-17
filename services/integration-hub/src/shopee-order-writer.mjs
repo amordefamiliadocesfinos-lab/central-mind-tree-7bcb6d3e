@@ -40,6 +40,7 @@ export function buildShopeeOrderCreateRequest(contract) {
     total_value: contract.order.totalValue,
     payment_method: contract.order.paymentMethod,
     external_status: contract.order.marketplaceMetadata?.externalStatus ?? null,
+    buyer_message: contract.order.marketplaceMetadata?.buyerMessage ?? null,
     items: contract.items.map((item) => ({
       product_id: item.productId,
       variant_id: item.variantId,
