@@ -1038,10 +1038,9 @@ export default function ContatosInbox() {
   };
 
   const toggleSelectedOutOfQueue = async () => {
-    if (!selected) return;
+    if (!selected || !beginAttendanceOperation()) return;
     const currentContactId = selected.id;
     const fallbackNext = prioritized.find(({ item }) => item.id !== currentContactId)?.item ?? null;
-    setAttendanceBusy(true);
     try {
       if (selectedIsOutOfQueue) {
         if (!outOfQueueTag) return;
@@ -1052,7 +1051,7 @@ export default function ContatosInbox() {
           .eq('tag_id', outOfQueueTag.id);
         if (error) throw error;
         await fetchTags();
-        guardedSelectContact(fallbackNext?.id ?? null);
+        guardedSelectContact(fallbackNext?.id ?? null, true);
         toast.success('Contato voltou para a fila.');
         return;
       }
@@ -1063,13 +1062,13 @@ export default function ContatosInbox() {
         .insert({ contact_id: currentContactId, tag_id: tagId });
       if (error && error.code !== '23505') throw error;
       await fetchTags();
-      guardedSelectContact(fallbackNext?.id ?? null);
+      guardedSelectContact(fallbackNext?.id ?? null, true);
       toast.success('Contato retirado da fila. Conversas e histórico foram preservados.');
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível atualizar a visibilidade deste contato na fila.');
     } finally {
-      setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
@@ -1119,29 +1118,34 @@ export default function ContatosInbox() {
 
   const archiveSelectedConversation = async () => {
     if (!selected) return;
+    if (!selected.conversation_id) { toast.error('Conversa operacional inexistente; nada foi arquivado.'); return; }
+    if (!guardProfileExit()) return;
     const confirmed = window.confirm(`Arquivar a conversa de "${selected.name}"? O contato, histórico e demais vínculos serão preservados.`);
-    if (!confirmed) return;
+    if (!confirmed || !beginAttendanceOperation()) return;
     // C2: captura o próximo item visível/priorizado antes de arquivar, para
     // manter a continuidade operacional sem criar nova regra de prioridade.
     const currentContactId = selected.id;
     const fallbackNextId = prioritized.find(({ item }) => item.id !== currentContactId)?.item.id ?? null;
-    setAttendanceBusy(true);
     try {
       const now = new Date().toISOString();
-      const { error } = await supabase.from('service_conversations').update({
+      const { data, error } = await supabase.from('service_conversations').update({
         status: 'resolved',
         resolved_at: now,
         attendance_state: 'concluido',
         needs_reply: false,
         unread_count: 0,
         return_at: null,
-      }).eq('id', selected.conversation_id);
+      }).eq('id', selected.conversation_id).eq('contact_id', currentContactId).select('id').maybeSingle();
       if (error) throw error;
+      if (!isConfirmedAttendanceMutation(data, selected.conversation_id)) {
+        toast.error('A conversa não foi atualizada; o arquivamento não foi confirmado.');
+        return;
+      }
       setLeadPanelOpen(false);
       setMobileProfileOpen(false);
       const refreshedItems = await load();
       if (refreshedItems === null) {
-        guardedSelectContact(null);
+        guardedSelectContact(null, true);
         toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
         return;
       }
@@ -1160,15 +1164,15 @@ export default function ContatosInbox() {
         next = refreshedItems.find((item) => item.id === fallbackNextId);
       }
       if (next) {
-        await openConversation(next);
+        await openConversation(next, true);
       } else {
-        guardedSelectContact(null);
+        guardedSelectContact(null, true);
       }
       toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível arquivar a conversa.');
-    } finally { setAttendanceBusy(false); }
+    } finally { finishAttendanceOperation(); }
   };
 
   const attendanceQueue = useMemo(() => {
