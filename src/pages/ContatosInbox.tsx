@@ -33,6 +33,7 @@ import { useActiveUser } from '@/hooks/useActiveUser';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
+import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
@@ -140,18 +141,29 @@ export default function ContatosInbox() {
   const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(false);
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const attendanceWriteGateRef = useRef(createAttendanceWriteGate());
   const [mobileStartVisible, setMobileStartVisible] = useState(true);
   // Proteção B-03: impedir troca de contato com uma seção cadastral em edição.
   const editingProfileRef = useRef(false);
+  const chatDraftRef = useRef(false);
+  const onChatDraftStateChange = useCallback((hasDraft: boolean) => {
+    chatDraftRef.current = hasDraft;
+  }, []);
   const [, setProfileEditing] = useState(false);
   const onProfileEditingChange = useCallback((editing: boolean) => {
     editingProfileRef.current = editing;
     setProfileEditing(editing);
   }, []);
   const guardProfileExit = useCallback(() => {
-    if (!editingProfileRef.current) return true;
-    toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato ou área.');
-    return false;
+    if (editingProfileRef.current) {
+      toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato ou área.');
+      return false;
+    }
+    if (chatDraftRef.current) {
+      toast.warning('Envie ou descarte o rascunho e aguarde o envio antes de sair deste atendimento.');
+      return false;
+    }
+    return true;
   }, []);
   const onProfileSaved = useCallback((updated: Contact) => {
     setLeadContact(current => current?.id === updated.id ? updated : current);
@@ -165,14 +177,15 @@ export default function ContatosInbox() {
       next_action_date: updated.next_action_date || null,
     } : item));
   }, []);
-  const guardedSelectContact = useCallback((id: string | null) => {
-    if (editingProfileRef.current && id !== selectedId) {
-      toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato.');
+  const guardedSelectContact = useCallback((id: string | null, fromActiveOperation = false) => {
+    if (!fromActiveOperation && attendanceWriteGateRef.current.locked() && id !== selectedId) {
+      toast.warning('Aguarde a gravação do atendimento antes de trocar de contato.');
       return false;
     }
+    if (id !== selectedId && !guardProfileExit()) return false;
     setSelectedId(id);
     return true;
-  }, [selectedId]);
+  }, [selectedId, guardProfileExit]);
 
   const [attendanceQueueScope, setAttendanceQueueScope] = useState<string[]>(readAttendanceQueueScope);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -211,7 +224,7 @@ export default function ContatosInbox() {
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!editingProfileRef.current) return;
+      if (!editingProfileRef.current && !chatDraftRef.current) return;
       event.preventDefault();
       event.returnValue = '';
     };
@@ -221,7 +234,7 @@ export default function ContatosInbox() {
   // Intercept links within the Inbox while the edit section is active.
   useEffect(() => {
     const preventLinkChange = (event: MouseEvent) => {
-      if (!editingProfileRef.current) return;
+      if (!editingProfileRef.current && !chatDraftRef.current) return;
       const target = event.target;
       if (!(target instanceof Element)) return;
       const anchor = target.closest<HTMLAnchorElement>('a[href]');
@@ -250,6 +263,28 @@ export default function ContatosInbox() {
     setOperationalHandoff(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
+  // D-01: uma única trava síncrona para comandos que gravam estado operacional.
+  // Os controles visuais usam attendanceBusy, mas o ref previne duplo clique no mesmo frame.
+  const beginAttendanceOperation = (fromResultOrSnooze = false): boolean => {
+    if (saleDecisionBusy || (!fromResultOrSnooze && activeActionMode)) {
+      toast.warning('Conclua ou cancele a ação em andamento antes de usar outro comando.');
+      return false;
+    }
+    if (!attendanceWriteGateRef.current.acquire()) {
+      toast.warning('Aguarde a conclusão da gravação atual.');
+      return false;
+    }
+    if (!guardProfileExit()) {
+      attendanceWriteGateRef.current.release();
+      return false;
+    }
+    setAttendanceBusy(true);
+    return true;
+  };
+  const finishAttendanceOperation = () => {
+    attendanceWriteGateRef.current.release();
+    setAttendanceBusy(false);
+  };
   const { tags, assignments, fetchTags } = useContactTags();
   const outOfQueueTag = useMemo(
     () => tags.find((tag) => tag.name.trim().toLocaleLowerCase('pt-BR') === OUT_OF_QUEUE_TAG_NAME.toLocaleLowerCase('pt-BR')) ?? null,
@@ -926,7 +961,11 @@ export default function ContatosInbox() {
     return () => { cancelled = true; };
   }, [selected?.id, selected?.conversation_id, selected?.last_inbound_at]);
 
-  const openConversation = async (item: InboxItem) => {
+  const openConversation = async (item: InboxItem, fromActiveOperation = false) => {
+    if (!fromActiveOperation && attendanceWriteGateRef.current.locked()) {
+      toast.warning('Aguarde a gravação do atendimento antes de abrir outro contato.');
+      return;
+    }
     if (!guardProfileExit()) return;
     // Contato sem conversa: cria o atendimento na hora para não existir cadastro
     // "invisível" na caixa de entrada.
@@ -951,10 +990,10 @@ export default function ContatosInbox() {
         return;
       }
       setItems(current => current.map(row => row.id === item.id ? { ...row, conversation_id: created.id } : row));
-      guardedSelectContact(item.id);
+      guardedSelectContact(item.id, fromActiveOperation);
       return;
     }
-    guardedSelectContact(item.id);
+    guardedSelectContact(item.id, fromActiveOperation);
     const priority = getCrmPriority(toCrmPriorityInput(item), new Date());
     if (item.status === 'resolved' && [
       'reactivation_overdue',
@@ -1006,10 +1045,9 @@ export default function ContatosInbox() {
   };
 
   const toggleSelectedOutOfQueue = async () => {
-    if (!selected) return;
+    if (!selected || !beginAttendanceOperation()) return;
     const currentContactId = selected.id;
     const fallbackNext = prioritized.find(({ item }) => item.id !== currentContactId)?.item ?? null;
-    setAttendanceBusy(true);
     try {
       if (selectedIsOutOfQueue) {
         if (!outOfQueueTag) return;
@@ -1020,7 +1058,7 @@ export default function ContatosInbox() {
           .eq('tag_id', outOfQueueTag.id);
         if (error) throw error;
         await fetchTags();
-        guardedSelectContact(fallbackNext?.id ?? null);
+        guardedSelectContact(fallbackNext?.id ?? null, true);
         toast.success('Contato voltou para a fila.');
         return;
       }
@@ -1031,25 +1069,40 @@ export default function ContatosInbox() {
         .insert({ contact_id: currentContactId, tag_id: tagId });
       if (error && error.code !== '23505') throw error;
       await fetchTags();
-      guardedSelectContact(fallbackNext?.id ?? null);
+      guardedSelectContact(fallbackNext?.id ?? null, true);
       toast.success('Contato retirado da fila. Conversas e histórico foram preservados.');
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível atualizar a visibilidade deste contato na fila.');
     } finally {
-      setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
   const updateAttendance = async (patch: Record<string, unknown>, successMessage: string) => {
     if (!selected) return;
-    const { error } = await supabase.from('service_conversations').update(patch).eq('id', selected.conversation_id);
-    if (error) {
-      toast.error('Não foi possível atualizar o atendimento.');
+    const { id: contactId, conversation_id: conversationId } = selected;
+    if (!conversationId) {
+      toast.error('Este contato ainda não possui uma conversa operacional para atualizar.');
       return;
     }
-    toast.success(successMessage);
-    await load();
+    if (!beginAttendanceOperation()) return;
+    try {
+      const { data, error } = await supabase.from('service_conversations')
+        .update(patch).eq('id', conversationId).eq('contact_id', contactId).select('id').maybeSingle();
+      if (error) throw error;
+      if (!isConfirmedAttendanceMutation(data, conversationId)) {
+        toast.error('Nenhuma conversa foi atualizada. Reabra o atendimento antes de tentar novamente.');
+        return;
+      }
+      toast.success(successMessage);
+      await load();
+    } catch (error) {
+      console.error('CRM D-01: updateAttendance', error);
+      toast.error('Não foi possível atualizar o atendimento.');
+    } finally {
+      finishAttendanceOperation();
+    }
   };
 
   const updateSelectedPhoto = async (photoUrl: string | null) => {
@@ -1072,29 +1125,34 @@ export default function ContatosInbox() {
 
   const archiveSelectedConversation = async () => {
     if (!selected) return;
-    const confirmed = window.confirm(`Arquivar a conversa de "${selected.name}"? O contato, histórico e demais vínculos serão preservados.`);
-    if (!confirmed) return;
+    if (!selected.conversation_id) { toast.error('Conversa operacional inexistente; nada foi arquivado.'); return; }
+    if (!guardProfileExit()) return;
+    const confirmed = window.confirm(`Arquivar esta conversa de "${selected.name}"? Ela será encerrada e o retorno operacional será removido. O contato, histórico e demais obrigações serão preservados.`);
+    if (!confirmed || !beginAttendanceOperation()) return;
     // C2: captura o próximo item visível/priorizado antes de arquivar, para
     // manter a continuidade operacional sem criar nova regra de prioridade.
     const currentContactId = selected.id;
     const fallbackNextId = prioritized.find(({ item }) => item.id !== currentContactId)?.item.id ?? null;
-    setAttendanceBusy(true);
     try {
       const now = new Date().toISOString();
-      const { error } = await supabase.from('service_conversations').update({
+      const { data, error } = await supabase.from('service_conversations').update({
         status: 'resolved',
         resolved_at: now,
         attendance_state: 'concluido',
         needs_reply: false,
         unread_count: 0,
         return_at: null,
-      }).eq('id', selected.conversation_id);
+      }).eq('id', selected.conversation_id).eq('contact_id', currentContactId).select('id').maybeSingle();
       if (error) throw error;
+      if (!isConfirmedAttendanceMutation(data, selected.conversation_id)) {
+        toast.error('A conversa não foi atualizada; o arquivamento não foi confirmado.');
+        return;
+      }
       setLeadPanelOpen(false);
       setMobileProfileOpen(false);
       const refreshedItems = await load();
       if (refreshedItems === null) {
-        guardedSelectContact(null);
+        guardedSelectContact(null, true);
         toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
         return;
       }
@@ -1113,15 +1171,15 @@ export default function ContatosInbox() {
         next = refreshedItems.find((item) => item.id === fallbackNextId);
       }
       if (next) {
-        await openConversation(next);
+        await openConversation(next, true);
       } else {
-        guardedSelectContact(null);
+        guardedSelectContact(null, true);
       }
       toast.success('Conversa arquivada. O contato e o histórico foram preservados.');
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível arquivar a conversa.');
-    } finally { setAttendanceBusy(false); }
+    } finally { finishAttendanceOperation(); }
   };
 
   const attendanceQueue = useMemo(() => {
@@ -1139,8 +1197,12 @@ export default function ContatosInbox() {
     toast.success('Fila de hoje concluída.');
   };
 
-  const nextAttendance = async (refreshedItems?: InboxItem[] | null) => {
+  const nextAttendance = async (refreshedItems?: InboxItem[] | null, fromActiveOperation = false) => {
     if (!selected || attendanceQueueScope.length === 0) return;
+    if (attendanceWriteGateRef.current.locked() && !fromActiveOperation) {
+      toast.warning('Aguarde a gravação antes de avançar na fila.');
+      return;
+    }
 
     // A lista salva apenas delimita o escopo inicial. A decisão é feita com os
     // dados recém-carregados, para não reabrir atendimento já concluído ou adiado.
@@ -1159,7 +1221,7 @@ export default function ContatosInbox() {
       return;
     }
 
-    await openConversation(next);
+    await openConversation(next, fromActiveOperation);
   };
 
   const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => {
@@ -1172,7 +1234,7 @@ export default function ContatosInbox() {
       return;
     }
     const operationContextKey = currentContextKey;
-    setAttendanceBusy(true);
+    if (!beginAttendanceOperation(true)) return;
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor, selectionOrigin });
       // A gravação pertence ao contato capturado acima. Depois dela, só efeitos
@@ -1190,12 +1252,12 @@ export default function ContatosInbox() {
       setOperationalHandoff(result.handoffPending ? { resultCode, label: result.label } : null);
       const refreshedItems = await load();
       if (refreshedItems === null) return;
-      if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems);
+      if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems, true);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível registrar o resultado do atendimento.');
     } finally {
-      if (selectedContextRef.current === operationContextKey) setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
@@ -1213,7 +1275,7 @@ export default function ContatosInbox() {
       toast.error('Ainda existe uma obrigação ou mensagem que precisa ser tratada pelo Resultado.');
       return;
     }
-    setAttendanceBusy(true);
+    if (!beginAttendanceOperation(true)) return;
     try {
       const { data: latest, error: readError } = await supabase.from('service_conversations')
         .select('last_inbound_at,last_outbound_at,needs_reply,attendance_state')
@@ -1242,26 +1304,25 @@ export default function ContatosInbox() {
       console.error('CRM revisão sem fato novo:', error);
       toast.error('Não foi possível registrar a revisão do atendimento.');
     } finally {
-      setAttendanceBusy(false);
+      finishAttendanceOperation();
     }
   };
 
   const snoozeSelected = async (when: number | string) => {
-    if (!selected) return;
-    setAttendanceBusy(true);
+    if (!selected || !beginAttendanceOperation(true)) return;
     try {
       await snoozeAttendance({ contactId: selected.id, conversationId: selected.conversation_id, when });
       toast.success('Atendimento adiado e próxima ação atualizada.');
       setSendConfirmation(false);
-      await nextAttendance();
+      await nextAttendance(undefined, true);
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível adiar o atendimento.');
-    } finally { setAttendanceBusy(false); }
+    } finally { finishAttendanceOperation(); }
   };
 
   const concludeSaleAttendance = async () => {
-    if (!selected) return;
+    if (!selected || !beginAttendanceOperation(true)) return;
     setSaleDecisionBusy(true);
     try {
       const result = await applyAttendanceOutcome({
@@ -1279,6 +1340,7 @@ export default function ContatosInbox() {
       toast.error('A venda foi registrada, mas não foi possível concluir o atendimento. Tente novamente ou mantenha a conversa aberta.');
     } finally {
       setSaleDecisionBusy(false);
+      finishAttendanceOperation();
     }
   };
 
@@ -1588,21 +1650,21 @@ export default function ContatosInbox() {
                 <div className="flex gap-1">
                   <MetaWindowBadge lastInboundAt={selected.last_inbound_at} className="h-8 px-2 text-[10px]" />
                   {!selected.assigned_to && (
-                    <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!isLinked} onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}>
+                    <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!isLinked || attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: activeUserId, attendance_state: 'em_atendimento', status: 'open', resolved_at: null }, 'Atendimento assumido.')}>
                       <UserCheck className="h-3.5 w-3.5" /> Assumir
                     </Button>
                   )}
                   {selected.assigned_to && selected.status !== 'resolved' && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')} title="Liberar atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ assigned_to: null, attendance_state: null }, 'Atendimento liberado para a equipe.')} title="Liberar atendimento">
                       <UserMinus className="h-4 w-4" />
                     </Button>
                   )}
                   {selected.status === 'resolved' ? (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')} title="Reabrir atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'open', resolved_at: null, attendance_state: 'em_atendimento', assigned_to: activeUserId }, 'Atendimento reaberto.')} title="Reabrir atendimento">
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')} title="Concluir atendimento">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void updateAttendance({ status: 'resolved', resolved_at: new Date().toISOString(), attendance_state: 'concluido', needs_reply: false, unread_count: 0 }, 'Atendimento concluído.')} title="Concluir atendimento">
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     </Button>
                   )}
@@ -1615,20 +1677,20 @@ export default function ContatosInbox() {
                   >
                     <Sparkles className="h-4 w-4 text-primary" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSaleOpen(true)} title="Registrar venda deste contato">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => { if (guardProfileExit()) setSaleOpen(true); }} title="Registrar venda deste contato">
                     <ShoppingCart className="h-4 w-4 text-emerald-600" />
                   </Button>
                   <Button
                     size="icon"
                     variant={selectedIsOutOfQueue ? 'secondary' : 'ghost'}
                     className="h-8 w-8"
-                    disabled={attendanceBusy}
+                    disabled={attendanceBusy || saleDecisionBusy}
                     onClick={() => void toggleSelectedOutOfQueue()}
                     title={selectedIsOutOfQueue ? 'Voltar para fila' : 'Tirar da fila'}
                   >
                     {selectedIsOutOfQueue ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={attendanceBusy || saleDecisionBusy} onClick={() => void archiveSelectedConversation()} title="Arquivar conversa">
                     <Archive className="h-4 w-4 text-muted-foreground" />
                   </Button>
                   <Button
@@ -1796,6 +1858,7 @@ export default function ContatosInbox() {
                     onPreparationHandled={id => setReplyFocusRequest(current => current?.id === id ? null : current)}
                     onMessageSent={() => setSendConfirmation(true)}
                     onOutboundConfirmed={() => load().then(() => undefined)}
+                    onDraftStateChange={onChatDraftStateChange}
                     onUseSuggestedResult={setSuggestedResultCode}
                     onScheduleManualFollowUp={() => setAttendanceActionRequest({ mode: 'snooze', id: Date.now() })}
                     onRegisterManualResult={() => setAttendanceActionRequest({ mode: 'outcome', id: Date.now() })}
@@ -1849,7 +1912,7 @@ export default function ContatosInbox() {
                     {attendanceQueue.length > 0 && (
                       <div className="flex items-center justify-between rounded-md border px-2 py-1.5 text-[11px]">
                         <span>Fila Hoje · {Math.max(1, attendanceQueue.findIndex(q => q.id === selected.id) + 1)} de {attendanceQueue.length}</span>
-                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" onClick={() => nextAttendance()}>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-[11px]" disabled={attendanceBusy || saleDecisionBusy} onClick={() => nextAttendance()}>
                           Próximo atendimento <ArrowRight className="h-3 w-3" />
                         </Button>
                       </div>

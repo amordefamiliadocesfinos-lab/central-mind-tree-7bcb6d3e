@@ -61,6 +61,8 @@ interface ContactChatPanelProps {
   onMessageSent?: (content: string) => void | Promise<void>;
   /** C1-B: atualizar a fila após QUALQUER envio confirmado, sem criar Resultado. */
   onOutboundConfirmed?: () => void | Promise<void>;
+  /** D-01: indica texto/anexo não enviado ou envio em andamento para proteger transições da Inbox. */
+  onDraftStateChange?: (hasPendingDraft: boolean) => void;
   /** F4.2: pré-seleciona o Resultado sugerido no fluxo canônico de "Registrar resultado". */
   onUseSuggestedResult?: (resultCode: string) => void;
   /** F5.2.3: abre o agendamento manual oficial após o limite do ciclo. */
@@ -82,7 +84,7 @@ function CrmAssistantPortal({ target, children }: { target?: HTMLElement | null;
   return target ? createPortal(children, target) : <>{children}</>;
 }
 
-export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, assistantPortalTarget, onAssistantRequested, onMessageSent, onOutboundConfirmed, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
+export function ContactChatPanel({ contactId, contactName, contactHandle, contactAvatar, funnelStage, knownConversationId, knownCommercialOptOut, heightClassName, assistantPortalTarget, onAssistantRequested, onMessageSent, onOutboundConfirmed, onDraftStateChange, onUseSuggestedResult, onScheduleManualFollowUp, onRegisterManualResult, focusRequest, onPreparationHandled }: ContactChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   // F5.2.1 — estado da conversa usado para identificar follow-up real (informativo).
   const [conversationMeta, setConversationMeta] = useState<{
@@ -109,6 +111,10 @@ export function ContactChatPanel({ contactId, contactName, contactHandle, contac
 
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
+  useEffect(() => {
+    onDraftStateChange?.(Boolean(text.trim() || attachment || sending));
+  }, [text, attachment, sending, onDraftStateChange]);
+  useEffect(() => () => onDraftStateChange?.(false), [onDraftStateChange]);
   const [fontSize, setFontSize] = useState<number>(() => {
     const stored = Number(localStorage.getItem(CHAT_FONT_KEY));
     return stored >= MIN_FONT && stored <= MAX_FONT ? stored : 14;
