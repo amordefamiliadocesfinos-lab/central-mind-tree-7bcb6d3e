@@ -62,6 +62,7 @@ test('builds the exact narrow Core Bridge writer payload', () => {
     total_value: 39.9,
     payment_method: 'Pix',
     external_status: 'READY_TO_SHIP',
+    buyer_message: null,
     items: [{
       product_id: '92088a70-8cc0-40ef-a39d-564603df6866',
       variant_id: null,
