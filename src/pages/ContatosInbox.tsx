@@ -145,15 +145,25 @@ export default function ContatosInbox() {
   const [mobileStartVisible, setMobileStartVisible] = useState(true);
   // Proteção B-03: impedir troca de contato com uma seção cadastral em edição.
   const editingProfileRef = useRef(false);
+  const chatDraftRef = useRef(false);
+  const onChatDraftStateChange = useCallback((hasDraft: boolean) => {
+    chatDraftRef.current = hasDraft;
+  }, []);
   const [, setProfileEditing] = useState(false);
   const onProfileEditingChange = useCallback((editing: boolean) => {
     editingProfileRef.current = editing;
     setProfileEditing(editing);
   }, []);
   const guardProfileExit = useCallback(() => {
-    if (!editingProfileRef.current) return true;
-    toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato ou área.');
-    return false;
+    if (editingProfileRef.current) {
+      toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato ou área.');
+      return false;
+    }
+    if (chatDraftRef.current) {
+      toast.warning('Envie ou descarte o rascunho e aguarde o envio antes de sair deste atendimento.');
+      return false;
+    }
+    return true;
   }, []);
   const onProfileSaved = useCallback((updated: Contact) => {
     setLeadContact(current => current?.id === updated.id ? updated : current);
@@ -172,13 +182,10 @@ export default function ContatosInbox() {
       toast.warning('Aguarde a gravação do atendimento antes de trocar de contato.');
       return false;
     }
-    if (editingProfileRef.current && id !== selectedId) {
-      toast.warning('Finalize ou cancele a edição da ficha antes de trocar de contato.');
-      return false;
-    }
+    if (id !== selectedId && !guardProfileExit()) return false;
     setSelectedId(id);
     return true;
-  }, [selectedId]);
+  }, [selectedId, guardProfileExit]);
 
   const [attendanceQueueScope, setAttendanceQueueScope] = useState<string[]>(readAttendanceQueueScope);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -217,7 +224,7 @@ export default function ContatosInbox() {
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!editingProfileRef.current) return;
+      if (!editingProfileRef.current && !chatDraftRef.current) return;
       event.preventDefault();
       event.returnValue = '';
     };
@@ -227,7 +234,7 @@ export default function ContatosInbox() {
   // Intercept links within the Inbox while the edit section is active.
   useEffect(() => {
     const preventLinkChange = (event: MouseEvent) => {
-      if (!editingProfileRef.current) return;
+      if (!editingProfileRef.current && !chatDraftRef.current) return;
       const target = event.target;
       if (!(target instanceof Element)) return;
       const anchor = target.closest<HTMLAnchorElement>('a[href]');
