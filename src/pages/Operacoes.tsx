@@ -53,6 +53,7 @@ import { StockOverviewViewer } from '@/components/operations/StockOverviewViewer
 import { ShopeeOrdersImportDialog } from '@/components/operations/ShopeeOrdersImportDialog';
 import { ProductConversionDialog } from '@/components/operations/ProductConversionDialog';
 import { OrderSeparationBoard, printOrderSummary } from '@/components/operations/OrderSeparationBoard';
+import { printCombinedShopeeLabel } from '@/lib/orders/printCombinedShopeeLabel';
 import { OperationalDestinationFields } from '@/components/operations/OperationalDestinationFields';
 import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
@@ -1249,6 +1250,11 @@ export default function Operacoes() {
             // Falha ao abrir não marca impressão nem avança A FAZER → EM PREPARAÇÃO.
             await separation.markPrinted(order.id);
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
+          }}
+          onPrintCombined={async (order, label) => {
+            await printCombinedShopeeLabel(order, label);
+            await separation.markPrinted(order.id);
+            toast.success('Impressão combinada preparada e registrada.');
           }}
           onFinalize={async order => {
             const result = await separation.finalize(order.id);
