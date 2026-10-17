@@ -173,44 +173,111 @@ async function loadOfficialPdf(documentRecord: OrderDocument): Promise<Uint8Arra
 }
 
 function openPrintWindow(): Window {
-  const target = window.open('', '_blank');
-  if (!target) throw new Error('Permita pop-ups para imprimir a etiqueta combinada.');
+  // Called synchronously from the button click, before awaiting the private PDF.
+  const target = window.open('about:blank', '_blank');
+  if (!target) throw new Error('Permita pop-ups para abrir a impressão combinada.');
   target.opener = null;
-  target.document.title = 'Preparando etiqueta combinada';
-  target.document.body.textContent = 'Preparando etiqueta e composição interna...';
+  target.document.open();
+  target.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Preparando etiqueta combinada</title></head><body><p>Preparando etiqueta e composição interna...</p></body></html>');
+  target.document.close();
   return target;
 }
 
-function showPrintPages(target: Window, pages: PrintPage[]): void {
-  target.document.title = 'Etiqueta Shopee + Composição';
-  target.document.head.innerHTML = '<meta charset="utf-8"><style>'
-    + '@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}'
-    + '.sheet{width:210mm;height:297mm;page-break-after:always;break-after:page;overflow:hidden}'
-    + '.sheet:last-child{page-break-after:auto;break-after:auto}'
-    + '.sheet img{display:block;width:210mm;height:297mm;object-fit:fill}'
-    + '@media screen{body{background:#ddd}.sheet{margin:12px auto;background:#fff}}'
-    + '</style>';
-  target.document.body.textContent = '';
-  const loaded: Promise<void>[] = [];
-  for (const page of pages) {
-    const sheet = target.document.createElement('div');
-    sheet.className = 'sheet';
-    const img = target.document.createElement('img');
-    img.alt = 'Etiqueta oficial e composição interna';
-    loaded.push(new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Falha ao preparar a página combinada.'));
-    }));
-    sheet.appendChild(img);
-    target.document.body.appendChild(sheet);
-    img.src = page.canvas.toDataURL('image/png');
-  }
-  void Promise.all(loaded).then(() => {
-    if (!target.closed) {
-      target.focus();
-      target.print(); // Chrome allows Save as PDF as well as physical printing.
+function asPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob && blob.size > 0) resolve(blob);
+      else reject(new Error('Não foi possível gerar a página de impressão.'));
+    }, 'image/png');
+  });
+}
+
+/**
+ * Resolve ONLY when every preview image is decoded and actually present
+ * in the pop-up. The previous fire-and-forget image callbacks incorrectly
+ * reported success while the operator still saw "Preparando...".
+ *
+ * Explicit print button remains available even when automatic printing is
+ * blocked after an asynchronous browser task.
+ */
+async function showPrintPages(target: Window, pages: PrintPage[]): Promise<void> {
+  if (target.closed) throw new Error('A aba de impressão foi fechada.');
+  const urls: string[] = [];
+  try {
+    for (const page of pages) {
+      const image = await asPngBlob(page.canvas);
+      urls.push(URL.createObjectURL(image));
     }
-  }).catch(() => { if (!target.closed) target.close(); });
+    if (target.closed) throw new Error('A aba de impressão foi fechada.');
+
+    const doc = target.document;
+    doc.open();
+    doc.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Etiqueta Shopee + Composição</title><style>'
+      + '@page{size:A4 portrait;margin:0}'
+      + 'html,body{margin:0;padding:0;font-family:Arial,sans-serif;background:#e5e7eb}'
+      + '.controls{position:sticky;top:0;z-index:10;background:#fff;box-shadow:0 1px 5px #aaa;padding:12px 20px;display:flex;gap:12px;align-items:center;justify-content:center}'
+      + 'button{padding:12px 22px;background:#111827;color:white;border:0;border-radius:6px;cursor:pointer;font-weight:600;font-size:15px}'
+      + 'button:disabled{opacity:.5;cursor:wait}'
+      + '.sheet{width:210mm;height:297mm;break-after:page;page-break-after:always;overflow:hidden;background:#fff;margin:12px auto;box-shadow:0 1px 6px #aaa}'
+      + '.sheet:last-child{break-after:auto;page-break-after:auto}'
+      + '.sheet img{display:block;width:210mm;height:297mm;object-fit:fill}'
+      + '@media print{html,body{background:#fff}.controls{display:none!important}.sheet{margin:0;box-shadow:none}}'
+      + '</style></head><body><div class="controls"><button id="printButton" disabled>Preparando...</button>'
+      + '<span id="loadStatus" role="status">Carregando as páginas...</span></div><main id="sheets"></main></body></html>');
+    doc.close();
+
+    const button = doc.getElementById('printButton') as HTMLButtonElement | null;
+    const status = doc.getElementById('loadStatus');
+    const list = doc.getElementById('sheets');
+    if (!button || !status || !list) throw new Error('Não foi possível iniciar a aba de impressão.');
+
+    const images: HTMLImageElement[] = [];
+    for (const url of urls) {
+      const sheet = doc.createElement('section');
+      sheet.className = 'sheet';
+      const img = doc.createElement('img');
+      img.alt = 'Etiqueta Shopee oficial com composição interna';
+      img.src = url;
+      sheet.appendChild(img);
+      list.appendChild(sheet);
+      images.push(img);
+    }
+
+    let deadline: number | null = null;
+    try {
+      await Promise.race([
+        Promise.all(images.map(img => img.decode())),
+        new Promise<never>((_, reject) => {
+          deadline = window.setTimeout(
+            () => reject(new Error('A visualização demorou demais para carregar. Tente novamente.')),
+            20000,
+          );
+        }),
+      ]);
+    } finally {
+      if (deadline !== null) window.clearTimeout(deadline);
+    }
+    if (target.closed || !images.every(img => img.complete && img.naturalWidth > 0)) {
+      throw new Error('Falha ao exibir a etiqueta combinada.');
+    }
+
+    button.disabled = false;
+    button.textContent = 'Imprimir / Salvar como PDF';
+    status.textContent = 'Documento combinado pronto para visualização.';
+    button.addEventListener('click', () => target.print());
+    target.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)), { once: true });
+    target.focus();
+  } catch (error) {
+    urls.forEach(url => URL.revokeObjectURL(url));
+    if (!target.closed) {
+      // Leave a visible error in the operator's new tab, rather than a
+      // misleading success toast or a permanently blank "Preparando..." tab.
+      target.document.body.textContent = 'Não foi possível gerar a impressão combinada. '
+        + (error instanceof Error ? error.message : 'Erro inesperado.')
+        + ' A etiqueta oficial continua disponível no Painel Central.';
+    }
+    throw error;
+  }
 }
 
 /**
@@ -247,10 +314,13 @@ export async function printCombinedShopeeLabel(order: Order, official: OrderDocu
     }
     const rows = buildTextRows(pages[pages.length - 1].context, order, width - 2 * MARGIN);
     drawRows(rows, pages, originalLastInk + BOTTOM_GAP, width, height, pdf.numPages !== 1);
-    showPrintPages(popup, pages);
+    await showPrintPages(popup, pages);
     await task.destroy();
   } catch (err) {
-    if (!popup.closed) popup.close();
+    // Do not auto-close: the operator needs to see why composition failed.
+    if (!popup.closed && popup.document.body.textContent?.includes('Preparando etiqueta')) {
+      popup.document.body.textContent = 'Falha ao preparar a etiqueta combinada. A etiqueta oficial não foi modificada.';
+    }
     throw err;
   }
 }
