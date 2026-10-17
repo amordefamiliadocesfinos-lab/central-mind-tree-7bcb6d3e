@@ -228,7 +228,9 @@ function validateActionPayload(payload, nowMs) {
       'external_status',
       'items',
     ];
-    if (!hasExactKeys(payload, required)) return false;
+    if (!hasExactKeys(payload, required, ['buyer_message'])) return false;
+    if (payload.buyer_message !== undefined
+      && !isBoundedText(payload.buyer_message, 4000, { nullable: true })) return false;
     if (!UUID.test(payload.channel_account_id)
       || !isBoundedText(payload.marketplace_account, 200)
       || !isBoundedText(payload.order_number, 300)
