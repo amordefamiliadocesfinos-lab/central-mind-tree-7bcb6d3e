@@ -1858,6 +1858,7 @@ export default function ContatosInbox() {
                     onPreparationHandled={id => setReplyFocusRequest(current => current?.id === id ? null : current)}
                     onMessageSent={() => setSendConfirmation(true)}
                     onOutboundConfirmed={() => load().then(() => undefined)}
+                    onDraftStateChange={onChatDraftStateChange}
                     onUseSuggestedResult={setSuggestedResultCode}
                     onScheduleManualFollowUp={() => setAttendanceActionRequest({ mode: 'snooze', id: Date.now() })}
                     onRegisterManualResult={() => setAttendanceActionRequest({ mode: 'outcome', id: Date.now() })}
