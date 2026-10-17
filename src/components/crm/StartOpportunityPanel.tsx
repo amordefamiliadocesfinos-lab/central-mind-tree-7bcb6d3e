@@ -12,6 +12,7 @@ import {
 } from '@/lib/crm/startOpportunityCandidates';
 import { selectStartRecommendedOpportunity } from '@/lib/crm/startOpportunityRecommendation';
 import { buildCrmStartDestination } from '@/lib/crm/startOpportunityNavigation';
+import { resolveStartOpportunityDisplayState } from '@/lib/crm/startOpportunityPresentation';
 
 type PoolContact = { id: string; name: string | null };
 type ScanState = {
@@ -43,22 +44,29 @@ function displayDate(value: string | null) {
 export function StartOpportunityPanel({ active }: { active: boolean }) {
   const [scan, setScan] = useState<ScanState>(EMPTY);
   const [showEvidence, setShowEvidence] = useState(false);
-  const attemptedRef = useRef(false);
   const loadingRef = useRef(false);
   const offsetRef = useRef(0);
   const mountedRef = useRef(true);
+  const wasActiveRef = useRef(false);
+  const requestVersionRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  const scanNext = useCallback(async () => {
-    if (loadingRef.current) return;
+  const scanNext = useCallback(async (restart = false) => {
+    if (loadingRef.current && !restart) return;
+    const version = restart ? ++requestVersionRef.current : requestVersionRef.current;
     loadingRef.current = true;
-    if (mountedRef.current) setScan(s => ({ ...s, isLoading: true, error: null }));
+    if (restart) {
+      offsetRef.current = 0;
+      if (mountedRef.current) setScan({ ...EMPTY, isLoading: true });
+    } else if (mountedRef.current) {
+      setScan(s => ({ ...s, isLoading: true, error: null }));
+    }
     try {
-      const first = offsetRef.current;
+      const first = restart ? 0 : offsetRef.current;
       const last = first + START_OPPORTUNITY_INITIAL_BATCH - 1;
       const { data, error } = await supabase.from('contacts')
         .select('id,name')
@@ -70,32 +78,34 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
       if (error) throw error;
       const contacts = (data || []).filter(c => Boolean(c.id)) as PoolContact[];
       const analyzed = await analyzeStartOpportunityCandidates(contacts.map(c => c.id));
-      if (!mountedRef.current) return;
-      offsetRef.current += contacts.length;
+      if (!mountedRef.current || version !== requestVersionRef.current) return;
+      offsetRef.current = first + contacts.length;
       setScan(s => ({
-        contacts: [...s.contacts, ...contacts],
-        candidates: [...s.candidates, ...analyzed.candidates],
-        checked: s.checked + analyzed.analyzedCount,
+        contacts: restart ? contacts : [...s.contacts, ...contacts],
+        candidates: restart ? analyzed.candidates : [...s.candidates, ...analyzed.candidates],
+        checked: restart ? analyzed.analyzedCount : s.checked + analyzed.analyzedCount,
         isLoading: false,
         moreAvailable: contacts.length === START_OPPORTUNITY_INITIAL_BATCH,
         error: null,
         checkedAt: analyzed.checkedAt,
       }));
     } catch {
-      if (mountedRef.current) setScan(s => ({
+      if (mountedRef.current && version === requestVersionRef.current) setScan(s => ({
         ...s, isLoading: false,
-        error: 'Não foi possível analisar este lote. O resultado anterior, se existente, permanece parcial.',
+        error: 'Não foi possível concluir a análise. Uma falha não comprova ausência de oportunidade.',
       }));
     } finally {
-      loadingRef.current = false;
+      if (version === requestVersionRef.current) loadingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    if (active && !attemptedRef.current) {
-      attemptedRef.current = true;
-      void scanNext();
+    // Ao retornar, revalida somente o lote inicial (8); nunca a base inteira.
+    if (active && !wasActiveRef.current) {
+      setShowEvidence(false);
+      void scanNext(true);
     }
+    wasActiveRef.current = active;
   }, [active, scanNext]);
 
   const recommended = useMemo(() =>
@@ -106,13 +116,21 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
   const failed = scan.candidates.filter(c => c.state === 'error').length;
   const insufficient = scan.candidates.filter(c => c.state === 'insufficient').length;
   const blocked = scan.candidates.filter(c => c.state === 'blocked').length;
+  const viewState = resolveStartOpportunityDisplayState({
+    isLoading: scan.isLoading, analyzedCount: scan.checked,
+    hasRecommendation: Boolean(recommended), hasMore: scan.moreAvailable,
+    error: scan.error, candidates: scan.candidates,
+  });
+  const lastCheckedLabel = scan.checkedAt
+    ? new Date(scan.checkedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+    : null;
   const isPostSale = recommended?.kind === 'post_sale';
   const repurchase = recommended?.candidate.opportunity?.repurchase;
   const postSale = recommended?.candidate.opportunity?.postSale;
 
   return (
-    <section className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-3 md:p-5" aria-label="Start Estratégica de Oportunidades">
-      <header className="flex items-start justify-between gap-3">
+    <section className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-3 p-3 md:p-4 xl:p-5" aria-label="Start Estratégica de Oportunidades">
+      <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-base font-semibold"><Target className="h-4 w-4 shrink-0" /> Start — Oportunidades</h2>
           <p className="mt-1 text-xs text-muted-foreground">Explore possibilidades comerciais com base em fatos do CRM, sem competir com a fila.</p>
@@ -125,11 +143,11 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
           Oportunidade recomendada entre os contatos analisados
         </div>
 
-        {scan.isLoading && scan.checked === 0 ? (
+        {viewState === 'loading' ? (
           <div className="flex items-center gap-2 py-5 text-sm text-muted-foreground" role="status">
             <Loader2 className="h-4 w-4 animate-spin" /> Verificando evidências comerciais...
           </div>
-        ) : recommended ? (
+        ) : viewState === 'recommended' && recommended ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{isPostSale ? 'Pós-venda elegível' : 'Recompra provável'}</Badge>
@@ -180,35 +198,55 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
               </Button>
             </div>
           </div>
-        ) : scan.error && scan.checked === 0 ? (
+        ) : viewState === 'error' && scan.checked === 0 ? (
           <div className="flex items-start gap-2 py-3 text-sm" role="alert">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>Falha de consulta. Isso não significa ausência de oportunidades.</span>
           </div>
-        ) : scan.checked === 0 && !scan.moreAvailable ? (
+        ) : viewState === 'empty' ? (
           <div className="py-3 text-sm text-muted-foreground">Nenhum cliente com histórico de compra registrado foi encontrado neste recorte.</div>
         ) : (
-          <div className="space-y-2 py-3 text-sm text-muted-foreground">
-            <p>Não há oportunidade comprovada entre os {scan.checked} contatos analisados deste recorte.</p>
-            {(failed > 0 || insufficient > 0) && (
-              <p>Dados incompletos: {failed} consulta(s) com erro e {insufficient} sem evidência suficiente. Não interpretar como ausência geral de oportunidades.</p>
+          <div className="space-y-2 py-3 text-sm text-muted-foreground" role="status">
+            {viewState === 'error' ? (
+              <p>Há falhas de análise neste recorte; não é possível concluir que não existam oportunidades.</p>
+            ) : viewState === 'insufficient' ? (
+              <p>Existem dados insuficientes para comprovar uma oportunidade neste recorte.</p>
+            ) : viewState === 'blocked' ? (
+              <p>Há contatos impedidos de nova abordagem comercial. A Inbox e as restrições existentes têm precedência.</p>
+            ) : (
+              <p>Nenhum sinal comercial comprovado entre os {scan.checked} contatos analisados.</p>
             )}
-            {blocked > 0 && <p>{blocked} contato(s) com impedimento operacional ou comercial; não sugerir abordagem paralela.</p>}
+            {(failed > 0 || insufficient > 0) && (
+              <p>Verificação incompleta: {failed} consulta(s) com erro e {insufficient} sem evidência suficiente.</p>
+            )}
+            {blocked > 0 && <p>{blocked} contato(s) impedido(s), sem ações comerciais paralelas.</p>}
           </div>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
           <div className="space-y-1">
-            <p>{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
+            <p aria-live="polite">{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
             <p>O resultado é parcial: não representa todas as oportunidades do CRM.</p>
+            {lastCheckedLabel && <p>Última verificação: {lastCheckedLabel}.</p>}
+            {(failed > 0 || insufficient > 0) && (
+              <p>Verificações incompletas neste recorte: {failed} falha(s) e {insufficient} evidência(s) insuficiente(s).</p>
+            )}
+            {scan.isLoading && scan.checked > 0 && <p role="status">Analisando novo lote; os resultados anteriores continuam parciais.</p>}
             {scan.error && <p role="alert" className="text-destructive">{scan.error}</p>}
           </div>
-          <Button type="button" size="sm" variant="outline"
-            disabled={scan.isLoading || (!scan.moreAvailable && !scan.error)}
-            onClick={() => { setShowEvidence(false); void scanNext(); }}>
-            {scan.isLoading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
-            {scan.error ? 'Tentar novamente' : scan.moreAvailable ? 'Analisar mais 8' : 'Recorte consultado'}
-          </Button>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button type="button" size="sm" variant="outline" disabled={scan.isLoading}
+              onClick={() => { setShowEvidence(false); void scanNext(true); }}>
+              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${scan.isLoading ? 'animate-spin' : ''}`} />
+              Atualizar análise
+            </Button>
+            <Button type="button" size="sm" variant="outline"
+              disabled={scan.isLoading || !scan.moreAvailable}
+              onClick={() => { setShowEvidence(false); void scanNext(); }}>
+              {scan.isLoading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="mr-1 h-3.5 w-3.5" />}
+              {scan.moreAvailable ? 'Analisar mais 8' : 'Recorte consultado'}
+            </Button>
+          </div>
         </div>
       </Card>
       {/* C2-03: caminhos estratégicos, sem criar nova fila nem executar ações comerciais. */}

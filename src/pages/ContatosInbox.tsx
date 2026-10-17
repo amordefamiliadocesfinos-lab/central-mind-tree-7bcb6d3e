@@ -1549,12 +1549,12 @@ export default function ContatosInbox() {
         </div>
 
         {/* Painel detalhe */}
-        <div className={cn('min-h-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col',
+        <div className={cn('min-h-0 min-w-0 overflow-hidden md:border-y md:border-r md:bg-card flex flex-col',
           !selected && !mobileStartVisible && 'hidden md:flex',
           mobileProfileOpen && 'hidden md:flex')}>
           {/* A Start permanece montada para preservar o resultado do lote inicial durante atendimentos. */}
           <div className={cn('min-h-0 flex-1 overflow-y-auto', selected && 'hidden')}>
-            <StartOpportunityPanel active={!selected && !loading} />
+            <StartOpportunityPanel active={!selected && !loading && (!isMobile || mobileStartVisible)} />
           </div>
           {selected && (
             <div className="flex min-h-0 flex-1 flex-col">
@@ -1564,7 +1564,11 @@ export default function ContatosInbox() {
                   variant="ghost"
                   size="icon"
                   className="md:hidden h-8 w-8"
-                  onClick={() => guardedSelectContact(null)}
+                  onClick={() => {
+                    if (guardedSelectContact(null)) setMobileStartVisible(true);
+                  }}
+                  aria-label="Voltar à Start de oportunidades"
+                  title="Voltar à Start"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
