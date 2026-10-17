@@ -206,27 +206,44 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
         ) : viewState === 'empty' ? (
           <div className="py-3 text-sm text-muted-foreground">Nenhum cliente com histórico de compra registrado foi encontrado neste recorte.</div>
         ) : (
-          <div className="space-y-2 py-3 text-sm text-muted-foreground">
-            <p>Não há oportunidade comprovada entre os {scan.checked} contatos analisados deste recorte.</p>
-            {(failed > 0 || insufficient > 0) && (
-              <p>Dados incompletos: {failed} consulta(s) com erro e {insufficient} sem evidência suficiente. Não interpretar como ausência geral de oportunidades.</p>
+          <div className="space-y-2 py-3 text-sm text-muted-foreground" role="status">
+            {viewState === 'error' ? (
+              <p>Há falhas de análise neste recorte; não é possível concluir que não existam oportunidades.</p>
+            ) : viewState === 'insufficient' ? (
+              <p>Existem dados insuficientes para comprovar uma oportunidade neste recorte.</p>
+            ) : viewState === 'blocked' ? (
+              <p>Há contatos impedidos de nova abordagem comercial. A Inbox e as restrições existentes têm precedência.</p>
+            ) : (
+              <p>Nenhum sinal comercial comprovado entre os {scan.checked} contatos analisados.</p>
             )}
-            {blocked > 0 && <p>{blocked} contato(s) com impedimento operacional ou comercial; não sugerir abordagem paralela.</p>}
+            {(failed > 0 || insufficient > 0) && (
+              <p>Verificação incompleta: {failed} consulta(s) com erro e {insufficient} sem evidência suficiente.</p>
+            )}
+            {blocked > 0 && <p>{blocked} contato(s) impedido(s), sem ações comerciais paralelas.</p>}
           </div>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
           <div className="space-y-1">
-            <p>{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
+            <p aria-live="polite">{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
             <p>O resultado é parcial: não representa todas as oportunidades do CRM.</p>
+            {lastCheckedLabel && <p>Última verificação: {lastCheckedLabel}.</p>}
+            {scan.isLoading && scan.checked > 0 && <p role="status">Analisando novo lote; os resultados anteriores continuam parciais.</p>}
             {scan.error && <p role="alert" className="text-destructive">{scan.error}</p>}
           </div>
-          <Button type="button" size="sm" variant="outline"
-            disabled={scan.isLoading || (!scan.moreAvailable && !scan.error)}
-            onClick={() => { setShowEvidence(false); void scanNext(); }}>
-            {scan.isLoading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
-            {scan.error ? 'Tentar novamente' : scan.moreAvailable ? 'Analisar mais 8' : 'Recorte consultado'}
-          </Button>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button type="button" size="sm" variant="outline" disabled={scan.isLoading}
+              onClick={() => { setShowEvidence(false); void scanNext(true); }}>
+              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${scan.isLoading ? 'animate-spin' : ''}`} />
+              Atualizar análise
+            </Button>
+            <Button type="button" size="sm" variant="outline"
+              disabled={scan.isLoading || !scan.moreAvailable}
+              onClick={() => { setShowEvidence(false); void scanNext(); }}>
+              {scan.isLoading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="mr-1 h-3.5 w-3.5" />}
+              {scan.moreAvailable ? 'Analisar mais 8' : 'Recorte consultado'}
+            </Button>
+          </div>
         </div>
       </Card>
       {/* C2-03: caminhos estratégicos, sem criar nova fila nem executar ações comerciais. */}
