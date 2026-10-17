@@ -24,6 +24,8 @@ import {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** C2-03: visão inicial de leitura; o comportamento manual original continua '30'. */
+  initialBucket?: BucketKey;
 }
 
 type BucketKey = '30' | '60' | '90' | 'all';
@@ -42,12 +44,12 @@ const TEMPLATES = {
     `Oi ${name.split(' ')[0] || ''}! 💎 Obrigado por comprar com a Amor de Família! Gostaria de saber como podemos te atender melhor e compartilhar nossas novidades. Posso te enviar?`,
 };
 
-export function PosVendaPanel({ open, onOpenChange }: Props) {
+export function PosVendaPanel({ open, onOpenChange, initialBucket = '30' }: Props) {
   const { contacts } = useContacts();
   const navigate = useNavigate();
   const [preparingContactId, setPreparingContactId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [bucket, setBucket] = useState<BucketKey>('30');
+  const [bucket, setBucket] = useState<BucketKey>(initialBucket);
   const [historyContact, setHistoryContact] = useState<Contact | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [insights, setInsights] = useState<Record<string, InsightStatus>>({});
