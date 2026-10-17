@@ -177,6 +177,7 @@ export function OrderEditDialog({
   const delivery = asRecord(order.delivery_snapshot);
   const marketplace = asRecord(order.marketplace_metadata);
   const isShopee = order.channel === 'shopee';
+  const buyerMessage = typeof marketplace.buyer_message === 'string' ? marketplace.buyer_message.trim() : null;
 
   return (
     <FullScreenDialog 
@@ -325,8 +326,13 @@ export function OrderEditDialog({
             </div>
           </div>
 
+          {isShopee && buyerMessage && <div className="rounded-md border border-blue-300/50 bg-blue-500/5 p-3">
+            <Label>Observação do comprador Shopee (somente leitura)</Label>
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground mt-2">{buyerMessage}</p>
+          </div>}
+
           <div>
-            <Label>Observações</Label>
+            <Label>Observações internas do pedido</Label>
             <Textarea
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
