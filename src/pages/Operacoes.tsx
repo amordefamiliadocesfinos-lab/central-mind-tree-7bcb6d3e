@@ -1252,9 +1252,8 @@ export default function Operacoes() {
             toast.success(document ? 'Impressão registrada; documento aberto.' : 'Impressão registrada.');
           }}
           onPrintCombined={async (order, label) => {
-            await printCombinedShopeeLabel(order, label);
-            await separation.markPrinted(order.id);
-            toast.success('Impressão combinada preparada e registrada.');
+            await printCombinedShopeeLabel(order, label, () => separation.markPrinted(order.id));
+            toast.success('Etiqueta combinada carregada. Use "Imprimir / Salvar como PDF" na nova aba.');
           }}
           onFinalize={async order => {
             const result = await separation.finalize(order.id);
