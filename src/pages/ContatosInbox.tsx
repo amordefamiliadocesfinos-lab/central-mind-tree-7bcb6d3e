@@ -35,6 +35,7 @@ import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { getConcludeAttendanceWarning, getArchiveAttendanceWarning } from '@/lib/crm/attendanceCommandPresentation';
+import { getCrmInboxNavigationBlockReason } from '@/lib/crm/crmGlobalNavigation';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
@@ -224,32 +225,6 @@ export default function ContatosInbox() {
   const [concludeIntent, setConcludeIntent] = useState<{ contactId: string; conversationId: string | null; warning: string } | null>(null);
   const [operationalHandoff, setOperationalHandoff] = useState<{ resultCode: string; label: string } | null>(null);
 
-  useEffect(() => {
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!editingProfileRef.current && !chatDraftRef.current) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, []);
-  // Intercept links within the Inbox while the edit section is active.
-  useEffect(() => {
-    const preventLinkChange = (event: MouseEvent) => {
-      if (!editingProfileRef.current && !chatDraftRef.current) return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const anchor = target.closest<HTMLAnchorElement>('a[href]');
-      if (!anchor) return;
-      const url = new URL(anchor.href, window.location.href);
-      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-      event.preventDefault();
-      event.stopPropagation();
-      toast.warning('Conclua ou cancele a edição da ficha antes de navegar.');
-    };
-    document.addEventListener('click', preventLinkChange, true);
-    return () => document.removeEventListener('click', preventLinkChange, true);
-  }, []);
   // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
   // anterior é descartado (Resultado sugerido, confirmação de envio).
   useEffect(() => {
@@ -266,6 +241,41 @@ export default function ContatosInbox() {
     setConcludeIntent(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
+  // E-01: proteção mínima de mudança de rota, inclusive barra global fora
+  // da árvore da Inbox. Em E-03 serão avaliadas outras origens de navegação.
+  useEffect(() => {
+    const blockReason = () => getCrmInboxNavigationBlockReason({
+      editingProfile: editingProfileRef.current,
+      pendingChatDraftOrSend: chatDraftRef.current,
+      attendanceWriting: attendanceWriteGateRef.current.locked() || attendanceBusy || saleDecisionBusy,
+      actionFormOpen: activeActionMode !== null,
+      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null || sendConfirmation,
+    });
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!blockReason()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    const protectLinkChange = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>('a[href]');
+      if (!anchor) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.href === window.location.href) return;
+      const reason = blockReason();
+      if (!reason) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toast.warning(reason);
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    document.addEventListener('click', protectLinkChange, true);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      document.removeEventListener('click', protectLinkChange, true);
+    };
+  }, [attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent, sendConfirmation]);
   // D-01: uma única trava síncrona para comandos que gravam estado operacional.
   // Os controles visuais usam attendanceBusy, mas o ref previne duplo clique no mesmo frame.
   const beginAttendanceOperation = (fromResultOrSnooze = false): boolean => {
