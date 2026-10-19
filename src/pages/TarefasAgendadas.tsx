@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 import { clearCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
 import { clearCrmReactivation, CRM_REACTIVATION_SOURCE, setCrmReactivation } from '@/lib/crm/reactivation';
 import { getCrmContactAttendanceUrl, getCrmContactConsultationUrl } from '@/lib/crm/crmContactNavigation';
+import { registerCrmRouteGuard } from '@/lib/crm/crmRouteNavigationGuards';
+import { getCrmFormExitReason, isCrmTaskDraftModified, type CrmTaskDraft } from '@/lib/crm/crmFormExitProtection';
 
 interface TaskRow {
   id: string;
@@ -53,6 +55,21 @@ export default function TarefasAgendadas() {
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('09:00');
   const [saving, setSaving] = useState(false);
+  const initialRescheduleDraft = useRef<CrmTaskDraft | null>(null);
+  const rescheduleDirty = Boolean(editing && initialRescheduleDraft.current && isCrmTaskDraftModified(initialRescheduleDraft.current, {
+    title: editTitle, date: editDate, time: editTime,
+  }));
+  const rescheduleExitReason = getCrmFormExitReason('task', rescheduleDirty, saving);
+
+  useEffect(() => {
+    if (!editing) return;
+    return registerCrmRouteGuard(() => getCrmFormExitReason('task', rescheduleDirty, saving));
+  }, [editing, rescheduleDirty, saving]);
+
+  const requestDismissReschedule = () => {
+    if (rescheduleExitReason) { toast.warning(rescheduleExitReason); return; }
+    setEditing(null);
+  };
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -168,10 +185,12 @@ export default function TarefasAgendadas() {
   };
 
   const openReschedule = (t: TaskRow) => {
+    const draft = { title: t.title, date: t.scheduled_date || t.due_date || '', time: t.scheduled_time?.slice(0, 5) || '09:00' };
+    initialRescheduleDraft.current = draft;
     setEditing(t);
-    setEditTitle(t.title);
-    setEditDate(t.scheduled_date || t.due_date || '');
-    setEditTime(t.scheduled_time?.slice(0, 5) || '09:00');
+    setEditTitle(draft.title);
+    setEditDate(draft.date);
+    setEditTime(draft.time);
   };
 
   const saveReschedule = async () => {
@@ -348,7 +367,7 @@ export default function TarefasAgendadas() {
           ))
         )}
       </div>
-      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog open={Boolean(editing)} onOpenChange={(open) => { if (!open) requestDismissReschedule(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing?.source === CRM_REACTIVATION_SOURCE ? 'Reagendar reativação' : 'Reagendar próxima ação'}</DialogTitle>
@@ -362,7 +381,7 @@ export default function TarefasAgendadas() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Voltar</Button>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Voltar</Button>
             <Button onClick={() => void saveReschedule()} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
           </DialogFooter>
         </DialogContent>
