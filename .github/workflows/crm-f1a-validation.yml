@@ -12,6 +12,7 @@ on:
       - 'src/App.tsx'
       - 'src/components/GlobalFooterBar.tsx'
       - 'src/components/GlobalSearchBar.tsx'
+      - 'src/components/financial/ContactFormDialog.tsx'
       - 'src/components/crm/QuickConversationFAB.tsx'
       - 'src/components/crm/QuickConversationDialog.tsx'
       - 'src/hooks/useCrmCampaigns.ts'
@@ -74,6 +75,7 @@ jobs:
             src/lib/crm/attendanceCommandPresentation.test.ts \
             src/lib/crm/crmGlobalNavigation.test.ts \
             src/lib/crm/crmRouteNavigationGuards.test.ts \
+            src/lib/crm/crmFormExitProtection.test.ts \
             src/lib/crm/crmContactNavigation.test.ts \
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
