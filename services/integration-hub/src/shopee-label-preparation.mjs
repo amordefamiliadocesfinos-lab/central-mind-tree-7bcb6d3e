@@ -7,8 +7,13 @@ import { createShopeeLabelSynchronizer } from './shopee-live-label.mjs';
 
 const API = 'https://partner.shopeemobile.com';
 const TYPE = 'NORMAL_AIR_WAYBILL';
-const PILOT = Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
-  shop: 531736366, partner: 2047685, order: '261017T5TF35CH', package: 'OFG245899610150874' });
+const PILOTS = Object.freeze([
+  Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
+    shop: 531736366, partner: 2047685, order: '261017T5TF35CH', package: 'OFG245899610150874' }),
+  Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
+    shop: 531736366, partner: 2047685, order: '2610203UYY7N0T', package: 'OFG246133145190444',
+    tracking: 'BR262168766782H' }),
+]);
 const PATHS = new Set(['/api/v2/order/get_order_detail', '/api/v2/logistics/get_tracking_number',
   '/api/v2/logistics/get_shipping_document_parameter', '/api/v2/logistics/create_shipping_document',
   '/api/v2/logistics/get_shipping_document_result']);
@@ -40,12 +45,13 @@ export function createShopeeLabelPreparation({
     const enabled = k => String(getEnv(k) ?? '').trim().toLowerCase() === 'true';
     if (!enabled('SHOPEE_LIVE_LABEL_CREATE_ENABLED')) return fail('label_create_not_enabled');
     if (!enabled('SHOPEE_LIVE_LABEL_SYNC_ENABLED')) return fail('label_sync_not_enabled');
-    const scope = PILOT;
-    if (getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== scope.account
-        || getEnv('SHOPEE_LIVE_LABEL_ORDER_SN') !== scope.order
-        || getEnv('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER') !== scope.package
-        || Number(getEnv('SHOPEE_LIVE_LABEL_SHOP_ID')) !== scope.shop
-        || Number(getEnv('SHOPEE_LIVE_PARTNER_ID')) !== scope.partner) return fail('label_pilot_scope_mismatch');
+    const scope = PILOTS.find(pilot =>
+      getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') === pilot.account
+      && getEnv('SHOPEE_LIVE_LABEL_ORDER_SN') === pilot.order
+      && getEnv('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER') === pilot.package
+      && Number(getEnv('SHOPEE_LIVE_LABEL_SHOP_ID')) === pilot.shop
+      && Number(getEnv('SHOPEE_LIVE_PARTNER_ID')) === pilot.partner);
+    if (!scope) return fail('label_pilot_scope_mismatch');
     const expiry = getEnv('SHOPEE_LIVE_LABEL_CREATE_WINDOW_EXPIRES_AT');
     const deadline = Date.parse(expiry ?? '');
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(expiry ?? '')
@@ -84,6 +90,7 @@ export function createShopeeLabelPreparation({
         orderSn: scope.order, packageNumber: scope.package });
       const number = tracking?.payload?.response?.tracking_number;
       if (!clean(tracking) || typeof number !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(number)) return fail('tracking_number_required');
+      if (scope.tracking && number !== scope.tracking) return fail('tracking_number_required');
       const body = { order_list: [{ order_sn: scope.order, package_number: scope.package,
         tracking_number: number, shipping_document_type: TYPE }] };
       const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
