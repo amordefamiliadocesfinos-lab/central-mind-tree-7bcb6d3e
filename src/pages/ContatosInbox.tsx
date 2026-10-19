@@ -35,7 +35,7 @@ import { MetaWindowBadge } from '@/components/crm/MetaWindowBadge';
 import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { getConcludeAttendanceWarning, getArchiveAttendanceWarning } from '@/lib/crm/attendanceCommandPresentation';
-import { getCrmInboxNavigationBlockReason } from '@/lib/crm/crmGlobalNavigation';
+import { getCrmInboxContactSwitchBlockReason, getCrmInboxNavigationBlockReason } from '@/lib/crm/crmGlobalNavigation';
 import { isExplicitCrmAttendanceLink } from '@/lib/crm/crmContactNavigation';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
@@ -180,16 +180,6 @@ export default function ContatosInbox() {
       next_action_date: updated.next_action_date || null,
     } : item));
   }, []);
-  const guardedSelectContact = useCallback((id: string | null, fromActiveOperation = false) => {
-    if (!fromActiveOperation && attendanceWriteGateRef.current.locked() && id !== selectedId) {
-      toast.warning('Aguarde a gravação do atendimento antes de trocar de contato.');
-      return false;
-    }
-    if (id !== selectedId && !guardProfileExit()) return false;
-    setSelectedId(id);
-    return true;
-  }, [selectedId, guardProfileExit]);
-
   const [attendanceQueueScope, setAttendanceQueueScope] = useState<string[]>(readAttendanceQueueScope);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -242,6 +232,27 @@ export default function ContatosInbox() {
     setConcludeIntent(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
+  const guardContactSwitch = useCallback((targetId: string | null, fromActiveOperation = false): boolean => {
+    const reason = getCrmInboxContactSwitchBlockReason({
+      editingProfile: editingProfileRef.current,
+      pendingChatDraftOrSend: chatDraftRef.current,
+      attendanceWriting: attendanceWriteGateRef.current.locked() || attendanceBusy || saleDecisionBusy,
+      actionFormOpen: activeActionMode !== null,
+      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null || sendConfirmation,
+    }, selectedId, targetId, fromActiveOperation);
+    if (!reason) return true;
+    toast.warning(reason);
+    return false;
+  }, [selectedId, attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent, sendConfirmation]);
+
+  const guardedSelectContact = useCallback((id: string | null, fromActiveOperation = false) => {
+    if (!guardContactSwitch(id, fromActiveOperation)) return false;
+    // A saída automática pós-commit continua sujeita à proteção de edição/rascunho.
+    if (id !== selectedId && !guardProfileExit()) return false;
+    setSelectedId(id);
+    return true;
+  }, [selectedId, guardContactSwitch, guardProfileExit]);
+
   // E-01: proteção mínima de mudança de rota, inclusive barra global fora
   // da árvore da Inbox. Em E-03 serão avaliadas outras origens de navegação.
   useEffect(() => {
@@ -683,6 +694,8 @@ export default function ContatosInbox() {
     // E-02: receber ?contact=ID sozinho é navegação passiva. Só attend=1
     // autoriza iniciar, atribuir ou reabrir uma conversa por deep-link.
     if (!isExplicitCrmAttendanceLink(searchParams) || !contactId || deepLinkHandled.current === contactId || !isLinked || !activeUserId) return;
+    // E-03.2: não gravar outro atendimento por deep-link com ações pendentes.
+    if (!guardContactSwitch(contactId)) return;
     deepLinkHandled.current = contactId;
 
     const openAttendance = async () => {
@@ -749,7 +762,7 @@ export default function ContatosInbox() {
     };
 
     void openAttendance();
-  }, [activeUserId, isLinked, load, searchParams, setSearchParams]);
+  }, [activeUserId, isLinked, load, searchParams, setSearchParams, guardContactSwitch]);
 
 
   const taggedContactIds = useMemo(() => {
@@ -978,6 +991,8 @@ export default function ContatosInbox() {
   }, [selected?.id, selected?.conversation_id, selected?.last_inbound_at]);
 
   const openConversation = async (item: InboxItem, fromActiveOperation = false) => {
+    // Validar a troca antes de qualquer insert/update de conversa.
+    if (!guardContactSwitch(item.id, fromActiveOperation)) return;
     if (!fromActiveOperation && attendanceWriteGateRef.current.locked()) {
       toast.warning('Aguarde a gravação do atendimento antes de abrir outro contato.');
       return;
