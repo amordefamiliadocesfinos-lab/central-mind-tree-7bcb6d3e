@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +19,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CalendarIcon, Loader2, Search, MessageCircle, Plus, X, ChevronRight, ChevronDown, ShoppingCart, Sparkles } from 'lucide-react';
 import { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { usePlatforms } from '@/hooks/usePlatforms';
 import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarchicalPicker';
@@ -36,6 +36,8 @@ import { useContactsWithOrders } from '@/hooks/useContactsWithOrders';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { registerCrmRouteGuard } from '@/lib/crm/crmRouteNavigationGuards';
+import { getCrmFormExitReason, isCrmContactFormModified } from '@/lib/crm/crmFormExitProtection';
 
 interface ContactFormDialogProps {
   open: boolean;
@@ -94,6 +96,7 @@ export function ContactFormDialog({
   }, [open]);
   const { addEntry } = useContactHistory();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activePlatforms } = usePlatforms();
   const { hasOrders } = useContactsWithOrders();
   
@@ -158,14 +161,31 @@ export function ContactFormDialog({
     is_active: true,
   });
 
+  const [baselineForm, setBaselineForm] = useState<Partial<Contact> | null>(null);
+  const formDirty = useMemo(() => isCrmContactFormModified(baselineForm, form), [form, baselineForm]);
+  const exitReason = getCrmFormExitReason('contact', formDirty, loading);
+
+  // Registro limitado à Gestão CRM; o diálogo também é reutilizado noutros módulos.
+  useEffect(() => {
+    if (!open || location.pathname !== '/contatos') return;
+    return registerCrmRouteGuard(() => getCrmFormExitReason('contact', formDirty, loading));
+  }, [open, location.pathname, formDirty, loading]);
+
+  const requestDismiss = () => {
+    if (location.pathname === '/contatos' && exitReason) { toast.warning(exitReason); return; }
+    onOpenChange(false);
+  };
+
   useEffect(() => {
     if (contact) {
-      setForm({ ...contact });
+      const nextForm = { ...contact };
+      setForm(nextForm);
+      setBaselineForm(nextForm);
       // Auto-expand details if contact has detail fields filled
       const hasDetails = contact.document || contact.rg || contact.email || contact.person_type === 'juridica';
       setShowDetails(!!hasDetails);
     } else {
-      setForm({
+      const nextForm: Partial<Contact> = {
         name: '', fantasy_name: '', code: '', type: 'cliente', person_type: 'fisica',
         document: '', customer_since: new Date().toISOString().split('T')[0], taxpayer_type: '9',
         state_registration: '', rg: '', issuing_agency: '', zip_code: '', state: '',
@@ -179,7 +199,9 @@ export function ContactFormDialog({
         mother_cpf: '', contact_type: '', salesperson: '', default_operation_nature: '',
         credit_limit_type: 'unlimited', credit_limit_value: undefined, payment_condition: '',
         category: '', notes: '', next_action_text: '', next_action_date: '', is_active: true,
-      });
+      };
+      setForm(nextForm);
+      setBaselineForm(nextForm);
       setShowDetails(false);
     }
   }, [contact, open]);
@@ -689,7 +711,7 @@ export function ContactFormDialog({
 
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) requestDismiss(); else onOpenChange(true); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="flex items-center gap-2">
@@ -725,6 +747,7 @@ export function ContactFormDialog({
                 variant="outline"
                 className="gap-1 border-primary/30 text-primary hover:bg-primary/10"
                 onClick={() => {
+                  if (location.pathname === '/contatos' && exitReason) { toast.warning(exitReason); return; }
                   const params = new URLSearchParams({
                     tab: 'orders',
                     newOrder: 'true',
@@ -742,7 +765,7 @@ export function ContactFormDialog({
                 Novo Pedido
               </Button>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading} className="bg-green-600 hover:bg-green-700">
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
@@ -1272,7 +1295,7 @@ export function ContactFormDialog({
                 Pedidos do Cliente
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 pb-4">
-                <ContactOrdersList contactId={contact.id} onClose={() => onOpenChange(false)} />
+                <ContactOrdersList contactId={contact.id} onClose={requestDismiss} />
               </CollapsibleContent>
             </Collapsible>
           )}

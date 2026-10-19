@@ -113,7 +113,6 @@ function CrmBrowserNavigationProtection() {
       addEventListener(type: string, listener: EventListener): void;
       removeEventListener(type: string, listener: EventListener): void;
     } }).navigation;
-    if (!navigationApi) return;
     const onNavigate: EventListener = (event) => {
       if (!event.cancelable) return;
       const reason = getCrmRouteBlockReason();
@@ -121,8 +120,29 @@ function CrmBrowserNavigationProtection() {
       event.preventDefault();
       toast.warning(reason);
     };
-    navigationApi.addEventListener('navigate', onNavigate);
-    return () => navigationApi.removeEventListener('navigate', onNavigate);
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!getCrmRouteBlockReason()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    const onLinkCapture = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const anchor = event.target.closest<HTMLAnchorElement>('a[href]');
+      if (!anchor || anchor.href === window.location.href) return;
+      const reason = getCrmRouteBlockReason();
+      if (!reason) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      toast.warning(reason);
+    };
+    navigationApi?.addEventListener('navigate', onNavigate);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('click', onLinkCapture, true);
+    return () => {
+      navigationApi?.removeEventListener('navigate', onNavigate);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('click', onLinkCapture, true);
+    };
   }, []);
   return null;
 }
