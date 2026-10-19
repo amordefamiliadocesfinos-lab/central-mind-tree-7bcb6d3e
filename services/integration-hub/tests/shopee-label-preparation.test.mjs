@@ -19,16 +19,19 @@ const env={ SHOPEE_LIVE_LABEL_CREATE_ENABLED:'true',SHOPEE_LIVE_LABEL_SYNC_ENABL
 const api = response => ({response:{ok:true,status:200},payload:{error:'',response}});
 const row = (extra={}) => ({order_sn:order,package_number:pkg,...extra});
 const missing = () => ({response:{ok:true},payload:{error:'logistics.shipping_document_should_print_first'}});
-function fixture(overrides={}) {
+function fixture(overrides={}, pilot={order,pkg}) {
+  const {order,pkg}=pilot;
+  const row=(extra={})=>({order_sn:order,package_number:pkg,...extra});
+  const scopedEnv={...env,SHOPEE_LIVE_LABEL_ORDER_SN:order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:pkg};
   const calls=[];let clock=baseTime,resultCalls=0;
-  const deps={getEnv:k=>env[k],now:()=>clock,sleep:async ms=>{calls.push(['sleep',ms]);clock+=ms;},
+  const deps={getEnv:k=>scopedEnv[k],now:()=>clock,sleep:async ms=>{calls.push(['sleep',ms]);clock+=ms;},
     readConnection:async()=>{calls.push(['oauth']);return {ok:true,payload:{partner_id:2047685,shop_id:531736366,
       access_token_expires_at:'2026-10-17T02:00:00Z',access_token_ciphertext:'secret-ciphertext'}};},
     decryptToken:async()=> 'secret-token',
     readDetail:async()=>{calls.push(['detail']);return api({order_list:[{order_sn:order,order_status:'PROCESSED',
       invoice_data:{status:'valid'},package_list:[{package_number:pkg,logistics_status:'LOGISTICS_REQUEST_CREATED'}]}]});},
     readParameter:async()=>{calls.push(['parameter']);return api({result_list:[row({selectable_shipping_document_type:['NORMAL_AIR_WAYBILL']})]});},
-    readTracking:async()=>{calls.push(['tracking']);return api({tracking_number:'BR123456789'});},
+    readTracking:async()=>{calls.push(['tracking']);return api({tracking_number:pilot.tracking??'BR123456789'});},
     claim:async m=>{calls.push(['claim',m]);return {ok:true,payload:{status:'claimed',fresh:true,attempt_id:id}};},
     createDocument:async()=>{calls.push(['create']);return api({result_list:[row()]});},
     resolve:async m=>{calls.push(['resolve',m]);return {ok:true,payload:{status:'resolved',state:m.outcome}};},
@@ -199,4 +202,40 @@ test('reused synchronizer pins shop/package on fresh re-read before any download
    downloadDocument:async()=>{download++;throw Error('must not download');}});
   assert.equal((await sync()).code,bad==='shop'?'label_shop_identity_mismatch':'label_package_identity_mismatch');assert.equal(download,0);
  }
+});
+
+const glucodry={order:'2610203UYY7N0T',pkg:'OFG246133145190444',tracking:'BR262168766782H'};
+test('Glucodry exact pilot creates once after durable claim and attaches READY PDF',async()=>{
+ const f=fixture({},glucodry);
+ assert.equal((await f.run()).code,'label_attached');
+ assert.deepEqual(f.calls.map(c=>c[0]),['oauth','detail','parameter','tracking','result','claim','create','resolve','result','sync']);
+ const m=f.calls.find(c=>c[0]==='claim')[1];
+ assert.equal(m.order_sn,glucodry.order);assert.equal(m.package_number,glucodry.pkg);
+ assert.equal(m.channel_account_id,account);assert.equal(m.shop_id,531736366);
+ assert.equal(count(f,'create'),1);
+});
+for(const status of ['READY','PROCESSING','FAILED'])test('Glucodry existing '+status+' never creates',async()=>{
+ const f=fixture({readResult:async()=>api({result_list:[{order_sn:glucodry.order,package_number:glucodry.pkg,status}]})},glucodry);
+ assert.equal((await f.run()).code,{READY:'label_attached',PROCESSING:'document_processing',FAILED:'document_failed'}[status]);
+ assert.equal(count(f,'claim'),0);assert.equal(count(f,'create'),0);
+ assert.equal(count(f,'sync'),status==='READY'?1:0);
+});
+test('Glucodry uncertain creation locks claim and never syncs or repeats POST',async()=>{
+ const f=fixture({createDocument:async()=>{f.calls.push(['create']);throw Error('timeout');}},glucodry);
+ assert.equal((await f.run()).code,'document_creation_uncertain');
+ assert.equal(count(f,'create'),1);assert.equal(count(f,'sync'),0);
+ assert.equal(f.calls.find(c=>c[0]==='resolve')[1].outcome,'uncertain');
+});
+test('Glucodry wrong tracking blocks before result, claim and create',async()=>{
+ const f=fixture({readTracking:async()=>api({tracking_number:'BR_OTHER'})},glucodry);
+ assert.equal((await f.run()).code,'tracking_number_required');
+ for(const step of ['result','claim','create','sync'])assert.equal(count(f,step),0);
+});
+for(const [key,value] of Object.entries({
+ SHOPEE_LIVE_CHANNEL_ACCOUNT_ID:'other',SHOPEE_LIVE_LABEL_ORDER_SN:'ARBITRARY123',
+ SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:pkg,SHOPEE_LIVE_LABEL_SHOP_ID:'1',SHOPEE_LIVE_PARTNER_ID:'1'
+}))test('Glucodry rejects mixed or arbitrary scope '+key,async()=>{
+ const scoped={...env,SHOPEE_LIVE_LABEL_ORDER_SN:glucodry.order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:glucodry.pkg,[key]:value};
+ const f=fixture({getEnv:k=>scoped[k]},glucodry);
+ assert.equal((await f.run()).code,'label_pilot_scope_mismatch');assert.deepEqual(f.calls,[]);
 });
