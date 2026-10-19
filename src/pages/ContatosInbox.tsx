@@ -36,6 +36,7 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { getConcludeAttendanceWarning, getArchiveAttendanceWarning } from '@/lib/crm/attendanceCommandPresentation';
 import { getCrmInboxContactSwitchBlockReason, getCrmInboxNavigationBlockReason } from '@/lib/crm/crmGlobalNavigation';
+import { registerCrmRouteGuard } from '@/lib/crm/crmRouteNavigationGuards';
 import { isExplicitCrmAttendanceLink } from '@/lib/crm/crmContactNavigation';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
@@ -281,9 +282,12 @@ export default function ContatosInbox() {
       event.stopPropagation();
       toast.warning(reason);
     };
+    // Disponibiliza o mesmo contrato E-01 a navegações fora da árvore da Inbox.
+    const unregisterRouteGuard = registerCrmRouteGuard(blockReason);
     window.addEventListener('beforeunload', beforeUnload);
     document.addEventListener('click', protectLinkChange, true);
     return () => {
+      unregisterRouteGuard();
       window.removeEventListener('beforeunload', beforeUnload);
       document.removeEventListener('click', protectLinkChange, true);
     };
