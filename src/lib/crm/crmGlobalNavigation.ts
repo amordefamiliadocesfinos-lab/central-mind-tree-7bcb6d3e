@@ -29,3 +29,14 @@ export function getCrmInboxNavigationBlockReason(state: CrmInboxRouteProtection)
   if (state.saleFlowOpen) return 'Conclua ou cancele a confirmação comercial antes de mudar de página.';
   return null;
 }
+
+/** E-03.2: bloqueia troca com pendência; preserva avanço automático pós-commit. */
+export function getCrmInboxContactSwitchBlockReason(
+  state: CrmInboxRouteProtection,
+  currentContactId: string | null,
+  targetContactId: string | null,
+  fromConfirmedOperation = false,
+): string | null {
+  if (currentContactId === targetContactId || fromConfirmedOperation) return null;
+  return getCrmInboxNavigationBlockReason(state);
+}
