@@ -233,11 +233,12 @@ export async function prepareCombinedShopeeLabel(order: Order, official: OrderDo
  * prepared image blobs. No background computation and no blank waiting tab.
  *
  * Each new window owns its own object URLs, independent of the Painel preview.
+ * The caller records the operator's action after this function successfully
+ * opens the complete, already-rendered print window. This matches the
+ * existing official-label print flow and avoids relying on the background tab
+ * to call React code after window.print() has returned.
  */
-export function openPreparedCombinedShopeeLabel(
-  images: Blob[],
-  onPrintRequested: () => Promise<void>,
-): void {
+export function openPreparedCombinedShopeeLabel(images: Blob[]): void {
   if (!images.length || images.length > MAX_PAGES) throw new Error('Páginas de impressão inválidas.');
   const popup = window.open('about:blank', '_blank');
   if (!popup) throw new Error('Permita pop-ups para abrir a impressão combinada.');
@@ -276,15 +277,15 @@ export function openPreparedCombinedShopeeLabel(
     }
 
     button.addEventListener('click', () => {
-      // Clicking print is the physical operator's decision; opening the
-      // composed preview alone never changes separation or its print counter.
+      popup.focus();
       popup.print();
-      void onPrintRequested().catch(() => {
-        const status = doc.querySelector('.controls span');
-        if (status) status.textContent = 'Impressão aberta, mas o registro operacional não pôde ser atualizado.';
-      });
     });
 
+    // Chrome fires afterprint when its print/save dialog is dismissed.
+    // Close only this script-created print tab, not the operator's Painel tab.
+    // A browser that does not fire afterprint simply leaves the normal
+    // close-tab fallback; printing still works.
+    popup.addEventListener('afterprint', () => { if (!popup.closed) popup.close(); }, { once: true });
     popup.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)), { once: true });
   } catch (error) {
     urls.forEach(url => URL.revokeObjectURL(url));
