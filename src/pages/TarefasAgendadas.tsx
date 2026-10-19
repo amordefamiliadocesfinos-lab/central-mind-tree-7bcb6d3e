@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { clearCrmNextAction, CRM_TASK_SOURCE, setCrmNextAction } from '@/lib/crm/nextAction';
 import { clearCrmReactivation, CRM_REACTIVATION_SOURCE, setCrmReactivation } from '@/lib/crm/reactivation';
+import { getCrmContactAttendanceUrl, getCrmContactConsultationUrl } from '@/lib/crm/crmContactNavigation';
 
 interface TaskRow {
   id: string;
@@ -322,7 +323,7 @@ export default function TarefasAgendadas() {
                             <span className="flex items-center gap-1"><UserIcon className="h-3 w-3" />{t.assignee_name}</span>
                           )}
                           {t.contact_name && t.contact_id && (
-                            <Link to={`/contatos/inbox?contact=${t.contact_id}`} className="text-primary hover:underline">
+                            <Link to={getCrmContactConsultationUrl(t.contact_id)} className="text-primary hover:underline">
                               {t.contact_name}
                             </Link>
                           )}
@@ -330,7 +331,7 @@ export default function TarefasAgendadas() {
                       </div>
                       {t.contact_id && t.status !== 'concluído' && (
                         <div className="flex shrink-0 items-center gap-1">
-                          <Link to={`/contatos/inbox?contact=${t.contact_id}`}>
+                          <Link to={getCrmContactAttendanceUrl(t.contact_id)}>
                             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[10px]" title="Atender e registrar o Resultado na Caixa de Entrada">
                               <ExternalLink className="h-3.5 w-3.5" /> Atender
                             </Button>

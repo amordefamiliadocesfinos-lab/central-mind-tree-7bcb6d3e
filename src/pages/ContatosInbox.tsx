@@ -36,6 +36,7 @@ import { AttendanceActionBar } from '@/components/crm/AttendanceActionBar';
 import { createAttendanceWriteGate, isConfirmedAttendanceMutation } from '@/lib/crm/attendanceCommandSafety';
 import { getConcludeAttendanceWarning, getArchiveAttendanceWarning } from '@/lib/crm/attendanceCommandPresentation';
 import { getCrmInboxNavigationBlockReason } from '@/lib/crm/crmGlobalNavigation';
+import { isExplicitCrmAttendanceLink } from '@/lib/crm/crmContactNavigation';
 import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendance, ATTENDANCE_STATE_LABELS } from '@/lib/crm/attendance';
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
@@ -679,7 +680,9 @@ export default function ContatosInbox() {
 
   useEffect(() => {
     const contactId = searchParams.get('contact');
-    if (!contactId || deepLinkHandled.current === contactId || !isLinked || !activeUserId) return;
+    // E-02: receber ?contact=ID sozinho é navegação passiva. Só attend=1
+    // autoriza iniciar, atribuir ou reabrir uma conversa por deep-link.
+    if (!isExplicitCrmAttendanceLink(searchParams) || !contactId || deepLinkHandled.current === contactId || !isLinked || !activeUserId) return;
     deepLinkHandled.current = contactId;
 
     const openAttendance = async () => {
@@ -693,7 +696,7 @@ export default function ContatosInbox() {
         return;
       }
 
-      // Opening a contact in the Inbox is an explicit commercial action.
+      // Apenas abrir a Inbox com ?contact=ID&attend=1 é ação comercial explícita.
       // Promote only then; passive financial/operational registrations stay out.
       if (!contact.funnel_status) {
         const { error: stageError } = await supabase
