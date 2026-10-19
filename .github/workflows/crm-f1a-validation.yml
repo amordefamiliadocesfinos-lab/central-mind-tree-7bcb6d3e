@@ -7,6 +7,7 @@ on:
       - 'package-lock.json'
       - 'src/lib/crm/**'
       - 'src/pages/ContatosInbox.tsx'
+      - 'src/pages/TarefasAgendadas.tsx'
       - 'src/pages/Contatos.tsx'
       - 'src/App.tsx'
       - 'src/components/GlobalFooterBar.tsx'
@@ -71,6 +72,7 @@ jobs:
             src/lib/crm/attendanceCommandSafety.test.ts \
             src/lib/crm/attendanceCommandPresentation.test.ts \
             src/lib/crm/crmGlobalNavigation.test.ts \
+            src/lib/crm/crmContactNavigation.test.ts \
             src/lib/crm/operationalProjection.test.ts \
             src/lib/crm/externalWhatsAppPreparation.test.ts \
             src/lib/crm/handoffEvidence.test.ts \
