@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { registerCrmRouteGuard } from '@/lib/crm/crmRouteNavigationGuards';
-import { getCrmFormExitReason } from '@/lib/crm/crmFormExitProtection';
+import { getCrmFormExitReason, isCrmContactFormModified } from '@/lib/crm/crmFormExitProtection';
 
 interface ContactFormDialogProps {
   open: boolean;
@@ -162,7 +162,7 @@ export function ContactFormDialog({
   });
 
   const [baselineForm, setBaselineForm] = useState<Partial<Contact> | null>(null);
-  const formDirty = useMemo(() => baselineForm !== null && JSON.stringify(form) !== JSON.stringify(baselineForm), [form, baselineForm]);
+  const formDirty = useMemo(() => isCrmContactFormModified(baselineForm, form), [form, baselineForm]);
   const exitReason = getCrmFormExitReason('contact', formDirty, loading);
 
   // Registro limitado à Gestão CRM; o diálogo também é reutilizado noutros módulos.
