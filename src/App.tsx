@@ -3,6 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { getCrmRouteBlockReason } from "@/lib/crm/crmRouteNavigationGuards";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -98,12 +101,39 @@ function AnimatedRoutes() {
   );
 }
 
+/**
+ * Navigation API: Chrome e navegadores compatíveis permitem cancelar
+ * travessia de histórico no evento "navigate" antes do desmontar da Inbox.
+ * Sem essa API, preservamos proteção E-01 (links/unload) e busca global.
+ * Não interferir diretamente em popstate: ele não é cancelável.
+ */
+function CrmBrowserNavigationProtection() {
+  useEffect(() => {
+    const navigationApi = (window as Window & { navigation?: {
+      addEventListener(type: string, listener: EventListener): void;
+      removeEventListener(type: string, listener: EventListener): void;
+    } }).navigation;
+    if (!navigationApi) return;
+    const onNavigate: EventListener = (event) => {
+      if (!event.cancelable) return;
+      const reason = getCrmRouteBlockReason();
+      if (!reason) return;
+      event.preventDefault();
+      toast.warning(reason);
+    };
+    navigationApi.addEventListener('navigate', onNavigate);
+    return () => navigationApi.removeEventListener('navigate', onNavigate);
+  }, []);
+  return null;
+}
+
 function AuthenticatedShell() {
   useScheduledTaskPromotion();
   useKeyboardAware();
 
   return (
     <>
+      <CrmBrowserNavigationProtection />
       <GlobalSearchBar />
       <OperationalContextTracker />
       <SwipeNavigationWrapper>
