@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
+import { getCrmRouteBlockReason } from "@/lib/crm/crmRouteNavigationGuards";
 
 interface NodeItem {
   id: string;
@@ -259,6 +261,9 @@ export function GlobalSearchBar({ onNodeSelect }: GlobalSearchBarProps) {
 
   const handleResultClick = useCallback(
     async (result: SearchResult) => {
+      // A pesquisa global usa navigate() imperativo: não passa por <a href>.
+      const reason = getCrmRouteBlockReason();
+      if (reason) { toast.warning(reason); return; }
       setQuery("");
       setIsOpen(false);
 
