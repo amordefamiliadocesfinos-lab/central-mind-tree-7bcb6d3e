@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -256,6 +256,8 @@ export default function Operacoes() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [combinedPrintPreview, setCombinedPrintPreview] = useState<{ orderId: string; pages: Blob[]; urls: string[] } | null>(null);
+  // Prevent duplicate print-count increments from rapid clicks before the RPC settles.
+  const combinedPrintRecordingRef = useRef(false);
   const [movementProduct, setMovementProduct] = useState<{ id: string; name: string; variantId?: string | null } | null>(null);
   const [masterVariants, setMasterVariants] = useState<Record<string, { id: string; variant_name: string; sku: string }[]>>({});
   const storeInventory = useAppStore((s) => s.inventory);
@@ -1933,15 +1935,23 @@ export default function Operacoes() {
               combinedPrintPreview.urls.forEach(url => URL.revokeObjectURL(url));
               setCombinedPrintPreview(null);
             }}>Fechar</Button>
-            <Button disabled={!combinedPrintPreview} onClick={() => {
-              if (!combinedPrintPreview) return;
+            <Button disabled={!combinedPrintPreview || combinedPrintRecordingRef.current} onClick={async () => {
+              const preview = combinedPrintPreview;
+              if (!preview || combinedPrintRecordingRef.current) return;
+              combinedPrintRecordingRef.current = true;
               try {
-                openPreparedCombinedShopeeLabel(
-                  combinedPrintPreview.pages,
-                  () => separation.markPrinted(combinedPrintPreview.orderId),
-                );
+                // Equivalent to the official IMPRIMIR action: only a successfully
+                // opened print document starts separation. Merely previewing does not.
+                // Open synchronously on this click to satisfy Chrome popup policy.
+                openPreparedCombinedShopeeLabel(preview.pages);
+                setCombinedPrintPreview(null);
+                preview.urls.forEach(url => URL.revokeObjectURL(url));
+                await separation.markPrinted(preview.orderId);
+                toast.success('Impressão combinada registrada; pedido em preparação.');
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Não foi possível abrir a impressão.');
+                toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a impressão combinada.');
+              } finally {
+                combinedPrintRecordingRef.current = false;
               }
             }}>Abrir impressão / Salvar PDF</Button>
           </div>
