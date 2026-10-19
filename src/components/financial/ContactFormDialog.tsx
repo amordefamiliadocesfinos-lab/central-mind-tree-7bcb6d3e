@@ -172,7 +172,7 @@ export function ContactFormDialog({
   }, [open, location.pathname, formDirty, loading]);
 
   const requestDismiss = () => {
-    if (exitReason) { toast.warning(exitReason); return; }
+    if (location.pathname === '/contatos' && exitReason) { toast.warning(exitReason); return; }
     onOpenChange(false);
   };
 
@@ -747,7 +747,7 @@ export function ContactFormDialog({
                 variant="outline"
                 className="gap-1 border-primary/30 text-primary hover:bg-primary/10"
                 onClick={() => {
-                  if (exitReason) { toast.warning(exitReason); return; }
+                  if (location.pathname === '/contatos' && exitReason) { toast.warning(exitReason); return; }
                   const params = new URLSearchParams({
                     tab: 'orders',
                     newOrder: 'true',
@@ -765,7 +765,7 @@ export function ContactFormDialog({
                 Novo Pedido
               </Button>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading} className="bg-green-600 hover:bg-green-700">
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
