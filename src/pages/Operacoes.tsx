@@ -396,7 +396,7 @@ export default function Operacoes() {
   const saleTotal = Math.max(0, saleSubtotal - newSale.discount_amount + newSale.shipping_amount);
   const missingSaleVariantProduct = newSale.items
     .map(item => ({ item, product: rawProducts.find(product => product.id === item.product_id) }))
-    .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && !item.variant_id)
+    .find(({ item, product }) => product?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' && !item.variant_id)
     ?.product;
 
   const getSaleItemStockBalance = (item: NewSaleItem) => {
@@ -581,6 +581,14 @@ export default function Operacoes() {
       if (field === '_unit_price_text' && value === null) delete next._unit_price_text;
       else (next as Record<string, unknown>)[field] = value;
 
+      if (field === 'commercial_presentation') {
+        const presentation = value as unknown as CommercialPresentation | null;
+        // A composed kit resolves each physical variant through its components.
+        // A simple presentation resolves the explicitly linked physical variant.
+        next.variant_id = presentation?.composition_mode === 'composite'
+          ? null
+          : presentation?.variant_id ?? next.variant_id;
+      }
       if (field === 'product_id') {
         const product = rawProducts.find(p => p.id === value);
         next.variant_id = null;
@@ -953,10 +961,10 @@ export default function Operacoes() {
                           onValueChange={(value) => {
                             const presentation = value === '__direct__' ? null : (presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).find(candidate => candidate.id === value) ?? null;
                             updateSaleItem(i, 'commercial_presentation', presentation as any);
-                            if (presentation?.composition_mode === 'composite') updateSaleItem(i, 'variant_id', null);
                             updateSaleItem(i, 'commercial_quantity', 1);
                             const product = rawProducts.find(candidate => candidate.id === item.product_id);
-                            const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
+                            const selectedVariantId = presentation?.composition_mode === 'composite' ? null : presentation?.variant_id ?? item.variant_id;
+                            const variant = selectedVariantId ? saleVariants.find(candidate => candidate.id === selectedVariantId) : null;
                             updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0);
                             updateSaleItem(i, '_unit_price_text', null);
                           }}
@@ -964,7 +972,7 @@ export default function Operacoes() {
                           <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__direct__">Unidade direta</SelectItem>
-                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
+                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                 {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
