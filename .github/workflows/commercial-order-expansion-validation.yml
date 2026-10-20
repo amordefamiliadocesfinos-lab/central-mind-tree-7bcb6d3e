@@ -1,0 +1,27 @@
+name: Commercial Order Expansion Validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/orders/commercialOrderItem.ts'
+      - 'src/lib/orders/commercialOrderItem.test.ts'
+      - 'src/pages/Operacoes.tsx'
+      - '.github/workflows/commercial-order-expansion-validation.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build
+        run: npm run build
+      - name: Order expansion unit tests
+        run: |
+          npx esbuild src/lib/orders/commercialOrderItem.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/commercial-order-expansion-tests.mjs
+          node --test /tmp/commercial-order-expansion-tests.mjs
