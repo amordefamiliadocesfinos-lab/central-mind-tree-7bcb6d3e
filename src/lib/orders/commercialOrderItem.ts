@@ -6,6 +6,7 @@ import {
 
 export type CommercialOrderItemSnapshot = {
   commercial_presentation_id?: string | null;
+  commercial_group_id?: string | null;
   commercial_presentation_name?: string | null;
   commercial_unit_label?: string | null;
   commercial_conversion_factor?: number | null;
@@ -138,6 +139,7 @@ export function expandCommercialOrderItem(
   const originalCents = Math.round(unitPrice * 100 * commercialQuantity);
   if (!Number.isSafeInteger(originalCents)) throw new Error('Valor total inválido.');
   const note = [notes, `Apresentação: ${presentation.name} · ${commercialQuantity} unidade(s) comercial(is)`].filter(Boolean).join(' | ');
+  const commercialGroupId = crypto.randomUUID();
   let allocatedCents = 0;
   return resolved.map(({ component, componentProduct, componentVariant, quantity }, index) => {
     const cents = index === resolved.length - 1
@@ -150,7 +152,8 @@ export function expandCommercialOrderItem(
       quantity: quantity * commercialQuantity,
       unit_price: cents / 100 / commercialQuantity,
       notes: note,
-      commercial_presentation_id: null,
+      commercial_presentation_id: presentation.id,
+      commercial_group_id: commercialGroupId,
       commercial_presentation_name: presentation.name,
       commercial_unit_label: presentation.commercial_unit_label,
       commercial_conversion_factor: quantity,
