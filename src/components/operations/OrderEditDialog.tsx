@@ -384,7 +384,6 @@ export function OrderEditDialog({
                         {op.status}
                       </Badge>
                     </div>
-                    </div>
                   ))}
                 </div>
               </CardContent>
