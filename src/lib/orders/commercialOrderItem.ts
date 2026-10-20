@@ -13,8 +13,9 @@ export type CommercialOrderItemSnapshot = {
   physical_unit_label?: string | null;
 };
 
-type PhysicalProduct = { id: string; unit?: string | null };
-type PhysicalVariant = { id: string; product_id?: string; unit?: string | null; price_override?: number | null } | null | undefined;
+type PhysicalProduct = { id: string; unit?: string | null; variation_mode?: string | null; is_active?: boolean };
+type PhysicalVariant = { id: string; product_id?: string; unit?: string | null; price_override?: number | null; is_active?: boolean } | null | undefined;
+export type PhysicalCatalog = { products: PhysicalProduct[]; variants: NonNullable<PhysicalVariant>[] };
 
 /** Price for one commercial unit. The catalog/variant price remains physical. */
 export function getDefaultCommercialUnitPrice(
@@ -92,41 +93,69 @@ export function expandCommercialOrderItem(
   unitPrice: number,
   presentation?: CommercialPresentation | null,
   notes?: string | null,
+  physicalCatalog?: PhysicalCatalog,
 ) {
   if (presentation?.composition_mode !== 'composite') {
     return [buildCommercialOrderItem(product, variant, commercialQuantity, unitPrice, presentation, notes)];
   }
+  if (!physicalCatalog) throw new Error('Catálogo físico é obrigatório para expandir apresentações compostas.');
+  if (!presentation.is_active || presentation.product_id !== product.id) {
+    throw new Error('Apresentação composta inativa ou de outro Produto Mestre.');
+  }
+  if (!Number.isSafeInteger(commercialQuantity) || commercialQuantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+    throw new Error('Quantidade comercial ou preço inválido para a apresentação composta.');
+  }
   const components = presentation.components ?? [];
-  const total = components.reduce((n, component) => n + Number(component.quantity), 0);
-  if (!components.length || total !== Number(presentation.conversion_factor)) {
+  if (!components.length || !Number.isSafeInteger(Number(presentation.conversion_factor))) {
     throw new Error('Apresentação composta sem composição física válida.');
   }
-  if (!Number.isFinite(commercialQuantity) || commercialQuantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
-    throw new Error('Quantidade ou preço inválido para a apresentação composta.');
+  const resolved = components.map(component => {
+    const componentProduct = physicalCatalog.products.find(candidate => candidate.id === component.product_id);
+    const componentVariant = physicalCatalog.variants.find(candidate => candidate.id === component.variant_id);
+    const quantity = Number(component.quantity);
+    if (!componentProduct || componentProduct.is_active === false) {
+      throw new Error('Componente físico inexistente ou inativo.');
+    }
+    if (!component.variant_id || !componentVariant || componentVariant.product_id !== componentProduct.id || componentVariant.is_active === false) {
+      throw new Error('Variante física inexistente, inativa ou incompatível com o componente.');
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new Error('Quantidade física inválida na composição.');
+    }
+    if ((componentProduct.variation_mode ?? 'variacoes_fisicas') === 'sem_variacao') {
+      throw new Error('Produto simples não aceita variante física.');
+    }
+    return { component, componentProduct, componentVariant, quantity };
+  });
+  const total = resolved.reduce((n, item) => n + item.quantity, 0);
+  if (total !== Number(presentation.conversion_factor)) {
+    throw new Error('Apresentação composta com soma física incompatível.');
   }
-  const note = [notes, `Apresentação: ${presentation.name} · ${commercialQuantity} bandeja(s)`].filter(Boolean).join(' | ');
-  const totalCents = Math.round(unitPrice * 100);
+  const distinct = new Set(resolved.map(item => item.component.product_id + ':' + item.component.variant_id));
+  if (distinct.size !== resolved.length) {
+    throw new Error('Apresentação composta com componente físico duplicado.');
+  }
+  const originalCents = Math.round(unitPrice * 100 * commercialQuantity);
+  if (!Number.isSafeInteger(originalCents)) throw new Error('Valor total inválido.');
+  const note = [notes, `Apresentação: ${presentation.name} · ${commercialQuantity} unidade(s) comercial(is)`].filter(Boolean).join(' | ');
   let allocatedCents = 0;
-  return components.map((component, index) => {
-    if (component.product_id !== product.id) throw new Error('Componente físico fora do Produto Mestre.');
-    const factor = Number(component.quantity);
-    const qty = factor * commercialQuantity;
-    const cents = index === components.length - 1
-      ? totalCents - allocatedCents
-      : Math.round(totalCents * factor / total);
+  return resolved.map(({ component, componentProduct, componentVariant, quantity }, index) => {
+    const cents = index === resolved.length - 1
+      ? originalCents - allocatedCents
+      : Math.round(originalCents * quantity / total);
     allocatedCents += cents;
     return {
-      product_id: product.id,
-      variant_id: component.variant_id,
-      quantity: qty,
-      unit_price: cents / 100, // Preço comercial da parcela da bandeja
+      product_id: componentProduct.id,
+      variant_id: componentVariant.id,
+      quantity: quantity * commercialQuantity,
+      unit_price: cents / 100 / commercialQuantity,
       notes: note,
       commercial_presentation_id: null,
       commercial_presentation_name: presentation.name,
-      commercial_unit_label: 'bandeja',
-      commercial_conversion_factor: factor,
+      commercial_unit_label: presentation.commercial_unit_label,
+      commercial_conversion_factor: quantity,
       commercial_quantity: commercialQuantity,
-      physical_unit_label: getPhysicalIdentityUnit(product, null),
+      physical_unit_label: getPhysicalIdentityUnit(componentProduct, componentVariant),
     };
   });
 }
