@@ -43,6 +43,7 @@ import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { getCrmInboxAttendanceTone, getCrmInboxBadgeToneClass, getCrmInboxPriorityRailClass, getCrmInboxPriorityTone, getCrmInboxStageTone } from '@/lib/crm/inboxVisualHierarchy';
+import { getCrmInboxFilterClass } from '@/lib/crm/inboxFilterVisualHierarchy';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
@@ -1448,14 +1449,14 @@ export default function ContatosInbox() {
   return (
     <div className="h-[calc(100dvh-var(--footer-effective-h,0px))] min-h-[560px] overflow-hidden bg-background flex flex-col">
       {/* A3.1 — faixa única: somente apresentação; filtros e callbacks preservados. */}
-      <div className="z-30 shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="z-30 shrink-0 border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
         <div className="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap px-3 py-2 [scrollbar-width:thin]" aria-label="Controles da Caixa de Entrada; role horizontalmente para acessar todas as opções">
           <Link to="/contatos" className="shrink-0" onClick={(event) => { if (!guardProfileExit()) event.preventDefault(); }}>
             <Button variant="ghost" size="sm" className="h-8 gap-1.5" title="Voltar à Gestão">
               <ArrowLeft className="h-4 w-4" /><span>Gestão</span>
             </Button>
           </Link>
-          <h1 className="shrink-0 text-sm font-semibold">Inbox</h1>
+          <h1 className="shrink-0 text-sm font-bold text-slate-900 dark:text-slate-100">Inbox</h1>
           {!selected && (
             <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 text-xs md:hidden"
               onClick={() => setMobileStartVisible(value => !value)}>
@@ -1463,7 +1464,7 @@ export default function ContatosInbox() {
             </Button>
           )}
           {isConsultingAllContacts && (
-            <Badge variant="outline" className="h-7 shrink-0 border-amber-500/60 bg-amber-500/10 px-2 text-[10px]"
+            <Badge variant="outline" className="h-7 shrink-0 border-amber-400 bg-amber-100 px-2 text-[11px] font-semibold text-amber-950 dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-200"
               title="A busca e a etapa consultam contatos além da fila operacional e do escopo selecionado">
               Consulta geral
             </Badge>
@@ -1475,7 +1476,7 @@ export default function ContatosInbox() {
               placeholder="Buscar contato ou conversa..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
+              className="h-8 border-slate-300 bg-white pl-8 text-sm text-slate-900 placeholder:text-slate-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-400"
             />
           </div>
           {([
@@ -1484,19 +1485,22 @@ export default function ContatosInbox() {
             ['today', 'Hoje'],
             ['overdue', 'Atrasados'],
           ] as Array<[InboxFilter, string]>).map(([key, label]) => (
-            <Button key={key} size="sm" variant={inboxFilter === key ? 'default' : 'outline'}
-              className="h-8 shrink-0 px-2.5 text-xs" onClick={() => setInboxFilter(key)}>
+            <Button key={key} size="sm" variant="outline" aria-pressed={inboxFilter === key}
+              className={cn('h-8 shrink-0 border px-2.5 text-xs font-semibold shadow-sm', getCrmInboxFilterClass(key, inboxFilter === key))}
+              onClick={() => setInboxFilter(key)}>
               {label}
             </Button>
           ))}
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="sm" variant={inboxFilter === 'cooling' ? 'secondary' : 'outline'}
-                className="h-8 shrink-0 gap-1.5 px-2.5 text-xs" aria-label="Filtros adicionais">
+              <Button size="sm" variant="outline" aria-label="Filtros adicionais" aria-pressed={activeDetailedFilters > 0}
+                className={cn('h-8 shrink-0 gap-1.5 border px-2.5 text-xs font-semibold', activeDetailedFilters > 0
+                  ? 'border-sky-500 bg-sky-100 text-sky-950 hover:bg-sky-200 dark:border-sky-500 dark:bg-sky-950 dark:text-sky-100'
+                  : 'border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100')}>
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
                 {activeDetailedFilters > 0 && (
                   <span aria-label={String(activeDetailedFilters) + ' filtros detalhados ativos'}
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground">
+                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-700 px-1 text-[10px] font-bold text-white dark:bg-sky-500 dark:text-slate-950">
                     {activeDetailedFilters}
                   </span>
                 )}
@@ -1505,8 +1509,9 @@ export default function ContatosInbox() {
             <PopoverContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-1rem))] max-h-[min(75vh,550px)] overflow-y-auto p-3">
               <div className="space-y-3">
                 <div className="text-xs font-semibold">Filtros adicionais</div>
-                <Button size="sm" variant={inboxFilter === 'cooling' ? 'secondary' : 'outline'}
-                  className="w-full justify-start text-xs" onClick={() => setInboxFilter('cooling')}>
+                <Button size="sm" variant="outline" aria-pressed={inboxFilter === 'cooling'}
+                  className={cn('w-full justify-start text-xs font-semibold', getCrmInboxFilterClass('cooling', inboxFilter === 'cooling'))}
+                  onClick={() => setInboxFilter('cooling')}>
                   Esfriando
                 </Button>
                 <Select value={stageFilter} onValueChange={setStageFilter}>
@@ -1530,7 +1535,8 @@ export default function ContatosInbox() {
                   </SelectContent>
                 </Select>
                 <Button size="sm" variant={waitingCustomerOnly ? 'secondary' : 'outline'}
-                  className="w-full justify-start text-xs"
+                  aria-pressed={waitingCustomerOnly}
+                  className={cn('w-full justify-start text-xs font-semibold', waitingCustomerOnly && 'border-amber-400 bg-amber-100 text-amber-950 hover:bg-amber-200 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100')}
                   onClick={() => setWaitingCustomerOnly((value) => !value)}>Aguardando cliente</Button>
                 <Select value={tagFilter} onValueChange={setTagFilter}>
                   <SelectTrigger className="h-9 w-full text-xs">
@@ -1563,7 +1569,7 @@ export default function ContatosInbox() {
             </PopoverContent>
           </Popover>
           <Select value={conversationScope} onValueChange={(value) => setConversationScope(value as ConversationScope)}>
-            <SelectTrigger className="h-8 w-[150px] shrink-0 text-xs" aria-label="Escopo da consulta"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[150px] shrink-0 border-slate-300 bg-white text-xs font-semibold text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" aria-label="Escopo da consulta"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="commercial" className="text-xs">Comercial</SelectItem>
               <SelectItem value="suppliers" className="text-xs">Fornecedores / outras</SelectItem>
