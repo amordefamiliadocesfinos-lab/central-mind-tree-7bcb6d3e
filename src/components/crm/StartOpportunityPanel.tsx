@@ -13,7 +13,7 @@ import {
 import { selectStartRecommendedOpportunity } from '@/lib/crm/startOpportunityRecommendation';
 import { buildCrmStartDestination } from '@/lib/crm/startOpportunityNavigation';
 import { resolveStartOpportunityDisplayState } from '@/lib/crm/startOpportunityPresentation';
-import { getCrmStartRecommendationCardClass, getCrmStartSectionCardClass } from '@/lib/crm/startOpportunityVisualHierarchy';
+import { getCrmStartRecommendationCardClass, getCrmStartRecommendationIconClass, getCrmStartSectionCardClass } from '@/lib/crm/startOpportunityVisualHierarchy';
 import { cn } from '@/lib/utils';
 
 type PoolContact = { id: string; name: string | null };
@@ -141,7 +141,7 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
 
       <Card className={cn('space-y-3 p-3 shadow-sm md:p-4', getCrmStartRecommendationCardClass(viewState))}>
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-violet-200 bg-white text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-200"><Sparkles className="h-4 w-4" /></span>
+          <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md border', getCrmStartRecommendationIconClass(viewState))}><Sparkles className="h-4 w-4" /></span>
           Oportunidade recomendada entre os contatos analisados
         </div>
 
