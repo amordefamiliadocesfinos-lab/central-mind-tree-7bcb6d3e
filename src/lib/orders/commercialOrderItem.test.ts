@@ -38,3 +38,15 @@ test('rejeita produto, variante, composição e quantidade inválidos',()=>{
 test('somente cálculo: não toca nem muta catálogo físico',()=>{
  const before=JSON.stringify(catalog);expand(t30,2,10,mix);assert.equal(JSON.stringify(catalog),before);
 });
+
+test('cada expansão de Mix mantém apresentação original e grupo único compartilhado',()=>{
+ const first=expand(t30,2,17.17,mix);
+ const second=expand(t30,1,17.17,mix);
+ assert.equal(new Set(first.map(x=>x.commercial_presentation_id)).size,1);
+ assert.equal(first[0].commercial_presentation_id,'kit');
+ assert.equal(new Set(first.map(x=>x.commercial_group_id)).size,1);
+ assert.ok(first[0].commercial_group_id);
+ assert.notEqual(first[0].commercial_group_id,second[0].commercial_group_id);
+ assert.deepEqual(first.map(x=>x.product_id).filter(x=>x==='t40'),['t40']);
+ assert.equal(first.reduce((sum,x)=>sum+x.quantity,0),60);
+});
