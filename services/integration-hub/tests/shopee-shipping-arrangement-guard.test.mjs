@@ -56,7 +56,7 @@ function fixture(overrides = {}) {
       calls.push(['ship', details]);
       await fetchImpl(new URL('https://partner.shopeemobile.com/api/v2/logistics/ship_order'),
         { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
-      return { response: { ok: true }, payload: { error: '', response: {} } };
+      return { response: { ok: true, status: 200 }, payload: { error: '', response: {} } };
     },
     fetchImpl: async (_url, options) => {
       calls.push(['transport', options]);
@@ -172,7 +172,7 @@ test('Shopee error response stays uncertain, not a success', async () => {
   const { calls, run } = fixture({
     ship: async () => {
       calls.push(['ship']);
-      return { response: { ok: true }, payload: { error: 'logistics.lack_of_invoice_data', response: {} } };
+      return { response: { ok: true, status: 200 }, payload: { error: 'logistics.lack_of_invoice_data', response: {} } };
     },
   });
   assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
@@ -259,7 +259,7 @@ test('window expiring during request preparation blocks the actual transport', a
       calls.push(['ship']);
       clock = Date.parse('2026-10-15T18:16:00Z');
       await fetchImpl('https://partner.shopeemobile.com/api/v2/logistics/ship_order', { method: 'POST' });
-      return { response: { ok: true }, payload: { error: '', response: {} } };
+      return { response: { ok: true, status: 200 }, payload: { error: '', response: {} } };
     },
   });
   assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
@@ -413,4 +413,131 @@ test('window expiration after durable claim refuses shipping and leaves a locked
   assert.equal(calls.filter(x=>x?.[0]==='claim').length,1);
   assert.equal(calls.some(x=>x?.[0]==='ship'),false);
   assert.equal(calls.find(x=>x?.[0]==='resolve')?.[1].outcome,'uncertain');
+});
+
+test('official ship_order success without response object is acknowledged exactly once', async () => {
+  const events = [];
+  let dispatches = 0;
+  const { calls, run } = fixture({
+    logDiagnostic: entry => events.push(entry),
+    ship: async ({ fetchImpl }) => {
+      dispatches += 1;
+      await fetchImpl('https://partner.shopeemobile.com/api/v2/logistics/ship_order', {
+        method: 'POST', body: '{}',
+      });
+      return { response: { ok: true, status: 200 }, payload: {
+        error: '', message: '', request_id: 'test-request-id',
+      } };
+    },
+  });
+  const result = await run();
+  assert.equal(result.code, 'ship_order_api_acknowledged_not_collected');
+  assert.equal(dispatches, 1);
+  assert.equal(calls.find(entry => entry?.[0] === 'resolve')[1].outcome, 'succeeded');
+  assert.deepEqual(events.map(entry => entry.phase),
+    ['preparation', 'fetch_invoked', 'headers_received', 'body_read']);
+  const last = events.at(-1);
+  assert.equal(last.category, 'api_acknowledged');
+  assert.equal(last.external_http_status, 200);
+  assert.equal(last.attempt_id, '123e4567-e89b-42d3-a456-426614174000');
+  for (const entry of events) {
+    assert.deepEqual(Object.keys(entry).sort(), [
+      'attempt_id', 'category', 'duration_ms', 'event', 'exception_name',
+      'external_http_status', 'phase', 'shopee_error_code',
+    ].sort());
+    assert.equal(entry.event, 'shopee_ship_order_diagnostic');
+    assert.equal(JSON.stringify(entry).includes('test-request-id'), false);
+    assert.equal(JSON.stringify(entry).includes('synthetic-access-token'), false);
+    assert.equal(JSON.stringify(entry).includes('partner.shopeemobile.com'), false);
+  }
+});
+
+for (const [caseName, simulated, expectedCategory, safeError] of [
+  ['HTTP 403', { response: { ok: false, status: 403 },
+    payload: { error: 'error_permission' } }, 'http_rejected', 'error_permission'],
+  ['official API error on HTTP 200', { response: { ok: true, status: 200 },
+    payload: { error: 'logistics.ship_order_need_branch_id', message: 'SECRET SHIPPING DETAIL' } },
+    'shopee_error', 'logistics.ship_order_need_branch_id'],
+  ['invalid JSON', { response: { ok: true, status: 200 },
+    payload: { error: 'invalid_json', message: 'PRIVATE RESPONSE BODY' } }, 'invalid_json', null],
+  ['missing error', { response: { ok: true, status: 200 },
+    payload: { message: 'PRIVATE RESPONSE BODY', request_id: 'secret' } }, 'unexpected_response', null],
+  ['null response object', { response: { ok: true, status: 200 },
+    payload: { error: '', response: null } }, 'unexpected_response', null],
+  ['unrecognized error', { response: { ok: true, status: 200 },
+    payload: { error: 'private_dynamic_secret_or_new_code', message: 'PRIVATE' } },
+    'shopee_error', null],
+  ['non-empty whitespace error', { response: { ok: true, status: 200 },
+    payload: { error: '  ' } }, 'shopee_error', null],
+  ['HTTP 200 with missing HTTP status', { response: { ok: true },
+    payload: { error: '' } }, 'http_rejected', null],
+]) {
+  test('uncertain response classified without retry or data leakage: ' + caseName, async () => {
+    const events = [];
+    let dispatches = 0;
+    const { calls, run } = fixture({
+      logDiagnostic: entry => events.push(entry),
+      ship: async () => { dispatches++; return simulated; },
+    });
+    assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
+    assert.equal(dispatches, 1);
+    assert.equal(calls.find(entry => entry?.[0] === 'resolve')[1].outcome, 'uncertain');
+    const last = events.at(-1);
+    assert.equal(last.phase, 'body_read');
+    assert.equal(last.category, expectedCategory);
+    assert.equal(last.shopee_error_code, safeError);
+    const payloadText = JSON.stringify(events);
+    for (const privateText of ['PRIVATE', 'secret_or_new_code', 'secret', 'test-access-token']) {
+      assert.equal(payloadText.includes(privateText), false);
+    }
+  });
+}
+
+test('transport diagnostic distinguishes fetch invoked from confirmed headers without leaking error text', async () => {
+  const events = [];
+  let dispatches = 0;
+  const { calls, run } = fixture({
+    logDiagnostic: entry => events.push(entry),
+    ship: async ({ fetchImpl }) => {
+      dispatches++;
+      await fetchImpl('https://partner.shopeemobile.com/api/v2/logistics/ship_order', { method: 'POST' });
+    },
+    fetchImpl: async () => { throw new TypeError('PRIVATE BODY OR SIGNED URL'); },
+  });
+  assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
+  assert.equal(dispatches, 1);
+  assert.deepEqual(events.map(e => e.phase), ['preparation', 'fetch_invoked', 'exception']);
+  assert.equal(events.at(-1).category, 'transport_exception');
+  assert.equal(events.at(-1).exception_name, 'TypeError');
+  assert.equal(JSON.stringify(events).includes('PRIVATE BODY'), false);
+  assert.equal(calls.find(entry => entry?.[0] === 'resolve')[1].outcome, 'uncertain');
+});
+
+test('diagnostic logger failure does not block one-shot shipping or change ledger outcome', async () => {
+  let called = 0;
+  const { calls, run } = fixture({
+    logDiagnostic: () => { throw new Error('LOGGER FAILS'); },
+    ship: async () => { called++; return {
+      response: { ok: true, status: 200 },
+      payload: { error: '', message: '' },
+    }; },
+  });
+  assert.equal((await run()).code, 'ship_order_api_acknowledged_not_collected');
+  assert.equal(called, 1);
+  assert.equal(calls.find(entry => entry?.[0] === 'resolve')[1].outcome, 'succeeded');
+});
+
+test('pre-transport failure retains uncertain claim and proves no external fetch occurred', async () => {
+  const events = [];
+  let networkCalls = 0;
+  const { calls, run } = fixture({
+    logDiagnostic: entry => events.push(entry),
+    ship: async () => { throw new Error('LOCAL SIGNING PRIVATE DATA'); },
+    fetchImpl: async () => { networkCalls++; return new Response('{}'); },
+  });
+  assert.equal((await run()).code, 'ship_order_uncertain_requires_reconciliation');
+  assert.equal(networkCalls, 0);
+  assert.deepEqual(events.map(entry => entry.phase), ['preparation', 'exception']);
+  assert.equal(events.at(-1).category, 'pre_transport_exception');
+  assert.equal(calls.find(entry => entry?.[0] === 'resolve')[1].outcome, 'uncertain');
 });
