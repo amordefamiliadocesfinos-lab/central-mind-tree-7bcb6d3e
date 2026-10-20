@@ -384,6 +384,7 @@ export function OrderEditDialog({
                         {op.status}
                       </Badge>
                     </div>
+                    </div>
                   ))}
                 </div>
               </CardContent>
@@ -408,9 +409,17 @@ export function OrderEditDialog({
               ) : (
                 <div className="space-y-2">
                   {items.map((item, i) => (
-                    <div key={i} className="flex gap-2">
+                    <div key={item.id ?? i} className="space-y-1">
+                      {item.commercial_group_id && !items.slice(0, i).some(previous => previous.commercial_group_id === item.commercial_group_id) && (
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                          <strong>{item.commercial_presentation_name ?? 'Apresentação comercial'}</strong>
+                          <span className="ml-2 text-muted-foreground">· {item.commercial_quantity} {item.commercial_unit_label ?? 'kit(s)'} · componentes físicos abaixo</span>
+                        </div>
+                      )}
+                    <div className="flex gap-2">
                       <Select
                         value={item.product_id || ''}
+                        disabled={Boolean(item.commercial_group_id)}
                         onValueChange={(v) => updateItem(i, 'product_id', v)}
                       >
                         <SelectTrigger className="flex-1 h-10">
@@ -425,6 +434,7 @@ export function OrderEditDialog({
                       {variants.some(variant => variant.product_id === item.product_id) && (
                         <Select
                           value={item.variant_id || '__none__'}
+                          disabled={Boolean(item.commercial_group_id)}
                           onValueChange={(value) => {
                             const variant = variants.find(itemVariant => itemVariant.id === value);
                             updateItem(i, 'variant_id', value === '__none__' ? '' : value);
@@ -445,6 +455,7 @@ export function OrderEditDialog({
                         className="w-16 h-10"
                         placeholder="Qtd"
                         value={item.quantity || ''}
+                        disabled={Boolean(item.commercial_group_id)}
                         onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
                       />
                       <DecimalInput
