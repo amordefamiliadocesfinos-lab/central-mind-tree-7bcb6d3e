@@ -316,7 +316,7 @@ test('real HMAC Core wrappers and signed Shopee primitive preserve claim-before-
       const parsed = new URL(url);
       const canonical = '2047685/api/v2/logistics/ship_order' + parsed.searchParams.get('timestamp') + 'synthetic-access-token' + shop;
       assert.equal(parsed.searchParams.get('sign'), createHmac('sha256', 'fake-key').update(canonical).digest('hex'));
-      return new Response(JSON.stringify({ error: '', response: {} }));
+      return new Response(JSON.stringify({ error: '', message: '', request_id: 'synthetic-upstream-id' }));
     },
   });
   assert.equal((await run()).ok, true);
