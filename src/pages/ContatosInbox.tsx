@@ -42,6 +42,7 @@ import { applyAttendanceOutcome, applyCanonicalAttendanceResult, snoozeAttendanc
 import { formatCrmResultNextActionDate, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
+import { getCrmInboxAttendanceTone, getCrmInboxBadgeToneClass, getCrmInboxPriorityRailClass, getCrmInboxPriorityTone, getCrmInboxStageTone } from '@/lib/crm/inboxVisualHierarchy';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
@@ -1598,69 +1599,75 @@ export default function ContatosInbox() {
             </div>
           ) : (
             <div className="divide-y">
-              {prioritized.map(({ item, priority }) => (
+              {prioritized.map(({ item, priority }) => {
+                const priorityTone = getCrmInboxPriorityTone(priority);
+                const isSelected = selectedId === item.id;
+                return (
                 <button
                   key={item.id}
                   onClick={() => void openConversation(item)}
+                  aria-current={isSelected ? 'true' : undefined}
                   className={cn(
-                    'w-full text-left p-3 hover:bg-muted/50 transition-colors flex gap-3 items-start',
-                    selectedId === item.id && 'bg-muted',
+                    'flex w-full items-start gap-2.5 border-l-[3px] px-2.5 py-2.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 dark:hover:bg-slate-800/60',
+                    getCrmInboxPriorityRailClass(priorityTone),
+                    isSelected && 'bg-sky-50 ring-1 ring-inset ring-sky-300 dark:bg-sky-950/40 dark:ring-sky-700',
                   )}
                 >
                   <ContactAvatar name={item.name} photoUrl={item.photo_url} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium text-sm truncate">{item.name}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-5 text-foreground" title={item.name}>{item.name}</span>
+                      <span className="shrink-0 pt-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
                         {formatLastDate(item.last_date)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-slate-600 dark:text-slate-300" title={item.last_summary || 'Sem interações'}>
                       {item.last_summary || 'Sem interações'}
                     </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                    {/* Primeiro: identidade comercial/canal; depois: demanda operacional e janela Meta. */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-semibold', getCrmInboxBadgeToneClass(getCrmInboxStageTone(item.funnel_status)))}>
                         {getCrmStageLabel(item.funnel_status)}
                       </Badge>
                       {(item.platform_name || item.channel) && (
-                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                        <Badge variant="outline" className="h-5 max-w-full truncate border-slate-200 bg-white px-1.5 text-[10px] font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
                           {item.platform_name || item.channel}
                         </Badge>
                       )}
                       {isPureSupplier(item) && (
-                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                        <Badge variant="outline" className="h-5 border-slate-300 bg-slate-100 px-1.5 text-[10px] text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                           Fornecedor
                         </Badge>
                       )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
                       {item.attendance_state &&
                         !(
                           (item.attendance_state === 'responder' && priority.reason === 'needs_reply') ||
                           (priority.reason === 'waiting_customer' &&
                             ['aguardando_cliente', 'aguardando_resposta', 'awaiting_response', 'waiting_customer'].includes(item.attendance_state))
                         ) && (
-                        <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                        <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-semibold', getCrmInboxBadgeToneClass(getCrmInboxAttendanceTone(item.attendance_state)))}>
                           {ATTENDANCE_STATE_LABELS[item.attendance_state] || item.attendance_state}
                         </Badge>
                       )}
-
                       {priority.reason && (
-                        <Badge variant={priority.level === 'P0' ? 'destructive' : 'secondary'} className="text-[9px] h-4 px-1.5">
-                          {priority.label}
+                        <Badge variant="outline" title={`Prioridade ${priority.level}: ${priority.label}`} className={cn('h-5 gap-1 px-1.5 text-[10px] font-bold', getCrmInboxBadgeToneClass(priorityTone))}>
+                          <span className="opacity-75">{priority.level}</span> {priority.label}
                         </Badge>
                       )}
                       {item.unread_count > 0 && (
-                        <Badge className="text-[9px] h-4 min-w-4 px-1.5">
+                        <Badge variant="outline" aria-label={`${item.unread_count} mensagens não lidas`} className="h-5 min-w-5 justify-center border-sky-800 bg-sky-700 px-1.5 text-[10px] font-bold text-white dark:border-sky-400 dark:bg-sky-600 dark:text-white">
                           {item.unread_count}
                         </Badge>
                       )}
                       {(item.channel?.toLowerCase() === 'whatsapp' || item.platform_name?.toLowerCase().includes('whatsapp')) && (
-                        <MetaWindowBadge lastInboundAt={item.last_inbound_at} compact />
+                        <MetaWindowBadge lastInboundAt={item.last_inbound_at} compact className="h-5 px-2 text-[10px] font-semibold" />
                       )}
-
                     </div>
                   </div>
                 </button>
-              ))}
+              );})}
               {items.length >= loadLimit && (
                 <div className="p-3 text-center">
                   <Button variant="outline" size="sm" onClick={() => setLoadLimit(limit => limit + 200)}>Carregar mais conversas</Button>
