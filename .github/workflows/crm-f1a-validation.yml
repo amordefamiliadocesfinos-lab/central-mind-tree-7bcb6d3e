@@ -94,6 +94,7 @@ jobs:
             src/lib/crm/campaignIntelligentAudience.test.ts \
             src/lib/crm/campaignIntelligentSafety.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
+            src/lib/crm/inboxVisualHierarchy.test.ts \
             src/lib/crm/priority.test.ts \
             src/lib/crm/pendingReply.test.ts \
             src/lib/crm/canonical/transitions.test.ts \
