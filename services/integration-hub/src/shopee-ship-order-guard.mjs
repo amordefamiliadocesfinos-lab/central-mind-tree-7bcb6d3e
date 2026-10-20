@@ -9,7 +9,6 @@ import { inspectShopeeShippingPreflight } from './shopee-shipping-preflight.mjs'
 import {
   buildSimpleDropoffRequest,
   shipOrderSimpleDropoff,
-  parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
 
 const API_BASE = 'https://partner.shopeemobile.com';
