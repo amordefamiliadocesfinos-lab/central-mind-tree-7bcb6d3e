@@ -41,7 +41,7 @@ test('F6-O.1b inspects invoice and logistics parameters without mutation', async
               order_sn: '261013HKHWK3V7',
               order_status: 'PROCESSED',
               shipping_carrier: 'SPX',
-              package_list: [{ package_number: 'PKG-123' }],
+              package_list: [{ package_number: 'PKG-123', logistics_status: 'LOGISTICS_READY' }],
               invoice_data: { status: 'valid', pending_reason: '' },
             }],
           },
@@ -92,6 +92,7 @@ test('F6-O.1b inspects invoice and logistics parameters without mutation', async
     order_status: 'PROCESSED',
     shipping_carrier: 'SPX',
     package_number: 'PKG-123',
+    package_logistics_status: 'LOGISTICS_READY',
     invoice_status: 'valid',
     invoice_pending_reason: '',
   });
@@ -238,4 +239,83 @@ test('F6-O.1c fails closed when access token is expired and performs no refresh 
   assert.equal(persistCalls, 0);
   assert.equal(decryptCalls, 0);
   assert.equal(externalReads, 0);
+});
+
+test('F6-O confirms the pilot package status only for a unique matching package and order', async () => {
+  const orderSn = '2610204FARAMB4';
+  const packageNumber = 'OFG246153907178767';
+  let returnedOrderSn = orderSn;
+  let packages = [{
+    package_number: packageNumber,
+    logistics_status: 'LOGISTICS_READY',
+    address: 'PRIVATE ADDRESS MUST NOT ESCAPE',
+    buyer_phone: 'PRIVATE PHONE MUST NOT ESCAPE',
+  }];
+  let parameterCalls = 0;
+  const inspect = createShopeeLiveLogisticsInspector({
+    getEnv,
+    now: () => Date.parse('2026-10-20T14:00:00Z'),
+    readConnection: async () => ({
+      ok: true,
+      payload: {
+        partner_id: 2047685,
+        shop_id: 531736366,
+        access_token_ciphertext: 'cipher',
+        access_token_expires_at: '2026-10-20T19:25:40Z',
+      },
+    }),
+    decryptToken: async () => 'test-access-token',
+    readOrderDetail: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { response: { order_list: [{
+        order_sn: returnedOrderSn,
+        order_status: 'READY_TO_SHIP',
+        package_list: packages,
+        invoice_data: { status: 'valid' },
+      }] } },
+    }),
+    readShippingParameter: async () => {
+      parameterCalls += 1;
+      return {
+        response: { ok: true, status: 200 },
+        payload: { response: { info_needed: { dropoff: [] } } },
+      };
+    },
+    readShippingDocumentParameter: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { response: { result_list: [] } },
+    }),
+  });
+
+  const valid = await inspect({ orderSn });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.order.order_sn, orderSn);
+  assert.equal(valid.order.package_number, packageNumber);
+  assert.equal(valid.order.package_logistics_status, 'LOGISTICS_READY');
+  assert.deepEqual(valid.shipping_parameter.info_needed, { dropoff: [] });
+  assert.equal('package_list' in valid.order, false);
+  assert.equal(JSON.stringify(valid).includes('PRIVATE ADDRESS'), false);
+  assert.equal(JSON.stringify(valid).includes('PRIVATE PHONE'), false);
+
+  // Two packages are ambiguous even if the first package has the expected number.
+  packages = [
+    { package_number: packageNumber, logistics_status: 'LOGISTICS_READY' },
+    { package_number: 'OTHER-PACKAGE', logistics_status: 'LOGISTICS_PICKUP_RETRY' },
+  ];
+  const ambiguous = await inspect({ orderSn });
+  assert.equal(ambiguous.order.package_logistics_status, null);
+
+  // Do not forward arbitrary upstream strings that could contain private data.
+  packages = [{ package_number: packageNumber, logistics_status: 'LOGISTICS_READY private-data' }];
+  const invalid = await inspect({ orderSn });
+  assert.equal(invalid.order.package_logistics_status, null);
+
+  // An order identity mismatch must stop before reading shipping parameters.
+  returnedOrderSn = 'OTHER-ORDER';
+  const beforeMismatch = parameterCalls;
+  const mismatch = await inspect({ orderSn });
+  assert.deepEqual(mismatch, {
+    ok: false, code: 'order_detail_identity_mismatch', shop_id: 531736366,
+  });
+  assert.equal(parameterCalls, beforeMismatch);
 });

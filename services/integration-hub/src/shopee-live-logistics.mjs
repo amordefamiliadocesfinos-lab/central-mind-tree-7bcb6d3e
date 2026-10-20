@@ -45,6 +45,20 @@ function inferPackageNumber(order) {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
+function inferPackageLogisticsStatus(order, packageNumber) {
+  const packages = order?.package_list;
+  // Never assert the status of an unidentified or ambiguous package.
+  if (!packageNumber || !Array.isArray(packages) || packages.length !== 1) return null;
+  const pkg = packages[0];
+  if (pkg?.package_number !== packageNumber) return null;
+
+  const status = pkg?.logistics_status;
+  // Output only a status enum, never an arbitrary upstream string or package metadata.
+  return typeof status === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(status)
+    ? status
+    : null;
+}
+
 function compactInfoNeeded(payload) {
   const info = payload?.response?.info_needed;
   if (!info || typeof info !== 'object') return null;
@@ -178,6 +192,7 @@ export function createShopeeLiveLogisticsInspector({
         order_status: typeof order.order_status === 'string' ? order.order_status : null,
         shipping_carrier: typeof order.shipping_carrier === 'string' ? order.shipping_carrier : null,
         package_number: packageNumber,
+        package_logistics_status: inferPackageLogisticsStatus(order, packageNumber),
         invoice_status: typeof order?.invoice_data?.status === 'string' ? order.invoice_data.status : null,
         invoice_pending_reason:
           typeof order?.invoice_data?.pending_reason === 'string'

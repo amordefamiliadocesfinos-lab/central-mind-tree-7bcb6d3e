@@ -588,6 +588,7 @@ test('F6-O.1b private logistics inspect route uses only server-side order target
             order_status: 'PROCESSED',
             shipping_carrier: 'SPX',
             package_number: 'PKG-1',
+            package_logistics_status: 'LOGISTICS_READY',
             invoice_status: 'valid',
             invoice_pending_reason: null,
           },
@@ -616,6 +617,7 @@ test('F6-O.1b private logistics inspect route uses only server-side order target
   const body = JSON.parse(response.body);
   assert.equal(body.mode, 'read_only');
   assert.equal(body.order.order_sn, '261013HKHWK3V7');
+  assert.equal(body.order.package_logistics_status, 'LOGISTICS_READY');
   assert.deepEqual(body.shipping_parameter.info_needed, {
     pickup: ['address_id', 'pickup_time_id'],
   });
