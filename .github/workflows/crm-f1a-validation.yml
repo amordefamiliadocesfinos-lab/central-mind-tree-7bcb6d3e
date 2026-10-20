@@ -91,6 +91,7 @@ jobs:
             src/lib/crm/startOpportunityRecommendation.test.ts \
             src/lib/crm/startOpportunityNavigation.test.ts \
             src/lib/crm/startOpportunityPresentation.test.ts \
+            src/lib/crm/startOpportunityVisualHierarchy.test.ts \
             src/lib/crm/campaignIntelligentAudience.test.ts \
             src/lib/crm/campaignIntelligentSafety.test.ts \
             src/lib/crm/inboxOrientation.test.ts \
