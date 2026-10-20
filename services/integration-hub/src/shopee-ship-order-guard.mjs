@@ -9,11 +9,52 @@ import { inspectShopeeShippingPreflight } from './shopee-shipping-preflight.mjs'
 import {
   buildSimpleDropoffRequest,
   shipOrderSimpleDropoff,
-  parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
 
 const API_BASE = 'https://partner.shopeemobile.com';
 const SHIPPING_PATH = '/api/v2/logistics/ship_order';
+
+/** Shopee's ship_order success contract does not require a response object. */
+const SAFE_SHOPEE_ERRORS = new Set([
+  'error_auth', 'error_param', 'error_permission', 'error_api_permission',
+  'error_sign', 'error_rate_limit', 'error_api_call_restricted',
+  'source_ip_undeclared', 'logistics.error_param',
+  'logistics.error_order_state', 'logistics.business_process_error',
+  'logistics.business_validation_error', 'logistics.feature_not_supported',
+  'logistics.ship_order_not_ready_to_ship', 'logistics.ship_order_need_branch_id',
+  'logistics.ship_order_need_sender_real_name', 'logistics.ship_order_need_pacakge_number',
+  'logistics.ship_order_not_need_pacakge_number', 'logistics.lack_of_invoice_data',
+]);
+const SAFE_EXCEPTION_NAMES = new Set(['AbortError', 'TimeoutError', 'TypeError', 'SyntaxError']);
+
+function inspectShipOrderAcknowledgement(response) {
+  const status = response?.response?.status;
+  const httpOk = response?.response?.ok === true
+    && Number.isInteger(status) && status >= 200 && status < 300;
+  const payload = response?.payload;
+  const knownError = SAFE_SHOPEE_ERRORS.has(payload?.error) ? payload.error : null;
+  if (!httpOk) return { acknowledged: false, category: 'http_rejected', knownError };
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { acknowledged: false, category: 'unexpected_response', knownError: null };
+  }
+  if (payload.error === 'invalid_json') {
+    return { acknowledged: false, category: 'invalid_json', knownError: null };
+  }
+  if (typeof payload.error !== 'string') {
+    return { acknowledged: false, category: 'unexpected_response', knownError: null };
+  }
+  if (payload.error !== '') {
+    return { acknowledged: false, category: 'shopee_error', knownError };
+  }
+  // The published v2.logistics.ship_order success example only contains
+  // error:"", message:"", request_id:"..."; response is not required.
+  if (Object.hasOwn(payload, 'response') &&
+      (!payload.response || typeof payload.response !== 'object' ||
+       Array.isArray(payload.response))) {
+    return { acknowledged: false, category: 'unexpected_response', knownError: null };
+  }
+  return { acknowledged: true, category: 'api_acknowledged', knownError: null };
+}
 
 function envRequired(env, key) {
   const value = env(key);
@@ -41,6 +82,8 @@ export function createGuardedShopeeShipOrder({
   resolve = resolveShopeeShippingArrangement,
   ship = shipOrderSimpleDropoff,
   fetchImpl = globalThis.fetch,
+  // Structured, allowlisted Cloud Logging events; never output signed URLs or payloads.
+  logDiagnostic = entry => console.log(JSON.stringify(entry)),
 } = {}) {
   return async function shipOrderOnce() {
     // Always refuse before touching the Core or Shopee when not explicitly armed.
@@ -142,6 +185,27 @@ export function createGuardedShopeeShipOrder({
     const attemptId = reserved.payload.attempt_id;
     // After reservation, ANY transport ambiguity must keep the one-shot claim.
     let outcome = 'uncertain';
+    let phase = 'preparation';
+    let externalHttpStatus = null;
+    const diagnosticStart = now();
+    const diagnostic = (step, category = null, knownError = null, exceptionName = null) => {
+      // Construct a fixed schema. Never log an upstream message/body, URL, token,
+      // request hash, address or exception text. Logging is never a dependency.
+      try {
+        const elapsed = now() - diagnosticStart;
+        logDiagnostic({
+          event: 'shopee_ship_order_diagnostic',
+          attempt_id: attemptId,
+          phase: step,
+          category,
+          external_http_status: externalHttpStatus,
+          duration_ms: Number.isFinite(elapsed) ? Math.max(0, Math.round(elapsed)) : null,
+          shopee_error_code: SAFE_SHOPEE_ERRORS.has(knownError) ? knownError : null,
+          exception_name: SAFE_EXCEPTION_NAMES.has(exceptionName) ? exceptionName : null,
+        });
+      } catch { /* Logs must not affect dispatch or idempotency. */ }
+    };
+    diagnostic(phase);
     try {
       // A claim may take time to persist. Refuse transport if the approved
       // window expired after reservation; retain an uncertain locked attempt.
@@ -153,7 +217,7 @@ export function createGuardedShopeeShipOrder({
         apiBaseUrl: API_BASE, shipOrderPath: SHIPPING_PATH,
         partnerId, partnerKey, accessToken, shopId,
         orderSn, packageNumber: proof.package_number, infoNeeded: { dropoff: [] },
-        fetchImpl: (url, options) => {
+        fetchImpl: async (url, options) => {
           // Signing/preparation can cross the deadline after the earlier check.
           // Keep the originally approved expiry and check at the network boundary.
           const remainingAtTransport = windowExpiresAt - now();
@@ -164,20 +228,32 @@ export function createGuardedShopeeShipOrder({
           if (parsed.origin !== API_BASE || parsed.pathname !== SHIPPING_PATH) {
             throw new Error('untrusted_shopee_transport');
           }
-          return fetchImpl(url, {
+          phase = 'fetch_invoked';
+          diagnostic(phase);
+          const upstream = await fetchImpl(url, {
             ...options, redirect: 'error',
             signal: AbortSignal.timeout(Math.max(1, Math.min(15000, Math.floor(remainingAtTransport)))),
           });
+          externalHttpStatus = Number.isInteger(upstream?.status) ? upstream.status : null;
+          phase = 'headers_received';
+          diagnostic(phase);
+          return upstream;
         },
       });
-      if (response?.response?.ok === true
-          && response.payload?.error === ''
-          && response.payload?.response && typeof response.payload.response === 'object'
-          && !Array.isArray(response.payload.response)
-          && parseShopeeError(response.payload) === '') {
-        outcome = 'succeeded';
-      }
-    } catch { /* Network ambiguity: never call ship_order again. */ }
+      // The shared signedShopPost has read and parsed the response at this point.
+      externalHttpStatus = Number.isInteger(response?.response?.status)
+        ? response.response.status : externalHttpStatus;
+      phase = 'body_read';
+      const assessment = inspectShipOrderAcknowledgement(response);
+      diagnostic(phase, assessment.category, assessment.knownError);
+      if (assessment.acknowledged) outcome = 'succeeded';
+    } catch (error) {
+      // Do not confuse a local exception with proof Shopee did or did not receive a POST.
+      const category = phase === 'headers_received' ? 'response_read_exception'
+        : phase === 'fetch_invoked' ? 'transport_exception' : 'pre_transport_exception';
+      diagnostic('exception', category, null, error?.name);
+      // Network ambiguity: never call ship_order again.
+    }
 
     // If Core cannot acknowledge a result, the unique claim remains and
     // blocks all future dispatches. Never report automatic success.
