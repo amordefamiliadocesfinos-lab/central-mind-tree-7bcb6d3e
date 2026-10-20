@@ -104,6 +104,7 @@ export function OrderEditDialog({
         unit_price: i.unit_price,
         notes: i.notes,
         commercial_presentation_id: i.commercial_presentation_id ?? null,
+        commercial_group_id: i.commercial_group_id ?? null,
         commercial_presentation_name: i.commercial_presentation_name ?? null,
         commercial_unit_label: i.commercial_unit_label ?? null,
         commercial_conversion_factor: i.commercial_conversion_factor ?? null,
@@ -141,6 +142,7 @@ export function OrderEditDialog({
       const product = products.find(p => p.id === value);
       (newItems[index] as any).variant_id = null;
       (newItems[index] as any).commercial_presentation_id = null;
+      (newItems[index] as any).commercial_group_id = null;
       (newItems[index] as any).commercial_presentation_name = null;
       (newItems[index] as any).commercial_unit_label = null;
       (newItems[index] as any).commercial_conversion_factor = null;
