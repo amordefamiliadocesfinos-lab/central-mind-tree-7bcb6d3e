@@ -3,6 +3,16 @@ import type { StartOpportunityDisplayState } from './startOpportunityPresentatio
 
 export type CrmStartSection = 'post_sale' | 'repurchase' | 'campaigns';
 
+/** Ícone acompanha o estado real: bloqueio e falha não parecem recomendação aprovada. */
+export function getCrmStartRecommendationIconClass(state: StartOpportunityDisplayState): string {
+  switch (state) {
+    case 'recommended': return 'border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200';
+    case 'blocked': return 'border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200';
+    case 'error': return 'border-red-200 bg-red-100 text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-200';
+    default: return 'border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
+  }
+}
+
 export function getCrmStartRecommendationCardClass(state: StartOpportunityDisplayState): string {
   switch (state) {
     case 'recommended':
