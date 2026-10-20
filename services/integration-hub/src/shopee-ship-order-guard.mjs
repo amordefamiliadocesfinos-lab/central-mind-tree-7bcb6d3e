@@ -44,7 +44,7 @@ function inspectShipOrderAcknowledgement(response) {
   if (typeof payload.error !== 'string') {
     return { acknowledged: false, category: 'unexpected_response', knownError: null };
   }
-  if (parseShopeeError(payload) !== '') {
+  if (payload.error !== '') {
     return { acknowledged: false, category: 'shopee_error', knownError };
   }
   // The published v2.logistics.ship_order success example only contains
