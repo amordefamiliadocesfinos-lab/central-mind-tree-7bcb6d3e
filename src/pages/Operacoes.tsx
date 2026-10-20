@@ -494,7 +494,7 @@ export default function Operacoes() {
       const product = rawProducts.find(candidate => candidate.id === item.product_id);
       const variant = item.variant_id ? saleVariants.find(candidate => candidate.id === item.variant_id) : null;
       if (!product) throw new Error('Produto não encontrado.');
-      return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
+      return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation, undefined, { products: rawProducts, variants: saleVariants });
     });
     const result = await createOrder(
       { ...saleData, contact_id: newSale.contact_id || undefined },
