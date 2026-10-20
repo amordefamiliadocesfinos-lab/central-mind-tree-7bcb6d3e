@@ -13,6 +13,8 @@ const PILOTS = Object.freeze([
   Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
     shop: 531736366, partner: 2047685, order: '2610203UYY7N0T', package: 'OFG246133145190444',
     tracking: 'BR262168766782H' }),
+  Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b',
+    shop: 531736366, partner: 2047685, order: '2610204FARAMB4', package: 'OFG246153907178767' }),
 ]);
 const PATHS = new Set(['/api/v2/order/get_order_detail', '/api/v2/logistics/get_tracking_number',
   '/api/v2/logistics/get_shipping_document_parameter', '/api/v2/logistics/create_shipping_document',
