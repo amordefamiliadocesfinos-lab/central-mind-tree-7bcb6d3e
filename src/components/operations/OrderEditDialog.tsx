@@ -467,9 +467,10 @@ export function OrderEditDialog({
                         min={0}
                         maxDecimals={10}
                       />
-                      <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => removeItem(i)}>
+                      <Button size="icon" variant="ghost" className="h-10 w-10" disabled={Boolean(item.commercial_group_id)} onClick={() => removeItem(i)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
                     </div>
                   ))}
                 </div>
