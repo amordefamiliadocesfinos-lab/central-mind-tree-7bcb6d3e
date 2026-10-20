@@ -13,6 +13,8 @@ import {
 import { selectStartRecommendedOpportunity } from '@/lib/crm/startOpportunityRecommendation';
 import { buildCrmStartDestination } from '@/lib/crm/startOpportunityNavigation';
 import { resolveStartOpportunityDisplayState } from '@/lib/crm/startOpportunityPresentation';
+import { getCrmStartRecommendationCardClass, getCrmStartRecommendationIconClass, getCrmStartSectionCardClass } from '@/lib/crm/startOpportunityVisualHierarchy';
+import { cn } from '@/lib/utils';
 
 type PoolContact = { id: string; name: string | null };
 type ScanState = {
@@ -132,14 +134,14 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
     <section className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-3 p-3 md:p-4 xl:p-5" aria-label="Start Estratégica de Oportunidades">
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-base font-semibold"><Target className="h-4 w-4 shrink-0" /> Start — Oportunidades</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Explore possibilidades comerciais com base em fatos do CRM, sem competir com a fila.</p>
+          <h2 className="flex items-center gap-2 text-base font-bold text-foreground"><Target className="h-4 w-4 shrink-0 text-violet-700 dark:text-violet-300" /> Start — Oportunidades</h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Explore possibilidades comerciais com base em fatos do CRM, sem competir com a fila.</p>
         </div>
       </header>
 
-      <Card className="space-y-3 p-3 md:p-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles className="h-4 w-4 shrink-0" />
+      <Card className={cn('space-y-3 p-3 shadow-sm md:p-4', getCrmStartRecommendationCardClass(viewState))}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md border', getCrmStartRecommendationIconClass(viewState))}><Sparkles className="h-4 w-4" /></span>
           Oportunidade recomendada entre os contatos analisados
         </div>
 
@@ -150,12 +152,12 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
         ) : viewState === 'recommended' && recommended ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{isPostSale ? 'Pós-venda elegível' : 'Recompra provável'}</Badge>
+              <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200">{isPostSale ? 'Pós-venda elegível' : 'Recompra provável'}</Badge>
               <span className="text-xs text-muted-foreground">Sinal comprovado nos registros analisados</span>
             </div>
             <div>
-              <p className="text-sm font-semibold">{contactName}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="text-base font-semibold text-foreground">{contactName}</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
                 {isPostSale
                   ? 'Pedido finalizado e entregue, ainda sem Resultado canônico de pós-venda posterior.'
                   : 'Histórico de compras consistente sugere analisar um novo ciclo de reposição.'}
@@ -223,7 +225,7 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
           <div className="space-y-1">
             <p aria-live="polite">{scan.checked} contato(s) verificados neste recorte de clientes com compras registradas.</p>
             <p>O resultado é parcial: não representa todas as oportunidades do CRM.</p>
@@ -251,11 +253,11 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
       </Card>
       {/* C2-03: caminhos estratégicos, sem criar nova fila nem executar ações comerciais. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Card className="flex min-w-0 flex-col gap-3 p-3 md:p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <HeartHandshake className="h-4 w-4 shrink-0" /> Pós-venda estratégico
+        <Card className={cn('flex min-w-0 flex-col gap-3 p-3 shadow-sm md:p-4', getCrmStartSectionCardClass('post_sale'))}>
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200"><HeartHandshake className="h-4 w-4" /></span> Pós-venda estratégico
           </h3>
-          <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="flex-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
             Explore clientes com entregas e histórico de acompanhamento. A elegibilidade será avaliada pelos critérios oficiais, não apenas por dias sem comprar.
           </p>
           <Button type="button" size="sm" variant="outline" asChild className="self-start">
@@ -264,11 +266,11 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
             </Link>
           </Button>
         </Card>
-        <Card className="flex min-w-0 flex-col gap-3 p-3 md:p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Repeat2 className="h-4 w-4 shrink-0" /> Recompra
+        <Card className={cn('flex min-w-0 flex-col gap-3 p-3 shadow-sm md:p-4', getCrmStartSectionCardClass('repurchase'))}>
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200"><Repeat2 className="h-4 w-4" /></span> Recompra
           </h3>
-          <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="flex-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
             Consulte padrões de compras e possíveis ciclos de reposição no painel oficial, sem transformar estimativas em obrigações.
           </p>
           <Button type="button" size="sm" variant="outline" asChild className="self-start">
@@ -278,11 +280,11 @@ export function StartOpportunityPanel({ active }: { active: boolean }) {
           </Button>
         </Card>
       </div>
-      <Card className="space-y-3 p-3 md:p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <Megaphone className="h-4 w-4 shrink-0" /> Campanhas segmentadas
+      <Card className={cn('space-y-3 p-3 shadow-sm md:p-4', getCrmStartSectionCardClass('campaigns'))}>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"><Megaphone className="h-4 w-4" /></span> Campanhas segmentadas
         </h3>
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
           Identifique públicos comerciais e abra campanhas existentes. A Start não cria campanhas nem envia mensagens; validação e revisão permanecem na Gestão CRM.
         </p>
         <div className="flex flex-wrap gap-2">
