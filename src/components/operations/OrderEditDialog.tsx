@@ -104,6 +104,7 @@ export function OrderEditDialog({
         unit_price: i.unit_price,
         notes: i.notes,
         commercial_presentation_id: i.commercial_presentation_id ?? null,
+        commercial_group_id: i.commercial_group_id ?? null,
         commercial_presentation_name: i.commercial_presentation_name ?? null,
         commercial_unit_label: i.commercial_unit_label ?? null,
         commercial_conversion_factor: i.commercial_conversion_factor ?? null,
@@ -141,6 +142,7 @@ export function OrderEditDialog({
       const product = products.find(p => p.id === value);
       (newItems[index] as any).variant_id = null;
       (newItems[index] as any).commercial_presentation_id = null;
+      (newItems[index] as any).commercial_group_id = null;
       (newItems[index] as any).commercial_presentation_name = null;
       (newItems[index] as any).commercial_unit_label = null;
       (newItems[index] as any).commercial_conversion_factor = null;
@@ -406,9 +408,17 @@ export function OrderEditDialog({
               ) : (
                 <div className="space-y-2">
                   {items.map((item, i) => (
-                    <div key={i} className="flex gap-2">
+                    <div key={item.id ?? i} className="space-y-1">
+                      {item.commercial_group_id && !items.slice(0, i).some(previous => previous.commercial_group_id === item.commercial_group_id) && (
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                          <strong>{item.commercial_presentation_name ?? 'Apresentação comercial'}</strong>
+                          <span className="ml-2 text-muted-foreground">· {item.commercial_quantity} {item.commercial_unit_label ?? 'kit(s)'} · componentes físicos abaixo</span>
+                        </div>
+                      )}
+                    <div className="flex gap-2">
                       <Select
                         value={item.product_id || ''}
+                        disabled={Boolean(item.commercial_group_id)}
                         onValueChange={(v) => updateItem(i, 'product_id', v)}
                       >
                         <SelectTrigger className="flex-1 h-10">
@@ -423,6 +433,7 @@ export function OrderEditDialog({
                       {variants.some(variant => variant.product_id === item.product_id) && (
                         <Select
                           value={item.variant_id || '__none__'}
+                          disabled={Boolean(item.commercial_group_id)}
                           onValueChange={(value) => {
                             const variant = variants.find(itemVariant => itemVariant.id === value);
                             updateItem(i, 'variant_id', value === '__none__' ? '' : value);
@@ -443,6 +454,7 @@ export function OrderEditDialog({
                         className="w-16 h-10"
                         placeholder="Qtd"
                         value={item.quantity || ''}
+                        disabled={Boolean(item.commercial_group_id)}
                         onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
                       />
                       <DecimalInput
@@ -454,9 +466,10 @@ export function OrderEditDialog({
                         min={0}
                         maxDecimals={10}
                       />
-                      <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => removeItem(i)}>
+                      <Button size="icon" variant="ghost" className="h-10 w-10" disabled={Boolean(item.commercial_group_id)} onClick={() => removeItem(i)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
                     </div>
                   ))}
                 </div>

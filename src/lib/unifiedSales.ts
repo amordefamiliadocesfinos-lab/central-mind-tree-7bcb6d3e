@@ -15,6 +15,7 @@ export interface UnifiedSaleItem {
   unit_price: number;
   notes?: string | null;
   commercial_presentation_id?: string | null;
+  commercial_group_id?: string | null;
   commercial_presentation_name?: string | null;
   commercial_unit_label?: string | null;
   commercial_conversion_factor?: number | null;

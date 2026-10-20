@@ -57,6 +57,7 @@ export interface OrderItem {
   unit_price: number | null;
   notes: string | null;
   commercial_presentation_id?: string | null;
+  commercial_group_id?: string | null;
   commercial_presentation_name?: string | null;
   commercial_unit_label?: string | null;
   commercial_conversion_factor?: number | null;
@@ -343,6 +344,7 @@ export function useOrders() {
         variant_id: item.variant_id || null,
         unit_price: item.unit_price || 0, notes: item.notes,
         commercial_presentation_id: item.commercial_presentation_id ?? null,
+        commercial_group_id: item.commercial_group_id ?? null,
         commercial_presentation_name: item.commercial_presentation_name ?? null,
         commercial_unit_label: item.commercial_unit_label ?? null,
         commercial_conversion_factor: item.commercial_conversion_factor ?? null,
@@ -494,6 +496,7 @@ export function useOrders() {
             unit_price: item.unit_price,
             notes: item.notes,
             commercial_presentation_id: item.commercial_presentation_id ?? null,
+            commercial_group_id: item.commercial_group_id ?? null,
             commercial_presentation_name: item.commercial_presentation_name ?? null,
             commercial_unit_label: item.commercial_unit_label ?? null,
             commercial_conversion_factor: item.commercial_conversion_factor ?? null,
