@@ -205,6 +205,77 @@ test('reused synchronizer pins shop/package on fresh re-read before any download
 });
 
 const glucodry={order:'2610203UYY7N0T',pkg:'OFG246133145190444',tracking:'BR262168766782H'};
+
+const faramb4={order:'2610204FARAMB4',pkg:'OFG246153907178767'};
+const faramb4Row=extra=>({order_sn:faramb4.order,package_number:faramb4.pkg,...extra});
+const faramb4Env={...env,SHOPEE_LIVE_LABEL_ORDER_SN:faramb4.order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:faramb4.pkg};
+
+test('PED-00281 exact pilot sends one signed document POST after claim, never ship_order',async()=>{
+ let sends=0;
+ const f=fixture({createDocument:createShippingDocument,fetchImpl:async(url,options)=>{
+  sends++;
+  const u=new URL(url);
+  assert.equal(u.origin,'https://partner.shopeemobile.com');
+  assert.equal(u.pathname,'/api/v2/logistics/create_shipping_document');
+  assert.equal(u.searchParams.get('shop_id'),'531736366');
+  assert.equal(options.method,'POST');assert.equal(options.redirect,'error');
+  assert.ok(options.signal instanceof AbortSignal);
+  assert.equal(count(f,'claim'),1);
+  assert.deepEqual(JSON.parse(options.body),{order_list:[faramb4Row({
+   tracking_number:'BR123456789',shipping_document_type:'NORMAL_AIR_WAYBILL'})]});
+  return new Response(JSON.stringify({error:'',response:{result_list:[faramb4Row()]}}));
+ }},faramb4);
+ assert.equal((await f.run()).code,'label_attached');assert.equal(sends,1);
+ const metadata=f.calls.find(c=>c[0]==='claim')[1];
+ assert.equal(metadata.channel_account_id,account);assert.equal(metadata.shop_id,531736366);
+ assert.equal(metadata.order_sn,faramb4.order);assert.equal(metadata.package_number,faramb4.pkg);
+ assert.equal(metadata.document_type,'NORMAL_AIR_WAYBILL');
+ assert.equal(f.calls.find(c=>c[0]==='resolve')[1].outcome,'succeeded');
+ assert.equal(count(f,'sync'),1);
+});
+
+for(const gate of ['SHOPEE_LIVE_LABEL_CREATE_ENABLED','SHOPEE_LIVE_LABEL_SYNC_ENABLED'])
+ for(const value of [undefined,'false'])test(`PED-00281 ${gate}=${value} blocks before network`,async()=>{
+  const f=fixture({getEnv:k=>k===gate?value:faramb4Env[k]},faramb4);
+  assert.equal((await f.run()).ok,false);assert.deepEqual(f.calls,[]);
+ });
+
+for(const [key,value] of Object.entries({
+ SHOPEE_LIVE_CHANNEL_ACCOUNT_ID:'other',SHOPEE_LIVE_LABEL_ORDER_SN:glucodry.order,
+ SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:glucodry.pkg,SHOPEE_LIVE_LABEL_SHOP_ID:'1',SHOPEE_LIVE_PARTNER_ID:'1',
+}))test('PED-00281 rejects mixed identity '+key,async()=>{
+ const f=fixture({getEnv:k=>k===key?value:faramb4Env[k]},faramb4);
+ assert.equal((await f.run()).code,'label_pilot_scope_mismatch');assert.deepEqual(f.calls,[]);
+});
+
+for(const status of ['READY','PROCESSING','FAILED'])test('PED-00281 existing '+status+' never claims or creates',async()=>{
+ const f=fixture({readResult:async()=>api({result_list:[faramb4Row({status})]})},faramb4);
+ assert.equal((await f.run()).code,{READY:'label_attached',PROCESSING:'document_processing',FAILED:'document_failed'}[status]);
+ assert.equal(count(f,'claim'),0);assert.equal(count(f,'create'),0);
+ assert.equal(count(f,'sync'),status==='READY'?1:0);
+});
+
+test('PED-00281 document timeout resolves uncertain once and locked retry never resends',async()=>{
+ let sends=0;
+ const f=fixture({createDocument:createShippingDocument,fetchImpl:async()=>{
+  sends++;throw new DOMException('synthetic','TimeoutError');
+ }},faramb4);
+ assert.equal((await f.run()).code,'document_creation_uncertain');assert.equal(sends,1);
+ assert.equal(count(f,'sync'),0);
+ assert.equal(f.calls.find(c=>c[0]==='resolve')[1].outcome,'uncertain');
+ const retry=fixture({claim:async()=>({ok:true,payload:{status:'uncertain_requires_reconciliation',fresh:false,attempt_id:id}})},faramb4);
+ assert.equal((await retry.run()).code,'document_claim_locked');assert.equal(count(retry,'create'),0);
+});
+
+test('PED-00281 invalid tracking or inactive window stops before document claim',async()=>{
+ for(const overrides of [
+  {readTracking:async()=>api({tracking_number:''})},
+  {getEnv:k=>k==='SHOPEE_LIVE_LABEL_CREATE_WINDOW_EXPIRES_AT'?'2020-01-01T00:00:00Z':faramb4Env[k]},
+ ]){
+  const f=fixture(overrides,faramb4);assert.equal((await f.run()).ok,false);
+  assert.equal(count(f,'claim'),0);assert.equal(count(f,'create'),0);assert.equal(count(f,'sync'),0);
+ }
+});
 test('Glucodry exact pilot creates once after durable claim and attaches READY PDF',async()=>{
  const f=fixture({},glucodry);
  assert.equal((await f.run()).code,'label_attached');
