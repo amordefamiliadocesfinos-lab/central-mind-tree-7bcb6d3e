@@ -89,6 +89,17 @@ function batchPayload(overrides = {}) {
   };
 }
 
+test('recurring intake requests exact raw order server-side and asks writer to verify existing canonical items', async () => {
+  const target = 'SYNTHETIC001'; let request, options;
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async data => { request = data; return { ok: true, payload: batchPayload({ snapshots: [snapshot(target)] }) }; },
+    persistOrder: async (_contract, opts) => { options = opts; return { ok: true, payload: { order_id: 'synthetic', already_registered: true } }; },
+  });
+  const result = await run({ channelAccountId: CHANNEL_ACCOUNT_ID, limit: 1, mode: 'commit', expectedOrderSn: target, verifyExisting: true });
+  assert.deepEqual(request, { channel_account_id: CHANNEL_ACCOUNT_ID, limit: 1, order_sn: target });
+  assert.deepEqual(options, { verifyExisting: true }); assert.equal(result.results[0].status, 'already_registered');
+});
+
 test('defaults to preview and never calls the writer', async () => {
   let writes = 0;
   const run = createShopeeControlledAutoIntake({

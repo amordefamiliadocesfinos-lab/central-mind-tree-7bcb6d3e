@@ -11,6 +11,8 @@ const POSITIVE_INTEGER_TEXT = /^[1-9]\d{0,18}$/;
 const encoder = new TextEncoder();
 
 const LIVE_ACTIONS = new Set([
+  'shopee.cycle.acquire',
+  'shopee.cycle.finish',
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
   'shopee.oauth_connection.read',
@@ -84,6 +86,22 @@ function validateActionPayload(payload, nowMs) {
   }
 
   if (!LIVE_ACTIONS.has(payload.action)) return false;
+
+  if (payload.action === 'shopee.cycle.acquire') {
+    return hasExactKeys(payload, ['action', 'channel_account_id']) && UUID.test(payload.channel_account_id);
+  }
+  if (payload.action === 'shopee.cycle.finish') {
+    const required = ['action','channel_account_id','lease_id','page','candidate_order_sn','outcome','code'];
+    if (!hasExactKeys(payload, required) || !UUID.test(payload.channel_account_id) || !UUID.test(payload.lease_id)
+      || !['pending','complete','blocked'].includes(payload.outcome)
+      || typeof payload.code !== 'string' || !/^[a-z0-9_]{1,100}$/.test(payload.code)
+      || !(payload.candidate_order_sn === null || (typeof payload.candidate_order_sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(payload.candidate_order_sn)))) return false;
+    if (payload.page === null) return true;
+    return hasExactKeys(payload.page, ['order_sns','next_cursor']) && Array.isArray(payload.page.order_sns)
+      && payload.page.order_sns.length <= 5 && new Set(payload.page.order_sns).size === payload.page.order_sns.length
+      && payload.page.order_sns.every(sn => typeof sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(sn))
+      && (payload.page.next_cursor === null || isBoundedText(payload.page.next_cursor, 2048));
+  }
 
   if (payload.action === 'shopee.oauth_state.create') {
     if (!hasExactKeys(payload, ['action', 'channel_account_id', 'state_hash', 'expires_at'])) return false;
@@ -210,8 +228,9 @@ function validateActionPayload(payload, nowMs) {
   }
 
   if (payload.action === 'shopee.order_intake_batch.read') {
-    if (!hasExactKeys(payload, ['action', 'channel_account_id'], ['limit'])) return false;
+    if (!hasExactKeys(payload, ['action', 'channel_account_id'], ['limit', 'order_sn'])) return false;
     return UUID.test(payload.channel_account_id)
+      && (payload.order_sn === undefined || (typeof payload.order_sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(payload.order_sn)))
       && (payload.limit === undefined
         || (Number.isSafeInteger(payload.limit) && payload.limit >= 1 && payload.limit <= 20));
   }
@@ -228,7 +247,8 @@ function validateActionPayload(payload, nowMs) {
       'external_status',
       'items',
     ];
-    if (!hasExactKeys(payload, required, ['buyer_message'])) return false;
+    if (!hasExactKeys(payload, required, ['buyer_message', 'verify_existing'])) return false;
+    if (payload.verify_existing !== undefined && typeof payload.verify_existing !== 'boolean') return false;
     if (payload.buyer_message !== undefined
       && !isBoundedText(payload.buyer_message, 4000, { nullable: true })) return false;
     if (!UUID.test(payload.channel_account_id)

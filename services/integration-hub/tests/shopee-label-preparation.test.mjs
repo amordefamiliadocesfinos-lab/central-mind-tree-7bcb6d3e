@@ -41,6 +41,37 @@ function fixture(overrides={}, pilot={order,pkg}) {
 }
 const count=(f,name)=>f.calls.filter(c=>c[0]===name).length;
 
+test('recurring scope admits new exact orders without adding hardcoded pilots; pilot endpoint remains unchanged',async()=>{
+ const pilot={order:'SYNTHETICNEW001',pkg:'SYNTHETICPKG001'};
+ const scoped={...env,SHOPEE_LIVE_CYCLE_ENABLED:'true',SHOPEE_LIVE_LABEL_ORDER_SN:pilot.order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:pilot.pkg};
+ const f=fixture({getEnv:k=>scoped[k],recurringScope:{account,shop:531736366,partner:2047685,order:pilot.order,package:pilot.pkg}},pilot);
+ assert.equal((await f.run()).code,'label_attached');assert.equal(count(f,'create'),1);
+ const manual=fixture({getEnv:k=>scoped[k]},pilot);
+ assert.equal((await manual.run()).code,'label_pilot_scope_mismatch');assert.deepEqual(manual.calls,[]);
+});
+test('recurring scope refuses another account/shop or missing cycle gate before all I/O',async()=>{
+ const pilot={order:'SYNTHETICNEW002',pkg:'SYNTHETICPKG002'};
+ const scoped={...env,SHOPEE_LIVE_CYCLE_ENABLED:'true',SHOPEE_LIVE_LABEL_ORDER_SN:pilot.order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:pilot.pkg};
+ for(const patch of [{account:id},{shop:1},{partner:1}]){
+  const f=fixture({getEnv:k=>scoped[k],recurringScope:{account,shop:531736366,partner:2047685,order:pilot.order,package:pilot.pkg,...patch}},pilot);
+  assert.equal((await f.run()).ok,false);assert.deepEqual(f.calls,[]);
+ }
+ const f=fixture({getEnv:k=>k==='SHOPEE_LIVE_CYCLE_ENABLED'?undefined:scoped[k],recurringScope:{account,shop:531736366,partner:2047685,order:pilot.order,package:pilot.pkg}},pilot);
+ assert.equal((await f.run()).ok,false);assert.deepEqual(f.calls,[]);
+});
+test('recurring PROCESSING follow-up performs reads only and then synchronizes READY',async()=>{
+ const pilot={order:'SYNTHETICNEW003',pkg:'SYNTHETICPKG003'};
+ const scoped={...env,SHOPEE_LIVE_CYCLE_ENABLED:'true',SHOPEE_LIVE_LABEL_ORDER_SN:pilot.order,SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:pilot.pkg};
+ let durable=null,ready=false,posts=0;
+ const options={getEnv:k=>scoped[k],recurringScope:{account,shop:531736366,partner:2047685,order:pilot.order,package:pilot.pkg},
+  claim:async()=>durable?{ok:true,payload:{status:'already_succeeded',fresh:false,attempt_id:id}}:{ok:true,payload:{status:'claimed',fresh:true,attempt_id:id}},
+  createDocument:async()=>{posts++;durable='succeeded';return api({result_list:[{order_sn:pilot.order,package_number:pilot.pkg}]});},
+  readResult:async()=>durable?api({result_list:[{order_sn:pilot.order,package_number:pilot.pkg,status:ready?'READY':'PROCESSING'}]}):missing()};
+ const first=fixture(options,pilot);assert.equal((await first.run()).code,'document_processing');
+ ready=true;const second=fixture(options,pilot);assert.equal((await second.run()).code,'label_attached');
+ assert.equal(posts,1);assert.equal(count(second,'claim'),0);
+});
+
 test('previous pilot is refused before any network or durable claim',async()=>{
  const previous={...env,SHOPEE_LIVE_LABEL_ORDER_SN:'261016Q0YF8VVT',SHOPEE_LIVE_LABEL_PACKAGE_NUMBER:'OFG245791336122517'};
  const f=fixture({getEnv:k=>previous[k]});

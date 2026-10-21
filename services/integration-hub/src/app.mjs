@@ -1,3 +1,4 @@
+import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
@@ -31,6 +32,7 @@ function json(status, body) {
 export async function handleRequest(
   request,
   {
+    runMinimumCycle = runShopeeMinimumCycle,
     probeCore = probeCoreBridge,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
@@ -277,6 +279,21 @@ export async function handleRequest(
         orderSn,
         code: 'runtime_exception',
       });
+    }
+  }
+
+  if (normalizedPath === '/internal/shopee/live/cycle/run') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if ((request.query && Object.keys(request.query).length) || Number(request.headers?.['content-length'] ?? 0) !== 0
+      || request.headers?.['transfer-encoding'] || (request.body != null && request.body !== '')) return json(400, { error: 'body_or_query_not_allowed' });
+    if (String(getEnv('SHOPEE_LIVE_CYCLE_ENABLED') ?? '').trim().toLowerCase() !== 'true') return json(503, { error: 'cycle_not_enabled' });
+    try {
+      const result = await runMinimumCycle();
+      logEvent({ event: 'shopee_minimum_cycle', runId: makeRunId(), ...result });
+      return json(result?.ok ? 200 : 503, result);
+    } catch {
+      logEvent({ event: 'shopee_minimum_cycle', code: 'cycle_checkpoint_or_runtime_failure' });
+      return json(503, { ok: false, code: 'cycle_checkpoint_or_runtime_failure' });
     }
   }
 

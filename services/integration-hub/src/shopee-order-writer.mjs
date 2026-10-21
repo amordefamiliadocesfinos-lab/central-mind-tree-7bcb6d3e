@@ -59,7 +59,7 @@ export function buildShopeeOrderCreateRequest(contract) {
 
 export async function persistShopeeOrderContract(contract, options = {}) {
   const request = buildShopeeOrderCreateRequest(contract);
-  return createLiveShopeeOrder(request, options);
+  return createLiveShopeeOrder({ ...request, ...(options.verifyExisting ? { verify_existing: true } : {}) }, options);
 }
 
 export const SHOPEE_ORDER_WRITER_CONTRACT = Object.freeze({

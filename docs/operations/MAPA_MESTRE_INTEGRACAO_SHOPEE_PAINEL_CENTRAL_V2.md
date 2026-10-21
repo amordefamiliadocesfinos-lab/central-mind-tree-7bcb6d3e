@@ -559,3 +559,22 @@ Manter exatamente três colunas de Operações: **A FAZER (todo)**, **EM PREPARA
 **Proibições explícitas:** não aplicar migration `20261015233000` neste PR, não acionar Shopee Live nem OAuth, não publicar Hub/Edge, não habilitar gates/scheduler, não gerar etiqueta automaticamente, não marcar `FINALIZADO`. Só após testes da PR será preparada uma janela separada para migration, publicação e uma prova real autorizada.
 
 **Nota de continuidade:** a rota de preflight read-only continua separada, e o fluxo F6-O.2e.3 de criação/recuperação de etiqueta não é substituído por `ship_order`.
+
+### 11.8 F6 — ciclo mínimo recorrente (implementação para revisão, não habilitado)
+
+Continuidade localizada de F6, preservando as frentes F1–F10: descoberta por
+`update_time` com cursor e fila duráveis por conta; lease exclusivo; intake/raw/
+projeção/mappings existentes; conferência de integridade do pedido canônico;
+reutilização do preparador com claim permanente e sincronização do PDF privado.
+Somente SHOPEE VIVIANE é admitida nesta entrega. Nenhum novo Order SN precisa
+ser cadastrado no código para o ciclo recorrente. NF-e e organização do envio
+continuam no Seller Center; fato físico, impressão, separação e estoque continuam
+sob autoridade exclusiva de Operações.
+
+Status: código e migration **preparados para PR em rascunho**. Não representa
+migration aplicada, publicação, Scheduler/gates habilitados ou validação Live.
+Habilitação e observação produtiva dependem de autorização separada. Contrato,
+limites e sequência de ativação em [F6_CICLO_MINIMO_RECORRENTE_SHOPEE.md](F6_CICLO_MINIMO_RECORRENTE_SHOPEE.md).
+
+PED-00281: etiqueta existente preservada; coleta física informada pelo operador
+em 21/10/2026. Nenhuma nova ação desse pedido é autorizada por este registro.
