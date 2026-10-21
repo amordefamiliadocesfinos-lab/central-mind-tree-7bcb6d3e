@@ -23,6 +23,12 @@ export type PhysicalCatalog = { products: PhysicalProduct[]; variants: NonNullab
  * controlled in grams and must remain available to BOM/production, not Sales.
  * This is a commercial eligibility rule, not an is_active/stock mutation.
  */
+export const GLUCODRY_PRODUCT_ID = '92088a70-8cc0-40ef-a39d-564603df6866';
+export const GLUCODRY_GD2_PRESENTATION_ID = '8dd3b126-36bd-4bb2-a695-bdbfefdc8507';
+export function isGlucodryGD2(presentationId: string | null | undefined): boolean {
+  return presentationId === GLUCODRY_GD2_PRESENTATION_ID;
+}
+
 const GLUCOSE_PRODUCT_ID = '788f7d5a-276c-49c8-8171-cccf7621e2fe';
 const GLUCOSE_PRODUCTION_VARIANT_ID = '222c4ec7-45da-4a1c-961e-d61ac2a914d4';
 
@@ -42,6 +48,8 @@ export function getDefaultCommercialUnitPrice(
   variant?: PhysicalVariant,
   presentation?: Pick<CommercialPresentation, 'conversion_factor'> | null,
 ) {
+  // Referência de laboratório GD2; o valor segue editável pelo operador.
+  if (product.id === GLUCODRY_PRODUCT_ID && isGlucodryGD2((presentation as { id?: string } | null)?.id)) return 449;
   const physicalUnitPrice = variant?.price_override ?? product.price ?? 0;
   const factor = Number(presentation?.conversion_factor ?? 1);
   return Number.isFinite(factor) && factor > 0 ? Number(physicalUnitPrice) * factor : Number(physicalUnitPrice);
@@ -61,6 +69,10 @@ export function buildCommercialOrderItem(
 ) {
   assertSaleVariantAllowed(product.id, variant?.id);
   const selected = presentation ?? directCommercialPresentation(product, variant);
+  const sealedGD2 = product.id === GLUCODRY_PRODUCT_ID && isGlucodryGD2(presentation?.id);
+  if (sealedGD2 && (commercialQuantity !== 1 || Number(selected.conversion_factor) !== 1)) {
+    throw new Error('Glucodry GD2 permite somente um saco fechado de 25 kg por pedido.');
+  }
   const factor = Number(selected.conversion_factor);
   if (!Number.isFinite(commercialQuantity) || commercialQuantity <= 0) {
     throw new Error('Informe uma quantidade comercial maior que zero.');
@@ -79,7 +91,7 @@ export function buildCommercialOrderItem(
     commercial_unit_label: selected.commercial_unit_label,
     commercial_conversion_factor: factor,
     commercial_quantity: commercialQuantity,
-    physical_unit_label: getPhysicalIdentityUnit(product, variant),
+    physical_unit_label: sealedGD2 ? 'saco' : getPhysicalIdentityUnit(product, variant),
   };
 }
 

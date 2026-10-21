@@ -59,6 +59,7 @@ import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrde
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
 import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
+import { GlucodrySealedStockManager } from '@/components/operations/GlucodrySealedStockManager';
 import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
@@ -85,7 +86,7 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -362,6 +363,14 @@ export default function Operacoes() {
     unit: string | null;
   }>>([]);
   const [financialAccounts, setFinancialAccounts] = useState<Array<{ id: string; name: string }>>([]);
+  const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
+  useEffect(() => {
+    if (!showSaleDialog) return;
+    (supabase as any).from('glucodry_sealed_stock').select('sacks')
+      .then(({ data, error }: any) => {
+        setGlucodrySealedSacks(error ? null : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
+      });
+  }, [showSaleDialog]);
 
   useEffect(() => {
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
@@ -410,6 +419,7 @@ export default function Operacoes() {
     ?.product;
 
   const getSaleItemStockBalance = (item: NewSaleItem) => {
+    if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
     return getInventoryBalanceByIdentity(storeInventory, item.product_id, item.variant_id);
@@ -419,7 +429,7 @@ export default function Operacoes() {
     const balance = getSaleItemStockBalance(item);
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (balance === null) return '—';
-    return `${balance} ${product?.unit || 'un'}`;
+    return isGlucodryGD2(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleAddProduct = async () => {
@@ -1521,6 +1531,7 @@ export default function Operacoes() {
 
             <PurchasePresentationManager products={rawProducts} />
             <BiscuitBoxStockManager onConverted={refetch} />
+            <GlucodrySealedStockManager onConverted={refetch} />
 
             <div className="space-y-3">
               {filteredProducts.map((product) => {
