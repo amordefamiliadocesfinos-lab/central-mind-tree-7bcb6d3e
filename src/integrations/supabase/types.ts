@@ -4110,6 +4110,7 @@ export type Database = {
       order_items: {
         Row: {
           commercial_conversion_factor: number | null
+          commercial_group_id: string | null
           commercial_presentation_id: string | null
           commercial_presentation_name: string | null
           commercial_quantity: number | null
@@ -4125,6 +4126,7 @@ export type Database = {
         }
         Insert: {
           commercial_conversion_factor?: number | null
+          commercial_group_id?: string | null
           commercial_presentation_id?: string | null
           commercial_presentation_name?: string | null
           commercial_quantity?: number | null
@@ -4140,6 +4142,7 @@ export type Database = {
         }
         Update: {
           commercial_conversion_factor?: number | null
+          commercial_group_id?: string | null
           commercial_presentation_id?: string | null
           commercial_presentation_name?: string | null
           commercial_quantity?: number | null
@@ -8570,6 +8573,10 @@ export type Database = {
       delete_production_closing: {
         Args: { p_closing_id: string }
         Returns: Json
+      }
+      ensure_portogel_production_material: {
+        Args: { p_production_fact_id: string; p_required_g: number }
+        Returns: number
       }
       finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
       finalize_order_separation_unguarded_01b: {
