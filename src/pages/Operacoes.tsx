@@ -86,7 +86,7 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2 } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -364,11 +364,21 @@ export default function Operacoes() {
   }>>([]);
   const [financialAccounts, setFinancialAccounts] = useState<Array<{ id: string; name: string }>>([]);
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
+  const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
   useEffect(() => {
     if (!showSaleDialog) return;
     (supabase as any).from('glucodry_sealed_stock').select('sacks')
       .then(({ data, error }: any) => {
         setGlucodrySealedSacks(error ? null : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
+      });
+    // CB3: availability is in original sealed sacks, NOT the existing grams balance.
+    (supabase as any).from('chocolate_sealed_stock').select('variant_id,sacks')
+      .then(({ data, error }: any) => {
+        if (error) { setChocolateSealedSacks(null); return; }
+        setChocolateSealedSacks((data ?? []).reduce((acc: Record<string,number>, row: { variant_id:string; sacks:number }) => {
+          acc[row.variant_id] = (acc[row.variant_id] ?? 0) + Number(row.sacks);
+          return acc;
+        }, {}));
       });
   }, [showSaleDialog]);
 
@@ -420,6 +430,7 @@ export default function Operacoes() {
 
   const getSaleItemStockBalance = (item: NewSaleItem) => {
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
+    if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
     return getInventoryBalanceByIdentity(storeInventory, item.product_id, item.variant_id);
@@ -429,7 +440,7 @@ export default function Operacoes() {
     const balance = getSaleItemStockBalance(item);
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (balance === null) return '—';
-    return isGlucodryGD2(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
+    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleAddProduct = async () => {
