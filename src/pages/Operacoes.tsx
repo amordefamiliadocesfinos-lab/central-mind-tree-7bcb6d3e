@@ -58,6 +58,7 @@ import { OperationalDestinationFields } from '@/components/operations/Operationa
 import { PendingOrderDocumentsFields } from '@/components/operations/PendingOrderDocumentsFields';
 import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
+import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
 import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
@@ -390,7 +391,15 @@ export default function Operacoes() {
     }
   }, [editingProduct?.id]);
 
-  const getProductBalance = (productId: string) => productBalances[productId] || 0;
+  const getProductBalance = (productId: string) => {
+    // O Biscoito BA3 tem caixas físicas (cx) e biscoitos (un) no mesmo Mestre.
+    // Nunca somar unidades incompatíveis no agregado do Produto Mestre.
+    if (productId === 'c4580ad6-e53a-4a36-9696-a65f2a95da00') {
+      return getInventoryBalanceByIdentity(storeInventory, productId, 'fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc')
+        + getInventoryBalanceByIdentity(storeInventory, productId, '34188174-5906-4f92-a16d-4e5207f37dd5');
+    }
+    return productBalances[productId] || 0;
+  };
 
   const saleSubtotal = newSale.items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0);
   const saleTotal = Math.max(0, saleSubtotal - newSale.discount_amount + newSale.shipping_amount);
@@ -1510,6 +1519,7 @@ export default function Operacoes() {
             </div>
 
             <PurchasePresentationManager products={rawProducts} />
+            <BiscuitBoxStockManager onConverted={refetch} />
 
             <div className="space-y-3">
               {filteredProducts.map((product) => {
