@@ -3,7 +3,7 @@
 -- Old variant histories remain untouched.
 CREATE OR REPLACE FUNCTION public.ensure_portogel_production_material(
  p_production_fact_id uuid, p_required_g numeric
-) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+) RETURNS numeric LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'public'
 AS $function$
 DECLARE
  v_product constant uuid := '6e757550-a9b6-4644-8164-8c802760e373';
@@ -90,3 +90,6 @@ BEGIN
  RETURN v_moved;
 END;
 $function$;
+
+-- Internal-only helper; callers must use canonical security-definer production writers.
+REVOKE EXECUTE ON FUNCTION public.ensure_portogel_production_material(uuid,numeric) FROM PUBLIC, anon, authenticated;
