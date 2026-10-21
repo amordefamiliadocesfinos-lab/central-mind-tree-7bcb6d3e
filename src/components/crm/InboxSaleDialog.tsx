@@ -22,7 +22,7 @@ import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2 } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
@@ -82,6 +82,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
   const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null; unit: string | null }>>([]);
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
+  const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
@@ -104,6 +105,15 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     (supabase as any).from('glucodry_sealed_stock').select('sacks')
       .then(({ data, error }: any) => {
         setGlucodrySealedSacks(error ? null : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
+      });
+    // CB3: availability is in original sealed sacks, NOT the existing grams balance.
+    (supabase as any).from('chocolate_sealed_stock').select('variant_id,sacks')
+      .then(({ data, error }: any) => {
+        if (error) { setChocolateSealedSacks(null); return; }
+        setChocolateSealedSacks((data ?? []).reduce((acc: Record<string,number>, row: { variant_id:string; sacks:number }) => {
+          acc[row.variant_id] = (acc[row.variant_id] ?? 0) + Number(row.sacks);
+          return acc;
+        }, {}));
       });
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
@@ -145,6 +155,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
   const getItemStockBalance = (item: SaleItem) => {
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
+    if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
     return getInventoryBalanceByIdentity(inventory, item.product_id, item.variant_id ?? null);
@@ -154,7 +165,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     const balance = getItemStockBalance(item);
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (balance === null) return '—';
-    return isGlucodryGD2(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
+    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleSave = async () => {

@@ -29,6 +29,13 @@ export function isGlucodryGD2(presentationId: string | null | undefined): boolea
   return presentationId === GLUCODRY_GD2_PRESENTATION_ID;
 }
 
+export const CHOCOLATE_BASE_PRODUCT_ID = 'c70dd4b4-bc59-4d88-81ef-1a8c47315560';
+export const CHOCOLATE_CB3_BRANCO_ID = 'c8b30000-0000-4000-8000-000000000001';
+export const CHOCOLATE_CB3_MEIO_AMARGO_ID = 'c8b30000-0000-4000-8000-000000000002';
+export function isChocolateCB3(presentationId: string | null | undefined): boolean {
+  return presentationId === CHOCOLATE_CB3_BRANCO_ID || presentationId === CHOCOLATE_CB3_MEIO_AMARGO_ID;
+}
+
 const GLUCOSE_PRODUCT_ID = '788f7d5a-276c-49c8-8171-cccf7621e2fe';
 const GLUCOSE_PRODUCTION_VARIANT_ID = '222c4ec7-45da-4a1c-961e-d61ac2a914d4';
 
@@ -46,8 +53,10 @@ function assertSaleVariantAllowed(productId: string, variantId: string | null | 
 export function getDefaultCommercialUnitPrice(
   product: PhysicalProduct & { price?: number | null },
   variant?: PhysicalVariant,
-  presentation?: Pick<CommercialPresentation, 'conversion_factor'> | null,
+  presentation?: (Pick<CommercialPresentation, 'conversion_factor'> & { id?: string }) | null,
 ) {
+  // The CB3 bag has a negotiated selling price, NOT the variant's per-gram cost.
+  if (product.id === CHOCOLATE_BASE_PRODUCT_ID && isChocolateCB3(presentation?.id)) return 0;
   // Referência de laboratório GD2; o valor segue editável pelo operador.
   if (product.id === GLUCODRY_PRODUCT_ID && isGlucodryGD2((presentation as { id?: string } | null)?.id)) return 449;
   const physicalUnitPrice = variant?.price_override ?? product.price ?? 0;
@@ -70,6 +79,16 @@ export function buildCommercialOrderItem(
   assertSaleVariantAllowed(product.id, variant?.id);
   const selected = presentation ?? directCommercialPresentation(product, variant);
   const sealedGD2 = product.id === GLUCODRY_PRODUCT_ID && isGlucodryGD2(presentation?.id);
+  const sealedCB3 = product.id === CHOCOLATE_BASE_PRODUCT_ID && isChocolateCB3(presentation?.id);
+  if (sealedCB3 && (!Number.isSafeInteger(commercialQuantity) || commercialQuantity<1 ||
+    Number(selected.conversion_factor)!==1 || !variant ||
+    (presentation?.id === CHOCOLATE_CB3_BRANCO_ID && variant.id !== 'f6588f52-6e28-4ce9-b492-a95c847d5c0c') ||
+    (presentation?.id === CHOCOLATE_CB3_MEIO_AMARGO_ID && variant.id !== '1a3d59a6-4712-4afd-811a-5a72aad76fa9'))) {
+    throw new Error('Chocolate CB3 exige saco original lacrado de 20 kg da cobertura correta.');
+  }
+  if (sealedCB3 && (!Number.isFinite(unitPrice) || unitPrice<=0)) {
+    throw new Error('Informe o preço comercial do saco fechado de Chocolate CB3.');
+  }
   if (sealedGD2 && (commercialQuantity !== 1 || Number(selected.conversion_factor) !== 1)) {
     throw new Error('Glucodry GD2 permite somente um saco fechado de 25 kg por pedido.');
   }
@@ -91,7 +110,7 @@ export function buildCommercialOrderItem(
     commercial_unit_label: selected.commercial_unit_label,
     commercial_conversion_factor: factor,
     commercial_quantity: commercialQuantity,
-    physical_unit_label: sealedGD2 ? 'saco' : getPhysicalIdentityUnit(product, variant),
+    physical_unit_label: sealedGD2 || sealedCB3 ? 'saco' : getPhysicalIdentityUnit(product, variant),
   };
 }
 

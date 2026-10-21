@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { expandCommercialOrderItem, getOrderItemLineTotal, isSaleVariantAllowed, GLUCODRY_PRODUCT_ID, GLUCODRY_GD2_PRESENTATION_ID } from './commercialOrderItem';
+import { expandCommercialOrderItem, getOrderItemLineTotal, isSaleVariantAllowed, GLUCODRY_PRODUCT_ID, GLUCODRY_GD2_PRESENTATION_ID, CHOCOLATE_BASE_PRODUCT_ID, CHOCOLATE_CB3_BRANCO_ID, CHOCOLATE_CB3_MEIO_AMARGO_ID, isChocolateCB3, getDefaultCommercialUnitPrice } from './commercialOrderItem';
 import type { CommercialPresentation } from '../products/commercialPresentation';
 const a={id:'a',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
 const t30={id:'t30',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
@@ -154,4 +154,46 @@ test('Glucodry GD1 continua em gramas; GD2 é exatamente um saco lacrado', () =>
   assert.equal(bag.commercial_presentation_id,GLUCODRY_GD2_PRESENTATION_ID);
   assert.equal(getOrderItemLineTotal(bag),449);
   assert.throws(() => expandCommercialOrderItem(product,null,2,449,gd2),/somente um saco/);
+});
+
+test('Chocolate CB3: saco original lacrado não consome gramas abertas', () => {
+  const product={id:CHOCOLATE_BASE_PRODUCT_ID,unit:'g',variation_mode:'variacoes_fisicas',is_active:true,price:null};
+  const branco={id:'f6588f52-6e28-4ce9-b492-a95c847d5c0c',product_id:product.id,unit:'g',is_active:true,price_override:0.0165};
+  const amargo={id:'1a3d59a6-4712-4afd-811a-5a72aad76fa9',product_id:product.id,unit:'g',is_active:true,price_override:0.0175};
+  const make=(id:string,variantId:string):CommercialPresentation=>({
+    id,product_id:product.id,variant_id:variantId,name:'Saco original fechado 20 kg',
+    commercial_unit_label:'saco',conversion_factor:1,composition_mode:'single',
+    is_active:true,notes:null,created_at:'',updated_at:'',
+  });
+  const cb3Branco=make(CHOCOLATE_CB3_BRANCO_ID,branco.id);
+  const cb3Amargo=make(CHOCOLATE_CB3_MEIO_AMARGO_ID,amargo.id);
+  assert.equal(isChocolateCB3(cb3Branco.id),true);
+  assert.equal(isChocolateCB3(cb3Amargo.id),true);
+  assert.equal(getDefaultCommercialUnitPrice(product,branco,cb3Branco),0); // commercial price NOT cost/g
+  for(const [variant,presentation,price] of [[branco,cb3Branco,355],[amargo,cb3Amargo,390]] as const){
+    const [line]=expandCommercialOrderItem(product,variant,4,price,presentation);
+    assert.equal(line.quantity,4); // 4 original sealed sacks, NOT 80,000g
+    assert.equal(line.commercial_quantity,4);
+    assert.equal(line.physical_unit_label,'saco');
+    assert.equal(line.variant_id,variant.id);
+    assert.equal(line.commercial_presentation_id,presentation.id);
+    assert.equal(getOrderItemLineTotal(line),4*price);
+    assert.throws(()=>expandCommercialOrderItem(product,variant,1,0,presentation),/preço comercial/);
+    assert.throws(()=>expandCommercialOrderItem(product,variant,1.5,price,presentation),/saco original lacrado/);
+  }
+  assert.throws(()=>expandCommercialOrderItem(product,amargo,1,390,cb3Branco),/cobertura correta/);
+});
+
+test('Chocolate CB1/CB2 preservado em gramas no mesmo Produto Mestre', () => {
+  const product={id:CHOCOLATE_BASE_PRODUCT_ID,unit:'g',variation_mode:'variacoes_fisicas',is_active:true,price:null};
+  const branco={id:'f6588f52-6e28-4ce9-b492-a95c847d5c0c',product_id:product.id,unit:'g',is_active:true,price_override:0.0165};
+  const kg:CommercialPresentation={
+    id:'576743c6-67a8-4ad2-8fb1-8a171f6e2e82',product_id:product.id,variant_id:branco.id,
+    name:'kg',commercial_unit_label:'kg',conversion_factor:1000,composition_mode:'single',
+    is_active:true,notes:null,created_at:'',updated_at:'',
+  };
+  const [line]=expandCommercialOrderItem(product,branco,10,210,kg);
+  assert.equal(line.quantity,10000);
+  assert.equal(line.physical_unit_label,'g');
+  assert.equal(getOrderItemLineTotal(line),2100);
 });
