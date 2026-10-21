@@ -22,7 +22,7 @@ import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
@@ -98,7 +98,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     supabase.from('financial_accounts').select('id,name').eq('is_active', true).order('name')
       .then(({ data }) => setAccounts(data || []));
     (supabase as any).from('product_variants').select('id,product_id,variant_name,sku,price_override,unit').eq('is_active', true).order('variant_name')
-      .then(({ data }: any) => setVariants(data || []));
+      .then(({ data }: any) => setVariants((data || []).filter((variant: { product_id: string; id: string }) =>
+        isSaleVariantAllowed(variant.product_id, variant.id))));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
