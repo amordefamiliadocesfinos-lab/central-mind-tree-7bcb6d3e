@@ -25,7 +25,7 @@ BEGIN
     INSERT INTO public.product_variants (
       product_id, sku, variant_name, unit, attributes, is_active
     ) VALUES (
-      v_product, v_row.box_sku, v_row.flavor || ' · Caixa fechada 8 kg',
+      v_product, v_row.box_sku, v_row.flavor || ' (caixa lacrada)',
       'cx',
       jsonb_build_object('flavor', v_row.flavor, 'physical_form', 'sealed_supplier_box',
                          'source_unit_variant_id', v_row.unit_variant_id::text,
