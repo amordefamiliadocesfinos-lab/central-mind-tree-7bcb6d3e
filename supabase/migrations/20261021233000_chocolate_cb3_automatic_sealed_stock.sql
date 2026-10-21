@@ -90,8 +90,8 @@ BEGIN
  v_remaining:=ceil(v_short/20000)::integer;
  FOR v_pack IN
   SELECT storage_location_id,sacks FROM public.chocolate_sealed_stock
-  WHERE variant_id=p_variant_id AND sacks>0
-  ORDER BY CASE WHEN storage_location_id=v_location_id THEN 0 ELSE 1 END,storage_location_id
+  WHERE variant_id=p_variant_id AND storage_location_id=v_location_id AND sacks>0
+  ORDER BY storage_location_id
   FOR UPDATE
  LOOP
   EXIT WHEN v_remaining<=0;
@@ -871,11 +871,10 @@ BEGIN
   FOR v_component IN SELECT pc.component_id,pc.variant_id,sum(pc.qty_per_unit*item.produced_quantity) required_quantity,p.name component_name,pv.variant_name,COALESCE(pv.sku,p.sku) component_sku FROM public.production_order_items item JOIN public.product_components pc ON pc.product_id=item.product_id AND pc.product_variant_id IS NOT DISTINCT FROM item.variant_id JOIN public.products p ON p.id=pc.component_id LEFT JOIN public.product_variants pv ON pv.id=pc.variant_id WHERE item.production_order_id=v_order.id GROUP BY pc.component_id,pc.variant_id,p.name,pv.variant_name,p.sku,pv.sku LOOP
     v_available:=0; FOR v_inventory IN SELECT quantity FROM public.inventory WHERE product_id=v_component.component_id AND variant_id IS NOT DISTINCT FROM v_component.variant_id FOR UPDATE LOOP v_available:=v_available+v_inventory.quantity; END LOOP;
     IF v_component.component_id='c70dd4b4-bc59-4d88-81ef-1a8c47315560'::uuid
-      AND v_component.variant_id IN ('f6588f52-6e28-4ce9-b492-a95c847d5c0c'::uuid,'1a3d59a6-4712-4afd-811a-5a72aad76fa9'::uuid) AND v_available<v_component.required_quantity THEN
-      PERFORM public.ensure_chocolate_production_material(v_order.id,v_component.variant_id,
-        v_component.required_quantity,'production_order');
-      SELECT coalesce(sum(quantity),0) INTO v_available FROM public.inventory
-      WHERE product_id=v_component.component_id AND variant_id=v_component.variant_id;
+      AND v_component.variant_id IN ('f6588f52-6e28-4ce9-b492-a95c847d5c0c'::uuid,'1a3d59a6-4712-4afd-811a-5a72aad76fa9'::uuid) THEN
+      v_available:=v_available+COALESCE((SELECT sum(sacks)*20000 FROM public.chocolate_sealed_stock
+      WHERE variant_id=v_component.variant_id AND storage_location_id=(
+        SELECT id FROM public.storage_locations WHERE name='Fábrica' AND is_active LIMIT 1)),0);
     END IF;
     IF v_available<v_component.required_quantity THEN v_shortages:=v_shortages||jsonb_build_array(jsonb_build_object('product_id',v_component.component_id,'variant_id',v_component.variant_id,'component_name',v_component.component_name,'component_variant_name',v_component.variant_name,'component_sku',v_component.component_sku,'required_quantity',v_component.required_quantity,'available_quantity',v_available,'missing_quantity',v_component.required_quantity-v_available)); END IF;
     v_count:=v_count+1;
@@ -883,7 +882,13 @@ BEGIN
   IF v_count=0 THEN RETURN jsonb_build_object('success',false,'reason','missing_bom','missing_bom_items',v_missing_bom_items,'shortages','[]'::jsonb); END IF;
   IF jsonb_array_length(v_shortages)>0 THEN RETURN jsonb_build_object('success',false,'reason','insufficient_stock','shortages',v_shortages); END IF;
   FOR v_component IN SELECT pc.component_id,pc.variant_id,sum(pc.qty_per_unit*item.produced_quantity) required_quantity FROM public.production_order_items item JOIN public.product_components pc ON pc.product_id=item.product_id AND pc.product_variant_id IS NOT DISTINCT FROM item.variant_id WHERE item.production_order_id=v_order.id GROUP BY pc.component_id,pc.variant_id LOOP
-    v_remaining:=v_component.required_quantity; FOR v_inventory IN SELECT id,location,quantity FROM public.inventory WHERE product_id=v_component.component_id AND variant_id IS NOT DISTINCT FROM v_component.variant_id AND quantity>0 ORDER BY quantity DESC,id FOR UPDATE LOOP EXIT WHEN v_remaining<=0; v_take:=LEAST(v_remaining,v_inventory.quantity); v_key:='production:'||v_order.id::text||':consume:'||v_component.component_id::text||':'||COALESCE(v_component.variant_id::text,'simple')||':'||COALESCE(v_inventory.location,'sem-localizacao'); UPDATE public.inventory SET quantity=quantity-v_take,updated_at=now() WHERE id=v_inventory.id; INSERT INTO public.inventory_movements(product_id,variant_id,movement_type,quantity,previous_balance,new_balance,location,reference_type,reference_id,event_key,notes) VALUES(v_component.component_id,v_component.variant_id,'consume',v_take,v_inventory.quantity,v_inventory.quantity-v_take,v_inventory.location,'production_order',v_order.id,v_key,'Consumo por conclusão da OP '||COALESCE(v_order.internal_production_number,v_order.order_number,v_order.id::text)); v_remaining:=v_remaining-v_take; END LOOP;
+    v_remaining:=v_component.required_quantity;
+    IF v_component.component_id='c70dd4b4-bc59-4d88-81ef-1a8c47315560'::uuid
+      AND v_component.variant_id IN ('f6588f52-6e28-4ce9-b492-a95c847d5c0c'::uuid,'1a3d59a6-4712-4afd-811a-5a72aad76fa9'::uuid) THEN
+      PERFORM public.ensure_chocolate_production_material(v_order.id,v_component.variant_id,
+        v_remaining,'production_order');
+    END IF;
+    FOR v_inventory IN SELECT id,location,quantity FROM public.inventory WHERE product_id=v_component.component_id AND variant_id IS NOT DISTINCT FROM v_component.variant_id AND quantity>0 ORDER BY quantity DESC,id FOR UPDATE LOOP EXIT WHEN v_remaining<=0; v_take:=LEAST(v_remaining,v_inventory.quantity); v_key:='production:'||v_order.id::text||':consume:'||v_component.component_id::text||':'||COALESCE(v_component.variant_id::text,'simple')||':'||COALESCE(v_inventory.location,'sem-localizacao'); UPDATE public.inventory SET quantity=quantity-v_take,updated_at=now() WHERE id=v_inventory.id; INSERT INTO public.inventory_movements(product_id,variant_id,movement_type,quantity,previous_balance,new_balance,location,reference_type,reference_id,event_key,notes) VALUES(v_component.component_id,v_component.variant_id,'consume',v_take,v_inventory.quantity,v_inventory.quantity-v_take,v_inventory.location,'production_order',v_order.id,v_key,'Consumo por conclusão da OP '||COALESCE(v_order.internal_production_number,v_order.order_number,v_order.id::text)); v_remaining:=v_remaining-v_take; END LOOP;
   END LOOP;
   FOR v_item IN SELECT * FROM public.production_order_items WHERE production_order_id=v_order.id ORDER BY created_at,id LOOP
     v_key:='production:'||v_order.id::text||':finished:'||v_item.product_id::text||':'||COALESCE(v_item.variant_id::text,'simple')||':'||v_location;
