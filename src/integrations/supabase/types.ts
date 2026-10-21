@@ -7312,6 +7312,82 @@ export type Database = {
           },
         ]
       }
+      shopee_cycle_orders: {
+        Row: {
+          channel_account_id: string
+          last_checked_at: string
+          last_code: string
+          order_sn: string
+          state: string
+        }
+        Insert: {
+          channel_account_id: string
+          last_checked_at?: string
+          last_code?: string
+          order_sn: string
+          state?: string
+        }
+        Update: {
+          channel_account_id?: string
+          last_checked_at?: string
+          last_code?: string
+          order_sn?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_cycle_orders_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopee_cycle_state: {
+        Row: {
+          candidate_order_sn: string | null
+          channel_account_id: string
+          cursor: string | null
+          halted_code: string | null
+          lease_expires_at: string | null
+          lease_id: string | null
+          time_from: number
+          time_to: number
+          updated_at: string
+        }
+        Insert: {
+          candidate_order_sn?: string | null
+          channel_account_id: string
+          cursor?: string | null
+          halted_code?: string | null
+          lease_expires_at?: string | null
+          lease_id?: string | null
+          time_from: number
+          time_to: number
+          updated_at?: string
+        }
+        Update: {
+          candidate_order_sn?: string | null
+          channel_account_id?: string
+          cursor?: string | null
+          halted_code?: string | null
+          lease_expires_at?: string | null
+          lease_id?: string | null
+          time_from?: number
+          time_to?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_cycle_state_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: true
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopee_oauth_connections: {
         Row: {
           access_token_ciphertext: string
@@ -8361,6 +8437,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_shopee_cycle: {
+        Args: { p_channel_account_id: string }
+        Returns: Json
+      }
       apply_order_stock_event: {
         Args: { p_event: string; p_order_id: string }
         Returns: Json
@@ -8585,6 +8665,17 @@ export type Database = {
       }
       finalize_partial_purchase: {
         Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
+      finish_shopee_cycle: {
+        Args: {
+          p_candidate_order_sn: string
+          p_channel_account_id: string
+          p_code: string
+          p_lease_id: string
+          p_outcome: string
+          p_page: Json
+        }
         Returns: Json
       }
       get_purchase_price_reference: {
