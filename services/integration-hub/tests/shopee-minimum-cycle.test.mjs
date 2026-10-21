@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createShopeeMinimumCycle } from '../src/shopee-minimum-cycle.mjs';
 import { SHOPEE_CYCLE_ACCOUNT as account } from '../src/shopee-cycle-scope.mjs';
 import { handleRequest } from '../src/app.mjs';
@@ -165,11 +166,21 @@ test('Core does not expose complete raw payload; wrong identity or existing arbi
   const attached = dbFixture({ orders: [{ id: ID, sale_origin: 'shopee_open_platform' }], docs: [{ source: 'manual' }] });
   assert.equal((await executeCycleAction(attached, { action: 'shopee.cycle.acquire', channel_account_id: account.account })).body.candidate.blocked_reason, 'existing_document_requires_review');
 });
-test('Core skips previously attached original private label, including a collected order', async () => {
+test('Core skips collected orders before any document or label work', async () => {
   const db = dbFixture({ raw: [{ order_sn: SN, order_status: 'SHIPPED' }], orders: [{ id: ID, sale_origin: 'shopee_open_platform' }],
     docs: [{ id: ID, source: 'shopee_open_platform', storage_bucket: 'shopee-labels', storage_path: ID + '/shopee-original.pdf' }] });
   const r = await executeCycleAction(db, { action: 'shopee.cycle.acquire', channel_account_id: account.account });
-  assert.equal(r.body.candidate.document_available, true); assert.equal(r.body.candidate.terminal, true);
+  assert.equal(r.body.candidate.terminal, true); assert.equal(db.calls.includes('order_documents'), false);
+});
+test('Core accepts only the original storage locator for this exact account/order/package', async () => {
+  const hash = createHash('sha256').update([account.account, account.shop, SN, 'PKG'].join(':')).digest('hex');
+  for (const path of [ID + '/shopee-' + hash + '.pdf', ID + '/shopee-other-package.pdf']) {
+    const db = dbFixture({ orders: [{ id: ID, sale_origin: 'shopee_open_platform' }],
+      docs: [{ id: ID, source: 'shopee_open_platform', storage_bucket: 'shopee-labels', storage_path: path }] });
+    const r = await executeCycleAction(db, { action: 'shopee.cycle.acquire', channel_account_id: account.account });
+    assert.equal(r.body.candidate.document_available, path.includes(hash));
+    assert.equal(r.body.candidate.blocked_reason, path.includes(hash) ? null : 'existing_document_requires_review');
+  }
 });
 test('canonical verification accepts conserved physical quantity/value, blocks changed multiplier or origin', async () => {
   const order = { id: ID, channel_account_id: account.account, channel: 'shopee', order_number: SN, sale_origin: 'shopee_open_platform', deleted_at: null };

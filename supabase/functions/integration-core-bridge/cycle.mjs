@@ -35,13 +35,18 @@ export async function executeCycleAction(core, payload) {
   }
   if (found.data?.length === 1) {
     if (['cancelado','finalizado'].includes(found.data[0].status)) candidate.terminal = true;
+    if (candidate.terminal) return { status: 200, body: { ...data, candidate } };
     const docs = await core.from('order_documents').select('id,source,storage_bucket,storage_path')
       .eq('order_id', found.data[0].id).eq('document_type', 'shipping_label').limit(2);
     if (docs.error) return { status: 503, body: { error: 'cycle_document_read_failed' } };
     if (docs.data?.length) {
       const doc = docs.data[0];
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(
+        [ACCOUNT, 531736366, sn, candidate.package_number ?? ''].join(':')));
+      const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+      const expectedPath = found.data[0].id + '/shopee-' + hash + '.pdf';
       candidate.document_available = docs.data.length === 1 && doc.source === 'shopee_open_platform'
-        && doc.storage_bucket === 'shopee-labels' && doc.storage_path?.startsWith(found.data[0].id + '/shopee-');
+        && doc.storage_bucket === 'shopee-labels' && doc.storage_path === expectedPath;
       if (!candidate.document_available) candidate.blocked_reason = 'existing_document_requires_review';
     }
   }

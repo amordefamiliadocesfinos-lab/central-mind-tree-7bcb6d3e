@@ -87,7 +87,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check Core entrypoint (no deploy)
-        run: deno check supabase/functions/integration-core-bridge/index.ts
+        run: deno check --node-modules-dir=auto --no-lock supabase/functions/integration-core-bridge/index.ts
       - name: Execute migrations and assertions in disposable PostgreSQL
         run: |
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/cycle-fixture.sql
