@@ -1,3 +1,4 @@
+import { validCycleScope } from './shopee-cycle-scope.mjs';
 import { createHash } from 'node:crypto';
 import { readLiveShopeeOauthConnection, claimShopeeShippingDocument, resolveShopeeShippingDocument } from './core-bridge.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
@@ -41,13 +42,14 @@ export function createShopeeLabelPreparation({
   readParameter = getShippingDocumentParameter, createDocument = createShippingDocument,
   readResult = getShippingDocumentResult, claim = claimShopeeShippingDocument,
   resolve = resolveShopeeShippingDocument, fetchImpl = globalThis.fetch,
-  syncLabel,
+  syncLabel, recurringScope = null,
 } = {}) {
   return async function prepareLabelOnce() {
     const enabled = k => String(getEnv(k) ?? '').trim().toLowerCase() === 'true';
     if (!enabled('SHOPEE_LIVE_LABEL_CREATE_ENABLED')) return fail('label_create_not_enabled');
     if (!enabled('SHOPEE_LIVE_LABEL_SYNC_ENABLED')) return fail('label_sync_not_enabled');
-    const scope = PILOTS.find(pilot =>
+    if (recurringScope !== null && (getEnv('SHOPEE_LIVE_CYCLE_ENABLED') !== 'true' || !validCycleScope(recurringScope))) return fail('label_pilot_scope_mismatch');
+    const scope = (recurringScope === null ? PILOTS : [recurringScope]).find(pilot =>
       getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') === pilot.account
       && getEnv('SHOPEE_LIVE_LABEL_ORDER_SN') === pilot.order
       && getEnv('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER') === pilot.package
@@ -106,7 +108,18 @@ export function createShopeeLabelPreparation({
       const existing = entry(before, scope);
       const synchronize = async () => {
         if (!enabled('SHOPEE_LIVE_LABEL_SYNC_ENABLED') || now() >= deadline) return fail('label_sync_not_enabled');
-        const sync = syncLabel ?? createShopeeLabelSynchronizer({ getEnv, now, readConnection, decryptToken });
+        const boundedSync = (url, options = {}) => {
+          const u = new URL(url), remaining = deadline - now();
+          const allowedRead = u.origin === API && (PATHS.has(u.pathname)
+            && u.pathname !== '/api/v2/logistics/create_shipping_document'
+            || u.pathname === '/api/v2/logistics/download_shipping_document');
+          const allowedUpload = u.origin === 'https://xkskyutmtlhivvpfxkjg.supabase.co'
+            && u.pathname.startsWith('/storage/v1/object/upload/sign/shopee-labels/');
+          if ((!allowedRead && !allowedUpload) || remaining <= 0) throw new Error('sync_transport_refused');
+          return fetchImpl(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(Math.min(5000, remaining)) });
+        };
+        const sync = syncLabel ?? createShopeeLabelSynchronizer({ getEnv, now, readConnection, decryptToken,
+          ...(recurringScope === null ? {} : { fetchImpl: boundedSync, uploadFetch: boundedSync }) });
         const result = await sync();
         return result?.ok === true && ['label_attached','already_available'].includes(result.code)
           ? { ok: true, code: result.code, document_id: result.document_id ?? null, document_type: 'shipping_label' }

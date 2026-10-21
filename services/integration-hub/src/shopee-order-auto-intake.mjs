@@ -30,6 +30,7 @@ export function createShopeeControlledAutoIntake({
     limit = SHOPEE_OPERATIONAL_COMMIT_POLICY.batchLimit,
     mode = 'preview',
     expectedOrderSn = null,
+    verifyExisting = false,
   } = {}) {
     if (typeof channelAccountId !== 'string' || channelAccountId.trim() === '') {
       throw new TypeError('channelAccountId is required');
@@ -48,6 +49,7 @@ export function createShopeeControlledAutoIntake({
     const batch = await readBatch({
       channel_account_id: channelAccountId.trim(),
       limit,
+      ...(expectedOrderSn === null ? {} : { order_sn: expectedOrderSn.trim() }),
     });
     if (!batch?.ok) {
       return {
@@ -181,7 +183,7 @@ export function createShopeeControlledAutoIntake({
 
         let persisted;
         try {
-          persisted = await persistOrder(contract);
+          persisted = await persistOrder(contract, verifyExisting ? { verifyExisting: true } : undefined);
         } catch {
           results.push({
             orderSn,

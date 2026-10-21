@@ -69,6 +69,7 @@ function accessTokenExpiry(expireIn, nowMs) {
 }
 
 export function createShopeeLiveOrdersReader({
+  allowRefresh = true, expectedShopId = null, fetchImpl = globalThis.fetch,
   getEnv = (name) => process.env[name],
   now = Date.now,
   readConnection = readLiveShopeeOauthConnection,
@@ -112,8 +113,10 @@ export function createShopeeLiveOrdersReader({
     const shopId = positiveInteger(connection.payload?.shop_id, 'stored shop_id');
     if (storedPartnerId !== partnerId) return { ok: false, code: 'partner_id_mismatch' };
 
+    if (expectedShopId !== null && shopId !== expectedShopId) return { ok: false, code: 'shop_id_mismatch' };
     let accessToken;
     if (tokenIsExpired(connection.payload?.access_token_expires_at, now())) {
+      if (!allowRefresh) return { ok: false, code: 'access_token_expired_no_refresh' };
       if (tokenIsExpired(connection.payload?.refresh_token_expires_at, now(), 0)) {
         return {
           ok: false,
@@ -127,7 +130,7 @@ export function createShopeeLiveOrdersReader({
         tokenEncryptionKey,
       );
       const refreshResult = await refreshAccessToken({
-        apiBaseUrl: API_BASE_URL,
+        fetchImpl, apiBaseUrl: API_BASE_URL,
         refreshPath: REFRESH_PATH,
         partnerId,
         partnerKey,
@@ -174,7 +177,7 @@ export function createShopeeLiveOrdersReader({
     }
 
     const listResult = await readOrderList({
-      apiBaseUrl: API_BASE_URL,
+      fetchImpl, apiBaseUrl: API_BASE_URL,
       orderListPath: ORDER_LIST_PATH,
       partnerId,
       partnerKey,
@@ -223,6 +226,7 @@ export function createShopeeLiveOrdersReader({
         shop_id: shopId,
         listed_count: 0,
         detailed_count: 0,
+        order_sns: [],
         more: listPayload?.response?.more === true,
         next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
         duration_ms: now() - started,
@@ -230,7 +234,7 @@ export function createShopeeLiveOrdersReader({
     }
 
     const detailResult = await readOrderDetail({
-      apiBaseUrl: API_BASE_URL,
+      fetchImpl, apiBaseUrl: API_BASE_URL,
       orderDetailPath: ORDER_DETAIL_PATH,
       partnerId,
       partnerKey,
@@ -262,6 +266,7 @@ export function createShopeeLiveOrdersReader({
       }
       detailedOrderSns.add(orderSn);
     }
+    if (detailedOrders.length !== orderSns.length) return { ok: false, code: 'order_detail_incomplete', shop_id: shopId };
     for (const order of detailedOrders) {
       const orderSn = typeof order?.order_sn === 'string' ? order.order_sn.trim() : '';
       const singlePayload = buildSingleOrderPayload(detailResult.payload, order);
@@ -281,6 +286,7 @@ export function createShopeeLiveOrdersReader({
       shop_id: shopId,
       listed_count: orderSns.length,
       detailed_count: detailedOrders.length,
+      order_sns: [...detailedOrderSns],
       more: listPayload?.response?.more === true,
       next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
       duration_ms: now() - started,

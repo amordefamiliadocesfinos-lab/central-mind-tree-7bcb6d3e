@@ -10,6 +10,8 @@ const MAX_RESPONSE_BYTES = 1024;
 const MAX_INTAKE_RESPONSE_BYTES = 64 * 1024;
 
 export const CORE_BRIDGE_ACTIONS = Object.freeze({
+  CYCLE_ACQUIRE: 'shopee.cycle.acquire',
+  CYCLE_FINISH: 'shopee.cycle.finish',
   HEALTH: 'health',
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
@@ -120,7 +122,7 @@ export async function callCoreBridgeAction({
     status = response.status;
     payload = await readJsonResponse(
       response,
-      action === CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ
+      [CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ, CORE_BRIDGE_ACTIONS.CYCLE_ACQUIRE].includes(action)
         ? MAX_INTAKE_RESPONSE_BYTES
         : MAX_RESPONSE_BYTES,
     );

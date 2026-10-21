@@ -39,6 +39,31 @@ function response(payload, status = 200) {
 const NOW = Date.parse('2026-10-12T16:00:00.000Z');
 const WINDOW = { timeFrom: 1760270400, timeTo: 1760274000 };
 
+test('recurring discovery refuses another shop or expired token without an authorized refresh', async () => {
+  for (const connection of [{ shop_id: 1, access_token_expires_at: new Date(NOW + 3600000).toISOString() },
+    { shop_id: SHOP_ID, access_token_expires_at: new Date(NOW - 1).toISOString() }]) {
+    let external = 0;
+    const reader = createShopeeLiveOrdersReader({ getEnv: env, now: () => NOW, allowRefresh: false, expectedShopId: SHOP_ID,
+      readConnection: async () => ({ ok: true, payload: { partner_id: Number(PARTNER_ID), ...connection } }),
+      decryptToken: async () => assert.fail('must not decrypt'),
+      refreshAccessToken: async () => { external++; assert.fail('must not refresh'); },
+      readOrderList: async () => { external++; assert.fail('must not read other shop'); } });
+    assert.equal((await reader(WINDOW)).ok, false); assert.equal(external, 0);
+  }
+});
+test('incomplete detail page cannot authorize cursor advancement or partial raw detail writes', async () => {
+  let raw = 0;
+  const reader = createShopeeLiveOrdersReader({ getEnv: env, now: () => NOW, allowRefresh: false,
+    readConnection: async () => ({ ok: true, payload: { partner_id: Number(PARTNER_ID), shop_id: SHOP_ID,
+      access_token_expires_at: new Date(NOW + 3600000).toISOString() } }),
+    decryptToken: async () => 'synthetic',
+    readOrderList: async () => response({ error: '', response: { order_list: [{ order_sn: 'SYNTHETIC001' }, { order_sn: 'SYNTHETIC002' }], more: true, next_cursor: 'page2' } }),
+    persistOrderListSnapshot: async () => ({ ok: true }),
+    readOrderDetail: async () => response({ error: '', response: { order_list: [{ order_sn: 'SYNTHETIC001' }] } }),
+    persistOrderSnapshot: async () => { raw++; return { ok: true }; } });
+  assert.equal((await reader(WINDOW)).code, 'order_detail_incomplete'); assert.equal(raw, 0);
+});
+
 function refreshFixture({ connection = {}, result, persistOk = true } = {}) {
   const events = [];
   const logs = [];

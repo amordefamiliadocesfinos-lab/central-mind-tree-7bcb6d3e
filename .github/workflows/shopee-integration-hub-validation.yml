@@ -5,7 +5,9 @@ on:
     paths:
       - 'services/integration-hub/**'
       - 'supabase/functions/_shared/shopee-protocol.mjs'
-      - 'supabase/functions/integration-core-bridge/handler.mjs'
+      - 'supabase/functions/integration-core-bridge/**'
+      - 'supabase/migrations/*shopee_minimum_cycle_state.sql'
+      - 'supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql'
       - '.github/workflows/shopee-integration-hub-validation.yml'
 
 permissions:
@@ -47,4 +49,50 @@ jobs:
               );
               if (outcome.status !== 503 || JSON.parse(outcome.body).error !== 'ship_order_not_enabled') process.exit(1);
               console.log('ship-once OFF by default, HTTP 503');
+              const cycle = await handleRequest(
+                { method: 'POST', path: '/internal/shopee/live/cycle/run', query: {}, headers: {} },
+                { handleShopeeLive: async () => null, getEnv: () => undefined }
+              );
+              if (cycle.status !== 503 || JSON.parse(cycle.body).error !== 'cycle_not_enabled') process.exit(1);
+              console.log('recurring cycle OFF by default, HTTP 503');
             "
+
+  core-and-cycle-postgres:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-local-fixture
+          POSTGRES_DB: cycle_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cycle_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: ci-only-local-fixture
+      PGDATABASE: cycle_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Core entrypoint (no deploy)
+        run: deno check supabase/functions/integration-core-bridge/index.ts
+      - name: Execute migrations and assertions in disposable PostgreSQL
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/cycle-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261020225826_shopee_minimum_cycle_state.sql
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/cycle-assertions.sql
+      - name: Verify concurrent worker leases and document claims in independent sessions
+        run: node services/integration-hub/tests/sql/check-concurrency.mjs

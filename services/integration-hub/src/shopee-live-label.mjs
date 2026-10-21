@@ -87,7 +87,7 @@ export function createShopeeLabelSynchronizer({
   readParameter = getShippingDocumentParameter,
   readDocumentResult = getShippingDocumentResult,
   downloadDocument = downloadShippingDocument,
-  uploadFetch = globalThis.fetch,
+  uploadFetch = globalThis.fetch, fetchImpl = globalThis.fetch,
 } = {}) {
   return async function syncReadyShopeeLabel() {
     const orderSn = requiredEnv(getEnv, 'SHOPEE_LIVE_LABEL_ORDER_SN');
@@ -108,7 +108,7 @@ export function createShopeeLabelSynchronizer({
       return { ok: false, code: 'access_token_expired_read_only' };
     }
     const accessToken = await decryptToken(oauth.access_token_ciphertext, encryptionKey);
-    const shared = { apiBaseUrl: API_BASE_URL, partnerId, partnerKey, accessToken, shopId };
+    const shared = { fetchImpl, apiBaseUrl: API_BASE_URL, partnerId, partnerKey, accessToken, shopId };
 
     const detail = await readOrderDetail({
       ...shared, orderDetailPath: ORDER_DETAIL_PATH, orderSnList: [orderSn],

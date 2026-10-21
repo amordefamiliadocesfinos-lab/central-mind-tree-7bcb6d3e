@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createBridgeHandler } from './handler.mjs';
+import { executeCycleAction, verifyCycleOrder } from './cycle.mjs';
 
 const CORE_ORIGIN = 'https://xkskyutmtlhivvpfxkjg.supabase.co';
 const LIVE = 'live';
@@ -130,13 +131,13 @@ async function canonicalShopeeChannelAccount(core: CoreClient, channelAccountId:
   };
 }
 
-async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string, limit: number) {
+async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string, limit: number, orderSnTarget: string | null = null) {
   const canonical = await canonicalShopeeChannelAccount(core, channelAccountId);
   if (canonical.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
   if (!canonical.account) return { status: 409, body: { error: 'channel_account_unavailable' } };
 
   const scanLimit = Math.min(INTAKE_MAX_SCAN, Math.max(limit * 10, 20));
-  const { data: rawRows, error: rawError } = await core
+  let rawQuery = core
     .from('marketplace_raw_snapshots')
     .select('channel_account_id,external_entity_id,observed_at,created_at,payload')
     .eq('source', 'shopee_open_platform')
@@ -146,6 +147,8 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
     .eq('endpoint', ORDER_DETAIL_ENDPOINT)
     .order('created_at', { ascending: false })
     .limit(scanLimit);
+  if (orderSnTarget) rawQuery = rawQuery.eq('external_entity_id', orderSnTarget);
+  const { data: rawRows, error: rawError } = await rawQuery;
 
   if (rawError) return { status: 503, body: { error: 'intake_raw_read_failed' } };
 
@@ -175,7 +178,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
   let skippedMalformed = 0;
 
   for (const [orderSn, row] of latestByOrder) {
-    if (existingOrders.has(orderSn)) {
+    if (existingOrders.has(orderSn) && !orderSnTarget) {
       skippedExisting += 1;
       continue;
     }
@@ -413,6 +416,10 @@ async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
 
+  if (payload.action === 'shopee.cycle.acquire' || payload.action === 'shopee.cycle.finish') {
+    return executeCycleAction(core, payload);
+  }
+
   if (payload.action === 'shopee.shipping_document.claim' || payload.action === 'shopee.shipping_document.resolve') {
     const claiming = payload.action === 'shopee.shipping_document.claim';
     const { data, error } = await core.rpc(claiming ? 'claim_shopee_shipping_document' : 'resolve_shopee_shipping_document',
@@ -644,7 +651,7 @@ async function executeAction(payload: Record<string, unknown>) {
   if (payload.action === 'shopee.order_intake_batch.read') {
     const channelAccountId = String(payload.channel_account_id);
     const limit = payload.limit == null ? 5 : Number(payload.limit);
-    return readShopeeIntakeBatch(core, channelAccountId, limit);
+    return readShopeeIntakeBatch(core, channelAccountId, limit, payload.order_sn == null ? null : String(payload.order_sn));
   }
 
   if (payload.action === 'shopee.order.create') {
@@ -681,6 +688,9 @@ async function executeAction(payload: Record<string, unknown>) {
       return { status: 503, body: { error: 'shopee_order_persistence_failed' } };
     }
 
+    if (payload.verify_existing === true && !(await verifyCycleOrder(core, String(data.order_id), payload))) {
+      return { status: 409, body: { error: 'canonical_order_integrity_mismatch' } };
+    }
     return {
       status: 200,
       body: {
