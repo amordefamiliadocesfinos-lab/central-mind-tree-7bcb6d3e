@@ -18,6 +18,24 @@ type PhysicalProduct = { id: string; unit?: string | null; variation_mode?: stri
 type PhysicalVariant = { id: string; product_id?: string; unit?: string | null; price_override?: number | null; is_active?: boolean } | null | undefined;
 export type PhysicalCatalog = { products: PhysicalProduct[]; variants: NonNullable<PhysicalVariant>[] };
 
+/**
+ * The 75 kg Glucose container is a production-only material: its stock is
+ * controlled in grams and must remain available to BOM/production, not Sales.
+ * This is a commercial eligibility rule, not an is_active/stock mutation.
+ */
+const GLUCOSE_PRODUCT_ID = '788f7d5a-276c-49c8-8171-cccf7621e2fe';
+const GLUCOSE_PRODUCTION_VARIANT_ID = '222c4ec7-45da-4a1c-961e-d61ac2a914d4';
+
+export function isSaleVariantAllowed(productId: string, variantId: string | null | undefined): boolean {
+  return !(productId === GLUCOSE_PRODUCT_ID && variantId === GLUCOSE_PRODUCTION_VARIANT_ID);
+}
+
+function assertSaleVariantAllowed(productId: string, variantId: string | null | undefined): void {
+  if (!isSaleVariantAllowed(productId, variantId)) {
+    throw new Error('Glucose de Milho 75 kg é exclusiva para produção e não pode ser vendida.');
+  }
+}
+
 /** Price for one commercial unit. The catalog/variant price remains physical. */
 export function getDefaultCommercialUnitPrice(
   product: PhysicalProduct & { price?: number | null },
@@ -41,6 +59,7 @@ export function buildCommercialOrderItem(
   presentation?: CommercialPresentation | null,
   notes?: string | null,
 ) {
+  assertSaleVariantAllowed(product.id, variant?.id);
   const selected = presentation ?? directCommercialPresentation(product, variant);
   const factor = Number(selected.conversion_factor);
   if (!Number.isFinite(commercialQuantity) || commercialQuantity <= 0) {
@@ -126,6 +145,7 @@ export function expandCommercialOrderItem(
     if ((componentProduct.variation_mode ?? 'variacoes_fisicas') === 'sem_variacao') {
       throw new Error('Produto simples não aceita variante física.');
     }
+    assertSaleVariantAllowed(componentProduct.id, componentVariant.id);
     return { component, componentProduct, componentVariant, quantity };
   });
   const total = resolved.reduce((n, item) => n + item.quantity, 0);
