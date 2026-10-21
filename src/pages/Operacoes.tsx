@@ -85,7 +85,7 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -374,7 +374,8 @@ export default function Operacoes() {
       .select('id, product_id, variant_name, sku, price_override, unit')
       .eq('is_active', true)
       .order('variant_name')
-      .then(({ data }: { data: typeof saleVariants | null }) => setSaleVariants(data ?? []));
+      .then(({ data }: { data: typeof saleVariants | null }) =>
+        setSaleVariants((data ?? []).filter((variant) => isSaleVariantAllowed(variant.product_id, variant.id))));
   }, [showSaleDialog]);
 
   const [editingCostText, setEditingCostText] = useState('');
