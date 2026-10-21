@@ -972,7 +972,18 @@ export default function Operacoes() {
                           <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__direct__">Unidade direta</SelectItem>
-                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}
+                            {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => {
+                              const options = presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? [];
+                              const sameNameAnotherVariant = options.some(candidate =>
+                                candidate.id !== presentation.id &&
+                                candidate.name === presentation.name &&
+                                candidate.variant_id !== presentation.variant_id
+                              );
+                              const variantName = sameNameAnotherVariant && presentation.variant_id
+                                ? saleVariants.find(candidate => candidate.id === presentation.variant_id)?.variant_name
+                                : null;
+                              return <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}{variantName ? ` · ${variantName}` : ''}</SelectItem>;
+                            })}
                           </SelectContent>
                         </Select>
                 {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
