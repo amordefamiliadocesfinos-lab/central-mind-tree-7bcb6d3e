@@ -977,7 +977,8 @@ export default function Operacoes() {
                         </Select>
                 {rawProducts.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                           <Select
-                            value={item.variant_id ?? ''}
+                            value={item.commercial_presentation?.variant_id ?? item.variant_id ?? ''}
+                            disabled={Boolean(item.commercial_presentation?.variant_id)}
                             onValueChange={(variantId) => {
                               const variant = saleVariants.find(candidate => candidate.id === variantId);
                               updateSaleItem(i, 'variant_id', variantId || null);
