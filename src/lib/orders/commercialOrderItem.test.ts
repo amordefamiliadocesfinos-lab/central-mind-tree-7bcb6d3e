@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { expandCommercialOrderItem, getOrderItemLineTotal, isSaleVariantAllowed } from './commercialOrderItem';
+import { expandCommercialOrderItem, getOrderItemLineTotal, isSaleVariantAllowed, GLUCODRY_PRODUCT_ID, GLUCODRY_GD2_PRESENTATION_ID } from './commercialOrderItem';
 import type { CommercialPresentation } from '../products/commercialPresentation';
 const a={id:'a',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
 const t30={id:'t30',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
@@ -128,4 +128,30 @@ test('Glucose G0 75 kg: fica fora da venda, mantendo outras embalagens disponív
     {products: [{id: glucoseId, unit:'un', variation_mode:'variacoes_fisicas', is_active:true}],
       variants: [{id:productionVariant,product_id:glucoseId,unit:'g',is_active:true}]},
   ), /exclusiva para produção/);
+});
+
+test('Glucodry GD1 continua em gramas; GD2 é exatamente um saco lacrado', () => {
+  const product = { id: GLUCODRY_PRODUCT_ID, unit: 'g', variation_mode: 'sem_variacao', is_active: true, price: 0.01999 };
+  const gd1: CommercialPresentation = {
+    id: 'gd1', product_id: product.id, variant_id: null, name: 'kg', commercial_unit_label: 'kg',
+    composition_mode: 'single', conversion_factor: 1000, is_active: true, notes: null, created_at: '', updated_at: '',
+  };
+  for (const kg of [1,2,3,4]) {
+    const [line] = expandCommercialOrderItem(product, null, kg, 21.99, gd1);
+    assert.equal(line.quantity, kg * 1000);
+    assert.equal(line.physical_unit_label, 'g');
+    assert.equal(line.commercial_quantity, kg);
+  }
+  const gd2: CommercialPresentation = {
+    id: GLUCODRY_GD2_PRESENTATION_ID, product_id: product.id, variant_id: null,
+    name: 'Saco fechado original 25 kg', commercial_unit_label: 'saco', composition_mode: 'single',
+    conversion_factor: 1, is_active: true, notes: null, created_at: '', updated_at: '',
+  };
+  const [bag] = expandCommercialOrderItem(product,null,1,449,gd2);
+  assert.equal(bag.product_id, GLUCODRY_PRODUCT_ID);
+  assert.equal(bag.quantity,1);
+  assert.equal(bag.physical_unit_label,'saco');
+  assert.equal(bag.commercial_presentation_id,GLUCODRY_GD2_PRESENTATION_ID);
+  assert.equal(getOrderItemLineTotal(bag),449);
+  assert.throws(() => expandCommercialOrderItem(product,null,2,449,gd2),/somente um saco/);
 });
