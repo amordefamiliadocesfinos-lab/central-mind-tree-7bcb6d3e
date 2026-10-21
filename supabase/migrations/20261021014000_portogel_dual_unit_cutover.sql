@@ -12,7 +12,7 @@ BEGIN
  IF (SELECT count(*) FROM public.product_batch_recipe_items WHERE component_product_id='6e757550-a9b6-4644-8164-8c802760e373'::uuid AND component_variant_id='7b47eed6-01fc-41e3-80f7-9893ce23316b'::uuid)<>55 THEN RAISE EXCEPTION 'Recipe inventory changed'; END IF;
  IF (SELECT count(*) FROM public.product_components WHERE component_id='6e757550-a9b6-4644-8164-8c802760e373'::uuid AND variant_id='7b47eed6-01fc-41e3-80f7-9893ce23316b'::uuid)<>16 THEN RAISE EXCEPTION 'BOM changed'; END IF;
  IF (SELECT count(*) FROM public.commercial_presentations WHERE product_id='6e757550-a9b6-4644-8164-8c802760e373'::uuid)<>5 THEN RAISE EXCEPTION 'Commercial presentations changed'; END IF;
- IF EXISTS (SELECT 1 FROM public.inventory WHERE variant_id IN ('9173505d-7720-40b6-8040-84d68a3c2334','5d4602ba-0db4-4095-8866-6e702fa192c5','ae7c8013-de6c-4806-9450-abcab2202aa9','fcf97062-683f-4921-b941-5236613c32fb')::uuid[]) THEN RAISE EXCEPTION 'Target identities already stocked'; END IF;
+ IF EXISTS (SELECT 1 FROM public.inventory WHERE variant_id IN ('9173505d-7720-40b6-8040-84d68a3c2334'::uuid,'5d4602ba-0db4-4095-8866-6e702fa192c5'::uuid,'ae7c8013-de6c-4806-9450-abcab2202aa9'::uuid,'fcf97062-683f-4921-b941-5236613c32fb'::uuid)) THEN RAISE EXCEPTION 'Target identities already stocked'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='ensure_portogel_production_material') THEN RAISE EXCEPTION 'Atomic helper missing'; END IF;
 END $$;
 -- Activate new physical identities only within the same transaction.
