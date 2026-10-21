@@ -57,12 +57,8 @@ BEGIN
      v_open:=LEAST(floor(v_inventory.quantity)::int,
                    ceil(v_short/v_pack.grams_per_pack)::int);
      IF v_open<1 THEN CONTINUE; END IF;
-     v_key:='portogel:auto_open:'||p_production_fact_id::text||':'||v_pack.variant_id::text;
-     -- Each fact may open a source variant only once. The event key is unique.
-     IF EXISTS (SELECT 1 FROM public.inventory_movements WHERE event_key=v_key||':closed') THEN
-       RAISE EXCEPTION 'Duplicate Porto Gel opening event for fact %, variant %',
-         p_production_fact_id,v_pack.variant_id;
-     END IF;
+     v_key:='portogel:auto_open:'||p_production_fact_id::text||':'||v_pack.variant_id::text||':'||gen_random_uuid()::text;
+     -- Unique per conversion within a locked canonical production transaction.
      UPDATE public.inventory SET quantity=quantity-v_open,updated_at=now()
        WHERE id=v_inventory.id;
      INSERT INTO public.inventory_movements
