@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { expandCommercialOrderItem, getOrderItemLineTotal } from './commercialOrderItem';
+import { expandCommercialOrderItem, getOrderItemLineTotal, isSaleVariantAllowed } from './commercialOrderItem';
 import type { CommercialPresentation } from '../products/commercialPresentation';
 const a={id:'a',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
 const t30={id:'t30',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
@@ -84,4 +84,48 @@ test('BA1: pacote permanece em 22 unidades físicas, sem afetar variante cx', ()
   assert.equal(item.physical_unit_label, 'un');
   assert.equal(item.variant_id, single.id);
   assert.equal(getOrderItemLineTotal(item), 120);
+});
+
+test('Glucose G0 75 kg: fica fora da venda, mantendo outras embalagens disponíveis', () => {
+  const glucoseId = '788f7d5a-276c-49c8-8171-cccf7621e2fe';
+  const productionVariant = '222c4ec7-45da-4a1c-961e-d61ac2a914d4';
+  const sellableVariants = [
+    '13ec7121-e3dd-4c4a-84e6-a186d9236647', // 500g
+    'ded86020-55b5-4899-a263-1d0dea6b9c88', // 1kg
+    'f6783627-bfb6-438e-8663-b37f20697697', // 5kg
+    'beb66a4e-ce39-4c8b-b85c-22308f8dc6d2', // 10kg
+    '21c194d0-b9af-4d70-b1a0-0d101a4aafbc', // 25kg
+  ];
+  assert.equal(isSaleVariantAllowed(glucoseId, productionVariant), false);
+  for (const id of sellableVariants) {
+    assert.equal(isSaleVariantAllowed(glucoseId, id), true);
+    const rows = expandCommercialOrderItem(
+      { id: glucoseId, unit: 'un', variation_mode: 'variacoes_fisicas', is_active: true },
+      { id, product_id: glucoseId, unit: 'un', is_active: true },
+      2, 9,
+    );
+    assert.equal(rows[0].quantity, 2);
+    assert.equal(rows[0].variant_id, id);
+  }
+  // The scope is the physical identity of THIS product, not all 75kg products.
+  assert.equal(isSaleVariantAllowed('other-product', productionVariant), true);
+  assert.throws(() => expandCommercialOrderItem(
+    { id: glucoseId, unit: 'un', variation_mode: 'variacoes_fisicas', is_active: true },
+    { id: productionVariant, product_id: glucoseId, unit: 'g', is_active: true },
+    1, 520,
+  ), /exclusiva para produção/);
+  // A fabricated composite offer cannot bypass the production-only restriction.
+  const composite = {
+    id: 'bad-sale', product_id: glucoseId, variant_id: null,
+    name: 'G0 experimental', commercial_unit_label: 'kit',
+    conversion_factor: 1, composition_mode: 'composite' as const,
+    components: [{product_id: glucoseId, variant_id: productionVariant, quantity: 1}],
+    is_active: true, notes: null, created_at: '', updated_at: '',
+  };
+  assert.throws(() => expandCommercialOrderItem(
+    { id: glucoseId, unit: 'un', variation_mode: 'variacoes_fisicas', is_active: true },
+    null, 1, 520, composite, undefined,
+    {products: [{id: glucoseId, unit:'un', variation_mode:'variacoes_fisicas', is_active:true}],
+      variants: [{id:productionVariant,product_id:glucoseId,unit:'g',is_active:true}]},
+  ), /exclusiva para produção/);
 });
