@@ -43,6 +43,19 @@ END $$;
 
 -- Existing document ledger remains permanent across worker lease expiry.
 DO $$
+DECLARE a uuid := '8a8ad166-0317-4597-8be6-e43fb46b4d1b'; l jsonb;
+BEGIN
+  -- Newly discovered work must not starve an older invoice/PROCESSING retry.
+  UPDATE public.shopee_cycle_orders SET state='pending',last_checked_at=clock_timestamp()-interval '1 minute'
+    WHERE order_sn='SYNTHETIC002';
+  INSERT INTO public.shopee_cycle_orders(channel_account_id,order_sn) VALUES(a,'SYNTHETIC004');
+  l := public.acquire_shopee_cycle(a); ASSERT l->>'candidate_order_sn'='SYNTHETIC002';
+  PERFORM public.finish_shopee_cycle(a,(l->>'lease_id')::uuid,null,'SYNTHETIC002','blocked','synthetic_review');
+  l := public.acquire_shopee_cycle(a); ASSERT l->>'candidate_order_sn'='SYNTHETIC004';
+  PERFORM public.finish_shopee_cycle(a,(l->>'lease_id')::uuid,null,'SYNTHETIC004','complete','external_order_terminal');
+END $$;
+
+DO $$
 DECLARE a uuid := '8a8ad166-0317-4597-8be6-e43fb46b4d1b'; l jsonb; r jsonb; v_attempt_id uuid;
 BEGIN
   l := public.claim_shopee_shipping_document(a,531736366,'SYNTHETIC001','SYNTHETICPKG','NORMAL_AIR_WAYBILL',repeat('a',64));

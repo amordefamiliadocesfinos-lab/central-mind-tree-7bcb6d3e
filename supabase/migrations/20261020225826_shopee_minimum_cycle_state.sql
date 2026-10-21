@@ -15,7 +15,7 @@ CREATE TABLE public.shopee_cycle_orders (
   channel_account_id uuid NOT NULL REFERENCES public.channel_accounts(id),
   order_sn text NOT NULL CHECK (order_sn ~ '^[A-Za-z0-9]{8,100}$'),
   state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','complete','blocked')),
-  last_checked_at timestamptz,
+  last_checked_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   last_code text NOT NULL DEFAULT 'discovered' CHECK (last_code ~ '^[a-z0-9_]{1,100}$'),
   PRIMARY KEY (channel_account_id, order_sn)
 );
