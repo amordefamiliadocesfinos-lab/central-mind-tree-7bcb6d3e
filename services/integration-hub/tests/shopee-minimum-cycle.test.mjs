@@ -172,6 +172,11 @@ test('Core skips collected orders before any document or label work', async () =
   const r = await executeCycleAction(db, { action: 'shopee.cycle.acquire', channel_account_id: account.account });
   assert.equal(r.body.candidate.terminal, true); assert.equal(db.calls.includes('order_documents'), false);
 });
+test('a pending cancellation remains revisitable if Seller Center later rejects it', async () => {
+  const db = dbFixture({ raw: [{ order_sn: SN, order_status: 'IN_CANCEL' }] });
+  const r = await executeCycleAction(db, { action: 'shopee.cycle.acquire', channel_account_id: account.account });
+  assert.equal(r.body.candidate.terminal, false);
+});
 test('Core accepts only the original storage locator for this exact account/order/package', async () => {
   const hash = createHash('sha256').update([account.account, account.shop, SN, 'PKG'].join(':')).digest('hex');
   for (const path of [ID + '/shopee-' + hash + '.pdf', ID + '/shopee-other-package.pdf']) {

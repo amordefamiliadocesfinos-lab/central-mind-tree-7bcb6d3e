@@ -24,7 +24,7 @@ export async function executeCycleAction(core, payload) {
   const order = exact ? rows[0] : null;
   const candidate = { order_sn: sn, package_number: order?.package_list?.length === 1
     ? order.package_list[0]?.package_number ?? null : null,
-    terminal: ['CANCELLED', 'SHIPPED', 'COMPLETED', 'IN_CANCEL', 'TO_RETURN'].includes(order?.order_status)
+    terminal: ['CANCELLED', 'SHIPPED', 'COMPLETED', 'TO_RETURN'].includes(order?.order_status)
       || order?.package_list?.some(p => ['LOGISTICS_PICKUP_DONE','LOGISTICS_DELIVERY_DONE'].includes(p.logistics_status)) === true,
     blocked_reason: exact ? null : 'raw_identity_mismatch' };
   const found = await core.from('orders').select('id,sale_origin,status').eq('channel_account_id', ACCOUNT)
