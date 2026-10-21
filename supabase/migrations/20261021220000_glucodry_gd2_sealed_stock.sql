@@ -223,8 +223,7 @@ BEGIN
   RETURN jsonb_build_object('receipt_id', v_receipt.id, 'purchase_order_id', v_order.id,
     'already_confirmed', false, 'movement_count', v_movement_count, 'purchase_order_status', v_status);
 END;
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.apply_order_stock_event(p_order_id uuid, p_event text)
  RETURNS jsonb
@@ -339,5 +338,4 @@ BEGIN
     'event',p_event,'applied',true,'already_applied',false,'movement_count',v_movement_count,
     'adjustment_required',jsonb_array_length(v_shortages)>0,'shortages',v_shortages
   );
-END; $function$
-
+END; $function$;
