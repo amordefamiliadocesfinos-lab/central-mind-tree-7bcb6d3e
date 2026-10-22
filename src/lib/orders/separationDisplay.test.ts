@@ -434,3 +434,24 @@ test('Legado KG/350g mantém a apresentação atual de Amendoim',()=>{
     assert.equal(view.commercialSummary,expected);
   }
 });
+
+
+test('AM3: saco original lacrado e EG fracionado aparecem com unidades diferentes sem estoques duplicados',()=>{
+  const pid='c177f332-a1c7-4276-9cef-7b81af920174';
+  const sealed=createSeparationDisplayEntries([source('saco','AMENDOIM TORRADO',null,2,{
+    product_id:pid,physical_unit_label:'saco',commercial_quantity:2,
+    commercial_unit_label:'saco',commercial_conversion_factor:1,
+    commercial_presentation_name:'Saco original fechado 24 kg',
+    commercial_presentation_id:'a3400000-0000-4000-8000-000000002400',
+  })])[0];
+  assert.equal(sealed.commercialSummary,'2 sacos');
+  assert.equal(sealed.components[0].quantityText,'2 saco');
+  const opened=createSeparationDisplayEntries([source('fracionado','AMENDOIM TORRADO',null,2000,{
+    product_id:pid,physical_unit_label:'g',commercial_quantity:1,
+    commercial_unit_label:'kit',commercial_conversion_factor:2000,
+    commercial_presentation_name:'Kit 2 pacotes de 1 kg',
+    commercial_presentation_id:'a11e0000-0000-4000-8000-000000002000',
+  })])[0];
+  assert.equal(opened.components[0].quantityText,'2.000 g');
+  assert.match(opened.commercialSummary || '',/preparar 2 pacotes/);
+});
