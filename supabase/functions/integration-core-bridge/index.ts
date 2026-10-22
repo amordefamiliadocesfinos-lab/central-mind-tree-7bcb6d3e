@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createBridgeHandler } from './handler.mjs';
 import { executeCycleAction, verifyCycleOrder } from './cycle.mjs';
+import { attachMappingPhysicalCatalog } from './mapping-physical-catalog.mjs';
 
 const CORE_ORIGIN = 'https://xkskyutmtlhivvpfxkjg.supabase.co';
 const LIVE = 'live';
@@ -250,6 +251,8 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
     ...mapping,
     components: componentsByMapping.get(String(mapping.id)) ?? [],
   }));
+  const physicalCatalog = await attachMappingPhysicalCatalog(core, mappings);
+  if (physicalCatalog.error) return { status: 503, body: { error: physicalCatalog.error } };
 
   return {
     status: 200,
@@ -260,7 +263,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
       marketplace_account: canonical.account.name,
       eligible_statuses: [...INTAKE_ELIGIBLE_STATUSES],
       snapshots,
-      mappings,
+      mappings: physicalCatalog.mappings,
       counts: {
         selected: snapshots.length,
         skipped_existing: skippedExisting,

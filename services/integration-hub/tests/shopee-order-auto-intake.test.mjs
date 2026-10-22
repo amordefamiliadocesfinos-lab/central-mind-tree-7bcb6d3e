@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createShopeeMinimumCycle } from '../src/shopee-minimum-cycle.mjs';
+import { SHOPEE_CYCLE_ACCOUNT as cycleAccount } from '../src/shopee-cycle-scope.mjs';
 
 import {
   createShopeeControlledAutoIntake,
@@ -58,12 +60,14 @@ function mapping() {
         product_id: '62cf9f63-be04-4261-ad11-569028dd1125',
         variant_id: 'd89e1dba-ca80-4136-b9f3-225fb80b6dfb',
         physical_multiplier: 3,
+        physical_identity: { active: true, unit: 'un', presentation_factors: [3] },
         position: 0,
       },
       {
         product_id: '62cf9f63-be04-4261-ad11-569028dd1125',
         variant_id: 'e4d756c8-f324-4ac0-b9ff-6adae24f5310',
         physical_multiplier: 3,
+        physical_identity: { active: true, unit: 'un', presentation_factors: [3] },
         position: 1,
       },
     ],
@@ -88,6 +92,101 @@ function batchPayload(overrides = {}) {
     ...overrides,
   };
 }
+
+test('missing and physically inconsistent mappings never write; a later eligible order still advances', async () => {
+  const bad = snapshot('SYNTHETICBAD1');
+  const absent = snapshot('SYNTHETICMISSING1');
+  const good = snapshot('SYNTHETICGOOD1');
+  bad.payload.response.order_list[0].item_list[0].item_name = 'Pó Du Porto 1kg | SH-002-009';
+  bad.payload.response.order_list[0].item_list[0].model_name = 'DOCE DE LEITE';
+  absent.payload.response.order_list[0].item_list[0].item_name = 'Sem mapping | SH-002-999';
+  const badMapping = { ...mapping(), external_item_key: 'code:SH-002-009|variation:doce de leite',
+    physical_multiplier: 1, components: [{ ...mapping().components[0], physical_multiplier: 1,
+      physical_identity: { active: true, unit: 'g', presentation_factors: [1000] } }] };
+  const payload = batchPayload({ snapshots: [bad, absent, good], mappings: [badMapping, mapping()] });
+  const before = structuredClone(payload), writes = [];
+  const run = createShopeeControlledAutoIntake({ readBatch: async () => ({ ok: true, payload }),
+    persistOrder: async contract => { writes.push(contract); return { ok: true, payload: { order_id: 'synthetic' } }; } });
+  const result = await run({ channelAccountId: CHANNEL_ACCOUNT_ID, mode: 'commit', limit: 3 });
+  assert.equal(result.blocked, 2);
+  assert.equal(result.written, 1);
+  assert.equal(result.roundStopped, false);
+  assert.match(result.results[0].blockers[0], /physical_multiplier_mismatch/);
+  assert.match(result.results[1].blockers[0], /needs_mapping/);
+  assert.deepEqual(writes.map(c => c.order.orderNumber), ['SYNTHETICGOOD1']);
+  assert.deepEqual(writes[0].items.map(i => i.quantity), [3, 3]);
+  assert.deepEqual(payload, before); // no catalog/raw repair or evidence rewrite
+});
+
+test('an older Core without physical evidence cannot commit, including the legacy-header fallback', async () => {
+  for (const components of [[], mapping().components.map(({ physical_identity, ...c }) => c)]) {
+    const run = createShopeeControlledAutoIntake({
+      readBatch: async () => ({ ok: true, payload: batchPayload({ mappings: [{ ...mapping(), components }] }) }),
+      persistOrder: async () => assert.fail('unverified physical mapping reached writer'),
+    });
+    const result = await run({ channelAccountId: CHANNEL_ACCOUNT_ID, mode: 'commit' });
+    assert.equal(result.written, 0);
+    assert.match(result.results[0].blockers[0], /physical_identity_unverified/);
+  }
+});
+
+test('recurring real intake checkpoints a bad mapping pending, then advances an eligible order without rewriting raw', async () => {
+  const bad = snapshot('SYNTHETICBAD1'), good = snapshot('SYNTHETICGOOD1');
+  bad.payload.response.order_list[0].item_list[0].item_name = 'Du Porto 1kg | SH-002-009';
+  bad.payload.response.order_list[0].item_list[0].model_name = 'MARACUJA';
+  const powder = { ...mapping(), external_item_key: 'code:SH-002-009|variation:maracuja',
+    components: [{ ...mapping().components[0], physical_multiplier: 1,
+      physical_identity: { active: true, unit: 'g', presentation_factors: [1000] } }] };
+  const writes = [], labels = [], checkpoints = [];
+  const raw = [bad, good];
+  const rawBefore = structuredClone(raw);
+  const intake = createShopeeControlledAutoIntake({
+    readBatch: async ({ order_sn }) => ({ ok: true, payload: batchPayload({
+      snapshots: raw.filter(s => s.external_entity_id === order_sn), mappings: [powder, mapping()],
+    }) }),
+    persistOrder: async c => { writes.push(c.order.orderNumber); return { ok: true, payload: { order_id: 'synthetic' } }; },
+  });
+  const config = { SHOPEE_LIVE_CYCLE_ENABLED: 'true', SHOPEE_LIVE_AUTO_COMMIT_ENABLED: 'true',
+    SHOPEE_LIVE_LABEL_CREATE_ENABLED: 'true', SHOPEE_LIVE_LABEL_SYNC_ENABLED: 'true',
+    SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: cycleAccount.account, SHOPEE_LIVE_PARTNER_ID: String(cycleAccount.partner) };
+  let index = 0;
+  const run = createShopeeMinimumCycle({ getEnv: k => config[k], now: () => Date.parse('2026-10-22T12:00:00Z'), intake,
+    callCore: async ({ action, data }) => {
+      if (action.endsWith('acquire')) return { ok: true, payload: {
+        status: 'acquired', lease_id: 'synthetic-lease', expires_at: '2026-10-22T12:05:00Z',
+        time_from: 1, time_to: 2, candidate: { order_sn: raw[index].external_entity_id, package_number: 'SYNTHETICPKG' },
+      } };
+      checkpoints.push(data); index++; return { ok: true, payload: { status: 'finished' } };
+    },
+    readOrders: async () => ({ ok: true, shop_id: cycleAccount.shop, order_sns: [], more: false }),
+    prepareLabel: ({ recurringScope }) => async () => { labels.push(recurringScope.order); return { ok: true, code: 'label_attached' }; },
+  });
+  assert.equal((await run()).code, 'cycle_intake_blocked');
+  assert.equal((await run()).code, 'label_attached');
+  assert.deepEqual(writes, ['SYNTHETICGOOD1']);
+  assert.deepEqual(labels, ['SYNTHETICGOOD1']);
+  assert.deepEqual(checkpoints.map(c => c.outcome), ['pending', 'complete']);
+  assert.deepEqual(raw, rawBefore);
+});
+
+test('corrected weighted mapping writes 1000g while retaining commercial quantity and commercial price', async () => {
+  const s = snapshot();
+  Object.assign(s.payload.response.order_list[0].item_list[0], {
+    item_name: 'Du Porto 1kg | SH-002-009', model_name: 'DOCE DE LEITE', model_discounted_price: 27.99,
+  });
+  const m = { ...mapping(), external_item_key: 'code:SH-002-009|variation:doce de leite', physical_multiplier: 1000,
+    components: [{ ...mapping().components[0], physical_multiplier: 1000,
+      physical_identity: { active: true, unit: 'g', presentation_factors: [1000] } }] };
+  let written;
+  const run = createShopeeControlledAutoIntake({
+    readBatch: async () => ({ ok: true, payload: batchPayload({ snapshots: [s], mappings: [m] }) }),
+    persistOrder: async c => { written = c; return { ok: true, payload: { order_id: 'synthetic' } }; },
+  });
+  assert.equal((await run({ channelAccountId: CHANNEL_ACCOUNT_ID, mode: 'commit' })).written, 1);
+  assert.equal(written.items[0].quantity, 1000);
+  assert.equal(written.items[0].commercialQuantity, 1);
+  assert.equal(written.items[0].unitPrice, 27.99);
+});
 
 test('recurring intake requests exact raw order server-side and asks writer to verify existing canonical items', async () => {
   const target = 'SYNTHETIC001'; let request, options;

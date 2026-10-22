@@ -147,6 +147,7 @@ export function createShopeeControlledAutoIntake({
         const mapping = buildShopeeMappingPreview(normalized, payload.mappings, {
           channelAccountId: normalized.channelAccountId,
           marketplaceAccount,
+          requirePhysicalValidation: true,
         });
         const projection = buildShopeeOrderProjectionPreview(normalized, mapping, {
           marketplaceAccount,
