@@ -35,6 +35,20 @@ test('rejeita produto, variante, composição e quantidade inválidos',()=>{
  assert.throws(()=>expandCommercialOrderItem(t30,null,1,10,mix),/Catálogo físico/);
  assert.throws(()=>expand(t30,0,10,mix),/Quantidade comercial/);
 });
+test('Regressão CRM Inbox: múltiplos kits de Trufa e bandejas mistas exigem catálogo físico',()=>{
+  // CRM uses the same expansion contract as Operações — real sale has both items.
+  const trufas=expand(t30,5,45,mix);
+  const bandejas=expand(a,4,32,alf);
+  assert.equal(trufas.length,6);
+  assert.equal(trufas.reduce((sum,line)=>sum+line.quantity,0),150);
+  assert.equal(bandejas.length,2);
+  assert.equal(bandejas.reduce((sum,line)=>sum+line.quantity,0),144);
+  assert.equal(new Set(trufas.map(line=>line.commercial_group_id)).size,1);
+  assert.equal(new Set(bandejas.map(line=>line.commercial_group_id)).size,1);
+  assert.equal(Math.round([...trufas,...bandejas].reduce((sum,line)=>sum+getOrderItemLineTotal(line),0)*100),35300);
+  assert.throws(()=>expandCommercialOrderItem(t30,null,5,45,mix),/Catálogo físico é obrigatório/);
+});
+
 test('somente cálculo: não toca nem muta catálogo físico',()=>{
  const before=JSON.stringify(catalog);expand(t30,2,10,mix);assert.equal(JSON.stringify(catalog),before);
 });
