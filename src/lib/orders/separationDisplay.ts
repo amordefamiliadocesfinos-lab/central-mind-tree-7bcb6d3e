@@ -93,10 +93,14 @@ function biscuitPackagesFromShopeeVariation(item: SeparationSourceItem): string 
  * para eles é necessário commercial_group_id/snapshot (ou projeção segura
  * em etapa própria da integração), senão haveria "1 kit" em cada componente.
  */
-function verifiedMarketplacePresentation(item: SeparationSourceItem): string | undefined {
+function verifiedMarketplacePresentation(item: SeparationSourceItem, ambiguousExternalGroup: boolean): string | undefined {
   const notes = item.notes ?? '';
-  if (!/\bshopee\b/i.test(notes) || /composi(?:ç|c)(?:ão|ao)\s*\d+\s*\/\s*\d+/i.test(notes) ||
-      /(?:^|\|)\s*composition_position\s*=\s*\d+/i.test(notes)) return undefined;
+  // position=0 is also used on genuine SINGLE-item Shopee imports.
+  // Reject multi-line groups, explicit compositions and nonfirst components instead.
+  const componentPosition = notes.match(/(?:^|\|)\s*composition_position\s*=\s*(\d+)/i)?.[1];
+  if (!/\bshopee\b/i.test(notes) || ambiguousExternalGroup ||
+      /composi(?:ç|c)(?:ão|ao)\s*\d+\s*\/\s*\d+/i.test(notes) ||
+      (componentPosition != null && Number(componentPosition) > 0)) return undefined;
   const variation = notes.match(/(?:^|\|)\s*variation\s*:\s*([^|]*)/i)?.[1]?.trim();
   if (!variation) return undefined;
   const multiplier = Number(notes.match(/(?:^|\|)\s*physical_multiplier\s*=\s*(\d+(?:\.\d+)?)/i)?.[1] ??
@@ -153,9 +157,9 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
   return undefined;
 }
 
-function singleSummary(item: SeparationSourceItem): string | undefined {
+function singleSummary(item: SeparationSourceItem, ambiguousExternalGroup = false): string | undefined {
   if (item.commercial_quantity == null || !item.commercial_unit_label) {
-    return biscuitPackagesFromShopeeVariation(item) ?? verifiedMarketplacePresentation(item);
+    return ambiguousExternalGroup ? undefined : biscuitPackagesFromShopeeVariation(item) ?? verifiedMarketplacePresentation(item, false);
   }
   const quantity = Number(item.commercial_quantity);
   const factor = Number(item.commercial_conversion_factor ?? 1);
@@ -239,7 +243,24 @@ function composedGroup(key: string, items: SeparationSourceItem[]): SeparationDi
   };
 }
 
+function externalMappingGroupKey(item: SeparationSourceItem): string | null {
+  // Key exists for import metadata, never inferred from item name/product alone.
+  const notes = item.notes ?? '';
+  if (!/\bshopee\b/i.test(notes)) return null;
+  const mappingId = notes.match(/(?:^|\|)\s*mapping_id\s*=\s*([0-9a-f-]{36})/i)?.[1];
+  if (mappingId) return `mapping:${mappingId.toLowerCase()}`;
+  const key = notes.match(/(?:^|\|)\s*external_item_key\s*=\s*([^|]*)/i)?.[1]?.trim();
+  return key ? `external:${key.toLowerCase()}` : null;
+}
+
 export function createSeparationDisplayEntries(items: readonly SeparationSourceItem[]): SeparationDisplayEntry[] {
+  // Imported compositions may span different Product Masters: the SAME mapping
+  // appearing in multiple physical rows is not automatically multiple kits.
+  const externalCounts = new Map<string, number>();
+  for (const item of items) {
+    const key = externalMappingGroupKey(item);
+    if (key) externalCounts.set(key, (externalCounts.get(key) ?? 0) + 1);
+  }
   const grouped = new Map<string, SeparationSourceItem[]>();
   for (const item of items) {
     // Never infer a kit from product name, flavor or presentation without an explicit group id.
@@ -253,7 +274,7 @@ export function createSeparationDisplayEntries(items: readonly SeparationSourceI
     const item = rows[0];
     return {
       key, productName: item.product?.name || 'Produto',
-      commercialSummary: singleSummary(item),
+      commercialSummary: singleSummary(item, (externalMappingGroupKey(item) != null && (externalCounts.get(externalMappingGroupKey(item)!) ?? 0) > 1)),
       components: [{
         key: item.id, label: item.variant?.variant_name || 'Quantidade física',
         quantityText: formattedPhysical(item),
