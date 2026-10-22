@@ -146,7 +146,7 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
     if (['un', 'unidade'].includes(physicalStockUnit) &&
       multiplier === 1 && rowPhysical === externalQty &&
       item.variant?.variant_name && /\b(embalagem|fechad[ao]|lacrad[ao]|saco|balde)\b/i.test(item.variant.variant_name) &&
-      new RegExp(String.raw`\\b${size}\\s*${normalizedUnit}\\b`, 'i').test(item.variant.variant_name)) {
+      new RegExp(String.raw`\b${size}\s*${normalizedUnit}\b`, 'i').test(item.variant.variant_name)) {
       return `${numberPt(externalQty)} ${pluralUnit('embalagem', externalQty)} de ${numberPt(size)} ${normalizedUnit}`;
     }
   }
