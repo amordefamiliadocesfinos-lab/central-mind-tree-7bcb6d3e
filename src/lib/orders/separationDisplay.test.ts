@@ -270,3 +270,24 @@ test('padrão conservador: snapshot de pacote com quantidade física incompatív
   assert.equal(view.commercialSummary,undefined);
   assert.equal(view.components[0].quantityText,'40 un');
 });
+
+test('Shopee Open Platform: composição_position=0 com linha única é produto simples, não kit composto',()=>{
+  const [view]=createSeparationDisplayEntries([source('single','GLUCODRY',null,4000,{
+    product:{name:'GLUCODRY',unit:'g'},
+    notes:'Shopee Open Platform | external_item_key=code:SH-002-006|variation:4 kg | mapping_id=22cb73db-87be-43bd-811e-1abbda3c1231 | composition_position=0 | commercial_quantity=1 | physical_multiplier=4000',
+  })]);
+  assert.equal(view.commercialSummary,'4 kg');
+  assert.equal(view.components[0].quantityText,'4.000 g');
+});
+
+test('Shopee Open Platform: mesmo mapping em dois componentes não repete kit em cada linha',()=>{
+  const mapping='d4adc1b7-a1c8-40c2-9185-5bf132613187';
+  const notes=(position:number)=>`Shopee Open Platform | external_item_key=code:MIX-30|variation:1 kit 30 uni | mapping_id=${mapping} | composition_position=${position} | commercial_quantity=1 | physical_multiplier=30`;
+  const view=createSeparationDisplayEntries([
+    source('mix1','TRUFA 30G','Brigadeiro',30,{notes:notes(0)}),
+    source('mix2','TRUFA 30G','Morango',30,{notes:notes(1)}),
+  ]);
+  assert.equal(view.length,2);
+  assert.ok(view.every(x=>x.commercialSummary==null));
+  assert.deepEqual(view.map(x=>x.components[0].quantityText),['30 un','30 un']);
+});
