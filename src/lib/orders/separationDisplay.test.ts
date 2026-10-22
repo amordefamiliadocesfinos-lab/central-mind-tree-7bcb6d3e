@@ -234,11 +234,11 @@ test('Shopee: novo produto com 4 kits de 72 unidades exibe pacotes sem regra por
 
 test('Shopee: Glucodry 4kg x2 utiliza gramas como quantidade física e 8kg como comercial',()=>{
   const [view]=createSeparationDisplayEntries([source('gd2','GLUCODRY',null,8000,{
-    physical_unit_label:null,
+    physical_unit_label:null,product:{name:'GLUCODRY',unit:'g'},
     notes:'Shopee Open Platform | variation:4 kg | physical_multiplier=4000 | commercial_quantity=2',
   })]);
   assert.equal(view.commercialSummary,'8 kg');
-  assert.equal(view.components[0].quantityText,'8.000 un');
+  assert.equal(view.components[0].quantityText,'8.000 g');
 });
 
 test('Shopee: Porto Gel embalagem física de 1 kg tem rótulo sem confundir com 1000g disponíveis',()=>{
