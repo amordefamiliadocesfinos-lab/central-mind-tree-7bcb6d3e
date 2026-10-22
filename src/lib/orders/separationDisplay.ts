@@ -230,6 +230,43 @@ function composedGroup(key: string, items: SeparationSourceItem[]): SeparationDi
     }
   }
 
+  // CHOCOIM: "Mesclado" é uma variante FÍSICA própria e não faz parte
+  // de uma bandeja MISTA comercial (Preto + Branco em unidades separadas).
+  // Exibir a montagem por embalagem, sem linhas repetidas 30 + 30 etc.
+  const chocoimMixedIds = new Set([
+    'c34c0a34-2026-4000-8000-000000000020',
+    'c34c0a34-2026-4000-8000-000000000040',
+    'c34c0a34-2026-4000-8000-000000000080',
+    'c34c0a34-2026-4000-8000-000000000560',
+  ]);
+  const chocoimMix = reliableCommercial && /chocoim/i.test(productName)
+    && chocoimMixedIds.has(first.commercial_presentation_id!)
+    && ['bandeja', 'kit', 'caixa'].includes(unit.toLocaleLowerCase('pt-BR'))
+    && items.length === 2 && samePhysicalUnit && physicalUnit(first) === 'un'
+    && items.every(item => item.product_id === mainId
+       && ['3e67edc6-1cb7-463e-8c8e-a50bfb5092f7',
+           '66708945-22f3-43bf-b68e-127021448cd8'].includes(item.variant_id ?? '')
+       && integer(Number(item.quantity) / commonQuantity))
+    && new Set(items.map(item => item.variant_id)).size === 2;
+
+  if (chocoimMix) {
+    const eachBlack = Number(items.find(item => item.variant_id ===
+      '3e67edc6-1cb7-463e-8c8e-a50bfb5092f7')!.quantity) / commonQuantity;
+    const eachWhite = Number(items.find(item => item.variant_id ===
+      '66708945-22f3-43bf-b68e-127021448cd8')!.quantity) / commonQuantity;
+    if (eachBlack === eachWhite && (eachBlack + eachWhite) * commonQuantity === total) {
+      const unitName = unit.toLocaleLowerCase('pt-BR');
+      return {
+        key, productName,
+        presentationName: `${unitName === 'bandeja' ? 'Bandeja' : unitName === 'caixa' ? 'Caixa' : 'Kit'} Misto`,
+        commercialSummary,
+        composition: `${numberPt(eachBlack)} Preto + ${numberPt(eachWhite)} Branco por ${unitName}`
+          + (unitName === 'caixa' && eachBlack + eachWhite === 560 ? ' (28 bandejas de 20)' : ''),
+        components: [], totalText: undefined,
+      };
+    }
+  }
+
   return {
     key, productName,
     presentationName: abbreviatedPresentation(first.commercial_presentation_name),
