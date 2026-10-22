@@ -14,7 +14,7 @@ import { isSeparationEligible } from '@/lib/orders/operationalStatus';
 import { OPERATIONAL_DESTINATION_LABELS, getOperationalDestinationLabel } from '@/lib/orders/operationalDestination';
 import { ORDER_DOCUMENT_TYPE_LABELS, SUPPORTED_ORDER_DOCUMENT_MIME_TYPES } from '@/lib/orders/orderDocuments';
 import { getOrderOperationalOrigin, getOrderPaymentPresentation } from './orderPresentation';
-import { formatCommercialQuantity } from '@/lib/orders/commercialOrderItem';
+import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
 import type { Order } from '@/hooks/useOrders';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
@@ -38,23 +38,29 @@ function orderReference(order: Order) {
 }
 
 function groupedItems(order: Order) {
-  const groups = new Map<string, { name: string; variants: Array<{ name: string; context: string }> }>();
-  for (const item of order.items ?? []) {
-    const name = item.product?.name ?? 'Produto';
-    const key = item.product_id || name;
-    const group = groups.get(key) ?? { name, variants: [] };
-    group.variants.push({ name: item.variant_id ? item.variant?.variant_name ?? 'Variante física' : 'Produto simples', context: formatCommercialQuantity(item) });
-    groups.set(key, group);
-  }
-  return [...groups.values()];
+  return createSeparationDisplayEntries(order.items ?? []);
+}
+
+/** The internal printed summary mirrors what the operator sees on the cards. */
+function htmlEscape(value: string) {
+  return value.replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char] || char);
 }
 
 function printOrderSummary(order: Order) {
-  const lines = (order.items ?? []).map(item => `${formatCommercialQuantity(item)} · ${item.product?.name ?? 'Produto'}${item.variant?.variant_name ? ` — ${item.variant.variant_name}` : ''}`);
+  const entries = groupedItems(order);
+  const lines = entries.map(entry => `<li><strong>${htmlEscape(entry.productName)}</strong>
+    ${entry.presentationName ? `<div>${htmlEscape(entry.presentationName)}</div>` : ''}
+    ${entry.commercialSummary ? `<div><b>${htmlEscape(entry.commercialSummary)}</b></div>` : ''}
+    ${entry.composition ? `<div>${htmlEscape(entry.composition)}</div>` : ''}
+    ${entry.components.map(component => `<div>${htmlEscape(component.label)}: ${htmlEscape(component.quantityText)}</div>`).join('')}
+    ${entry.totalText ? `<div><b>${htmlEscape(entry.totalText)}</b></div>` : ''}
+  </li>`);
   const page = window.open('', '_blank');
   if (!page) throw new Error('O navegador bloqueou a impressão do resumo interno.');
   page.opener = null;
-  page.document.write(`<title>Pedido ${orderReference(order)}</title><style>html,body{margin:0;min-height:100%;font-family:Arial,sans-serif}body{display:flex;align-items:center;justify-content:center;text-align:center}main{width:88%;max-width:900px;padding:48px 32px}h1{font-size:42px;margin:0 0 36px}h2{font-size:32px;margin:42px 0 20px}p,li{font-size:28px;line-height:1.45;margin:12px 0}ul{display:inline-block;text-align:left;margin:0;padding-left:36px}@media print{main{padding:0}}</style><main><h1>Pedido ${orderReference(order)}</h1><p>Cliente: ${order.customer_name ?? 'Não informado'}</p><p>Canal: ${order.channel ?? 'Não informado'}</p><h2>Itens</h2><ul>${lines.map(line => `<li>${line}</li>`).join('')}</ul></main>`);
+  page.document.write(`<title>Pedido ${htmlEscape(orderReference(order))}</title><style>html,body{margin:0;min-height:100%;font-family:Arial,sans-serif}body{display:flex;align-items:center;justify-content:center;text-align:center}main{width:88%;max-width:900px;padding:48px 32px}h1{font-size:42px;margin:0 0 36px}h2{font-size:32px;margin:42px 0 20px}p,li{font-size:25px;line-height:1.45;margin:12px 0}ul{display:inline-block;text-align:left;padding-left:36px}li{margin-bottom:28px}@media print{main{padding:0}}</style><main><h1>Pedido ${htmlEscape(orderReference(order))}</h1><p>Cliente: ${htmlEscape(order.customer_name ?? 'Não informado')}</p><p>Canal: ${htmlEscape(order.channel ?? 'Não informado')}</p><h2>Itens para separação</h2><ul>${lines.join('')}</ul></main>`);
   page.document.close();
   page.focus();
   page.print();
@@ -178,7 +184,23 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
             const payment = getOrderPaymentPresentation(order.payment_status);
             return <Card key={order.id} className="bg-background"><CardContent className="space-y-3 p-3">
               <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p>{getOrderOperationalOrigin(order) && <p className="mt-1 text-xs text-muted-foreground">{getOrderOperationalOrigin(order)}</p>}</div><div className="flex flex-wrap justify-end gap-1"><Badge variant="outline" className={cn('text-[10px]', payment.className)}>{payment.label}</Badge>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div></div>
-              <div className="space-y-2">{itemGroups.length > 0 ? itemGroups.map(group => <div key={group.name} className="text-sm"><p className="font-medium">{group.name}</p>{group.variants.map((variant, index) => <div key={`${variant.name}-${index}`} className="flex items-baseline justify-between gap-3 pl-2 text-xs text-muted-foreground"><span>{variant.name}</span><span className="shrink-0 text-sm font-bold text-foreground">{variant.context}</span></div>)}</div>) : <p className="text-sm text-muted-foreground">Sem itens</p>}</div>
+              <div className="space-y-3">
+                 {itemGroups.length > 0 ? itemGroups.map(group => (
+                   <div key={group.key} className="space-y-1 text-sm">
+                     <p className="font-semibold leading-tight">{group.productName}</p>
+                     {group.presentationName && <p className="pl-2 text-xs font-medium text-muted-foreground">{group.presentationName}</p>}
+                     {group.commercialSummary && <p className="pl-2 text-xs font-semibold text-foreground">{group.commercialSummary}</p>}
+                     {group.composition && <p className="pl-2 text-xs text-muted-foreground">{group.composition}</p>}
+                     {group.components.map(component => (
+                       <div key={component.key} className="flex items-baseline justify-between gap-2 pl-2 text-xs">
+                         <span className="min-w-0 text-muted-foreground">{component.label}</span>
+                         <span className="shrink-0 font-semibold tabular-nums text-foreground">{component.quantityText}</span>
+                       </div>
+                     ))}
+                     {group.totalText && <p className="pl-2 text-xs font-semibold tabular-nums text-foreground">{group.totalText}</p>}
+                   </div>
+                 )) : <p className="text-sm text-muted-foreground">Sem itens</p>}
+               </div>
               {order.notes?.trim() && <div className="rounded-md border bg-muted/30 p-2 text-xs"><p className="mb-1 font-medium">Observação do pedido</p><p className="whitespace-pre-wrap text-muted-foreground">{order.notes}</p></div>}
               {typeof order.marketplace_metadata?.buyer_message === 'string' && order.marketplace_metadata.buyer_message.trim() && <div className="rounded-md border border-blue-300/50 bg-blue-500/5 p-2 text-xs"><p className="mb-1 font-medium">Observação do comprador Shopee</p><p className="whitespace-pre-wrap text-muted-foreground">{order.marketplace_metadata.buyer_message}</p></div>}
               <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"><div className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" />{getOperationalDestinationLabel(order.operational_destination) ?? 'Destino operacional a definir'}</div><div className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3.5 w-3.5" />{order.logistics_mode || 'Modalidade não informada'}</div>{relevantDate(order) && <div className="text-muted-foreground">Prazo: {new Date(`${relevantDate(order)}T00:00:00`).toLocaleDateString('pt-BR')}</div>}</div>

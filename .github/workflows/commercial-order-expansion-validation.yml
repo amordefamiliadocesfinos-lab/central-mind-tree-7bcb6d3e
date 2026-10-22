@@ -6,6 +6,9 @@ on:
       - 'src/lib/orders/commercialOrderItem.ts'
       - 'src/lib/orders/commercialOrderItem.test.ts'
       - 'src/pages/Operacoes.tsx'
+      - 'src/components/operations/OrderSeparationBoard.tsx'
+      - 'src/lib/orders/separationDisplay.ts'
+      - 'src/lib/orders/separationDisplay.test.ts'
       - '.github/workflows/commercial-order-expansion-validation.yml'
 jobs:
   validate:
@@ -25,3 +28,7 @@ jobs:
         run: |
           npx esbuild src/lib/orders/commercialOrderItem.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/commercial-order-expansion-tests.mjs
           node --test /tmp/commercial-order-expansion-tests.mjs
+      - name: Separation presentation UX tests
+        run: |
+          npx esbuild src/lib/orders/separationDisplay.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/separation-display-tests.mjs
+          node --test /tmp/separation-display-tests.mjs
