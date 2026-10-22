@@ -10,6 +10,7 @@ on:
       - 'src/lib/orders/separationDisplay.ts'
       - 'src/lib/orders/separationDisplay.test.ts'
       - 'src/hooks/useOrders.ts'
+      - 'supabase/migrations/20261022230000_amendoim_am21_autoabertura_bom.sql'
       - '.github/workflows/commercial-order-expansion-validation.yml'
 jobs:
   validate:
