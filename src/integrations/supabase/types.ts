@@ -180,6 +180,94 @@ export type Database = {
         }
         Relationships: []
       }
+      amendoim_sealed_events: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_key: string
+          grams_delta: number
+          grams_new: number
+          grams_previous: number
+          id: string
+          movement_type: string
+          new_balance: number
+          notes: string | null
+          previous_balance: number
+          reference_id: string
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_key: string
+          grams_delta: number
+          grams_new: number
+          grams_previous: number
+          id?: string
+          movement_type: string
+          new_balance: number
+          notes?: string | null
+          previous_balance: number
+          reference_id: string
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_key?: string
+          grams_delta?: number
+          grams_new?: number
+          grams_previous?: number
+          id?: string
+          movement_type?: string
+          new_balance?: number
+          notes?: string | null
+          previous_balance?: number
+          reference_id?: string
+          reference_type?: string
+          sacks?: number
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amendoim_sealed_events_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amendoim_sealed_stock: {
+        Row: {
+          sacks: number
+          storage_location_id: string
+          updated_at: string
+        }
+        Insert: {
+          sacks?: number
+          storage_location_id: string
+          updated_at?: string
+        }
+        Update: {
+          sacks?: number
+          storage_location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amendoim_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: true
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_users: {
         Row: {
           auth_user_id: string | null
@@ -8617,6 +8705,16 @@ export type Database = {
     Functions: {
       acquire_shopee_cycle: {
         Args: { p_channel_account_id: string }
+        Returns: Json
+      }
+      amendoim_convert_physical_stock: {
+        Args: {
+          p_confirmed: boolean
+          p_direction: string
+          p_event_key: string
+          p_location_id: string
+          p_sacks: number
+        }
         Returns: Json
       }
       apply_order_stock_event: {
