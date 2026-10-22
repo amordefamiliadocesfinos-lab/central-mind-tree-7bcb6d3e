@@ -133,3 +133,66 @@ test('snapshots conflitantes preservam itens físicos sem afirmar quantidade de 
   assert.equal(entries[0].commercialSummary,undefined);
   assert.equal(entries[0].components.length,2);
 });
+
+test('Shopee PED-00298: variation 2 pacote 44 uni exibe dois pacotes sem snapshot comercial',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('feeb5074-288e-451c-bacb-7bcdba9b92f1','BISCOITO PARA ALFAJOR','Tradicional',44,{
+      product_id:'c4580ad6-e53a-4a36-9696-a65f2a95da00',
+      variant_id:'fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc',
+      notes:'Shopee Open Platform | external_item_key=code:SH-0042-018|variation:2 pacote 44 uni biscoito tradicional | item_id=58253351888 | physical_multiplier=44 | commercial_quantity=1',
+      commercial_quantity:null,commercial_unit_label:null,commercial_presentation_id:null,
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'2 pacotes de 22 un');
+  assert.deepEqual(view.components.map(x=>[x.label,x.quantityText]),[['Tradicional','44 un']]);
+});
+
+test('Shopee histórico: 3 pacotes 66 unidades permanecem três pacotes',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('ped194','BISCOITO PARA ALFAJOR','Tradicional',66,{
+      product_id:'c4580ad6-e53a-4a36-9696-a65f2a95da00',
+      variant_id:'fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc',
+      notes:'Shopee comercial: 1 | Multiplicador físico: 66 | code:SH-004-018|variation:3 pacote 66 uni biscoito tradicional | 22 a 24 Unid por Pacote',
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'3 pacotes de 22 un');
+});
+
+test('dois itens marketplace de 2 pacotes cada mostram 4 pacotes para 88 un',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('mult','BISCOITO PARA ALFAJOR','Tradicional',88,{
+      product_id:'c4580ad6-e53a-4a36-9696-a65f2a95da00',
+      variant_id:'fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc',
+      notes:'Shopee Open Platform | external_item_key=X|variation:2 pacote 44 uni biscoito tradicional | physical_multiplier=44 | commercial_quantity=2',
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'4 pacotes de 22 un');
+});
+
+test('44 un sem variação Shopee explícita não autoriza inferir dois pacotes',()=>{
+  const base={product_id:'c4580ad6-e53a-4a36-9696-a65f2a95da00',
+    variant_id:'fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc'};
+  for (const notes of [
+    null,
+    'Pedido manual de 44 unidades',
+    'Shopee Open Platform | variation:2 pacote 66 uni biscoito tradicional',
+    'Shopee Open Platform | variation:1 caixa 44 uni biscoito tradicional',
+  ]) {
+    const [view]=createSeparationDisplayEntries([source('b','BISCOITO PARA ALFAJOR','Tradicional',44,{...base,notes})]);
+    assert.equal(view.commercialSummary,undefined);
+    assert.equal(view.components[0].quantityText,'44 un');
+  }
+});
+
+test('Outro produto ou caixa física de Biscoito não herda pacotes pelo texto',()=>{
+  const fakeNotes='Shopee Open Platform | variation:2 pacote 44 uni biscoito tradicional';
+  for(const [productId,variantId] of [
+    ['other-product','fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc'],
+    ['c4580ad6-e53a-4a36-9696-a65f2a95da00','a36f690f-39db-4ecd-a8f7-1cc27a266a44'],
+  ]){
+    const [view]=createSeparationDisplayEntries([source('x','Produto','Tradicional',44,{
+      product_id:productId,variant_id:variantId,notes:fakeNotes,
+    })]);
+    assert.equal(view.commercialSummary,undefined);
+  }
+});
