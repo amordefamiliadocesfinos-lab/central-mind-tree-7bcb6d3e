@@ -352,3 +352,32 @@ test('AM1 Amendoim Torrado: kits 2/3 kg usam gramas da identidade EG, sem varian
     }
   }
 });
+
+
+test('AM3 vende saco original 24kg como saco inteiro, sem consumir EG em gramas',()=>{
+  const product={id:'c177f332-a1c7-4276-9cef-7b81af920174',unit:'g',variation_mode:'sem_variacao',is_active:true,price:0.015};
+  const present:CommercialPresentation={
+    id:'a3400000-0000-4000-8000-000000002400',product_id:product.id,variant_id:null,
+    name:'Saco original fechado 24 kg',commercial_unit_label:'saco',conversion_factor:1,
+    composition_mode:'single',is_active:true,notes:null,created_at:'',updated_at:'',
+  };
+  assert.equal(getDefaultCommercialUnitPrice(product,null,present),0);
+  for(const q of [1,2,4]){
+    const [item]=expandCommercialOrderItem(product,null,q,220,present);
+    assert.equal(item.quantity,q);
+    assert.equal(item.commercial_quantity,q);
+    assert.equal(item.physical_unit_label,'saco');
+    assert.equal(item.variant_id,null);
+    assert.equal(getOrderItemLineTotal(item),q*220);
+  }
+  for(const invalid of [0,1.5,-1]){
+    assert.throws(()=>expandCommercialOrderItem(product,null,invalid,220,present),/AM3/);
+  }
+  assert.throws(()=>expandCommercialOrderItem(product,null,1,0,present),/preço/);
+  const [grams]=expandCommercialOrderItem(product,null,2,25,{
+    ...present,id:'a11e0000-0000-4000-8000-000000002000',
+    name:'Kit 2 pacotes de 1 kg',conversion_factor:2000,commercial_unit_label:'kit',
+  });
+  assert.equal(grams.quantity,4000);
+  assert.equal(grams.physical_unit_label,'g');
+});

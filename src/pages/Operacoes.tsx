@@ -87,7 +87,7 @@ import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInve
 import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3 } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
@@ -366,6 +366,7 @@ export default function Operacoes() {
   const [financialAccounts, setFinancialAccounts] = useState<Array<{ id: string; name: string }>>([]);
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
   const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
+  const [amendoimSealedSacks, setAmendoimSealedSacks] = useState<number | null>(null);
   useEffect(() => {
     if (!showSaleDialog) return;
     (supabase as any).from('glucodry_sealed_stock').select('sacks')
@@ -380,6 +381,11 @@ export default function Operacoes() {
           acc[row.variant_id] = (acc[row.variant_id] ?? 0) + Number(row.sacks);
           return acc;
         }, {}));
+      });
+    (supabase as any).from('amendoim_sealed_stock').select('sacks')
+      .then(({ data, error }: any) => {
+        setAmendoimSealedSacks(error ? null
+          : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
       });
   }, [showSaleDialog]);
 
@@ -432,6 +438,7 @@ export default function Operacoes() {
   const getSaleItemStockBalance = (item: NewSaleItem) => {
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
     if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
+    if (isAmendoimAM3(item.commercial_presentation?.id)) return amendoimSealedSacks;
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
     return getInventoryBalanceByIdentity(storeInventory, item.product_id, item.variant_id);
@@ -441,7 +448,7 @@ export default function Operacoes() {
     const balance = getSaleItemStockBalance(item);
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (balance === null) return '—';
-    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
+    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) || isAmendoimAM3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleAddProduct = async () => {
@@ -1075,7 +1082,7 @@ export default function Operacoes() {
                         <p className="text-xs text-muted-foreground">
                           Composição para separação: {(item.commercial_presentation.components ?? []).map(c => `${Number(c.quantity) * Number(item.commercial_quantity)} un. de ${saleVariants.find(v => v.id === c.variant_id)?.variant_name ?? 'variante'}`).join(' + ')}
                         </p>
-                      ) : <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(rawProducts.find(product => product.id === item.product_id), item.variant_id ? saleVariants.find(variant => variant.id === item.variant_id) : null)}</p>}
+                      ) : <p className="text-xs text-muted-foreground">Estoque: {formatSaleItemStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {isAmendoimAM3(item.commercial_presentation?.id) ? 'saco' : getPhysicalIdentityUnit(rawProducts.find(product => product.id === item.product_id), item.variant_id ? saleVariants.find(variant => variant.id === item.variant_id) : null)}</p>}
                       </div>
                     ))}
                     {missingSaleVariantProduct && (

@@ -36,6 +36,10 @@ export function isChocolateCB3(presentationId: string | null | undefined): boole
   return presentationId === CHOCOLATE_CB3_BRANCO_ID || presentationId === CHOCOLATE_CB3_MEIO_AMARGO_ID;
 }
 
+export const AMENDOIM_TORRADO_PRODUCT_ID = 'c177f332-a1c7-4276-9cef-7b81af920174';
+export const AMENDOIM_AM3_PRESENTATION_ID = 'a3400000-0000-4000-8000-000000002400';
+export const isAmendoimAM3 = (id: string | null | undefined) => id === AMENDOIM_AM3_PRESENTATION_ID;
+
 const GLUCOSE_PRODUCT_ID = '788f7d5a-276c-49c8-8171-cccf7621e2fe';
 const GLUCOSE_PRODUCTION_VARIANT_ID = '222c4ec7-45da-4a1c-961e-d61ac2a914d4';
 
@@ -55,6 +59,7 @@ export function getDefaultCommercialUnitPrice(
   variant?: PhysicalVariant,
   presentation?: (Pick<CommercialPresentation, 'conversion_factor'> & { id?: string }) | null,
 ) {
+  if (product.id === AMENDOIM_TORRADO_PRODUCT_ID && isAmendoimAM3(presentation?.id)) return 0;
   // The CB3 bag has a negotiated selling price, NOT the variant's per-gram cost.
   if (product.id === CHOCOLATE_BASE_PRODUCT_ID && isChocolateCB3(presentation?.id)) return 0;
   // Referência de laboratório GD2; o valor segue editável pelo operador.
@@ -80,6 +85,7 @@ export function buildCommercialOrderItem(
   const selected = presentation ?? directCommercialPresentation(product, variant);
   const sealedGD2 = product.id === GLUCODRY_PRODUCT_ID && isGlucodryGD2(presentation?.id);
   const sealedCB3 = product.id === CHOCOLATE_BASE_PRODUCT_ID && isChocolateCB3(presentation?.id);
+  const sealedAM3 = product.id === AMENDOIM_TORRADO_PRODUCT_ID && isAmendoimAM3(presentation?.id);
   if (sealedCB3 && (!Number.isSafeInteger(commercialQuantity) || commercialQuantity<1 ||
     Number(selected.conversion_factor)!==1 || !variant ||
     (presentation?.id === CHOCOLATE_CB3_BRANCO_ID && variant.id !== 'f6588f52-6e28-4ce9-b492-a95c847d5c0c') ||
@@ -88,6 +94,15 @@ export function buildCommercialOrderItem(
   }
   if (sealedCB3 && (!Number.isFinite(unitPrice) || unitPrice<=0)) {
     throw new Error('Informe o preço comercial do saco fechado de Chocolate CB3.');
+  }
+  if (sealedAM3 && (!Number.isSafeInteger(commercialQuantity) || commercialQuantity<1 ||
+    Number(selected.conversion_factor)!==1 || variant != null ||
+    !presentation?.is_active || presentation.product_id!==product.id ||
+    presentation.commercial_unit_label!=='saco')) {
+    throw new Error('AM3 exige quantidade inteira de sacos originais fechados de Amendoim 24kg.');
+  }
+  if (sealedAM3 && (!Number.isFinite(unitPrice) || unitPrice<=0)) {
+    throw new Error('Informe o preço negociado por saco fechado de Amendoim 24kg.');
   }
   if (sealedGD2 && (commercialQuantity !== 1 || Number(selected.conversion_factor) !== 1)) {
     throw new Error('Glucodry GD2 permite somente um saco fechado de 25 kg por pedido.');
@@ -110,7 +125,7 @@ export function buildCommercialOrderItem(
     commercial_unit_label: selected.commercial_unit_label,
     commercial_conversion_factor: factor,
     commercial_quantity: commercialQuantity,
-    physical_unit_label: sealedGD2 || sealedCB3 ? 'saco' : getPhysicalIdentityUnit(product, variant),
+    physical_unit_label: sealedGD2 || sealedCB3 || sealedAM3 ? 'saco' : getPhysicalIdentityUnit(product, variant),
   };
 }
 
