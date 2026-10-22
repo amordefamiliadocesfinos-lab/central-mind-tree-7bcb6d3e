@@ -15,6 +15,7 @@ export type SeparationSourceItem = {
   commercial_quantity?: number | null;
   commercial_conversion_factor?: number | null;
   physical_unit_label?: string | null;
+  notes?: string | null;
   product?: { name: string } | null;
   variant?: { variant_name: string } | null;
 };
@@ -43,8 +44,35 @@ function pluralUnit(unit: string, quantity: number) {
   return quantity === 1 ? value : (plural[value] || value);
 }
 
+/**
+ * Legacy Shopee rows may have no commercial snapshot, although their original
+ * purchased variation remains in notes. Only infer the display for the known
+ * Biscoito physical variants and an explicit "N pacote(s) M uni" Shopee
+ * variation. Never infer packs from 44/22 alone or change order quantities.
+ */
+function biscuitPackagesFromShopeeVariation(item: SeparationSourceItem): string | undefined {
+  if (item.product_id !== 'c4580ad6-e53a-4a36-9696-a65f2a95da00'
+    || !['fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc',
+          '34188174-5906-4f92-a16d-4e5207f37dd5'].includes(item.variant_id ?? '')
+    || !item.notes || !/shopee/i.test(item.notes)) return undefined;
+  const variation = item.notes.match(/(?:^|\\|)\\s*variation\\s*:\\s*([^|]*)/i)?.[1];
+  const packs = variation?.match(/\\b(\\d+)\\s*pacotes?\\s*(?:de\\s*)?(\\d+)\\s*(?:uni(?:dades?)?|un(?:idades?)?)\\b/i);
+  if (!packs) return undefined;
+  const packsPerMarketplaceUnit = Number(packs[1]);
+  const unitsPerMarketplaceUnit = Number(packs[2]);
+  const physicalUnits = Number(item.quantity);
+  if (!Number.isSafeInteger(packsPerMarketplaceUnit) || packsPerMarketplaceUnit <= 0 ||
+    !Number.isSafeInteger(unitsPerMarketplaceUnit) || unitsPerMarketplaceUnit !== packsPerMarketplaceUnit * 22 ||
+    !Number.isSafeInteger(physicalUnits) || physicalUnits <= 0 ||
+    physicalUnits % unitsPerMarketplaceUnit !== 0) return undefined;
+  const totalPacks = packsPerMarketplaceUnit * (physicalUnits / unitsPerMarketplaceUnit);
+  return `${numberPt(totalPacks)} ${pluralUnit('pacote', totalPacks)} de 22 un`;
+}
+
 function singleSummary(item: SeparationSourceItem): string | undefined {
-  if (item.commercial_quantity == null || !item.commercial_unit_label) return undefined;
+  if (item.commercial_quantity == null || !item.commercial_unit_label) {
+    return biscuitPackagesFromShopeeVariation(item);
+  }
   const quantity = Number(item.commercial_quantity);
   const factor = Number(item.commercial_conversion_factor ?? 1);
   if (!(quantity > 0) || !Number.isFinite(quantity) || !Number.isFinite(factor)) return undefined;
