@@ -252,7 +252,7 @@ test('Shopee: Porto Gel embalagem física de 1 kg tem rótulo sem confundir com 
 test('padrão conservador: notas incompletas e componentes externos não inventam embalagem',()=>{
   const notes=[
     'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=36 | commercial_quantity=1',
-    'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1 | composition_position=0',
+    'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1 | composition_position=1',
     'Shopee comercial: 1 | Multiplicador físico: 72 | code:foo|variation:4 kit 72 uni | composição 1/2',
     'Mercado Livre |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1',
   ];
@@ -273,7 +273,7 @@ test('padrão conservador: snapshot de pacote com quantidade física incompatív
 
 test('Shopee Open Platform: composição_position=0 com linha única é produto simples, não kit composto',()=>{
   const [view]=createSeparationDisplayEntries([source('single','GLUCODRY',null,4000,{
-    product:{name:'GLUCODRY',unit:'g'},
+    physical_unit_label:null,product:{name:'GLUCODRY',unit:'g'},
     notes:'Shopee Open Platform | external_item_key=code:SH-002-006|variation:4 kg | mapping_id=22cb73db-87be-43bd-811e-1abbda3c1231 | composition_position=0 | commercial_quantity=1 | physical_multiplier=4000',
   })]);
   assert.equal(view.commercialSummary,'4 kg');
@@ -290,4 +290,11 @@ test('Shopee Open Platform: mesmo mapping em dois componentes não repete kit em
   assert.equal(view.length,2);
   assert.ok(view.every(x=>x.commercialSummary==null));
   assert.deepEqual(view.map(x=>x.components[0].quantityText),['30 un','30 un']);
+});
+
+test('Shopee Open Platform: posição zero isolada e multiplicador inteiro autorizam kit comercial único',()=>{
+  const [view]=createSeparationDisplayEntries([source('singleton','PRODUTO FUTURO','Misto',72,{
+    notes:'Shopee Open Platform |external_item_key=code:MIX-72|variation:4 kit 72 uni | mapping_id=22cb73db-87be-43bd-811e-1abbda3c1232 | composition_position=0 | commercial_quantity=1 | physical_multiplier=72',
+  })]);
+  assert.equal(view.commercialSummary,'4 kits de 18 un');
 });
