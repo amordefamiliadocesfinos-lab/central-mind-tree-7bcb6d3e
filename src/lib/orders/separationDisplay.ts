@@ -124,7 +124,7 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
       !verifiedPhysicalTotal(item, externalQty, totalPerExternal)) return undefined;
     const totalPacks = listedPacks * externalQty;
     const word = pack[2].toLowerCase().replace(/s$/, '');
-    return \`\${numberPt(totalPacks)} \${pluralUnit(word, totalPacks)} de \${numberPt(size)} un\`;
+    return `${numberPt(totalPacks)} ${pluralUnit(word, totalPacks)} de ${numberPt(size)} un`;
   }
 
   // Ex.: variation:4 kg, 4000 gramas; legacy 2kg × 2 = 4000g.
@@ -138,14 +138,14 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
     const physicalUnit = item.physical_unit_label?.toLowerCase();
     if ((physicalUnit === 'g' || (!physicalUnit && multiplier === size * (normalizedUnit === 'kg' ? 1000 : 1))) &&
         Math.abs(rowPhysical - expectedGrams) < 0.000001) {
-      return \`\${numberPt(totalWeight)} \${normalizedUnit}\`;
+      return `${numberPt(totalWeight)} ${normalizedUnit}`;
     }
     // Recipiente físico já embalado: não afirmar disponibilidade em gramas.
     if ((!physicalUnit || ['un', 'unidade'].includes(physicalUnit)) &&
       multiplier === 1 && rowPhysical === externalQty &&
       item.variant?.variant_name && /\b(embalagem|fechad[ao]|lacrad[ao]|saco|balde)\b/i.test(item.variant.variant_name) &&
-      new RegExp(\`\\\\b\${size}\\\\s*\${normalizedUnit}\\\\b\`, 'i').test(item.variant.variant_name)) {
-      return \`\${numberPt(externalQty)} \${pluralUnit('embalagem', externalQty)} de \${numberPt(size)} \${normalizedUnit}\`;
+      new RegExp(String.raw`\\b${size}\\s*${normalizedUnit}\\b`, 'i').test(item.variant.variant_name)) {
+      return `${numberPt(externalQty)} ${pluralUnit('embalagem', externalQty)} de ${numberPt(size)} ${normalizedUnit}`;
     }
   }
   return undefined;
