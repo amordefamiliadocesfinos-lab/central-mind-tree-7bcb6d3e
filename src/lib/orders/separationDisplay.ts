@@ -166,6 +166,28 @@ function singleSummary(item: SeparationSourceItem, ambiguousExternalGroup = fals
   if (!(quantity > 0) || !Number.isFinite(quantity) || !Number.isFinite(factor) ||
       !verifiedPhysicalTotal(item, quantity, factor)) return undefined;
   const unit = pluralUnit(item.commercial_unit_label, quantity);
+
+  // Catálogo comercial fracionado pode descrever um kit como N pacotes de 1 kg
+  // sem que esses pacotes existam como saldo físico paralelo. Inferir a
+  // preparação APENAS do snapshot comercial explícito e matematicamente válido.
+  // Funciona também para futuros produtos com a mesma apresentação.
+  const packageKit = item.commercial_presentation_name?.match(
+    /\bkit\s+(\d+)\s+pacotes?\s+de\s+(\d+(?:[.,]\d+)?)\s*(kg|g)\b/i
+  );
+  if (packageKit && item.commercial_unit_label.toLowerCase() === 'kit'
+      && physicalUnit(item) === 'g'
+      && Number.isSafeInteger(quantity) && Number.isSafeInteger(Number(packageKit[1]))
+      && Number(packageKit[1]) > 0) {
+    const packsPerKit = Number(packageKit[1]);
+    const packWeight = Number(packageKit[2].replace(',', '.'));
+    const packUnit = packageKit[3].toLowerCase();
+    const gramsPerPack = packWeight * (packUnit === 'kg' ? 1000 : 1);
+    if (gramsPerPack > 0 && packsPerKit * gramsPerPack === factor) {
+      const packsToPrepare = packsPerKit * quantity;
+      return `${numberPt(quantity)} ${unit} · preparar ${numberPt(packsToPrepare)} ${pluralUnit('pacote', packsToPrepare)} de ${numberPt(packWeight)} ${packUnit}`;
+    }
+  }
+
   if (factor > 1 && !['kg', 'g'].includes(item.commercial_unit_label.toLocaleLowerCase('pt-BR'))) {
     return `${numberPt(quantity)} ${unit} de ${numberPt(factor)} ${physicalUnit(item)}`;
   }
