@@ -258,7 +258,7 @@ function composedGroup(key: string, items: SeparationSourceItem[]): SeparationDi
       const unitName = unit.toLocaleLowerCase('pt-BR');
       return {
         key, productName,
-        presentationName: `${unitName === 'bandeja' ? 'Bandeja' : unitName === 'caixa' ? 'Caixa' : 'Kit'} Misto`,
+        presentationName: `${unitName === 'bandeja' ? 'Bandeja Mista' : unitName === 'caixa' ? 'Caixa Mista' : 'Kit Misto'}`,
         commercialSummary,
         composition: `${numberPt(eachBlack)} Preto + ${numberPt(eachWhite)} Branco por ${unitName}`
           + (unitName === 'caixa' && eachBlack + eachWhite === 560 ? ' (28 bandejas de 20)' : ''),
