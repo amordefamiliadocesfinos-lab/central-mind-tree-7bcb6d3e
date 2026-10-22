@@ -22,7 +22,7 @@ import { uploadOrderDocument } from '@/lib/orders/orderDocuments';
 import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
-import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3 } from '@/lib/orders/commercialOrderItem';
+import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
@@ -83,6 +83,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [variants, setVariants] = useState<Array<{ id: string; product_id: string; variant_name: string; sku: string; price_override: number | null; unit: string | null }>>([]);
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
   const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
+  const [amendoimSealedSacks, setAmendoimSealedSacks] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
@@ -114,6 +115,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           acc[row.variant_id] = (acc[row.variant_id] ?? 0) + Number(row.sacks);
           return acc;
         }, {}));
+      });
+    (supabase as any).from('amendoim_sealed_stock').select('sacks')
+      .then(({ data, error }: any) => {
+        setAmendoimSealedSacks(error ? null
+          : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
       });
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
@@ -156,6 +162,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const getItemStockBalance = (item: SaleItem) => {
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
     if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
+    if (isAmendoimAM3(item.commercial_presentation?.id)) return amendoimSealedSacks;
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (!product || (product.variation_mode === 'variacoes_fisicas' && !item.variant_id)) return null;
     return getInventoryBalanceByIdentity(inventory, item.product_id, item.variant_id ?? null);
@@ -165,7 +172,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     const balance = getItemStockBalance(item);
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (balance === null) return '—';
-    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
+    return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) || isAmendoimAM3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
   const handleSave = async () => {
@@ -371,7 +378,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   <p className="text-[11px] text-muted-foreground">
                     Composição: {(item.commercial_presentation.components ?? []).map(c => `${Number(c.quantity) * Number(item.commercial_quantity)} un. de ${variants.find(v => v.id === c.variant_id)?.variant_name ?? 'variante'}`).join(' + ')}
                   </p>
-                ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
+                ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {isAmendoimAM3(item.commercial_presentation?.id) ? 'saco' : getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
               </div>
             ))}
           </div>
