@@ -327,7 +327,7 @@ test('Chocoim misto 40/80/560 em multiplos usa somente quantidades de preto e br
   const formats=[
     [40,'c34c0a34-2026-4000-8000-000000000040','kit',20,'Kit Misto','20 Preto + 20 Branco por kit'],
     [80,'c34c0a34-2026-4000-8000-000000000080','kit',40,'Kit Misto','40 Preto + 40 Branco por kit'],
-    [560,'c34c0a34-2026-4000-8000-000000000560','caixa',280,'Caixa Misto','280 Preto + 280 Branco por caixa (28 bandejas de 20)'],
+    [560,'c34c0a34-2026-4000-8000-000000000560','caixa',280,'Caixa Mista','280 Preto + 280 Branco por caixa (28 bandejas de 20)'],
   ] as const;
   for(const [total,id,unit,half,title,composition] of formats) {
     const shared={product_id:pid,commercial_group_id:'mix-'+id,
