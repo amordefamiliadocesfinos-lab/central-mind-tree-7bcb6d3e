@@ -264,3 +264,60 @@ test('Chocoim 34g: atacado multiplica Kit 40 sem criar nova apresentação físi
   assert.equal(sale.physical_unit_label,'un');
   assert.equal(getOrderItemLineTotal(sale),2340);
 });
+
+
+test('Chocoim Misto: 4 apresentacoes compostas usam SOMENTE Preto + Branco, nunca Mesclado',()=>{
+  const pid='e01a87f3-615d-4330-87c6-d0f9878a7c3b';
+  const black='3e67edc6-1cb7-463e-8c8e-a50bfb5092f7';
+  const white='66708945-22f3-43bf-b68e-127021448cd8';
+  const mesclado='1a84c7f3-4130-45fc-920f-62aecafe4c91';
+  const product={id:pid,unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
+  const physCatalog={products:[product],variants:[black,white,mesclado].map(id=>({
+    id,product_id:pid,unit:'un',is_active:true,
+  }))};
+  const formats=[
+    ['c34c0a34-2026-4000-8000-000000000020','bandeja',20,10],
+    ['c34c0a34-2026-4000-8000-000000000040','kit',40,20],
+    ['c34c0a34-2026-4000-8000-000000000080','kit',80,40],
+    ['c34c0a34-2026-4000-8000-000000000560','caixa',560,280],
+  ] as const;
+  for(const [id,commercialUnit,total,perFlavor] of formats){
+    const presentation:CommercialPresentation={
+      id,product_id:pid,variant_id:null,name:'Chocoim 34g — Misto',
+      commercial_unit_label:commercialUnit,conversion_factor:total,composition_mode:'composite',
+      is_active:true,notes:null,created_at:'',updated_at:'',
+      components:[
+        {product_id:pid,variant_id:black,quantity:perFlavor},
+        {product_id:pid,variant_id:white,quantity:perFlavor},
+      ],
+    };
+    for(const quantity of [1,3,13]){
+      const rows=expandCommercialOrderItem(product,null,quantity,18.75,presentation,undefined,physCatalog);
+      assert.equal(rows.length,2);
+      assert.equal(rows.reduce((sum,row)=>sum+row.quantity,0),quantity*total);
+      assert.deepEqual(rows.map(x=>[x.variant_id,x.quantity]),[
+        [black,perFlavor*quantity],[white,perFlavor*quantity],
+      ]);
+      assert.ok(rows.every(x=>x.product_id===pid && x.physical_unit_label==='un'));
+      assert.ok(rows.every(x=>x.commercial_presentation_id===id && x.commercial_quantity===quantity));
+      assert.equal(new Set(rows.map(x=>x.commercial_group_id)).size,1);
+      assert.equal(rows.some(x=>x.variant_id===mesclado),false);
+      assert.equal(Math.round(rows.reduce((sum,row)=>sum+getOrderItemLineTotal(row),0)*100),1875*quantity);
+    }
+  }
+});
+
+test('Chocoim Mesclado permanece UMA variante fisica single, nao dois componentes',()=>{
+  const pid='e01a87f3-615d-4330-87c6-d0f9878a7c3b';
+  const mesclado='1a84c7f3-4130-45fc-920f-62aecafe4c91';
+  const product={id:pid,unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
+  const variant={id:mesclado,product_id:pid,unit:'un',is_active:true};
+  const p:CommercialPresentation={id:'single-mesclado-20',product_id:pid,variant_id:mesclado,
+    name:'Chocoim 34g — Bandeja 20 — Mesclado',commercial_unit_label:'bandeja',
+    conversion_factor:20,composition_mode:'single',is_active:true,notes:null,created_at:'',updated_at:''};
+  const rows=expandCommercialOrderItem(product,variant,2,42.25,p);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].variant_id,mesclado);
+  assert.equal(rows[0].quantity,40);
+  assert.equal(getOrderItemLineTotal(rows[0]),84.5);
+});
