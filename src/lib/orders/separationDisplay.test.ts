@@ -340,7 +340,7 @@ test('Chocoim misto 40/80/560 em multiplos usa somente quantidades de preto e br
         ...shared,variant_id:'66708945-22f3-43bf-b68e-127021448cd8'}),
     ]);
     assert.equal(view.presentationName,title);
-    assert.equal(view.commercialSummary,`2 ${unit === 'caixa' ? 'caixas' : 'kits'} · ${total*2} un`);
+    assert.equal(view.commercialSummary,`2 ${unit === 'caixa' ? 'caixas' : 'kits'} · ${(total*2).toLocaleString('pt-BR')} un`);
     assert.equal(view.composition,composition);
     assert.equal(view.components.length,0);
   }
