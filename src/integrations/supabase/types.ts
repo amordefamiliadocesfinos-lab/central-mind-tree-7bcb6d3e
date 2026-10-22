@@ -643,6 +643,105 @@ export type Database = {
           },
         ]
       }
+      chocolate_sealed_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_key: string
+          id: string
+          movement_type: string
+          new_balance: number
+          notes: string | null
+          previous_balance: number
+          reference_id: string | null
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+          variant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_key: string
+          id?: string
+          movement_type: string
+          new_balance: number
+          notes?: string | null
+          previous_balance: number
+          reference_id?: string | null
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+          variant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_key?: string
+          id?: string
+          movement_type?: string
+          new_balance?: number
+          notes?: string | null
+          previous_balance?: number
+          reference_id?: string | null
+          reference_type?: string
+          sacks?: number
+          storage_location_id?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chocolate_sealed_events_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chocolate_sealed_events_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chocolate_sealed_stock: {
+        Row: {
+          sacks: number
+          storage_location_id: string
+          updated_at: string
+          variant_id: string
+        }
+        Insert: {
+          sacks?: number
+          storage_location_id: string
+          updated_at?: string
+          variant_id: string
+        }
+        Update: {
+          sacks?: number
+          storage_location_id?: string
+          updated_at?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chocolate_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chocolate_sealed_stock_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commercial_presentation_components: {
         Row: {
           id: string
@@ -3051,6 +3150,85 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: true
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      glucodry_sealed_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_key: string
+          id: string
+          movement_type: string
+          new_balance: number
+          notes: string | null
+          previous_balance: number
+          reference_id: string | null
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_key: string
+          id?: string
+          movement_type: string
+          new_balance: number
+          notes?: string | null
+          previous_balance: number
+          reference_id?: string | null
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_key?: string
+          id?: string
+          movement_type?: string
+          new_balance?: number
+          notes?: string | null
+          previous_balance?: number
+          reference_id?: string | null
+          reference_type?: string
+          sacks?: number
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glucodry_sealed_events_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      glucodry_sealed_stock: {
+        Row: {
+          sacks: number
+          storage_location_id: string
+          updated_at: string
+        }
+        Insert: {
+          sacks?: number
+          storage_location_id: string
+          updated_at?: string
+        }
+        Update: {
+          sacks?: number
+          storage_location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glucodry_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: true
+            referencedRelation: "storage_locations"
             referencedColumns: ["id"]
           },
         ]
@@ -8499,6 +8677,18 @@ export type Database = {
         Args: { p_purchase_order_id: string; p_reason?: string }
         Returns: Json
       }
+      chocolate_move_sealed_internal: {
+        Args: {
+          p_delta: number
+          p_event_key: string
+          p_location_id: string
+          p_notes: string
+          p_ref_id: string
+          p_ref_type: string
+          p_variant_id: string
+        }
+        Returns: undefined
+      }
       claim_shopee_shipping_arrangement: {
         Args: {
           p_channel_account_id: string
@@ -8608,6 +8798,18 @@ export type Database = {
         }
         Returns: Json
       }
+      convert_biscuit_closed_box_stock: {
+        Args: {
+          p_boxes: number
+          p_confirmed: boolean
+          p_direction: string
+          p_event_key: string
+          p_location: string
+          p_packages: number
+          p_unit_variant_id: string
+        }
+        Returns: Json
+      }
       correct_production_fact: {
         Args: {
           p_occurred_at: string
@@ -8654,6 +8856,15 @@ export type Database = {
         Args: { p_closing_id: string }
         Returns: Json
       }
+      ensure_chocolate_production_material: {
+        Args: {
+          p_ref_type?: string
+          p_reference_id: string
+          p_required_g: number
+          p_variant_id: string
+        }
+        Returns: number
+      }
       ensure_portogel_production_material: {
         Args: { p_production_fact_id: string; p_required_g: number }
         Returns: number
@@ -8692,6 +8903,27 @@ export type Database = {
       get_supplier_delivery_plan: {
         Args: { p_reference_time?: string; p_supplier_contact_id: string }
         Returns: Json
+      }
+      glucodry_convert_physical_stock: {
+        Args: {
+          p_confirmed: boolean
+          p_direction: string
+          p_event_key: string
+          p_location_id: string
+          p_sacks: number
+        }
+        Returns: Json
+      }
+      glucodry_move_sealed_internal: {
+        Args: {
+          p_delta: number
+          p_event_key: string
+          p_location_id: string
+          p_notes: string
+          p_reference_id: string
+          p_reference_type: string
+        }
+        Returns: undefined
       }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
