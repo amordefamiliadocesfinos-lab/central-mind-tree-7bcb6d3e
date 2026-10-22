@@ -196,3 +196,77 @@ test('Outro produto ou caixa física de Biscoito não herda pacotes pelo texto',
     assert.equal(view.commercialSummary,undefined);
   }
 });
+
+test('padrão universal: futuro produto com pacote configurado herda a mesma UX automaticamente',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('new1','PRODUTO FUTURO','Chocolate',72,{
+      product_id:'produto-novo-ainda-nao-existente',
+      commercial_presentation_id:'presentation-futura',
+      commercial_presentation_name:'Caixa 24',
+      commercial_quantity:3,commercial_unit_label:'caixa',
+      commercial_conversion_factor:24,
+    }),
+  ]);
+  assert.equal(view.productName,'PRODUTO FUTURO');
+  assert.equal(view.commercialSummary,'3 caixas de 24 un');
+  assert.equal(view.components[0].quantityText,'72 un');
+});
+
+test('padrão universal: kit composto futuro exibe uma apresentação e componentes, sem repetir kits',()=>{
+  const part={commercial_presentation_id:'future-kit',commercial_group_id:'future-group',
+    commercial_quantity:2,commercial_unit_label:'kit',commercial_conversion_factor:4,
+    commercial_presentation_name:'Mix Futuro — 3 Sabores'};
+  const rows=['A','B','C'].map((v,i)=>source('future'+i,'PRODUTO FUTURO',v,8,part));
+  const [view]=createSeparationDisplayEntries(rows);
+  assert.equal(view.commercialSummary,'2 kits · 24 un');
+  assert.equal(view.components.length,3);
+  assert.equal(view.components.every(x=>x.quantityText==='8 un'),true);
+});
+
+test('Shopee: novo produto com 4 kits de 72 unidades exibe pacotes sem regra por produto',()=>{
+  const [view]=createSeparationDisplayEntries([source('f','PRODUTO FUTURO','Futuro',72,{
+    product_id:'future-product-id',
+    notes:'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1',
+  })]);
+  assert.equal(view.commercialSummary,'4 kits de 18 un');
+  assert.equal(view.components[0].quantityText,'72 un');
+});
+
+test('Shopee: Glucodry 4kg x2 utiliza gramas como quantidade física e 8kg como comercial',()=>{
+  const [view]=createSeparationDisplayEntries([source('gd2','GLUCODRY',null,8000,{
+    physical_unit_label:null,
+    notes:'Shopee Open Platform | variation:4 kg | physical_multiplier=4000 | commercial_quantity=2',
+  })]);
+  assert.equal(view.commercialSummary,'8 kg');
+  assert.equal(view.components[0].quantityText,'8.000 un');
+});
+
+test('Shopee: Porto Gel embalagem física de 1 kg tem rótulo sem confundir com 1000g disponíveis',()=>{
+  const [view]=createSeparationDisplayEntries([source('pg','EMULSIFICANTE PORTO GEL','1 kg — embalagem fechada',2,{
+    notes:'Shopee Open Platform | variation:1 kg | physical_multiplier=1 | commercial_quantity=2',
+  })]);
+  assert.equal(view.commercialSummary,'2 embalagens de 1 kg');
+  assert.equal(view.components[0].quantityText,'2 un');
+});
+
+test('padrão conservador: notas incompletas e componentes externos não inventam embalagem',()=>{
+  const notes=[
+    'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=36 | commercial_quantity=1',
+    'Shopee Open Platform |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1 | composition_position=0',
+    'Shopee comercial: 1 | Multiplicador físico: 72 | code:foo|variation:4 kit 72 uni | composição 1/2',
+    'Mercado Livre |variation:4 kit 72 uni | physical_multiplier=72 | commercial_quantity=1',
+  ];
+  for(const [i,note] of notes.entries()){
+    const [view]=createSeparationDisplayEntries([source('negative'+i,'PRODUTO FUTURO','Futuro',72,{notes:note})]);
+    assert.equal(view.commercialSummary,undefined,`item ${i}`);
+  }
+});
+
+test('padrão conservador: snapshot de pacote com quantidade física incompatível mostra só o real',()=>{
+  const [view]=createSeparationDisplayEntries([source('bad','PRODUTO FUTURO','Tradicional',40,{
+    commercial_presentation_id:'p',commercial_quantity:2,commercial_unit_label:'pacote',
+    commercial_conversion_factor:22,
+  })]);
+  assert.equal(view.commercialSummary,undefined);
+  assert.equal(view.components[0].quantityText,'40 un');
+});
