@@ -16,8 +16,8 @@ export type SeparationSourceItem = {
   commercial_conversion_factor?: number | null;
   physical_unit_label?: string | null;
   notes?: string | null;
-  product?: { name: string } | null;
-  variant?: { variant_name: string } | null;
+  product?: { name: string; unit?: string | null } | null;
+  variant?: { variant_name: string; unit?: string | null } | null;
 };
 
 export type SeparationDisplayEntry = {
@@ -32,8 +32,10 @@ export type SeparationDisplayEntry = {
 
 const integer = (n: number) => Number.isFinite(n) && Number.isInteger(n);
 const numberPt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+const physicalUnit = (item: SeparationSourceItem) =>
+  item.physical_unit_label || item.variant?.unit || item.product?.unit || 'un';
 const formattedPhysical = (item: SeparationSourceItem) =>
-  `${numberPt(Number(item.quantity))} ${item.physical_unit_label || 'un'}`;
+  `${numberPt(Number(item.quantity))} ${physicalUnit(item)}`;
 
 /** A embalagem comercial pertence ao pedido; a linha física pertence ao estoque. */
 function verifiedPhysicalTotal(item: SeparationSourceItem, commercialQty: number, factor: number) {
@@ -120,7 +122,7 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
     const size = totalPerExternal / listedPacks;
     if (!Number.isSafeInteger(size) || size < 1 ||
       // Quantidade de embalagem física não é quantidade de peças soltas.
-      (item.physical_unit_label && !['un', 'unidade', 'unidades'].includes(item.physical_unit_label.toLowerCase())) ||
+      (!['un', 'unidade', 'unidades'].includes(physicalUnit(item).toLowerCase())) ||
       !verifiedPhysicalTotal(item, externalQty, totalPerExternal)) return undefined;
     const totalPacks = listedPacks * externalQty;
     const word = pack[2].toLowerCase().replace(/s$/, '');
@@ -135,13 +137,13 @@ function verifiedMarketplacePresentation(item: SeparationSourceItem): string | u
     if (!(size > 0)) return undefined;
     const totalWeight = size * externalQty;
     const expectedGrams = totalWeight * (normalizedUnit === 'kg' ? 1000 : 1);
-    const physicalUnit = item.physical_unit_label?.toLowerCase();
-    if ((physicalUnit === 'g' || (!physicalUnit && multiplier === size * (normalizedUnit === 'kg' ? 1000 : 1))) &&
+    const physicalStockUnit = physicalUnit(item).toLowerCase();
+    if ((physicalStockUnit === 'g' || (!item.physical_unit_label && !item.variant?.unit && !item.product?.unit && multiplier === size * (normalizedUnit === 'kg' ? 1000 : 1))) &&
         Math.abs(rowPhysical - expectedGrams) < 0.000001) {
       return `${numberPt(totalWeight)} ${normalizedUnit}`;
     }
     // Recipiente físico já embalado: não afirmar disponibilidade em gramas.
-    if ((!physicalUnit || ['un', 'unidade'].includes(physicalUnit)) &&
+    if (['un', 'unidade'].includes(physicalStockUnit) &&
       multiplier === 1 && rowPhysical === externalQty &&
       item.variant?.variant_name && /\b(embalagem|fechad[ao]|lacrad[ao]|saco|balde)\b/i.test(item.variant.variant_name) &&
       new RegExp(String.raw`\\b${size}\\s*${normalizedUnit}\\b`, 'i').test(item.variant.variant_name)) {
@@ -161,7 +163,7 @@ function singleSummary(item: SeparationSourceItem): string | undefined {
       !verifiedPhysicalTotal(item, quantity, factor)) return undefined;
   const unit = pluralUnit(item.commercial_unit_label, quantity);
   if (factor > 1 && !['kg', 'g'].includes(item.commercial_unit_label.toLocaleLowerCase('pt-BR'))) {
-    return `${numberPt(quantity)} ${unit} de ${numberPt(factor)} ${item.physical_unit_label || 'un'}`;
+    return `${numberPt(quantity)} ${unit} de ${numberPt(factor)} ${physicalUnit(item)}`;
   }
   return `${numberPt(quantity)} ${unit}`;
 }
@@ -196,10 +198,10 @@ function composedGroup(key: string, items: SeparationSourceItem[]): SeparationDi
     && items.every(item => item.commercial_group_id === first.commercial_group_id
       && item.commercial_presentation_id === first.commercial_presentation_id
       && Number(item.commercial_quantity) === commonQuantity);
-  const samePhysicalUnit = items.every(item => (item.physical_unit_label || 'un') === (first.physical_unit_label || 'un'));
+  const samePhysicalUnit = items.every(item => physicalUnit(item) === physicalUnit(first));
   const total = items.reduce((sum, item) => sum + Number(item.quantity), 0);
   const totalText = samePhysicalUnit && Number.isFinite(total)
-    ? `${numberPt(total)} ${first.physical_unit_label || 'un'}` : undefined;
+    ? `${numberPt(total)} ${physicalUnit(first)}` : undefined;
   const unit = first.commercial_unit_label || 'kit';
   const commercialSummary = reliableCommercial
     ? `${numberPt(commonQuantity)} ${pluralUnit(unit, commonQuantity)}${totalText ? ` · ${totalText}` : ''}`
