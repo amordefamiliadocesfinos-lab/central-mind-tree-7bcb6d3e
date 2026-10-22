@@ -55,8 +55,8 @@ function biscuitPackagesFromShopeeVariation(item: SeparationSourceItem): string 
     || !['fa0814a0-9cd0-4d8a-b01d-2febdd1d7dcc',
           '34188174-5906-4f92-a16d-4e5207f37dd5'].includes(item.variant_id ?? '')
     || !item.notes || !/shopee/i.test(item.notes)) return undefined;
-  const variation = item.notes.match(/(?:^|\\|)\\s*variation\\s*:\\s*([^|]*)/i)?.[1];
-  const packs = variation?.match(/\\b(\\d+)\\s*pacotes?\\s*(?:de\\s*)?(\\d+)\\s*(?:uni(?:dades?)?|un(?:idades?)?)\\b/i);
+  const variation = item.notes.match(/(?:^|\|)\s*variation\s*:\s*([^|]*)/i)?.[1];
+  const packs = variation?.match(/\b(\d+)\s*pacotes?\s*(?:de\s*)?(\d+)\s*(?:uni(?:dades?)?|un(?:idades?)?)\b/i);
   if (!packs) return undefined;
   const packsPerMarketplaceUnit = Number(packs[1]);
   const unitsPerMarketplaceUnit = Number(packs[2]);
