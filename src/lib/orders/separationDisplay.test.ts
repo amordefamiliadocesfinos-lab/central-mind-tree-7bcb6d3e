@@ -298,3 +298,66 @@ test('Shopee Open Platform: posição zero isolada e multiplicador inteiro autor
   })]);
   assert.equal(view.commercialSummary,'4 kits de 18 un');
 });
+
+
+test('Chocoim Misto 20: 3 bandejas exibem 10 Preto + 10 Branco por bandeja e 60un',()=>{
+  const pid='e01a87f3-615d-4330-87c6-d0f9878a7c3b';
+  const common={product_id:pid,commercial_group_id:'chocoim-one-mixed-bandeja',
+    commercial_presentation_id:'c34c0a34-2026-4000-8000-000000000020',
+    commercial_presentation_name:'Chocoim 34g — Bandeja Mista 20 (10 Preto + 10 Branco)',
+    commercial_quantity:3,commercial_unit_label:'bandeja',commercial_conversion_factor:10};
+  const rows=[
+    source('black','CHOCOIM ARTESANAL 34G','Meio Amargo',30,{
+      ...common,variant_id:'3e67edc6-1cb7-463e-8c8e-a50bfb5092f7'
+    }),
+    source('white','CHOCOIM ARTESANAL 34G','Branco',30,{
+      ...common,variant_id:'66708945-22f3-43bf-b68e-127021448cd8'
+    }),
+  ];
+  const [view]=createSeparationDisplayEntries(rows);
+  assert.equal(view.productName,'CHOCOIM ARTESANAL 34G');
+  assert.equal(view.presentationName,'Bandeja Mista');
+  assert.equal(view.commercialSummary,'3 bandejas · 60 un');
+  assert.equal(view.composition,'10 Preto + 10 Branco por bandeja');
+  assert.equal(view.components.length,0);
+});
+
+test('Chocoim misto 40/80/560 em multiplos usa somente quantidades de preto e branco',()=>{
+  const pid='e01a87f3-615d-4330-87c6-d0f9878a7c3b';
+  const formats=[
+    [40,'c34c0a34-2026-4000-8000-000000000040','kit',20,'Kit Misto','20 Preto + 20 Branco por kit'],
+    [80,'c34c0a34-2026-4000-8000-000000000080','kit',40,'Kit Misto','40 Preto + 40 Branco por kit'],
+    [560,'c34c0a34-2026-4000-8000-000000000560','caixa',280,'Caixa Mista','280 Preto + 280 Branco por caixa (28 bandejas de 20)'],
+  ] as const;
+  for(const [total,id,unit,half,title,composition] of formats) {
+    const shared={product_id:pid,commercial_group_id:'mix-'+id,
+      commercial_presentation_id:id,commercial_presentation_name:'Chocoim 34g — Misto',
+      commercial_quantity:2,commercial_unit_label:unit,commercial_conversion_factor:half};
+    const [view]=createSeparationDisplayEntries([
+      source('black'+id,'CHOCOIM 34g','Meio Amargo',half*2,{
+        ...shared,variant_id:'3e67edc6-1cb7-463e-8c8e-a50bfb5092f7'}),
+      source('white'+id,'CHOCOIM 34g','Branco',half*2,{
+        ...shared,variant_id:'66708945-22f3-43bf-b68e-127021448cd8'}),
+    ]);
+    assert.equal(view.presentationName,title);
+    assert.equal(view.commercialSummary,`2 ${unit === 'caixa' ? 'caixas' : 'kits'} · ${(total*2).toLocaleString('pt-BR')} un`);
+    assert.equal(view.composition,composition);
+    assert.equal(view.components.length,0);
+  }
+});
+
+test('Chocoim Mesclado single permanece separado e nao vira Misto',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('mes','CHOCOIM ARTESANAL 34G','Mesclado',40,{
+      product_id:'e01a87f3-615d-4330-87c6-d0f9878a7c3b',
+      variant_id:'1a84c7f3-4130-45fc-920f-62aecafe4c91',
+      commercial_quantity:2,commercial_unit_label:'bandeja',commercial_conversion_factor:20,
+      commercial_presentation_id:'8f452863-971d-4e0d-b4be-d8909d9c89f8',
+      commercial_presentation_name:'Chocoim 34g — Bandeja 20 — Mesclado',
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'2 bandejas de 20 un');
+  assert.equal(view.components[0].label,'Mesclado');
+  assert.equal(view.components[0].quantityText,'40 un');
+  assert.equal(view.composition,undefined);
+});
