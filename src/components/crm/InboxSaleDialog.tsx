@@ -200,7 +200,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
         const product = products.find(candidate => candidate.id === item.product_id);
         const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
         if (!product) throw new Error('Produto não encontrado.');
-        return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation);
+        return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation, undefined, { products, variants });
       }));
       // F5-C: aproveita o ato REAL de registrar Venda na Inbox.
       // A consulta valida envio + resposta na mesma conversa + Pedido real.
