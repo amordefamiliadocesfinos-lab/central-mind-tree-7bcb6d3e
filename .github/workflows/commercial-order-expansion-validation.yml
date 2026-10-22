@@ -9,6 +9,7 @@ on:
       - 'src/components/operations/OrderSeparationBoard.tsx'
       - 'src/lib/orders/separationDisplay.ts'
       - 'src/lib/orders/separationDisplay.test.ts'
+      - 'src/hooks/useOrders.ts'
       - '.github/workflows/commercial-order-expansion-validation.yml'
 jobs:
   validate:
