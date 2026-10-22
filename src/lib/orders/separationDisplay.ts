@@ -35,11 +35,22 @@ const numberPt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigit
 const formattedPhysical = (item: SeparationSourceItem) =>
   `${numberPt(Number(item.quantity))} ${item.physical_unit_label || 'un'}`;
 
+/** A embalagem comercial pertence ao pedido; a linha física pertence ao estoque. */
+function verifiedPhysicalTotal(item: SeparationSourceItem, commercialQty: number, factor: number) {
+  const physical = Number(item.quantity);
+  return Number.isFinite(physical) && physical > 0 &&
+    Number.isFinite(commercialQty) && commercialQty > 0 &&
+    Number.isFinite(factor) && factor > 0 &&
+    Math.abs(physical - commercialQty * factor) < 0.000001;
+}
+
 function pluralUnit(unit: string, quantity: number) {
   const value = unit.toLocaleLowerCase('pt-BR').trim();
   const plural: Record<string, string> = {
     kit: 'kits', bandeja: 'bandejas', pacote: 'pacotes',
     saco: 'sacos', caixa: 'caixas', unidade: 'unidades', un: 'un',
+    display: 'displays', fardo: 'fardos', balde: 'baldes', pote: 'potes',
+    frasco: 'frascos', embalagem: 'embalagens', bandejão: 'bandejões',
   };
   return quantity === 1 ? value : (plural[value] || value);
 }
@@ -69,13 +80,85 @@ function biscuitPackagesFromShopeeVariation(item: SeparationSourceItem): string 
   return `${numberPt(totalPacks)} ${pluralUnit('pacote', totalPacks)} de 22 un`;
 }
 
+/**
+ * Normalização contextual universal e conservadora para linhas externas SEM
+ * snapshot comercial. Não utiliza o nome de um Produto Mestre como regra.
+ *
+ * A origem externa precisa registrar a variação efetivamente comprada. Quando
+ * não existir evidência suficiente, preservar somente o saldo físico da linha.
+ *
+ * Itens de uma composição Shopee nunca herdam aqui a apresentação inteira:
+ * para eles é necessário commercial_group_id/snapshot (ou projeção segura
+ * em etapa própria da integração), senão haveria "1 kit" em cada componente.
+ */
+function verifiedMarketplacePresentation(item: SeparationSourceItem): string | undefined {
+  const notes = item.notes ?? '';
+  if (!/\bshopee\b/i.test(notes) || /composi(?:ç|c)(?:ão|ao)\s*\d+\s*\/\s*\d+/i.test(notes) ||
+      /(?:^|\|)\s*composition_position\s*=\s*\d+/i.test(notes)) return undefined;
+  const variation = notes.match(/(?:^|\|)\s*variation\s*:\s*([^|]*)/i)?.[1]?.trim();
+  if (!variation) return undefined;
+  const multiplier = Number(notes.match(/(?:^|\|)\s*physical_multiplier\s*=\s*(\d+(?:\.\d+)?)/i)?.[1] ??
+    notes.match(/Multiplicador f[ií]sico\s*:\s*(\d+(?:[,.]\d+)?)/i)?.[1]?.replace(',', '.') ?? NaN);
+  const rowPhysical = Number(item.quantity);
+  if (!Number.isFinite(rowPhysical) || rowPhysical <= 0) return undefined;
+  const fromExternal = Number(notes.match(/(?:^|\|)\s*commercial_quantity\s*=\s*(\d+)/i)?.[1] ??
+    notes.match(/Shopee comercial\s*:\s*(\d+)/i)?.[1] ?? NaN);
+  // Um multiplicador presente deve concordar com a linha física registrada.
+  const externalQty = Number.isSafeInteger(fromExternal) && fromExternal > 0 ? fromExternal :
+    Number.isFinite(multiplier) && multiplier > 0 && Number.isSafeInteger(rowPhysical / multiplier)
+      ? rowPhysical / multiplier : NaN;
+  if (!Number.isSafeInteger(externalQty) || externalQty < 1 ||
+      (Number.isFinite(multiplier) && multiplier > 0 && !verifiedPhysicalTotal(item, externalQty, multiplier))) {
+    return undefined;
+  }
+
+  // Ex.: 2 pacote 44 uni -> 2 pacotes de 22 un; 4 kit 72 uni -> 4 kits de 18 un.
+  const pack = variation.match(/\b(\d+)\s*(pacotes?|kits?|bandejas?|caixas?|sacos?|displays?|fardos?)\s*(?:de\s*)?(\d+)\s*(?:uni(?:dades?)?|un(?:idades?)?|und)\b/i);
+  if (pack) {
+    const listedPacks = Number(pack[1]);
+    const totalPerExternal = Number(pack[3]);
+    const size = totalPerExternal / listedPacks;
+    if (!Number.isSafeInteger(size) || size < 1 ||
+      // Quantidade de embalagem física não é quantidade de peças soltas.
+      (item.physical_unit_label && !['un', 'unidade', 'unidades'].includes(item.physical_unit_label.toLowerCase())) ||
+      !verifiedPhysicalTotal(item, externalQty, totalPerExternal)) return undefined;
+    const totalPacks = listedPacks * externalQty;
+    const word = pack[2].toLowerCase().replace(/s$/, '');
+    return \`\${numberPt(totalPacks)} \${pluralUnit(word, totalPacks)} de \${numberPt(size)} un\`;
+  }
+
+  // Ex.: variation:4 kg, 4000 gramas; legacy 2kg × 2 = 4000g.
+  const weight = variation.match(/^(\d+(?:[,.]\d+)?)\s*(kg|g)\b/i);
+  if (weight) {
+    const size = Number(weight[1].replace(',', '.'));
+    const normalizedUnit = weight[2].toLowerCase();
+    if (!(size > 0)) return undefined;
+    const totalWeight = size * externalQty;
+    const expectedGrams = totalWeight * (normalizedUnit === 'kg' ? 1000 : 1);
+    const physicalUnit = item.physical_unit_label?.toLowerCase();
+    if ((physicalUnit === 'g' || (!physicalUnit && multiplier === size * (normalizedUnit === 'kg' ? 1000 : 1))) &&
+        Math.abs(rowPhysical - expectedGrams) < 0.000001) {
+      return \`\${numberPt(totalWeight)} \${normalizedUnit}\`;
+    }
+    // Recipiente físico já embalado: não afirmar disponibilidade em gramas.
+    if ((!physicalUnit || ['un', 'unidade'].includes(physicalUnit)) &&
+      multiplier === 1 && rowPhysical === externalQty &&
+      item.variant?.variant_name && /\b(embalagem|fechad[ao]|lacrad[ao]|saco|balde)\b/i.test(item.variant.variant_name) &&
+      new RegExp(\`\\\\b\${size}\\\\s*\${normalizedUnit}\\\\b\`, 'i').test(item.variant.variant_name)) {
+      return \`\${numberPt(externalQty)} \${pluralUnit('embalagem', externalQty)} de \${numberPt(size)} \${normalizedUnit}\`;
+    }
+  }
+  return undefined;
+}
+
 function singleSummary(item: SeparationSourceItem): string | undefined {
   if (item.commercial_quantity == null || !item.commercial_unit_label) {
-    return biscuitPackagesFromShopeeVariation(item);
+    return biscuitPackagesFromShopeeVariation(item) ?? verifiedMarketplacePresentation(item);
   }
   const quantity = Number(item.commercial_quantity);
   const factor = Number(item.commercial_conversion_factor ?? 1);
-  if (!(quantity > 0) || !Number.isFinite(quantity) || !Number.isFinite(factor)) return undefined;
+  if (!(quantity > 0) || !Number.isFinite(quantity) || !Number.isFinite(factor) ||
+      !verifiedPhysicalTotal(item, quantity, factor)) return undefined;
   const unit = pluralUnit(item.commercial_unit_label, quantity);
   if (factor > 1 && !['kg', 'g'].includes(item.commercial_unit_label.toLocaleLowerCase('pt-BR'))) {
     return `${numberPt(quantity)} ${unit} de ${numberPt(factor)} ${item.physical_unit_label || 'un'}`;
