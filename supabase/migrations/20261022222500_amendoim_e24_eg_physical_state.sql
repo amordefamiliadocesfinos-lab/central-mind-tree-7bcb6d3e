@@ -64,7 +64,7 @@ BEGIN
   IF v_actor IS NULL OR p_confirmed IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'am2_physical_fact_requires_authenticated_confirmation';
   END IF;
-  IF p_direction NOT IN ('reclassify','open')
+  IF p_direction IS NULL OR p_direction NOT IN ('reclassify','open')
     OR p_sacks IS NULL OR p_sacks < 1 OR p_sacks > 100 THEN
     RAISE EXCEPTION 'am2_invalid_direction_or_whole_sack_count';
   END IF;
