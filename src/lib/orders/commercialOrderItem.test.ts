@@ -321,3 +321,34 @@ test('Chocoim Mesclado permanece UMA variante fisica single, nao dois componente
   assert.equal(rows[0].quantity,40);
   assert.equal(getOrderItemLineTotal(rows[0]),84.5);
 });
+
+
+test('AM1 Amendoim Torrado: kits 2/3 kg usam gramas da identidade EG, sem variantes nem pacote físico paralelo',()=>{
+  const product={id:'c177f332-a1c7-4276-9cef-7b81af920174',unit:'g',
+    variation_mode:'sem_variacao',is_active:true,price:0.016};
+  for(const [name,conversion,commercialId] of [
+    ['Kit 2 pacotes de 1 kg',2000,'a11e0000-0000-4000-8000-000000002000'],
+    ['Kit 3 pacotes de 1 kg',3000,'a11e0000-0000-4000-8000-000000003000'],
+  ] as const){
+    const pres:CommercialPresentation={
+      id:commercialId,product_id:product.id,variant_id:null,name,
+      commercial_unit_label:'kit',conversion_factor:conversion,
+      composition_mode:'single',is_active:true,notes:null,
+      created_at:'',updated_at:'',
+    };
+    for(const qty of [1,2,5]){
+      const rows=expandCommercialOrderItem(product,null,qty,42.50,pres);
+      assert.equal(rows.length,1);
+      const row=rows[0];
+      assert.equal(row.product_id,product.id);
+      assert.equal(row.variant_id,null);
+      assert.equal(row.quantity,qty*conversion);
+      assert.equal(row.commercial_quantity,qty);
+      assert.equal(row.commercial_presentation_id,commercialId);
+      assert.equal(row.commercial_presentation_name,name);
+      assert.equal(row.physical_unit_label,'g');
+      assert.equal(row.commercial_conversion_factor,conversion);
+      assert.equal(getOrderItemLineTotal(row),qty*42.50);
+    }
+  }
+});
