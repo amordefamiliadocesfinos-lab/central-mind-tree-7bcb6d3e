@@ -361,3 +361,76 @@ test('Chocoim Mesclado single permanece separado e nao vira Misto',()=>{
   assert.equal(view.components[0].quantityText,'40 un');
   assert.equal(view.composition,undefined);
 });
+
+
+test('AM1 Amendoim: 1 kit de 2kg exibe PREPARAR dois pacotes de 1kg sem estoque de pacotes',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('am2','AMENDOIM TORRADO',null,2000,{
+      product_id:'c177f332-a1c7-4276-9cef-7b81af920174',
+      physical_unit_label:'g',
+      commercial_presentation_id:'a11e0000-0000-4000-8000-000000002000',
+      commercial_presentation_name:'Kit 2 pacotes de 1 kg',
+      commercial_unit_label:'kit',commercial_quantity:1,
+      commercial_conversion_factor:2000,
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'1 kit · preparar 2 pacotes de 1 kg');
+  assert.equal(view.components[0].quantityText,'2.000 g');
+  assert.equal(view.components.length,1);
+});
+
+test('AM1 Amendoim: 2 kits de 3kg exigem 6 pacotes e 6000g, sem multiplicar saldo',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('am3','AMENDOIM TORRADO',null,6000,{
+      product_id:'c177f332-a1c7-4276-9cef-7b81af920174',
+      physical_unit_label:'g',commercial_presentation_id:'a11e0000-0000-4000-8000-000000003000',
+      commercial_presentation_name:'Kit 3 pacotes de 1 kg',
+      commercial_quantity:2,commercial_unit_label:'kit',
+      commercial_conversion_factor:3000,
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'2 kits · preparar 6 pacotes de 1 kg');
+  assert.equal(view.components[0].quantityText,'6.000 g');
+});
+
+test('UX de pacotes fracionados funciona também para futuro Produto Mestre em gramas',()=>{
+  const [view]=createSeparationDisplayEntries([
+    source('future','NOVO PRODUTO',null,6000,{
+      physical_unit_label:'g',commercial_presentation_name:'Kit 3 pacotes de 1 kg',
+      commercial_unit_label:'kit',commercial_quantity:2,commercial_conversion_factor:3000,
+    }),
+  ]);
+  assert.equal(view.commercialSummary,'2 kits · preparar 6 pacotes de 1 kg');
+});
+
+test('Kit sem coerência entre rótulo comercial e fator NÃO inventa pacotes',()=>{
+  for(const [name,grams,factor] of [
+    ['Kit 2 pacotes de 1 kg',1500,2000],
+    ['Kit 2 pacotes de 1 kg',2000,3000],
+    ['Kit 2 pacotes de 1 kg',2000,1000],
+  ] as const){
+    const [view]=createSeparationDisplayEntries([
+      source('invalid','AMENDOIM TORRADO',null,grams,{
+        physical_unit_label:'g',commercial_presentation_name:name,
+        commercial_quantity:1,commercial_unit_label:'kit',commercial_conversion_factor:factor,
+      }),
+    ]);
+    assert.ok(!view.commercialSummary?.includes('preparar'),name+' '+grams);
+  }
+});
+
+test('Legado KG/350g mantém a apresentação atual de Amendoim',()=>{
+  for(const [quantity,factor,unit,expected] of [
+    [3,1000,'kg','3 kg'],
+    [2,350,'pacote','2 pacotes de 350 g'],
+  ] as const){
+    const [view]=createSeparationDisplayEntries([
+      source('legacy'+unit,'AMENDOIM TORRADO',null,quantity*factor,{
+        physical_unit_label:'g',commercial_quantity:quantity,
+        commercial_unit_label:unit,commercial_conversion_factor:factor,
+        commercial_presentation_name:unit==='kg'?'kg':'350 g',
+      }),
+    ]);
+    assert.equal(view.commercialSummary,expected);
+  }
+});
