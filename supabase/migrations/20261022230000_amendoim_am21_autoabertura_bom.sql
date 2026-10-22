@@ -584,4 +584,4 @@ BEGIN
   END LOOP;
   UPDATE public.production_orders SET status='concluido',completed_at=now(),updated_at=now() WHERE id=v_order.id;
   RETURN jsonb_build_object('success',true,'already_completed',false,'movement_count',v_count,'shortages','[]'::jsonb);
-END; $function$
+END; $function$;
