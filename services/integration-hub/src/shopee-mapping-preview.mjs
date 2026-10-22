@@ -1,3 +1,5 @@
+import { mappingPhysicalBlocker } from './shopee-mapping-physical-guard.mjs';
+
 function normalizeKeyText(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -79,7 +81,7 @@ function resolveComponents(mapping) {
   }];
 }
 
-function previewItem(item, mappings, scope) {
+function previewItem(item, mappings, scope, requirePhysicalValidation) {
   const externalItemKey = buildShopeeApiExternalItemKey({
     itemName: item.itemName,
     modelName: item.modelName,
@@ -114,6 +116,11 @@ function previewItem(item, mappings, scope) {
   }
 
   const mapping = candidates[0];
+  const physicalBlocker = requirePhysicalValidation ? mappingPhysicalBlocker(item, mapping) : null;
+  if (physicalBlocker) return {
+    ...item, externalItemKey, mappingStatus: physicalBlocker,
+    mappingId: nullableText(mapping.id), components: [],
+  };
   const components = resolveComponents(mapping);
   if (components.length === 0) {
     return {
@@ -144,6 +151,7 @@ function previewItem(item, mappings, scope) {
 export function buildShopeeMappingPreview(normalizedPayload, mappings, {
   channelAccountId = normalizedPayload?.channelAccountId ?? null,
   marketplaceAccount = null,
+  requirePhysicalValidation = false,
 } = {}) {
   if (!normalizedPayload || !Array.isArray(normalizedPayload.orders)) {
     throw new TypeError('normalized Shopee order payload is required');
@@ -163,7 +171,7 @@ export function buildShopeeMappingPreview(normalizedPayload, mappings, {
     marketplaceAccount: scope.marketplaceAccount,
     operationalWrites: false,
     orders: normalizedPayload.orders.map((order) => {
-      const items = order.items.map((item) => previewItem(item, mappings, scope));
+      const items = order.items.map((item) => previewItem(item, mappings, scope, requirePhysicalValidation));
       return {
         orderSn: order.orderSn,
         externalStatus: order.externalStatus,
