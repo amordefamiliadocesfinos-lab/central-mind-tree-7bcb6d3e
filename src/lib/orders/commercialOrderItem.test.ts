@@ -211,3 +211,56 @@ test('Chocolate CB1/CB2 preservado em gramas no mesmo Produto Mestre', () => {
   assert.equal(line.physical_unit_label,'g');
   assert.equal(getOrderItemLineTotal(line),2100);
 });
+
+
+test('Chocoim 34g: 3 coberturas x 5 apresentações usam as variantes reais e somente unidades físicas',()=>{
+  const product={id:'e01a87f3-615d-4330-87c6-d0f9878a7c3b', unit:'un',variation_mode:'variacoes_fisicas',is_active:true,price:1.4};
+  const covers=[
+    ['Branco','66708945-22f3-43bf-b68e-127021448cd8'],
+    ['Meio Amargo','3e67edc6-1cb7-463e-8c8e-a50bfb5092f7'],
+    ['Mesclado','1a84c7f3-4130-45fc-920f-62aecafe4c91'],
+  ];
+  const packages=[
+    ['Degustação 8','kit',8],
+    ['Bandeja 20','bandeja',20],
+    ['Kit 40','kit',40],
+    ['Kit 80','kit',80],
+    ['Caixa 560 (28 bandejas de 20)','caixa',560],
+  ] as const;
+  for(const [cover,variantId] of covers) {
+    const variant={id:variantId,product_id:product.id,unit:'un',is_active:true};
+    for(const [name,unit,conversion] of packages){
+      const presentation:CommercialPresentation={
+        id:`test-${cover}-${conversion}`,product_id:product.id,
+        variant_id:variantId,name:`Chocoim 34g — ${name} — ${cover}`,
+        commercial_unit_label:unit,conversion_factor:conversion,
+        composition_mode:'single',is_active:true,notes:null,created_at:'',updated_at:'',
+      };
+      for(const quantity of [1,3]){
+        const rows=expandCommercialOrderItem(product,variant,quantity,12.35,presentation);
+        assert.equal(rows.length,1);
+        assert.equal(rows[0].product_id,product.id);
+        assert.equal(rows[0].variant_id,variantId);
+        assert.equal(rows[0].quantity,conversion*quantity);
+        assert.equal(rows[0].commercial_quantity,quantity);
+        assert.equal(rows[0].commercial_unit_label,unit);
+        assert.equal(rows[0].commercial_conversion_factor,conversion);
+        assert.equal(rows[0].physical_unit_label,'un');
+        assert.equal(getOrderItemLineTotal(rows[0]),12.35*quantity);
+      }
+    }
+  }
+});
+test('Chocoim 34g: atacado multiplica Kit 40 sem criar nova apresentação física',()=>{
+  const product={id:'e01a87f3-615d-4330-87c6-d0f9878a7c3b',unit:'un',variation_mode:'variacoes_fisicas',is_active:true};
+  const variant={id:'3e67edc6-1cb7-463e-8c8e-a50bfb5092f7',product_id:product.id,unit:'un',is_active:true};
+  const pres:CommercialPresentation={id:'kit40',product_id:product.id,variant_id:variant.id,
+    name:'Chocoim 34g — Kit 40 — Meio Amargo',commercial_unit_label:'kit',
+    conversion_factor:40,composition_mode:'single',is_active:true,notes:null,
+    created_at:'',updated_at:''};
+  const [sale]=expandCommercialOrderItem(product,variant,13,180,pres);
+  assert.equal(sale.quantity,520);
+  assert.equal(sale.commercial_quantity,13);
+  assert.equal(sale.physical_unit_label,'un');
+  assert.equal(getOrderItemLineTotal(sale),2340);
+});
