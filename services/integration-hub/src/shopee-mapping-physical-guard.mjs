@@ -31,7 +31,8 @@ export function mappingPhysicalBlocker(item, mapping) {
       const grams = explicitMass(modelHasMass ? item.modelName : item.itemName);
       if (grams === null || grams <= 0) return 'sold_mass_unverified';
       if (Math.abs(multiplier * scale - grams) > 0.000001) return 'physical_multiplier_mismatch';
-      if (!identity.presentation_factors?.some(f => Number(f) === multiplier)) return 'physical_presentation_unverified';
+      if (!identity.presentation_factors?.some(f => Number.isFinite(Number(f)) && Number(f) > 0
+        && Number.isSafeInteger(multiplier / Number(f)) && multiplier / Number(f) >= 1)) return 'physical_presentation_unverified';
     }
   }
   return null;
