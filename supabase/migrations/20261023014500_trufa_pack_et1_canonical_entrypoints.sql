@@ -47,6 +47,7 @@ PERFORM pg_advisory_xact_lock(hashtextextended('et1:pack:'||lid::text||':'||v_va
 SELECT coalesce(sum(quantity),0) INTO avail FROM public.inventory WHERE product_id='af7fe3c4-863c-4d1f-9fcd-b4ecb92e5322'::uuid AND variant_id=v_variant;
 IF avail>=v_required THEN RETURN;END IF;
 need:=ceil((v_required-avail)/100)::integer;
+IF need IS NULL THEN RAISE EXCEPTION 'et1_null_required_or_available: required %, avail %, variant %',v_required,avail,v_variant; END IF;
 INSERT INTO public.trufa_pack_sealed_stock VALUES(v_variant,lid,0,now()) ON CONFLICT DO NOTHING;
 SELECT ss.packs INTO b FROM public.trufa_pack_sealed_stock ss WHERE ss.variant_id=v_variant AND ss.storage_location_id=lid FOR UPDATE;
 IF b IS NULL THEN RAISE EXCEPTION 'et1_missing_sealed_stock_row: variant %, location %',v_variant,lid;END IF;
