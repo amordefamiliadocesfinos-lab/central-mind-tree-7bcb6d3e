@@ -48,7 +48,8 @@ SELECT coalesce(sum(quantity),0) INTO avail FROM public.inventory WHERE product_
 IF avail>=v_required THEN RETURN;END IF;
 need:=ceil((v_required-avail)/100)::integer;
 INSERT INTO public.trufa_pack_sealed_stock VALUES(v_variant,lid,0,now()) ON CONFLICT DO NOTHING;
-SELECT packs INTO b FROM public.trufa_pack_sealed_stock WHERE variant_id=v_variant AND storage_location_id=lid FOR UPDATE;
+SELECT ss.packs INTO b FROM public.trufa_pack_sealed_stock ss WHERE ss.variant_id=v_variant AND ss.storage_location_id=lid FOR UPDATE;
+IF b IS NULL THEN RAISE EXCEPTION 'et1_missing_sealed_stock_row: variant %, location %',v_variant,lid;END IF;
 IF b<need THEN RETURN;END IF;
 k:='et1:auto:'||v_ref_type||':'||v_ref::text||':'||v_variant::text;
 IF EXISTS(SELECT 1 FROM public.trufa_pack_sealed_events WHERE event_key=k) THEN RETURN;END IF;
