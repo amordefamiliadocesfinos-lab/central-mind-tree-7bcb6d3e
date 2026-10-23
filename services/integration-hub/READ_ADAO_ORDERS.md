@@ -114,3 +114,44 @@ identidade, código de resultado e novo horário de expiração; jamais tokens.
 Não cria rota, Scheduler ou ciclo automático. Depois da renovação confirmada,
 a execução de `--persist-raw` deve continuar separada, uma única vez,
 sem importar pedidos ou movimentar estoque.
+
+
+## F6-Q.6A — pedido com itens comerciais (Adão, experimental)
+
+O executor original `--live` e `--persist-raw` continuam **inalterados**:
+sem campos opcionais; nenhum resultado antigo é reescrito ou transformado em
+pedido operacional.
+
+Os dois novos modos pedem **somente** `response_optional_fields` =
+`item_list,total_amount,payment_method` em um `get_order_detail`, após a
+lista de até cinco pedidos numa janela de 24 horas. A consulta não inclui endereço
+nem dados de contato como campos opcionais.
+
+**Prévia sem gravação** (autorização específica para consulta Shopee Live):
+```sh
+node services/integration-hub/src/read-adao-orders.mjs --preview-items
+```
+
+**Persistência bruta complementar** (execução real requer autorização específica):
+```sh
+node services/integration-hub/src/read-adao-orders.mjs --persist-items --confirm=CONFIRM_ADAO_ORDER_ITEMS
+```
+
+A persistência conserva o modelo anterior: **somente Raw Snapshots de lista e
+detalhes**, por Core Bridge, com limite de 64 KiB por request, até cinco pedidos,
+sem paginação, sem refresh e sem retry. O hash de payload distingue o snapshot
+enriquecido do snapshot anterior, sem apagar o original. Toda resposta
+`PROCESSED` ou `READY_TO_SHIP` deve ter `item_list` não vazia, `item_id`
+positivo e `model_quantity_purchased` inteiro positivo; caso contrário,
+falha **antes de qualquer write**. Pedidos `CANCELLED` e demais estados não
+elegíveis continuam apenas como evidência bruta, mesmo sem itens.
+
+Retorno sanitizado: contagem de pedidos elegíveis, linhas comerciais válidas,
+detalhes com itens ausentes/inválidos, tentativas de snapshot e confirmações.
+Não imprime pedido, SKU, produto, preço, destinatário, payload ou token.
+
+**Fora do escopo:** vincular automaticamente anúncios, alterar mappings, criar
+`orders`, `order_items`, `order_separation`, estoque, financeiro, CRM,
+Scheduler, Cloud Run ou Viviane. Após persistir, comparar apenas os itens dos
+snapshots com os mappings existentes e realizar *preview* da projeção antes
+de qualquer importação operacional.
