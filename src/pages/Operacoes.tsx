@@ -60,6 +60,7 @@ import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
 import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
 import { GlucodrySealedStockManager } from '@/components/operations/GlucodrySealedStockManager';
+import { MaltodextrinaSealedStockManager } from '@/components/operations/MaltodextrinaSealedStockManager';
 import { AmendoimPhysicalStockManager } from '@/components/operations/AmendoimPhysicalStockManager';
 import { TrufaPackPhysicalStockManager } from '@/components/operations/TrufaPackPhysicalStockManager';
 import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
