@@ -23,6 +23,17 @@ paths:
           description: Request rejected before authorization.
         '503':
           description: Integration Hub unavailable.
+  /shopee/live/oauth/adao/start:
+    get:
+      operationId: shopeeLiveOauthAdaoStart
+      summary: Start fixed Adao OAuth only when enabled by server configuration.
+      responses:
+        '302':
+          description: Redirect with one-time account-bound state.
+        '400':
+          description: Public destination selection rejected.
+        '503':
+          description: Destination disabled or Hub unavailable.
   /shopee/live/oauth/callback:
     get:
       operationId: shopeeLiveOauthCallback

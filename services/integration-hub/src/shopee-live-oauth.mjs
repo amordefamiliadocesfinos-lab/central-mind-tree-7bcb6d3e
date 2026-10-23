@@ -22,6 +22,24 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ACCESS_TOKEN_FALLBACK_TTL_MS = 4 * 60 * 60 * 1000;
 const STATE_COOKIE = '__Host-pc_shopee_live_state';
+const VIVIANE = Object.freeze({ account: '8a8ad166-0317-4597-8be6-e43fb46b4d1b', shop: 531736366 });
+const ADAO = Object.freeze({ account: 'b4027369-5abf-4ac1-ab24-862334fae892', shop: 1156446003 });
+const ADAO_START = '/shopee/live/oauth/adao/start';
+
+function tokenShopIdentity(payload, expectedShop) {
+  const scalar = payload?.shop_id;
+  const list = payload?.shop_id_list;
+  if (scalar != null && Number(scalar) !== expectedShop) return false;
+  if (list != null && (!Array.isArray(list) || list.length !== 1 || Number(list[0]) !== expectedShop)) return false;
+  return scalar != null || list != null ? true : null;
+}
+
+function shopIdentityConfirmed(payload, expectedShop, tokenIdentity, strict) {
+  if (payload?.shop_id != null) return Number(payload.shop_id) === expectedShop;
+  // Successful signed get_shop_info is scoped to expectedShop; strict onboarding
+  // additionally requires explicit identity in the token response when the read omits it.
+  return !strict || tokenIdentity === true;
+}
 
 const HTML_HEADERS = Object.freeze({
   'Cache-Control': 'no-store',
@@ -169,18 +187,25 @@ export function createShopeeLiveOauthHandler({
   return async function handleShopeeLiveOauthRequest(request) {
     const path = String(request?.path ?? '/');
     const method = String(request?.method ?? 'GET').toUpperCase();
-    if (path !== '/shopee/live/oauth/start' && path !== '/shopee/live/oauth/callback') return null;
+    if (path !== '/shopee/live/oauth/start' && path !== ADAO_START && path !== '/shopee/live/oauth/callback') return null;
     if (method !== 'GET') return html(405, 'Método não permitido', 'Esta rota aceita somente GET.');
 
     try {
       const partnerId = positiveIntegerEnv(getEnv, 'SHOPEE_LIVE_PARTNER_ID');
       const partnerKey = requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_KEY');
       const redirectUri = requiredEnv(getEnv, 'SHOPEE_LIVE_REDIRECT_URI');
-      const channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
+      let channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
+      if (partnerId !== 2047685 || channelAccountId !== VIVIANE.account) return html(503, 'Configuração OAuth inválida', 'O piloto não corresponde à configuração autorizada.');
+      const adaoEnabled = String(getEnv('SHOPEE_LIVE_ADAO_OAUTH_ENABLED') ?? '').trim().toLowerCase() === 'true';
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
-      if (path === '/shopee/live/oauth/start') {
-        const state = makeState();
+      if (path === '/shopee/live/oauth/start' || path === ADAO_START) {
+        if (Object.keys(request?.query ?? {}).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
+        const target = path === ADAO_START ? ADAO : VIVIANE;
+        if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
+        channelAccountId = target.account;
+        // Prefix + persisted account bind the opaque state to the immutable shop/partner allowlist.
+        const state = target === ADAO ? `adao.${makeState()}` : makeState();
         const stateHash = sha256Hex(state);
         const expiresAt = new Date(now() + STATE_TTL_MS).toISOString();
         const persisted = await createState({
@@ -208,6 +233,11 @@ export function createShopeeLiveOauthHandler({
       const mainAccountId = mainAccountIdRaw === null ? null : Number(mainAccountIdRaw);
       const state = readCookie(request?.headers, STATE_COOKIE);
       const cleared = { 'Set-Cookie': clearStateCookie() };
+      const target = state?.startsWith('adao.') ? ADAO : VIVIANE;
+      if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
+      const queryState = normalizedQuery(request, 'state');
+      if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
+      if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
 
       if (!code || (!shopId && !mainAccountId) || !state) {
         return html(400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.', cleared);
@@ -233,10 +263,12 @@ export function createShopeeLiveOauthHandler({
       }
 
       const canonicalAccountId = consumed.payload?.channel_account_id;
-      if (canonicalAccountId !== channelAccountId) {
+      if (canonicalAccountId !== target.account) {
         return html(409, 'Autorização Shopee rejeitada', 'A autorização não corresponde à conta piloto configurada.', cleared);
       }
 
+      channelAccountId = canonicalAccountId;
+      if (shopId !== null && shopId !== target.shop) return html(409, 'Loja incompatível', 'O shop_id não corresponde ao destino autorizado.', cleared);
       const tokenResult = await exchange({
         apiBaseUrl: API_BASE_URL,
         tokenPath: TOKEN_PATH,
@@ -258,10 +290,12 @@ export function createShopeeLiveOauthHandler({
 
       const accessToken = String(tokenResult.payload?.access_token ?? '');
       const refreshTokenValue = String(tokenResult.payload?.refresh_token ?? '');
+      const tokenIdentity = tokenShopIdentity(tokenResult.payload, target.shop);
       const tokenShopIds = Array.isArray(tokenResult.payload?.shop_id_list)
-        ? tokenResult.payload.shop_id_list.map(Number).filter(Number.isSafeInteger)
-        : [];
-      const effectiveShopId = shopId ?? tokenShopIds[0] ?? null;
+        ? tokenResult.payload.shop_id_list.map(Number)
+        : tokenResult.payload?.shop_id != null ? [Number(tokenResult.payload.shop_id)] : [];
+      const effectiveShopId = shopId ?? (tokenShopIds.length === 1 ? tokenShopIds[0] : null);
+      if (effectiveShopId !== target.shop || tokenIdentity === false) return html(409, 'Identidade incompatível', 'A resposta não identifica uma única loja autorizada.', cleared);
       if (!accessToken || !refreshTokenValue || !effectiveShopId) {
         return html(502, 'Resposta OAuth incompleta', 'A Shopee não retornou access_token, refresh_token e shop_id suficientes.', cleared);
       }
@@ -278,6 +312,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'OAuth concluído, leitura falhou', 'Os tokens foram obtidos, mas get_shop_info não respondeu com sucesso.', cleared);
       }
 
+      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, target === ADAO)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
       const firstObservedAt = new Date(now()).toISOString();
       const firstSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
@@ -332,6 +367,9 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'Renovação incompleta', 'A Shopee não retornou o novo par de tokens esperado.', cleared);
       }
 
+      const refreshedIdentity = tokenShopIdentity(refreshResult.payload, target.shop);
+      if (refreshedIdentity === false) return html(409, 'Renovação incompatível', 'A renovação não identifica a loja autorizada.', cleared);
+
       const refreshedRead = await readShop({
         apiBaseUrl: API_BASE_URL,
         shopInfoPath: SHOP_INFO_PATH,
@@ -344,6 +382,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'Renovação concluída, releitura falhou', 'O token foi renovado, mas a releitura de get_shop_info falhou.', cleared);
       }
 
+      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, target === ADAO)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
       const refreshedObservedAt = new Date(now()).toISOString();
       const refreshedSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
