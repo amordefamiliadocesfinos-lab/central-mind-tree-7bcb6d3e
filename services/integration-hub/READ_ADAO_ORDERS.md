@@ -57,3 +57,40 @@ tokens, URLs assinadas, pedidos individuais, payloads ou dados pessoais.
 Relatório: identidade fixa, janela Unix em segundos UTC, contagens, resultado e request
 IDs oficiais em formato hexadecimal/UUID quando disponíveis. Conferir o relatório e
 encerrar o processo; não encadear importação, etiquetas, estoque, financeiro ou CRM.
+
+## F6-Q.5A — modo de persistência bruta (separadamente autorizado)
+
+O comando `--live` continua **somente leitura**. Uma execução de persistência exige
+duas opções exatas, e **não deve ser iniciada antes de aprovação da PR e autorização
+específica para gravação real**:
+
+```sh
+node services/integration-hub/src/read-adao-orders.mjs --persist-raw --confirm=CONFIRM_ADAO_RAW_SNAPSHOTS
+```
+
+Usar exclusivamente no processo manual isolado com os mesmos três secrets já
+descritos. A confirmação é uma proteção contra disparos acidentais, não substitui
+a autorização humana para executar a gravação na produção.
+
+O modo bruto usa uma página de até cinco pedidos, sem paginação, sem renovação,
+sem alterar cursor e sem criar pedidos internos. Reutiliza as operações existentes
+`shopee.raw_order_list_snapshot.upsert` e `shopee.raw_order_snapshot.upsert`
+do Core Bridge, fixadas exclusivamente à conta Adão.
+
+A lista e **todos os detalhes** precisam passar pelas validações existentes.
+Os registros ficam apenas em memória até a validação completa. Antes da primeira
+gravação, todos os bodies são pré-validados contra o limite de 64 KiB por ação.
+Só então a aplicação grava uma lista e, no máximo, cinco registros de detalhes,
+em sequência. Cada registro confirmado usa a chave idempotente canônica do Core
+(conta, entidade, endpoint e hash do payload).
+
+Caso um POST retorne falha ou a resposta se perca após persistência, o executor
+**para sem repetir**. O relatório informa `raw.confirmed`, `raw.attempted` e
+`raw.expected`, em que `confirmed` significa resposta de sucesso observada,
+não prova de que uma tentativa sem resposta tenha sido revertida. Consultar o Core
+antes de qualquer reexecução. Nenhum escritor de pedido operacional, separação,
+estoque, financeiro, etiqueta ou ciclo recorrente é acionado.
+
+Não mostrar payloads brutos, dados pessoais, tokens, URLs assinadas ou dump de
+ambiente. Não executar sob `set -x`. A integração Viviane fica totalmente fora
+desse processo. Não foi criado endpoint público, migration ou Scheduler.

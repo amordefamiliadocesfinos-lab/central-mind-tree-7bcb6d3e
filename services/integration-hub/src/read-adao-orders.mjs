@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { createShopeeLiveOrdersReader } from './shopee-live-orders.mjs';
-import { CORE_BRIDGE_URL, readLiveShopeeOauthConnection } from './core-bridge.mjs';
+import { CORE_BRIDGE_URL, readLiveShopeeOauthConnection,
+  upsertLiveShopeeOrderListSnapshot, upsertLiveShopeeOrderSnapshot } from './core-bridge.mjs';
 import { getOrderList, getOrderDetail, parseShopeeError } from './connectors/shopee-protocol.mjs';
 
 export const ADAO = Object.freeze({
@@ -10,6 +11,12 @@ export const ADAO = Object.freeze({
 });
 const LIST = '/api/v2/order/get_order_list';
 const DETAIL = '/api/v2/order/get_order_detail';
+const MAX_CORE_BODY_BYTES = 64 * 1024;
+const RAW_CONFIRMATION = 'CONFIRM_ADAO_RAW_SNAPSHOTS';
+const RAW_ACTIONS = Object.freeze({
+  list: 'shopee.raw_order_list_snapshot.upsert',
+  detail: 'shopee.raw_order_snapshot.upsert',
+});
 const SECRET_NAMES = ['SHOPEE_LIVE_PARTNER_KEY', 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY', 'CORE_BRIDGE_HMAC_SECRET'];
 const FAILURE_CODES = new Set(['oauth_connection_unavailable', 'partner_id_mismatch', 'shop_id_mismatch',
   'access_token_expired_no_refresh', 'order_list_rejected', 'order_detail_rejected',
@@ -17,12 +24,17 @@ const FAILURE_CODES = new Set(['oauth_connection_unavailable', 'partner_id_misma
 
 // Importing this module performs no I/O. Each invocation has its own limits and environment.
 export async function readAdaoOrders({ env = process.env, identity = ADAO, now = Date.now,
-  fetchImpl = globalThis.fetch } = {}) {
+  fetchImpl = globalThis.fetch, persistRaw = false, confirmation = null } = {}) {
   const report = { identity: { ...ADAO }, window: null, listed_count: 0, detailed_count: 0,
     ok: false, result: 'execution_failed', request_ids: {} };
+  if (persistRaw) report.raw = { confirmed: 0, attempted: 0, expected: 0 };
   try {
     if (!identity || Object.keys(ADAO).some(key => identity[key] !== ADAO[key])) {
       report.result = 'identity_mismatch';
+      return report;
+    }
+    if (persistRaw && confirmation !== RAW_CONFIRMATION) {
+      report.result = 'raw_confirmation_required';
       return report;
     }
     const timeTo = Math.floor(now() / 1000);
@@ -40,7 +52,18 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
     const getEnv = name => values[name];
     const quiet = () => {};
     const forbidden = async () => { throw new Error('forbidden_operation'); };
-    const inMemory = async () => ({ ok: true });
+    const staged = [];
+    let rawWritePhase = false;
+    const stage = kind => async data => {
+      if (data?.channel_account_id !== ADAO.channel_account_id
+        || typeof data.external_entity_id !== 'string'
+        || !data.external_entity_id
+        || typeof data.payload_hash !== 'string'
+        || !/^[a-f0-9]{64}$/.test(data.payload_hash)
+        || !data.payload || typeof data.payload !== 'object') throw new Error('invalid_snapshot');
+      if (persistRaw) staged.push({ kind, data });
+      return { ok: true };
+    };
     const calls = new Set();
     const transport = async (input, init = {}) => {
       const url = new URL(input);
@@ -48,9 +71,19 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
       let operation;
       if (url.href === CORE_BRIDGE_URL && method === 'POST') {
         const body = JSON.parse(init.body);
-        if (body.action !== 'shopee.oauth_connection.read' || body.channel_account_id !== ADAO.channel_account_id
-          || Object.keys(body).some(key => !['action', 'channel_account_id'].includes(key))) throw new Error('forbidden_operation');
-        operation = 'connection';
+        if (body.channel_account_id !== ADAO.channel_account_id) throw new Error('forbidden_operation');
+        if (body.action === 'shopee.oauth_connection.read') {
+          if (Object.keys(body).some(key => !['action', 'channel_account_id'].includes(key))) throw new Error('forbidden_operation');
+          operation = 'connection';
+        } else {
+          const kind = body.action === RAW_ACTIONS.list ? 'list'
+            : body.action === RAW_ACTIONS.detail ? 'detail' : null;
+          if (!persistRaw || !rawWritePhase || !kind
+            || !staged.some(entry => entry.kind === kind && entry.data.external_entity_id === body.external_entity_id
+              && entry.data.payload_hash === body.payload_hash)
+            || Buffer.byteLength(init.body, 'utf8') > MAX_CORE_BODY_BYTES) throw new Error('forbidden_operation');
+          operation = `${body.action}:${body.external_entity_id}`;
+        }
       } else {
         if (url.origin !== 'https://partner.shopeemobile.com' || method !== 'GET'
           || ![LIST, DETAIL].includes(url.pathname)
@@ -77,7 +110,7 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
           secret: values.CORE_BRIDGE_HMAC_SECRET, fetchImpl: transport, logger: quiet });
       },
       refreshAccessToken: forbidden, persistRefreshedConnection: forbidden, encryptToken: forbidden,
-      persistOrderListSnapshot: inMemory, persistOrderSnapshot: inMemory, logger: quiet,
+      persistOrderListSnapshot: stage('list'), persistOrderSnapshot: stage('detail'), logger: quiet,
       readOrderList: async args => {
         const result = await getOrderList(args);
         captureId('list', result.payload, args.accessToken);
@@ -101,6 +134,42 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
     report.ok = result.ok === true;
     report.result = report.ok ? 'completed' : FAILURE_CODES.has(result.code) ? result.code : 'execution_failed';
     if (report.ok) report.detailed_count = result.detailed_count;
+    if (report.ok && persistRaw) {
+      report.raw.expected = 1 + report.detailed_count;
+      if (staged.length !== report.raw.expected || staged[0]?.kind !== 'list'
+        || staged.slice(1).some(entry => entry.kind !== 'detail')
+        || new Set(staged.slice(1).map(entry => entry.data.external_entity_id)).size !== report.detailed_count) {
+        report.ok = false;
+        report.result = 'raw_staging_incomplete';
+        return report;
+      }
+      // Preflight all Core request sizes before the first network write.
+      if (staged.some(entry => Buffer.byteLength(JSON.stringify({
+        action: RAW_ACTIONS[entry.kind], ...entry.data }), 'utf8') > MAX_CORE_BODY_BYTES)) {
+        report.ok = false;
+        report.result = 'raw_snapshot_oversized';
+        return report;
+      }
+      rawWritePhase = true;
+      for (const entry of staged) {
+        const writer = entry.kind === 'list'
+          ? upsertLiveShopeeOrderListSnapshot : upsertLiveShopeeOrderSnapshot;
+        report.raw.attempted++;
+        // No automatic retry. A timed-out Core reply leaves this write's outcome unknown.
+        const persisted = await writer(entry.data, {
+          url: CORE_BRIDGE_URL, secret: values.CORE_BRIDGE_HMAC_SECRET,
+          fetchImpl: transport, logger: quiet,
+        });
+        if (!persisted?.ok) {
+          report.ok = false;
+          report.result = 'raw_persistence_unconfirmed';
+          break;
+        }
+        report.raw.confirmed++;
+      }
+      rawWritePhase = false;
+      if (report.ok) report.result = 'raw_persisted';
+    }
   } catch {
     // Exceptions can contain signed URLs or raw response data. Never serialize them.
     report.ok = false;
@@ -110,11 +179,16 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
 }
 
 export async function main(args = process.argv.slice(2)) {
-  if (args.length !== 1 || args[0] !== '--live') {
-    console.log('Usage: node services/integration-hub/src/read-adao-orders.mjs --live');
+  const readOnly = args.length === 1 && args[0] === '--live';
+  const raw = args.length === 2 && args[0] === '--persist-raw'
+    && args[1] === `--confirm=${RAW_CONFIRMATION}`;
+  if (!readOnly && !raw) {
+    console.log('Usage: node services/integration-hub/src/read-adao-orders.mjs --live | --persist-raw --confirm=CONFIRM_ADAO_RAW_SNAPSHOTS');
     return 2;
   }
-  const report = await readAdaoOrders();
+  const report = await readAdaoOrders(raw ? {
+    persistRaw: true, confirmation: RAW_CONFIRMATION,
+  } : {});
   console.log(JSON.stringify(report));
   return report.ok ? 0 : 1;
 }
