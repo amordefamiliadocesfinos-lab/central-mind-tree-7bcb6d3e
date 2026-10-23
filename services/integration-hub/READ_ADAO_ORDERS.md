@@ -176,3 +176,33 @@ normaliza, aplica mappings, identidade física e contrato de projeção.
 Relatório restrito a estado/contagens/bloqueadores, sem dados de destinatário,
 itens comerciais sensíveis ou tokens. Não escreve em Pedidos, Separação,
 Inventário, Financeiro, CRM, OAuth, Raw ou Scheduler. Nunca habilita commit.
+
+## F6-Q.6C — primeiro Pedido + Itens + Separação de Adão
+
+**Estado: executor preparado; executar em produção somente após autorização específica.**
+
+Alvo imutável: pedido Shopee `261023C0CDYM5H` (PROCESSED),
+conta canônica Adão, anúncio `SH-001-014`, 1 caixa de 18 alfajores.
+Composição operacional exigida: **9 Branco + 9 Meio Amargo**.
+
+O executor `commit-adao-one.mjs` reaproveita as primitivas oficiais:
+`shopee.order_intake_batch.read` por número exato e
+`shopee.order.create` com `verify_existing=true`, limite de
+**uma leitura Core e um único write**. Bloqueia qualquer outra ação ou
+destino, confere conta, status, mapping, produto, variantes e
+multiplicadores, e exige confirmação literal. Não usa Shopee API,
+OAuth/refresh, Scheduler, estoque, financeiro, CRM ou OP.
+
+Comando **exclusivamente para a etapa de commit explicitamente autorizada**:
+
+```sh
+node services/integration-hub/src/commit-adao-one.mjs --commit-one --confirm=COMMIT_ADAO_261023C0CDYM5H
+```
+
+Necessário `CORE_BRIDGE_HMAC_SECRET` carregado sem exposição no subprocesso.
+Em retorno incerto, **não repetir**: conferir `orders`, `order_items`
+e `order_separation` no Lovable Cloud antes de decidir qualquer retomada.
+
+Verificação esperada: um Pedido pendente, duas linhas de 9 unidades,
+uma Separação `todo`. Os 10 pedidos históricos Adão e Viviane devem
+permanecer íntegros. Criação de pedido **não baixa estoque**.
