@@ -145,7 +145,12 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
             report.items.missing_or_invalid++;
           } else {
             for (const order of details) {
-              if (!ELIGIBLE_STATUSES.has(order?.order_status)) continue;
+              if (typeof order?.order_status !== 'string' || !order.order_status.trim()) {
+                report.items.missing_or_invalid++;
+                itemValidationRejected = true;
+                continue;
+              }
+              if (!ELIGIBLE_STATUSES.has(order.order_status)) continue;
               report.items.eligible_orders++;
               const items = order?.item_list;
               if (!Array.isArray(items) || items.length === 0
