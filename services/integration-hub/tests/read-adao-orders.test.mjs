@@ -409,3 +409,14 @@ test('F6-Q.6A CLI blocks unconfirmed item persistence', () => {
     assert.equal(res.stderr, '');
   }
 });
+
+test('F6-Q.6A: missing order status blocks item snapshot writes even with item_list', async () => {
+  const f = await fixture({ itemMode: true, count: 1, detail: {
+    response: { order_list: [{ order_sn: 'FIXTURE0',
+      item_list: [{ item_id: 123, model_quantity_purchased: 1 }] }] },
+  } });
+  const result = await f.run(PERSIST_ITEMS);
+  assert.equal(result.result, 'order_items_missing_or_invalid');
+  assert.equal(result.items.missing_or_invalid, 1);
+  assert.equal(f.writes.length, 0);
+});
