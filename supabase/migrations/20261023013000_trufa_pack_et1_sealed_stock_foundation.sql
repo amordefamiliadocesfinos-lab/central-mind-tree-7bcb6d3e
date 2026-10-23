@@ -70,6 +70,10 @@ DECLARE
   v_reference uuid := gen_random_uuid();
   v_units_delta numeric;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.app_users u
+    WHERE u.auth_user_id=v_actor AND u.is_active IS TRUE AND u.role='Administrador'
+  ) THEN RAISE EXCEPTION 'et1_admin_permission_required'; END IF;
   IF v_actor IS NULL OR p_physically_confirmed IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'et1_auth_and_physical_confirmation_required';
   END IF;
@@ -150,5 +154,6 @@ BEGIN
 END;$et1$;
 REVOKE ALL ON FUNCTION public.trufa_pack_convert_physical_stock(text,uuid,integer,uuid,text,boolean)
   FROM PUBLIC,anon,authenticated;
--- Não conceder EXECUTE antes do gerenciador administrativo e dos testes ET1.
+GRANT EXECUTE ON FUNCTION public.trufa_pack_convert_physical_stock(text,uuid,integer,uuid,text,boolean) TO authenticated;
+-- Somente usuário autenticado com papel Administrador ativo passa pela autorização interna.
 -- NÃO executar função em dados históricos sem conferência do operador.
