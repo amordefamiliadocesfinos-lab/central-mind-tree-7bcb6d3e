@@ -316,9 +316,6 @@ BEGIN
       WHERE variant_id=v_component.variant_id AND storage_location_id=(
         SELECT id FROM public.storage_locations WHERE name='Fábrica' AND is_active LIMIT 1)),0);
     END IF;
-    IF v_component.component_id='af7fe3c4-863c-4d1f-9fcd-b4ecb92e5322'::uuid AND v_component.variant_id IS NOT NULL THEN
-      PERFORM public.ensure_trufa_pack_production_material(v_component.variant_id,v_remaining,v_order.id,'production_order');
-    END IF;
     IF v_component.component_id='c177f332-a1c7-4276-9cef-7b81af920174'::uuid AND v_component.variant_id IS NULL THEN
       v_available:=v_available+COALESCE((SELECT sum(sacks)*24000 FROM public.amendoim_sealed_stock
         WHERE storage_location_id=(SELECT id FROM public.storage_locations WHERE name='Fábrica' AND is_active LIMIT 1)),0);
@@ -334,6 +331,9 @@ BEGIN
   IF jsonb_array_length(v_shortages)>0 THEN RETURN jsonb_build_object('success',false,'reason','insufficient_stock','shortages',v_shortages); END IF;
   FOR v_component IN SELECT pc.component_id,pc.variant_id,sum(pc.qty_per_unit*item.produced_quantity) required_quantity FROM public.production_order_items item JOIN public.product_components pc ON pc.product_id=item.product_id AND pc.product_variant_id IS NOT DISTINCT FROM item.variant_id WHERE item.production_order_id=v_order.id GROUP BY pc.component_id,pc.variant_id LOOP
     v_remaining:=v_component.required_quantity;
+    IF v_component.component_id='af7fe3c4-863c-4d1f-9fcd-b4ecb92e5322'::uuid AND v_component.variant_id IS NOT NULL THEN
+      PERFORM public.ensure_trufa_pack_production_material(v_component.variant_id,v_remaining,v_order.id,'production_order');
+    END IF;
     IF v_component.component_id='c70dd4b4-bc59-4d88-81ef-1a8c47315560'::uuid
       AND v_component.variant_id IN ('f6588f52-6e28-4ce9-b492-a95c847d5c0c'::uuid,'1a3d59a6-4712-4afd-811a-5a72aad76fa9'::uuid) THEN
       PERFORM public.ensure_chocolate_production_material(v_order.id,v_component.variant_id,
