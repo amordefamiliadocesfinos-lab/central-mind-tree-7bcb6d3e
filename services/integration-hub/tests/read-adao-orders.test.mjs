@@ -18,8 +18,10 @@ const environmentDigest = () => createHash('sha256').update(JSON.stringify(Objec
 const json = (payload, status = 200) => new Response(JSON.stringify(payload), {
   status, headers: { 'content-type': 'application/json' },
 });
-async function fixture({ connection = {}, count = 2, list, detail, throwing = false } = {}) {
+async function fixture({ connection = {}, count = 2, list, detail, throwing = false,
+  writeFailureAt = null, responseLostAt = null } = {}) {
   const calls = [];
+  const writes = [];
   const ciphertext = await encryptShopeeToken(TOKEN, env.SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY);
   const orders = Array.from({ length: count }, (_, i) => ({ order_sn: `FIXTURE${i}` }));
   const fetchImpl = async (input, init) => {
@@ -28,12 +30,25 @@ async function fixture({ connection = {}, count = 2, list, detail, throwing = fa
     assert.equal(init.redirect, 'error');
     if (url.href === CORE_BRIDGE_URL) {
       assert.equal(init.method, 'POST');
-      assert.deepEqual(JSON.parse(init.body), { action: 'shopee.oauth_connection.read',
-        channel_account_id: ADAO.channel_account_id });
-      return json({ request_id: init.headers['X-Integration-Hub-Request-Id'],
-        partner_id: ADAO.partner_id, shop_id: ADAO.shop_id,
-        access_token_ciphertext: ciphertext, refresh_token_ciphertext: 'never-decrypt-or-refresh',
-        access_token_expires_at: new Date(NOW + 3600000).toISOString(), ...connection });
+      const body = JSON.parse(init.body);
+      if (body.action === 'shopee.oauth_connection.read') {
+        assert.deepEqual(body, { action: 'shopee.oauth_connection.read',
+          channel_account_id: ADAO.channel_account_id });
+        return json({ request_id: init.headers['X-Integration-Hub-Request-Id'],
+          partner_id: ADAO.partner_id, shop_id: ADAO.shop_id,
+          access_token_ciphertext: ciphertext, refresh_token_ciphertext: 'never-decrypt-or-refresh',
+          access_token_expires_at: new Date(NOW + 3600000).toISOString(), ...connection });
+      }
+      assert.ok(['shopee.raw_order_list_snapshot.upsert',
+        'shopee.raw_order_snapshot.upsert'].includes(body.action));
+      assert.equal(body.channel_account_id, ADAO.channel_account_id);
+      assert.ok(body.external_entity_id);
+      assert.match(body.payload_hash, /^[a-f0-9]{64}$/);
+      assert.ok(Buffer.byteLength(init.body, 'utf8') <= 64 * 1024);
+      writes.push(body);
+      if (responseLostAt === writes.length) throw new Error('lost network response');
+      if (writeFailureAt === writes.length) return json({ error: 'synthetic_failure' }, 503);
+      return json({ request_id: init.headers['X-Integration-Hub-Request-Id'], ok: true });
     }
     assert.equal(init.method ?? 'GET', 'GET');
     assert.equal(url.origin, 'https://partner.shopeemobile.com');
@@ -57,7 +72,7 @@ async function fixture({ connection = {}, count = 2, list, detail, throwing = fa
     return json(detail ?? { request_id: ID, response: { order_list: orders.map(order => ({ ...order,
       recipient_address: { name: 'PRIVATE CUSTOMER', phone: 'PRIVATE PHONE' } })) } });
   };
-  return { calls, run: options => readAdaoOrders({ env, now: () => NOW, fetchImpl, ...options }) };
+  return { calls, writes, run: options => readAdaoOrders({ env, now: () => NOW, fetchImpl, ...options }) };
 }
 
 test('correct shop: one page and one detail GET, no writes, refresh, pagination or Viviane changes', async () => {
@@ -160,4 +175,112 @@ test('CLI without explicit --live exits without network or secrets', () => {
   assert.equal(result.status, 2);
   assert.match(result.stdout, /Usage:/);
   assert.equal(result.stderr, '');
+});
+
+const RAW = { persistRaw: true, confirmation: 'CONFIRM_ADAO_RAW_SNAPSHOTS' };
+
+test('raw mode refuses execution without exact confirmation before network', async () => {
+  const f = await fixture();
+  const result = await f.run({ persistRaw: true });
+  assert.equal(result.result, 'raw_confirmation_required');
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.writes.length, 0);
+});
+
+test('explicit raw mode stores one list and two details after full validated read', async () => {
+  const f = await fixture({ count: 2 });
+  const result = await f.run(RAW);
+  assert.equal(result.ok, true);
+  assert.equal(result.result, 'raw_persisted');
+  assert.deepEqual(result.raw, { expected: 3, attempted: 3, confirmed: 3 });
+  assert.equal(f.calls.length, 6); // one Core read, two Shopee GET, three Core writes
+  assert.deepEqual(f.writes.map(item => item.action), [
+    'shopee.raw_order_list_snapshot.upsert',
+    'shopee.raw_order_snapshot.upsert',
+    'shopee.raw_order_snapshot.upsert',
+  ]);
+  assert.deepEqual(f.writes.slice(1).map(item => item.external_entity_id), ['FIXTURE0', 'FIXTURE1']);
+  assert.equal(JSON.stringify(result).includes('PRIVATE CUSTOMER'), false);
+  assert.equal(JSON.stringify(result).includes(TOKEN), false);
+});
+
+test('raw mode accepts an empty page, storing only the list snapshot', async () => {
+  const f = await fixture({ count: 0 });
+  const result = await f.run(RAW);
+  assert.equal(result.ok, true);
+  assert.equal(result.raw.confirmed, 1);
+  assert.equal(f.writes.length, 1);
+});
+
+test('raw rerun is safe with Core idempotent upsert contract', async () => {
+  const f = await fixture({ count: 2 });
+  assert.equal((await f.run(RAW)).ok, true);
+  assert.equal((await f.run(RAW)).ok, true);
+  assert.equal(f.writes.length, 6);
+  assert.equal(f.writes[0].payload_hash, f.writes[3].payload_hash);
+  assert.equal(f.writes[1].payload_hash, f.writes[4].payload_hash);
+  assert.equal(f.writes[2].payload_hash, f.writes[5].payload_hash);
+});
+
+test('raw mode blocks wrong local identity and mismatching stored shop before writes', async () => {
+  const f = await fixture();
+  assert.equal((await f.run({ ...RAW, identity: { ...ADAO, shop_id: 531736366 } })).result, 'identity_mismatch');
+  assert.equal(f.calls.length, 0);
+  const g = await fixture({ connection: { shop_id: 531736366 } });
+  assert.equal((await g.run(RAW)).ok, false);
+  assert.equal(g.calls.length, 1);
+  assert.equal(g.writes.length, 0);
+});
+
+test('raw mode validates all detail responses before any Core snapshot write', async () => {
+  const f = await fixture({ detail: { response: { order_list: [{ order_sn: 'OTHER' }] } } });
+  const result = await f.run(RAW);
+  assert.equal(result.ok, false);
+  assert.equal(f.writes.length, 0);
+});
+
+test('raw mode preflights every 64-KiB Core payload before first write', async () => {
+  const bulky = 'x'.repeat(66000);
+  const f = await fixture({ detail: { response: { order_list: [
+    { order_sn: 'FIXTURE0' }, { order_sn: 'FIXTURE1', note: bulky },
+  ] } });
+  const result = await f.run(RAW);
+  assert.equal(result.result, 'raw_snapshot_oversized');
+  assert.equal(result.raw.confirmed, 0);
+  assert.equal(f.writes.length, 0);
+});
+
+test('Core rejection stops subsequent raw writes without creating internal orders', async () => {
+  const f = await fixture({ writeFailureAt: 2 });
+  const result = await f.run(RAW);
+  assert.equal(result.ok, false);
+  assert.equal(result.result, 'raw_persistence_unconfirmed');
+  assert.deepEqual(result.raw, { expected: 3, attempted: 2, confirmed: 1 });
+  assert.equal(f.writes.length, 2);
+});
+
+test('lost Core response leaves outcome unconfirmed and never auto retries', async () => {
+  const f = await fixture({ responseLostAt: 1 });
+  const result = await f.run(RAW);
+  assert.equal(result.ok, false);
+  assert.equal(result.raw.confirmed, 0);
+  assert.equal(result.raw.attempted, 1);
+  assert.equal(f.writes.length, 1);
+  assert.equal(JSON.stringify(result).includes('network'), false);
+});
+
+test('raw mode also refuses expired token and avoids Shopee and Core writes', async () => {
+  const f = await fixture({ connection: { access_token_expires_at: new Date(NOW - 1).toISOString() } });
+  assert.equal((await f.run(RAW)).result, 'access_token_expired_no_refresh');
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.writes.length, 0);
+});
+
+test('CLI cannot enable raw writes without exact two-argument confirmation', () => {
+  const script = fileURLToPath(new URL('../src/read-adao-orders.mjs', import.meta.url));
+  for (const args of [['--persist-raw'], ['--persist-raw', '--confirm=WRONG'], ['--live', '--persist-raw']]) {
+    const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: {} });
+    assert.equal(result.status, 2);
+    assert.equal(result.stderr, '');
+  }
 });
