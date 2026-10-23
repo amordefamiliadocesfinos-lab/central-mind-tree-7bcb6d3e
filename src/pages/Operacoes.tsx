@@ -61,6 +61,7 @@ import { PurchasePresentationManager } from '@/components/operations/PurchasePre
 import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
 import { GlucodrySealedStockManager } from '@/components/operations/GlucodrySealedStockManager';
 import { AmendoimPhysicalStockManager } from '@/components/operations/AmendoimPhysicalStockManager';
+import { TrufaPackPhysicalStockManager } from '@/components/operations/TrufaPackPhysicalStockManager';
 import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
