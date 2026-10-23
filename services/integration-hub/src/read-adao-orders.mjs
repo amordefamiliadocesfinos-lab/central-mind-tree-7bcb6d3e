@@ -13,6 +13,9 @@ const LIST = '/api/v2/order/get_order_list';
 const DETAIL = '/api/v2/order/get_order_detail';
 const MAX_CORE_BODY_BYTES = 64 * 1024;
 const RAW_CONFIRMATION = 'CONFIRM_ADAO_RAW_SNAPSHOTS';
+const ITEMS_CONFIRMATION = 'CONFIRM_ADAO_ORDER_ITEMS';
+const ITEM_DETAIL_FIELDS = Object.freeze(['item_list', 'total_amount', 'payment_method']);
+const ELIGIBLE_STATUSES = new Set(['PROCESSED', 'READY_TO_SHIP']);
 const RAW_ACTIONS = Object.freeze({
   list: 'shopee.raw_order_list_snapshot.upsert',
   detail: 'shopee.raw_order_snapshot.upsert',
@@ -24,23 +27,28 @@ const FAILURE_CODES = new Set(['oauth_connection_unavailable', 'partner_id_misma
 
 // Importing this module performs no I/O. Each invocation has its own limits and environment.
 export async function readAdaoOrders({ env = process.env, identity = ADAO, now = Date.now,
-  fetchImpl = globalThis.fetch, persistRaw = false, confirmation = null } = {}) {
+  fetchImpl = globalThis.fetch, persistRaw = false, includeItems = false,
+  confirmation = null } = {}) {
   const report = { identity: { ...ADAO }, window: null, listed_count: 0, detailed_count: 0,
     ok: false, result: 'execution_failed', request_ids: {} };
   if (persistRaw) report.raw = { confirmed: 0, attempted: 0, expected: 0 };
+  if (includeItems) report.items = { eligible_orders: 0, item_lines: 0, missing_or_invalid: 0 };
   try {
     if (!identity || Object.keys(ADAO).some(key => identity[key] !== ADAO[key])) {
       report.result = 'identity_mismatch';
       return report;
     }
-    if (persistRaw && confirmation !== RAW_CONFIRMATION) {
+    if ((includeItems && persistRaw && confirmation !== ITEMS_CONFIRMATION)
+      || (includeItems && !persistRaw && confirmation !== null)
+      || (!includeItems && persistRaw && confirmation !== RAW_CONFIRMATION)) {
       report.result = 'raw_confirmation_required';
       return report;
     }
     const timeTo = Math.floor(now() / 1000);
     if (!Number.isSafeInteger(timeTo) || timeTo <= 86400) return report;
     const window = { timeFrom: timeTo - 86400, timeTo, timeRangeField: 'create_time',
-      pageSize: 5, cursor: null, orderStatus: null, responseOptionalFields: [] };
+      pageSize: 5, cursor: null, orderStatus: null,
+      responseOptionalFields: includeItems ? [...ITEM_DETAIL_FIELDS] : [] };
     report.window = { time_from: window.timeFrom, time_to: timeTo, time_range_field: 'create_time' };
     const values = Object.fromEntries(SECRET_NAMES.map(name => [name, env[name]]));
     if (SECRET_NAMES.some(name => typeof values[name] !== 'string' || !values[name].trim())) {
@@ -65,6 +73,7 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
       return { ok: true };
     };
     const calls = new Set();
+    let itemValidationRejected = false;
     const transport = async (input, init = {}) => {
       const url = new URL(input);
       const method = init.method ?? 'GET';
@@ -127,12 +136,47 @@ export async function readAdaoOrders({ env = process.env, identity = ADAO, now =
         if (args.orderSnList.length > 5) throw new Error('request_limit');
         const result = await getOrderDetail(args);
         captureId('detail', result.payload, args.accessToken);
+        if (includeItems && result.response.ok && !parseShopeeError(result.payload)) {
+          const details = result.payload?.response?.order_list;
+          // Validate all operationally eligible orders before any staged Core write.
+          // Cancelled/non-eligible orders remain historical raw evidence.
+          if (!Array.isArray(details)) {
+            itemValidationRejected = true;
+            report.items.missing_or_invalid++;
+          } else {
+            for (const order of details) {
+              if (typeof order?.order_status !== 'string' || !order.order_status.trim()) {
+                report.items.missing_or_invalid++;
+                itemValidationRejected = true;
+                continue;
+              }
+              if (!ELIGIBLE_STATUSES.has(order.order_status)) continue;
+              report.items.eligible_orders++;
+              const items = order?.item_list;
+              if (!Array.isArray(items) || items.length === 0
+                || items.some(item => !item || typeof item !== 'object'
+                  || !/^[1-9][0-9]*$/.test(String(item.item_id ?? ''))
+                  || !Number.isSafeInteger(Number(item.model_quantity_purchased))
+                  || Number(item.model_quantity_purchased) <= 0)) {
+                report.items.missing_or_invalid++;
+                itemValidationRejected = true;
+                continue;
+              }
+              report.items.item_lines += items.length;
+            }
+          }
+          if (itemValidationRejected) return {
+            response: { ok: false, status: 422 },
+            payload: { error: 'order_item_list_invalid' },
+          };
+        }
         return result;
       },
     });
     const result = await reader(window);
     report.ok = result.ok === true;
-    report.result = report.ok ? 'completed' : FAILURE_CODES.has(result.code) ? result.code : 'execution_failed';
+    report.result = itemValidationRejected ? 'order_items_missing_or_invalid'
+      : report.ok ? 'completed' : FAILURE_CODES.has(result.code) ? result.code : 'execution_failed';
     if (report.ok) report.detailed_count = result.detailed_count;
     if (report.ok && persistRaw) {
       report.raw.expected = 1 + report.detailed_count;
@@ -182,13 +226,17 @@ export async function main(args = process.argv.slice(2)) {
   const readOnly = args.length === 1 && args[0] === '--live';
   const raw = args.length === 2 && args[0] === '--persist-raw'
     && args[1] === `--confirm=${RAW_CONFIRMATION}`;
-  if (!readOnly && !raw) {
-    console.log('Usage: node services/integration-hub/src/read-adao-orders.mjs --live | --persist-raw --confirm=CONFIRM_ADAO_RAW_SNAPSHOTS');
+  const previewItems = args.length === 1 && args[0] === '--preview-items';
+  const persistItems = args.length === 2 && args[0] === '--persist-items'
+    && args[1] === `--confirm=${ITEMS_CONFIRMATION}`;
+  if (!readOnly && !raw && !previewItems && !persistItems) {
+    console.log('Usage: --live | --persist-raw --confirm=CONFIRM_ADAO_RAW_SNAPSHOTS | --preview-items | --persist-items --confirm=CONFIRM_ADAO_ORDER_ITEMS');
     return 2;
   }
-  const report = await readAdaoOrders(raw ? {
-    persistRaw: true, confirmation: RAW_CONFIRMATION,
-  } : {});
+  const report = await readAdaoOrders(persistItems ? {
+    persistRaw: true, includeItems: true, confirmation: ITEMS_CONFIRMATION,
+  } : previewItems ? { includeItems: true }
+    : raw ? { persistRaw: true, confirmation: RAW_CONFIRMATION } : {});
   console.log(JSON.stringify(report));
   return report.ok ? 0 : 1;
 }
