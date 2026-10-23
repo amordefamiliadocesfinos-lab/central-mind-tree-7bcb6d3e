@@ -155,3 +155,24 @@ Não imprime pedido, SKU, produto, preço, destinatário, payload ou token.
 Scheduler, Cloud Run ou Viviane. Após persistir, comparar apenas os itens dos
 snapshots com os mappings existentes e realizar *preview* da projeção antes
 de qualquer importação operacional.
+
+## F6-Q.6B — prévia operacional da conta Adão (somente leitura)
+
+Mapping canônico de `SH-001-039` ligado à apresentação comercial existente
+`Trufa 40g — Mix 6 Sabores 30`, com 6 componentes ativos de 5 unidades.
+O registro principal usa Brigadeiro/5 apenas como **âncora técnica obrigatória
+para Produto Mestre com variantes físicas**; os 6 componentes são a composição
+operacional efetiva (2 kits = 60 unidades, 10 de cada sabor). Mapping registrado
+no Core em 23/10/2026: `e9933a9f-4b70-4a7a-917e-7da06e704dc1`.
+
+**Prova integrada read-only no Core (não chama a Shopee):**
+```sh
+node services/integration-hub/src/preview-adao-operational-intake.mjs --preview-adao
+```
+
+Execução manual com somente `CORE_BRIDGE_HMAC_SECRET` injetado por processo
+isolado seguro. Lê no máximo 5 pedidos elegíveis dos Raw Snapshots de Adão,
+normaliza, aplica mappings, identidade física e contrato de projeção.
+Relatório restrito a estado/contagens/bloqueadores, sem dados de destinatário,
+itens comerciais sensíveis ou tokens. Não escreve em Pedidos, Separação,
+Inventário, Financeiro, CRM, OAuth, Raw ou Scheduler. Nunca habilita commit.
