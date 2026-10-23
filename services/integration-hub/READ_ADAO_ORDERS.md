@@ -94,3 +94,23 @@ estoque, financeiro, etiqueta ou ciclo recorrente é acionado.
 Não mostrar payloads brutos, dados pessoais, tokens, URLs assinadas ou dump de
 ambiente. Não executar sob `set -x`. A integração Viviane fica totalmente fora
 desse processo. Não foi criado endpoint público, migration ou Scheduler.
+
+## F6-Q.5B — manutenção isolada do access token Adão
+
+Este comando é **exclusivo para execução manual autorizada no ambiente seguro GCP**,
+se o token de acesso de Adão estiver vencido. O código verifica metadados primeiro:
+se o token ainda estiver válido por mais de 60 segundos, não faz renovação nem escrita.
+A conexão armazenada deve ter Partner 2047685 e Shop 1156446003. Não usa as variáveis
+de conta e Partner da Viviane.
+
+```sh
+node services/integration-hub/src/refresh-adao-token-once.mjs --refresh-once --confirm=REFRESH_ADAO_TOKEN_ONCE
+```
+
+Reutiliza os três secrets protegidos do processo isolado já documentado. Em caso de
+expiração do refresh token, divergência de identidade ou resposta incerta do Core,
+**não repetir**: comunicar o resultado para avaliação. Em sucesso, retorna somente
+identidade, código de resultado e novo horário de expiração; jamais tokens.
+Não cria rota, Scheduler ou ciclo automático. Depois da renovação confirmada,
+a execução de `--persist-raw` deve continuar separada, uma única vez,
+sem importar pedidos ou movimentar estoque.
