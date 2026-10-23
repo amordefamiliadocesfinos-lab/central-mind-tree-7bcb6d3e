@@ -243,7 +243,7 @@ test('raw mode preflights every 64-KiB Core payload before first write', async (
   const bulky = 'x'.repeat(66000);
   const f = await fixture({ detail: { response: { order_list: [
     { order_sn: 'FIXTURE0' }, { order_sn: 'FIXTURE1', note: bulky },
-  ] } });
+  ] } } });
   const result = await f.run(RAW);
   assert.equal(result.result, 'raw_snapshot_oversized');
   assert.equal(result.raw.confirmed, 0);
