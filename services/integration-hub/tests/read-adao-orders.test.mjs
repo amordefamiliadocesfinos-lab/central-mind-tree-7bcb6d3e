@@ -19,7 +19,7 @@ const json = (payload, status = 200) => new Response(JSON.stringify(payload), {
   status, headers: { 'content-type': 'application/json' },
 });
 async function fixture({ connection = {}, count = 2, list, detail, throwing = false,
-  writeFailureAt = null, responseLostAt = null } = {}) {
+  writeFailureAt = null, responseLostAt = null, itemMode = false } = {}) {
   const calls = [];
   const writes = [];
   const ciphertext = await encryptShopeeToken(TOKEN, env.SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY);
@@ -68,8 +68,16 @@ async function fixture({ connection = {}, count = 2, list, detail, throwing = fa
     }
     assert.equal(url.pathname, '/api/v2/order/get_order_detail');
     assert.ok(url.searchParams.get('order_sn_list').split(',').length <= 5);
-    assert.equal(url.searchParams.has('response_optional_fields'), false);
+    if (itemMode) {
+      assert.equal(url.searchParams.get('response_optional_fields'), 'item_list,total_amount,payment_method');
+    } else {
+      assert.equal(url.searchParams.has('response_optional_fields'), false);
+    }
     return json(detail ?? { request_id: ID, response: { order_list: orders.map(order => ({ ...order,
+      ...(itemMode ? { order_status: 'PROCESSED', create_time: NOW / 1000, total_amount: 12.50,
+        payment_method: 'PIX', item_list: [{ item_id: 123456789, model_id: 0,
+          item_name: 'Produto de teste', model_quantity_purchased: 2,
+          model_discounted_price: 6.25 }] } : {}),
       recipient_address: { name: 'PRIVATE CUSTOMER', phone: 'PRIVATE PHONE' } })) } });
   };
   return { calls, writes, run: options => readAdaoOrders({ env, now: () => NOW, fetchImpl, ...options }) };
@@ -282,5 +290,122 @@ test('CLI cannot enable raw writes without exact two-argument confirmation', () 
     const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: {} });
     assert.equal(result.status, 2);
     assert.equal(result.stderr, '');
+  }
+});
+
+const ITEMS = { includeItems: true };
+const PERSIST_ITEMS = { includeItems: true, persistRaw: true, confirmation: 'CONFIRM_ADAO_ORDER_ITEMS' };
+
+test('F6-Q.6A preview requests exactly three optional fields without writes or secret leaks', async () => {
+  const f = await fixture({ itemMode: true, count: 3 });
+  const result = await f.run(ITEMS);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.items, { eligible_orders: 3, item_lines: 3, missing_or_invalid: 0 });
+  assert.equal(f.calls.length, 3);
+  assert.equal(f.writes.length, 0);
+  assert.equal(JSON.stringify(result).includes('PRIVATE'), false);
+  assert.equal(JSON.stringify(result).includes('FIXTURE0'), false);
+  assert.equal(JSON.stringify(result).includes(TOKEN), false);
+});
+
+test('F6-Q.6A persists list and item-enriched details with explicit confirmation', async () => {
+  const f = await fixture({ itemMode: true, count: 2 });
+  const result = await f.run(PERSIST_ITEMS);
+  assert.equal(result.ok, true);
+  assert.equal(result.result, 'raw_persisted');
+  assert.deepEqual(result.raw, { confirmed: 3, attempted: 3, expected: 3 });
+  assert.equal(f.writes.length, 3);
+  for (const snapshot of f.writes.slice(1)) {
+    const order = snapshot.payload.response.order_list[0];
+    assert.equal(order.item_list[0].item_id, 123456789);
+    assert.equal(order.item_list[0].model_quantity_purchased, 2);
+    assert.equal(order.payment_method, 'PIX');
+    assert.equal(order.total_amount, 12.50);
+  }
+});
+
+test('F6-Q.6A eligible order without item_list fails before any persistence', async () => {
+  const f = await fixture({ itemMode: true, count: 1, detail: {
+    response: { order_list: [{ order_sn: 'FIXTURE0', order_status: 'READY_TO_SHIP' }] },
+  } });
+  const result = await f.run(PERSIST_ITEMS);
+  assert.equal(result.result, 'order_items_missing_or_invalid');
+  assert.equal(result.items.missing_or_invalid, 1);
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.calls.length, 3);
+});
+
+test('F6-Q.6A malformed item id or quantity blocks the entire page', async () => {
+  for (const item of [{ item_id: null, model_quantity_purchased: 2 },
+    { item_id: 99, model_quantity_purchased: 0 },
+    { item_id: 99, model_quantity_purchased: 1.5 }]) {
+    const f = await fixture({ itemMode: true, count: 1, detail: {
+      response: { order_list: [{ order_sn: 'FIXTURE0', order_status: 'PROCESSED', item_list: [item] }] },
+    } });
+    assert.equal((await f.run(PERSIST_ITEMS)).result, 'order_items_missing_or_invalid');
+    assert.equal(f.writes.length, 0);
+  }
+});
+
+test('F6-Q.6A canceled order may lack items while eligible order requires them', async () => {
+  const f = await fixture({ itemMode: true, count: 2, detail: {
+    response: { order_list: [
+      { order_sn: 'FIXTURE0', order_status: 'CANCELLED' },
+      { order_sn: 'FIXTURE1', order_status: 'READY_TO_SHIP',
+        item_list: [{ item_id: 135, model_id: 0, model_quantity_purchased: 4 }] },
+    ] },
+  } });
+  const result = await f.run(PERSIST_ITEMS);
+  assert.equal(result.ok, true);
+  assert.equal(result.items.eligible_orders, 1);
+  assert.equal(result.items.item_lines, 1);
+  assert.equal(result.raw.confirmed, 3);
+});
+
+test('F6-Q.6A second eligible detail missing items prevents all Core writes', async () => {
+  const f = await fixture({ itemMode: true, count: 2, detail: {
+    response: { order_list: [
+      { order_sn: 'FIXTURE0', order_status: 'PROCESSED', item_list: [{ item_id: 135, model_quantity_purchased: 1 }] },
+      { order_sn: 'FIXTURE1', order_status: 'READY_TO_SHIP', item_list: [] },
+    ] },
+  } });
+  assert.equal((await f.run(PERSIST_ITEMS)).result, 'order_items_missing_or_invalid');
+  assert.equal(f.writes.length, 0);
+});
+
+test('F6-Q.6A refuses wrong confirmation, including generic raw confirmation', async () => {
+  const f = await fixture({ itemMode: true, count: 1 });
+  for (const confirmation of [null, 'CONFIRM_ADAO_RAW_SNAPSHOTS', 'WRONG']) {
+    const result = await f.run({ includeItems: true, persistRaw: true, confirmation });
+    assert.equal(result.result, 'raw_confirmation_required');
+    assert.equal(f.calls.length, 0);
+  }
+});
+
+test('F6-Q.6A item persistence does not retry a lost response', async () => {
+  const f = await fixture({ itemMode: true, count: 2, responseLostAt: 2 });
+  const result = await f.run(PERSIST_ITEMS);
+  assert.equal(result.ok, false);
+  assert.equal(result.raw.attempted, 2);
+  assert.equal(result.raw.confirmed, 1);
+  assert.equal(f.writes.length, 2);
+});
+
+test('F6-Q.6A expired access token prevents Shopee GETs and Core writes', async () => {
+  const f = await fixture({ itemMode: true, connection: {
+    access_token_expires_at: new Date(NOW - 1).toISOString(),
+  } });
+  assert.equal((await f.run(PERSIST_ITEMS)).result, 'access_token_expired_no_refresh');
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.writes.length, 0);
+});
+
+test('F6-Q.6A CLI blocks unconfirmed item persistence', () => {
+  const script = fileURLToPath(new URL('../src/read-adao-orders.mjs', import.meta.url));
+  for (const args of [['--persist-items'], ['--persist-items', '--confirm=WRONG'],
+    ['--live', '--persist-items'], ['--preview-items', '--persist-items']]) {
+    const res = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: {} });
+    assert.equal(res.status, 2);
+    assert.equal(res.stderr, '');
   }
 });
