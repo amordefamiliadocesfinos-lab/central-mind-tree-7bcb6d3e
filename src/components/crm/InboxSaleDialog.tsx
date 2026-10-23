@@ -85,6 +85,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
   const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
   const [amendoimSealedSacks, setAmendoimSealedSacks] = useState<number | null>(null);
+  const [maltoSealedSacks, setMaltoSealedSacks] = useState<number | null>(null);
   const [trufaSealedPacks, setTrufaSealedPacks] = useState<Record<string, number> | null>(null);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
@@ -128,6 +129,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
       .then(({ data, error }: any) => {
         setTrufaSealedPacks(error ? null : sumTrufaSealedStock(data ?? []));
       });
+    (supabase as any).from('maltodextrina_sealed_stock').select('sacks')
+      .then(({ data, error }: any) => setMaltoSealedSacks(error ? null :
+        (data ?? []).reduce((sum: number, row: { sacks: number })=>sum+Number(row.sacks),0)));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
@@ -167,6 +171,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   }, [items, products]);
 
   const getItemStockBalance = (item: SaleItem) => {
+    if (item.product_id === '78fd74e2-1dc8-4c10-94a3-e661de6f8ba8' && item.commercial_presentation?.id === '2bad0e25-0000-4000-8000-000000002500') return maltoSealedSacks;
     if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
       return item.variant_id && trufaSealedPacks ? (trufaSealedPacks[item.variant_id] ?? 0) : null;
     }
@@ -182,6 +187,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     const balance = getItemStockBalance(item);
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (balance === null) return '—';
+    if (item.product_id === '78fd74e2-1dc8-4c10-94a3-e661de6f8ba8' && item.commercial_presentation?.id === '2bad0e25-0000-4000-8000-000000002500') return `${balance} saco(s) lacrado(s)`;
     if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
       return `${balance} pacote(s) P100 lacrado(s)`;
     }
