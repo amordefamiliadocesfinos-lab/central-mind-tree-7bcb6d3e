@@ -439,7 +439,7 @@ BEGIN
       PERFORM public.trufa_pack_move_internal(v_item.variant_id,v_receipt.storage_location_id,
       v_item.received_purchase_qty::integer,'receipt',v_event_key,v_receipt.id);
       v_movement_count:=v_movement_count+1;
-    ELS    IF v_item.product_id='92088a70-8cc0-40ef-a39d-564603df6866'::uuid AND v_item.purchase_presentation_id='820dead8-61a6-4b54-8b5a-8c6d15b5303e'::uuid THEN
+    ELSIF v_item.product_id='92088a70-8cc0-40ef-a39d-564603df6866'::uuid AND v_item.purchase_presentation_id='820dead8-61a6-4b54-8b5a-8c6d15b5303e'::uuid THEN
       IF v_item.received_purchase_qty<>trunc(v_item.received_purchase_qty) OR
         v_item.operational_received_qty<>v_item.received_purchase_qty*25000 THEN
         RAISE EXCEPTION 'glucodry_gd2_receipt_requires_whole_sealed_sacks';
