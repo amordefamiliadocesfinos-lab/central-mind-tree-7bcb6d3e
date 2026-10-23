@@ -59,7 +59,7 @@ function fixture({ data=batch(), already=false, lost=false }={}) {
     if(req.action==='shopee.order_intake_batch.read') {
       assert.deepEqual(req,{action:'shopee.order_intake_batch.read',
         channel_account_id:PILOT.account,limit:1,order_sn:PILOT.order});
-      return new Response(JSON.stringify({...data,...common}),{status:200});
+      return new Response(JSON.stringify({...data,...common}),{status:200,headers:{'content-type':'application/json'}});
     }
     assert.equal(req.action,'shopee.order.create');
     assert.equal(req.channel_account_id,PILOT.account);
@@ -70,7 +70,7 @@ function fixture({ data=batch(), already=false, lost=false }={}) {
     assert.deepEqual(req.items.map(x=>x.variant_id),PILOT.variants);
     if(lost) throw new Error('PRIVATE NETWORK CUSTOMER TOKEN');
     return new Response(JSON.stringify({...common,order_id:ORDER_ID,
-      separation_id:SEP_ID,already_registered:already}),{status:200});
+      separation_id:SEP_ID,already_registered:already}),{status:200,headers:{'content-type':'application/json'}});
   };
   return {calls,fetchImpl};
 }
