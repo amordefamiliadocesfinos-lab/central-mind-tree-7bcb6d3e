@@ -24,6 +24,7 @@ import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
+import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
 
@@ -84,6 +85,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
   const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
   const [amendoimSealedSacks, setAmendoimSealedSacks] = useState<number | null>(null);
+  const [trufaSealedPacks, setTrufaSealedPacks] = useState<Record<string, number> | null>(null);
   const [notes, setNotes] = useState('');
   const [operationalDestination, setOperationalDestination] = useState<OperationalDestination | null>(null);
   const [logisticsMode, setLogisticsMode] = useState('');
@@ -120,6 +122,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
       .then(({ data, error }: any) => {
         setAmendoimSealedSacks(error ? null
           : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
+      });
+    // ET1: read ORIGINAL P100 stock by flavor. NULL means unavailable; never show EA as P100.
+    (supabase as any).from('trufa_pack_sealed_stock').select('variant_id,packs')
+      .then(({ data, error }: any) => {
+        setTrufaSealedPacks(error ? null : sumTrufaSealedStock(data ?? []));
       });
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
@@ -160,6 +167,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   }, [items, products]);
 
   const getItemStockBalance = (item: SaleItem) => {
+    if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
+      return item.variant_id && trufaSealedPacks ? (trufaSealedPacks[item.variant_id] ?? 0) : null;
+    }
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
     if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
     if (isAmendoimAM3(item.commercial_presentation?.id)) return amendoimSealedSacks;
@@ -172,6 +182,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     const balance = getItemStockBalance(item);
     const product = products.find((candidate) => candidate.id === item.product_id);
     if (balance === null) return '—';
+    if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
+      return `${balance} pacote(s) P100 lacrado(s)`;
+    }
     return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) || isAmendoimAM3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 

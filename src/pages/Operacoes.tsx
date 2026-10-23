@@ -61,6 +61,7 @@ import { PurchasePresentationManager } from '@/components/operations/PurchasePre
 import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
 import { GlucodrySealedStockManager } from '@/components/operations/GlucodrySealedStockManager';
 import { AmendoimPhysicalStockManager } from '@/components/operations/AmendoimPhysicalStockManager';
+import { TrufaPackPhysicalStockManager } from '@/components/operations/TrufaPackPhysicalStockManager';
 import { CommercialPresentationManager } from '@/components/operations/CommercialPresentationManager';
 import { useOrderSeparation } from '@/hooks/useOrderSeparation';
 import { useProductCategories } from '@/hooks/useProductCategories';
@@ -89,6 +90,7 @@ import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
+import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 
 const VALID_TABS: OperationsTab[] = ['overview', 'orders', 'purchases', 'separation', 'products', 'inventory', 'production', 'mrp', 'calendar'];
 
@@ -367,6 +369,7 @@ export default function Operacoes() {
   const [glucodrySealedSacks, setGlucodrySealedSacks] = useState<number | null>(null);
   const [chocolateSealedSacks, setChocolateSealedSacks] = useState<Record<string,number> | null>(null);
   const [amendoimSealedSacks, setAmendoimSealedSacks] = useState<number | null>(null);
+  const [trufaSealedPacks, setTrufaSealedPacks] = useState<Record<string, number> | null>(null);
   useEffect(() => {
     if (!showSaleDialog) return;
     (supabase as any).from('glucodry_sealed_stock').select('sacks')
@@ -386,6 +389,11 @@ export default function Operacoes() {
       .then(({ data, error }: any) => {
         setAmendoimSealedSacks(error ? null
           : (data ?? []).reduce((sum: number, row: { sacks: number }) => sum + Number(row.sacks), 0));
+      });
+    // ET1: read ORIGINAL P100 stock by flavor. NULL means unavailable; never show EA as P100.
+    (supabase as any).from('trufa_pack_sealed_stock').select('variant_id,packs')
+      .then(({ data, error }: any) => {
+        setTrufaSealedPacks(error ? null : sumTrufaSealedStock(data ?? []));
       });
   }, [showSaleDialog]);
 
@@ -436,6 +444,9 @@ export default function Operacoes() {
     ?.product;
 
   const getSaleItemStockBalance = (item: NewSaleItem) => {
+    if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
+      return item.variant_id && trufaSealedPacks ? (trufaSealedPacks[item.variant_id] ?? 0) : null;
+    }
     if (isGlucodryGD2(item.commercial_presentation?.id)) return glucodrySealedSacks;
     if (isChocolateCB3(item.commercial_presentation?.id)) return item.variant_id ? (chocolateSealedSacks?.[item.variant_id] ?? (chocolateSealedSacks ? 0 : null)) : null;
     if (isAmendoimAM3(item.commercial_presentation?.id)) return amendoimSealedSacks;
@@ -448,6 +459,9 @@ export default function Operacoes() {
     const balance = getSaleItemStockBalance(item);
     const product = rawProducts.find(candidate => candidate.id === item.product_id);
     if (balance === null) return '—';
+    if (isTrufaSealedP100(item.product_id, item.variant_id, item.commercial_presentation)) {
+      return `${balance} pacote(s) P100 lacrado(s)`;
+    }
     return isGlucodryGD2(item.commercial_presentation?.id) || isChocolateCB3(item.commercial_presentation?.id) || isAmendoimAM3(item.commercial_presentation?.id) ? `${balance} saco(s) lacrado(s)` : `${balance} ${product?.unit || 'un'}`;
   };
 
