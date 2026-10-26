@@ -400,3 +400,40 @@ test('F2 physical validation blocks Porto Gel mapping without verified physical 
   assert.equal(result.orders[0].items[0].mappingStatus, 'physical_identity_unverified');
   assert.deepEqual(result.orders[0].items[0].components, []);
 });
+
+test('F2 Viviane Porto Gel 2kg Open Platform evidence resolves to existing physical presentation', () => {
+  // Verified read-only sources: shopee_oauth_connections and marketplace_raw_snapshots
+  // dated 2026-10-26. The physical composition comes from commercial_presentations
+  // and commercial_presentation_components, and is not a production mapping insert.
+  const item = normalizedItem({
+    itemId: '23399466897', modelId: '209190015957',
+    itemName: 'Emulsificante Porto Gel Variação de 1kg a 5 kg Du Porto | SH-002-011',
+    modelName: '2 KG', quantity: 1,
+  });
+  const mappings = [{
+    id: 'pilot-read-only-candidate',
+    marketplace: 'shopee',
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: ACCOUNT,
+    external_item_id: '23399466897',
+    external_model_id: '209190015957',
+    external_item_key: 'code:SH-002-011|variation:2 kg',
+    components: [{
+      product_id: '6e757550-a9b6-4644-8164-8c802760e373',
+      variant_id: 'ae7c8013-de6c-4806-9450-abcab2202aa9',
+      physical_multiplier: 2,
+      position: 0,
+      physical_identity: { active: true, unit: 'un' },
+    }],
+  }];
+  const preview = buildShopeeMappingPreview(normalizedPayload([item]), mappings, {
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    marketplaceAccount: ACCOUNT,
+    requirePhysicalValidation: true,
+  });
+  const mapped = preview.orders[0].items[0];
+  assert.equal(mapped.mappingStatus, 'recognized');
+  assert.equal(mapped.components[0].physicalQuantity, 2);
+  assert.equal(mapped.components[0].variantId, 'ae7c8013-de6c-4806-9450-abcab2202aa9');
+  assert.equal(preview.operationalWrites, false);
+});
