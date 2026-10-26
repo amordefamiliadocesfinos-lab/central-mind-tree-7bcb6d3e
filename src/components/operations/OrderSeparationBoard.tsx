@@ -16,6 +16,8 @@ import { ORDER_DOCUMENT_TYPE_LABELS, SUPPORTED_ORDER_DOCUMENT_MIME_TYPES } from 
 import { getOrderOperationalOrigin, getOrderPaymentPresentation } from './orderPresentation';
 import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
 import type { Order } from '@/hooks/useOrders';
+import { presentShopeeLogistics } from '@/lib/orders/shopeeLogisticsPresentation.mjs';
+import type { ShopeeLogisticsSelection } from '@/lib/orders/shopeeLogisticsPresentation.mjs';
 import type { OperationalDestination } from '@/lib/orders/operationalDestination';
 import type { OrderDocument, OrderSeparation, SeparationStatus } from '@/hooks/useOrderSeparation';
 
@@ -68,6 +70,8 @@ function printOrderSummary(order: Order) {
 
 interface Props {
   orders: Order[];
+  /** Verified Hub selection, never populated from stale marketplace metadata. */
+  shopeeLogisticsSelection?: ShopeeLogisticsSelection | null;
   separationByOrderId: Map<string, OrderSeparation>;
   documentsByOrderId: Map<string, OrderDocument[]>;
   onPrint: (order: Order, document?: OrderDocument) => Promise<void>;
@@ -77,7 +81,7 @@ interface Props {
   onAttachDocument: (input: { orderId: string; documentType: OrderDocument['document_type']; file: File }) => Promise<void>;
 }
 
-export function OrderSeparationBoard({ orders, separationByOrderId, documentsByOrderId, onPrint, onPrintCombined, onFinalize, onSetDestination, onAttachDocument }: Props) {
+export function OrderSeparationBoard({ orders, shopeeLogisticsSelection = null, separationByOrderId, documentsByOrderId, onPrint, onPrintCombined, onFinalize, onSetDestination, onAttachDocument }: Props) {
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [documentOrder, setDocumentOrder] = useState<Order | null>(null);
   const [documentType, setDocumentType] = useState<OrderDocument['document_type']>('other');
@@ -179,11 +183,15 @@ export function OrderSeparationBoard({ orders, separationByOrderId, documentsByO
             const documents = documentsByOrderId.get(order.id) ?? [];
             const hasShippingLabel = documents.some(document => document.document_type === 'shipping_label');
             const isShopeeOrder = order.sale_origin === 'shopee_open_platform';
+            const shopeeLogistics = isShopeeOrder
+              ? presentShopeeLogistics(shopeeLogisticsSelection, order.order_number, order.channel_account_id)
+              : null;
             const busy = busyOrderId === order.id;
             const itemGroups = groupedItems(order);
             const payment = getOrderPaymentPresentation(order.payment_status);
             return <Card key={order.id} className="bg-background"><CardContent className="space-y-3 p-3">
               <div className="flex items-start justify-between gap-2"><div><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p>{getOrderOperationalOrigin(order) && <p className="mt-1 text-xs text-muted-foreground">{getOrderOperationalOrigin(order)}</p>}</div><div className="flex flex-wrap justify-end gap-1"><Badge variant="outline" className={cn('text-[10px]', payment.className)}>{payment.label}</Badge>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div></div>
+              {shopeeLogistics && <div className="rounded-md border bg-muted/20 px-2 py-1.5 text-xs" role="status"><span className="font-medium">Shopee: {shopeeLogistics.label}</span><p className="text-muted-foreground">Consulta logística informativa. A separação física e a emissão de etiqueta são processos distintos.</p></div>}
               <div className="space-y-3">
                  {itemGroups.length > 0 ? itemGroups.map(group => (
                    <div key={group.key} className="space-y-1 text-sm">
