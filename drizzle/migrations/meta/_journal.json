@@ -8,6 +8,20 @@
       "when": 1791930634271,
       "tag": "0000_economic_b6_b7_financial_attributions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793050294339,
+      "tag": "0001_20261026210000_shopee_logistics_read_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793050322570,
+      "tag": "0002_20261026211418_shopee_logistics_read_state_authorization",
+      "breakpoints": true
     }
   ]
 }
