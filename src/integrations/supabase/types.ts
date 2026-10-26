@@ -3782,7 +3782,9 @@ export type Database = {
         Row: {
           channel_account_id: string | null
           created_at: string
+          external_item_id: string | null
           external_item_key: string
+          external_model_id: string | null
           external_product_title: string | null
           external_variation: string | null
           id: string
@@ -3796,7 +3798,9 @@ export type Database = {
         Insert: {
           channel_account_id?: string | null
           created_at?: string
+          external_item_id?: string | null
           external_item_key: string
+          external_model_id?: string | null
           external_product_title?: string | null
           external_variation?: string | null
           id?: string
@@ -3810,7 +3814,9 @@ export type Database = {
         Update: {
           channel_account_id?: string | null
           created_at?: string
+          external_item_id?: string | null
           external_item_key?: string
+          external_model_id?: string | null
           external_product_title?: string | null
           external_variation?: string | null
           id?: string
