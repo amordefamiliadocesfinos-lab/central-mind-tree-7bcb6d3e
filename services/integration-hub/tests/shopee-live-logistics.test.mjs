@@ -319,3 +319,39 @@ test('F6-O confirms the pilot package status only for a unique matching package 
   });
   assert.equal(parameterCalls, beforeMismatch);
 });
+
+test('F6-Q.6D.2A retains sanitized detail checkpoint when shipping request throws', async () => {
+  let documentsCalled = false;
+  const inspect = createShopeeLiveLogisticsInspector({
+    getEnv,
+    now: () => Date.parse('2026-10-14T19:00:00.000Z'),
+    readConnection: async () => ({
+      ok: true,
+      payload: {
+        partner_id: 2047685, shop_id: 531736366,
+        access_token_ciphertext: 'cipher-access',
+        access_token_expires_at: '2026-10-14T23:00:00.000Z',
+      },
+    }),
+    decryptToken: async () => 'access-token',
+    readOrderDetail: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { response: { order_list: [{
+        order_sn: 'TEST-ORDER', order_status: 'READY_TO_SHIP',
+        package_list: [{ package_number: 'PKG-001', logistics_status: 'LOGISTICS_READY', recipient_address: 'PRIVATE ADDRESS' }],
+      }] } },
+    }),
+    readShippingParameter: async () => { throw new Error('PRIVATE TOKEN and PRIVATE ADDRESS'); },
+    readShippingDocumentParameter: async () => { documentsCalled = true; throw new Error('Unexpected call'); },
+  });
+  const result = await inspect({ orderSn: 'TEST-ORDER' });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'shipping_parameter_transport_failed');
+  assert.equal(result.order.order_status, 'READY_TO_SHIP');
+  assert.equal(result.order.package_count, 1);
+  assert.equal(result.order.package_number, 'PKG-001');
+  assert.equal(result.shipping_parameter.error, 'transport_or_parse_failure');
+  assert.equal(result.shipping_document_parameter.attempted, false);
+  assert.equal(documentsCalled, false);
+  assert.equal(JSON.stringify(result).includes('PRIVATE'), false);
+});
