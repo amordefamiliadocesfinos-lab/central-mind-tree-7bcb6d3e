@@ -334,3 +334,25 @@ test('F1.1 duplicate official identities fail closed instead of picking a produc
   assert.equal(item.mappingStatus, 'ambiguous');
   assert.deepEqual(item.components, []);
 });
+
+test('F1 mixed official catalog refuses legacy match for another variant of the same Item ID', () => {
+  const mappings = [
+    exactMapping({ id: 'official-model-a', external_item_id: '58261505740',
+      external_model_id: '111', external_item_key: 'unrelated', product_id: 'model-a' }),
+    exactMapping({ id: 'provisional-title', product_id: 'wrong-legacy' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+  assert.deepEqual(item.components, []);
+});
+
+test('F1 unmigrated provisional items still use legacy fallback outside official item family', () => {
+  const mappings = [
+    exactMapping({ id: 'another-official-item', external_item_id: '999', external_model_id: '111',
+      external_item_key: 'unrelated' }),
+    exactMapping({ id: 'unmigrated-legacy' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'unmigrated-legacy');
+});
