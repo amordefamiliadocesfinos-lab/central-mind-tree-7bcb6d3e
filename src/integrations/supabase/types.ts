@@ -7739,6 +7739,36 @@ export type Database = {
           },
         ]
       }
+      shopee_logistics_read_state: {
+        Row: {
+          channel_account_id: string
+          order_sn: string
+          state: string
+          reason: string | null
+          observed_at: string
+        }
+        Insert: {
+          channel_account_id: string
+          order_sn: string
+          state: string
+          reason?: string | null
+          observed_at?: string
+        }
+        Update: {
+          channel_account_id?: string
+          order_sn?: string
+          state?: string
+          reason?: string | null
+          observed_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "shopee_logistics_read_state_channel_account_id_fkey"
+          columns: ["channel_account_id"]
+          isOneToOne: false
+          referencedRelation: "channel_accounts"
+          referencedColumns: ["id"]
+        }]
+      }
       shopee_oauth_connections: {
         Row: {
           access_token_ciphertext: string

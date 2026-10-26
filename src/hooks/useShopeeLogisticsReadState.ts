@@ -15,7 +15,7 @@ export function useShopeeLogisticsReadState(orders: Order[]): ShopeeLogisticsSel
     setSelection(null);
     if (!orderSns.length) return () => { active = false; };
     void (async () => {
-      const { data, error } = await supabase.from('shopee_logistics_read_state' as never)
+      const { data, error } = await supabase.from('shopee_logistics_read_state')
         .select('channel_account_id,order_sn,state,reason,observed_at')
         .eq('channel_account_id', ADAO)
         .in('order_sn', orderSns.slice(0, 100));
