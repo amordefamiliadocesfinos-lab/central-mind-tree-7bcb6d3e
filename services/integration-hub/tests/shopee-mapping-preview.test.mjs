@@ -356,3 +356,47 @@ test('F1 unmigrated provisional items still use legacy fallback outside official
   assert.equal(item.mappingStatus, 'recognized');
   assert.equal(item.mappingId, 'unmigrated-legacy');
 });
+
+test('F2 pilot Porto Gel 2kg resolves two physical 1kg sealed units without stock writes', () => {
+  const item = normalizedItem({
+    itemId: '23399466897',
+    modelId: '209190015957',
+    itemName: 'Emulsificante Porto Gel',
+    modelName: '2 KG',
+    quantity: 3,
+  });
+  const physicalUnit = {
+    product_id: 'physical-porto-gel',
+    variant_id: 'sealed-1kg',
+    physical_multiplier: 2,
+    position: 0,
+    physical_identity: { active: true, unit: 'un', presentation_factors: [1] },
+  };
+  const official = exactMapping({
+    id: 'candidate-not-production',
+    external_item_id: '23399466897',
+    external_model_id: '209190015957',
+    external_item_key: 'historical-code-no-longer-relevant',
+    components: [physicalUnit],
+  });
+  const result = buildShopeeMappingPreview(normalizedPayload([item]), [official], {
+    marketplaceAccount: ACCOUNT,
+    requirePhysicalValidation: true,
+  });
+  const mapped = result.orders[0].items[0];
+  assert.equal(mapped.mappingStatus, 'recognized');
+  assert.deepEqual(mapped.components.map(c => [c.productId, c.variantId, c.commercialQuantity, c.physicalQuantity]),
+    [['physical-porto-gel', 'sealed-1kg', 3, 6]]);
+  assert.equal(result.operationalWrites, false);
+});
+
+test('F2 physical validation blocks Porto Gel mapping without verified physical catalog identity', () => {
+  const item = normalizedItem({ itemId: '23399466897', modelId: '209190015957', modelName: '2 KG' });
+  const mapping = exactMapping({ external_item_id: '23399466897', external_model_id: '209190015957',
+    components: [{ product_id: 'p', variant_id: 'sealed-1kg', physical_multiplier: 2 }] });
+  const result = buildShopeeMappingPreview(normalizedPayload([item]), [mapping], {
+    marketplaceAccount: ACCOUNT, requirePhysicalValidation: true,
+  });
+  assert.equal(result.orders[0].items[0].mappingStatus, 'physical_identity_unverified');
+  assert.deepEqual(result.orders[0].items[0].components, []);
+});
