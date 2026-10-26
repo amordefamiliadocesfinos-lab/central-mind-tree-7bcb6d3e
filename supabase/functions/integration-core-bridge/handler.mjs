@@ -23,6 +23,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.raw_order_snapshot.upsert',
   'shopee.order.create',
   'shopee.order_intake_batch.read',
+  'shopee.logistics_tombstones.read',
   'shopee.shipping_label.prepare',
   'shopee.shipping_label.commit',
   'shopee.shipping_arrangement.claim',
@@ -227,6 +228,12 @@ function validateActionPayload(payload, nowMs) {
       && payload.file_size >= 16 && payload.file_size <= 4 * 1024 * 1024;
   }
 
+  if (payload.action === 'shopee.logistics_tombstones.read') {
+    return hasExactKeys(payload, ['action','channel_account_id','order_sns']) && UUID.test(payload.channel_account_id)
+      && Array.isArray(payload.order_sns) && payload.order_sns.length > 0 && payload.order_sns.length <= 20
+      && new Set(payload.order_sns).size === payload.order_sns.length
+      && payload.order_sns.every(sn => typeof sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(sn));
+  }
   if (payload.action === 'shopee.order_intake_batch.read') {
     if (!hasExactKeys(payload, ['action', 'channel_account_id'], ['limit', 'order_sn'])) return false;
     return UUID.test(payload.channel_account_id)
