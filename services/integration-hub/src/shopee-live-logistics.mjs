@@ -108,6 +108,11 @@ export function createShopeeLiveLogisticsInspector({
 
     const normalizedOrderSn = String(orderSn ?? '').trim();
     if (!normalizedOrderSn) throw new TypeError('orderSn must be a non-empty string');
+    if (classifyOnly && historicallyDeleted) {
+      return { ok: true, order: { order_sn: normalizedOrderSn },
+        classification: classifyShopeeLogistics({ order_sn: normalizedOrderSn }, { deleted: true }),
+        shipping_parameter: { attempted: false }, shipping_document_parameter: { attempted: false } };
+    }
 
     const connection = await readConnection({ channel_account_id: channelAccountId });
     if (!connection?.ok) return { ok: false, code: 'oauth_connection_unavailable' };
