@@ -154,7 +154,22 @@ export function createShopeeLiveLogisticsInspector({
 
     const packageNumber = inferPackageNumber(order);
 
-    const shippingResult = await readShippingParameter({
+    // Capture a sanitized checkpoint before external logistics requests.
+    const orderCheckpoint = {
+      order_sn: normalizedOrderSn,
+      order_status: typeof order.order_status === 'string' ? order.order_status : null,
+      shipping_carrier: typeof order.shipping_carrier === 'string' ? order.shipping_carrier : null,
+      package_number: packageNumber,
+      package_count: Array.isArray(order.package_list) ? order.package_list.length : null,
+      package_logistics_status: inferPackageLogisticsStatus(order, packageNumber),
+      invoice_status: typeof order?.invoice_data?.status === 'string' ? order.invoice_data.status : null,
+      invoice_pending_reason: typeof order?.invoice_data?.pending_reason === 'string'
+        ? order.invoice_data.pending_reason : null,
+    };
+
+    let shippingResult;
+    try {
+      shippingResult = await readShippingParameter({
       apiBaseUrl: API_BASE_URL,
       shippingParameterPath: SHIPPING_PARAMETER_PATH,
       partnerId,
@@ -163,7 +178,17 @@ export function createShopeeLiveLogisticsInspector({
       shopId,
       orderSn: normalizedOrderSn,
       packageNumber,
-    });
+      });
+    } catch {
+      // Do not leak upstream errors (which may contain request data or tokens).
+      // Do not proceed to the document endpoint after an uncertain read.
+      return {
+        ok: false, code: 'shipping_parameter_transport_failed', shop_id: shopId,
+        order: orderCheckpoint,
+        shipping_parameter: { ok: false, error: 'transport_or_parse_failure', info_needed: null },
+        shipping_document_parameter: { attempted: false },
+      };
+    }
 
     const shippingError = parseShopeeError(shippingResult.payload);
     const shippingOk = shippingResult.response.ok && !shippingError;
@@ -187,18 +212,7 @@ export function createShopeeLiveLogisticsInspector({
     return {
       ok: true,
       shop_id: shopId,
-      order: {
-        order_sn: normalizedOrderSn,
-        order_status: typeof order.order_status === 'string' ? order.order_status : null,
-        shipping_carrier: typeof order.shipping_carrier === 'string' ? order.shipping_carrier : null,
-        package_number: packageNumber,
-        package_logistics_status: inferPackageLogisticsStatus(order, packageNumber),
-        invoice_status: typeof order?.invoice_data?.status === 'string' ? order.invoice_data.status : null,
-        invoice_pending_reason:
-          typeof order?.invoice_data?.pending_reason === 'string'
-            ? order.invoice_data.pending_reason
-            : null,
-      },
+      order: orderCheckpoint,
       shipping_parameter: {
         ok: shippingOk,
         error: shippingError || null,
