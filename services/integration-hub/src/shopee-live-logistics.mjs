@@ -8,6 +8,7 @@ import {
   parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
+import { classifyShopeeLogistics } from './shopee-logistics-state-router.mjs';
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
@@ -99,7 +100,7 @@ export function createShopeeLiveLogisticsInspector({
   readShippingParameter = getShippingParameter,
   readShippingDocumentParameter = getShippingDocumentParameter,
 } = {}) {
-  return async function inspectShopeeLiveLogistics({ orderSn }) {
+  return async function inspectShopeeLiveLogistics({ orderSn, classifyOnly = false, fiscalMode = null, historicallyDeleted = false }) {
     const partnerId = positiveInteger(requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_ID'), 'SHOPEE_LIVE_PARTNER_ID');
     const partnerKey = requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_KEY');
     const channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
@@ -107,6 +108,11 @@ export function createShopeeLiveLogisticsInspector({
 
     const normalizedOrderSn = String(orderSn ?? '').trim();
     if (!normalizedOrderSn) throw new TypeError('orderSn must be a non-empty string');
+    if (classifyOnly && historicallyDeleted) {
+      return { ok: true, order: { order_sn: normalizedOrderSn },
+        classification: classifyShopeeLogistics({ order_sn: normalizedOrderSn }, { deleted: true }),
+        shipping_parameter: { attempted: false }, shipping_document_parameter: { attempted: false } };
+    }
 
     const connection = await readConnection({ channel_account_id: channelAccountId });
     if (!connection?.ok) return { ok: false, code: 'oauth_connection_unavailable' };
@@ -150,6 +156,27 @@ export function createShopeeLiveLogisticsInspector({
     const order = firstOrder(detailResult.payload);
     if (!order || order.order_sn !== normalizedOrderSn) {
       return { ok: false, code: 'order_detail_identity_mismatch', shop_id: shopId };
+    }
+
+    if (classifyOnly) {
+      const classification = classifyShopeeLogistics(order, {
+        fiscalMode, deleted: historicallyDeleted,
+      });
+      return {
+        ok: true, shop_id: shopId,
+        order: {
+          order_sn: normalizedOrderSn,
+          order_status: typeof order.order_status === 'string' ? order.order_status : null,
+          package_count: Array.isArray(order.package_list) ? order.package_list.length : null,
+          package_number_present: Array.isArray(order.package_list)
+            && order.package_list.length === 1
+            && typeof order.package_list[0]?.package_number === 'string',
+          package_logistics_status: inferPackageLogisticsStatus(order, inferPackageNumber(order)),
+        },
+        classification,
+        shipping_parameter: { attempted: false },
+        shipping_document_parameter: { attempted: false },
+      };
     }
 
     const packageNumber = inferPackageNumber(order);

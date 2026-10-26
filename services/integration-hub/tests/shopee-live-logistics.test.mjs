@@ -356,3 +356,39 @@ test('F6-Q.6D.2A retains sanitized detail checkpoint when shipping request throw
   assert.equal(documentsCalled, false);
   assert.equal(JSON.stringify(result).includes('PRIVATE'), false);
 });
+
+test('F6-Q.6D.2D classification mode reads detail only and preserves tombstone safety', async () => {
+  let detailCalls = 0;
+  let downstreamCalls = 0;
+  const inspect = createShopeeLiveLogisticsInspector({
+    getEnv,
+    now: () => Date.parse('2026-10-14T19:00:00Z'),
+    readConnection: async () => ({ ok: true, payload: {
+      partner_id: 2047685, shop_id: 531736366,
+      access_token_ciphertext: 'encrypted',
+      access_token_expires_at: '2026-10-14T23:00:00Z',
+    }}),
+    decryptToken: async () => 'token',
+    readOrderDetail: async () => {
+      detailCalls++;
+      return { response: { ok: true, status: 200 }, payload: {
+        response: { order_list: [{ order_sn: 'TEST-ORDER', order_status: 'READY_TO_SHIP',
+          package_list: [{ package_number: 'PKG123', logistics_status: 'LOGISTICS_READY' }] }] },
+      }};
+    },
+    readShippingParameter: async () => { downstreamCalls++; throw new Error('forbidden'); },
+    readShippingDocumentParameter: async () => { downstreamCalls++; throw new Error('forbidden'); },
+  });
+  const result = await inspect({ orderSn: 'TEST-ORDER', classifyOnly: true,
+    fiscalMode: 'cpf_no_invoice_step' });
+  assert.equal(result.classification.state, 'AGUARDANDO_ORGANIZACAO');
+  assert.equal(result.order.package_count, 1);
+  assert.equal(result.shipping_parameter.attempted, false);
+  assert.equal(result.shipping_document_parameter.attempted, false);
+  assert.equal(detailCalls, 1);
+  assert.equal(downstreamCalls, 0);
+  const deleted = await inspect({ orderSn: 'TEST-ORDER', classifyOnly: true,
+    fiscalMode: 'cpf_no_invoice_step', historicallyDeleted: true });
+  assert.equal(deleted.classification.state, 'BLOQUEADO');
+  assert.equal(downstreamCalls, 0);
+});
