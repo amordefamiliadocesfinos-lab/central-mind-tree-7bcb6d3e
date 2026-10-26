@@ -1,4 +1,5 @@
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
+import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
@@ -33,6 +34,7 @@ export async function handleRequest(
   request,
   {
     runMinimumCycle = runShopeeMinimumCycle,
+    readAdaoLogistics = readAdaoLogisticsReadOnly,
     probeCore = probeCoreBridge,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
@@ -54,6 +56,40 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  // IAM-only Cloud Run route. Never expose this endpoint through public frontend
+  // until a user-authenticated server proxy is installed.
+  if (normalizedPath === '/internal/shopee/live/logistics/adao/read-only') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if ((request.query && Object.keys(request.query).length)
+      || Number(request.headers?.['content-length'] ?? 0) !== 0 || request.headers?.['transfer-encoding']
+      || (request.body != null && request.body !== '')) return json(400, { error: 'body_or_query_not_allowed' });
+    if (String(getEnv('SHOPEE_ADAO_LOGISTICS_READ_ENABLED') ?? '').toLowerCase() !== 'true') {
+      return json(503, { status: 'blocked', code: 'adao_logistics_read_disabled' });
+    }
+    const raw = String(getEnv('SHOPEE_ADAO_LOGISTICS_ORDER_SNS') ?? '').trim();
+    const orderSns = raw.split(',').map(sn => sn.trim());
+    if (!raw || orderSns.length > 20 || new Set(orderSns).size !== orderSns.length
+      || orderSns.some(sn => !/^[A-Za-z0-9]{8,100}$/.test(sn))) {
+      return json(503, { status: 'blocked', code: 'adao_logistics_read_scope_invalid' });
+    }
+    try {
+      const result = await readAdaoLogistics(orderSns);
+      if (!result?.ok || !Array.isArray(result.selected)) {
+        return json(503, { status: 'blocked', code: result?.code ?? 'adao_logistics_read_unavailable' });
+      }
+      return json(200, { status: 'ok', mode: 'read_only', account: 'adao',
+        selected: result.selected.map(entry => ({
+          order_sn: entry.order_sn, state: entry.state, reason: entry.reason ?? null,
+          package_count: entry.package_count ?? null,
+          auto_arrangement_authorized: false,
+          create_shipping_document_authorized: false,
+          inventory_mutation_authorized: false,
+        })) });
+    } catch {
+      return json(503, { status: 'blocked', code: 'adao_logistics_read_unavailable' });
+    }
+  }
 
   if (normalizedPath === '/internal/shopee/live/logistics/label/prepare-once') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
