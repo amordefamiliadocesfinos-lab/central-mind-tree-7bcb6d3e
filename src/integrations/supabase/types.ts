@@ -183,7 +183,7 @@ export type Database = {
       amendoim_sealed_events: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           event_key: string
           grams_delta: number
           grams_new: number
@@ -200,7 +200,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           event_key: string
           grams_delta: number
           grams_new: number
@@ -217,7 +217,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           event_key?: string
           grams_delta?: number
           grams_new?: number
@@ -3640,6 +3640,85 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maltodextrina_sealed_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_key: string
+          id: string
+          movement_type: string
+          new_balance: number
+          notes: string | null
+          previous_balance: number
+          reference_id: string
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_key: string
+          id?: string
+          movement_type: string
+          new_balance: number
+          notes?: string | null
+          previous_balance: number
+          reference_id: string
+          reference_type: string
+          sacks: number
+          storage_location_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_key?: string
+          id?: string
+          movement_type?: string
+          new_balance?: number
+          notes?: string | null
+          previous_balance?: number
+          reference_id?: string
+          reference_type?: string
+          sacks?: number
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maltodextrina_sealed_events_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maltodextrina_sealed_stock: {
+        Row: {
+          sacks: number
+          storage_location_id: string
+          updated_at: string
+        }
+        Insert: {
+          sacks?: number
+          storage_location_id: string
+          updated_at?: string
+        }
+        Update: {
+          sacks?: number
+          storage_location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maltodextrina_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: true
+            referencedRelation: "storage_locations"
             referencedColumns: ["id"]
           },
         ]
@@ -8575,6 +8654,105 @@ export type Database = {
         }
         Relationships: []
       }
+      trufa_pack_sealed_events: {
+        Row: {
+          actor_id: string
+          created_at: string
+          direction: string
+          event_key: string
+          id: string
+          packs: number
+          packs_after: number
+          packs_before: number
+          reference_id: string
+          storage_location_id: string
+          units_after: number
+          units_before: number
+          variant_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          direction: string
+          event_key: string
+          id?: string
+          packs: number
+          packs_after: number
+          packs_before: number
+          reference_id: string
+          storage_location_id: string
+          units_after: number
+          units_before: number
+          variant_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          direction?: string
+          event_key?: string
+          id?: string
+          packs?: number
+          packs_after?: number
+          packs_before?: number
+          reference_id?: string
+          storage_location_id?: string
+          units_after?: number
+          units_before?: number
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trufa_pack_sealed_events_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trufa_pack_sealed_events_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trufa_pack_sealed_stock: {
+        Row: {
+          packs: number
+          storage_location_id: string
+          updated_at: string
+          variant_id: string
+        }
+        Insert: {
+          packs?: number
+          storage_location_id: string
+          updated_at?: string
+          variant_id: string
+        }
+        Update: {
+          packs?: number
+          storage_location_id?: string
+          updated_at?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trufa_pack_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trufa_pack_sealed_stock_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_integrations: {
         Row: {
           connection_status: string
@@ -8716,6 +8894,17 @@ export type Database = {
           p_sacks: number
         }
         Returns: Json
+      }
+      amendoim_move_sealed_internal: {
+        Args: {
+          p_delta: number
+          p_event_key: string
+          p_location_id: string
+          p_notes: string
+          p_ref_id: string
+          p_ref_type: string
+        }
+        Returns: undefined
       }
       apply_order_stock_event: {
         Args: { p_event: string; p_order_id: string }
@@ -8954,6 +9143,14 @@ export type Database = {
         Args: { p_closing_id: string }
         Returns: Json
       }
+      ensure_amendoim_production_material: {
+        Args: {
+          p_ref_type?: string
+          p_reference_id: string
+          p_required_g: number
+        }
+        Returns: number
+      }
       ensure_chocolate_production_material: {
         Args: {
           p_ref_type?: string
@@ -8966,6 +9163,15 @@ export type Database = {
       ensure_portogel_production_material: {
         Args: { p_production_fact_id: string; p_required_g: number }
         Returns: number
+      }
+      ensure_trufa_pack_production_material: {
+        Args: {
+          v_ref: string
+          v_ref_type: string
+          v_required: number
+          v_variant: string
+        }
+        Returns: undefined
       }
       finalize_order_separation: { Args: { p_order_id: string }; Returns: Json }
       finalize_order_separation_unguarded_01b: {
@@ -9050,6 +9256,27 @@ export type Database = {
           p_sales_channel: string
         }
         Returns: string
+      }
+      maltodextrina_convert_physical_stock: {
+        Args: {
+          p_confirmed: boolean
+          p_direction: string
+          p_event_key: string
+          p_location_id: string
+          p_sacks: number
+        }
+        Returns: Json
+      }
+      maltodextrina_move_sealed_internal: {
+        Args: {
+          p_delta: number
+          p_event_key: string
+          p_location_id: string
+          p_notes: string
+          p_reference_id: string
+          p_reference_type: string
+        }
+        Returns: undefined
       }
       map_contact_to_conv_funnel: { Args: { _status: string }; Returns: string }
       map_conv_to_contact_funnel: { Args: { _stage: string }; Returns: string }
@@ -9254,6 +9481,28 @@ export type Database = {
       transition_order_status_with_stock_unguarded_01b: {
         Args: { p_order_id: string; p_status: string }
         Returns: Json
+      }
+      trufa_pack_convert_physical_stock: {
+        Args: {
+          p_direction: string
+          p_event_key: string
+          p_location_id: string
+          p_packs: number
+          p_physically_confirmed: boolean
+          p_variant_id: string
+        }
+        Returns: Json
+      }
+      trufa_pack_move_internal: {
+        Args: {
+          v_delta: number
+          v_direction: string
+          v_key: string
+          v_location: string
+          v_ref: string
+          v_variant: string
+        }
+        Returns: undefined
       }
       upsert_purchase_replenishment_policy: {
         Args: {
