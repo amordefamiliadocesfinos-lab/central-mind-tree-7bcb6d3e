@@ -651,6 +651,19 @@ async function executeAction(payload: Record<string, unknown>) {
       : { status: 200, body: { status: 'ok', action: payload.action } };
   }
 
+  if (payload.action === 'shopee.logistics_tombstones.read') {
+    const id = String(payload.channel_account_id);
+    const canonical = await canonicalShopeeChannelAccount(core, id);
+    if (canonical.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!canonical.account) return { status: 409, body: { error: 'channel_account_unavailable' } };
+    const { data, error } = await core.from('orders')
+      .select('order_number,deleted_at').eq('channel_account_id', id)
+      .in('order_number', payload.order_sns);
+    if (error || !Array.isArray(data)) return { status: 503, body: { error: 'tombstone_lookup_failed' } };
+    return { status: 200, body: { status: 'ok', action: payload.action,
+      deleted_order_sns: data.filter((row: {deleted_at:string|null}) => row.deleted_at != null)
+        .map((row: {order_number:string}) => String(row.order_number)) } };
+  }
   if (payload.action === 'shopee.order_intake_batch.read') {
     const channelAccountId = String(payload.channel_account_id);
     const limit = payload.limit == null ? 5 : Number(payload.limit);
