@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { ContactFormDialog } from '@/components/financial/ContactFormDialog';
 import { useOrders } from '@/hooks/useOrders';
+import { useShopeeLogisticsReadState } from '@/hooks/useShopeeLogisticsReadState';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import { useMultiLocationInventory } from '@/hooks/useMultiLocationInventory';
 import { Button } from '@/components/ui/button';
@@ -123,6 +124,7 @@ export default function Operacoes() {
     refetch,
   } = useOrders();
   const separation = useOrderSeparation(rawOrders);
+  const shopeeLogisticsSelection = useShopeeLogisticsReadState(rawOrders);
   const { appUser } = useAuth();
   const commercialPresentations = useCommercialPresentations();
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, CommercialPresentation[]>>({});
@@ -1317,6 +1319,7 @@ export default function Operacoes() {
       case 'separation':
         return <OrderSeparationBoard
           orders={rawOrders}
+          shopeeLogisticsSelection={shopeeLogisticsSelection}
           separationByOrderId={separation.separationByOrderId}
           documentsByOrderId={separation.documentsByOrderId}
           onPrint={async (order, document) => {

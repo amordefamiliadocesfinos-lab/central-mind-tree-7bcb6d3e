@@ -24,6 +24,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.order.create',
   'shopee.order_intake_batch.read',
   'shopee.logistics_tombstones.read',
+  'shopee.logistics_classification.sync',
   'shopee.shipping_label.prepare',
   'shopee.shipping_label.commit',
   'shopee.shipping_arrangement.claim',
@@ -228,6 +229,17 @@ function validateActionPayload(payload, nowMs) {
       && payload.file_size >= 16 && payload.file_size <= 4 * 1024 * 1024;
   }
 
+  if (payload.action === 'shopee.logistics_classification.sync') {
+    return hasExactKeys(payload, ['action','channel_account_id','entries'])
+      && payload.channel_account_id === 'b4027369-5abf-4ac1-ab24-862334fae892'
+      && Array.isArray(payload.entries) && payload.entries.length > 0 && payload.entries.length <= 20
+      && new Set(payload.entries.map(e => e?.order_sn)).size === payload.entries.length
+      && payload.entries.every(e => isObject(e)
+        && hasExactKeys(e, ['order_sn','state','reason'])
+        && typeof e.order_sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(e.order_sn)
+        && ['AGUARDANDO_ORGANIZACAO','ENVIO_JA_ORGANIZADO','EXPEDIDO','BLOQUEADO','INDETERMINADO'].includes(e.state)
+        && (e.reason === null || (typeof e.reason === 'string' && /^[A-Za-z0-9_:-]{1,100}$/.test(e.reason))));
+  }
   if (payload.action === 'shopee.logistics_tombstones.read') {
     return hasExactKeys(payload, ['action','channel_account_id','order_sns']) && UUID.test(payload.channel_account_id)
       && Array.isArray(payload.order_sns) && payload.order_sns.length > 0 && payload.order_sns.length <= 20
