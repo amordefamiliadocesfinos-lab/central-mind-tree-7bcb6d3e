@@ -205,13 +205,13 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
   const mappingQueries = await Promise.all([
     core
       .from('marketplace_product_mappings')
-      .select('id,marketplace,marketplace_account,external_item_key,product_id,variant_id,physical_multiplier,channel_account_id')
+      .select('id,marketplace,marketplace_account,external_item_key,external_item_id,external_model_id,product_id,variant_id,physical_multiplier,channel_account_id')
       .eq('marketplace', 'shopee')
       .eq('channel_account_id', channelAccountId)
       .limit(200),
     core
       .from('marketplace_product_mappings')
-      .select('id,marketplace,marketplace_account,external_item_key,product_id,variant_id,physical_multiplier,channel_account_id')
+      .select('id,marketplace,marketplace_account,external_item_key,external_item_id,external_model_id,product_id,variant_id,physical_multiplier,channel_account_id')
       .eq('marketplace', 'shopee')
       .is('channel_account_id', null)
       .eq('marketplace_account', canonical.account.name)
