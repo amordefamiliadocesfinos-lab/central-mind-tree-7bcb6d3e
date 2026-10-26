@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shopee Mapping Candidate F1.3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "channel_account_id",
+    "external_item_id",
+    "external_model_id",
+    "commercial_presentation_id",
+    "components",
+    "approved"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "awaiting_commercial_approval",
+        "awaiting_operations_approval",
+        "approved"
+      ]
+    },
+    "channel_account_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "external_item_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "external_model_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "commercial_presentation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product_id",
+          "variant_id",
+          "physical_multiplier"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "physical_multiplier": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "approved": {
+      "const": false
+    }
+  }
+}
