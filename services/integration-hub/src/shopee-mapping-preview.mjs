@@ -47,6 +47,36 @@ function mappingMatchesScope(mapping, {
     && mappingAccount === marketplaceAccount;
 }
 
+// F1.1: official Shopee identities are authoritative; legacy title/SKU keys
+// remain a fallback only for mappings that do not declare official IDs.
+// A missing model identifier is not equivalent to Shopee model_id='0'.
+function officialMappingIdentity(mapping) {
+  return {
+    itemId: nullableText(mapping?.external_item_id),
+    modelId: nullableText(mapping?.external_model_id),
+  };
+}
+
+function findMappingCandidates(item, mappings, scope, legacyKey) {
+  const scoped = mappings.filter((mapping) => mappingMatchesScope(mapping, scope));
+  const itemId = nullableText(item.itemId);
+  const modelId = nullableText(item.modelId);
+
+  if (itemId !== null && modelId !== null) {
+    const official = scoped.filter((mapping) => {
+      const identity = officialMappingIdentity(mapping);
+      return identity.itemId === itemId && identity.modelId === modelId;
+    });
+    if (official.length > 0) return official;
+  }
+
+  return scoped.filter((mapping) => {
+    const identity = officialMappingIdentity(mapping);
+    return identity.itemId === null && identity.modelId === null
+      && String(mapping?.external_item_key ?? '') === legacyKey;
+  });
+}
+
 function resolveComponents(mapping) {
   if (mapping?.components != null && !Array.isArray(mapping.components)) return [];
   if (Array.isArray(mapping?.components) && mapping.components.length > 0
@@ -89,10 +119,7 @@ function previewItem(item, mappings, scope, requirePhysicalValidation) {
     modelSku: item.modelSku,
   });
 
-  const candidates = mappings.filter((mapping) => (
-    mappingMatchesScope(mapping, scope)
-    && String(mapping?.external_item_key ?? '') === externalItemKey
-  ));
+  const candidates = findMappingCandidates(item, mappings, scope, externalItemKey);
 
   if (candidates.length === 0) {
     return {
