@@ -276,3 +276,61 @@ test('external SKU identity is preserved and duplicate scoped and legacy matches
   assert.equal(ambiguous.mappingStatus, 'ambiguous');
   assert.deepEqual(ambiguous.components, []);
 });
+
+
+test('F1.1 official item/model identity has precedence over provisional title mappings', () => {
+  const mappings = [
+    exactMapping({ id: 'provisional', product_id: 'wrong', physical_multiplier: 999 }),
+    exactMapping({
+      id: 'official', external_item_id: '58261505740',
+      external_model_id: '149554569657', external_item_key: 'outdated-title',
+      product_id: 'correct', physical_multiplier: 2,
+    }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'official');
+  assert.equal(item.components[0].productId, 'correct');
+  assert.equal(item.components[0].physicalQuantity, 2);
+});
+
+test('F1.1 model ID differentiates variants and account boundary remains mandatory', () => {
+  const mappings = [
+    exactMapping({ id: 'wrong-model', external_item_id: '58261505740',
+      external_model_id: 'different-model', external_item_key: 'outdated' }),
+    exactMapping({ id: 'wrong-account', channel_account_id: 'another-account',
+      external_item_id: '58261505740', external_model_id: '149554569657',
+      external_item_key: 'outdated' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+});
+
+test('F1.1 does not fallback from identity-bound mismatches to legacy title matching', () => {
+  const item = buildShopeeMappingPreview(normalizedPayload(), [
+    exactMapping({ id: 'bound-other-model', external_item_id: '58261505740',
+      external_model_id: 'different-model' }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+});
+
+test('F1.1 official non-variation model zero must be explicitly mapped', () => {
+  const zero = normalizedItem({ itemId: '23393253848', modelId: '0',
+    itemName: 'Alfajor Kit 18', modelName: '' });
+  const item = buildShopeeMappingPreview(normalizedPayload([zero]), [
+    exactMapping({ id: 'nonvariant', external_item_id: '23393253848',
+      external_model_id: '0', external_item_key: 'outdated', physical_multiplier: 18 }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'nonvariant');
+});
+
+test('F1.1 duplicate official identities fail closed instead of picking a product', () => {
+  const identity = { external_item_id: '58261505740', external_model_id: '149554569657' };
+  const item = buildShopeeMappingPreview(normalizedPayload(), [
+    exactMapping({ ...identity, id: 'first', external_item_key: 'other' }),
+    exactMapping({ ...identity, id: 'second', external_item_key: 'other' }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'ambiguous');
+  assert.deepEqual(item.components, []);
+});
