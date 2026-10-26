@@ -68,6 +68,9 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
       return identity.itemId === itemId && identity.modelId === modelId;
     });
     if (official.length > 0) return official;
+    // Never silently route another variant of a known official Item ID
+    // through an older title/SKU mapping. Keep the item unresolved.
+    if (scoped.some((mapping) => officialMappingIdentity(mapping).itemId === itemId)) return [];
   }
 
   return scoped.filter((mapping) => {
