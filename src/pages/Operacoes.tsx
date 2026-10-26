@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { ContactFormDialog } from '@/components/financial/ContactFormDialog';
 import { useOrders } from '@/hooks/useOrders';
+import { useShopeeLogisticsReadState } from '@/hooks/useShopeeLogisticsReadState';
 import { useStorageLocations } from '@/hooks/useStorageLocations';
 import { useMultiLocationInventory } from '@/hooks/useMultiLocationInventory';
 import { Button } from '@/components/ui/button';
