@@ -276,3 +276,164 @@ test('external SKU identity is preserved and duplicate scoped and legacy matches
   assert.equal(ambiguous.mappingStatus, 'ambiguous');
   assert.deepEqual(ambiguous.components, []);
 });
+
+
+test('F1.1 official item/model identity has precedence over provisional title mappings', () => {
+  const mappings = [
+    exactMapping({ id: 'provisional', product_id: 'wrong', physical_multiplier: 999 }),
+    exactMapping({
+      id: 'official', external_item_id: '58261505740',
+      external_model_id: '149554569657', external_item_key: 'outdated-title',
+      product_id: 'correct', physical_multiplier: 2,
+    }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'official');
+  assert.equal(item.components[0].productId, 'correct');
+  assert.equal(item.components[0].physicalQuantity, 2);
+});
+
+test('F1.1 model ID differentiates variants and account boundary remains mandatory', () => {
+  const mappings = [
+    exactMapping({ id: 'wrong-model', external_item_id: '58261505740',
+      external_model_id: 'different-model', external_item_key: 'outdated' }),
+    exactMapping({ id: 'wrong-account', channel_account_id: 'another-account',
+      external_item_id: '58261505740', external_model_id: '149554569657',
+      external_item_key: 'outdated' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+});
+
+test('F1.1 does not fallback from identity-bound mismatches to legacy title matching', () => {
+  const item = buildShopeeMappingPreview(normalizedPayload(), [
+    exactMapping({ id: 'bound-other-model', external_item_id: '58261505740',
+      external_model_id: 'different-model' }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+});
+
+test('F1.1 official non-variation model zero must be explicitly mapped', () => {
+  const zero = normalizedItem({ itemId: '23393253848', modelId: '0',
+    itemName: 'Alfajor Kit 18', modelName: '' });
+  const item = buildShopeeMappingPreview(normalizedPayload([zero]), [
+    exactMapping({ id: 'nonvariant', external_item_id: '23393253848',
+      external_model_id: '0', external_item_key: 'outdated', physical_multiplier: 18 }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'nonvariant');
+});
+
+test('F1.1 duplicate official identities fail closed instead of picking a product', () => {
+  const identity = { external_item_id: '58261505740', external_model_id: '149554569657' };
+  const item = buildShopeeMappingPreview(normalizedPayload(), [
+    exactMapping({ ...identity, id: 'first', external_item_key: 'other' }),
+    exactMapping({ ...identity, id: 'second', external_item_key: 'other' }),
+  ], { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'ambiguous');
+  assert.deepEqual(item.components, []);
+});
+
+test('F1 mixed official catalog refuses legacy match for another variant of the same Item ID', () => {
+  const mappings = [
+    exactMapping({ id: 'official-model-a', external_item_id: '58261505740',
+      external_model_id: '111', external_item_key: 'unrelated', product_id: 'model-a' }),
+    exactMapping({ id: 'provisional-title', product_id: 'wrong-legacy' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'needs_mapping');
+  assert.deepEqual(item.components, []);
+});
+
+test('F1 unmigrated provisional items still use legacy fallback outside official item family', () => {
+  const mappings = [
+    exactMapping({ id: 'another-official-item', external_item_id: '999', external_model_id: '111',
+      external_item_key: 'unrelated' }),
+    exactMapping({ id: 'unmigrated-legacy' }),
+  ];
+  const item = buildShopeeMappingPreview(normalizedPayload(), mappings, { marketplaceAccount: ACCOUNT }).orders[0].items[0];
+  assert.equal(item.mappingStatus, 'recognized');
+  assert.equal(item.mappingId, 'unmigrated-legacy');
+});
+
+test('F2 pilot Porto Gel 2kg resolves two physical 1kg sealed units without stock writes', () => {
+  const item = normalizedItem({
+    itemId: '23399466897',
+    modelId: '209190015957',
+    itemName: 'Emulsificante Porto Gel',
+    modelName: '2 KG',
+    quantity: 3,
+  });
+  const physicalUnit = {
+    product_id: 'physical-porto-gel',
+    variant_id: 'sealed-1kg',
+    physical_multiplier: 2,
+    position: 0,
+    physical_identity: { active: true, unit: 'un', presentation_factors: [1] },
+  };
+  const official = exactMapping({
+    id: 'candidate-not-production',
+    external_item_id: '23399466897',
+    external_model_id: '209190015957',
+    external_item_key: 'historical-code-no-longer-relevant',
+    components: [physicalUnit],
+  });
+  const result = buildShopeeMappingPreview(normalizedPayload([item]), [official], {
+    marketplaceAccount: ACCOUNT,
+    requirePhysicalValidation: true,
+  });
+  const mapped = result.orders[0].items[0];
+  assert.equal(mapped.mappingStatus, 'recognized');
+  assert.deepEqual(mapped.components.map(c => [c.productId, c.variantId, c.commercialQuantity, c.physicalQuantity]),
+    [['physical-porto-gel', 'sealed-1kg', 3, 6]]);
+  assert.equal(result.operationalWrites, false);
+});
+
+test('F2 physical validation blocks Porto Gel mapping without verified physical catalog identity', () => {
+  const item = normalizedItem({ itemId: '23399466897', modelId: '209190015957', modelName: '2 KG' });
+  const mapping = exactMapping({ external_item_id: '23399466897', external_model_id: '209190015957',
+    components: [{ product_id: 'p', variant_id: 'sealed-1kg', physical_multiplier: 2 }] });
+  const result = buildShopeeMappingPreview(normalizedPayload([item]), [mapping], {
+    marketplaceAccount: ACCOUNT, requirePhysicalValidation: true,
+  });
+  assert.equal(result.orders[0].items[0].mappingStatus, 'physical_identity_unverified');
+  assert.deepEqual(result.orders[0].items[0].components, []);
+});
+
+test('F2 Viviane Porto Gel 2kg Open Platform evidence resolves to existing physical presentation', () => {
+  // Verified read-only sources: shopee_oauth_connections and marketplace_raw_snapshots
+  // dated 2026-10-26. The physical composition comes from commercial_presentations
+  // and commercial_presentation_components, and is not a production mapping insert.
+  const item = normalizedItem({
+    itemId: '23399466897', modelId: '209190015957',
+    itemName: 'Emulsificante Porto Gel Variação de 1kg a 5 kg Du Porto | SH-002-011',
+    modelName: '2 KG', quantity: 1,
+  });
+  const mappings = [{
+    id: 'pilot-read-only-candidate',
+    marketplace: 'shopee',
+    channel_account_id: CHANNEL_ACCOUNT_ID,
+    marketplace_account: ACCOUNT,
+    external_item_id: '23399466897',
+    external_model_id: '209190015957',
+    external_item_key: 'code:SH-002-011|variation:2 kg',
+    components: [{
+      product_id: '6e757550-a9b6-4644-8164-8c802760e373',
+      variant_id: 'ae7c8013-de6c-4806-9450-abcab2202aa9',
+      physical_multiplier: 2,
+      position: 0,
+      physical_identity: { active: true, unit: 'un' },
+    }],
+  }];
+  const preview = buildShopeeMappingPreview(normalizedPayload([item]), mappings, {
+    channelAccountId: CHANNEL_ACCOUNT_ID,
+    marketplaceAccount: ACCOUNT,
+    requirePhysicalValidation: true,
+  });
+  const mapped = preview.orders[0].items[0];
+  assert.equal(mapped.mappingStatus, 'recognized');
+  assert.equal(mapped.components[0].physicalQuantity, 2);
+  assert.equal(mapped.components[0].variantId, 'ae7c8013-de6c-4806-9450-abcab2202aa9');
+  assert.equal(preview.operationalWrites, false);
+});
