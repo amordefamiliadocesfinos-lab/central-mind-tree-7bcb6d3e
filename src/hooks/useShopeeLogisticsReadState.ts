@@ -45,7 +45,7 @@ export function useShopeeLogisticsReadState(orders: Order[]): ShopeeLogisticsSel
   // after its age limit. New observations arrive through a fresh read, not guessing.
   if (!selection) return null;
   return { ...selection, selected: selection.selected.filter(entry => {
-    const age = readAt - ((entry as typeof entry & { observedAt?: number }).observedAt ?? readAt);
-    return age <= MAX_LOGISTICS_STATE_AGE_MS;
+    const observedAt = (entry as typeof entry & { observedAt?: number }).observedAt;
+    return Number.isFinite(observedAt) && observedAt! <= readAt && readAt - observedAt! <= MAX_LOGISTICS_STATE_AGE_MS;
   }) };
 }
