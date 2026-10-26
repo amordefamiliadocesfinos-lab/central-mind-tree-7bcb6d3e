@@ -1,3 +1,4 @@
+import { readShopeeLogisticsTombstones } from './core-bridge.mjs';
 import { selectAdaoLogisticsOrders, ADAO_LOGISTICS_ACCOUNT } from './shopee-adao-logistics-selection.mjs';
 
 // Both dependencies are mandatory trusted read-only adapters. Do not fall back
@@ -40,4 +41,19 @@ export async function selectAdaoLiveLogistics({
   } catch {
     return {ok:false,code:'read_only_selection_failed',selected:[]};
   }
+}
+
+export async function selectAdaoLiveWithCore({
+  orderSns, readDetails, readTombstones = readShopeeLogisticsTombstones,
+} = {}) {
+  return selectAdaoLiveLogistics({
+    orderSns, readDetails,
+    readCanonicalTombstones: async ({ channel_account_id, order_sns }) => {
+      const response = await readTombstones({ channel_account_id, order_sns });
+      return {
+        ok: response?.ok === true && response.payload?.status === 'ok',
+        deleted_order_sns: response?.payload?.deleted_order_sns,
+      };
+    },
+  });
 }
