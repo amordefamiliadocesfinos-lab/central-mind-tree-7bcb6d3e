@@ -8,12 +8,26 @@ on:
       - 'supabase/functions/integration-core-bridge/**'
       - 'supabase/migrations/*shopee_minimum_cycle_state.sql'
       - 'supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql'
+      - 'supabase/migrations/*shopee_logistics_read_state*.sql'
+      - 'src/hooks/useShopeeLogisticsReadState.ts'
+      - 'src/integrations/supabase/types.ts'
       - '.github/workflows/shopee-integration-hub-validation.yml'
 
 permissions:
   contents: read
 
 jobs:
+  logistics-typescript:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.app.json
+
   hub-node22-and-container:
     runs-on: ubuntu-22.04
     timeout-minutes: 25
@@ -94,5 +108,13 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261020225826_shopee_minimum_cycle_state.sql
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/cycle-assertions.sql
+      - name: Logistics RLS roles and deleted-order visibility in disposable PostgreSQL
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/logistics-read-fixture.sql
+          # Reuse the canonical active-user helpers, not a permissive mock.
+          head -n 36 supabase/migrations/20261003213000_production_operator_access.sql | psql -X -v ON_ERROR_STOP=1
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261026210000_shopee_logistics_read_state.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261026211418_shopee_logistics_read_state_authorization.sql
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/logistics-read-assertions.sql
       - name: Verify concurrent worker leases and document claims in independent sessions
         run: node services/integration-hub/tests/sql/check-concurrency.mjs
