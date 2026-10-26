@@ -24,3 +24,12 @@ test('writer rejects a soft-deleted record before creating a new order', { skip:
   assert.match(migration, /already_registered', true/);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.create_shopee_api_order/);
 });
+
+test('targeted intake must not bypass tombstone exclusion', () => {
+  const start = bridge.indexOf('for (const [orderSn, row] of latestByOrder)');
+  const end = bridge.indexOf('const sanitized = sanitizeIntakeSnapshot(row)', start);
+  assert.ok(start > 0 && end > start);
+  const guard = bridge.slice(start, end);
+  assert.match(guard, /if \(existingOrders\.has\(orderSn\)\)/);
+  assert.doesNotMatch(guard, /&& !orderSnTarget/);
+});
