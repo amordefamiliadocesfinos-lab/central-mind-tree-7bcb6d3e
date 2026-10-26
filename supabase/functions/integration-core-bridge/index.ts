@@ -179,7 +179,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
   let skippedMalformed = 0;
 
   for (const [orderSn, row] of latestByOrder) {
-    if (existingOrders.has(orderSn) && !orderSnTarget) {
+    if (existingOrders.has(orderSn)) {
       skippedExisting += 1;
       continue;
     }
