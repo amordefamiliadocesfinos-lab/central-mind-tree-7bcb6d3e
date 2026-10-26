@@ -32,3 +32,16 @@ O arquivo de evidências admite conta/apresentação/composição nulas. O schem
 
 ### Evidência operacional distinta
 Foi observado em snapshot real da conta Viviane o Porto Gel 2kg com Item ID 23399466897 / Model ID 209190015957. Esse par **não é igual** ao Porto Gel 2kg histórico 58211561353 / 199622481700. São linhas de evidência distintas, possivelmente anúncios/contas diferentes; a correspondência comercial não pode ser presumida.
+
+## Repasse comercial V2 — Lote 2 (26/10/2026)
+
+A base documental foi ampliada de 17 para **49 registros históricos**, sem homologação individual:
+- Trufa 30g: 6 Item IDs, **sem Model IDs**. Ofertas A1/A2/A3/A4 e anúncios legados. Mix não tem estoque próprio; Amendoim 30g deve apontar para o SKU físico homologado da Trufa 40g Amendoim, sujeito à confirmação de Operações.
+- Trufa 40g: 8 Item IDs, **sem Model IDs**. Ofertas A1/A2/A3/A4 e legados. Mix não tem estoque próprio; Amendoim usa produto da linha 40g com peso técnico documental de 34g.
+- Biscoito para Alfajor: 18 combinações Item+Model documentadas: BA1 (1–8 pacotes Tradicional/Chocolate, proposta de 22 biscoitos garantidos por pacote) e BA3 (caixa original fechada 8kg, aproximadamente 880 unidades, **sem garantia de contagem exata**).
+- BA2: anúncio a criar, portanto **sem** Item ID ou Model ID; não recebe mapping.
+- Pó para Sorvete: sem adaptador canônico específico; não criar IDs por interpretação de código SH.
+
+Todas as contas oficiais/Shop IDs, apresentações comerciais internas e identidades físicas efetivas desses itens permanecem sem homologação de vínculo. Na Trufa, Model ID ausente significa **desconhecido** e nunca deve ser tratado como modelo 0.
+
+O catálogo estruturado acumulado permanece em `services/integration-hub/catalog/shopee-mapping-historical-evidence-f1-3.json`. Seus registros são **evidências**, não configurações executáveis. Não importar em produção.
