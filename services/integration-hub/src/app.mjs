@@ -2,7 +2,7 @@ import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagn
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
-import { probeCoreBridge } from './core-bridge.mjs';
+import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
@@ -36,6 +36,7 @@ export async function handleRequest(
   {
     runMinimumCycle = runShopeeMinimumCycle,
     readAdaoLogistics = readAdaoLogisticsReadOnly,
+    syncCore = callCoreBridgeAction,
     probeCore = probeCoreBridge,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
@@ -60,6 +61,27 @@ export async function handleRequest(
 
   // IAM-only Cloud Run route. Never expose this endpoint through public frontend
   // until a user-authenticated server proxy is installed.
+  if (normalizedPath === '/internal/shopee/live/logistics/adao/sync-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length || Number(request.headers?.['content-length'] ?? 0) !== 0 || request.headers?.['transfer-encoding'] || request.body) return json(400, { error: 'body_or_query_not_allowed' });
+    if (getEnv('SHOPEE_ADAO_LOGISTICS_SYNC_ENABLED') !== 'true') return json(503, { error: 'sync_disabled' });
+    const raw = String(getEnv('SHOPEE_ADAO_LOGISTICS_ORDER_SNS') ?? '');
+    const orderSns = raw.split(',').map(sn => sn.trim());
+    if (!raw || orderSns.length > 20 || orderSns.length !== new Set(orderSns).size || orderSns.some(sn => !/^[A-Za-z0-9]{8,100}$/.test(sn))) return json(503, { error: 'invalid_scope' });
+    try {
+      const result = await readAdaoLogistics(orderSns);
+      if (!result?.ok || result.account !== 'adao' || !Array.isArray(result.selected) || result.selected.length !== orderSns.length
+          || result.selected.some(entry => !orderSns.includes(entry.order_sn) || entry.auto_arrangement_authorized !== false || entry.create_shipping_document_authorized !== false || entry.inventory_mutation_authorized !== false)) return json(503, { error: 'classification_unavailable' });
+      const entries = result.selected.map(entry => ({
+        order_sn: entry.order_sn, state: entry.state,
+        reason: typeof entry.reason === 'string' && /^[A-Za-z0-9_:-]{1,100}$/.test(entry.reason) ? entry.reason : null,
+      }));
+      const pushed = await syncCore({ action: 'shopee.logistics_classification.sync',
+        data: { channel_account_id: 'b4027369-5abf-4ac1-ab24-862334fae892', entries } });
+      return pushed?.ok && pushed.payload?.status === 'ok' ? json(200, { status: 'ok', count: entries.length }) : json(503, { error: 'sync_unavailable' });
+    } catch { return json(503, { error: 'sync_unavailable' }); }
+  }
+
   if (normalizedPath === '/internal/shopee/live/logistics/adao/read-only') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
     if ((request.query && Object.keys(request.query).length)
