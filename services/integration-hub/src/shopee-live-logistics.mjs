@@ -153,6 +153,27 @@ export function createShopeeLiveLogisticsInspector({
       return { ok: false, code: 'order_detail_identity_mismatch', shop_id: shopId };
     }
 
+    if (classifyOnly) {
+      const classification = classifyShopeeLogistics(order, {
+        fiscalMode, deleted: historicallyDeleted,
+      });
+      return {
+        ok: true, shop_id: shopId,
+        order: {
+          order_sn: normalizedOrderSn,
+          order_status: typeof order.order_status === 'string' ? order.order_status : null,
+          package_count: Array.isArray(order.package_list) ? order.package_list.length : null,
+          package_number_present: Array.isArray(order.package_list)
+            && order.package_list.length === 1
+            && typeof order.package_list[0]?.package_number === 'string',
+          package_logistics_status: inferPackageLogisticsStatus(order, inferPackageNumber(order)),
+        },
+        classification,
+        shipping_parameter: { attempted: false },
+        shipping_document_parameter: { attempted: false },
+      };
+    }
+
     const packageNumber = inferPackageNumber(order);
 
     // Capture a sanitized checkpoint before external logistics requests.
