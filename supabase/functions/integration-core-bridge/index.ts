@@ -658,7 +658,7 @@ async function executeAction(payload: Record<string, unknown>) {
     if (!canonical.account) return { status: 409, body: { error: 'channel_account_unavailable' } };
     const { data, error } = await core.from('orders')
       .select('order_number,deleted_at').eq('channel_account_id', id)
-      .in('order_number', payload.order_sns);
+      .in('order_number', payload.order_sns as string[]);
     if (error || !Array.isArray(data)) return { status: 503, body: { error: 'tombstone_lookup_failed' } };
     return { status: 200, body: { status: 'ok', action: payload.action,
       deleted_order_sns: data.filter((row: {deleted_at:string|null}) => row.deleted_at != null)
