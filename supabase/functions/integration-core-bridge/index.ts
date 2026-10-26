@@ -167,7 +167,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
       .select('order_number')
       .eq('channel', 'shopee')
       .eq('channel_account_id', channelAccountId)
-      .is('deleted_at', null)
+      // Include soft-deleted orders: they must never reenter separation automatically.
       .in('order_number', orderNumbers);
     if (existingError) return { status: 503, body: { error: 'intake_existing_order_read_failed' } };
     existingOrders = new Set((existing ?? []).map((row: { order_number: string | null }) => String(row.order_number)));
