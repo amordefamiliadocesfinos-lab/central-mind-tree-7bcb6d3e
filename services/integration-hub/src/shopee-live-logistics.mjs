@@ -8,6 +8,7 @@ import {
   parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
+import { classifyShopeeLogistics } from './shopee-logistics-state-router.mjs';
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
@@ -99,7 +100,7 @@ export function createShopeeLiveLogisticsInspector({
   readShippingParameter = getShippingParameter,
   readShippingDocumentParameter = getShippingDocumentParameter,
 } = {}) {
-  return async function inspectShopeeLiveLogistics({ orderSn }) {
+  return async function inspectShopeeLiveLogistics({ orderSn, classifyOnly = false, fiscalMode = null, historicallyDeleted = false }) {
     const partnerId = positiveInteger(requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_ID'), 'SHOPEE_LIVE_PARTNER_ID');
     const partnerKey = requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_KEY');
     const channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
