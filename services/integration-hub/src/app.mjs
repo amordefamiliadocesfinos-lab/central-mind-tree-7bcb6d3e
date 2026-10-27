@@ -547,7 +547,7 @@ export async function handleRequest(
       || (request.body != null && request.body !== '')) return json(400, { error: 'body_not_allowed' });
     try {
       const result = await previewAdaoAlfajorMappings();
-      return json(result.ok ? 200 : 503, result.ok
+      return json(result.ok && result.blocked === 0 ? 200 : 503, result.ok
         ? { status: result.blocked === 0 ? 'ok' : 'blocked', ...result }
         : { status: 'blocked', code: result.code, written: 0 });
     } catch {
