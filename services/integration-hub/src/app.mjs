@@ -1,3 +1,4 @@
+import { previewAlfajorAdaoMappings } from './shopee-alfajor-adao-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
@@ -533,6 +534,24 @@ export async function handleRequest(
         written: 0,
         result: null,
       });
+    }
+  }
+
+  // Private fixed-scope Alfajor Adao diagnostic; IAM handles authentication.
+  if (normalizedPath === '/internal/shopee/live/mappings/alfajor-adao/preview') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) return json(400, { error: 'query_not_allowed' });
+    if (request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) return json(400, { error: 'body_not_allowed' });
+    try {
+      const result = await previewAlfajorAdaoMappings();
+      return json(result.ok ? 200 : 503, result.ok ? { status: 'ok', ...result }
+        : { status: 'blocked', code: result.code ?? 'mapping_diagnostic_mismatch',
+          written: 0, selected: result.selected ?? 0, recognized: result.recognized ?? 0,
+          blocked: result.blocked ?? 0, negative_tests: result.negative_tests ?? null });
+    } catch {
+      return json(503, { status: 'blocked', code: 'mapping_diagnostic_unavailable', written: 0 });
     }
   }
 
