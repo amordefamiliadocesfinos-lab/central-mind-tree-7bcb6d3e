@@ -14,6 +14,10 @@ test('SQL is atomic and validates exact 60/120 cardinality',()=>{
  assert.match(sql,/v.is_active IS DISTINCT FROM TRUE/);
  assert.match(sql,/ON COMMIT DROP/);
  assert.doesNotMatch(sql,/undefined/);
+ assert.match(sql,/official:item:19799761406\\|model:219175660379/);
+ assert.match(sql,/parent_product,parent_variant/);
+ assert.match(sql,/parent_multiplier,parent_product,parent_variant/);
+ assert.match(sql,/Invalid parent physical identities/);
 });
 test('existing canonical identity blocks execution plan',()=>{
  const row={marketplace:'shopee',channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',
