@@ -21,7 +21,7 @@ export function expectedTrufasComponents(reference=REFERENCE) {
   if (!['T30','T40'].includes(family)||!['DG','KT','AT','CX'].includes(kind)
    ||!Number.isSafeInteger(qty)||qty<1||!FLAVORS.includes(flavor)&&flavor!=='MX') throw new TypeError('invalid reference');
   let quantities;
-  if(kind==='DG') quantities=FLAVORS.map(f=>[f,family==='T30'&&['BRG','AMD'].includes(f)?2:1]);
+  if(kind==='DG') quantities=FLAVORS.map(f=>[f,(family==='T30'?['BRG','AMD'].includes(f):f==='BRG')?2:1]);
   else if(flavor==='MX') {
    if(qty%6!==0) throw new TypeError('invalid mix factor');
    quantities=FLAVORS.map(f=>[f,qty/6]);
