@@ -1,3 +1,4 @@
+import { shopeeTrufa30TemporalBlocker } from './shopee-trufa30-temporal-guard.mjs';
 import { readLiveShopeeOrderIntakeBatch } from './core-bridge.mjs';
 import { normalizeShopeeOrderRawSnapshot } from './shopee-order-normalizer.mjs';
 import { buildShopeeMappingPreview } from './shopee-mapping-preview.mjs';
@@ -144,6 +145,15 @@ export function createShopeeControlledAutoIntake({
         }
 
         orderSn = normalized.orders[0]?.orderSn ?? orderSn;
+        // Quarantine re-used model identities before any mapping/projection/writer.
+        // Historical and current meanings must not be conflated.
+        const temporalBlocker = shopeeTrufa30TemporalBlocker(normalized);
+        if (temporalBlocker) {
+          blocked += 1;
+          results.push({ orderSn, status: 'blocked',
+            blockers: [temporalBlocker], write: null });
+          continue;
+        }
         const mapping = buildShopeeMappingPreview(normalized, payload.mappings, {
           channelAccountId: normalized.channelAccountId,
           marketplaceAccount,
