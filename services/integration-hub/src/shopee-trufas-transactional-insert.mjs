@@ -37,6 +37,18 @@ BEGIN
   SELECT account_id,item_id,model_id FROM trufas_stage GROUP BY 1,2,3 HAVING count(*)>1
  ) dup;
  IF invalid>0 THEN RAISE EXCEPTION 'Duplicate Item/Model'; END IF;
+ SELECT count(*) INTO invalid FROM trufas_stage s WHERE
+ (SELECT count(*) FROM jsonb_array_elements(s.components)) NOT IN (1,6)
+ OR (SELECT sum((c->>'physical_multiplier')::numeric)
+     FROM jsonb_array_elements(s.components) c) <= 0
+ OR EXISTS (SELECT 1 FROM jsonb_array_elements(s.components) c
+  GROUP BY c->>'position' HAVING count(*)>1);
+ IF invalid>0 THEN RAISE EXCEPTION 'Invalid component cardinality or position'; END IF;
+ SELECT count(*) INTO invalid FROM trufas_stage s
+ WHERE (SELECT sum((c->>'physical_multiplier')::numeric)
+ FROM jsonb_array_elements(s.components) c) <>
+ (regexp_match(s.description,' ([0-9]+) '))[1]::numeric;
+ IF invalid>0 THEN RAISE EXCEPTION 'Component sum does not match commercial quantity'; END IF;
  SELECT count(*) INTO invalid FROM trufas_stage s
  CROSS JOIN LATERAL jsonb_array_elements(s.components) c
  LEFT JOIN product_variants v ON v.id=(c->>'variant_id')::uuid
