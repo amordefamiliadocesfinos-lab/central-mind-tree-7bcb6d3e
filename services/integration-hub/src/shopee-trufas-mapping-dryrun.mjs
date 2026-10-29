@@ -29,7 +29,14 @@ WITH source(account_id,item_id,model_id,external_item_key,description,components
 )
 SELECT COUNT(*) total, COUNT(DISTINCT account_id||'|'||item_id||'|'||model_id) unique_identities,
  COUNT(*) FILTER (WHERE mapping_id IS NOT NULL) existing,
- COUNT(*) FILTER (WHERE key_collision>0) key_conflicts
+ COUNT(*) FILTER (WHERE key_collision>0) key_conflicts,
+ (SELECT COUNT(*) FROM source s
+  CROSS JOIN LATERAL jsonb_array_elements(s.components_json::jsonb) part
+  LEFT JOIN product_variants pv ON pv.id=(part->>'variant_id')::uuid
+  LEFT JOIN products prod ON prod.id=(part->>'product_id')::uuid
+  WHERE pv.id IS NULL OR prod.id IS NULL OR pv.product_id<>prod.id
+     OR pv.is_active IS DISTINCT FROM TRUE
+     OR (part->>'physical_multiplier')::numeric<=0) invalid_physical_components
 FROM audit;
 ROLLBACK;`;
  return {writes:false,sql,selected:60,componentRows:report.plan.reduce((n,p)=>n+p.components.length,0)};
