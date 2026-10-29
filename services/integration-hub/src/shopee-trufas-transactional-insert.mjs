@@ -11,8 +11,8 @@ export function buildTrufasTransactionalInsertScript(existingMappings, {
  const data=plan.plan.map(p=>{
   const payload=JSON.stringify(p.components);
   return '('+[q(p.account_id),q(p.item_id),q(p.model_id),
-   q('item:'+p.item_id+'|model:'+p.model_id),q('T'+p.family.slice(1)+' '+p.kind+' '+p.commercial_quantity_per_unit+' '+p.flavor),
-   q(payload)].join(',')+')';
+   q('official:item:'+p.item_id+'|model:'+p.model_id),q('T'+p.family.slice(1)+' '+p.kind+' '+p.commercial_quantity_per_unit+' '+p.flavor),
+   q(p.components[0].product_id),q(p.components[0].variant_id),String(p.components[0].physical_multiplier),q(payload)].join(',')+')';
  }).join(',\n');
  return `BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -25,7 +25,7 @@ BEGIN
      AND external_item_id IN ('19799761406','23093522370','22898142109','20999760944','19598189256','21999552311','22193668881','22393654582');
   IF n<>0 THEN RAISE EXCEPTION 'Existing official mappings: %',n; END IF;
 END $validation$;
-CREATE TEMP TABLE trufas_stage(account_id uuid,item_id text,model_id text,external_item_key text,description text,components jsonb) ON COMMIT DROP;
+CREATE TEMP TABLE trufas_stage(account_id uuid,item_id text,model_id text,external_item_key text,description text,parent_product uuid,parent_variant uuid,parent_multiplier numeric,components jsonb) ON COMMIT DROP;
 INSERT INTO trufas_stage VALUES
 ${data};
 DO $validate_stage$
@@ -56,6 +56,7 @@ BEGIN
  WHERE v.id IS NULL OR p.id IS NULL OR v.product_id<>p.id OR v.is_active IS DISTINCT FROM TRUE
  OR (c->>'physical_multiplier')::numeric<=0;
  IF invalid>0 THEN RAISE EXCEPTION 'Invalid physical components %',invalid; END IF;
+ SELECT count(*) INTO invalid FROM trufas_stage s LEFT JOIN product_variants v ON v.id=s.parent_variant WHERE v.id IS NULL OR v.product_id<>s.parent_product OR v.is_active IS DISTINCT FROM TRUE OR s.parent_multiplier<=0; IF invalid>0 THEN RAISE EXCEPTION 'Invalid parent physical identities'; END IF;
  SELECT count(*) INTO invalid FROM trufas_stage s
  JOIN marketplace_product_mappings m ON m.marketplace='shopee'
  AND m.channel_account_id=s.account_id AND m.external_item_key=s.external_item_key;
@@ -65,8 +66,8 @@ CREATE TEMP TABLE trufas_inserted (id uuid, item_id text, model_id text) ON COMM
 WITH inserted AS (
  INSERT INTO marketplace_product_mappings
   (marketplace,marketplace_account,channel_account_id,external_item_id,external_model_id,
-   external_item_key,external_product_title,physical_multiplier)
- SELECT 'shopee','SHOPEE ADÃO',account_id,item_id,model_id,external_item_key,description,1
+   external_item_key,external_product_title,physical_multiplier,product_id,variant_id)
+ SELECT 'shopee','SHOPEE ADÃO',account_id,item_id,model_id,external_item_key,description,parent_multiplier,parent_product,parent_variant
  FROM trufas_stage
  RETURNING id,external_item_id,external_model_id
 )
