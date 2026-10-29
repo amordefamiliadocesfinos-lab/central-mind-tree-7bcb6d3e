@@ -6,6 +6,9 @@ test('preflight describes all 60 rows and never writes',()=>{
  assert.equal(p.selected,60); assert.equal(p.componentRows,120);
  assert.equal(p.writes,false);assert.match(p.sql,/BEGIN READ ONLY/);
  assert.match(p.sql,/ROLLBACK/);
+ assert.match(p.sql,/invalid_physical_components/);
+ assert.match(p.sql,/pv.is_active IS DISTINCT FROM TRUE/);
+ assert.doesNotMatch(p.sql,/undefined/);
  assert.doesNotMatch(p.sql,/\b(INSERT|UPDATE|DELETE|COMMIT|TRUNCATE)\b/i);
  assert.match(p.sql,/item:20999760944\|model:238786420976/);
 });
