@@ -1,3 +1,4 @@
+import { shopeeTrufa40HistoricalBlocker } from './shopee-trufa40-historical-guard.mjs';
 import { shopeeTrufa30TemporalBlocker } from './shopee-trufa30-temporal-guard.mjs';
 import { readLiveShopeeOrderIntakeBatch } from './core-bridge.mjs';
 import { normalizeShopeeOrderRawSnapshot } from './shopee-order-normalizer.mjs';
@@ -147,7 +148,8 @@ export function createShopeeControlledAutoIntake({
         orderSn = normalized.orders[0]?.orderSn ?? orderSn;
         // Quarantine re-used model identities before any mapping/projection/writer.
         // Historical and current meanings must not be conflated.
-        const temporalBlocker = shopeeTrufa30TemporalBlocker(normalized);
+        const temporalBlocker = shopeeTrufa30TemporalBlocker(normalized)
+          ?? shopeeTrufa40HistoricalBlocker(normalized);
         if (temporalBlocker) {
           blocked += 1;
           results.push({ orderSn, status: 'blocked',
