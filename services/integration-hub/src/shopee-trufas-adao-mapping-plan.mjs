@@ -20,7 +20,7 @@ export function prepareAdãoTrufasMappingPlan(existingMappings, {historicalProte
     return {
       family:ref.family,item_id:ref.item_id,model_id:ref.model_id,
       seller_sku_observed:ref.seller_sku_observed,
-      account_id:ACCOUNT,kind:ref.kind,commercial_quantity_per_unit:ref.qty,
+      account_id:ACCOUNT,kind:ref.kind,flavor:ref.flavor,commercial_quantity_per_unit:ref.qty,
       components,existing_status:identity.status,
       historical_quarantine_required:HISTORICAL_UNRESOLVED.has(ref.item_id+'|'+ref.model_id),
       action:identity.status==='missing'?'candidate_insert':'manual_review'
