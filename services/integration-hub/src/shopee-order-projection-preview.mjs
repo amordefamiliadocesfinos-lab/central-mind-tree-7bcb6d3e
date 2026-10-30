@@ -48,6 +48,7 @@ function buildProjectionLines(item) {
     itemId: nullableText(item.itemId),
     modelId: nullableText(item.modelId),
     mappingId: nullableText(item.mappingId),
+    commercialPresentationId: nullableText(component.commercialPresentationId),
     compositionPosition: Number.isFinite(Number(component.position)) ? Number(component.position) : index,
   }));
 }
