@@ -297,8 +297,9 @@ function validateActionPayload(payload, nowMs) {
         'mapping_id',
         'composition_position',
       ];
-      if (!hasExactKeys(item, itemRequired)) return false;
-      return UUID.test(item.product_id)
+      if (!hasExactKeys(item, itemRequired, ['commercial_presentation_id'])) return false;
+      return (item.commercial_presentation_id === undefined || item.commercial_presentation_id === null || UUID.test(item.commercial_presentation_id))
+        && UUID.test(item.product_id)
         && (item.variant_id === null || UUID.test(item.variant_id))
         && Number.isSafeInteger(item.quantity) && item.quantity > 0 && item.quantity <= 2147483647
         && typeof item.commercial_quantity === 'number' && Number.isFinite(item.commercial_quantity) && item.commercial_quantity > 0

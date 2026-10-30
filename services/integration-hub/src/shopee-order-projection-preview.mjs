@@ -30,6 +30,18 @@ function lineUnitPrice(item) {
   return null;
 }
 
+// Only proven, current Shopee identities can select a sealed presentation.
+// Historical or unrecognized identities never inherit these semantics.
+const CURRENT_SEALED_PRESENTATIONS = Object.freeze({
+  '58253351845|179728184791':'fe7a5361-d53e-44ba-a340-1ba3079a3b5b',
+  '58253351845|179728184792':'99b06603-c353-4ac6-91ae-ec8a94c65600',
+  '23899479158|209190157982':'c8b30000-0000-4000-8000-000000000002',
+  '23899479158|209190157983':'c8b30000-0000-4000-8000-000000000001',
+});
+function sealedPresentationId(item) {
+  return CURRENT_SEALED_PRESENTATIONS[String(item?.itemId)+'|'+String(item?.modelId)] ?? null;
+}
+
 function buildProjectionLines(item) {
   if (item?.mappingStatus !== 'recognized' || !Array.isArray(item.components) || item.components.length === 0) {
     return [];
@@ -48,6 +60,7 @@ function buildProjectionLines(item) {
     itemId: nullableText(item.itemId),
     modelId: nullableText(item.modelId),
     mappingId: nullableText(item.mappingId),
+    commercialPresentationId: sealedPresentationId(item) ?? nullableText(component.commercialPresentationId),
     compositionPosition: Number.isFinite(Number(component.position)) ? Number(component.position) : index,
   }));
 }
