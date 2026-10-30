@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { buildSignedHeaders, CORE_BRIDGE_URL, hmacHex, probeCoreBridge, sha256Hex } from '../src/core-bridge.mjs';
+import { buildSignedHeaders, CORE_BRIDGE_URL, hmacHex, probeCoreBridge, sha256Hex, readLiveShopeeOrderIntakeBatch } from '../src/core-bridge.mjs';
 import { handleRequest, routeRequest } from '../src/app.mjs';
 import { createBridgeHandler } from '../../../supabase/functions/integration-core-bridge/handler.mjs';
 
@@ -256,4 +256,34 @@ test('F6-O.2e.2c HMAC Core Bridge only accepts exact claim/resolve shapes', asyn
   }
   assert.deepEqual(accepted,
     ['shopee.shipping_arrangement.claim', 'shopee.shipping_arrangement.resolve']);
+});
+
+test('intake catalog accepts a bounded response over 64 KiB with matching request_id', async () => {
+  const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
+    url:CORE_BRIDGE_URL,secret:SECRET,logger:quiet,
+    fetchImpl:async (_url,request)=>{
+      const id=request.headers['X-Integration-Hub-Request-Id'];
+      return new Response(JSON.stringify({request_id:id,mappings:[],padding:'x'.repeat(90*1024)}),{
+        status:200,headers:{'content-type':'application/json'}});
+    },
+  });
+  assert.equal(answer.ok,true);
+  assert.equal(answer.status,200);
+});
+test('intake catalog above 256 KiB still fails closed',async()=>{
+  const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
+    url:CORE_BRIDGE_URL,secret:SECRET,logger:quiet,
+    fetchImpl:async (_url,request)=>new Response(JSON.stringify({
+      request_id:request.headers['X-Integration-Hub-Request-Id'],padding:'x'.repeat(257*1024),
+    }),{status:200,headers:{'content-type':'application/json'}}),
+  });
+  assert.equal(answer.ok,false);
+});
+test('intake preserves request_id correlation on larger payloads',async()=>{
+  const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
+    url:CORE_BRIDGE_URL,secret:SECRET,logger:quiet,
+    fetchImpl:async()=>new Response(JSON.stringify({request_id:'wrong-id',padding:'x'.repeat(90*1024)}),{
+      status:200,headers:{'content-type':'application/json'}}),
+  });
+  assert.equal(answer.ok,false);
 });
