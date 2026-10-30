@@ -52,7 +52,7 @@ export function buildShopeeOrderCreateRequest(contract) {
       item_id: item.itemId,
       model_id: item.modelId,
       mapping_id: item.mappingId,
-      commercial_presentation_id: item.commercialPresentationId ?? null,
+      ...(item.commercialPresentationId ? { commercial_presentation_id: item.commercialPresentationId } : {}),
       composition_position: item.compositionPosition,
     })),
   };
