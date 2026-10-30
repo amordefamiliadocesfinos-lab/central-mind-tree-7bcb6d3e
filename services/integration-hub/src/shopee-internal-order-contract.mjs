@@ -67,7 +67,7 @@ function normalizeLine(line, index) {
     itemId: nullableText(line?.itemId),
     modelId: nullableText(line?.modelId),
     mappingId: nullableText(line?.mappingId),
-    commercialPresentationId: nullableText(line?.commercialPresentationId),
+    ...(nullableText(line?.commercialPresentationId) ? { commercialPresentationId: nullableText(line.commercialPresentationId) } : {}),
     compositionPosition: Number.isFinite(Number(line?.compositionPosition))
       ? Number(line.compositionPosition)
       : index,
