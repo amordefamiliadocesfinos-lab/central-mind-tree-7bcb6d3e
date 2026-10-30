@@ -1,6 +1,7 @@
 import { previewAlfajorAdaoMappings } from './shopee-alfajor-adao-mapping-diagnostic.mjs';
 import { previewAdaoMappings70 } from './shopee-adao-70-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
+import { previewAdaoAlfajorMappings } from './shopee-adao-alfajor-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
@@ -572,6 +573,23 @@ export async function handleRequest(
   }
 
   // Private IAM-only fixed-scope mapping diagnostic. No writes or external Shopee calls.
+  // IAM-only; fixed account and model matrix; no user-controlled ids and no writes.
+  if (normalizedPath === '/internal/shopee/live/mappings/alfajor-adao/preview') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (request.query && Object.keys(request.query).length > 0) return json(400, { error: 'query_not_allowed' });
+    if (request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) return json(400, { error: 'body_not_allowed' });
+    try {
+      const result = await previewAdaoAlfajorMappings();
+      return json(result.ok && result.blocked === 0 ? 200 : 503, result.ok
+        ? { status: result.blocked === 0 ? 'ok' : 'blocked', ...result }
+        : { status: 'blocked', code: result.code, written: 0 });
+    } catch {
+      return json(503, { status: 'blocked', code: 'mapping_diagnostic_unavailable', written: 0 });
+    }
+  }
+
   if (normalizedPath === '/internal/shopee/live/mappings/porto-gel-viviane/preview') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
     if (request.query && Object.keys(request.query).length > 0) return json(400, { error: 'query_not_allowed' });
