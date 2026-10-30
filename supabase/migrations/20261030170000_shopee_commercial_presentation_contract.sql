@@ -126,9 +126,9 @@ BEGIN
       ) THEN RAISE EXCEPTION 'shopee_commercial_presentation_identity_mismatch'; END IF;
     IF v_item->>'item_id'='23899479158' AND v_item->>'model_id' IN ('209190157982','209190157983')
       AND (v_item->>'commercial_presentation_id') IS DISTINCT FROM
-        CASE WHEN v_item->>'model_id'='209190157982'
+        (CASE WHEN v_item->>'model_id'='209190157982'
           THEN 'c8b30000-0000-4000-8000-000000000002'
-          ELSE 'c8b30000-0000-4000-8000-000000000001' END
+          ELSE 'c8b30000-0000-4000-8000-000000000001' END)
       THEN RAISE EXCEPTION 'cb3_sealed_presentation_required'; END IF;
     v_quantity := NULLIF(v_item->>'quantity', '')::numeric;
     v_commercial_quantity := NULLIF(v_item->>'commercial_quantity', '')::numeric;
