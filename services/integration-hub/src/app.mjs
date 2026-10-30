@@ -1,4 +1,5 @@
 import { previewAlfajorAdaoMappings } from './shopee-alfajor-adao-mapping-diagnostic.mjs';
+import { previewAdaoMappings70 } from './shopee-adao-70-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
@@ -534,6 +535,21 @@ export async function handleRequest(
         written: 0,
         result: null,
       });
+    }
+  }
+
+  // IAM-only fixed-scope Adão diagnostics: no caller-provided account, IDs or body.
+  if (normalizedPath === '/internal/shopee/live/mappings/adao-70/preview') {
+    if (normalizedMethod !== 'POST') return json(405, {error:'method_not_allowed'});
+    if (request.query && Object.keys(request.query).length>0) return json(400, {error:'query_not_allowed'});
+    if (request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length']!==undefined && request.headers['content-length']!=='0')
+      || (request.body!=null && request.body!=='')) return json(400, {error:'body_not_allowed'});
+    try {
+      const result=await previewAdaoMappings70();
+      return json(result.ok?200:503,result);
+    } catch {
+      return json(503,{ok:false,code:'mapping_diagnostic_unavailable',written:0});
     }
   }
 
