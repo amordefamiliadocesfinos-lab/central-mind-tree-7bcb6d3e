@@ -71,3 +71,27 @@ Não adicionar colunas, tabelas, flags ou filtros em produção apenas para repr
 5. Rever este método após evidências de uso real; evitar auditorias repetidas e documentação paralela concorrente.
 
 **Fontes de diretriz consultadas:** `DIRETRIZ_PRIORIDADE_CICLO_FUNCIONAL_SHOPEE_PAINEL_CENTRAL_2026-10-20_V1_0`; `ARQUITETURA_MESTRE_SHOPEE_PAINEL_CENTRAL_V1_0_CONGELADA`; `DIRETRIZ_GOVERNANCA_GITHUB_LOVABLE_SUPABASE_CODEX_PAINEL_CENTRAL_V1.0`. Este registro complementa as diretrizes, sem substituí-las.
+
+
+---
+
+## CHECKPOINT DE TRANSFERÊNCIA — 30/10/2026 (Mappings Shopee 1 → Mappings Shopee 2)
+
+**Origem:** Especialista Mappings Shopee — Catálogo Operacional 1.  
+**Sucessor:** Especialista Mappings Shopee — Catálogo Operacional 2.  
+**Natureza:** registro de continuidade, sem homologação nem autorização de escrita; preserva as decisões anteriores deste arquivo.
+
+**Método e linhagem:** o Método Mestre do Laboratório de Mappings V1.0 segue referência metodológica congelada (modo original somente leitura). O Ecossistema Mappings Shopee V2.0 (29/10) e Refinamento Prático V2.1 (30/10, quatro portões) são **PROPOSTAS**, não substituem automaticamente a V1.0 ou diretrizes soberanas. Originais e matrizes permanecem nas fontes do projeto/Biblioteca.
+
+**Último estado — Adão, Biscoito e Chocolate Diehl:**
+- **48/48 pares Item ID + Model ID distintos conferidos**, sendo **24 Biscoito (BA1/BA2/BA3) + 24 Chocolate Diehl (CB1/CB2/CB3)**. Fontes de evidência: PREFLIGHT_MAPPINGS_48_ADAO_2026-10-30.xlsx; AUDITORIA_48_MAPPINGS_ADAO_SEM_CODEX_2026-10-30.xlsx; RECONCILIACAO_BISCOITO_DIEHL_ADAO_48_MODELOS_2026-10-30.csv e Matriz Única Shopee comercial V9. Pré-flight: 48 pares únicos e seis cadastros físicos distintos ativos na fotografia.
+- **Mappings nesta frente: 0/48 persistidos** na última auditoria. **Ensaio BEGIN/ROLLBACK não realizado** nessa auditoria; **COMMIT dos 48 não autorizado/não realizado**. A conferência de identidades não constitui implantação nem homologação de mappings.
+- **Contrato de apresentação:** [PR #400](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/400), merge SHA b82b92493f198e52024fcd33209128c586c1752d, propagou commercial_presentation_id e a proteção BA3/CB3. [PR #401](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/401), merge SHA 44c8416ffb245cf18d95233e4439cb36a98a772d, corrigiu erro SQL 42601 na migration supabase/migrations/20261030170000_shopee_commercial_presentation_contract.sql. A auditoria especializada **relata** migration aplicada e validada no Lovable Cloud; a presente edição documental não refez consulta independente ao banco. Esses PRs não implantaram os 48 mappings.
+- **Físico/histórico:** BA1/BA2 exigem conferir separação em pacotes fechados, não só multiplicação por 22 biscoitos; BA3 usa caixas originais lacradas. CB1/CB2 exigem distinguir consumo em gramas de embalagem M400/M1000; CB3 requer preservação da unidade física E20 lacrada. Riscos de reinterpretação de Biscoito histórico e Chocolate 500 g → 400 g exigem evidência temporal antes de bloqueio numérico ou writer. Não inferir pares históricos ausentes.
+- **Runtime:** Cloud Run com código recente, proteção histórica específica e preview IAM dos 48 **não comprovados** neste checkpoint. Referências técnicas adicionais: [PR #397](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/397) (guarda Porto Gel legado), [#398](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/398) (diagnóstico IAM 70 identidades) e [#399](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/399) (teto de payload); merge não prova deploy.
+
+**Aprendizado reutilizável:** verificar identidade externa datada, decisão comercial e todos os componentes físicos; proteger semântica histórica antes de resolvedor/writer; evitar pre-flight e documentação redundantes; ensaiar ROLLBACK na tabela oficial apenas quando autorizado; confirmar persistência com consulta independente; distinguir código/CI, migration, deploy, preview e pedido real.
+
+**Próxima ação única — Mappings Shopee 2:** retomar as 48 linhas já conferidas e **resolver com Produto Mestre/Operações os bloqueios de embalagem/identidade física e a evidência histórica, sem refazer o inventário ou gravar mappings**. Depois, sob aprovações específicas: ensaio transacional; guarda histórica; COMMIT controlado; validação autenticada no Hub implantado. Integração Shopee 7 responde pelo runtime; Comercial pelas ofertas; Operações pela verdade física.
+
+**Estado:** checkpoint para transferência sujeito à revisão e merge documental; não promover propostas a método vigente. Preservar fontes originais, matrizes e histórico do chat Mappings Shopee 1. REGISTRAR ≠ DECIDIR.
