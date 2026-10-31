@@ -19,8 +19,39 @@ const SEALED = Object.freeze({
  '23899479158|209190157982':['c70dd4b4-bc59-4d88-81ef-1a8c47315560','1a3d59a6-4712-4afd-811a-5a72aad76fa9','g'],
  '23899479158|209190157983':['c70dd4b4-bc59-4d88-81ef-1a8c47315560','f6588f52-6e28-4ce9-b492-a95c847d5c0c','g'],
 });
-export function mappingPhysicalBlocker(item, mapping) {
+// Shopee Adão: physical contracts for the six published roasted-peanut models.
+// AM3 is one sealed E24 sack; its presentation routes the physical stock event.
+const AMENDOIM_ADAO_MODELS = Object.freeze({
+  '22894540357|159549469456': 350,
+  '22894540357|159549469457': 1000,
+  '22894540357|159549469458': 2000,
+  '22894540357|239443947635': 3000,
+  '23899023961|149554596204': 1000,
+  '58211774121|199622620371': 1,
+});
+const AMENDOIM_ADAO_ACCOUNT_ID = 'b4027369-5abf-4ac1-ab24-862334fae892';
+const AMENDOIM_PRODUCT_ID = 'c177f332-a1c7-4276-9cef-7b81af920174';
+
+function amendoimPhysicalBlocker(item, components, scope) {
+  if (components.length !== 1) return 'amendoim_composition_invalid';
+  const key = String(item?.itemId) + '|' + String(item?.modelId);
+  const c = components[0];
+  const identity = c.physical_identity;
+  if (scope?.channelAccountId !== AMENDOIM_ADAO_ACCOUNT_ID) return 'amendoim_account_unverified';
+  if (c.product_id !== AMENDOIM_PRODUCT_ID || c.variant_id != null
+    || identity?.active !== true || identity?.unit !== 'g'
+    || Number(c.physical_multiplier) !== AMENDOIM_ADAO_MODELS[key]) {
+    return 'amendoim_physical_identity_unverified';
+  }
+  return null;
+}
+
+export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   const components = mapping.components?.length ? mapping.components : [mapping];
+  const amendoimKey = String(item?.itemId) + '|' + String(item?.modelId);
+  if (Object.hasOwn(AMENDOIM_ADAO_MODELS, amendoimKey)) {
+    return amendoimPhysicalBlocker(item, components, scope);
+  }
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
   if (sealed) {
     if (components.length !== 1) return 'sealed_composition_invalid';
