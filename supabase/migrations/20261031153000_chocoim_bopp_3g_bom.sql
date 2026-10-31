@@ -3,6 +3,16 @@
 DO $$
 DECLARE v uuid; recipe uuid; bopp_variant uuid;
 BEGIN
+  -- Physical dimension confirmed by owner: BOPP 21x15 cm for Chocoim.
+  -- Create only the missing canonical physical variant; preserve all legacy variants.
+  INSERT INTO public.product_variants(product_id,sku,variant_name,unit,is_active)
+  SELECT 'c5cd604c-f7aa-45b8-8886-504e2012270e'::uuid,
+         'BOPP-21X15','21x15','g',true
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.product_variants
+    WHERE product_id='c5cd604c-f7aa-45b8-8886-504e2012270e'::uuid
+      AND (variant_name='21x15' OR sku='BOPP-21X15')
+  );
   SELECT id INTO bopp_variant FROM public.product_variants WHERE product_id='c5cd604c-f7aa-45b8-8886-504e2012270e'::uuid AND variant_name='21x15' AND is_active=true;
   IF bopp_variant IS NULL THEN RAISE EXCEPTION 'Chocoim BOPP 21x15 variant not registered: physical identity approval required'; END IF;
   FOREACH v IN ARRAY ARRAY[
