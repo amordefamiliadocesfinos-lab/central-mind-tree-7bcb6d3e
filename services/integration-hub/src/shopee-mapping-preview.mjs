@@ -146,7 +146,7 @@ function previewItem(item, mappings, scope, requirePhysicalValidation) {
   }
 
   const mapping = candidates[0];
-  const physicalBlocker = requirePhysicalValidation ? mappingPhysicalBlocker(item, mapping) : null;
+  const physicalBlocker = requirePhysicalValidation ? mappingPhysicalBlocker(item, mapping, scope) : null;
   if (physicalBlocker) return {
     ...item, externalItemKey, mappingStatus: physicalBlocker,
     mappingId: nullableText(mapping.id), components: [],
