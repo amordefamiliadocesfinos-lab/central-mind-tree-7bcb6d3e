@@ -21,7 +21,7 @@ const contract = {};
 for (const [itemId, encoded] of Object.entries(V12_MODELS_BY_ITEM)) {
   for (const entry of encoded.split(',')) {
     const [modelId, digits] = entry.split(':');
-    if (!/^\\d+$/.test(modelId) || !/^[0-9a-z]{7}$/.test(digits)) throw new Error('invalid_du_porto_v12_fixture');
+    if (!/^\d+$/.test(modelId) || !/^[0-9a-z]{7}$/.test(digits)) throw new Error('invalid_du_porto_v12_fixture');
     const packCounts = digits.split('').map(d => parseInt(d, 36));
     contract[itemId + '|' + modelId] = Object.freeze(packCounts);
   }
