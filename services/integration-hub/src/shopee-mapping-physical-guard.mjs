@@ -46,11 +46,54 @@ function amendoimPhysicalBlocker(item, components, scope) {
   return null;
 }
 
+// Chocoim 34g / Shopee Adão V11. Exact official identities only.
+// CH3 is forty finished units per commercial base; Q is applied downstream.
+const CHOCOIM_ADAO_ACCOUNT_ID = 'b4027369-5abf-4ac1-ab24-862334fae892';
+const CHOCOIM_PRODUCT_ID = 'e01a87f3-615d-4330-87c6-d0f9878a7c3b';
+const CHOCOIM_VARIANTS = Object.freeze({
+  MA: '3e67edc6-1cb7-463e-8c8e-a50bfb5092f7',
+  BR: '66708945-22f3-43bf-b68e-127021448cd8',
+  MS: '1a84c7f3-4130-45fc-920f-62aecafe4c91',
+});
+const CHOCOIM_ADAO_MODELS = Object.freeze({
+  '58211753487|189196513020': [8, 'MA'],
+  '58211753487|189196513021': [8, 'BR'],
+  '58211753487|189196513022': [8, 'MS'],
+  '58211756648|169421459623': [20, 'MA'],
+  '58211756648|169421459624': [20, 'BR'],
+  '58211756648|169421459618': [20, 'MS'],
+  '58211756648|169421459619': [40, 'MA'],
+  '58211756648|169421459620': [40, 'BR'],
+  '58211756648|169421459621': [40, 'MS'],
+  '58211756648|169421459622': [80, 'MA'],
+  '58211756648|169421459616': [80, 'BR'],
+  '58211756648|169421459617': [80, 'MS'],
+  '23199886586|149558245644': [40, 'MA'],
+  '23199886586|149558245645': [40, 'BR'],
+  '23199886586|149558245646': [40, 'MS'],
+});
+function chocoimPhysicalBlocker(item, components, scope, contract) {
+  if (scope?.channelAccountId !== CHOCOIM_ADAO_ACCOUNT_ID) return 'chocoim_account_unverified';
+  if (components.length !== 1) return 'chocoim_composition_invalid';
+  const component = components[0];
+  const identity = component.physical_identity;
+  if (component.product_id !== CHOCOIM_PRODUCT_ID
+    || component.variant_id !== CHOCOIM_VARIANTS[contract[1]]
+    || identity?.active !== true || identity?.unit !== 'un'
+    || Number(component.physical_multiplier) !== contract[0]) {
+    return 'chocoim_physical_identity_unverified';
+  }
+  return null;
+}
+
 export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   const components = mapping.components?.length ? mapping.components : [mapping];
   const amendoimKey = String(item?.itemId) + '|' + String(item?.modelId);
   if (Object.hasOwn(AMENDOIM_ADAO_MODELS, amendoimKey)) {
     return amendoimPhysicalBlocker(item, components, scope);
+  }
+  if (Object.hasOwn(CHOCOIM_ADAO_MODELS, amendoimKey)) {
+    return chocoimPhysicalBlocker(item, components, scope, CHOCOIM_ADAO_MODELS[amendoimKey]);
   }
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
   if (sealed) {
