@@ -73,6 +73,12 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
     if (scoped.some((mapping) => officialMappingIdentity(mapping).itemId === itemId)) return [];
   }
 
+  // Adão Chocoim: a commercial SKU can exist on both inactive and active items.
+  // If the official pair did not match, never reinterpret it through legacy SKU/title.
+  const chocoimSku = String(item.modelSku ?? item.itemSku ?? '').trim().toUpperCase();
+  if (scope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+    && chocoimSku.startsWith('AF-CHIM-')) return [];
+
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
     return identity.itemId === null && identity.modelId === null
