@@ -1,3 +1,5 @@
+import { DU_PORTO_ADAO_V12_MODELS } from './shopee-po-sorvete-adao-v12-contract.mjs';
+import { duPortoPhysicalBlocker } from './shopee-po-sorvete-adao-v12-guard.mjs';
 const MASS_IN_GRAMS = { g: 1, kg: 1000, mg: 0.001 };
 
 // Accept only one explicit mass. Ranges/multiple sizes are deliberately not
@@ -95,6 +97,7 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   if (Object.hasOwn(CHOCOIM_ADAO_MODELS, amendoimKey)) {
     return chocoimPhysicalBlocker(item, components, scope, CHOCOIM_ADAO_MODELS[amendoimKey]);
   }
+  if (Object.hasOwn(DU_PORTO_ADAO_V12_MODELS, amendoimKey)) return duPortoPhysicalBlocker(item, components, scope, DU_PORTO_ADAO_V12_MODELS[amendoimKey]);
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
   if (sealed) {
     if (components.length !== 1) return 'sealed_composition_invalid';
