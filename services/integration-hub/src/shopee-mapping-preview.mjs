@@ -100,6 +100,12 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
     && (['22795004937','58212319829','22099402766','22299532770'].includes(itemId)
       || /^(AF-BL6-|AF-CS13-|AF-FR-|AF-CP-)/.test(r1Sku))) return [];
 
+  const r1UnresolvedSku=String(item.modelSku ?? item.itemSku ?? '').trim().toUpperCase();
+  if(scope.channelAccountId==='b4027369-5abf-4ac1-ab24-862334fae892'
+    && (['21599903629','58222235000','22694563769'].includes(itemId)
+    || r1UnresolvedSku.startsWith('AF-IVOTI-')
+    || r1UnresolvedSku.startsWith('AF-EMB-')))return [];
+
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
     return identity.itemId === null && identity.modelId === null
