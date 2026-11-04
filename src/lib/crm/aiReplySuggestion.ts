@@ -271,6 +271,25 @@ export async function suggestCrmReplyFromContext(
   const unsupportedLiveData = lastIsInbound
     ? pendingUnsupportedLiveData(context.messages)
     : null;
+  if (unsupportedLiveData?.kind === 'current_price') {
+    const text = (context.messages ?? []).filter(message => message.direction === 'inbound')
+      .slice(-3).map(message => String(message.content ?? '')).join(' ')
+      .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+    if (/trufas?/.test(text) && /valor|preco/.test(text) && /sabores?/.test(text)) {
+      try {
+        const { data, error } = await supabase.from('digital_knowledge_base')
+          .select('question, answer').eq('is_active', true).is('platform_id', null)
+          .in('question', ['Quais tipos de trufa vocês trabalham?', 'Quais sabores de trufa vocês trabalham?']);
+        if (error) throw error;
+        const types = data?.find(row => row.question === 'Quais tipos de trufa vocês trabalham?')?.answer;
+        const flavors = data?.find(row => row.question === 'Quais sabores de trufa vocês trabalham?')?.answer;
+        if (types && flavors && !/R\\$/.test(types + flavors)) {
+          const reply = `Olá! ${types} ${flavors} Para informar os valores, preciso confirmar a tabela comercial vigente. Você procura para consumo ou revenda?`;
+          return { reply, message: reply, reason: 'Sabores e linhas na base oficial; preços não confirmados.', rationale: 'Resposta parcial verificada.', tone: 'consultivo', intent: 'answer', length: 'medium' };
+        }
+      } catch { /* Sem fonte confirmada, manter bloqueio original. */ }
+    }
+  }
   if (unsupportedLiveData) {
     const reason = `${unsupportedLiveData.reason} O Assistente não sugere esse dado sem fonte viva disponível.`;
     return {
