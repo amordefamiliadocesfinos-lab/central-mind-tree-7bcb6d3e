@@ -18,7 +18,7 @@ import {
   type CrmCommunicationDraft,
 } from './communication';
 import { getUnsupportedCrmLiveDataRequirement, type CrmUnsupportedLiveDataRequirement } from './dynamicLiveData';
-import { lookupDirectTrufflePrices } from './commercialPriceContext';
+import { lookupOfficialWhatsappPriceQuote } from './commercialPriceContext';
 import { defaultCrmKnowledgeFetcher, resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 import { isWaitingCustomerState } from './priority';
@@ -273,16 +273,42 @@ export async function suggestCrmReplyFromContext(
     ? pendingUnsupportedLiveData(context.messages)
     : null;
   if (unsupportedLiveData?.kind === 'current_price') {
-    // Pergunta mista: responder fatos estáveis da FAQ e valores unitários vivos.
+    // Valores somente da tabela vigente aprovada para WhatsApp direto.
+    // Uma mensagem pode perguntar preço e sabores no mesmo bloco inbound.
     const pending: string[] = [];
     for (let index = (context.messages?.length ?? 0) - 1; index >= 0; index -= 1) {
       const message = context.messages[index];
       if (message.direction === 'outbound') break;
       if (message.direction === 'inbound') pending.unshift(String(message.content ?? ''));
     }
-    const text = pending.join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-    if (/\btrufas?\b/.test(text) && /\b(valor|preco)\b/.test(text) && /\bsabores?\b/.test(text)
-        && !/\b(frete|desconto|estoque|prazo)\b/.test(text)) {
+    const question = pending.join(' ').trim();
+    const normalized = question.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    // Não converter uma pergunta de frete, estoque, prazo ou desconto em cotação.
+    if (!/\b(frete|estoque|disponibilidade|prazo|desconto|promocao)\b/.test(normalized)) {
+      try {
+        const quote = await lookupOfficialWhatsappPriceQuote(question);
+        if (quote) {
+          let productText = '';
+          if (/\btrufas?\b/.test(normalized) && /\bsabores?\b/.test(normalized)) {
+            const { data } = await supabase.from('digital_knowledge_base')
+              .select('question,answer').eq('is_active', true).is('platform_id', null)
+              .eq('question', 'Quais sabores de trufa vocês trabalham?').maybeSingle();
+            if (data?.answer && !/R\$/.test(data.answer)) productText = ' ' + data.answer.trim();
+          }
+          const reply = 'Olá! ' + quote + '.' + productText
+            + ' Os valores são para atendimento direto pelo WhatsApp, sujeitos à confirmação da disponibilidade. Qual quantidade você pretende comprar?';
+          return {
+            reply, message: reply,
+            reason: 'Preço por quantidade consultado na tabela WhatsApp aprovada e vigente nos produtos ativos.',
+            rationale: 'Fonte comercial oficial consultada ao preparar a resposta; nenhum preço gerado pela IA.',
+            tone: 'objetivo', intent: 'answer', length: 'medium',
+          };
+        }
+      } catch { /* Sem tabela comercial verificável, manter bloqueio de preços. */ }
+    }
+    // Sem preço vigente, recuperar apenas fatos estáveis da KB para pergunta
+    // composta de trufas: não deixar o preço desconhecido apagar os sabores.
+    if (/\btrufas?\b/.test(normalized) && /\bsabores?\b/.test(normalized)) {
       try {
         const { data, error } = await supabase.from('digital_knowledge_base')
           .select('question, answer').eq('is_active', true).is('platform_id', null)
@@ -291,21 +317,16 @@ export async function suggestCrmReplyFromContext(
         const types = data?.find(row => row.question === 'Quais tipos de trufa vocês trabalham?')?.answer;
         const flavors = data?.find(row => row.question === 'Quais sabores de trufa vocês trabalham?')?.answer;
         if (types && flavors && !/R\$/.test(types + flavors)) {
-          const directPrices = await lookupDirectTrufflePrices().catch(() => null);
-          const priceText = directPrices
-            ? 'Preços unitários cadastrados: ' + directPrices + '. Valores de kits, atacado e frete dependem da quantidade e do canal.'
-            : 'Para informar os valores, preciso confirmar a tabela comercial vigente.';
-          const reply = 'Olá! ' + types + ' ' + flavors + ' ' + priceText + ' Você procura para consumo ou revenda?';
+          const reply = 'Olá! ' + types + ' ' + flavors
+            + ' Para informar os valores, preciso confirmar a tabela comercial vigente. Você procura para consumo ou revenda?';
           return {
             reply, message: reply,
-            reason: directPrices
-              ? 'Linhas e sabores da base oficial; valores unitários consultados no cadastro de produtos ativos.'
-              : 'Linhas e sabores da base oficial; preços não confirmados.',
-            rationale: 'Fontes oficiais consultadas ao gerar a resposta; sem valores presumidos.',
+            reason: 'Linhas e sabores da Base de Conhecimento; preço indisponível na fonte comercial.',
+            rationale: 'Informação estável recuperada sem inventar preço.',
             tone: 'consultivo', intent: 'answer', length: 'medium',
           };
         }
-      } catch { /* Sem fonte oficial confirmada, manter bloqueio original. */ }
+      } catch { /* Manter o bloqueio original. */ }
     }
   }
   if (unsupportedLiveData) {
