@@ -1,3 +1,4 @@
+import { R1_ADAO_ACCOUNT_ID, R1_V16_PROTECTED_MODELS, R1_CP_PRESENTATIONS } from './shopee-rodada1-v16-physical-guard.mjs';
 import { MALTO_ADAO_ACCOUNT_ID, MALTO_ADAO_MODELS, MALTO_MD1_PRESENTATION_ID, MALTO_MD2_PRESENTATION_ID } from './shopee-maltodextrina-adao-v14-guard.mjs';
 import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID, GLUCODRY_ADAO_ACCOUNT_ID } from './shopee-glucodry-adao-v13-guard.mjs';
 function nullableText(value) {
@@ -50,6 +51,11 @@ function sealedPresentationId(item, channelAccountId) {
   if (channelAccountId === MALTO_ADAO_ACCOUNT_ID && Object.hasOwn(MALTO_ADAO_MODELS, key)) {
     return MALTO_ADAO_MODELS[key].kind === 'sealed_sack'
       ? MALTO_MD2_PRESENTATION_ID : MALTO_MD1_PRESENTATION_ID;
+  }
+  // CP1 current identities only; model 179728941455 is historical, never aliased.
+  if(channelAccountId===R1_ADAO_ACCOUNT_ID && Object.hasOwn(R1_V16_PROTECTED_MODELS,key)){
+    const contract=R1_V16_PROTECTED_MODELS[key];
+    if(contract.kind==='papelao')return R1_CP_PRESENTATIONS[contract.variant] ?? null;
   }
   return CURRENT_SEALED_PRESENTATIONS[key] ?? null;
 }
