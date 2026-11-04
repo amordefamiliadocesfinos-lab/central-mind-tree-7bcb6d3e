@@ -108,6 +108,17 @@ export interface CrmInboxOrientation {
 
 export function getCrmInboxOrientation(projection: CrmOperationalProjection): CrmInboxOrientation {
   const copy = CRM_INBOX_ORIENTATION_COPY[projection.priority.reason];
+  const actionTitle = projection.obligation?.title?.trim() || null;
+  const overdueAction = ['next_action_overdue', 'next_action_today', 'return_overdue', 'return_today'].includes(projection.priority.reason);
+  // Fatos registrados guiam a execução; não deduzimos que a tarefa foi cumprida.
+  const title = overdueAction && actionTitle ? `Verificar pendência: ${actionTitle}` : copy.title;
+  const explanation = projection.priority.reason === 'needs_reply'
+    ? 'Leia a última mensagem e prepare a resposta. Depois registre um Resultado apenas se houver um fato comercial.'
+    : projection.priority.reason === 'pending_result'
+      ? `A interação ainda precisa de desfecho registrado${actionTitle ? ` para a ação "${actionTitle}"` : ''}. Não envie outra mensagem apenas para retirar o contato da fila; confirme o que aconteceu no formulário.`
+      : overdueAction
+        ? `Confira se ${actionTitle ? `a ação "${actionTitle}"` : 'a obrigação registrada'} já foi executada. Se sim, registre o Resultado; se não, execute ou reagende com Adiar. Não conclua sem evidência.`
+        : copy.explanation;
   const undatedObligationNeedsReview = Boolean(projection.obligation && !projection.obligation.dueAt);
   // Uma obrigação sem data não reclassifica P0–P4. Mas impede que a orientação
   // de espera seja interpretada como ausência de trabalho já registrado.
@@ -116,8 +127,8 @@ export function getCrmInboxOrientation(projection: CrmOperationalProjection): Cr
     contactId: projection.contactId,
     conversationId: projection.conversationId,
     mode,
-    title: copy.title,
-    explanation: copy.explanation,
+    title,
+    explanation,
     priorityLabel: projection.priority.label,
     priorityLevel: projection.priority.level,
     priorityReason: projection.priority.reason,
