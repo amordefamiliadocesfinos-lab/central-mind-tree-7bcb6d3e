@@ -95,3 +95,28 @@ Não adicionar colunas, tabelas, flags ou filtros em produção apenas para repr
 **Próxima ação única — Mappings Shopee 2:** retomar as 48 linhas já conferidas e **resolver com Produto Mestre/Operações os bloqueios de embalagem/identidade física e a evidência histórica, sem refazer o inventário ou gravar mappings**. Depois, sob aprovações específicas: ensaio transacional; guarda histórica; COMMIT controlado; validação autenticada no Hub implantado. Integração Shopee 7 responde pelo runtime; Comercial pelas ofertas; Operações pela verdade física.
 
 **Estado:** checkpoint para transferência sujeito à revisão e merge documental; não promover propostas a método vigente. Preservar fontes originais, matrizes e histórico do chat Mappings Shopee 1. REGISTRAR ≠ DECIDIR.
+
+
+---
+
+## CHECKPOINT DE SUCESSÃO — 04/11/2026 (Mappings Shopee 2 → Mappings Shopee 3)
+
+**Origem:** Mappings Shopee — Catálogo Operacional 2. **Sucessor:** Mappings Shopee — Catálogo Operacional 3.  
+**Autoridade:** decisão de sucessão da Camada Mestre. **Natureza:** registro factual; não autoriza integração, migration, escrita ou movimentação física.
+
+**Marco P2 — APENAS CONTRATO DE SIMULAÇÃO:** [PR #423](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/423) mesclada em 04/11/2026, SHA `b17ef492031f60743bff35f2ee5b503fa40de502` (head `3d2a1b76fc94cdff72f1fa5a8a6443e755da0f62`). CI `Shopee Integration Hub Tests and Docker`: **3/3 jobs aprovados**. O planner puro, testes e plano de referência estão em:
+- `services/integration-hub/src/sealed-four-families-p2-contract.mjs`
+- `services/integration-hub/tests/sealed-four-families-p2-contract.test.mjs`
+- `docs/shopee/PLANO_P2_LACRADOS_QUATRO_FAMILIAS_V1.md`
+
+**Alcance comprovado:** transições simuladas e falha fechada, sem ligação operacional com API, webhook, ledger, banco ou estoque. Italac: caixa original de 27×395 g → unidades intactas → gramas abertas; Sorbato e Ácido Cítrico: pacote de 1 kg → 1.000 g abertos; Ivoti: balde 9,8 kg → 9.800 g abertos. Simulação aprovada **não autoriza movimento físico real**.
+
+**Referência de campo, sem movimentação:** relatório `RELATORIO_ENGENHARIA_P2_LACRADOS_4_FAMILIAS_PR423_2026-11-04` (Biblioteca do Projeto) informa última leitura pré-implementação: Italac 199.975 g; Sorbato 1.000 g; Ácido Cítrico 3.000 g; Ivoti 0 g. Não presumir existência/quantidade de embalagens lacradas a partir desses gramas. Nenhum saldo, mapping, pedido ou OP alterado nesta entrega. Guardas de PRs [#416](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/416) e [#418](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/418) preservadas; **PR #423 não implantou Cloud Run**.
+
+**Pendências reais:** (1) aprovação de Operações/Produto Mestre quanto a caixas originais Italac ML2 e embalagem de Ácido Cítrico atualmente cadastrada em kg; (2) análise de ledger físico por local e inventário/aferição de lacrados; (3) definição controlada de schema, adapter e RPCs de recebimento, abertura e expedição; (4) migration **não aplicada nesta entrega**, integração transacional ainda não feita e testes de RLS, autorização, idempotência, concorrência e rollback pendentes; (5) **P3 bloqueada**, **P4 postergada**. Não atribuir níveis E4/E5 por testes isolados.
+
+**Método vigente preservado:** Método Mestre do Laboratório V1.0 = referência superior; **Método Enxuto Especialista Mappings Shopee V2.2, congelado por aprovação expressa em 31/10/2026** = método operacional vigente, substituindo V2.1 na execução; V2.1 permanece histórico. Não reescrever os métodos ou matrizes.
+
+**Próxima ação única — Mappings Shopee 3:** recuperar o estado técnico atual e **coordenar com Operações/Produto Mestre a preparação e validação das transições físicas e seus registros por local**, aproveitando o contrato P2 já mesclado. Não antecipar migration, integração em produção, ajustes de estoque ou retirada de bloqueios. Integração Shopee 7 é autoridade sobre o runtime Hub; Operações/Produto Mestre sobre materialidade física e estoque.
+
+**Controle documental:** atualização da continuidade na mesma fonte F1/F2; o repasse do Especialista Mappings 2 e o relatório técnico de 04/11 permanecem fontes históricas de apoio. `Código/CI/merge ≠ migration/deploy/uso real`. **REGISTRAR ≠ DECIDIR.**
