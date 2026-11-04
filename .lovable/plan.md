@@ -1,18 +1,13 @@
-# Diagnóstico read-only — PR #411 nos webhooks WhatsApp
+# Respostas — mecanismo de deploy de Edge Function (somente leitura)
 
-## Resultado: NÃO COMPROVADO
+Nenhuma ação foi executada; nenhum arquivo do projeto, commit, branch ou deploy foi alterado.
 
-## Evidências coletadas (só leitura)
-- O checkout local está em `5f178ac08ea5fa39f5870efd3dbe0f0e1c2846f0` (commit às 16:29:40 UTC de 04/11/2026). Ele muda `whatsapp-meta-webhook`, `whatsapp-zapi-webhook`, `_shared/crm/webhook-event-guard.ts`, `outbound-operational.ts` e `zapi-connector.ts`.
-- Os logs acessíveis de `whatsapp-meta-webhook` mostram vários "booted". Os de hoje são às 16:29:12, 16:29:42 e 16:31:19 UTC. Um boot não traz ID de revisão nem hash de código.
-- O único aviso que aparece nos logs ("live context incremental update skipped…") já existia antes do PR (`5f178ac0~1`). Por isso ele não distingue a versão.
-- O código novo não grava nenhuma mensagem própria no log. As marcas novas (`duplicate_message`, `stale_message`, `conversation_changed_during_webhook`, `reaction_not_a_customer_message`) ficam só no banco ou na resposta HTTP. Para ler essas marcas seria preciso rodar SQL ou mandar uma chamada, e as duas coisas são proibidas aqui.
-- `whatsapp-zapi-webhook` não tinha nenhum log disponível.
-- As ferramentas disponíveis não mostram ID de deployment, revisão nem hash do código que está rodando nas funções.
+1. **Sim.** Os deploys anteriores de `shopee-review-auth` (30/09 e 01/10/2026) foram feitos pelo agente interno autenticado do Lovable, com a ferramenta nativa de deploy de Edge Function do backend. Não usaram o Supabase CLI. Antes de cada deploy, o agente comparou o arquivo do projeto com o commit aprovado.
 
-## Próximo passo mínimo (precisa de autorização separada)
-Escolha uma das opções:
-1. Um SELECT read-only nos registros de processamento do webhook depois das 16:29:40 UTC, procurando os novos motivos de `ignored`.
-2. Um redeploy isolado e explícito das duas funções a partir desse SHA, com registro de hash do pacote.
+2. **Não.** A ferramenta recebe apenas o nome da função. Ela não aceita branch, PR, SHA nem conteúdo de arquivo. Para publicar código de uma branch que não está na main, esse código precisa estar no projeto Lovable antes do deploy. Isso pode ser feito por sincronização do editor com a branch, como na F6-B, ou por gravação dos arquivos.
 
-Nesta etapa nada foi alterado.
+3. **Sim.** A ferramenta publica somente o código presente no projeto Lovable no momento do deploy. Isso inclui a pasta da função, os imports de `_shared` e o `supabase/config.toml` (por exemplo, `verify_jwt`).
+
+4. **Não.** O projeto não tem controle interno de deploy que aceite snapshot ou arquivo externo congelado sem editar o projeto. Para fixar uma fonte exata, há dois caminhos:
+   - sincronizar o editor com o SHA desejado e conferir o código byte a byte antes do deploy;
+   - fazer o deploy fora do Lovable, com outra ferramenta e credenciais próprias, o que fica fora deste ambiente.
