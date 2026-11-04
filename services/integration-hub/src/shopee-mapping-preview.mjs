@@ -93,6 +93,13 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
     && (maltoSku.startsWith('AF-MALT-')
       || itemId === '58211513468' || itemId === '22295380075')) return [];
 
+  // Rodada 1 V16 BL1/CS1/FR1/CP1: no legacy SKU/title fallback.
+  // CP1 historical 179728941455 must not alias current 239453506473.
+  const r1Sku = String(item.modelSku ?? item.itemSku ?? '').trim().toUpperCase();
+  if (scope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+    && (['22795004937','58212319829','22099402766','22299532770'].includes(itemId)
+      || /^(AF-BL6-|AF-CS13-|AF-FR-|AF-CP-)/.test(r1Sku))) return [];
+
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
     return identity.itemId === null && identity.modelId === null

@@ -1,3 +1,4 @@
+import { R1_V16_PROTECTED_MODELS, rodada1V16PhysicalBlocker } from './shopee-rodada1-v16-physical-guard.mjs';
 import { MALTO_ADAO_MODELS, maltoAdaoPhysicalBlocker } from './shopee-maltodextrina-adao-v14-guard.mjs';
 import { GLUCODRY_ADAO_MODELS, glucodryAdaoPhysicalBlocker } from './shopee-glucodry-adao-v13-guard.mjs';
 import { DU_PORTO_ADAO_V12_MODELS } from './shopee-po-sorvete-adao-v12-contract.mjs';
@@ -105,6 +106,9 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   }
   if (Object.hasOwn(MALTO_ADAO_MODELS, amendoimKey)) {
     return maltoAdaoPhysicalBlocker(item, components, scope, MALTO_ADAO_MODELS[amendoimKey]);
+  }
+  if (Object.hasOwn(R1_V16_PROTECTED_MODELS, amendoimKey)) {
+    return rodada1V16PhysicalBlocker(item, components, scope, R1_V16_PROTECTED_MODELS[amendoimKey]);
   }
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
   if (sealed) {
