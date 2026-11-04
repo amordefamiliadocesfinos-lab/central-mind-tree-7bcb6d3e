@@ -1,3 +1,4 @@
+import { r1V16UnresolvedBlocker } from './shopee-rodada1-v16-unresolved-guard.mjs';
 import { EMB2_MODELS, emb2PhysicalBlocker } from './shopee-rodada1-v16-emb2-guard.mjs';
 import { R1_V16_PROTECTED_MODELS, rodada1V16PhysicalBlocker } from './shopee-rodada1-v16-physical-guard.mjs';
 import { MALTO_ADAO_MODELS, maltoAdaoPhysicalBlocker } from './shopee-maltodextrina-adao-v14-guard.mjs';
@@ -114,6 +115,8 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   if (Object.hasOwn(EMB2_MODELS,amendoimKey)) {
     return emb2PhysicalBlocker(item,components,scope,EMB2_MODELS[amendoimKey]);
   }
+  const unresolved = r1V16UnresolvedBlocker(item,scope);
+  if (unresolved) return unresolved;
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
   if (sealed) {
     if (components.length !== 1) return 'sealed_composition_invalid';
