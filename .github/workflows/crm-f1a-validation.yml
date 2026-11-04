@@ -24,6 +24,11 @@ on:
       - 'src/components/crm/CampaignCreateDialog.tsx'
       - 'src/components/crm/CampaignManualQueue.tsx'
       - 'supabase/functions/whatsapp-send/index.ts'
+      - 'supabase/functions/whatsapp-meta-webhook/index.ts'
+      - 'supabase/functions/whatsapp-zapi-webhook/index.ts'
+      - 'supabase/functions/_shared/crm/webhook-event-guard*.ts'
+      - 'supabase/functions/_shared/crm/outbound-operational.ts'
+      - 'supabase/functions/_shared/whatsapp/zapi-connector.ts'
       - 'supabase/functions/crm-ai-assistant/index.ts'
       - 'supabase/functions/_shared/crm/reply-financial-guard.ts'
       - 'supabase/migrations/*crm_campaign_recipient_reconciliation.sql'
@@ -70,6 +75,7 @@ jobs:
         run: |
           status=0
           for file in \
+            supabase/functions/_shared/crm/webhook-event-guard.test.ts \
             src/lib/crm/contactEditContract.test.ts \
             src/lib/crm/attendanceCommandSafety.test.ts \
             src/lib/crm/attendanceCommandPresentation.test.ts \

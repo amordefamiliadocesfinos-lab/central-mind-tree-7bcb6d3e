@@ -4,6 +4,7 @@ import { getWhatsAppConnector } from '../_shared/whatsapp/meta-connector.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 import { applyInboundTemporalAuthority } from '../_shared/crm/temporal-authority-inbound.ts';
 import { applyOutboundOperationalEffects } from '../_shared/crm/outbound-operational.ts';
+import { decideCrmWebhookConversationEffect, guardCrmWebhookConversationMutation } from '../_shared/crm/webhook-event-guard.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -105,6 +106,13 @@ Deno.serve(async (req) => {
         await finish('processed'); processed++; continue;
       }
 
+      // Reações são metadados de mensagem, não novo atendimento P0.
+      if (evt.messageType === 'reaction') {
+        await finish('ignored', 'reaction_not_a_customer_message');
+        processed++;
+        continue;
+      }
+
       const phone = normalizeBrPhone(evt.contactPhoneRaw);
       if (!phone) { await finish('ignored', 'telefone inválido'); continue; }
       const inbound = evt.direction !== 'outbound';
@@ -182,23 +190,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Inbound real reativa o contato e, quando ele ainda nunca entrou no CRM,
-      // inicia a etapa canônica de Novo Lead. Etapas já existentes são preservadas.
-      if (inbound && contact) {
-        const contactPatch: Record<string, unknown> = {};
-        if (contact.is_active === false) contactPatch.is_active = true;
-        if (!contact.funnel_status && contact.type !== 'fornecedor') contactPatch.funnel_status = 'novo_lead';
-        if (Object.keys(contactPatch).length > 0) {
-          const updated = await supabase.from('contacts').update(contactPatch).eq('id', contact.id);
-          if (updated.error) throw updated.error;
-          contact = {
-            ...contact,
-            is_active: contactPatch.is_active === true ? true : contact.is_active,
-            funnel_status: typeof contactPatch.funnel_status === 'string' ? contactPatch.funnel_status : contact.funnel_status,
-          };
-        }
-      }
-
       // Repara conversa antiga sem contact_id quando o número agora pôde ser
       // resolvido de forma inequívoca.
       if (conversation && contact && conversation.contact_id !== contact.id) {
@@ -232,6 +223,20 @@ Deno.serve(async (req) => {
       }
 
       const now = evt.providerTimestamp ?? new Date().toISOString();
+      // Receipts e restrição de unicidade devem impedir também eco de envio
+      // já gravado em whatsapp-send, não só duplicação do próprio webhook.
+      if (evt.externalMessageId) {
+        const { data: stored, error: lookupError } = await supabase.from('service_messages')
+          .select('id').eq('conversation_id', conversation!.id)
+          .eq('external_message_id', evt.externalMessageId).limit(1).maybeSingle();
+        if (lookupError) throw lookupError;
+        if (stored) {
+          await finish('ignored', 'duplicate_message');
+          processed++;
+          continue;
+        }
+      }
+
       let mediaUrl: string | null = null;
       let mediaMimeType: string | null = evt.mediaMimeType ?? null;
       if (evt.mediaId && connector.downloadMedia) {
@@ -259,8 +264,50 @@ Deno.serve(async (req) => {
         media_caption: evt.mediaCaption ?? null,
       });
       if (messageError && messageError.code !== '23505') throw messageError;
+      if (messageError?.code === '23505') {
+        await finish('ignored', 'duplicate_message');
+        processed++;
+        continue;
+      }
+
+      // A inserção histórica não é permissão para reabrir a conversa. Releitura
+      // imediatamente antes do writer evita usar snapshot velho do webhook.
+      const { data: latest, error: latestError } = await supabase
+        .from('service_conversations')
+        .select('id,contact_id,unread_count,attendance_state,return_at,last_inbound_at,last_outbound_at,last_message_at,resolved_at,status,funnel_stage')
+        .eq('id', conversation!.id).maybeSingle();
+      if (latestError || !latest) throw latestError || new Error('Conversa indisponível');
+      const disposition = decideCrmWebhookConversationEffect({
+        direction: inbound ? 'inbound' : 'outbound',
+        messageType: evt.messageType,
+        occurredAt: now,
+        snapshot: latest,
+      });
+      if (!disposition.apply) {
+        await finish('ignored', disposition.reason);
+        processed++;
+        continue;
+      }
+
+      // Inbound real reativa o contato e, quando ele ainda nunca entrou no CRM,
+      // inicia a etapa canônica de Novo Lead. Etapas já existentes são preservadas.
+      if (inbound && contact) {
+        const contactPatch: Record<string, unknown> = {};
+        if (contact.is_active === false) contactPatch.is_active = true;
+        if (!contact.funnel_status && contact.type !== 'fornecedor') contactPatch.funnel_status = 'novo_lead';
+        if (Object.keys(contactPatch).length > 0) {
+          const updated = await supabase.from('contacts').update(contactPatch).eq('id', contact.id);
+          if (updated.error) throw updated.error;
+          contact = {
+            ...contact,
+            is_active: contactPatch.is_active === true ? true : contact.is_active,
+            funnel_status: typeof contactPatch.funnel_status === 'string' ? contactPatch.funnel_status : contact.funnel_status,
+          };
+        }
+      }
+
       if (inbound) {
-        const { error: conversationError } = await supabase.from('service_conversations').update({
+        let mutation = supabase.from('service_conversations').update({
           last_message_at: now,
           ...(contact?.funnel_status ? { funnel_stage: contact.funnel_status } : {}),
           last_inbound_at: now,
@@ -268,30 +315,37 @@ Deno.serve(async (req) => {
           status: 'open',
           resolved_at: null,
           attendance_state: 'responder',
-          unread_count: (conversation!.unread_count ?? 0) + 1,
+          unread_count: (latest.unread_count ?? 0) + 1,
           last_message_preview: (evt.content ?? '').slice(0, 100),
-        }).eq('id', conversation!.id);
+        }).eq('id', latest.id);
+        mutation = guardCrmWebhookConversationMutation(mutation, latest);
+        const { data: confirmed, error: conversationError } = await mutation.select('id').maybeSingle();
         if (conversationError) throw conversationError;
+        if (!confirmed) {
+          await finish('ignored', 'conversation_changed_during_webhook');
+          processed++;
+          continue;
+        }
 
         await applyInboundTemporalAuthority(supabase, {
-          contactId: conversation?.contact_id ?? contact?.id ?? null,
-          conversationId: conversation!.id,
+          contactId: latest.contact_id ?? contact?.id ?? null,
+          conversationId: latest.id,
           occurredAt: now,
         });
         await refreshLiveContextAfterEvent(supabase, {
-          contactId: conversation?.contact_id ?? contact?.id,
+          contactId: latest.contact_id ?? contact?.id,
           type: 'inbound',
           occurredAt: now,
           summary: `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}`,
         });
       } else {
-        // Coexistência Meta: mensagem enviada pelo WhatsApp do celular passa
-        // pelo mesmo fato operacional do envio feito dentro do CRM.
+        // Eco móvel: escritor existente, porém condicionado ao estado vigente.
         await applyOutboundOperationalEffects(supabase, {
-          conversation: conversation!,
+          conversation: { ...conversation!, ...latest },
           occurredAt: now,
           preview: evt.content ?? '',
           summaryText: evt.content ?? '',
+          webhookSnapshot: latest,
         });
       }
       await finish('processed'); processed++;
