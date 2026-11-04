@@ -272,9 +272,13 @@ export async function suggestCrmReplyFromContext(
     ? pendingUnsupportedLiveData(context.messages)
     : null;
   if (unsupportedLiveData?.kind === 'current_price') {
-    const text = (context.messages ?? []).filter(message => message.direction === 'inbound')
-      .slice(-3).map(message => String(message.content ?? '')).join(' ')
-      .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+    const pending: string[] = [];
+    for (let index = (context.messages?.length ?? 0) - 1; index >= 0; index -= 1) {
+      const message = context.messages[index];
+      if (message.direction === 'outbound') break;
+      if (message.direction === 'inbound') pending.unshift(String(message.content ?? ''));
+    }
+    const text = pending.join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     if (/trufas?/.test(text) && /valor|preco/.test(text) && /sabores?/.test(text)) {
       try {
         const { data, error } = await supabase.from('digital_knowledge_base')
