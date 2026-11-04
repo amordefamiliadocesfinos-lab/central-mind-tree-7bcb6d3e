@@ -1,3 +1,4 @@
+import {italacR2V17ReservedIdentity} from './shopee-rodada2-v17-italac-guard.mjs';
 import {r2RequiresOfficialIdentity} from './shopee-rodada2-sealed-1kg-guard.mjs';
 import { mappingPhysicalBlocker } from './shopee-mapping-physical-guard.mjs';
 
@@ -110,6 +111,10 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
   // Rodada 2: official published Item+Model only. Never fall back to
   // a title/SKU alias for these active or banned historical listings.
   if(r2RequiresOfficialIdentity(item,scope))return [];
+
+  // R2 V17 Italac: preserve published historical ML1 models and original ML2.
+  // Reject legacy SKU/title aliases, unknown models, and cross-listing guesses.
+  if(italacR2V17ReservedIdentity(item,scope))return [];
 
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
