@@ -39,7 +39,7 @@ export function getUnsupportedCrmLiveDataRequirement(
   if (/\b(desconto|promocao|oferta|condicao especial)\b/.test(text)) {
     return { kind: 'current_discount', reason: 'Desconto/condição comercial atual deve vir da fonte comercial viva.' };
   }
-  if (/\b(preco|valor|quanto custa|quanto sai|tabela de preco|tabela de valor)\b/.test(text)) {
+  if (/\b(precos?|valor(?:es)?|quanto custa|quanto sai|tabela de precos?|tabela de valores?)\b/.test(text)) {
     return { kind: 'current_price', reason: 'Preço/valor vigente deve vir da fonte comercial viva.' };
   }
 
