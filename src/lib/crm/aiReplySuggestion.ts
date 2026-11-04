@@ -287,7 +287,7 @@ export async function suggestCrmReplyFromContext(
         if (error) throw error;
         const types = data?.find(row => row.question === 'Quais tipos de trufa vocês trabalham?')?.answer;
         const flavors = data?.find(row => row.question === 'Quais sabores de trufa vocês trabalham?')?.answer;
-        if (types && flavors && !/R\\$/.test(types + flavors)) {
+        if (types && flavors && !/R\$/.test(types + flavors)) {
           const reply = `Olá! ${types} ${flavors} Para informar os valores, preciso confirmar a tabela comercial vigente. Você procura para consumo ou revenda?`;
           return { reply, message: reply, reason: 'Sabores e linhas na base oficial; preços não confirmados.', rationale: 'Resposta parcial verificada.', tone: 'consultivo', intent: 'answer', length: 'medium' };
         }
