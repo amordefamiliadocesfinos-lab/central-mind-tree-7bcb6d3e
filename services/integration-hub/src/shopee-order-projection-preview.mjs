@@ -1,3 +1,4 @@
+import { MALTO_ADAO_ACCOUNT_ID, MALTO_ADAO_MODELS, MALTO_MD1_PRESENTATION_ID, MALTO_MD2_PRESENTATION_ID } from './shopee-maltodextrina-adao-v14-guard.mjs';
 import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID, GLUCODRY_ADAO_ACCOUNT_ID } from './shopee-glucodry-adao-v13-guard.mjs';
 function nullableText(value) {
   const normalized = String(value ?? '').trim();
@@ -45,6 +46,10 @@ function sealedPresentationId(item, channelAccountId) {
   if (channelAccountId === GLUCODRY_ADAO_ACCOUNT_ID && Object.hasOwn(GLUCODRY_ADAO_MODELS, key)) {
     return GLUCODRY_ADAO_MODELS[key].kind === 'sealed_sack'
       ? GLUCODRY_GD2_PRESENTATION_ID : GLUCODRY_GD1_PRESENTATION_ID;
+  }
+  if (channelAccountId === MALTO_ADAO_ACCOUNT_ID && Object.hasOwn(MALTO_ADAO_MODELS, key)) {
+    return MALTO_ADAO_MODELS[key].kind === 'sealed_sack'
+      ? MALTO_MD2_PRESENTATION_ID : MALTO_MD1_PRESENTATION_ID;
   }
   return CURRENT_SEALED_PRESENTATIONS[key] ?? null;
 }

@@ -86,6 +86,13 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
     && (glucodrySku.startsWith('AF-GLDR-')
       || itemId === '23194995930' || itemId === '58272221478')) return [];
 
+  // Maltodextrina Adão V14: only the published Item+Model pair may resolve.
+  // An old seller SKU/title must not reinterpret one of these five models.
+  const maltoSku = String(item.modelSku ?? item.itemSku ?? '').trim().toUpperCase();
+  if (scope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+    && (maltoSku.startsWith('AF-MALT-')
+      || itemId === '58211513468' || itemId === '22295380075')) return [];
+
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
     return identity.itemId === null && identity.modelId === null
