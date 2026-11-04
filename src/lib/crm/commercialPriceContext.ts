@@ -18,7 +18,7 @@ const DIRECT_TRUFFLE_NAMES = ['TRUFA ARTESANAL 30G', 'TRUFA ARTESANAL 40G'] as c
 function positivePrice(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 && Math.round(n * 100) === n * 100 ? n : null;
+  return Number.isFinite(n) && n > 0 && Math.abs(Math.round(n * 100) - n * 100) < 0.000001 ? n : null;
 }
 
 export function getVerifiedDirectTrufflePrices(rows: CrmCommercialPriceRow[]): string | null {
