@@ -1,3 +1,4 @@
+import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID } from './shopee-glucodry-adao-v13-guard.mjs';
 function nullableText(value) {
   const normalized = String(value ?? '').trim();
   return normalized === '' ? null : normalized;
@@ -40,7 +41,12 @@ const CURRENT_SEALED_PRESENTATIONS = Object.freeze({
   '58211774121|199622620371':'a3400000-0000-4000-8000-000000002400',
 });
 function sealedPresentationId(item) {
-  return CURRENT_SEALED_PRESENTATIONS[String(item?.itemId)+'|'+String(item?.modelId)] ?? null;
+  const key = String(item?.itemId)+'|'+String(item?.modelId);
+  if (Object.hasOwn(GLUCODRY_ADAO_MODELS, key)) {
+    return GLUCODRY_ADAO_MODELS[key].kind === 'sealed_sack'
+      ? GLUCODRY_GD2_PRESENTATION_ID : GLUCODRY_GD1_PRESENTATION_ID;
+  }
+  return CURRENT_SEALED_PRESENTATIONS[key] ?? null;
 }
 
 function buildProjectionLines(item) {
