@@ -71,3 +71,14 @@ Não adicionar colunas, tabelas, flags ou filtros em produção apenas para repr
 5. Rever este método após evidências de uso real; evitar auditorias repetidas e documentação paralela concorrente.
 
 **Fontes de diretriz consultadas:** `DIRETRIZ_PRIORIDADE_CICLO_FUNCIONAL_SHOPEE_PAINEL_CENTRAL_2026-10-20_V1_0`; `ARQUITETURA_MESTRE_SHOPEE_PAINEL_CENTRAL_V1_0_CONGELADA`; `DIRETRIZ_GOVERNANCA_GITHUB_LOVABLE_SUPABASE_CODEX_PAINEL_CENTRAL_V1.0`. Este registro complementa as diretrizes, sem substituí-las.
+
+## Checkpoint de transferência — Catálogo Operacional 2 → Sucessor 3 (04/11/2026)
+
+- **Marco confirmado:** contrato P2 isolado de simulação das transições físicas de Italac 395 g, Sorbato 1 kg, Ácido Cítrico 1 kg e Ivoti 9,8 kg, mesclado pela [PR #423](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/423), SHA `b17ef492031f60743bff35f2ee5b503fa40de502`; CI 3/3 aprovado. Evidência: relatório técnico de 04/11/2026.
+- **Alcance:** contrato puro de simulação e testes isolados aprovados, sem integração com API/webhook/banco, sem deploy Cloud Run e sem homologação da transição física real. P2 contratual não equivale à integração P2 completa.
+- **Pendências:** integração transacional, decisão de schema/RPCs, migration não aplicada, testes de autorização, RLS, idempotência, concorrência e rollback, e homologação física por Operações/Produto Mestre; **P3 bloqueada e P4 postergada**. Não declarar E4/E5.
+- **Preservações:** nenhum saldo, mapping, pedido ou OP alterado nesta missão; não inferir estoque lacrado de saldo agregado nem antecipar migration, COMMIT ou ajuste de estoque. Proteções #416/#418 preservadas.
+- **Métodos vigentes:** Método Mestre do Laboratório V1.0 (superior) e Método Enxuto Especialista Mappings Shopee V2.2 (congelado); não modificar estes métodos nem criar registro paralelo.
+- **Próxima ação do Sucessor 3:** recuperar o estado atual e coordenar com Operações/Produto Mestre a confirmação das caixas Italac/ML2 originais, apresentação cadastrada do Ácido Cítrico e ledger físico autorizado por local; preparar decisões e transições físicas para eventual missão posterior especificamente autorizada, sem movimentar estoque.
+
+**Natureza:** checkpoint datado de transferência, sem revogar o histórico anterior nem alterar autoridades.
