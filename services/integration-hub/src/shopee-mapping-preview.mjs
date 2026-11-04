@@ -1,3 +1,4 @@
+import {r2RequiresOfficialIdentity} from './shopee-rodada2-sealed-1kg-guard.mjs';
 import { mappingPhysicalBlocker } from './shopee-mapping-physical-guard.mjs';
 
 function normalizeKeyText(value) {
@@ -105,6 +106,10 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
     && (['21599903629','58222235000','22694563769'].includes(itemId)
     || r1UnresolvedSku.startsWith('AF-IVOTI-')
     || r1UnresolvedSku.startsWith('AF-EMB-')))return [];
+
+  // Rodada 2: official published Item+Model only. Never fall back to
+  // a title/SKU alias for these active or banned historical listings.
+  if(r2RequiresOfficialIdentity(item,scope))return [];
 
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
