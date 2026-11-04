@@ -79,6 +79,13 @@ function findMappingCandidates(item, mappings, scope, legacyKey) {
   if (scope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
     && chocoimSku.startsWith('AF-CHIM-')) return [];
 
+  // Glucodry Adão V13: official Item/Model is authoritative; a seller SKU
+  // must not silently reinterpret an unknown model, historical order or GD2 sack.
+  const glucodrySku = String(item.modelSku ?? item.itemSku ?? '').trim().toUpperCase();
+  if (scope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+    && (glucodrySku.startsWith('AF-GLDR-')
+      || itemId === '23194995930' || itemId === '58272221478')) return [];
+
   return scoped.filter((mapping) => {
     const identity = officialMappingIdentity(mapping);
     return identity.itemId === null && identity.modelId === null
