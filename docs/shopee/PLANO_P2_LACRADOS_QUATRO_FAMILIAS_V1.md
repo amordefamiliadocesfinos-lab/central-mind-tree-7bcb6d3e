@@ -1,0 +1,42 @@
+# P2 — Contrato único de embalagens originais (proposta técnica, sem migração)
+
+**Projeto:** Painel Central / Shopee Adão · **Método:** Enxuto V2.2 · **Escopo:** Italac, Sorbato, Ácido Cítrico, Ivoti.
+
+## Estado de origem (leitura LIVE, 04/11/2026)
+
+| Família | Produto Mestre | Saldo legado em g (Fábrica) | Identidade comercial |
+| --- | --- | ---: | --- |
+| Italac | 0d1fb8c8-4938-4bbf-b8f0-b0a525c78d9b | 199975 | ML1: 3/6/9/12 embalagens 395 g; ML2: **caixa original** 27×395 g |
+| Sorbato | 6f43ad65-74d5-4db9-b931-1ecd6d124987 | 1000 | pacote original 1 kg |
+| Ácido | ef118d1c-e7c7-45e3-b796-3a9908840f3c | 3000 | pacote original 1 kg (cadastro comercial atual: «kg»; divergência pendente) |
+| Ivoti | d913f0f2-4893-4985-9976-fcd9119a57b1 | 0 | balde original 9,8 kg |
+
+Os saldos são registros do sistema; **não são prova de lacres**. Permanecem absolutamente inalterados. Não há inventário nem autorização para converter esses registros. O saldo Italac de 199975 g tampouco é múltiplo de 395 g.
+
+## Artefato desta entrega
+
+`services/integration-hub/src/sealed-four-families-p2-contract.mjs` é um **planner puro, sem integração com banco, API ou webhook**. Recebe snapshot *de teste* representando um futuro ledger fisicamente conferido e retorna uma proposta de transição; uma resposta `allowed: true` **não autoriza** execução em produção.
+
+- Italac: caixa original intacta → 27 unidades intactas → 395 g abertos (etapas físicas independentes). Kits ML1 consomem unidades intactas; ML2 consome **caixa original**. É proibido recompor «caixa original» a partir de 27 unidades soltas.
+- Sorbato/Ácido: pacote original → 1000 g abertos.
+- Ivoti: balde original → 9800 g abertos.
+- Rejeitar operação não prevista, quantidade fracionária/não inteira, falta de evidência física, saldo insuficiente, identidade/local divergente. Nunca deduzir embalagem fechada de `inventory.quantity`, preço, Seller Center ou título do anúncio.
+- `verifiedSnapshot.source` é apenas um sinal **simulado** neste arquivo; não é autenticação, conferência física nem fonte confiável. **Nunca usar este planner como autorização de escrita**. Nenhum caminho produtivo o chama.
+
+## Reuso obrigatório na engenharia posterior (sujeito à aprovação)
+
+Consultar o código LIVE das funções `confirm_purchase_receipt_unguarded_01b` e `apply_order_stock_event` e as estruturas `maltodextrina_sealed_stock`, `maltodextrina_sealed_events`, `maltodextrina_move_sealed_internal`, além das equivalentes para Amendoim/Glucodry/Chocolate/Trufa. Reutilizar os princípios: FK localização, RLS/REVOKE, entradas autenticadas por papel, evento único idempotente, locks de transação, saldos inteiros não negativos, recibos/expedições atômicos e trilha de auditoria.
+
+**Ponto de decisão arquitetural:** aproveitar os padrões da fundação existente, mas não copiar sem revisão, nem criar tabelas por produto antes de avaliar modelo canônico parametrizado e compatibilidade com operações já implantadas. Se um ledger unificado for adotado, ele deve distinguir identidade do recipiente original e unidade física, sem permitir `caixa ML2` ser suprida de unidades ML1.
+
+### Portões de homologação (não executados)
+
+1. Produto Mestre e Operações validam as identidades físicas, especialmente ML2 «original lacrado» e Ácido «pacote» versus cadastro `kg`.
+2. Inventário físico futuro identifica por local as embalagens realmente intactas (não é pré-condição para projetar e testar código isolado, mas é pré-condição para afirmar quantidades reais ou migrá-las).
+3. Banco/Integração definem controle canônico e revisão de funções/GRANTs/RLS, e preparam migration **não aplicada**, com rollback e testes PostgreSQL.
+4. Ensaios transacionais em ambiente seguro: recebimento original, abertura, expedição, concorrência, repetição de `event_key`, falta de saldo, permissões, localização, saldo legado intacto e diferença ML1/ML2.
+5. Autorização específica de migration, separada da autorização de COMMIT P3 de mappings. **P4 permanece postergada.**
+
+## Fora do escopo desta entrega
+
+Sem migration, deploy, tabela, RPC, processamento de pedidos, movimentação de estoque, ajuste de 199975/1000/3000/0 g, escrita de mapping, liberação das quarentenas P2 existentes ou validação P4. Não reabrir a Rodada 1 V16 já concluída (26/27).
