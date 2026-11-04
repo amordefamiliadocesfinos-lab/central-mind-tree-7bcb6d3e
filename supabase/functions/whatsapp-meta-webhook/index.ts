@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
 
       if (evt.eventType === 'status') {
         await supabase.from('service_messages').update({
-          delivery_status: evt.content, provider_timestamp: evt.providerTimestamp,
+          // Status de entrega/leitura não é a data da mensagem original.
+          // Preservar provider_timestamp para ordenação e autoridade temporal do CRM.
+          delivery_status: evt.content,
           error_code: evt.errorCode ?? null,
         }).eq('provider_name', evt.providerName).eq('provider_instance_ref', evt.providerInstanceRef).eq('external_message_id', evt.externalMessageId);
         await finish('processed'); processed++; continue;
