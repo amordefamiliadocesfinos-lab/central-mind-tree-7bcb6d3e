@@ -389,7 +389,31 @@ export async function snoozeAttendance(input: { contactId: string; conversationI
   if (typeof input.when === 'number') { target.setDate(target.getDate() + input.when); target.setHours(9, 0, 0, 0); }
   if (Number.isNaN(target.getTime())) throw new Error('Data inválida');
   const returnAt = target.toISOString();
-  await setCrmNextAction({ contactId: input.contactId, title: 'Retomar atendimento', dueAt: returnAt, conversationId: input.conversationId, syncConversationReturn: true });
+
+  // Adiar altera quando agir, não a finalidade da Próxima Ação oficial.
+  // A tarefa ativa é a fonte executável; o cadastro é fallback apenas quando
+  // ainda contém uma ação datada. Não recuperar títulos legados sem obrigação.
+  const [{ data: officialTasks, error: taskError }, { data: contact, error: contactError }] = await Promise.all([
+    supabase.from('tasks')
+      .select('title')
+      .eq('contact_id', input.contactId)
+      .eq('source', 'crm_next_action')
+      .is('deleted_at', null)
+      .neq('status', 'concluído')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase.from('contacts')
+      .select('next_action_text, next_action_date')
+      .eq('id', input.contactId)
+      .maybeSingle(),
+  ]);
+  if (taskError) throw taskError;
+  if (contactError || !contact) throw contactError || new Error('Contato não encontrado');
+  const activeTaskTitle = officialTasks?.[0]?.title?.trim();
+  const contactActionTitle = contact.next_action_date ? contact.next_action_text?.trim() : null;
+  const title = activeTaskTitle || contactActionTitle || 'Retomar atendimento';
+
+  await setCrmNextAction({ contactId: input.contactId, title, dueAt: returnAt, conversationId: input.conversationId, syncConversationReturn: true });
   if (input.conversationId) {
     const { error } = await supabase.from('service_conversations').update({ attendance_state: 'retornar_em', return_at: returnAt, needs_reply: false }).eq('id', input.conversationId);
     if (error) throw error;
