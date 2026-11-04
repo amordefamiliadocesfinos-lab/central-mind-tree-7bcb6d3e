@@ -1872,6 +1872,12 @@ export default function ContatosInbox() {
                       {orientationExpanded ? 'Recolher' : 'Detalhes'} <ChevronDown className={cn('ml-1 h-3 w-3 transition-transform', orientationExpanded && 'rotate-180')} />
                     </Button>
                   </div>
+                  {/* A regra operacional deve estar visível sem exigir que o operador abra Detalhes. */}
+                  {selectedOrientation.mode !== 'waiting' && (
+                    <p className="mt-1 text-[11px] leading-relaxed text-foreground/80" aria-label="Próximo passo recomendado">
+                      <span className="font-semibold">Próximo passo: </span>{selectedOrientation.explanation}
+                    </p>
+                  )}
                   {selectedOrientation.handoffUnverified && !orientationExpanded && (
                     <p className="mt-1 text-amber-700 dark:text-amber-300">Atenção: continuidade operacional ainda não verificada. Consulte os detalhes.</p>
                   )}
