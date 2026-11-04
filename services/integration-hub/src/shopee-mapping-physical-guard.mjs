@@ -1,3 +1,4 @@
+import {R1_EMB2_LEITE_KEY,R1_EMB1_MIX_KEY,r1EmballagePhysicalBlocker} from './shopee-rodada1-v16-leite-mix-guard.mjs';
 import { r1V16UnresolvedBlocker } from './shopee-rodada1-v16-unresolved-guard.mjs';
 import { EMB2_MODELS, emb2PhysicalBlocker } from './shopee-rodada1-v16-emb2-guard.mjs';
 import { R1_V16_PROTECTED_MODELS, rodada1V16PhysicalBlocker } from './shopee-rodada1-v16-physical-guard.mjs';
@@ -115,6 +116,8 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   if (Object.hasOwn(EMB2_MODELS,amendoimKey)) {
     return emb2PhysicalBlocker(item,components,scope,EMB2_MODELS[amendoimKey]);
   }
+  if(amendoimKey===R1_EMB2_LEITE_KEY || amendoimKey===R1_EMB1_MIX_KEY)
+    return r1EmballagePhysicalBlocker(item,components,scope);
   const unresolved = r1V16UnresolvedBlocker(item,scope);
   if (unresolved) return unresolved;
   const sealed = SEALED[String(item?.itemId)+'|'+String(item?.modelId)];
