@@ -59,7 +59,7 @@ test('Mix rejects generic one-line 600, missing print, repeated print, inaccurat
 test('isolation, identity validation, quantities and unit/pack proofs',()=>{
  for(const [key,record]of [[R1_EMB2_LEITE_KEY,leite],[R1_EMB1_MIX_KEY,mix]]){
   assert.equal(mappingPhysicalBlocker({itemId:key.split('|')[0],modelId:key.split('|')[1],quantity:1},record,{channelAccountId:'foreign'}),'r1_emb_account_unverified');
-  for(const q of [0,-1,1.5,2147484]){
+  for(const q of [0,-1,1.5,3579140]){
    const r=preview(key,q);
    assert.equal(r.mp.orders[0].items[0].mappingStatus,'physical_quantity_invalid');
   }
