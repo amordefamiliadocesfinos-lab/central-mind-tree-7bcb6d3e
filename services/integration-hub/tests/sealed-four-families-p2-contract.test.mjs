@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {SEALED_FAMILY_CONTRACTS,planSealedPhysicalTransition,getSealedFamilyOperations} from '../src/sealed-four-families-p2-contract.mjs';
 
 const snapshot=(family,balances)=>({
- source:'verified_sealed_ledger',productId:SEALED_FAMILY_CONTRACTS[family].productId,
+ source:'verified_sealed_ledger',productId:SEALED_FAMILY_CONTRACTS[family]?.productId ?? 'unknown-product',
  locationId:'factory',hasOpenPhysicalInventoryReconciled:true,balances,
 });
 const plan=(family,operation,count,balances,extra={})=>planSealedPhysicalTransition({
