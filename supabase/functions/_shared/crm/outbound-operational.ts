@@ -4,6 +4,7 @@ import {
   setOfficialCrmNextAction,
 } from './official-next-action.ts';
 import { refreshLiveContextAfterEvent } from './live-context.ts';
+import { guardCrmWebhookConversationMutation, type CrmWebhookConversationSnapshot } from './webhook-event-guard.ts';
 
 export type OutboundConversationSnapshot = {
   id: string;
@@ -54,15 +55,17 @@ export async function applyOutboundOperationalEffects(
     occurredAt: string;
     preview: string;
     summaryText?: string | null;
+    /** Somente ecos de webhook: impedem reabrir após Concluir/Resultado concorrente. */
+    webhookSnapshot?: CrmWebhookConversationSnapshot;
   },
-): Promise<{ automaticFollowUpScheduled: boolean | null; preservedExistingObligation: boolean }> {
+): Promise<{ automaticFollowUpScheduled: boolean | null; preservedExistingObligation: boolean; ignored?: boolean }> {
   const { conversation } = input;
   const occurredAt = Number.isNaN(Date.parse(input.occurredAt))
     ? new Date().toISOString()
     : input.occurredAt;
   const preview = String(input.preview ?? '').slice(0, 100);
 
-  const { error: conversationError } = await supabase
+  let mutation = supabase
     .from('service_conversations')
     .update({
       last_message_at: occurredAt,
@@ -73,9 +76,12 @@ export async function applyOutboundOperationalEffects(
       attendance_state: 'aguardando_cliente',
       status: 'open',
       resolved_at: null,
-    })
-    .eq('id', conversation.id);
+    }).eq('id', conversation.id);
+  if (input.webhookSnapshot) mutation = guardCrmWebhookConversationMutation(mutation, input.webhookSnapshot);
+  const { data: updated, error: conversationError } = await mutation.select('id').maybeSingle();
   if (conversationError) throw conversationError;
+  // Um Resultado/Concluir concorrente ganhou autoridade: não gerar follow-up.
+  if (!updated) return { automaticFollowUpScheduled: null, preservedExistingObligation: false, ignored: true };
 
   if (!conversation.contact_id) {
     return { automaticFollowUpScheduled: null, preservedExistingObligation: false };

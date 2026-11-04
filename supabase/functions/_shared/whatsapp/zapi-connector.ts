@@ -83,6 +83,9 @@ export class ZApiWhatsAppConnector implements WhatsAppConnector {
     } else if (p.document) {
       messageType = 'document';
       content = MEDIA_PLACEHOLDERS.document;
+    } else if (p.reaction) {
+      messageType = 'reaction';
+      content = 'Reação recebida';
     } else if (p.sticker) {
       messageType = 'sticker';
       content = MEDIA_PLACEHOLDERS.sticker;

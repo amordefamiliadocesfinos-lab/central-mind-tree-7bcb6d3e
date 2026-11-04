@@ -4,6 +4,7 @@ import { normalizeBrPhone } from '../_shared/whatsapp/connector.ts';
 import { getWhatsAppConnector } from '../_shared/whatsapp/zapi-connector.ts';
 import { refreshLiveContextAfterEvent } from '../_shared/crm/live-context.ts';
 import { applyInboundTemporalAuthority } from '../_shared/crm/temporal-authority-inbound.ts';
+import { decideCrmWebhookConversationEffect, guardCrmWebhookConversationMutation } from '../_shared/crm/webhook-event-guard.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -153,6 +154,11 @@ Deno.serve(async (req) => {
   };
 
   try {
+    if (evt.messageType === 'reaction') {
+      await finish('ignored', 'reaction_not_a_customer_message');
+      return json({ ignored: true, reason: 'reaction' });
+    }
+
     const phone = normalizeBrPhone(evt.contactPhoneRaw);
     if (!phone) {
       await finish('ignored', 'telefone inválido');
@@ -227,7 +233,7 @@ Deno.serve(async (req) => {
     }
 
     const inbound = evt.direction === 'inbound';
-    const nowIso = new Date().toISOString();
+    const eventAt = evt.providerTimestamp ?? new Date().toISOString();
 
     const { error: msgErr } = await supabase.from('service_messages').insert({
       conversation_id: conversationId,
@@ -245,26 +251,47 @@ Deno.serve(async (req) => {
     });
 
     if (msgErr && msgErr.code !== '23505') throw new Error(`mensagem: ${msgErr.message}`);
+    if (msgErr?.code === '23505') {
+      await finish('ignored', 'duplicate_message');
+      return json({ ok: true, duplicate_message: true });
+    }
+
+    const { data: latest, error: latestError } = await supabase
+      .from('service_conversations')
+      .select('id,last_message_at,last_inbound_at,last_outbound_at,resolved_at,status')
+      .eq('id', conversationId).maybeSingle();
+    if (latestError || !latest) throw latestError || new Error('Conversa indisponível');
+    const disposition = decideCrmWebhookConversationEffect({
+      direction: inbound ? 'inbound' : 'outbound',
+      messageType: evt.messageType,
+      occurredAt: eventAt,
+      snapshot: latest,
+    });
+    if (!disposition.apply) {
+      await finish('ignored', disposition.reason);
+      return json({ ok: true, ignored: disposition.reason });
+    }
 
     const preview = (evt.content ?? '').slice(0, 100);
-    const { error: conversationError } = await supabase
-      .from('service_conversations')
-      .update({
-        last_message_at: nowIso,
-        last_message_preview: preview,
-        needs_reply: inbound,
-        ...(inbound
-          ? { last_inbound_at: nowIso, status: 'open', resolved_at: null, attendance_state: 'responder' }
-          : { last_outbound_at: nowIso }),
-      })
-      .eq('id', conversationId);
+    let mutation = supabase.from('service_conversations').update({
+      last_message_at: eventAt,
+      last_message_preview: preview,
+      needs_reply: inbound,
+      ...(inbound
+        ? { last_inbound_at: eventAt, status: 'open', resolved_at: null, attendance_state: 'responder' }
+        : { last_outbound_at: eventAt }),
+    }).eq('id', conversationId);
+    mutation = guardCrmWebhookConversationMutation(mutation, latest);
+    const { data: confirmed, error: conversationError } = await mutation.select('id').maybeSingle();
     if (conversationError) throw conversationError;
+    if (!confirmed) {
+      await finish('ignored', 'conversation_changed_during_webhook');
+      return json({ ok: true, ignored: 'conversation_changed_during_webhook' });
+    }
 
     if (inbound && conversationId) {
       await applyInboundTemporalAuthority(supabase, {
-        contactId,
-        conversationId,
-        occurredAt: nowIso,
+        contactId, conversationId, occurredAt: eventAt,
       });
     }
 
@@ -279,12 +306,12 @@ Deno.serve(async (req) => {
     await refreshLiveContextAfterEvent(supabase, {
       contactId,
       type: inbound ? 'inbound' : 'outbound',
-      occurredAt: nowIso,
+      occurredAt: eventAt,
       summary: inbound ? `Mensagem recebida: ${(evt.content ?? '').slice(0, 240)}` : undefined,
     });
 
     await finish('processed');
-    return json({ ok: true, duplicate_message: msgErr?.code === '23505' });
+    return json({ ok: true, duplicate_message: false });
   } catch (e) {
     const message = (e as Error).message;
     console.error('webhook processing error', message);
