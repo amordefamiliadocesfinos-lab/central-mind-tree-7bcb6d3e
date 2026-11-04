@@ -1314,6 +1314,22 @@ export default function ContatosInbox() {
       setOperationalHandoff(result.handoffPending ? { resultCode, label: result.label } : null);
       const refreshedItems = await load();
       if (refreshedItems === null) return;
+      // Um Resultado classifica o fato comercial, mas não substitui resposta
+      // pendente do cliente. Em sessão de fila, não avançar até que o envio
+      // seja efetivamente registrado (ou a obrigação seja resolvida).
+      const currentAfterResult = refreshedItems.find(item => item.id === selected.id);
+      if (currentAfterResult?.needs_reply && currentAfterResult.status !== 'resolved') {
+        toast.message('Resultado registrado. Falta responder ao cliente antes de avançar.', {
+          description: 'O atendimento permanece em P0; prepare e envie a resposta pelo canal oficial.',
+        });
+        setReplyFocusRequest({
+          id: ++actionRequestSequenceRef.current,
+          contactId: currentAfterResult.id,
+          conversationId: currentAfterResult.conversation_id ?? null,
+          prepareAssistant: false,
+        });
+        return;
+      }
       if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems, true);
     } catch (error) {
       console.error(error);
