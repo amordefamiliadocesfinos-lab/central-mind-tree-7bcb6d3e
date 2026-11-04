@@ -1,4 +1,4 @@
-import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID } from './shopee-glucodry-adao-v13-guard.mjs';
+import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID, GLUCODRY_ADAO_ACCOUNT_ID } from './shopee-glucodry-adao-v13-guard.mjs';
 function nullableText(value) {
   const normalized = String(value ?? '').trim();
   return normalized === '' ? null : normalized;
@@ -40,16 +40,16 @@ const CURRENT_SEALED_PRESENTATIONS = Object.freeze({
   '23899479158|209190157983':'c8b30000-0000-4000-8000-000000000001',
   '58211774121|199622620371':'a3400000-0000-4000-8000-000000002400',
 });
-function sealedPresentationId(item) {
+function sealedPresentationId(item, channelAccountId) {
   const key = String(item?.itemId)+'|'+String(item?.modelId);
-  if (Object.hasOwn(GLUCODRY_ADAO_MODELS, key)) {
+  if (channelAccountId === GLUCODRY_ADAO_ACCOUNT_ID && Object.hasOwn(GLUCODRY_ADAO_MODELS, key)) {
     return GLUCODRY_ADAO_MODELS[key].kind === 'sealed_sack'
       ? GLUCODRY_GD2_PRESENTATION_ID : GLUCODRY_GD1_PRESENTATION_ID;
   }
   return CURRENT_SEALED_PRESENTATIONS[key] ?? null;
 }
 
-function buildProjectionLines(item) {
+function buildProjectionLines(item, channelAccountId) {
   if (item?.mappingStatus !== 'recognized' || !Array.isArray(item.components) || item.components.length === 0) {
     return [];
   }
@@ -67,7 +67,7 @@ function buildProjectionLines(item) {
     itemId: nullableText(item.itemId),
     modelId: nullableText(item.modelId),
     mappingId: nullableText(item.mappingId),
-    commercialPresentationId: sealedPresentationId(item) ?? nullableText(component.commercialPresentationId),
+    commercialPresentationId: sealedPresentationId(item, channelAccountId) ?? nullableText(component.commercialPresentationId),
     compositionPosition: Number.isFinite(Number(component.position)) ? Number(component.position) : index,
   }));
 }
@@ -148,7 +148,7 @@ export function buildShopeeOrderProjectionPreview(
     const mappingOrder = mappingByOrderSn.get(orderSn) ?? { orderSn, items: [] };
     const duplicate = orderSn ? existing.has(orderSn) : false;
     const blockers = buildBlockers(normalizedOrder, mappingOrder, duplicate);
-    const lines = (mappingOrder.items ?? []).flatMap(buildProjectionLines);
+    const lines = (mappingOrder.items ?? []).flatMap(item => buildProjectionLines(item, normalizedPayload.channelAccountId));
 
     return {
       orderSn,
