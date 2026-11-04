@@ -18,6 +18,7 @@ import {
   type CrmCommunicationDraft,
 } from './communication';
 import { getUnsupportedCrmLiveDataRequirement, type CrmUnsupportedLiveDataRequirement } from './dynamicLiveData';
+import { lookupDirectTrufflePrices } from './commercialPriceContext';
 import { defaultCrmKnowledgeFetcher, resolveCrmKnowledgeContext, shouldQueryCrmKnowledge, type CrmKnowledgeContext } from './knowledgeContext';
 import { getCrmAiEscalationReasons } from './aiModelRouting';
 import { isWaitingCustomerState } from './priority';
@@ -272,6 +273,7 @@ export async function suggestCrmReplyFromContext(
     ? pendingUnsupportedLiveData(context.messages)
     : null;
   if (unsupportedLiveData?.kind === 'current_price') {
+    // Pergunta mista: responder fatos estáveis da FAQ e valores unitários vivos.
     const pending: string[] = [];
     for (let index = (context.messages?.length ?? 0) - 1; index >= 0; index -= 1) {
       const message = context.messages[index];
@@ -279,7 +281,8 @@ export async function suggestCrmReplyFromContext(
       if (message.direction === 'inbound') pending.unshift(String(message.content ?? ''));
     }
     const text = pending.join(' ').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-    if (/trufas?/.test(text) && /valor|preco/.test(text) && /sabores?/.test(text)) {
+    if (/\btrufas?\b/.test(text) && /\b(valor|preco)\b/.test(text) && /\bsabores?\b/.test(text)
+        && !/\b(frete|desconto|estoque|prazo)\b/.test(text)) {
       try {
         const { data, error } = await supabase.from('digital_knowledge_base')
           .select('question, answer').eq('is_active', true).is('platform_id', null)
@@ -288,10 +291,21 @@ export async function suggestCrmReplyFromContext(
         const types = data?.find(row => row.question === 'Quais tipos de trufa vocês trabalham?')?.answer;
         const flavors = data?.find(row => row.question === 'Quais sabores de trufa vocês trabalham?')?.answer;
         if (types && flavors && !/R\$/.test(types + flavors)) {
-          const reply = `Olá! ${types} ${flavors} Para informar os valores, preciso confirmar a tabela comercial vigente. Você procura para consumo ou revenda?`;
-          return { reply, message: reply, reason: 'Sabores e linhas na base oficial; preços não confirmados.', rationale: 'Resposta parcial verificada.', tone: 'consultivo', intent: 'answer', length: 'medium' };
+          const directPrices = await lookupDirectTrufflePrices().catch(() => null);
+          const priceText = directPrices
+            ? 'Preços unitários cadastrados: ' + directPrices + '. Valores de kits, atacado e frete dependem da quantidade e do canal.'
+            : 'Para informar os valores, preciso confirmar a tabela comercial vigente.';
+          const reply = 'Olá! ' + types + ' ' + flavors + ' ' + priceText + ' Você procura para consumo ou revenda?';
+          return {
+            reply, message: reply,
+            reason: directPrices
+              ? 'Linhas e sabores da base oficial; valores unitários consultados no cadastro de produtos ativos.'
+              : 'Linhas e sabores da base oficial; preços não confirmados.',
+            rationale: 'Fontes oficiais consultadas ao gerar a resposta; sem valores presumidos.',
+            tone: 'consultivo', intent: 'answer', length: 'medium',
+          };
         }
-      } catch { /* Sem fonte confirmada, manter bloqueio original. */ }
+      } catch { /* Sem fonte oficial confirmada, manter bloqueio original. */ }
     }
   }
   if (unsupportedLiveData) {
