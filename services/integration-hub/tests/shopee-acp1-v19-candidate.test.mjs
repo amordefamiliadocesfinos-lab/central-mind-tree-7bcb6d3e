@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  ACP1_ACCOUNT,ACP1_ITEM,ACP1_PRODUCT,ACP1_VARIANTS,ACP1_MODELS,
- ACP1_HISTORICAL_MODEL,ACP1_HEART_BOX,acp1Candidate
+ ACP1_HISTORICAL_MODEL,ACP1_HEART_BOX,acp1Candidate,acp1PhysicalBlocker
 } from '../src/shopee-acp1-v19-candidate-contract.mjs';
 import {buildShopeeMappingPreview} from '../src/shopee-mapping-preview.mjs';
 import {buildShopeeOrderProjectionPreview} from '../src/shopee-order-projection-preview.mjs';
@@ -60,5 +60,21 @@ test('invalid quantity never turns into physical units; only exact confirmed box
  }
  for(const modelId of Object.keys(ACP1_MODELS)){
   assert.equal(acp1Candidate({itemId:ACP1_ITEM,modelId,quantity:1},ACP1_ACCOUNT).operationalMappingReady,true);
+ }
+});
+
+test('ACP1 rejects missing or substituted Heart Box and altered food count or physical unit',()=>{
+ for(const modelId of Object.keys(ACP1_MODELS)){
+  const contract=acp1Candidate({itemId:ACP1_ITEM,modelId,quantity:1},ACP1_ACCOUNT);
+  const item={itemId:ACP1_ITEM,modelId,quantity:1};
+  const parts=contract.components.map(x=>({...x,physical_identity:{active:true,unit:'un'}}));
+  assert.equal(acp1PhysicalBlocker(item,parts,{channelAccountId:ACP1_ACCOUNT}),null);
+  assert.equal(acp1PhysicalBlocker(item,parts.slice(0,-1),{channelAccountId:ACP1_ACCOUNT}),'acp1_v19_composition_invalid');
+  const wrongBox=structuredClone(parts);wrongBox.at(-1).product_id='1b3032d1-72ea-4a01-97e5-19c87df14509';
+  assert.equal(acp1PhysicalBlocker(item,wrongBox,{channelAccountId:ACP1_ACCOUNT}),'acp1_v19_physical_identity_unverified');
+  const inactive=structuredClone(parts);inactive.at(-1).physical_identity.active=false;
+  assert.equal(acp1PhysicalBlocker(item,inactive,{channelAccountId:ACP1_ACCOUNT}),'acp1_v19_physical_identity_unverified');
+  const multiplier=structuredClone(parts);multiplier[0].physical_multiplier+=1;
+  assert.equal(acp1PhysicalBlocker(item,multiplier,{channelAccountId:ACP1_ACCOUNT}),'acp1_v19_physical_identity_unverified');
  }
 });
