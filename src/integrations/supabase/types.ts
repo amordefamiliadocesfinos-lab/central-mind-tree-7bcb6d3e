@@ -4727,6 +4727,161 @@ export type Database = {
           },
         ]
       }
+      p2_four_open_attestations: {
+        Row: {
+          attested_at: string
+          attested_by: string
+          container_count: number
+          event_key: string
+          evidence_note: string
+          family: string
+          id: string
+          opening_action: string
+          physical_confirmation: boolean
+          result: Json
+          source_event_key: string
+          storage_location_id: string
+        }
+        Insert: {
+          attested_at?: string
+          attested_by: string
+          container_count: number
+          event_key: string
+          evidence_note: string
+          family: string
+          id?: string
+          opening_action: string
+          physical_confirmation: boolean
+          result?: Json
+          source_event_key: string
+          storage_location_id: string
+        }
+        Update: {
+          attested_at?: string
+          attested_by?: string
+          container_count?: number
+          event_key?: string
+          evidence_note?: string
+          family?: string
+          id?: string
+          opening_action?: string
+          physical_confirmation?: boolean
+          result?: Json
+          source_event_key?: string
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "p2_four_open_attestations_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      p2_four_sealed_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_key: string
+          id: string
+          new_balance: number
+          operation: string
+          physical_evidence_reference: string
+          physical_state: string
+          previous_balance: number
+          product_id: string
+          reference_id: string
+          reference_type: string
+          storage_location_id: string
+          units: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_key: string
+          id?: string
+          new_balance: number
+          operation: string
+          physical_evidence_reference: string
+          physical_state: string
+          previous_balance: number
+          product_id: string
+          reference_id: string
+          reference_type: string
+          storage_location_id: string
+          units: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_key?: string
+          id?: string
+          new_balance?: number
+          operation?: string
+          physical_evidence_reference?: string
+          physical_state?: string
+          previous_balance?: number
+          product_id?: string
+          reference_id?: string
+          reference_type?: string
+          storage_location_id?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "p2_four_sealed_events_product_id_storage_location_id_physi_fkey"
+            columns: ["product_id", "storage_location_id", "physical_state"]
+            isOneToOne: false
+            referencedRelation: "p2_four_sealed_stock"
+            referencedColumns: [
+              "product_id",
+              "storage_location_id",
+              "physical_state",
+            ]
+          },
+        ]
+      }
+      p2_four_sealed_stock: {
+        Row: {
+          physical_state: string
+          product_id: string
+          storage_location_id: string
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          physical_state: string
+          product_id: string
+          storage_location_id: string
+          units?: number
+          updated_at?: string
+        }
+        Update: {
+          physical_state?: string
+          product_id?: string
+          storage_location_id?: string
+          units?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "p2_four_sealed_stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "p2_four_sealed_stock_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "storage_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           channel_data: Json | null
@@ -9351,6 +9506,61 @@ export type Database = {
       }
       normalize_br_phone: { Args: { _raw: string }; Returns: string }
       owns_campaign: { Args: { _campaign_id: string }; Returns: boolean }
+      p2_four_apply_internal: {
+        Args: {
+          p_action: string
+          p_count: number
+          p_event_key: string
+          p_evidence_reference: string
+          p_family: string
+          p_location_id: string
+          p_presentation_id?: string
+          p_reference_id: string
+          p_reference_type: string
+        }
+        Returns: Json
+      }
+      p2_four_assert_generic_inventory_safe: {
+        Args: { p_presentation_id?: string; p_product_id: string }
+        Returns: undefined
+      }
+      p2_four_attest_and_open: {
+        Args: {
+          p_action: string
+          p_count: number
+          p_event_key: string
+          p_evidence_note: string
+          p_family: string
+          p_location_id: string
+          p_physical_confirmation: boolean
+        }
+        Returns: Json
+      }
+      p2_four_dispatch_adapter_candidate: {
+        Args: {
+          p_commercial_count: number
+          p_operational_grams: number
+          p_order_id: string
+          p_order_item_id: string
+          p_presentation_id: string
+          p_product_id: string
+          p_variant_id: string
+        }
+        Returns: Json
+      }
+      p2_four_receipt_adapter_candidate: {
+        Args: {
+          p_location_id: string
+          p_operational_grams: number
+          p_presentation_id: string
+          p_product_id: string
+          p_purchase_count: number
+          p_receipt_id: string
+          p_receipt_item_id: string
+          p_variant_id: string
+        }
+        Returns: Json
+      }
       physical_identity_has_operational_usage: {
         Args: { p_product_id: string; p_variant_id: string }
         Returns: boolean
