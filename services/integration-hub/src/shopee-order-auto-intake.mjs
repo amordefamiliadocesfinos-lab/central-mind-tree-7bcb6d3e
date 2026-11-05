@@ -181,15 +181,18 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
-        // The current canonical create_shopee_api_order RPC still inserts NULL
-        // commercial snapshot fields. Do not advertise these P2 orders as
-        // writable until that writer is migrated and independently verified.
-        // Preview is safe and remains available with real authenticated raw.
+        // P4: canonical create_shopee_api_order now persists an exact commercial
+        // snapshot (PR #437, independently verified in Core). Only a named
+        // commit-one target may enter the writer for these seven Models.
+        // Broad auto-commit batches remain fail-closed. The normal live endpoint
+        // also requires its own explicit commit flag and exact target identity.
+        // Physical shipment remains exclusively with Operations finalization.
         if (mode === 'commit' && normalized.orders[0].items.some(item =>
-          r2OriginalContract(item, normalized.channelAccountId))) {
+          r2OriginalContract(item, normalized.channelAccountId))
+          && (exactOrderSn === null || orderSn !== exactOrderSn)) {
           blocked += 1;
           results.push({ orderSn, status: 'blocked',
-            blockers: ['r2_original_writer_snapshot_not_ready'], write: null });
+            blockers: ['r2_original_requires_exact_commit_target'], write: null });
           continue;
         }
         const contract = applyShopeeInternalOrderContract(projected, {
