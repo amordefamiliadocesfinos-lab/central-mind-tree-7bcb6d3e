@@ -106,7 +106,7 @@ Diagnóstico #445 executado em ambiente Lovable sem alterações de código/banc
 | Celivio | 3 | 0 | Não aplicável | Não aplicável | Identidade oficial ausente |
 | **Total** | **397** | **368** | **368** | **368** | **0 entre os pares oficiais** |
 
-Detalhe Adão (quantidade de pares oficiais por família): Du Porto 161; Trufa 40 g 34; Trufa 30 g 26; Biscoito Alfajor 24; Chocolate Base 24; Alfajor 60 g 21; Embalagem Trufa 16; Chocoim 15; Amendoim 6; Glucodry 5; Glucose de Milho 5; Italac 5; Maltodextrina 5; Porto Gel 5; demais famílias/embalagens/Sorbato/Ácido 13. Todos passaram no teste sintético Q=1 sem bloqueio de identidade/projeção. SQL independente encontrou **zero pares oficiais duplicados por conta**, e os produtos/variantes referenciados estão ativos e com unidade cadastrada. No teste Adão, 208 identidades físicas em gramas, 154 em unidades e 2 em caixas.
+Detalhe Adão (quantidade de pares oficiais por família): Du Porto 161; Trufa 40 g 34; Trufa 30 g 26; Biscoito Alfajor 24; Chocolate Base 24; Alfajor 60 g 21; Embalagem Trufa 16; Chocoim 15; Amendoim 6; Glucodry 5; Glucose de Milho 5; Italac 5; Maltodextrina 5; Porto Gel 5; demais famílias/embalagens/Sorbato/Ácido 12. Todos passaram no teste sintético Q=1 sem bloqueio de identidade/projeção. SQL independente encontrou **zero pares oficiais duplicados por conta**, e os produtos/variantes referenciados estão ativos e com unidade cadastrada. No teste Adão, 208 identidades físicas em gramas, 154 em unidades e 2 em caixas.
 
 ### Limites, exclusões e gatilhos
 
