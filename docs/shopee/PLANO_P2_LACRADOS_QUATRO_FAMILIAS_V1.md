@@ -142,3 +142,38 @@ O atestado do operador autentica **quem declarou** a abertura no sistema; não �
 **Evidência:** suíte descartável GitHub Actions #42077060319 SUCCESS (commit de integração `7156e046`), incluindo teste de papel, confirmação, apresentação, vinculação de movimentação e rollback. A proposta não é migration e não foi ativada no banco.
 
 **Permanecem bloqueados:** ativação, merge da PR #430, baixa real, contagem de lacrados por inferência, `external_shipped` P2 e desquarentena Mappings.
+
+## Homologação operacional P2 — protocolo mínimo de aceite (Operações 9, 05/11/2026)
+
+**Classificação presente:** roteiro de aceite preparado e regressão sintética executável; **não** significa que fatos físicos ou integrações LIVE estejam homologados. Mantém a PR #430 em draft e não reabre Mappings/P1/P3.
+
+**Antes de qualquer fato produtivo:**
+1. Comprovar revisão/digest/identidade IAM do Cloud Run com o roteiro read-only já versionado, relacionando a revisão ao SHA aprovado. Não executar endpoints de escrita para testar saúde.
+2. Revisar autorização do operador e a evidência física de recebimento, abertura e expedição. A declaração autenticada de abertura é registro do responsável, **não** verificação independente da ação física. Registrar evidência de conferência segundo procedimento físico aprovado.
+3. Fazer inventário real por local e estado: Italac caixa original e unidades intactas separados; Sorbato/Ácido pacotes lacrados; Ivoti baldes lacrados. Nunca derivar lacrados de gramas ou saldos publicados. Divergências exigem reconciliação específica, sem alteração de históricos.
+4. Obter autorização expressa para migrations/cutover, incluindo plano de rollback e conferência de ACLs dos wrappers e seus consumidores; executar primeiro no esquema de homologação fiel ao LIVE.
+
+**Matriz de homologação operacional (somente após etapas anteriores e autorização):**
+
+| Caso | Ação | Aceite obrigatório |
+|---|---|---|
+| R1 | Receber caixa Italac 27x395g | +1 caixa original, +0 unidades soltas e +0 g; evento único vinculado ao recebimento real |
+| R2 | Receber pacote Sorbato/Ácido 1 kg | +1 pacote intacto e +0 g; apresentação original validada |
+| R3 | Receber balde Ivoti 9,8 kg | +1 balde intacto e +0 g; local e identidade corretos |
+| A1 | Abrir caixa Italac | -1 caixa, +27 unidades intactas, 0 g; sem recomposição reversa |
+| A2 | Abrir unidade Italac | -1 unidade intacta, +395 g; atestado, ator e evento relacionados |
+| A3 | Abrir Sorbato/Ácido | -1 pacote, +1000 g; atestado físico e rollback único |
+| A4 | Abrir Ivoti | -1 balde, +9800 g; atestado físico e rollback único |
+| E1 | Expedir ML1 | Baixa apenas unidades intactas; não utilizar caixa intacta nem gramas abertas |
+| E2 | Expedir ML2 | Baixa apenas caixa original de 27; 27 unidades soltas não satisfazem ML2 |
+| E3 | Expedir Sorbato/Ácido/Ivoti originais | Baixa apenas recipiente original na quantidade exata e no evento de separação autorizado |
+| N1 | Pedido criado/confirmado | Nenhuma baixa física |
+| N2 | Evento repetido, insuficiência, localização inválida, papel negado | Bloqueio e nenhuma movimentação parcial |
+| N3 | `external_shipped` P2 sem prova independente | Rejeição total; nenhuma baixa ou incidente de compensação indevido |
+| N4 | Pedido misto P2 + produto genérico com erro P2 | Transação inteira revertida, sem baixa genérica |
+| N5 | Tentativa com saldo em gramas, mas sem lacrado | Rejeitar saída de original, sem fallback |
+| N6 | Abertura com atestado não autenticado, sem confirmação ou nota inválida | Negar abertura; nenhum atestado ou lançamento |
+
+**Evidências mínimas por cenário:** identificador da ordem/recebimento real, SKU/apresentação e local, operador, data, quantidade contada, saldo físico antes/depois, evento único e movimentos correspondentes; quando houver bloqueio, demonstrar ausência de escrita. Evitar dados pessoais desnecessários.
+
+**Critério de encerramento de Operações:** engenharia e testes em CI podem ser concluídos sem inventário; ativação e uso real exigem todos os gates acima. O Especialista Mappings só retoma P4/E5 quando Operações comunicar explicitamente implantação habilitada com evidências. Quarentenas de #428 ficam ativas até lá.
