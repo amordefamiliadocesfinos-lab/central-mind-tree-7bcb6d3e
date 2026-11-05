@@ -198,4 +198,41 @@ const noAction = prepareCrmSupervisedAction(
 assert(noAction.status === 'blocked' && !noAction.analyzeReply,
   'Atendimento resolvido sem obrigação não prepara ação.');
 
+// F3/F4 — diferenciar evidência de envio de confirmação real da tarefa.
+const executionHint = getCrmInboxOrientation(projectCrmOperationalState({
+  contactId: 'Execucao', conversationId: 'conv-execucao',
+  status: 'open', attendance_state: 'aguardando_cliente', needs_reply: false,
+  official_task_present: true, next_action_title: 'Realizar pós-venda',
+  next_action_date: '2026-10-12T12:00:00Z',
+  last_outbound_at: '2026-10-13T13:00:00Z',
+  last_result_at: '2026-10-11T11:00:00Z',
+}, now));
+assert(executionHint.priorityReason === 'pending_result'
+  && executionHint.title === 'Conferir execução e registrar Resultado'
+  && executionHint.explanation.includes('não comprova o cumprimento')
+  && getCrmOrientationShortcut(executionHint)?.target === 'result',
+  'Envio posterior ao vencimento exige Resultado, mas não confirma tarefa.');
+const unclassifiedInbound = getCrmInboxOrientation(projectCrmOperationalState({
+  contactId: 'Mensagem', conversationId: 'conv-mensagem',
+  status: 'open', attendance_state: 'aguardando_cliente', needs_reply: false,
+  last_inbound_at: '2026-10-13T14:00:00Z',
+  last_outbound_at: '2026-10-13T14:02:00Z',
+  last_result_at: '2026-10-12T11:00:00Z',
+}, now));
+assert(unclassifiedInbound.priorityReason === 'pending_result'
+  && unclassifiedInbound.explanation.includes('mensagem do cliente posterior')
+  && !unclassifiedInbound.explanation.includes('Há envio registrado depois do prazo'),
+  'Mensagem pendente sem obrigação não deve ser confundida com execução de tarefa.');
+const alreadyClassified = getCrmInboxOrientation(projectCrmOperationalState({
+  contactId: 'Classificado', conversationId: 'conv-classificado',
+  status: 'open', attendance_state: 'aguardando_cliente', needs_reply: false,
+  official_task_present: true, next_action_title: 'Realizar pós-venda',
+  next_action_date: '2026-10-12T12:00:00Z',
+  last_outbound_at: '2026-10-13T13:00:00Z',
+  last_result_at: '2026-10-13T13:05:00Z',
+}, now));
+assert(alreadyClassified.priorityReason !== 'pending_result'
+  && !alreadyClassified.explanation.includes('não comprova o cumprimento'),
+  'Resultado posterior ao envio não deve receber orientação de Resultado pendente.');
+
 console.log('inboxOrientation.test: OK');
