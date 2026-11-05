@@ -55,6 +55,12 @@ jobs:
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_foundation_contract.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_transaction_disposable.sql
+      - name: Verify isolated canonical line adapters with mixed-family transaction
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_RECEIPT_ADAPTER_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_DISPATCH_ADAPTER_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_adapters_disposable.sql
       - name: Verify rollback left no stock or movements
         run: |
           set -euo pipefail
