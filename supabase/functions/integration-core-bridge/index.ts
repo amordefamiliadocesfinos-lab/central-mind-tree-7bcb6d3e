@@ -205,12 +205,13 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
   }
 
   const catalog = await readShopeeScopedMappingCatalog(core, channelAccountId, canonical.account.name);
-  if (catalog.error) {
-    return { status: catalog.error === 'intake_mapping_catalog_ambiguous'
-      || catalog.error === 'intake_mapping_catalog_too_large' ? 409 : 503,
-      body: { error: catalog.error } };
+  const catalogError = 'error' in catalog ? catalog.error : null;
+  if (catalogError) {
+    return { status: catalogError === 'intake_mapping_catalog_ambiguous'
+      || catalogError === 'intake_mapping_catalog_too_large' ? 409 : 503,
+      body: { error: catalogError } };
   }
-  const mappings = catalog.mappings;
+  const mappings = 'mappings' in catalog ? catalog.mappings : [];
   const physicalCatalog = await attachMappingPhysicalCatalog(core, mappings);
   if (physicalCatalog.error) return { status: 503, body: { error: physicalCatalog.error } };
 
