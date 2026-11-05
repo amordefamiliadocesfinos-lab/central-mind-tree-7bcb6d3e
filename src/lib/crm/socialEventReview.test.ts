@@ -29,3 +29,12 @@ check(getCrmSocialContextReviewHint([
   {direction:'inbound',message_type:'sticker'},
 ]) === null, 'texto mais recente não é aviso social');
 check(getCrmSocialContextReviewHint([]) === null, 'sem mensagem não cria pendência');
+
+check(getCrmSocialContextReviewHint([{direction:'inbound',message_type:'unsupported'}])?.includes('canal oficial'),
+  'entrada não suportada exige inspeção do canal, sem inferir resposta');
+check(getCrmSocialContextReviewHint([{direction:'inbound',message_type:'system'}])?.includes('prioridade continua ativa'),
+  'evento de sistema não pode desaparecer da fila automaticamente');
+check(getCrmSocialContextReviewHint([{direction:'outbound',message_type:'unsupported'}]) === null,
+  'mensagem não suportada enviada não deve criar revisão inbound');
+check(getCrmSocialContextReviewHint([{direction:'inbound',message_type:'audio'}]) === null,
+  'áudio recebido permanece em fluxo normal, não tratar como não suportado');

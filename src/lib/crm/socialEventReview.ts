@@ -24,8 +24,15 @@ export function getCrmSocialEventReviewHint(message: CrmLastMessage | null): str
 export function getCrmSocialContextReviewHint(
   latestFirst: readonly CrmLastMessage[],
 ): string | null {
-  if (!latestFirst.length || latestFirst[0].direction !== 'inbound'
-    || !isSocial(latestFirst[0].message_type)) return null;
+  if (!latestFirst.length || latestFirst[0].direction !== 'inbound') return null;
+
+  // A Meta pode entregar eventos cujo conteúdo não é exibível. São
+  // pendências de verificação, não respostas que o CRM deva inventar.
+  const inboundType = latestFirst[0].message_type;
+  if (inboundType === 'unsupported' || inboundType === 'system') {
+    return 'A última entrada não possui conteúdo interpretável neste CRM. Confira a mensagem no canal oficial e o histórico antes de responder ou registrar Resultado. A prioridade continua ativa até a conferência humana.';
+  }
+  if (!isSocial(inboundType)) return null;
 
   const pendingInbound: CrmLastMessage[] = [];
   for (const message of latestFirst) {
