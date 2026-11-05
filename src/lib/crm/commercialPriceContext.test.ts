@@ -1,4 +1,4 @@
-import { getOfficialWhatsappPriceQuote, type CrmCommercialPriceRow } from './commercialPriceContext';
+import { getOfficialWhatsappPriceQuote, getOfficialWhatsappTierPrice, type CrmCommercialPriceRow } from './commercialPriceContext';
 
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error('Tabela WhatsApp CRM: ' + message);
@@ -41,6 +41,13 @@ function run() {
   assert(getOfficialWhatsappPriceQuote(rows, 'Quanto custa a trufa 30g?', '2026-11-03') === null, 'não citar preço antes da vigência');
   assert(getOfficialWhatsappPriceQuote(rows.filter(r => r.name !== 'TRUFA ARTESANAL 40G'), 'Qual o preço das trufas?', today) === null, 'sem ambos os produtos não deve usar preço parcial como total');
   assert(getOfficialWhatsappPriceQuote([...rows, rows[0]], 'Qual o valor das trufas?', today) === null, 'produto duplicado deve bloquear');
+  assert(getOfficialWhatsappTierPrice(rows, 'TRUFA ARTESANAL 40G', 5438, today) === 1.30, '5438 un. de 40g reunidas por sabores usam Atacado 5');
+  assert(getOfficialWhatsappTierPrice(rows, 'TRUFA ARTESANAL 30G', 200, today) === 1.30, 'limite 200 é Atacado 1');
+  assert(getOfficialWhatsappTierPrice(rows, 'TRUFA ARTESANAL 30G', 201, today) === 1.25, '201 já entra no Atacado 2');
+  assert(getOfficialWhatsappTierPrice(rows, 'ALFAJOR ARTESANAL 60G DOCE DE LEITE', 10, today) === 32, '10 bandejas com preço por bandeja');
+  assert(getOfficialWhatsappTierPrice(rows, 'TRUFA ARTESANAL 30G', 0, today) === null, 'quantidade inválida não permite cotação');
+  assert(getOfficialWhatsappTierPrice(rows, 'TRUFA ARTESANAL 30G', 20.5, today) === null, 'quantidade fracionária não permite cotação');
+  assert(getOfficialWhatsappTierPrice([], 'TRUFA ARTESANAL 30G', 30, today) === null, 'sem fonte não há preço');
   const wrong = structuredClone(rows);
   wrong[0].attributes!.crm_direct_whatsapp_price_table!.prices[1].min_qty = 23;
   assert(getOfficialWhatsappPriceQuote(wrong, 'Qual o preço da trufa 30g?', today) === null, 'faixas com lacunas bloqueadas');
