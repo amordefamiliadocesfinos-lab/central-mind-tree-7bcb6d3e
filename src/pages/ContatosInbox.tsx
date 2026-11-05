@@ -1896,9 +1896,11 @@ export default function ContatosInbox() {
                       {selectedIsOutOfQueue ? ' · Fora da fila' : ''}
                     </span>
                     {orientationShortcut && (
-                      <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 px-2 text-[11px]"
+                      <Button type="button" size="sm" variant="default" className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+                        disabled={attendanceBusy || saleDecisionBusy}
+                        title="Abrir o recurso correto para o próximo passo; nenhuma ação comercial é registrada sem confirmação"
                         onClick={prepareOrientationShortcut}>
-                        {orientationShortcut.label}
+                        {orientationShortcut.label} <ArrowRight className="h-3 w-3" />
                       </Button>
                     )}
                     <Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-2 text-[11px]"
@@ -1907,6 +1909,11 @@ export default function ContatosInbox() {
                       {orientationExpanded ? 'Recolher' : 'Detalhes'} <ChevronDown className={cn('ml-1 h-3 w-3 transition-transform', orientationExpanded && 'rotate-180')} />
                     </Button>
                   </div>
+                  {orientationShortcut && selectedOrientation.mode !== 'waiting' && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      Ação principal indicada acima. O CRM abre o recurso correto; confirme os fatos antes de registrar.
+                    </p>
+                  )}
                   {/* A regra operacional deve estar visível sem exigir que o operador abra Detalhes. */}
                   {selectedOrientation.mode !== 'waiting' && (
                     <p className="mt-1 text-[11px] leading-relaxed text-foreground/80" aria-label="Próximo passo recomendado">
