@@ -132,3 +132,13 @@ Decisão: engenharia candidata testada; ativação produtiva bloqueada. Nenhum e
 **Lacuna que impede implantação:** a proposta `p2_four_apply_internal` aceita `p_evidence_reference` textual e a abertura ainda não possui um entrypoint autenticado com vínculo verificável a uma evidência física persistida. Não habilitar diretamente essa RPC nem criar lançamentos artificiais para superar o bloqueio. A engenharia disponível é isolada/candidata. Para produção, a autorização e a evidência da abertura precisam ser vinculadas e testadas integralmente, não apenas descritas.
 
 **Estado:** roteiro de auditoria de runtime implementado em código; auditoria autenticada não executada neste ambiente. Sem mudanças no Cloud Run, no banco, na Shopee, nos pedidos ou nos saldos.
+
+## Operações 9 — Proposta de atestado autenticado de abertura (05/11/2026)
+
+A proposta inerte `supabase/proposals/P2_FOUR_PHYSICAL_OPEN_ATTESTATION_UNAPPLIED.sql` cria um registro de atestado vinculado a `auth.uid()`, papel ativo `current_app_user_role()` (Administrador ou LIDER PRODUÇÃO), local ativo, família, ação compatível, número inteiro de recipientes, confirmação afirmativa, texto explicativo, timestamp e chave idempotente. O wrapper `p2_four_attest_and_open` grava o atestado e chama a função P2 existente `p2_four_apply_internal` na **mesma transação**. Falha de saldo/identidade/gramas cancela também o registro do atestado. Não são gerados saldos de inventário nem abertura artificial na produção.
+
+O atestado do operador autentica **quem declarou** a abertura no sistema; não é prova independente de que uma embalagem foi realmente aberta. A implantação exige validação do processo físico, treinamento/controle do operador e teste completo de permissões no esquema LIVE. A função primitiva P2 continua executável pelo proprietário da base para seus fluxos internos e testes; a escrita de estoque produtiva só pode ocorrer através de entrada autorizada, não por uma referência textual avulsa.
+
+**Evidência:** suíte descartável GitHub Actions #42077060319 SUCCESS (commit de integração `7156e046`), incluindo teste de papel, confirmação, apresentação, vinculação de movimentação e rollback. A proposta não é migration e não foi ativada no banco.
+
+**Permanecem bloqueados:** ativação, merge da PR #430, baixa real, contagem de lacrados por inferência, `external_shipped` P2 e desquarentena Mappings.
