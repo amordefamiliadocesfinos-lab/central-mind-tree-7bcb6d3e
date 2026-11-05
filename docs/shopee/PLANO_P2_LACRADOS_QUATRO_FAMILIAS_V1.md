@@ -40,3 +40,22 @@ Consultar o código LIVE das funções `confirm_purchase_receipt_unguarded_01b` 
 ## Fora do escopo desta entrega
 
 Sem migration, deploy, tabela, RPC, processamento de pedidos, movimentação de estoque, ajuste de 199975/1000/3000/0 g, escrita de mapping, liberação das quarentenas P2 existentes ou validação P4. Não reabrir a Rodada 1 V16 já concluída (26/27).
+
+## Checkpoint por diferença — 05/11/2026 (P2, sem escrita LIVE)
+
+**Método aplicável:** Mestre V1.0 > Enxuto V2.2 congelado. Este registro atualiza apenas a evidência/pendência material das quatro famílias, sem nova matriz, taxonomia ou frente técnica. Fonte: leitura SQL **somente leitura** no Lovable Cloud PAINEL CENTRAL em 05/11/2026; CI GitHub PR #426; decisões físicas do responsável. Nenhuma fonte Shopee oficial nova foi consultada nesta rodada; não reabrir P1 já conciliado.
+
+| Portão | Estado canônico | Diferença objetiva / limite |
+| --- | --- | --- |
+| P1 VERDADE | APROVADO no recorte físico declarado | Italac ML2 = caixa original 27×395 g; ML1 = unidades intactas; Sorbato/Ácido pacote original 1 kg; Ivoti balde original 9,8 kg. Essa declaração não é contagem real de lacres. Identidades Shopee/Item/Model não foram reconsultadas, logo nenhum E5 reivindicado. |
+| P2 PROTEÇÃO | APROVADO apenas como **proposta isolada testada**; implantação BLOQUEADA | CI do PostgreSQL sintético validou transições, papel direto negado, rollback, concorrência, pedido misto e regras LIVE selecionadas de identidade física. PR #426 é draft e propostas SQL continuam fora de migrations. Não há serviço ativo nem prova completa do esquema LIVE. |
+| P3 BANCO | BLOQUEADO | Falta inventário físico assinado por localização, política de legado, integração revisada do caminho real de separação, regressão completa e autorização de escrita própria do portão. Não inferir embalagem a partir de gramas. |
+| P4 FUNCIONAMENTO | NÃO APLICÁVEL nesta missão | Sem preview autenticado do projetor sobre amostra real íntegra e sem execução de pedido físico real; não declarar E5. |
+
+**Achado de integração obrigatório e suficiente para este escopo:** existe `public.finalize_order_separation(p_order_id)` (wrapper operacional com controle de papel) → `public.finalize_order_separation_unguarded_01b` → `public.apply_order_stock_event(p_order_id,'shipped')`. O helper faz esse evento **antes** de atualizar `order_separation.separation_status='finalized'`, em uma única transação. A própria `order_separation` preserva `finalized_at/finalized_by`. Consequência: as propostas de P2 devem respeitar **esse fluxo existente**, sem criar finalização paralela ou exigir `finalized` antes do próprio evento. A string candidata `physical_shipment:<id>` **não é evidência autenticada** da separação e não pode substituir validação de ator/fato físico. O caminho `external_shipped`, quando aplicável, demanda uma prova correspondente do fluxo existente; não presumir que tenha usado `finalize_order_separation`.
+
+**Integridade LIVE conferida no recorte:** `inventory` usa `UNIQUE NULLS NOT DISTINCT(product_id,variant_id,location)`; triggers `assert_operational_physical_identity` e `assert_variant_matches_product` protegem `inventory` e `inventory_movements`; `purchase_receipts` tem guarda de confirmação e bloqueio de reversão após confirmado. O teste descartável da PR #426 espelha somente controles selecionados, não o esquema integral. Resultado da CI mais recente aprovada na inspeção: https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/42036521708.
+
+**Uma próxima ação (gatilho real):** Operações fornecer um snapshot físico por local e comprovar qual evento de separação/expedição representa o fato físico nas quatro famílias. Depois disso, reabrir **apenas P3** para confrontar o adapter com `finalize_order_separation` e `external_shipped`, ensaiar regressão estritamente afetada e submeter autorização separada para migration. Não expandir para famílias antigas não afetadas, outros módulos, Shopee, OP, estoque legado, P4 ou E5.
+
+**Sem escrita no banco, merge, deploy, alteração Shopee, mappings ou estoque.** Método congelado inalterado.
