@@ -102,4 +102,68 @@ BEGIN
  SELECT quantity INTO after_open FROM public.inventory WHERE product_id=product AND location_id=loc;
  IF after_open<>initial+1000 THEN RAISE EXCEPTION 'p2_failed_open_modified_grams';END IF;
 END $test$;
+
+DO $four_families$
+DECLARE
+ loc uuid:='b1ef7322-86f9-4cf4-9d52-39ba32911ef6';
+ it uuid:='0d1fb8c8-4938-4bbf-b8f0-b0a525c78d9b';
+ it_buy uuid:='1a72b347-97ba-414a-9ef9-783c2d175ea3';
+ bucket uuid:='d913f0f2-4893-4985-9976-fcd9119a57b1';
+ acid uuid:='ef118d1c-e7c7-45e3-b796-3a9908840f3c';
+ row_before numeric; row_after numeric; n integer;
+ v jsonb;
+BEGIN
+ IF to_regclass('public.p2_disposable_test_marker') IS NULL
+ THEN RAISE EXCEPTION 'p2_four_open_extra_disposable_only';END IF;
+ PERFORM set_config('app.p2_test_actor','11111111-1111-4111-8111-111111111111',true);
+ PERFORM set_config('app.p2_test_role','LIDER PRODUÇÃO',true);
+ -- Italac: splitting intact box creates units, NOT generic 10665 grams.
+ SELECT quantity INTO row_before FROM public.inventory WHERE product_id=it AND location_id=loc;
+ PERFORM public.p2_four_apply_internal('italac','receipt',1,loc,
+    'it-open-fixture:'||gen_random_uuid(),'purchase_receipt',gen_random_uuid(),
+    'DISPOSABLE ITALAC ORIGINAL BOX',it_buy);
+ v:=public.p2_four_attest_and_open('italac','open_original_box',1,loc,
+    'it-box:'||gen_random_uuid(),true,'Caixa original Italac fisicamente aberta e conferida');
+ SELECT units INTO n FROM public.p2_four_sealed_stock
+ WHERE product_id=it AND storage_location_id=loc AND physical_state='intactUnits395';
+ IF n<>27 THEN RAISE EXCEPTION 'p2_italac_split_not_27_intact';END IF;
+ SELECT quantity INTO row_after FROM public.inventory WHERE product_id=it AND location_id=loc;
+ IF row_after IS DISTINCT FROM row_before THEN RAISE EXCEPTION 'p2_italac_box_incorrect_gram_credit';END IF;
+ v:=public.p2_four_attest_and_open('italac','open_intact_unit',1,loc,
+    'it-unit:'||gen_random_uuid(),true,'Uma unidade intacta Italac de 395g aberta na Fabrica');
+ SELECT quantity INTO row_after FROM public.inventory WHERE product_id=it AND location_id=loc;
+ IF row_after<>row_before+395 THEN RAISE EXCEPTION 'p2_italac_unit_not_395g';END IF;
+ SELECT units INTO n FROM public.p2_four_sealed_stock
+ WHERE product_id=it AND storage_location_id=loc AND physical_state='intactUnits395';
+ IF n<>26 THEN RAISE EXCEPTION 'p2_italac_26_intact_expected';END IF;
+
+ -- Acid and Ivoti: exact original presentation; no opened grams at receipt.
+ FOR v IN SELECT value FROM jsonb_array_elements(
+  '[{"family":"acido","product":"ef118d1c-e7c7-45e3-b796-3a9908840f3c",
+     "purchase":"1c7268cd-fcd9-4d98-aa14-65f76ef72a0b","action":"open_original_package","grams":1000},
+    {"family":"ivoti","product":"d913f0f2-4893-4985-9976-fcd9119a57b1",
+     "purchase":"fcd94ec6-1fc6-4bab-bc6f-8436279ca737","action":"open_original_bucket","grams":9800}]'::jsonb
+ ) LOOP
+  SELECT quantity INTO row_before FROM public.inventory
+  WHERE product_id=(v->>'product')::uuid AND location_id=loc;
+  PERFORM public.p2_four_apply_internal(v->>'family','receipt',1,loc,
+      'open-fixture:'||gen_random_uuid(),'purchase_receipt',gen_random_uuid(),
+      'DISPOSABLE ORIGINAL CONTAINER',(v->>'purchase')::uuid);
+  SELECT quantity INTO row_after FROM public.inventory
+  WHERE product_id=(v->>'product')::uuid AND location_id=loc;
+  IF row_after IS DISTINCT FROM row_before
+  THEN RAISE EXCEPTION 'p2_open_receipt_double_grams_%',v->>'family';END IF;
+  PERFORM public.p2_four_attest_and_open(
+      v->>'family',v->>'action',1,loc,'open-other:'||gen_random_uuid(),
+      true,'Recipiente original aberto com conferencia fisica do operador');
+  SELECT quantity INTO row_after FROM public.inventory
+  WHERE product_id=(v->>'product')::uuid AND location_id=loc;
+  IF row_after<>row_before+(v->>'grams')::numeric
+  THEN RAISE EXCEPTION 'p2_open_wrong_grams_%',v->>'family';END IF;
+ END LOOP;
+ -- Every added attestation must be traceable to sealed events.
+ SELECT count(*) INTO n FROM public.p2_four_open_attestations WHERE
+ source_event_key LIKE 'p2:physical_open:%';
+ IF n<>5 THEN RAISE EXCEPTION 'p2_expected_five_attestations_actual_%',n;END IF;
+END $four_families$;
 ROLLBACK;
