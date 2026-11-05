@@ -160,7 +160,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
       .select('name,is_active,deleted_at,attributes')
       .in('name', OFFICIAL_WHATSAPP_PRODUCT_NAMES)
       .eq('is_active', true).is('deleted_at', null)
-      .then(({ data, error }) => setOfficialPriceRows(error ? [] : (data ?? []) as CrmCommercialPriceRow[]));
+      .then(({ data, error }) => setOfficialPriceRows(error ? [] : (data ?? []) as unknown as CrmCommercialPriceRow[]));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
