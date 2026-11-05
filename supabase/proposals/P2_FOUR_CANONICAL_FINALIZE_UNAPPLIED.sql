@@ -66,5 +66,5 @@ $function$;
 -- Preserve the LIVE privilege boundary: internal SECURITY DEFINER is not a
 -- user-facing RPC. The only authenticated entrypoint remains the canonical
 -- role-checked wrapper public.finalize_order_separation(uuid).
-REVOKE ALL ON FUNCTION public.finalize_order_separation_unguarded_01b(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.finalize_order_separation_unguarded_01b(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.finalize_order_separation_unguarded_01b(uuid) FROM PUBLIC, anon, authenticated, service_role;
+-- No direct service_role grant. SECURITY DEFINER wrappers execute as postgres owner.
