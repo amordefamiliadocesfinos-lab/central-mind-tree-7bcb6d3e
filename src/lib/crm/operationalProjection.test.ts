@@ -137,4 +137,30 @@ assert(officialTaskIndex.get('Reativação sem prazo')?.reactivationDueAt === nu
   'Reativação sem prazo não pode virar Próxima Ação nem entrada temporal.');
 assert(!officialTaskIndex.has('Legado'), 'Tarefa legada não pode contaminar a projeção CRM.');
 
+// F3: a obrigação com vencimento mais cedo prevalece, em qualquer ordem.
+const multipleTasks = [
+  { contact_id: 'Fila urgente', source: 'crm_next_action', title: 'Ação futura',
+    scheduled_date: '2026-11-20', scheduled_time: '09:00:00' },
+  { contact_id: 'Fila urgente', source: 'crm_next_action', title: 'Ação vencida',
+    scheduled_date: '2026-11-01', scheduled_time: '09:00:00' },
+  { contact_id: 'Fila urgente', source: 'crm_next_action', title: 'Ação sem prazo' },
+  { contact_id: 'Fila urgente', source: 'crm_reactivation', title: 'Reativação futura',
+    scheduled_date: '2026-12-01', scheduled_time: '09:00:00' },
+  { contact_id: 'Fila urgente', source: 'crm_reactivation', title: 'Reativação vencida',
+    scheduled_date: '2026-10-30', scheduled_time: '09:00:00' },
+];
+const forward = indexCrmOperationalTasks(multipleTasks).get('Fila urgente');
+const backward = indexCrmOperationalTasks([...multipleTasks].reverse()).get('Fila urgente');
+assert(forward?.nextActionTitle === 'Ação vencida' && forward.nextActionDueAt === backward?.nextActionDueAt
+  && forward.nextActionTitle === backward?.nextActionTitle,
+  'A obrigação ativa mais antiga deve prevalecer independentemente da ordem de leitura.');
+assert(forward?.reactivationDueAt === backward?.reactivationDueAt
+  && forward?.reactivationDueAt === getCrmOperationalTaskDueAt(multipleTasks[4]),
+  'Reativação mais antiga também deve ser determinística.');
+const tiedTitles = indexCrmOperationalTasks([
+  { contact_id: 'Empate', source: 'crm_next_action', title: 'Zeta', due_date: '2026-11-05' },
+  { contact_id: 'Empate', source: 'crm_next_action', title: 'Alfa', due_date: '2026-11-05' },
+]).get('Empate');
+assert(tiedTitles?.nextActionTitle === 'Alfa',
+  'Empate de data mantém apresentação estável.');
 console.log('operationalProjection.test: OK');
