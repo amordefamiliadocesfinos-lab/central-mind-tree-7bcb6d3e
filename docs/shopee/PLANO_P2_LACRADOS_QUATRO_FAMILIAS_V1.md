@@ -118,3 +118,17 @@ Reforço da PR #430: remoção de permissão direta das funções internas sens�
 Antes de qualquer ativação, ainda são obrigatórios: auditoria dos consumidores externos de RPC, prova de autorização física, regressão em ambiente fiel ao LIVE, inventário por localização e autorização própria para a migration. Não inferir recipientes lacrados a partir do saldo em gramas nem retirar quarentenas.
 
 Decisão: engenharia candidata testada; ativação produtiva bloqueada. Nenhum estoque, pedido ou migration produtiva alterado.
+
+## Gate físico e revisão ativa — Operações 9, 05/11/2026
+
+**Auditoria Cloud Run:** executar `scripts/p2-four-cloudrun-audit-readonly.sh` com identidade Google Cloud previamente autenticada e autorização Run Viewer. Coletar: revisão `latestReadyRevisionName`, imagem/digest, percentual do tráfego, service account, bindings IAM e resultado autenticado de `GET /health`. Não interpretar a saúde como comprovação do código executado: confrontar digest com origem do build/deploy. Não copiar tokens nem variáveis secretas ao relatório. Sem esses dados, runtime permanece **não comprovado**.
+
+**Contrato de evidência física, sem criar outro fluxo:** 
+- Recebimento: pedido de compra e item canônicos, apresentação original exata, local ativo, conferência física de quantidade inteira e operador autorizado; confirmar uma vez, com event_key estável. Não creditar gramas na entrada do lacrado.
+- Abertura: identificação de família, estado e local; operador autenticado e autorização operacional, identificação do recipiente intacto e conferência física datada; evento persistido e idempotente vinculando origem e quantidade. Somente após essa evidência o mesmo commit converte lacrado em gramas (ou caixa Italac em 27 unidades intactas). String livre não equivale a atestado de abertura.
+- Expedição: pedido e item reconhecidos, apresentação original, separação comprovada por ator autorizado, saldo lacrado suficiente no mesmo local e debit/evento atômicos. `order_separation.finalized_at/finalized_by` é resultado da finalização e não comprovação prévia de entrega física. Nunca dispensar essa validação por variável GUC. `external_shipped` para P2 permanece bloqueado até existir prova própria.
+- Quarentena: manter #428 ativa até confirmação de ledger inicial conferido por local, provas reais e homologação por Mappings.
+
+**Lacuna que impede implantação:** a proposta `p2_four_apply_internal` aceita `p_evidence_reference` textual e a abertura ainda não possui um entrypoint autenticado com vínculo verificável a uma evidência física persistida. Não habilitar diretamente essa RPC nem criar lançamentos artificiais para superar o bloqueio. A engenharia disponível é isolada/candidata. Para produção, a autorização e a evidência da abertura precisam ser vinculadas e testadas integralmente, não apenas descritas.
+
+**Estado:** roteiro de auditoria de runtime implementado em código; auditoria autenticada não executada neste ambiente. Sem mudanças no Cloud Run, no banco, na Shopee, nos pedidos ou nos saldos.
