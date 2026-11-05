@@ -61,6 +61,13 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_RECEIPT_ADAPTER_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_DISPATCH_ADAPTER_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_adapters_disposable.sql
+      - name: Check proposed full canonical functions with synthetic mixed order
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_minimal_fixture_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_RECEIPT_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_DISPATCH_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_mixed_flow_disposable.sql
       - name: Verify rollback left no stock or movements
         run: |
           set -euo pipefail
