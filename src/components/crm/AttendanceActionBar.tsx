@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CRM_CANONICAL_RESULTS } from '@/lib/crm/canonical/results';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
-import { getTaskContextResultCodes } from '@/lib/crm/taskResultContext';
+import { getTaskContextResultCodes, getTaskContextQuickResultCodes } from '@/lib/crm/taskResultContext';
 import { getCrmResultScheduledFor, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 
 interface Props {
@@ -45,7 +45,9 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
     .filter((result): result is (typeof CRM_CANONICAL_RESULTS)[number] => Boolean(result));
   // Até quatro atalhos para reduzir cliques sem inferir o fato comercial.
   // Contexto prioriza apresentação, nunca pré-seleciona nem persiste.
-  const quickResults = contextualResults.slice(0, 4);
+  const quickResults = getTaskContextQuickResultCodes(taskContextTitle)
+    .map(code => CRM_CANONICAL_RESULTS.find(result => result.code === code))
+    .filter((result): result is (typeof CRM_CANONICAL_RESULTS)[number] => Boolean(result));
   const chooseResult = (code: CrmResultCode) => {
     setResultCode(code);
     setSelectionOrigin('manual');
