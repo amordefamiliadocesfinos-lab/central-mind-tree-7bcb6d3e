@@ -28,6 +28,10 @@ CREATE TABLE public.purchase_receipt_items(
  purchase_order_item_id uuid NOT NULL,operational_received_qty numeric NOT NULL,
  received_purchase_qty numeric NOT NULL
 );
+CREATE TABLE public.purchase_presentations(
+ id uuid PRIMARY KEY,product_id uuid,variant_id uuid,
+ is_active boolean,conversion_factor numeric,purchase_unit_label text
+);
 CREATE TABLE public.commercial_presentations(
  id uuid PRIMARY KEY,product_id uuid,variant_id uuid,
  composition_mode text,conversion_factor numeric,commercial_unit_label text
