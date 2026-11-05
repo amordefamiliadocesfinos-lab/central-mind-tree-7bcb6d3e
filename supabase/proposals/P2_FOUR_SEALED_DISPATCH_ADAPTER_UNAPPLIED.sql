@@ -1,6 +1,7 @@
 -- REVIEW ONLY. Does not change public.apply_order_stock_event.
--- Called only after authenticated canonical order lifecycle validates shipped
--- or external_shipped, p_order_id, current actor, and physical separation.
+-- Called only from the canonical shipped finalization, with a transaction-scoped
+-- gate and actor authorization enforced upstream. external_shipped remains
+-- fail-closed pending its separately verified physical evidence contract.
 -- No public/service-role EXECUTE. Requires schema and primitive P2 candidate.
 CREATE OR REPLACE FUNCTION public.p2_four_dispatch_adapter_candidate(
  p_product_id uuid,p_variant_id uuid,p_presentation_id uuid,
@@ -43,6 +44,9 @@ BEGIN
  END CASE;
  IF p_operational_grams IS DISTINCT FROM p_commercial_count*v_factor
  THEN RAISE EXCEPTION 'p2_dispatch_mass_mismatch';END IF;
+ -- The reference identifies the canonical separation flow; it is not a
+ -- stand-alone signed proof of physical handoff. LIVE activation requires
+ -- the approved physical-evidence contract and inventory reconciliation.
  -- Lock orders of existing containers stable by location.
  -- Atomic SQL invocation rolls back all debits on a shortage.
  v_remaining:=p_commercial_count::integer;
@@ -56,7 +60,7 @@ BEGIN
   PERFORM public.p2_four_apply_internal(
    v_family,v_action,v_take,v_row.storage_location_id,
    'order:'||p_order_id::text||':p2:'||p_order_item_id::text||':'||v_row.storage_location_id::text,
-   'order_stock_event',p_order_id,'physical_shipment:'||p_order_id::text,
+   'order_stock_event',p_order_id,'canonical_separation_order:'||p_order_id::text,
    p_presentation_id
   );
   v_remaining:=v_remaining-v_take;
