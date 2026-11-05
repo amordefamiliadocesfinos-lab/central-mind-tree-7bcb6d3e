@@ -73,6 +73,10 @@ jobs:
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_identity_triggers_disposable.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_triggers_open_disposable.sql
+      - name: Exercise actual separation finalization lifecycle against P2 candidate
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_finalize_real_flow_disposable.sql
       - name: Verify role grants and deny public RPC mutation
         run: |
           set -euo pipefail
