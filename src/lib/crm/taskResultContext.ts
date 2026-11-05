@@ -48,3 +48,8 @@ export function getTaskContextResultCodes(taskTitle?: string | null): CrmResultC
 
   return [];
 }
+
+/** Atalhos são subconjunto da ordenação contextual, nunca decisão ou gravação. */
+export function getTaskContextQuickResultCodes(taskTitle?: string | null): CrmResultCode[] {
+  return getTaskContextResultCodes(taskTitle).slice(0, 4);
+}
