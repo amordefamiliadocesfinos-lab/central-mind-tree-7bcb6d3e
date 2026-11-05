@@ -32,7 +32,7 @@ CREATE TABLE public.p2_four_sealed_events (
  product_id uuid NOT NULL,
  storage_location_id uuid NOT NULL,
  physical_state text NOT NULL,
- operation text NOT NULL CHECK (operation IN ('receipt','open','dispatch')),
+ operation text NOT NULL CHECK (operation IN ('receipt','open','dispatch','transfer_in')),
  units integer NOT NULL CHECK (units > 0),
  previous_balance integer NOT NULL CHECK (previous_balance >= 0),
  new_balance integer NOT NULL CHECK (new_balance >= 0),
@@ -44,7 +44,7 @@ CREATE TABLE public.p2_four_sealed_events (
  FOREIGN KEY (product_id,storage_location_id,physical_state)
   REFERENCES public.p2_four_sealed_stock(product_id,storage_location_id,physical_state),
  CONSTRAINT p2_four_balance_movement CHECK (
-  (operation='receipt' AND new_balance=previous_balance+units)
+  (operation IN ('receipt','transfer_in') AND new_balance=previous_balance+units)
   OR (operation IN ('open','dispatch') AND new_balance=previous_balance-units)
  )
 );
