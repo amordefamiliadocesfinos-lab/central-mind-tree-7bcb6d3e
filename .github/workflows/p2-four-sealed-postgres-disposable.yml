@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'supabase/proposals/P2_FOUR_SEALED_*.sql'
+      - 'supabase/proposals/P2_FOUR_PHYSICAL_OPEN_*.sql'
       - 'supabase/proposals/P2_FOUR_CANONICAL_*.sql'
       - 'supabase/tests/p2_four_*.sql'
       - 'supabase/tests/p2_four_*.mjs'
