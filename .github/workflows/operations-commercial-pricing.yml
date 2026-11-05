@@ -1,0 +1,24 @@
+name: Operações Commercial Pricing Contract
+on:
+  pull_request:
+    paths:
+      - 'src/lib/operations/commercialPricing.ts'
+      - 'src/lib/crm/commercialPriceContext.ts'
+      - 'src/components/crm/InboxSaleDialog.tsx'
+      - 'tests/operations-commercial-pricing.test.mjs'
+      - '.github/workflows/operations-commercial-pricing.yml'
+permissions:
+  contents: read
+jobs:
+  pricing-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --experimental-strip-types --test tests/operations-commercial-pricing.test.mjs
+      - run: npm run build

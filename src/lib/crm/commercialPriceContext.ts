@@ -1,10 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
+import { validateDirectPriceTable, resolveDirectPriceReference, type DirectPriceTier, type DirectPriceTable } from '@/lib/operations/commercialPricing';
 
-type Tier = { level: string; min_qty: number; max_qty: number | null; price_brl: number };
-type OfficialTable = {
-  version: number; channel: string; valid_from: string; valid_until: string | null;
-  approved_on: string; unit: 'unit' | 'bandeja'; prices: Tier[];
-};
+type Tier = DirectPriceTier;
+type OfficialTable = DirectPriceTable;
 export interface CrmCommercialPriceRow {
   name: string;
   is_active: boolean;
@@ -43,21 +41,8 @@ function requestedQuantity(message: string): number | null {
 }
 
 function validateTable(table: OfficialTable | undefined, qty: number | null, unit: 'unit' | 'bandeja', today: string): Tier | null {
-  if (!table || table.version !== 1 || table.channel !== 'whatsapp_direto'
-      || table.unit !== unit || table.valid_from > today
-      || (table.valid_until && table.valid_until < today)
-      || !Array.isArray(table.prices) || table.prices.length !== 6) return null;
-  const sorted = [...table.prices].sort((a, b) => a.min_qty - b.min_qty);
-  if (sorted[0].min_qty !== 1 || sorted[5].max_qty !== null) return null;
-  for (let i = 0; i < sorted.length; i++) {
-    const t = sorted[i];
-    if (!Number.isSafeInteger(t.min_qty) || t.min_qty < 1 ||
-        !Number.isFinite(t.price_brl) || t.price_brl <= 0 ||
-        (t.max_qty !== null && (!Number.isSafeInteger(t.max_qty) || t.max_qty < t.min_qty)) ||
-        (i > 0 && sorted[i - 1].max_qty !== t.min_qty - 1)) return null;
-  }
-  // Sem quantidade, a única cotação inequívoca é o varejo (primeira faixa).
-  return sorted.find(t => (qty ?? 1) >= t.min_qty && (t.max_qty === null || (qty ?? 1) <= t.max_qty)) ?? null;
+  if (!table || table.unit !== unit) return null;
+  return validateDirectPriceTable(table, qty ?? 1, today);
 }
 
 /**
@@ -75,7 +60,8 @@ export function getOfficialWhatsappTierPrice(
   const matches = rows.filter(row => row.name === productName && row.is_active && !row.deleted_at);
   if (matches.length !== 1) return null;
   const unit = family.name.includes('TRUFA') || family.name.includes('CHOCOIM') ? 'unit' : 'bandeja';
-  return validateTable(matches[0].attributes?.crm_direct_whatsapp_price_table, commercialQuantity, unit, today)?.price_brl ?? null;
+  const reference = resolveDirectPriceReference(rows, productName, commercialQuantity, today);
+  return reference?.unit === unit ? reference.unitPrice : null;
 }
 
 /** Consulta somente os níveis oficialmente aprovados no próprio produto. */
