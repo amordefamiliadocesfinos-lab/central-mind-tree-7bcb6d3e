@@ -33,7 +33,9 @@ export function getCrmPostResultGuidance(
       target: 'history', buttonLabel: 'Conferir histórico', keepInFocus: true,
     };
   }
-  if (priority.operational) {
+  // P3 é fila normal, não comprova uma obrigação devida. Não impedir
+  // avanço somente por esse rótulo genérico.
+  if (priority.operational && priority.reason !== 'normal') {
     const title = nextActionTitle?.trim();
     return {
       title: 'Resultado registrado · existe outra obrigação atual',
