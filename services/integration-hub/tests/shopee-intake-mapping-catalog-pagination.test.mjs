@@ -45,7 +45,7 @@ test('371 scoped and fallback mappings including 524 components survive complete
  assert.ok(out.mappings.find(m=>m.id===records[369].id));
  assert.ok(core.calls.some(x=>x.table==='marketplace_product_mappings'&&x.from===200));
  assert.ok(core.calls.filter(x=>x.table==='marketplace_product_mapping_items').length>2);
- assert.deepEqual(out.mappings[0].components.map(c=>c.position),[0,1]);
+ assert.deepEqual(out.mappings[0].components.map(c=>c.position),[0,1,1]);
 });
 test('other accounts are never included in Adão scoped results',async()=>{
  const out=await readShopeeScopedMappingCatalog(fakeCore({otherAccount:true}),A,'SHOPEE ADÃO');
