@@ -46,6 +46,7 @@ import { getCrmInboxAttendanceTone, getCrmInboxBadgeToneClass, getCrmInboxPriori
 import { getCrmInboxFilterClass } from '@/lib/crm/inboxFilterVisualHierarchy';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
+import { getCrmPostResultGuidance, type CrmPostResultGuidance } from '@/lib/crm/postResultGuidance';
 import { getCrmSocialEventReviewHint } from '@/lib/crm/socialEventReview';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
@@ -219,6 +220,7 @@ export default function ContatosInbox() {
   const [saleDecisionOpen, setSaleDecisionOpen] = useState(false);
   const [concludeIntent, setConcludeIntent] = useState<{ contactId: string; conversationId: string | null; warning: string } | null>(null);
   const [operationalHandoff, setOperationalHandoff] = useState<{ resultCode: string; label: string } | null>(null);
+  const [postResultGuide, setPostResultGuide] = useState<{ contextKey: string; guidance: CrmPostResultGuidance } | null>(null);
 
   // CRM-COR-01/02: ao trocar de atendimento, todo estado temporário do contato
   // anterior é descartado (Resultado sugerido, confirmação de envio).
@@ -233,6 +235,7 @@ export default function ContatosInbox() {
     setActiveActionMode(null);
     setOrientationExpanded(false);
     setOperationalHandoff(null);
+    setPostResultGuide(null);
     setConcludeIntent(null);
   }, [selectedId]);
   const [saleDecisionBusy, setSaleDecisionBusy] = useState(false);
@@ -1354,18 +1357,30 @@ export default function ContatosInbox() {
       // pendente do cliente. Em sessão de fila, não avançar até que o envio
       // seja efetivamente registrado (ou a obrigação seja resolvida).
       const currentAfterResult = refreshedItems.find(item => item.id === selected.id);
-      if (currentAfterResult?.needs_reply && currentAfterResult.status !== 'resolved') {
-        toast.message('Resultado registrado. Falta responder ao cliente antes de avançar.', {
-          description: 'O atendimento permanece em P0; prepare e envie a resposta pelo canal oficial.',
-        });
+      if (!currentAfterResult) {
+        // Uma busca/paginação não é evidência de conclusão. Não escolher próximo
+        // atendimento caso a leitura não contenha o contato que gravamos.
+        toast.message('Resultado registrado. Confira a Inbox atualizada antes de avançar.');
+        return true;
+      }
+      const priorityAfterResult = getCrmPriority(toCrmPriorityInput(currentAfterResult), new Date());
+      const guidance = getCrmPostResultGuidance(
+        priorityAfterResult,
+        currentAfterResult.next_action_title ?? currentAfterResult.next_action_text ?? null,
+        result.handoffPending,
+      );
+      setPostResultGuide({ contextKey: operationContextKey, guidance });
+      if (guidance.target === 'reply') {
         setReplyFocusRequest({
           id: ++actionRequestSequenceRef.current,
           contactId: currentAfterResult.id,
           conversationId: currentAfterResult.conversation_id ?? null,
           prepareAssistant: false,
         });
-        return true;
       }
+      // Não avançar automaticamente com uma obrigação ainda ativa nem quando
+      // o Resultado exige encaminhamento operacional supervisionado.
+      if (guidance.keepInFocus) return true;
       if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems, true);
       return true;
     } catch (error) {
@@ -2093,6 +2108,33 @@ export default function ContatosInbox() {
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => setOperationalHandoff(null)}>
                               Depois
                             </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {postResultGuide?.contextKey === `${selected.id}|${selected.conversation_id ?? ''}`
+                      && !operationalHandoff && (
+                      <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200"
+                        aria-label="Continuidade após registrar Resultado" aria-live="polite">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <strong>{postResultGuide.guidance.title}</strong>
+                            <p className="mt-0.5">{postResultGuide.guidance.explanation}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {postResultGuide.guidance.target === 'reply' && (
+                              <Button type="button" size="sm" className="h-7 px-2 text-[11px]"
+                                onClick={() => setReplyFocusRequest({
+                                  id: ++actionRequestSequenceRef.current,
+                                  contactId: selected.id, conversationId: selected.conversation_id ?? null, prepareAssistant: false,
+                                })}>Preparar resposta</Button>
+                            )}
+                            {postResultGuide.guidance.target === 'history' && (
+                              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]"
+                                onClick={() => setDetailTab('historico')}>Conferir histórico</Button>
+                            )}
+                            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px]"
+                              onClick={() => setPostResultGuide(null)}>Entendi</Button>
                           </div>
                         </div>
                       </div>
