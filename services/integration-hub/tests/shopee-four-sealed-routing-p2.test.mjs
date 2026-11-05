@@ -26,7 +26,7 @@ test('purchase originals are not automatically credited as loose grams',()=>{
  assert.equal(inspect({kind:'purchase',productId:ml1.productId,
   presentationId:ml1.commercialId,commercialQuantity:1,operationalQuantity:395}).blocked,true);
 });
-test('ML2 cannot be satisfied by 27 loose ML1 units or 10665 grams',()=>{
+test('ML2 and ML1 identities require distinct future physical source states',()=>{
  const ml1=rows[1],ml2=rows[0];
  assert.equal(inspect({kind:'sale',productId:ml2.productId,presentationId:ml1.commercialId,
    commercialQuantity:27,operationalQuantity:10665}).stockState,'intactUnits395');
