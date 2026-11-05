@@ -79,7 +79,10 @@ function buildProjectionLines(item, channelAccountId) {
       physicalQuantity: originalReady ? original.physicalQuantity : finitePositive(component.physicalQuantity),
       commercialQuantity: originalReady ? original.commercialQuantity : finitePositive(component.commercialQuantity),
       physicalMultiplier: originalReady ? original.physicalMultiplier : finitePositive(component.physicalMultiplier),
-      unitPrice: index === 0 ? commercialUnitPrice : 0,
+      // Per canonical unit price: an ML1 kit price is shared across its 395g units.
+      unitPrice: index === 0 && originalReady && commercialUnitPrice !== null
+        ? commercialUnitPrice/r2OriginalContract(item,channelAccountId).unitsPerOffer
+        : (index === 0 ? commercialUnitPrice : 0),
       externalItemKey: nullableText(item.externalItemKey),
       itemId: nullableText(item.itemId),
       modelId: nullableText(item.modelId),
