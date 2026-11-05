@@ -7,7 +7,19 @@ ALTER TABLE public.products ADD COLUMN variation_mode text NOT NULL DEFAULT 'sem
 CREATE TABLE public.product_variants(
  id uuid PRIMARY KEY,product_id uuid,variant_name text,unit text
 );
-CREATE TABLE public.orders(id uuid PRIMARY KEY);
+CREATE TABLE public.orders(
+ id uuid PRIMARY KEY,
+ operational_status text NOT NULL DEFAULT 'todo',
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.order_separation(
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ order_id uuid NOT NULL UNIQUE REFERENCES public.orders(id),
+ separation_status text NOT NULL DEFAULT 'todo',
+ finalized_at timestamptz,
+ finalized_by uuid,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE public.order_items(
  id uuid PRIMARY KEY,order_id uuid NOT NULL,product_id uuid NOT NULL,
  variant_id uuid,quantity numeric NOT NULL,commercial_quantity numeric,
