@@ -868,7 +868,7 @@ export default function ContatosInbox() {
         setLastSocialReview({ key: socialReviewKey, hint });
       });
     return () => { current = false; };
-  }, [socialReviewKey, selected?.needs_reply]);
+  }, [socialReviewKey, selected?.needs_reply, selected?.last_inbound_at]);
   // F4-A: consulta pontual pelo ID EXPLÍCITO do último Resultado. Não se
   // procura Pedido por nome, por data ou por simples histórico do contato.
   const [handoffLookup, setHandoffLookup] = useState<{
@@ -1291,6 +1291,21 @@ export default function ContatosInbox() {
     // dados e evitar uma segunda recarga completa consecutiva.
     const itemsToUse = refreshedItems !== undefined ? refreshedItems : await load();
     if (itemsToUse === null) return;
+    // F4: avance manual exige confirmação somente quando a obrigação atual
+    // permanece na fila. Um clique em "Próximo" não encerra nem resolve nada.
+    // O avanço interno após gravar Resultado/Adiar usa fromActiveOperation.
+    if (!fromActiveOperation) {
+      const current = itemsToUse.find(item => item.id === selected.id);
+      if (current) {
+        const priority = getCrmPriority(toCrmPriorityInput(current), new Date());
+        const warning = priority.reason === 'needs_reply'
+          ? 'Este contato ainda precisa de resposta. Avançar não responde nem conclui a pendência. Deseja continuar e mantê-lo na fila?'
+          : priority.reason === 'pending_result'
+            ? 'Este contato ainda precisa registrar um Resultado. Avançar não registra nem conclui a pendência. Deseja continuar e mantê-lo na fila?'
+            : null;
+        if (warning && !window.confirm(warning)) return;
+      }
+    }
     const scope = new Set(attendanceQueueScope);
     const now = new Date();
     const next = itemsToUse
