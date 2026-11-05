@@ -1434,7 +1434,12 @@ export default function ContatosInbox() {
       } as any);
       if (error) throw error;
       toast.success('Revisão registrada. Nenhum Resultado foi criado.');
-      await load();
+      const refreshedItems = await load();
+      if (refreshedItems !== null && attendanceQueueScope.length > 0) {
+        // A revisão foi efetivamente persistida. Só então a sessão pode
+        // avançar, sem inventar Resultado ou encerrar obrigações oficiais.
+        await nextAttendance(refreshedItems, true);
+      }
     } catch (error) {
       console.error('CRM revisão sem fato novo:', error);
       toast.error('Não foi possível registrar a revisão do atendimento.');
