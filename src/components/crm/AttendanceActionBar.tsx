@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarClock, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ interface Props {
   busy?: boolean;
   /** CRM-COR-01/04: identidade do atendimento (contato+conversa) dono deste formulário. */
   contextKey: string;
-  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => void | Promise<void>;
+  onOutcome: (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => Promise<boolean>;
   onSnooze: (when: number | string) => void | Promise<void>;
   /** F4.2: Resultado sugerido pela IA. Apenas pré-seleciona; o operador confirma. */
   presetResultCode?: string | null;
@@ -32,6 +32,10 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   const [time, setTime] = useState('');
   const [resultCode, setResultCode] = useState<CrmResultCode | ''>('');
   const [selectionOrigin, setSelectionOrigin] = useState<CrmResultSelectionOrigin>('manual');
+  const [submittingResult, setSubmittingResult] = useState(false);
+  const resultWriteInFlight = useRef(false);
+  const currentContextKeyRef = useRef(contextKey);
+  currentContextKeyRef.current = contextKey;
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
   const needsReturnDate = resultCode === 'CRM-RES-022';
   const contextualCodes = getTaskContextResultCodes(taskContextTitle);
@@ -78,12 +82,23 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   }, [mode, onModeChange]);
 
   const submitResult = async () => {
-    if (!resultCode || (needsReturnDate && !date)) return;
-    await onOutcome(resultCode, getCrmResultScheduledFor(resultCode, date, time), contextKey, selectionOrigin);
-    setMode(null);
-    setResultCode('');
-    setSelectionOrigin('manual');
-    setDate(''); setTime('');
+    if (!resultCode || (needsReturnDate && !date) || busy || resultWriteInFlight.current) return;
+    resultWriteInFlight.current = true;
+    setSubmittingResult(true);
+    const submittedContextKey = contextKey;
+    try {
+      // O fluxo canônico devolve sucesso real. Falha de persistência mantém
+      // formulário, Resultado e data para permitir corrigir/tentar de novo.
+      const confirmed = await onOutcome(resultCode, getCrmResultScheduledFor(resultCode, date, time), submittedContextKey, selectionOrigin);
+      if (!confirmed || currentContextKeyRef.current !== submittedContextKey) return;
+      setMode(null);
+      setResultCode('');
+      setSelectionOrigin('manual');
+      setDate(''); setTime('');
+    } finally {
+      resultWriteInFlight.current = false;
+      setSubmittingResult(false);
+    }
   };
 
   const activeForm = (
@@ -144,7 +159,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
           {needsReturnDate && <p className="text-[11px] text-amber-700 dark:text-amber-400">Use somente quando o cliente combinou o retorno. Para planejar uma retomada interna sem acordo, use Adiar. Sem horário definido, o retorno fica acionável ao longo do dia.</p>}
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setMode(null); setResultCode(''); setDate(''); setTime(''); }}>Cancelar</Button>
-            <Button size="sm" className="h-8 text-xs" disabled={!resultCode || (needsReturnDate && !date) || busy} onClick={() => void submitResult()}>Confirmar resultado</Button>
+            <Button size="sm" className="h-8 text-xs" disabled={!resultCode || (needsReturnDate && !date) || busy || submittingResult} onClick={() => void submitResult()}>{submittingResult ? 'Registrando...' : 'Confirmar resultado'}</Button>
           </div>
         </div>
       )}

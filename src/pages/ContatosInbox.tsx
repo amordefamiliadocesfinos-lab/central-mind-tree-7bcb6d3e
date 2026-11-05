@@ -1320,22 +1320,24 @@ export default function ContatosInbox() {
     await openConversation(next, fromActiveOperation);
   };
 
-  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin) => {
-    if (!selected) return;
+  const registerOutcome = async (resultCode: CrmResultCode, scheduledFor?: string | null, contextKey?: string, selectionOrigin?: CrmResultSelectionOrigin): Promise<boolean> => {
+    if (!selected) return false;
     // CRM-COR-04: trava de integridade — o formulário precisa pertencer ao atendimento atual.
     const currentContextKey = `${selected.id}|${selected.conversation_id ?? ''}`;
     if (contextKey && contextKey !== currentContextKey) {
       setSuggestedResultCode(null);
       toast.error('Contato alterado durante o registro. Selecione o resultado novamente.');
-      return;
+      return false;
     }
     const operationContextKey = currentContextKey;
-    if (!beginAttendanceOperation(true)) return;
+    if (!beginAttendanceOperation(true)) return false;
+    let persisted = false;
     try {
       const result = await applyCanonicalAttendanceResult({ contactId: selected.id, conversationId: selected.conversation_id, resultCode, scheduledFor, selectionOrigin });
+      persisted = true;
       // A gravação pertence ao contato capturado acima. Depois dela, só efeitos
       // visuais pertencentes ao mesmo contexto podem tocar a Inbox atual.
-      if (selectedContextRef.current !== operationContextKey) return;
+      if (selectedContextRef.current !== operationContextKey) return true;
       const stageSummary = result.stage.action === 'MOVE'
         ? `Etapa: ${getCrmStageLabel(result.stage.previousStage)} → ${getCrmStageLabel(result.stage.nextStage)}`
         : `Etapa: ${getCrmStageLabel(result.stage.previousStage)} — mantida`;
@@ -1347,7 +1349,7 @@ export default function ContatosInbox() {
       setSendConfirmation(false);
       setOperationalHandoff(result.handoffPending ? { resultCode, label: result.label } : null);
       const refreshedItems = await load();
-      if (refreshedItems === null) return;
+      if (refreshedItems === null) return true;
       // Um Resultado classifica o fato comercial, mas não substitui resposta
       // pendente do cliente. Em sessão de fila, não avançar até que o envio
       // seja efetivamente registrado (ou a obrigação seja resolvida).
@@ -1362,12 +1364,18 @@ export default function ContatosInbox() {
           conversationId: currentAfterResult.conversation_id ?? null,
           prepareAssistant: false,
         });
-        return;
+        return true;
       }
       if (attendanceQueueScope.length > 0) await nextAttendance(refreshedItems, true);
+      return true;
     } catch (error) {
       console.error(error);
-      toast.error('Não foi possível registrar o resultado do atendimento.');
+      if (persisted) {
+        toast.warning('Resultado registrado, mas a atualização da fila não foi concluída. Atualize a Inbox.');
+      } else {
+        toast.error('Não foi possível registrar o resultado do atendimento. A escolha foi preservada para tentar novamente.');
+      }
+      return persisted;
     } finally {
       finishAttendanceOperation();
     }
