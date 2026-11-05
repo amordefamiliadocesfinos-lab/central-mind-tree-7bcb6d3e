@@ -166,4 +166,38 @@ BEGIN
  source_event_key LIKE 'p2:physical_open:%';
  IF n<>5 THEN RAISE EXCEPTION 'p2_expected_five_attestations_actual_%',n;END IF;
 END $four_families$;
+
+-- Exercise the actual SQL role boundary (the identity itself is synthetic).
+SET LOCAL ROLE authenticated;
+DO $auth_access$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM public.p2_four_attest_and_open(
+   'sorbato','open_original_package',1,
+   'b1ef7322-86f9-4cf4-9d52-39ba32911ef6',
+   'access-test:'||gen_random_uuid()::text,FALSE,
+   'Abertura fisica nao confirmada para verificar a entrada');
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM LIKE '%p2_physical_confirmation_required%' THEN denied:=true;
+  ELSE RAISE;END IF;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_authenticated_rpc_not_reached';END IF;
+END $auth_access$;
+RESET ROLE;
+SET LOCAL ROLE anon;
+DO $anon_access$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM public.p2_four_attest_and_open(
+   'sorbato','open_original_package',1,
+   'b1ef7322-86f9-4cf4-9d52-39ba32911ef6',
+   'anon-test:'||gen_random_uuid()::text,TRUE,
+   'Abertura fisica indevidamente pedida por anonimo');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_anon_routed_to_opening';END IF;
+END $anon_access$;
+RESET ROLE;
 ROLLBACK;
