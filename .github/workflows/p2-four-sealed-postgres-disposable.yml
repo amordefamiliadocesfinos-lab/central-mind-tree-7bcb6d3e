@@ -5,6 +5,7 @@ on:
       - 'supabase/proposals/P2_FOUR_SEALED_*.sql'
       - 'supabase/proposals/P2_FOUR_PHYSICAL_OPEN_*.sql'
       - 'supabase/proposals/P2_FOUR_CANONICAL_*.sql'
+      - 'supabase/proposals/P2_FOUR_ADAO_ORDER_RELEASE_UNAPPLIED.sql'
       - 'supabase/tests/p2_four_*.sql'
       - 'supabase/tests/p2_four_*.mjs'
       - 'scripts/p2-four-cloudrun-audit-readonly.sh'
@@ -104,6 +105,11 @@ jobs:
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.p2_four_sealed_stock')" = 0
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory_movements')" = 0
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory WHERE quantity<>0')" = 0
+      - name: Validate controlled Adão order unquarantine without stock effects
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_ADAO_ORDER_RELEASE_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_adao_release_disposable.sql
       - name: Confirm concurrent dispatch does not double-debit last package
         run: |
           set -euo pipefail
