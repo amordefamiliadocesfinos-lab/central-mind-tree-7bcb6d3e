@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CRM_CANONICAL_RESULTS } from '@/lib/crm/canonical/results';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
-import { getTaskContextResultCodes } from '@/lib/crm/taskResultContext';
+import { getTaskContextResultCodes, getTaskContextQuickResultCodes } from '@/lib/crm/taskResultContext';
 import { getCrmResultScheduledFor, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
 
 interface Props {
@@ -43,6 +43,17 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   const contextualResults = contextualCodes
     .map(code => CRM_CANONICAL_RESULTS.find(result => result.code === code))
     .filter((result): result is (typeof CRM_CANONICAL_RESULTS)[number] => Boolean(result));
+  // Até quatro atalhos para reduzir cliques sem inferir o fato comercial.
+  // Contexto prioriza apresentação, nunca pré-seleciona nem persiste.
+  const quickResults = getTaskContextQuickResultCodes(taskContextTitle)
+    .map(code => CRM_CANONICAL_RESULTS.find(result => result.code === code))
+    .filter((result): result is (typeof CRM_CANONICAL_RESULTS)[number] => Boolean(result));
+  const chooseResult = (code: CrmResultCode) => {
+    setResultCode(code);
+    setSelectionOrigin('manual');
+    setDate('');
+    setTime('');
+  };
   const otherResults = contextualResults.length
     ? CRM_CANONICAL_RESULTS.filter(result => !contextualCodeSet.has(result.code))
     : CRM_CANONICAL_RESULTS;
@@ -106,12 +117,26 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
       <h3 className="text-sm font-semibold">{mode === 'outcome' ? 'Registrar resultado' : 'Adiar atendimento'}</h3>
       {mode === 'outcome' && (
         <div className="space-y-2 rounded-md border bg-background p-2">
-          <Select value={resultCode} onValueChange={value => {
-            setResultCode(value as CrmResultCode);
-            setSelectionOrigin('manual');
-            // Ao trocar de Resultado, não transportar uma data selecionada antes.
-            setDate(''); setTime('');
-          }}>
+          {quickResults.length > 0 && (
+            <div className="space-y-1.5" aria-label="Resultados relacionados à Próxima Ação">
+              <p className="text-[11px] font-medium">Resultados relacionados à tarefa — escolha somente o que aconteceu:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {quickResults.map(result => (
+                  <Button key={result.code} type="button" size="sm"
+                    variant={resultCode === result.code ? 'default' : 'outline'}
+                    className="h-auto min-h-8 whitespace-normal px-2 py-1 text-left text-[11px]"
+                    disabled={busy || submittingResult}
+                    aria-pressed={resultCode === result.code}
+                    title={result.description}
+                    onClick={() => chooseResult(result.code)}>
+                    {result.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Outras opções permanecem no seletor completo abaixo. Nenhuma opção é registrada automaticamente.</p>
+            </div>
+          )}
+          <Select value={resultCode} onValueChange={value => chooseResult(value as CrmResultCode)}>
             <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione o resultado do atendimento" /></SelectTrigger>
             <SelectContent className="max-h-72">
               {contextualResults.length > 0 && (
@@ -149,7 +174,12 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
               Contexto da tarefa: <strong className="font-medium text-foreground">{taskContextTitle}</strong>. Os resultados relacionados aparecem primeiro; os demais continuam disponíveis.
             </p>
           )}
-          {selectedResult && <p className="text-[11px] text-muted-foreground">{selectedResult.description}</p>}
+          {selectedResult && (
+            <div className="rounded-md border px-2 py-1.5 text-[11px]">
+              <strong>Você está confirmando: {selectedResult.label}.</strong> {selectedResult.description}
+              <p className="mt-1 text-muted-foreground">Confira se isso realmente ocorreu na conversa. O CRM só atualizará o atendimento depois de confirmar o registro.</p>
+            </div>
+          )}
           {(needsReturnDate || date) && (
             <div className="grid grid-cols-2 gap-2">
               <Input type="date" className="h-8 text-xs" value={date} min={new Date().toISOString().slice(0, 10)} onChange={event => setDate(event.target.value)} />
