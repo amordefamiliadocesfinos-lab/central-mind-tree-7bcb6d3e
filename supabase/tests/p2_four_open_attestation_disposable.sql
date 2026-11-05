@@ -43,6 +43,37 @@ BEGIN
  IF NOT blocked THEN RAISE EXCEPTION 'p2_wrong_role_opened';END IF;
  PERFORM set_config('app.p2_test_role','Administrador',true);
 
+ -- Negative operational acceptance: a missing authenticated identity, inactive
+ -- or unknown location, and insufficient opening description fail closed.
+ blocked:=false;
+ PERFORM set_config('app.p2_test_actor','',true);
+ BEGIN
+  PERFORM public.p2_four_attest_and_open('sorbato','open_original_package',1,loc,
+    open_key,true,'Pacote lacrado efetivamente aberto em teste isolado');
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM LIKE '%p2_physical_open_role_required%' THEN blocked:=true; ELSE RAISE; END IF;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'p2_null_identity_opened'; END IF;
+ PERFORM set_config('app.p2_test_actor',actor::text,true);
+
+ blocked:=false;
+ BEGIN
+  PERFORM public.p2_four_attest_and_open('sorbato','open_original_package',1,gen_random_uuid(),
+    open_key,true,'Pacote lacrado fisicamente conferido no teste');
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM LIKE '%p2_invalid_or_inactive_location%' THEN blocked:=true; ELSE RAISE; END IF;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'p2_invalid_location_opened'; END IF;
+
+ blocked:=false;
+ BEGIN
+  PERFORM public.p2_four_attest_and_open('sorbato','open_original_package',1,loc,
+    open_key,true,'curta');
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM LIKE '%p2_open_evidence_detail_required%' THEN blocked:=true; ELSE RAISE; END IF;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'p2_weak_note_opened'; END IF;
+
  blocked:=false;
  BEGIN
   PERFORM public.p2_four_attest_and_open('sorbato','open_original_package',1,loc,
