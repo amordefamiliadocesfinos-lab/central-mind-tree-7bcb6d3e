@@ -180,13 +180,19 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     setItems(current => {
       const source = current[index];
       if (!source?.product_id) return current;
+      const sourcePresentation = source.commercial_presentation;
+      // Uma apresentação vinculada à variante física antiga não pode ser
+      // herdada ao selecionar outro sabor. As composições independentes da
+      // variante são preservadas; a validação existente exige nova seleção.
+      const safePresentation = sourcePresentation?.composition_mode === 'composite'
+        || !sourcePresentation?.variant_id ? sourcePresentation : null;
       const copy: SaleItem = {
         ...source,
         variant_id: null,
-        quantity: 1,
+        commercial_presentation: safePresentation,
+        quantity: safePresentation?.conversion_factor ?? 1,
         commercial_quantity: 1,
-        // Preserva apresentação e valor negociado para edição; exige nova
-        // seleção de sabor antes da gravação quando a variante é obrigatória.
+        _unit_price_text: undefined,
       };
       return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
     });
@@ -406,6 +412,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
             )}
             {items.map((item, index) => (
               <div key={index} className="space-y-1">
+                {index > 0 && !item.variant_id && products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas'
+                  && item.commercial_presentation?.composition_mode !== 'composite' && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300">Selecione a variante física deste item antes de registrar a venda.</p>
+                  )}
                 <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_5rem_10rem_2.5rem] sm:gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
