@@ -5,7 +5,8 @@
 -- receipt/dispatch wrapper may call it. Never publish it as a user-facing RPC.
 -- It assumes the caller already validated the immutable physical evidence and
 -- the real receipt/order lifecycle. Do not approve any grant/call until proven.
--- This SQL has not passed PostgreSQL execution/concurrency tests.
+-- PostgreSQL 17 synthetic CI exercises this SQL, including concurrent dispatch.
+-- This does not validate operational evidence, complete LIVE schema, or deployment.
 CREATE OR REPLACE FUNCTION public.p2_four_apply_internal(
  p_family text, p_action text, p_count integer, p_location_id uuid,
  p_event_key text, p_reference_type text, p_reference_id uuid,
