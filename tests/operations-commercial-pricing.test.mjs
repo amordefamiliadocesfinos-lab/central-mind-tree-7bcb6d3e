@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import {
   validateDirectPriceTable, resolveDirectPriceReference,
   resolveDirectSalePriceAdvice, resolveUnconfiguredSpecialCondition,
-} from '../../src/lib/operations/commercialPricing.ts';
+} from '../src/lib/operations/commercialPricing.ts';
 
 const tiers = [
   {level:'varejo',min_qty:1,max_qty:1,price_brl:35},
