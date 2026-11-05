@@ -86,5 +86,31 @@ BEGIN
  SELECT quantity INTO v_count FROM public.inventory WHERE product_id=generic;
  IF v_count<>5 THEN RAISE EXCEPTION 'p2_failed_mixed_order_changed_generic_stock';END IF;
 
+ -- P2 shortage on a mixed order must atomically reject the entire shipment,
+ -- without consuming the unrelated generic product in the same order.
+ INSERT INTO public.orders(id) VALUES(gen_random_uuid()) RETURNING id INTO order_id;
+ INSERT INTO public.order_items(
+ id,order_id,product_id,variant_id,quantity,commercial_quantity,commercial_presentation_id)
+ VALUES
+ (gen_random_uuid(),order_id,sorbato,NULL,1000,1,
+  '684d4a55-5d3a-4c18-be47-818a1a3bc074'),
+ (gen_random_uuid(),order_id,generic,NULL,5,NULL,NULL);
+ BEGIN
+   PERFORM public.apply_order_stock_event(order_id,'shipped');
+   RAISE EXCEPTION 'p2_shortage_mixed_order_was_dispatched';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM NOT LIKE '%p2_insufficient_original_packages_for_shipment%'
+   THEN RAISE; END IF;
+ END;
+ SELECT quantity INTO v_count FROM public.inventory WHERE product_id=generic;
+ IF v_count<>5 THEN RAISE EXCEPTION 'p2_shortage_debited_generic_inventory';END IF;
+ IF EXISTS(SELECT 1 FROM public.inventory_movements
+   WHERE reference_id=order_id AND movement_type='out')
+ THEN RAISE EXCEPTION 'p2_shortage_left_generic_out_movement';END IF;
+ IF EXISTS(SELECT 1 FROM public.p2_four_sealed_events
+   WHERE reference_type='order_stock_event' AND reference_id=order_id)
+ THEN RAISE EXCEPTION 'p2_shortage_left_sealed_event';END IF;
+
+
 END $test$;
 ROLLBACK;
