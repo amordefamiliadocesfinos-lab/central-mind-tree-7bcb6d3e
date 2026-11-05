@@ -76,3 +76,13 @@ A localização Fábrica está ativa; CD01 e CD02 também estão ativas; C3 est�
 **Fato operacional existente:** `operational_incidents` inclui três incidentes abertos de `material_shortage` do Ivoti associados a `production_fact_consumption` (24 resolvidos). Não inferir disso saldo disponível, quantidade de baldes nem proposta de correção no escopo Mappings. Apenas preservar a pendência para Operações se afetar a conciliação física do Ivoti.
 
 **Portão único a executar fora do sistema:** responsável de Operações contar e atestar por localização os recipientes **originais fechados**, as unidades **intactas** Italac e eventual material **aberto**. Distinguir a evidência física dos saldos legados. Até esse atestado, P3 segue bloqueado, P4 postergado e não há autorização de merge/migration/cutover. Não criar nova frente nem pesquisar outras famílias.
+
+## Prioridade executiva — 05/11/2026: concluir engenharia antes do inventário
+
+**Decisão expressa do responsável:** a contagem física e a regularização/conciliação dos saldos atuais serão realizadas **logo após** a conclusão da engenharia P2. Portanto, não bloquear conclusão do código, revisão, testes, merge da proposta de código inerte ou preparação da implantação por ausência de inventário. Não investigar ou corrigir nesta missão os saldos históricos, inclusive `location_id` nulo de Sorbato/Ácido; essa divergência é entregue para o inventário posterior.
+
+**Distinção indispensável:** inventário não é pré-condição para **encerrar a engenharia**; continua obrigatório antes de **inicializar saldos físicos ou habilitar movimentação operacional da nova estrutura**. Concluir não significa inventar disponibilidade, emitir COMMIT de mappings, aplicar SQL em produção ou liberar P4.
+
+**Rota enxuta de encerramento:** (1) validar scripts candidatos e integração nas duas RPCs canônicas com CI descartável e regressões de recibo/separação; (2) fechar revisão de segurança/atomicidade, sem nova investigação abrangente; (3) entregar PR pronta tecnicamente para revisão/merge seguro, deixando qualquer ativação operacional bloqueada; (4) executar inventário logo após; (5) obter autorização separada para migration/cutover e movimentações. As etapas 4–5 não impedem classificar a engenharia como concluída.
+
+**Não reabrir a frente de levantamento de saldos nesta etapa.** A última leitura LIVE foi apenas informativa, não autoriza inferir número de embalagens.
