@@ -90,6 +90,12 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_roles_disposable.sql
+      - name: Validate authenticated physical opening attestation with rollback
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_open_auth_fixture_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_PHYSICAL_OPEN_ATTESTATION_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_open_attestation_disposable.sql
       - name: Verify rollback left no stock or movements
         run: |
           set -euo pipefail
