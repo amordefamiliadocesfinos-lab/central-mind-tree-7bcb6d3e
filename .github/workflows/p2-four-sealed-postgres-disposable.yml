@@ -6,6 +6,7 @@ on:
       - 'supabase/proposals/P2_FOUR_CANONICAL_*.sql'
       - 'supabase/tests/p2_four_*.sql'
       - 'supabase/tests/p2_four_*.mjs'
+      - 'scripts/p2-four-cloudrun-audit-readonly.sh'
       - 'supabase/tests/p2_four_*.sh'
       - '.github/workflows/p2-four-sealed-postgres-disposable.yml'
   workflow_dispatch:
@@ -37,6 +38,8 @@ jobs:
       PGPASSWORD: postgres-ci-only
     steps:
       - uses: actions/checkout@v4
+      - name: Validate read-only runtime audit script syntax
+        run: bash -n scripts/p2-four-cloudrun-audit-readonly.sh
       - name: Verify P2 external caller source contracts
         run: node --test supabase/tests/p2_four_external_callers_contract.mjs
       - name: Install PostgreSQL client
