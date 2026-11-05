@@ -68,8 +68,8 @@ export interface CrmOperationalTaskSnapshot {
 }
 
 /**
- * Preserva a primeira tarefa ativa de cada origem. Se houver vários registros,
- * uma tarefa com data válida prevalece para não ocultar obrigação temporizada.
+ * Escolhe a tarefa ativa com vencimento mais antigo em cada origem. Se houver
+ * vários registros, a ordem do banco nunca escolhe uma obrigação menos urgente.
  * A existência de tarefa sem data NÃO produz prazo nem altera getCrmPriority().
  * Espera receber apenas tarefas ativas (os filtros de status são dos leitores).
  */
@@ -87,11 +87,24 @@ export function indexCrmOperationalTasks(
     }
     const dueAt = getCrmOperationalTaskDueAt(row);
     if (row.source === 'crm_reactivation') {
-      if (!snapshot.reactivationDueAt && dueAt) snapshot.reactivationDueAt = dueAt;
+      // A reativação ativa mais antiga é a primeira obrigação devida,
+      // independentemente da ordem retornada pelo banco.
+      if (dueAt && (!snapshot.reactivationDueAt || Date.parse(dueAt) < Date.parse(snapshot.reactivationDueAt))) {
+        snapshot.reactivationDueAt = dueAt;
+      }
       continue;
     }
-    if (!snapshot.hasOfficialNextAction || (!snapshot.nextActionDueAt && dueAt)) {
-      snapshot.nextActionTitle = row.title?.trim() || null;
+    const title = row.title?.trim() || null;
+    const earlierDue = Boolean(dueAt && (!snapshot.nextActionDueAt
+      || Date.parse(dueAt) < Date.parse(snapshot.nextActionDueAt)));
+    const sameDueBetterLabel = Boolean(dueAt && snapshot.nextActionDueAt === dueAt
+      && title && (!snapshot.nextActionTitle || title.localeCompare(snapshot.nextActionTitle) < 0));
+    // Tarefas sem prazo continuam presentes, mas nunca substituem uma tarefa
+    // datada; empates permanecem estáveis, sem depender da ordem do SELECT.
+    const undatedBetterLabel = Boolean(!dueAt && !snapshot.nextActionDueAt && title
+      && (!snapshot.nextActionTitle || title.localeCompare(snapshot.nextActionTitle) < 0));
+    if (!snapshot.hasOfficialNextAction || earlierDue || sameDueBetterLabel || undatedBetterLabel) {
+      snapshot.nextActionTitle = title;
       snapshot.nextActionDueAt = dueAt;
     }
     snapshot.hasOfficialNextAction = true;
