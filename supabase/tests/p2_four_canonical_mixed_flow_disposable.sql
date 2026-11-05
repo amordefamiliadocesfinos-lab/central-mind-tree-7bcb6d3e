@@ -68,5 +68,23 @@ BEGIN
  v_result:=public.apply_order_stock_event(order_id,'external_shipped');
  IF (v_result->>'already_applied')::boolean IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'p2_canonical_mixed_dispatch_double_applied';END IF;
+ -- Unknown P2 presentation must not trigger legacy generic grams fallback.
+ UPDATE public.inventory SET quantity=5 WHERE product_id=generic;
+ INSERT INTO public.orders(id) VALUES(gen_random_uuid()) RETURNING id INTO order_id;
+ INSERT INTO public.order_items(
+ id,order_id,product_id,variant_id,quantity,commercial_quantity,commercial_presentation_id)
+ VALUES
+ (gen_random_uuid(),order_id,
+  'ef118d1c-e7c7-45e3-b796-3a9908840f3c',NULL,1000,1,NULL),
+ (gen_random_uuid(),order_id,generic,NULL,5,NULL,NULL);
+ BEGIN
+  v_result:=public.apply_order_stock_event(order_id,'shipped');
+  RAISE EXCEPTION 'p2_unrecognized_presentation_was_dispatched';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM NOT LIKE '%p2_acido_unknown_presentation%' THEN RAISE;END IF;
+ END;
+ SELECT quantity INTO v_count FROM public.inventory WHERE product_id=generic;
+ IF v_count<>5 THEN RAISE EXCEPTION 'p2_failed_mixed_order_changed_generic_stock';END IF;
+
 END $test$;
 ROLLBACK;
