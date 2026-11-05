@@ -17,14 +17,14 @@ test('five exact contracts and quantities',()=>{
   assert.equal(c.grams,n*395);
  }
 });
-test('unopened packages cannot be inferred from stock in grams',()=>{
+test('canonical Italac units can be registered without inferring closed inventory from grams',()=>{
  for(const [itemId,modelId,n] of PAIRS){
   const item={itemId,modelId,quantity:1,itemName:'Italac',modelName:n+' x 395g'};
   const reason=n===27?ITALAC_R2_V17_BOX_BLOCK:ITALAC_R2_V17_BLOCK;
   const mapping={id:'fake',marketplace:'shopee',marketplace_account:'SHOPEE ADÃO',channel_account_id:ITALAC_ADAO_ACCOUNT,external_item_id:itemId,external_model_id:modelId,product_id:PROD,physical_multiplier:n*395,physical_identity:{active:true,unit:'g',presentation_factors:[395,10665]}};
   assert.equal(italacR2V17PhysicalBlocker(item,{channelAccountId:ITALAC_ADAO_ACCOUNT}),reason);
-  assert.equal(mappingPhysicalBlocker(item,mapping,{channelAccountId:ITALAC_ADAO_ACCOUNT}),reason);
-  assert.equal(preview(item,[mapping]).mappingStatus,reason);
+  assert.equal(mappingPhysicalBlocker(item,mapping,{channelAccountId:ITALAC_ADAO_ACCOUNT}),null);
+  assert.equal(preview(item,[mapping]).mappingStatus,'recognized');
  }
 });
 test('unknown model and legacy aliases are not recognized',()=>{
