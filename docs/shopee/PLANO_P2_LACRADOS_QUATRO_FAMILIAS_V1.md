@@ -1,15 +1,15 @@
 # P2 — Contrato único de embalagens originais (proposta técnica, sem migração)
 
-> **ESTADO ATUAL — 05/11/2026 · ENTREGA ENCERRADA (Método Mestre V1.0 / Enxuto V2.2)**  
-> Esta seção é a referência de estado; abaixo ficam os registros históricos de investigação, propostas e bloqueios conforme existiam em cada checkpoint. **Não interpretar menções antigas a “PR draft”, “sem merge” ou “aguardar engenharia” como situação vigente.**
+> **ESTADO ATUAL — 05/11/2026 · MAPPINGS P3 PERSISTIDOS E QUARENTENADOS (Método Mestre V1.0 / Enxuto V2.2)**  
+> Este quadro prevalece sobre checkpoints históricos mais abaixo. Não confundir código mergeado, SQL aplicado, mappings persistidos, preview e operação física.
 >
-> - **P1 — Verdade:** decisões de identidade física das quatro famílias preservadas (Italac ML1/ML2, Sorbato, Ácido Cítrico, Ivoti), sem reabertura de catálogo ou históricos.
-> - **P2 — Proteção:** **entregue na `main`** pelo merge da [PR #426](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/426), SHA `a70a38c9c6388b29623746812ddce8fa78f29645`; inclui planner JS isolado, propostas SQL **não aplicadas**, testes e guardas candidatos. CI final [PostgreSQL #33](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/42047271382) e [Hub #149](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/42047271381) aprovadas.
-> - **P3 — Banco:** consulta canônica de permissões realizada; **nenhuma migration P2 foi aplicada**, nenhum mapping ou ledger P2 persistido. Não declarar P3 executado.
-> - **P4 — Funcionamento:** não executado neste escopo; sem proclamar homologação E5 ou pedido real processado.
+> - **P1 — VERDADE: APROVADO** para as sete identidades oficiais Shopee Adão conhecidas (Italac ML1 4 Models, Italac ML2 1, Sorbato 1, Ácido 1). Ivoti segue **BLOQUEADO** para mapping por ausência de Item/Model oficial comprovado.
+> - **P2 — PROTEÇÃO: APROVADO para quarentena P3**. Engenharia física candidata entregue na `main` pela PR #426 (`a70a38c9c6388b29623746812ddce8fa78f29645`), mas ainda **não implantada**. Guardas do HUB para sete Models são incondicionais no código; a **quarentena no próprio banco** foi implantada por SQL da [PR #428](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/428) (merge `45accf38eee996712c389f417fb095481f9d83be`), com triggers ativos em `order_items` e `orders` para pedidos Shopee Adão dessas quatro famílias. Teste real de tentativa de inserir Sorbato foi rejeitado, com rollback e sem alteração de pedidos.
+> - **P3 — BANCO: APROVADO para os 7 mappings de identidade**. `BEGIN → INSERT 7 → COMMIT` no Lovable Cloud, com verificação independente posterior: **7 persistidos**, conta canônica correta, Item/Model oficiais, FK do Produto Mestre, multiplicadores 1185/2370/3555/4740/10665/1000/1000 g. Nenhum mapping Ivoti. Nenhum estoque ou pedido alterado. Não interpretar a quantidade em g como prova de pacotes originais.
+> - **P4 — FUNCIONAMENTO: BLOQUEADO / não homologado**. A quarentena intencional impede usar os novos mappings para criar itens de pedidos Shopee Adão enquanto o roteamento físico ainda não está habilitado. Nenhum preview autenticado/digest produtivo ou E5 foi comprovado.
 >
-> **Encerramento da missão deste especialista:** entrega de engenharia e evidências concluída; não abrir novas investigações, relatórios, testes ou dependências de outros módulos sem diferença material e nova missão delimitada. O trabalho não inclui alteração de saldos, pedidos, execução de DDL no Cloud ou ativação de roteamento operacional. **A entrega de código isolado não equivale à implantação.**
-
+> **Fronteira de escopo:** mapeamento comercial concluído para sete identidades; ativação operacional de recipientes físicos continua fora desta entrega. A migration versionada em GitHub foi também executada diretamente no banco canônico e verificada, mas o histórico `supabase_migrations` não foi reconciliado por esta missão; conferir esse detalhe antes de executar novamente a mesma migration. Preservar histórico, outros canais, pedidos, estoque e os demais mappings. Nenhum inventário nesta missão.
+>
 **Projeto:** Painel Central / Shopee Adão · **Método:** Enxuto V2.2 · **Escopo:** Italac, Sorbato, Ácido Cítrico, Ivoti.
 
 ## Estado de origem (leitura LIVE, 04/11/2026)
