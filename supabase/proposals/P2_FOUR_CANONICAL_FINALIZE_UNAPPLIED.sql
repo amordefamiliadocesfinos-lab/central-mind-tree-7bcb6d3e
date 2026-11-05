@@ -60,7 +60,7 @@ BEGIN
 
   RETURN jsonb_build_object('already_finalized', false, 'stock_result', v_stock_result);
 END;
-$function$
+$function$;
 
 
 -- Preserve the LIVE privilege boundary: internal SECURITY DEFINER is not a
