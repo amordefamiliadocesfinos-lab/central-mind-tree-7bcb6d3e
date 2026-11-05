@@ -87,16 +87,15 @@ export async function syncCrmNextActionTask(contactId: string, action: CrmNextAc
     .eq('contact_id', contactId)
     .eq('source', CRM_TASK_SOURCE)
     .is('deleted_at', null)
-    .neq('status', 'concluído')
-    .order('created_at', { ascending: false });
+    .in('status', ['pendente', 'andamento'])
+    .order('created_at', { ascending: true });
   if (findError) throw findError;
 
   const [existing, ...duplicates] = pending || [];
+  // Duplicidade não constitui trabalho executado. Não marcar tarefa como
+  // concluída automaticamente; o banco impede novas duplicações ativas.
   if (duplicates.length > 0) {
-    const { error } = await supabase.from('tasks')
-      .update({ status: 'concluído', updated_at: new Date().toISOString() })
-      .in('id', duplicates.map(task => task.id));
-    if (error) throw error;
+    throw new Error('Mais de uma Próxima Ação oficial ativa para o contato. Reconciliação supervisionada necessária.');
   }
 
   if (!action.title || !action.dueAt) {
@@ -129,7 +128,23 @@ export async function syncCrmNextActionTask(contactId: string, action: CrmNextAc
   }
 
   const { error } = await supabase.from('tasks').insert(payload);
-  if (error) throw error;
+  if (!error) return;
+  if (error.code !== '23505') throw error;
+
+  // Outra requisição criou a tarefa após nossa leitura. O índice parcial
+  // garante uma única linha ativa; reutilizá-la é seguro e não perde histórico.
+  const { data: concurrent, error: readError } = await supabase.from('tasks')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('source', CRM_TASK_SOURCE)
+    .is('deleted_at', null)
+    .in('status', ['pendente', 'andamento'])
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!concurrent) throw error;
+  const { error: updateError } = await supabase.from('tasks')
+    .update(payload).eq('id', concurrent.id);
+  if (updateError) throw updateError;
 }
 
 /** Define a intenção comercial canônica e sua representação executável. */
