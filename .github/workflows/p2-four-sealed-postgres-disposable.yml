@@ -62,3 +62,7 @@ jobs:
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.p2_four_sealed_stock')" = 0
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory_movements')" = 0
           test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory WHERE quantity<>0')" = 0
+      - name: Confirm concurrent dispatch does not double-debit last package
+        run: |
+          set -euo pipefail
+          bash supabase/tests/p2_four_sealed_concurrency_disposable.sh
