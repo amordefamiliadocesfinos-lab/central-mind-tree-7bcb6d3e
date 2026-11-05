@@ -1,3 +1,4 @@
+import {r2OriginalContract,r2OriginalProjectedLine} from './shopee-r2-original-p4-contract.mjs';
 import { R1_ADAO_ACCOUNT_ID, R1_V16_PROTECTED_MODELS, R1_CP_PRESENTATIONS } from './shopee-rodada1-v16-physical-guard.mjs';
 import { MALTO_ADAO_ACCOUNT_ID, MALTO_ADAO_MODELS, MALTO_MD1_PRESENTATION_ID, MALTO_MD2_PRESENTATION_ID } from './shopee-maltodextrina-adao-v14-guard.mjs';
 import { GLUCODRY_ADAO_MODELS, GLUCODRY_GD1_PRESENTATION_ID, GLUCODRY_GD2_PRESENTATION_ID, GLUCODRY_ADAO_ACCOUNT_ID } from './shopee-glucodry-adao-v13-guard.mjs';
@@ -66,24 +67,32 @@ function buildProjectionLines(item, channelAccountId) {
   }
 
   const commercialUnitPrice = lineUnitPrice(item);
-  return item.components.map((component, index) => ({
-    productId: nullableText(component.productId),
-    variantId: nullableText(component.variantId),
-    quantity: finitePositive(component.physicalQuantity),
-    physicalQuantity: finitePositive(component.physicalQuantity),
-    commercialQuantity: finitePositive(component.commercialQuantity),
-    physicalMultiplier: finitePositive(component.physicalMultiplier),
-    unitPrice: index === 0 ? commercialUnitPrice : 0,
-    externalItemKey: nullableText(item.externalItemKey),
-    itemId: nullableText(item.itemId),
-    modelId: nullableText(item.modelId),
-    mappingId: nullableText(item.mappingId),
-    commercialPresentationId: sealedPresentationId(item, channelAccountId) ?? nullableText(component.commercialPresentationId),
-    compositionPosition: Number.isFinite(Number(component.position)) ? Number(component.position) : index,
-  }));
+  return item.components.map((component, index) => {
+    // For ML1 the sold Shopee kit is Q offers, but the canonical operational
+    // presentation is one intact 395g unit. All other models keep Q packages.
+    const original = r2OriginalProjectedLine(item,component,channelAccountId);
+    const originalReady = original && !original.blocked;
+    return {
+      productId: nullableText(component.productId),
+      variantId: nullableText(component.variantId),
+      quantity: originalReady ? original.physicalQuantity : finitePositive(component.physicalQuantity),
+      physicalQuantity: originalReady ? original.physicalQuantity : finitePositive(component.physicalQuantity),
+      commercialQuantity: originalReady ? original.commercialQuantity : finitePositive(component.commercialQuantity),
+      physicalMultiplier: originalReady ? original.physicalMultiplier : finitePositive(component.physicalMultiplier),
+      unitPrice: index === 0 ? commercialUnitPrice : 0,
+      externalItemKey: nullableText(item.externalItemKey),
+      itemId: nullableText(item.itemId),
+      modelId: nullableText(item.modelId),
+      mappingId: nullableText(item.mappingId),
+      commercialPresentationId: originalReady ? original.commercialPresentationId :
+        (sealedPresentationId(item, channelAccountId) ?? nullableText(component.commercialPresentationId)),
+      ...(original?.blocked ? {r2ProjectionBlocker: original.blocked} : {}),
+      compositionPosition: Number.isFinite(Number(component.position)) ? Number(component.position) : index,
+    };
+  });
 }
 
-function buildBlockers(normalizedOrder, mappingOrder, duplicate) {
+function buildBlockers(normalizedOrder, mappingOrder, duplicate, channelAccountId) {
   const blockers = [];
   if (!nullableText(normalizedOrder?.orderSn)) blockers.push('missing_order_sn');
   if (!dateOnly(normalizedOrder?.createdAt)) blockers.push('missing_order_date');
@@ -112,11 +121,16 @@ function buildBlockers(normalizedOrder, mappingOrder, duplicate) {
 
     for (let componentIndex = 0; componentIndex < item.components.length; componentIndex += 1) {
       const component = item.components[componentIndex];
+      if (component?.r2ProjectionBlocker) blockers.push(`item_${index}:${component.r2ProjectionBlocker}`);
       if (!nullableText(component?.productId)) blockers.push(`item_${index}:component_${componentIndex}:missing_product`);
       if (!finitePositive(component?.physicalMultiplier)) blockers.push(`item_${index}:component_${componentIndex}:invalid_multiplier`);
-      if (!finitePositive(component?.commercialQuantity) || finitePositive(component.commercialQuantity) !== quantity) {
+      const r2 = r2OriginalContract(item, channelAccountId);
+      const expectedCommercialQuantity = r2 ? quantity*r2.unitsPerOffer : quantity;
+      if (!finitePositive(component?.commercialQuantity)
+        || finitePositive(component.commercialQuantity) !== expectedCommercialQuantity) {
         blockers.push(`item_${index}:invalid_commercial_quantity`);
       }
+      if (r2 && item.components.length !== 1) blockers.push(`item_${index}:r2_original_composition_invalid`);
       const physicalQuantity = finitePositive(component?.physicalQuantity);
       const expectedQuantity = quantity * finitePositive(component?.physicalMultiplier);
       if (!physicalQuantity || !Number.isFinite(expectedQuantity) || physicalQuantity !== expectedQuantity) {
@@ -158,7 +172,7 @@ export function buildShopeeOrderProjectionPreview(
     const orderSn = nullableText(normalizedOrder.orderSn);
     const mappingOrder = mappingByOrderSn.get(orderSn) ?? { orderSn, items: [] };
     const duplicate = orderSn ? existing.has(orderSn) : false;
-    const blockers = buildBlockers(normalizedOrder, mappingOrder, duplicate);
+    const blockers = buildBlockers(normalizedOrder, mappingOrder, duplicate, normalizedPayload.channelAccountId);
     const lines = (mappingOrder.items ?? []).flatMap(item => buildProjectionLines(item, normalizedPayload.channelAccountId));
 
     return {
