@@ -22,6 +22,8 @@ const FAMILIES = [
   { name: 'Torrão Artesanal 70g Amendoim – Embalagem Flowpack', label: 'Torrão 70g', terms: ['torrao'] },
 ] as const;
 
+export const OFFICIAL_WHATSAPP_PRODUCT_NAMES = FAMILIES.map(family => family.name);
+
 const normalize = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const currency = (value: number) => 'R$ ' + value.toFixed(2).replace('.', ',');
 
@@ -56,6 +58,24 @@ function validateTable(table: OfficialTable | undefined, qty: number | null, uni
   }
   // Sem quantidade, a única cotação inequívoca é o varejo (primeira faixa).
   return sorted.find(t => (qty ?? 1) >= t.min_qty && (t.max_qty === null || (qty ?? 1) <= t.max_qty)) ?? null;
+}
+
+/**
+ * Consulta numérica para conferência não-invasiva da venda.
+ * Não arredonda quantidade física para apresentação comercial e não
+ * escolhe preço negociado automaticamente.
+ */
+export function getOfficialWhatsappTierPrice(
+  rows: CrmCommercialPriceRow[], productName: string, commercialQuantity: number,
+  today = new Date().toISOString().slice(0, 10),
+): number | null {
+  if (!Number.isSafeInteger(commercialQuantity) || commercialQuantity < 1) return null;
+  const family = FAMILIES.find(item => item.name === productName);
+  if (!family) return null;
+  const matches = rows.filter(row => row.name === productName && row.is_active && !row.deleted_at);
+  if (matches.length !== 1) return null;
+  const unit = family.name.includes('TRUFA') || family.name.includes('CHOCOIM') ? 'unit' : 'bandeja';
+  return validateTable(matches[0].attributes?.crm_direct_whatsapp_price_table, commercialQuantity, unit, today)?.price_brl ?? null;
 }
 
 /** Consulta somente os níveis oficialmente aprovados no próprio produto. */
