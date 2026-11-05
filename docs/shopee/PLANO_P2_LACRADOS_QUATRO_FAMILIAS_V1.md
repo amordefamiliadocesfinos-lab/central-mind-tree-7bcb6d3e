@@ -106,3 +106,74 @@ A localização Fábrica está ativa; CD01 e CD02 também estão ativas; C3 est�
 **Decisão de encerramento:** não criar fluxo paralelo de separação, outro ledger por família, nova frente de saldos ou novos procedimentos de Shopee. A engenharia pode ser considerada *preparada e testada isoladamente*. Isso **não equivale à homologação de produção**.
 
 **Controles que permanecem obrigatórios para a ativação posterior, não para concluir a engenharia:** inventário e saldos iniciais conferidos após o trabalho; revisão da evidência física autenticada e dos privilégios no ponto de entrada real; teste no esquema de homologação completo com regressão dos legados afetados; autorização separada de migration/cutover. Os parâmetros textuais `physical_shipment` e `purchase_receipt_confirmed` da proposta NÃO autenticam um fato físico e NÃO devem ser usados como critério único para ativar operações. P3 produtivo bloqueado, P4 postergado. Não fazer merge/deploy automático.
+
+## Operações 9 — checkpoint de segurança (05/11/2026)
+
+A PR #426 está mesclada, com propostas ainda não aplicadas. A PR #430 permanece draft.
+
+A revisão do banco identificou as cadeias canônicas: separação -> finalização -> evento de estoque; importação Shopee -> evento externo; e recebimento -> confirmação de compra. No código candidato, o caminho externo das quatro famílias permanece bloqueado.
+
+Reforço da PR #430: remoção de permissão direta das funções internas sensíveis para papéis de API, preservando os wrappers controlados como entrada prevista. Os testes descartáveis passaram na execução GitHub Actions 42071311980, commit d7cdb334.
+
+Antes de qualquer ativação, ainda são obrigatórios: auditoria dos consumidores externos de RPC, prova de autorização física, regressão em ambiente fiel ao LIVE, inventário por localização e autorização própria para a migration. Não inferir recipientes lacrados a partir do saldo em gramas nem retirar quarentenas.
+
+Decisão: engenharia candidata testada; ativação produtiva bloqueada. Nenhum estoque, pedido ou migration produtiva alterado.
+
+## Gate físico e revisão ativa — Operações 9, 05/11/2026
+
+**Auditoria Cloud Run:** executar `scripts/p2-four-cloudrun-audit-readonly.sh` com identidade Google Cloud previamente autenticada e autorização Run Viewer. Coletar: revisão `latestReadyRevisionName`, imagem/digest, percentual do tráfego, service account, bindings IAM e resultado autenticado de `GET /health`. Não interpretar a saúde como comprovação do código executado: confrontar digest com origem do build/deploy. Não copiar tokens nem variáveis secretas ao relatório. Sem esses dados, runtime permanece **não comprovado**.
+
+**Contrato de evidência física, sem criar outro fluxo:** 
+- Recebimento: pedido de compra e item canônicos, apresentação original exata, local ativo, conferência física de quantidade inteira e operador autorizado; confirmar uma vez, com event_key estável. Não creditar gramas na entrada do lacrado.
+- Abertura: identificação de família, estado e local; operador autenticado e autorização operacional, identificação do recipiente intacto e conferência física datada; evento persistido e idempotente vinculando origem e quantidade. Somente após essa evidência o mesmo commit converte lacrado em gramas (ou caixa Italac em 27 unidades intactas). String livre não equivale a atestado de abertura.
+- Expedição: pedido e item reconhecidos, apresentação original, separação comprovada por ator autorizado, saldo lacrado suficiente no mesmo local e debit/evento atômicos. `order_separation.finalized_at/finalized_by` é resultado da finalização e não comprovação prévia de entrega física. Nunca dispensar essa validação por variável GUC. `external_shipped` para P2 permanece bloqueado até existir prova própria.
+- Quarentena: manter #428 ativa até confirmação de ledger inicial conferido por local, provas reais e homologação por Mappings.
+
+**Lacuna que impede implantação:** a proposta `p2_four_apply_internal` aceita `p_evidence_reference` textual e a abertura ainda não possui um entrypoint autenticado com vínculo verificável a uma evidência física persistida. Não habilitar diretamente essa RPC nem criar lançamentos artificiais para superar o bloqueio. A engenharia disponível é isolada/candidata. Para produção, a autorização e a evidência da abertura precisam ser vinculadas e testadas integralmente, não apenas descritas.
+
+**Estado:** roteiro de auditoria de runtime implementado em código; auditoria autenticada não executada neste ambiente. Sem mudanças no Cloud Run, no banco, na Shopee, nos pedidos ou nos saldos.
+
+## Operações 9 — Proposta de atestado autenticado de abertura (05/11/2026)
+
+A proposta inerte `supabase/proposals/P2_FOUR_PHYSICAL_OPEN_ATTESTATION_UNAPPLIED.sql` cria um registro de atestado vinculado a `auth.uid()`, papel ativo `current_app_user_role()` (Administrador ou LIDER PRODUÇÃO), local ativo, família, ação compatível, número inteiro de recipientes, confirmação afirmativa, texto explicativo, timestamp e chave idempotente. O wrapper `p2_four_attest_and_open` grava o atestado e chama a função P2 existente `p2_four_apply_internal` na **mesma transação**. Falha de saldo/identidade/gramas cancela também o registro do atestado. Não são gerados saldos de inventário nem abertura artificial na produção.
+
+O atestado do operador autentica **quem declarou** a abertura no sistema; não é prova independente de que uma embalagem foi realmente aberta. A implantação exige validação do processo físico, treinamento/controle do operador e teste completo de permissões no esquema LIVE. A função primitiva P2 continua executável pelo proprietário da base para seus fluxos internos e testes; a escrita de estoque produtiva só pode ocorrer através de entrada autorizada, não por uma referência textual avulsa.
+
+**Evidência:** suíte descartável GitHub Actions #42077060319 SUCCESS (commit de integração `7156e046`), incluindo teste de papel, confirmação, apresentação, vinculação de movimentação e rollback. A proposta não é migration e não foi ativada no banco.
+
+**Permanecem bloqueados:** ativação, merge da PR #430, baixa real, contagem de lacrados por inferência, `external_shipped` P2 e desquarentena Mappings.
+
+## Homologação operacional P2 — protocolo mínimo de aceite (Operações 9, 05/11/2026)
+
+**Classificação presente:** roteiro de aceite preparado e regressão sintética executável; **não** significa que fatos físicos ou integrações LIVE estejam homologados. Mantém a PR #430 em draft e não reabre Mappings/P1/P3.
+
+**Antes de qualquer fato produtivo:**
+1. Comprovar revisão/digest/identidade IAM do Cloud Run com o roteiro read-only já versionado, relacionando a revisão ao SHA aprovado. Não executar endpoints de escrita para testar saúde.
+2. Revisar autorização do operador e a evidência física de recebimento, abertura e expedição. A declaração autenticada de abertura é registro do responsável, **não** verificação independente da ação física. Registrar evidência de conferência segundo procedimento físico aprovado.
+3. Fazer inventário real por local e estado: Italac caixa original e unidades intactas separados; Sorbato/Ácido pacotes lacrados; Ivoti baldes lacrados. Nunca derivar lacrados de gramas ou saldos publicados. Divergências exigem reconciliação específica, sem alteração de históricos.
+4. Obter autorização expressa para migrations/cutover, incluindo plano de rollback e conferência de ACLs dos wrappers e seus consumidores; executar primeiro no esquema de homologação fiel ao LIVE.
+
+**Matriz de homologação operacional (somente após etapas anteriores e autorização):**
+
+| Caso | Ação | Aceite obrigatório |
+|---|---|---|
+| R1 | Receber caixa Italac 27x395g | +1 caixa original, +0 unidades soltas e +0 g; evento único vinculado ao recebimento real |
+| R2 | Receber pacote Sorbato/Ácido 1 kg | +1 pacote intacto e +0 g; apresentação original validada |
+| R3 | Receber balde Ivoti 9,8 kg | +1 balde intacto e +0 g; local e identidade corretos |
+| A1 | Abrir caixa Italac | -1 caixa, +27 unidades intactas, 0 g; sem recomposição reversa |
+| A2 | Abrir unidade Italac | -1 unidade intacta, +395 g; atestado, ator e evento relacionados |
+| A3 | Abrir Sorbato/Ácido | -1 pacote, +1000 g; atestado físico e rollback único |
+| A4 | Abrir Ivoti | -1 balde, +9800 g; atestado físico e rollback único |
+| E1 | Expedir ML1 | Baixa apenas unidades intactas; não utilizar caixa intacta nem gramas abertas |
+| E2 | Expedir ML2 | Baixa apenas caixa original de 27; 27 unidades soltas não satisfazem ML2 |
+| E3 | Expedir Sorbato/Ácido/Ivoti originais | Baixa apenas recipiente original na quantidade exata e no evento de separação autorizado |
+| N1 | Pedido criado/confirmado | Nenhuma baixa física |
+| N2 | Evento repetido, insuficiência, localização inválida, papel negado | Bloqueio e nenhuma movimentação parcial |
+| N3 | `external_shipped` P2 sem prova independente | Rejeição total; nenhuma baixa ou incidente de compensação indevido |
+| N4 | Pedido misto P2 + produto genérico com erro P2 | Transação inteira revertida, sem baixa genérica |
+| N5 | Tentativa com saldo em gramas, mas sem lacrado | Rejeitar saída de original, sem fallback |
+| N6 | Abertura com atestado não autenticado, sem confirmação ou nota inválida | Negar abertura; nenhum atestado ou lançamento |
+
+**Evidências mínimas por cenário:** identificador da ordem/recebimento real, SKU/apresentação e local, operador, data, quantidade contada, saldo físico antes/depois, evento único e movimentos correspondentes; quando houver bloqueio, demonstrar ausência de escrita. Evitar dados pessoais desnecessários.
+
+**Critério de encerramento de Operações:** engenharia e testes em CI podem ser concluídos sem inventário; ativação e uso real exigem todos os gates acima. O Especialista Mappings só retoma P4/E5 quando Operações comunicar explicitamente implantação habilitada com evidências. Quarentenas de #428 ficam ativas até lá.

@@ -54,7 +54,22 @@ BEGIN
  v_result:=public.apply_order_stock_event(order_id,'confirmed');
  IF (v_result->>'applied')::boolean IS DISTINCT FROM false THEN
   RAISE EXCEPTION 'p2_canonical_confirmed_order_debited_stock';END IF;
- v_result:=public.apply_order_stock_event(order_id,'shipped');
+ -- External shipment has no independently verified P2 physical event path.
+ BEGIN
+   PERFORM public.apply_order_stock_event(order_id,'external_shipped');
+   RAISE EXCEPTION 'p2_external_without_evidence_allowed';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM NOT LIKE '%p2_external_shipped_requires_verified_physical_event%' THEN RAISE; END IF;
+ END;
+ -- Direct shipped call must fail for P2 even if the order exists.
+ BEGIN
+   PERFORM public.apply_order_stock_event(order_id,'shipped');
+   RAISE EXCEPTION 'p2_direct_shipped_was_allowed';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM NOT LIKE '%p2_shipped_requires_canonical_separation%' THEN RAISE; END IF;
+ END;
+ v_result:=public.finalize_order_separation_unguarded_01b(order_id);
+ v_result:=v_result->'stock_result';
  IF (v_result->>'applied')::boolean IS DISTINCT FROM true
  OR (v_result->>'movement_count')::integer<>3 THEN
   RAISE EXCEPTION 'p2_canonical_mixed_dispatch_count_wrong: %',v_result;END IF;
@@ -65,8 +80,8 @@ BEGIN
  IF v_count<>0 THEN RAISE EXCEPTION 'p2_canonical_mixed_dispatch_consumed_grams';END IF;
  SELECT quantity INTO v_count FROM public.inventory WHERE product_id=generic;
  IF v_count<>0 THEN RAISE EXCEPTION 'p2_canonical_generic_unrelated_item_not_debited';END IF;
- v_result:=public.apply_order_stock_event(order_id,'external_shipped');
- IF (v_result->>'already_applied')::boolean IS DISTINCT FROM true THEN
+ v_result:=public.finalize_order_separation_unguarded_01b(order_id);
+ IF (v_result->>'already_finalized')::boolean IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'p2_canonical_mixed_dispatch_double_applied';END IF;
  -- Unknown P2 presentation must not trigger legacy generic grams fallback.
  UPDATE public.inventory SET quantity=5 WHERE product_id=generic;
@@ -78,7 +93,7 @@ BEGIN
   'ef118d1c-e7c7-45e3-b796-3a9908840f3c',NULL,1000,1,NULL),
  (gen_random_uuid(),order_id,generic,NULL,5,NULL,NULL);
  BEGIN
-  v_result:=public.apply_order_stock_event(order_id,'shipped');
+  v_result:=public.finalize_order_separation_unguarded_01b(order_id);
   RAISE EXCEPTION 'p2_unrecognized_presentation_was_dispatched';
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM NOT LIKE '%p2_acido_unknown_presentation%' THEN RAISE;END IF;
@@ -96,7 +111,7 @@ BEGIN
   '684d4a55-5d3a-4c18-be47-818a1a3bc074'),
  (gen_random_uuid(),order_id,generic,NULL,5,NULL,NULL);
  BEGIN
-   PERFORM public.apply_order_stock_event(order_id,'shipped');
+   PERFORM public.finalize_order_separation_unguarded_01b(order_id);
    RAISE EXCEPTION 'p2_shortage_mixed_order_was_dispatched';
  EXCEPTION WHEN OTHERS THEN
    IF SQLERRM NOT LIKE '%p2_insufficient_original_packages_for_shipment%'

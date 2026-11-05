@@ -3,8 +3,11 @@ on:
   pull_request:
     paths:
       - 'supabase/proposals/P2_FOUR_SEALED_*.sql'
+      - 'supabase/proposals/P2_FOUR_PHYSICAL_OPEN_*.sql'
       - 'supabase/proposals/P2_FOUR_CANONICAL_*.sql'
       - 'supabase/tests/p2_four_*.sql'
+      - 'supabase/tests/p2_four_*.mjs'
+      - 'scripts/p2-four-cloudrun-audit-readonly.sh'
       - 'supabase/tests/p2_four_*.sh'
       - '.github/workflows/p2-four-sealed-postgres-disposable.yml'
   workflow_dispatch:
@@ -36,6 +39,10 @@ jobs:
       PGPASSWORD: postgres-ci-only
     steps:
       - uses: actions/checkout@v4
+      - name: Validate read-only runtime audit script syntax
+        run: bash -n scripts/p2-four-cloudrun-audit-readonly.sh
+      - name: Verify P2 external caller source contracts
+        run: node --test supabase/tests/p2_four_external_callers_contract.mjs
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update -qq
@@ -69,6 +76,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_minimal_fixture_disposable.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_RECEIPT_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_DISPATCH_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_FINALIZE_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_mixed_flow_disposable.sql
       - name: Verify LIVE-equivalent identity triggers and inventory uniqueness
         run: |
@@ -83,6 +91,12 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_roles_disposable.sql
+      - name: Validate authenticated physical opening attestation with rollback
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_open_auth_fixture_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_PHYSICAL_OPEN_ATTESTATION_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_open_attestation_disposable.sql
       - name: Verify rollback left no stock or movements
         run: |
           set -euo pipefail

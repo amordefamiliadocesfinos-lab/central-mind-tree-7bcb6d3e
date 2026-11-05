@@ -19,6 +19,31 @@ BEGIN
   IF p_event IN ('confirmed','cancelled') THEN
     RETURN jsonb_build_object('event',p_event,'applied',false,'already_applied',false,'movement_count',0,'adjustment_required',false);
   END IF;
+  -- P2 original packages: ONLY the canonical physical-separation finalizer
+  -- may authorize shipped. External_shipped needs its own audited, physical
+  -- evidence path and is intentionally fail-closed until that path is verified.
+  IF EXISTS (
+    SELECT 1 FROM public.order_items
+    WHERE order_id=p_order_id AND product_id IN (
+      '0d1fb8c8-4938-4bbf-b8f0-b0a525c78d9b'::uuid,
+      '6f43ad65-74d5-4db9-b931-1ecd6d124987'::uuid,
+      'ef118d1c-e7c7-45e3-b796-3a9908840f3c'::uuid,
+      'd913f0f2-4893-4985-9976-fcd9119a57b1'::uuid)
+  ) THEN
+    IF p_event='external_shipped' THEN
+      RAISE EXCEPTION 'p2_external_shipped_requires_verified_physical_event';
+    END IF;
+    IF p_event='shipped' AND (
+      current_setting('app.p2_four_separation_order_id',true) IS DISTINCT FROM p_order_id::text
+      OR NOT EXISTS (
+        SELECT 1 FROM public.order_separation
+        WHERE order_id=p_order_id AND separation_status IS DISTINCT FROM 'finalized'
+      )
+    ) THEN
+      RAISE EXCEPTION 'p2_shipped_requires_canonical_separation';
+    END IF;
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM public.order_items WHERE order_id=p_order_id) THEN
     RAISE EXCEPTION 'Pedido sem itens não pode ser finalizado fisicamente';
   END IF;
@@ -265,5 +290,11 @@ BEGIN
     'event',p_event,'applied',true,'already_applied',false,'movement_count',v_movement_count,
     'adjustment_required',jsonb_array_length(v_shortages)>0,'shortages',v_shortages
   );
-END; $function$
+END; $function$;
 
+
+-- Preserve the LIVE privilege boundary: internal SECURITY DEFINER is not a
+-- user-facing RPC. The only authenticated entrypoint remains the canonical
+-- role-checked wrapper public.finalize_order_separation(uuid).
+REVOKE ALL ON FUNCTION public.apply_order_stock_event(uuid,text) FROM PUBLIC, anon, authenticated, service_role;
+-- No direct service_role grant. SECURITY DEFINER wrappers execute as postgres owner.

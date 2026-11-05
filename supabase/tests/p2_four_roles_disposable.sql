@@ -26,6 +26,19 @@ BEGIN
   THEN RAISE EXCEPTION 'p2_direct_rpc_exposed: %',signature;
   END IF;
  END LOOP;
+ -- The finalizer and stock event are privileged internal entrypoints.
+ -- A client-writable custom GUC cannot grant EXECUTE on their own.
+ FOR signature IN SELECT unnest(ARRAY[
+  'public.apply_order_stock_event(uuid,text)',
+  'public.finalize_order_separation_unguarded_01b(uuid)'
+ ]) LOOP
+  IF to_regprocedure(signature) IS NULL THEN RAISE EXCEPTION 'p2_canonical_function_missing: %',signature; END IF;
+  IF has_function_privilege('anon',signature,'EXECUTE')
+     OR has_function_privilege('authenticated',signature,'EXECUTE')
+  THEN RAISE EXCEPTION 'p2_canonical_internal_exposed: %',signature; END IF;
+  IF has_function_privilege('service_role',signature,'EXECUTE')
+  THEN RAISE EXCEPTION 'p2_service_role_internal_access_forbidden: %',signature; END IF;
+ END LOOP;
  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
  WHERE ns.nspname='public'
   AND p.proname IN (
@@ -67,6 +80,38 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN denied:=true;
  END;
  IF NOT denied THEN RAISE EXCEPTION 'p2_authenticated_direct_mutation_allowed';END IF;
+ -- Spoofing a transaction-local GUC is NOT authorization. Database grants
+ -- must still block an authenticated caller from invoking stock debits.
+ PERFORM set_config('app.p2_four_separation_order_id',gen_random_uuid()::text,true);
+ denied:=false;
+ BEGIN
+  PERFORM public.apply_order_stock_event(gen_random_uuid(),'shipped');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_spoofed_guc_bypassed_acl';END IF;
+ denied:=false;
+ BEGIN
+  PERFORM public.finalize_order_separation_unguarded_01b(gen_random_uuid());
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_authenticated_can_call_internal_finalizer';END IF;
+END $p2$;
+RESET ROLE;
+SET LOCAL ROLE service_role;
+DO $p2$
+DECLARE denied boolean := false;
+BEGIN
+ BEGIN
+  PERFORM public.apply_order_stock_event(gen_random_uuid(),'shipped');
+ EXCEPTION WHEN insufficient_privilege THEN denied := true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_internal_execute_permission_regression'; END IF;
+ denied := false;
+ BEGIN
+  PERFORM public.finalize_order_separation_unguarded_01b(gen_random_uuid());
+ EXCEPTION WHEN insufficient_privilege THEN denied := true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_internal_finalizer_permission_regression'; END IF;
 END $p2$;
 RESET ROLE;
 SET LOCAL ROLE anon;
