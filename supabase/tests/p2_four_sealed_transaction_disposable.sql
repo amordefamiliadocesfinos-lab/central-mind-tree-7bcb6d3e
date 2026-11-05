@@ -35,6 +35,24 @@ BEGIN
  IF NOT has_function_privilege('postgres',
   'public.p2_four_apply_internal(text,text,integer,uuid,text,text,uuid,text,uuid)',
   'EXECUTE') THEN RAISE EXCEPTION 'p2_owner_cannot_invoke_candidate';END IF;
+ -- The generic legacy stock path must reject any of the four families
+ -- even when the presentation ID is absent or mislabeled.
+ FOR v_case IN SELECT value FROM jsonb_array_elements(
+   '["0d1fb8c8-4938-4bbf-b8f0-b0a525c78d9b",
+     "6f43ad65-74d5-4db9-b931-1ecd6d124987",
+     "ef118d1c-e7c7-45e3-b796-3a9908840f3c",
+     "d913f0f2-4893-4985-9976-fcd9119a57b1"]'::jsonb
+ ) LOOP
+  v_blocked:=false;
+  BEGIN
+   PERFORM public.p2_four_assert_generic_inventory_safe((v_case#>>'{}')::uuid,NULL);
+  EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM LIKE '%p2_four_original_or_ambiguous_inventory_requires_sealed_routing%'
+     THEN v_blocked:=true;
+   ELSE RAISE; END IF;
+  END;
+  IF NOT v_blocked THEN RAISE EXCEPTION 'generic_fallback_allowed_%',v_case;END IF;
+ END LOOP;
  IF has_function_privilege('authenticated',
   'public.p2_four_apply_internal(text,text,integer,uuid,text,text,uuid,text,uuid)',
   'EXECUTE') OR has_function_privilege('service_role',
@@ -94,6 +112,17 @@ BEGIN
   v_dispatch:=v_case->>'dispatch';
   SELECT quantity INTO STRICT v_before FROM public.inventory WHERE product_id=v_product
     AND variant_id IS NULL AND location=v_loc_name AND location_id=v_loc;
+  -- Exact presentation identity is mandatory even if the unit conversion matches.
+  v_blocked:=false;
+  BEGIN
+   PERFORM public.p2_four_apply_internal(v_family,'receipt',1,v_loc,
+    'p2-test:'||gen_random_uuid()::text,'purchase_receipt',gen_random_uuid(),
+    'DISPOSABLE WRONG PRESENTATION',v_sale);
+  EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM LIKE '%p2_purchase_presentation_mismatch%' THEN v_blocked:=true;
+   ELSE RAISE;END IF;
+  END;
+  IF NOT v_blocked THEN RAISE EXCEPTION 'wrong_purchase_presentation_%',v_family;END IF;
   v_event:='p2-test:'||gen_random_uuid()::text;
   PERFORM public.p2_four_apply_internal(v_family,'receipt',2,v_loc,v_event,
     'purchase_receipt',gen_random_uuid(),'DISPOSABLE SYNTHETIC RECEIPT',v_buy);
