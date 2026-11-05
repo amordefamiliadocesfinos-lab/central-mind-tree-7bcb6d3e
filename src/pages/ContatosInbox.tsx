@@ -1434,7 +1434,17 @@ export default function ContatosInbox() {
       } as any);
       if (error) throw error;
       toast.success('Revisão registrada. Nenhum Resultado foi criado.');
-      await load();
+      const refreshedItems = await load();
+      if (refreshedItems !== null && attendanceQueueScope.length > 0) {
+        // Erro na navegação não invalida a revisão já gravada: evitar indicar
+        // falha de persistência e induzir um segundo registro do mesmo fato.
+        try {
+          await nextAttendance(refreshedItems, true);
+        } catch (navigationError) {
+          console.warn('Revisão registrada; não foi possível avançar na fila:', navigationError);
+          toast.warning('Revisão registrada. Avance manualmente para o próximo atendimento.');
+        }
+      }
     } catch (error) {
       console.error('CRM revisão sem fato novo:', error);
       toast.error('Não foi possível registrar a revisão do atendimento.');
