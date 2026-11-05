@@ -26,4 +26,8 @@ assert(operation.keepInFocus && operation.target === 'none' && operation.title.i
   'encaminhamento operacional deve permanecer visível');
 const pending = getCrmPostResultGuidance({ level: 'P1', reason: 'pending_result', label: 'Registrar resultado', sortAt: 0, operational: true }, null, false);
 assert(pending.keepInFocus && pending.target === 'history', 'não pedir Resultado duplicado após classificação');
+const normal = getCrmPostResultGuidance(getCrmPriority({
+  status: 'open', attendance_state: 'em_atendimento', last_result_at: '2026-11-05T15:05:00Z',
+}, now), null, false);
+assert(!normal.keepInFocus, 'fila normal P3 não comprova obrigação e não deve bloquear avanço');
 console.log('postResultGuidance.test: OK');
