@@ -68,6 +68,11 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_RECEIPT_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_DISPATCH_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_mixed_flow_disposable.sql
+      - name: Verify LIVE-equivalent identity triggers and inventory uniqueness
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_identity_triggers_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_triggers_open_disposable.sql
       - name: Verify role grants and deny public RPC mutation
         run: |
           set -euo pipefail
