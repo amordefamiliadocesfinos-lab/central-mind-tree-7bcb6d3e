@@ -69,6 +69,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_minimal_fixture_disposable.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_RECEIPT_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_DISPATCH_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_FINALIZE_UNAPPLIED.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_mixed_flow_disposable.sql
       - name: Verify LIVE-equivalent identity triggers and inventory uniqueness
         run: |
