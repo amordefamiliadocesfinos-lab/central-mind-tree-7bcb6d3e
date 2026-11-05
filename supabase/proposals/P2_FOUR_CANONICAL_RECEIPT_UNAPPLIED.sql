@@ -173,5 +173,4 @@ BEGIN
   RETURN jsonb_build_object('receipt_id', v_receipt.id, 'purchase_order_id', v_order.id,
     'already_confirmed', false, 'movement_count', v_movement_count, 'purchase_order_status', v_status);
 END;
-$function$
-
+$function$;
