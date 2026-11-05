@@ -97,6 +97,17 @@ BEGIN
  IF NOT denied THEN RAISE EXCEPTION 'p2_authenticated_can_call_internal_finalizer';END IF;
 END $p2$;
 RESET ROLE;
+SET LOCAL ROLE service_role;
+DO $p2$
+DECLARE denied boolean := false;
+BEGIN
+ BEGIN
+  PERFORM public.apply_order_stock_event(gen_random_uuid(),'shipped');
+ EXCEPTION WHEN insufficient_privilege THEN denied := true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_internal_execute_permission_regression'; END IF;
+END $p2$;
+RESET ROLE;
 SET LOCAL ROLE anon;
 DO $p2$
 DECLARE denied boolean:=false;
