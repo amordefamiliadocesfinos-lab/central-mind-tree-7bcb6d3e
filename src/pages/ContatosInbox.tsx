@@ -47,7 +47,7 @@ import { getCrmInboxFilterClass } from '@/lib/crm/inboxFilterVisualHierarchy';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getCrmPostResultGuidance, type CrmPostResultGuidance } from '@/lib/crm/postResultGuidance';
-import { getCrmSocialEventReviewHint } from '@/lib/crm/socialEventReview';
+import { getCrmSocialContextReviewHint } from '@/lib/crm/socialEventReview';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
 import { evaluateCrmOperationalActionEvidence, type CrmOrderSeparationEvidenceRow, type CrmSeparationLookup } from '@/lib/crm/handoffOperationalAction';
@@ -861,13 +861,13 @@ export default function ContatosInbox() {
     if (!socialReviewKey || !selected?.needs_reply) return;
     let current = true;
     void supabase.from('service_messages')
-      .select('direction,message_type')
+      .select('direction,message_type,created_at')
       .eq('conversation_id', socialReviewKey)
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(20)
       .then(({ data, error }) => {
         if (!current) return;
-        const hint = error ? null : getCrmSocialEventReviewHint(data?.[0] ?? null);
+        const hint = error ? null : getCrmSocialContextReviewHint(data ?? []);
         setLastSocialReview({ key: socialReviewKey, hint });
       });
     return () => { current = false; };
