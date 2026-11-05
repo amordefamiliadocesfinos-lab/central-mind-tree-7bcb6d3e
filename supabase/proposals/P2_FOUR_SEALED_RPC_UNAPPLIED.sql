@@ -155,12 +155,11 @@ BEGIN
  -- conversion of historical inventory.quantity.
  IF p_action LIKE 'open_%' AND v_dst IS NULL THEN
    v_grams:=v_factor::numeric*p_count::numeric;
-   INSERT INTO public.inventory(product_id,variant_id,location,location_id,quantity,updated_at)
-    VALUES(v_product,NULL,v_loc,p_location_id,0,now())
-    ON CONFLICT(product_id,variant_id,location) DO NOTHING;
-   SELECT id,quantity INTO v_inventory FROM public.inventory
-    WHERE product_id=v_product AND variant_id IS NULL AND location=v_loc FOR UPDATE;
-   IF NOT FOUND THEN RAISE EXCEPTION 'p2_open_gram_inventory_missing'; END IF;
+   -- Do NOT create a null-variant inventory row implicitly: preexisting legacy
+   -- uniqueness semantics are not yet proven safe for this path.
+   SELECT id,quantity INTO STRICT v_inventory FROM public.inventory
+    WHERE product_id=v_product AND variant_id IS NULL
+      AND location=v_loc AND location_id=p_location_id FOR UPDATE;
    v_after:=v_inventory.quantity+v_grams;
    UPDATE public.inventory SET quantity=v_after,updated_at=now() WHERE id=v_inventory.id;
    INSERT INTO public.inventory_movements(
