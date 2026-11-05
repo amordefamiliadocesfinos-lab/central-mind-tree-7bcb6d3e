@@ -110,16 +110,27 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   }, [products, productSearch, onlyFinishedProducts, items]);
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0), [items]);
   const total = Math.max(0, subtotal - discount + shipping);
-  const getOfficialPriceAdvice = (item: SaleItem): { amount: number; totalUnits: number } | null => {
-    if (channel !== 'whatsapp' || !item.product_id ||
-        (item.commercial_presentation && Number(item.commercial_presentation.conversion_factor) !== 1)) return null;
+  const getOfficialPriceAdvice = (item: SaleItem): { amount: number; totalQuantity: number; unitLabel: string } | null => {
+    if (channel !== 'whatsapp' || !item.product_id) return null;
     const product = products.find(candidate => candidate.id === item.product_id);
     if (!product) return null;
-    const grouped = items.filter(candidate => candidate.product_id === item.product_id
-      && (!candidate.commercial_presentation || Number(candidate.commercial_presentation.conversion_factor) === 1));
-    const totalUnits = grouped.reduce((sum, candidate) => sum + Number(candidate.commercial_quantity || 0), 0);
-    const amount = getOfficialWhatsappTierPrice(officialPriceRows, product.name, totalUnits);
-    return amount === null ? null : { amount, totalUnits };
+    const isBandeja = officialPriceRows.some(row => row.name === product.name
+      && row.attributes?.crm_direct_whatsapp_price_table?.unit === 'bandeja');
+    // Bandejas e unidades são bases comerciais distintas. Nunca utilizar
+    // preço por bandeja em item de unidade física nem converter por adivinhação.
+    const isMatchingUnit = (candidate: SaleItem) => {
+      if (candidate.product_id !== item.product_id) return false;
+      const presentation = candidate.commercial_presentation;
+      if (isBandeja) return presentation?.commercial_unit_label === 'bandeja'
+        && Number(presentation.conversion_factor) === 18;
+      return !presentation || (Number(presentation.conversion_factor) === 1
+        && presentation.commercial_unit_label === 'un');
+    };
+    if (!isMatchingUnit(item)) return null;
+    const totalQuantity = items.filter(isMatchingUnit)
+      .reduce((sum, candidate) => sum + Number(candidate.commercial_quantity || 0), 0);
+    const amount = getOfficialWhatsappTierPrice(officialPriceRows, product.name, totalQuantity);
+    return amount === null ? null : { amount, totalQuantity, unitLabel: isBandeja ? 'bandeja' : 'unidade' };
   };
 
   useEffect(() => {
@@ -456,7 +467,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                 ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {isAmendoimAM3(item.commercial_presentation?.id) ? 'saco' : getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
                 {getOfficialPriceAdvice(item) && (
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className="text-muted-foreground">Tabela WhatsApp: {formatCurrency(getOfficialPriceAdvice(item)!.amount)} por unidade · {getOfficialPriceAdvice(item)!.totalUnits} un. desta família</span>
+                    <span className="text-muted-foreground">Tabela WhatsApp: {formatCurrency(getOfficialPriceAdvice(item)!.amount)} por {getOfficialPriceAdvice(item)!.unitLabel} · {getOfficialPriceAdvice(item)!.totalQuantity} {getOfficialPriceAdvice(item)!.unitLabel === 'bandeja' ? 'bandejas' : 'unidades'} desta família</span>
                     {Math.abs(Number(item.unit_price) - getOfficialPriceAdvice(item)!.amount) > 0.005 && (
                       <>
                         <span className="font-medium text-amber-700 dark:text-amber-300">Preço diferente da tabela: confirme condição negociada.</span>
