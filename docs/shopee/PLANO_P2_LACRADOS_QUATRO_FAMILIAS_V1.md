@@ -86,3 +86,13 @@ A localização Fábrica está ativa; CD01 e CD02 também estão ativas; C3 est�
 **Rota enxuta de encerramento:** (1) validar scripts candidatos e integração nas duas RPCs canônicas com CI descartável e regressões de recibo/separação; (2) fechar revisão de segurança/atomicidade, sem nova investigação abrangente; (3) entregar PR pronta tecnicamente para revisão/merge seguro, deixando qualquer ativação operacional bloqueada; (4) executar inventário logo após; (5) obter autorização separada para migration/cutover e movimentações. As etapas 4–5 não impedem classificar a engenharia como concluída.
 
 **Não reabrir a frente de levantamento de saldos nesta etapa.** A última leitura LIVE foi apenas informativa, não autoriza inferir número de embalagens.
+
+## Fechamento da revisão técnica isolada — 05/11/2026
+
+**Situação:** engenharia candidata e regressões isoladas para P2 concluídas **no escopo de preparação**, sem ativação produtiva, sem inventário antecipado e sem reabertura de famílias anteriores. A PR #426 continua como draft de revisão, com SQL apenas em `supabase/proposals`.
+
+**Evidência nova:** o helper LIVE `finalize_order_separation_unguarded_01b` foi reproduzido em fixture descartável e exercitado com a proposta P2 de `apply_order_stock_event`. O teste comprovou finalização de pedido misto (Sorbato original + item não P2), registro conjunto do estado finalizado/baixa, replay sem dupla baixa e rejeição de pedido cancelado, além das outras regressões sintéticas de P2, isolamento, triggers, papéis e concorrência. CI: https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/42041070770.
+
+**Decisão de encerramento:** não criar fluxo paralelo de separação, outro ledger por família, nova frente de saldos ou novos procedimentos de Shopee. A engenharia pode ser considerada *preparada e testada isoladamente*. Isso **não equivale à homologação de produção**.
+
+**Controles que permanecem obrigatórios para a ativação posterior, não para concluir a engenharia:** inventário e saldos iniciais conferidos após o trabalho; revisão da evidência física autenticada e dos privilégios no ponto de entrada real; teste no esquema de homologação completo com regressão dos legados afetados; autorização separada de migration/cutover. Os parâmetros textuais `physical_shipment` e `purchase_receipt_confirmed` da proposta NÃO autenticam um fato físico e NÃO devem ser usados como critério único para ativar operações. P3 produtivo bloqueado, P4 postergado. Não fazer merge/deploy automático.
