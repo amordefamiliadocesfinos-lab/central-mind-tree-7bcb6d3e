@@ -56,8 +56,7 @@ BEGIN
 
   RETURN jsonb_build_object('already_finalized', false, 'stock_result', v_stock_result);
 END;
-$function$
-
+$function$;
 
 BEGIN;
 DO $test$
