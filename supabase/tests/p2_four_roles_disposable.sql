@@ -32,7 +32,13 @@ BEGIN
    'p2_four_apply_internal',
    'p2_four_receipt_adapter_candidate',
    'p2_four_dispatch_adapter_candidate'
-  ) AND p.prosecdef IS TRUE AND p.proconfig @> ARRAY['search_path='];
+  ) AND p.prosecdef IS TRUE
+    AND EXISTS (
+      SELECT 1 FROM unnest(p.proconfig) AS setting
+      WHERE setting LIKE 'search_path=%'
+        AND setting NOT LIKE '%public%'
+        AND setting NOT LIKE '%pg_temp%'
+    );
  IF n<>3 THEN RAISE EXCEPTION 'p2_definer_search_path_not_locked: %',n;END IF;
  SELECT count(*) INTO n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace
  WHERE ns.nspname='public'
