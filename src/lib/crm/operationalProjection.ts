@@ -28,6 +28,10 @@ export interface CrmOperationalProjection {
   conversationId: string | null;
   priority: CrmPriority;
   lastResultCode: string | null;
+  /** Instantes registrados; são indícios, não comprovação de cumprimento. */
+  lastInboundAt: string | null;
+  lastOutboundAt: string | null;
+  lastResultAt: string | null;
   /** Responsabilidade declarada pelo último Resultado, não uma transferência comprovada. */
   resultResponsibility: CrmOperationalResponsibility | null;
   obligation: { title: string | null; dueAt: string | null; source: 'official_task' | 'contact' } | null;
@@ -138,6 +142,9 @@ export function projectCrmOperationalState(source: CrmOperationalSource, now = n
     conversationId: source.conversationId || null,
     priority: getCrmPriority(toCrmOperationalPriorityInput(source), now),
     lastResultCode: canonicalResult?.code ?? null,
+    lastInboundAt: source.last_inbound_at ?? null,
+    lastOutboundAt: source.last_outbound_at ?? null,
+    lastResultAt: source.last_result_at ?? null,
     resultResponsibility: canonicalResult ? getCrmOperationalResponsibility(canonicalResult.code) : null,
     obligation,
     handoffRequired: typeof source.handoff_required === 'boolean' ? source.handoff_required : null,
