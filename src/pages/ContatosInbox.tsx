@@ -868,7 +868,7 @@ export default function ContatosInbox() {
         setLastSocialReview({ key: socialReviewKey, hint });
       });
     return () => { current = false; };
-  }, [socialReviewKey, selected?.needs_reply]);
+  }, [socialReviewKey, selected?.needs_reply, selected?.last_inbound_at]);
   // F4-A: consulta pontual pelo ID EXPLÍCITO do último Resultado. Não se
   // procura Pedido por nome, por data ou por simples histórico do contato.
   const [handoffLookup, setHandoffLookup] = useState<{
