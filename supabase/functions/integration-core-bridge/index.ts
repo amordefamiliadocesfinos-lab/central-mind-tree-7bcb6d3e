@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createBridgeHandler } from './handler.mjs';
 import { executeCycleAction, verifyCycleOrder } from './cycle.mjs';
 import { attachMappingPhysicalCatalog } from './mapping-physical-catalog.mjs';
+import {readShopeeScopedMappingCatalog} from './shopee-intake-mapping-catalog.mjs';
 
 const CORE_ORIGIN = 'https://xkskyutmtlhivvpfxkjg.supabase.co';
 const LIVE = 'live';
@@ -203,55 +204,14 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
     if (snapshots.length >= limit) break;
   }
 
-  const mappingQueries = await Promise.all([
-    core
-      .from('marketplace_product_mappings')
-      .select('id,marketplace,marketplace_account,external_item_key,external_item_id,external_model_id,product_id,variant_id,physical_multiplier,channel_account_id')
-      .eq('marketplace', 'shopee')
-      .eq('channel_account_id', channelAccountId)
-      .limit(200),
-    core
-      .from('marketplace_product_mappings')
-      .select('id,marketplace,marketplace_account,external_item_key,external_item_id,external_model_id,product_id,variant_id,physical_multiplier,channel_account_id')
-      .eq('marketplace', 'shopee')
-      .is('channel_account_id', null)
-      .eq('marketplace_account', canonical.account.name)
-      .limit(200),
-  ]);
-
-  if (mappingQueries.some((query) => query.error)) {
-    return { status: 503, body: { error: 'intake_mapping_read_failed' } };
+  const catalog = await readShopeeScopedMappingCatalog(core, channelAccountId, canonical.account.name);
+  const catalogError = 'error' in catalog ? catalog.error : null;
+  if (catalogError) {
+    return { status: catalogError === 'intake_mapping_catalog_ambiguous'
+      || catalogError === 'intake_mapping_catalog_too_large' ? 409 : 503,
+      body: { error: catalogError } };
   }
-
-  const mappingById = new Map<string, Record<string, unknown>>();
-  for (const query of mappingQueries) {
-    for (const mapping of query.data ?? []) mappingById.set(String(mapping.id), mapping);
-  }
-  if (mappingById.size >= 200) {
-    return { status: 409, body: { error: 'intake_mapping_catalog_too_large' } };
-  }
-
-  const mappingIds = [...mappingById.keys()];
-  const componentsByMapping = new Map<string, Record<string, unknown>[]>();
-  if (mappingIds.length > 0) {
-    const { data: components, error: componentError } = await core
-      .from('marketplace_product_mapping_items')
-      .select('mapping_id,product_id,variant_id,physical_multiplier,position')
-      .in('mapping_id', mappingIds)
-      .order('position', { ascending: true });
-    if (componentError) return { status: 503, body: { error: 'intake_mapping_component_read_failed' } };
-    for (const component of components ?? []) {
-      const mappingId = String(component.mapping_id);
-      const list = componentsByMapping.get(mappingId) ?? [];
-      list.push(component);
-      componentsByMapping.set(mappingId, list);
-    }
-  }
-
-  const mappings = [...mappingById.values()].map((mapping) => ({
-    ...mapping,
-    components: componentsByMapping.get(String(mapping.id)) ?? [],
-  }));
+  const mappings = 'mappings' in catalog ? catalog.mappings : [];
   const physicalCatalog = await attachMappingPhysicalCatalog(core, mappings);
   if (physicalCatalog.error) return { status: 503, body: { error: physicalCatalog.error } };
 
