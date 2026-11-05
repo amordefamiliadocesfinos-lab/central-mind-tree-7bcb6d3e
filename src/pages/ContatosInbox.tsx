@@ -245,12 +245,12 @@ export default function ContatosInbox() {
       pendingChatDraftOrSend: chatDraftRef.current,
       attendanceWriting: attendanceWriteGateRef.current.locked() || attendanceBusy || saleDecisionBusy,
       actionFormOpen: activeActionMode !== null,
-      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null || sendConfirmation,
+      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null,
     }, selectedId, targetId, fromActiveOperation);
     if (!reason) return true;
     toast.warning(reason);
     return false;
-  }, [selectedId, attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent, sendConfirmation]);
+  }, [selectedId, attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent]);
 
   const guardedSelectContact = useCallback((id: string | null, fromActiveOperation = false) => {
     if (!guardContactSwitch(id, fromActiveOperation)) return false;
@@ -268,7 +268,7 @@ export default function ContatosInbox() {
       pendingChatDraftOrSend: chatDraftRef.current,
       attendanceWriting: attendanceWriteGateRef.current.locked() || attendanceBusy || saleDecisionBusy,
       actionFormOpen: activeActionMode !== null,
-      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null || sendConfirmation,
+      saleFlowOpen: saleOpen || saleDecisionOpen || concludeIntent !== null,
     });
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (!blockReason()) return;
@@ -297,7 +297,7 @@ export default function ContatosInbox() {
       window.removeEventListener('beforeunload', beforeUnload);
       document.removeEventListener('click', protectLinkChange, true);
     };
-  }, [attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent, sendConfirmation]);
+  }, [attendanceBusy, saleDecisionBusy, activeActionMode, saleOpen, saleDecisionOpen, concludeIntent]);
   // D-01: uma única trava síncrona para comandos que gravam estado operacional.
   // Os controles visuais usam attendanceBusy, mas o ref previne duplo clique no mesmo frame.
   const beginAttendanceOperation = (fromResultOrSnooze = false): boolean => {
@@ -2082,8 +2082,8 @@ export default function ContatosInbox() {
                   />
                   {sendConfirmation && (
                     <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
-                      <span>Mensagem enviada · aguardando resposta · retorno automático em 2 dias.</span>
-                      <Button size="sm" variant="ghost" className="h-7 shrink-0 text-[11px]" onClick={() => setSendConfirmation(false)}>Manter</Button>
+                      <span>Envio confirmado · retorno automático programado. Consulte a Próxima Ação para verificar a data.</span>
+                      <Button size="sm" variant="ghost" className="h-7 shrink-0 text-[11px]" onClick={() => setSendConfirmation(false)}>Fechar aviso</Button>
                     </div>
                   )}
                   <div className="mt-2 space-y-2">
