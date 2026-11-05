@@ -106,6 +106,12 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN denied := true;
  END;
  IF NOT denied THEN RAISE EXCEPTION 'p2_internal_execute_permission_regression'; END IF;
+ denied := false;
+ BEGIN
+  PERFORM public.finalize_order_separation_unguarded_01b(gen_random_uuid());
+ EXCEPTION WHEN insufficient_privilege THEN denied := true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'p2_internal_finalizer_permission_regression'; END IF;
 END $p2$;
 RESET ROLE;
 SET LOCAL ROLE anon;
