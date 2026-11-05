@@ -106,3 +106,15 @@ A localização Fábrica está ativa; CD01 e CD02 também estão ativas; C3 est�
 **Decisão de encerramento:** não criar fluxo paralelo de separação, outro ledger por família, nova frente de saldos ou novos procedimentos de Shopee. A engenharia pode ser considerada *preparada e testada isoladamente*. Isso **não equivale à homologação de produção**.
 
 **Controles que permanecem obrigatórios para a ativação posterior, não para concluir a engenharia:** inventário e saldos iniciais conferidos após o trabalho; revisão da evidência física autenticada e dos privilégios no ponto de entrada real; teste no esquema de homologação completo com regressão dos legados afetados; autorização separada de migration/cutover. Os parâmetros textuais `physical_shipment` e `purchase_receipt_confirmed` da proposta NÃO autenticam um fato físico e NÃO devem ser usados como critério único para ativar operações. P3 produtivo bloqueado, P4 postergado. Não fazer merge/deploy automático.
+
+## Operações 9 — checkpoint de segurança (05/11/2026)
+
+A PR #426 está mesclada, com propostas ainda não aplicadas. A PR #430 permanece draft.
+
+A revisão do banco identificou as cadeias canônicas: separação -> finalização -> evento de estoque; importação Shopee -> evento externo; e recebimento -> confirmação de compra. No código candidato, o caminho externo das quatro famílias permanece bloqueado.
+
+Reforço da PR #430: remoção de permissão direta das funções internas sensíveis para papéis de API, preservando os wrappers controlados como entrada prevista. Os testes descartáveis passaram na execução GitHub Actions 42071311980, commit d7cdb334.
+
+Antes de qualquer ativação, ainda são obrigatórios: auditoria dos consumidores externos de RPC, prova de autorização física, regressão em ambiente fiel ao LIVE, inventário por localização e autorização própria para a migration. Não inferir recipientes lacrados a partir do saldo em gramas nem retirar quarentenas.
+
+Decisão: engenharia candidata testada; ativação produtiva bloqueada. Nenhum estoque, pedido ou migration produtiva alterado.
