@@ -7,7 +7,7 @@ import { formatBrazilianCurrencyInput, parseBrazilianCurrencyInput } from '@/lib
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ShoppingCart, Loader2, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useProductsList } from '@/hooks/useProductsList';
 import { getInventoryBalanceByIdentity, useInventorySync } from '@/hooks/useInventorySync';
@@ -63,6 +63,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const inventory = useAppStore((state) => state.inventory);
   useInventorySync();
   const [items, setItems] = useState<SaleItem[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [onlyFinishedProducts, setOnlyFinishedProducts] = useState(true);
   const [channel, setChannel] = useState('whatsapp');
   const [orderType, setOrderType] = useState<'stock' | 'production'>('stock');
   const [dueDate, setDueDate] = useState('');
@@ -96,6 +98,14 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [saving, setSaving] = useState(false);
   const saleRequestKeyRef = useRef<string | null>(null);
 
+  const visibleProducts = useMemo(() => {
+    const term = productSearch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    return products.filter(product => {
+      const searchable = (product.name + ' ' + (product.sku ?? '')).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const isSelected = items.some(item => item.product_id === product.id);
+      return (isSelected || !onlyFinishedProducts || product.category === 'Doces') && (!term || searchable.includes(term) || isSelected);
+    });
+  }, [products, productSearch, onlyFinishedProducts, items]);
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0), [items]);
   const total = Math.max(0, subtotal - discount + shipping);
 
@@ -136,6 +146,21 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   }, [open]);
 
   const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }]);
+  const duplicateItemForFlavor = (index: number) => {
+    setItems(current => {
+      const source = current[index];
+      if (!source?.product_id) return current;
+      const copy: SaleItem = {
+        ...source,
+        variant_id: null,
+        quantity: 1,
+        commercial_quantity: 1,
+        // Preserva apresentação e valor negociado para edição; exige nova
+        // seleção de sabor antes da gravação quando a variante é obrigatória.
+      };
+      return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
+    });
+  };
 
   const updateItem = (index: number, patch: Partial<SaleItem>) => {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -324,6 +349,13 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
           <section className="space-y-3 rounded-xl border p-3 sm:p-4">
           <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Itens</h3><Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Adicionar item</Button></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input aria-label="Buscar produto para venda" className="h-8 min-w-[180px] flex-1 text-xs" placeholder="Buscar produto ou SKU..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
+            <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+              <input type="checkbox" checked={onlyFinishedProducts} onChange={e => setOnlyFinishedProducts(e.target.checked)} />
+              Somente doces
+            </label>
+          </div>
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Total negociado</Label>
             <Input type="number" min="0" step="0.01" className="h-9" value={negotiatedTotal} placeholder="Opcional — calcula o desconto" onChange={e => {
@@ -348,7 +380,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
-                    {products.map((product) => (
+                    {visibleProducts.map((product) => (
                       <SelectItem key={product.id} value={product.id} className="text-xs">{product.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -389,9 +421,14 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     if (parsed) updateItem(index, { unit_price: parsed.number });
                   }}
                 />
-                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setItems((c) => c.filter((_, i) => i !== index))}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button size="icon" variant="outline" className="h-8 w-8" disabled={!item.product_id} aria-label="Duplicar linha para outro sabor" title="Duplicar produto e apresentação para outro sabor" onClick={() => duplicateItemForFlavor(index)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Remover linha" onClick={() => setItems((c) => c.filter((_, i) => i !== index))}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
                 </div>
                 {item.commercial_presentation?.composition_mode === 'composite' ? (
                   <p className="text-[11px] text-muted-foreground">
