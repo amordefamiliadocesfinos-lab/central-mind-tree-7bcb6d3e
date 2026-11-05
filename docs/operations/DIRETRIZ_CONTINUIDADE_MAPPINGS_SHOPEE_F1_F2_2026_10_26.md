@@ -82,3 +82,37 @@ Não adicionar colunas, tabelas, flags ou filtros em produção apenas para repr
 - **Próxima ação do Sucessor 3:** recuperar o estado atual e coordenar com Operações/Produto Mestre a confirmação das caixas Italac/ML2 originais, apresentação cadastrada do Ácido Cítrico e ledger físico autorizado por local; preparar decisões e transições físicas para eventual missão posterior especificamente autorizada, sem movimentar estoque.
 
 **Natureza:** checkpoint datado de transferência, sem revogar o histórico anterior nem alterar autoridades.
+
+
+## Encerramento da fase técnica por pares oficiais — 05/11/2026
+
+**Esta atualização prevalece sobre estados históricos anteriores deste documento (inclusive a P2 apenas proposta em 04/11).** Não altera o Método Mestre V1.0 nem o Método Enxuto V2.2, e **não equivale a E4/E5 ou confirmação das ofertas hoje publicadas**. Por decisão do responsável, o acompanhamento de uso real será fase posterior.
+
+### Integração comum — concluída
+
+- PRs #430–#433: engenharia física P2 das quatro famílias instalada no Lovable Cloud; proteções de separação, abertura, recebimento e integridade mantidas. Estoques de recipientes somente por fato real; nenhuma inicialização sintética.
+- PR #434: projeção das sete identidades Italac/Sorbato/Ácido; PR #437: escritor canônico com snapshot comercial corrigido e aplicado no LIVE; PR #440: Hub com COMMIT individual exigindo pedido exato, lote automático P2 bloqueado. Codex confirmou revisão Cloud Run `integration-hub-p4-7429d7e1097d`, SHA `7429d7e1097d631aa03e301fb7555783aadb9908`, digest `sha256:7f86d2665cea4e51f4c736124721f758377a888d99839d16972562ac0a9b235e`, saúde HTTP 200 autenticada, 710 testes aprovados e 100% tráfego.
+- PR #449: corrigiu o Core Bridge para carregar catálogo e componentes completos por páginas, evitando truncamento e falha em 200 mappings; merge `dd90362cb9b06004c2d0ab59eea5bead8f64d2c7`, CI `42099582654` SUCCESS. A Edge Function `integration-core-bridge` foi implantada separadamente no Lovable Cloud, com fonte idêntica ao merge. Teste **real autenticado SOMENTE LEITURA** `shopee.order_intake_batch.read`: HTTP 200, 371 mappings Adão e 524 componentes; nenhum pedido criado. Proteção HMAC manteve resposta HTTP 401 sem assinatura. Não foi fornecido ID de revisão da função.
+
+### Matriz única de validação técnica
+
+Diagnóstico #445 executado em ambiente Lovable sem alterações de código/banco: leitura SELECT do catálogo completo e **preview sintético Q=1 para cada par Item ID/Model ID oficial**, com títulos e variações extraídos dos próprios cadastros; guardas físicos ativos e expansão por módulos oficiais `shopee-mapping-preview.mjs` / `shopee-order-projection-preview.mjs`. A simulação não usa anúncios externos atuais.
+
+| Conta | Mappings existentes | Pares oficiais | Reconhecidos no teste sintético | Projeção pronta | Blockers |
+|---|---:|---:|---:|---:|---:|
+| Adão | 371 | 364 | **364** | **364** | **0** |
+| Viviane | 16 | 4 | **4** (Porto Gel) | **4** | **0** |
+| Priscila | 7 | 0 | Não aplicável | Não aplicável | Identidade oficial ausente |
+| Celivio | 3 | 0 | Não aplicável | Não aplicável | Identidade oficial ausente |
+| **Total** | **397** | **368** | **368** | **368** | **0 entre os pares oficiais** |
+
+Detalhe Adão (quantidade de pares oficiais por família): Du Porto 161; Trufa 40 g 34; Trufa 30 g 26; Biscoito Alfajor 24; Chocolate Base 24; Alfajor 60 g 21; Embalagem Trufa 16; Chocoim 15; Amendoim 6; Glucodry 5; Glucose de Milho 5; Italac 5; Maltodextrina 5; Porto Gel 5; demais famílias/embalagens/Sorbato/Ácido 12. Todos passaram no teste sintético Q=1 sem bloqueio de identidade/projeção. SQL independente encontrou **zero pares oficiais duplicados por conta**, e os produtos/variantes referenciados estão ativos e com unidade cadastrada. No teste Adão, 208 identidades físicas em gramas, 154 em unidades e 2 em caixas.
+
+### Limites, exclusões e gatilhos
+
+- **29 mappings sem Item ID/Model ID oficial**: Adão 7, Viviane 12, Priscila 7, Celivio 3. Preservar como legados ou candidatos; não promovê-los a reconhecimento oficial sem evidência de publicação e identidade correta. Um vínculo Priscila `SH-003-011|5 kg` não possui produto nem componentes e não faz parte do catálogo técnico aprovado.
+- **Fora do lote técnico atual:** Ivoti 9,8 kg sem par oficial demonstrado, Porto Gel 5 kg divergente, Alfajor 108/144 histórico e BA2 não identificado/publicado. O fato de não possuir evidência oficial **não comprova despublicação**. Abrir nova frente apenas após repasse comercial com conta, Item ID, Model ID e composição autorizada.
+- **P4 limitado ao nível técnico provado:** cadastro, integridade de componentes, testes sintéticos, funções de banco, Edge Function e Hub implantados conforme evidência. Nenhuma prova adicional de pedido real é exigida para encerrar **esta fase**, mas continua necessária para alegar uso real, E4/E5 completo, contabilização física ou fluxo de expedição.
+- **Limites operacionais continuam:** pedido ≠ OP; criação de pedido não baixa estoque; disparo de expedição só mediante fato físico autorizado; controle de lacrados por localização; `external_shipped` P2 bloqueado sem prova apropriada; manter guardas e IAM.
+- **Governança:** aplicações SQL diretas no Lovable Cloud exigem reconciliação com migrations CLI antes de reaplicações futuras; não reaplicar propostas `UNAPPLIED` por inércia. A PR documental #402 foi encerrada sem merge por conter estado antigo.
+- **Resultado:** **FASE TÉCNICA DOS MAPPINGS OFICIAIS TRABALHADOS ENCERRADA**, sem declarar toda a base histórica nem o uso real como homologados. A continuidade por uso real só inicia quando houver pedido efetivo e acompanhamento operacional, em frente distinta.
