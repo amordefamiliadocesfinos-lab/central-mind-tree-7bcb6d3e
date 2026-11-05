@@ -290,7 +290,7 @@ BEGIN
     'event',p_event,'applied',true,'already_applied',false,'movement_count',v_movement_count,
     'adjustment_required',jsonb_array_length(v_shortages)>0,'shortages',v_shortages
   );
-END; $function$
+END; $function$;
 
 
 -- Preserve the LIVE privilege boundary: internal SECURITY DEFINER is not a
