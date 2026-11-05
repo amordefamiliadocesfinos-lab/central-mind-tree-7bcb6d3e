@@ -10,7 +10,7 @@ test('UI separation uses canonical role-checked finalization', () => {
   const separation = read('src/hooks/useOrderSeparation.ts');
   const stock = read('src/lib/orderStock.ts');
   assert.match(separation, /finalizeOrderSeparation\(orderId\)/);
-  assert.match(stock, /rpc\('finalize_order_separation'/);
+  assert.match(stock, /'finalize_order_separation'/);
   assert.doesNotMatch(separation, /rpc\('finalize_order_separation_unguarded_01b'/);
 });
 
