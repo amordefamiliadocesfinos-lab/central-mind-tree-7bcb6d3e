@@ -59,3 +59,20 @@ Sem migration, deploy, tabela, RPC, processamento de pedidos, movimentação de 
 **Uma próxima ação (gatilho real):** Operações fornecer um snapshot físico por local e comprovar qual evento de separação/expedição representa o fato físico nas quatro famílias. Depois disso, reabrir **apenas P3** para confrontar o adapter com `finalize_order_separation` e `external_shipped`, ensaiar regressão estritamente afetada e submeter autorização separada para migration. Não expandir para famílias antigas não afetadas, outros módulos, Shopee, OP, estoque legado, P4 ou E5.
 
 **Sem escrita no banco, merge, deploy, alteração Shopee, mappings ou estoque.** Método congelado inalterado.
+
+### Diferença LIVE de localização e inventário — 05/11/2026
+
+Consulta `SELECT` realizada no Cloud ativo do projeto PAINEL CENTRAL, **sem escrita**. Escopo estrito: Italac, Sorbato, Ácido Cítrico, Ivoti.
+
+| Produto | `inventory.location` | `inventory.location_id` | `inventory.quantity` | Inferência permitida |
+| --- | --- | --- | ---: | --- |
+| Italac | Fábrica | `b1ef7322-86f9-4cf4-9d52-39ba32911ef6` | 199975 g | Apenas saldo legado; caixas e unidades intactas não comprovadas |
+| Sorbato | Fábrica | **NULL** | 1000 g | Apenas saldo legado; pacotes originais não comprovados |
+| Ácido Cítrico | Fábrica | **NULL** | 3000 g | Apenas saldo legado; pacotes originais não comprovados |
+| Ivoti | Fábrica | `b1ef7322-86f9-4cf4-9d52-39ba32911ef6` | 0 g | Ausência de gramas registradas não prova ausência de balde físico |
+
+A localização Fábrica está ativa; CD01 e CD02 também estão ativas; C3 está inativa. Nenhum dos quatro produtos possui ledger de recipientes lacrados no LIVE. A leitura não é conferência física e não autoriza distribuição de saldo por locais. **Bloqueio pontual P3:** Sorbato e Ácido exigem conciliação explícita entre texto `Fábrica` e FK `location_id` antes de qualquer roteiro de abertura/recebimento/cutover, sem preencher `location_id` automaticamente e sem converter os saldos em pacotes.
+
+**Fato operacional existente:** `operational_incidents` inclui três incidentes abertos de `material_shortage` do Ivoti associados a `production_fact_consumption` (24 resolvidos). Não inferir disso saldo disponível, quantidade de baldes nem proposta de correção no escopo Mappings. Apenas preservar a pendência para Operações se afetar a conciliação física do Ivoti.
+
+**Portão único a executar fora do sistema:** responsável de Operações contar e atestar por localização os recipientes **originais fechados**, as unidades **intactas** Italac e eventual material **aberto**. Distinguir a evidência física dos saldos legados. Até esse atestado, P3 segue bloqueado, P4 postergado e não há autorização de merge/migration/cutover. Não criar nova frente nem pesquisar outras famílias.
