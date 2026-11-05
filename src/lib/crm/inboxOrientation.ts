@@ -110,12 +110,29 @@ export function getCrmInboxOrientation(projection: CrmOperationalProjection): Cr
   const copy = CRM_INBOX_ORIENTATION_COPY[projection.priority.reason];
   const actionTitle = projection.obligation?.title?.trim() || null;
   const overdueAction = ['next_action_overdue', 'next_action_today', 'return_overdue', 'return_today'].includes(projection.priority.reason);
+  // O envio posterior ao prazo é somente evidência de contato; nunca comprova
+  // que a tarefa foi executada ou que o Resultado já foi registrado.
+  const outboundAt = projection.lastOutboundAt ? Date.parse(projection.lastOutboundAt) : NaN;
+  const inboundAt = projection.lastInboundAt ? Date.parse(projection.lastInboundAt) : NaN;
+  const resultAt = projection.lastResultAt ? Date.parse(projection.lastResultAt) : NaN;
+  const dueAt = projection.obligation?.dueAt ? Date.parse(projection.obligation.dueAt) : NaN;
+  const outboundAfterDue = projection.priority.reason === 'pending_result'
+    && Number.isFinite(dueAt) && Number.isFinite(outboundAt)
+    && outboundAt >= dueAt && (!Number.isFinite(resultAt) || outboundAt > resultAt);
+  const inboundAfterResult = projection.priority.reason === 'pending_result'
+    && Number.isFinite(inboundAt) && (!Number.isFinite(resultAt) || inboundAt > resultAt);
   // Fatos registrados guiam a execução; não deduzimos que a tarefa foi cumprida.
-  const title = overdueAction && actionTitle ? `Verificar pendência: ${actionTitle}` : copy.title;
+  const title = projection.priority.reason === 'pending_result' && outboundAfterDue
+    ? 'Conferir execução e registrar Resultado'
+    : overdueAction && actionTitle ? `Verificar pendência: ${actionTitle}` : copy.title;
   const explanation = projection.priority.reason === 'needs_reply'
     ? 'Leia a última mensagem e prepare a resposta. Depois registre um Resultado apenas se houver um fato comercial.'
     : projection.priority.reason === 'pending_result'
-      ? `A interação ainda precisa de desfecho registrado${actionTitle ? ` para a ação "${actionTitle}"` : ''}. Não envie outra mensagem apenas para retirar o contato da fila; confirme o que aconteceu no formulário.`
+      ? outboundAfterDue
+        ? `Há envio registrado depois do prazo de ${actionTitle ? `"${actionTitle}"` : 'uma Próxima Ação'}. Isso não comprova o cumprimento: confira a conversa e registre o Resultado real no formulário. A tarefa continua pendente até o escritor oficial tratá-la.`
+        : inboundAfterResult
+          ? `Há mensagem do cliente posterior ao último Resultado${actionTitle ? ` e existe a ação "${actionTitle}"` : ''}. Confira o conteúdo e registre somente o desfecho verdadeiro, sem reenviar mensagem apenas para limpar a fila.`
+          : `Há pendência de Resultado${actionTitle ? ` vinculada à ação "${actionTitle}"` : ''}. Confira o histórico antes de registrar o fato real; não suponha execução nem conclusão.`
       : overdueAction
         ? `Confira se ${actionTitle ? `a ação "${actionTitle}"` : 'a obrigação registrada'} já foi executada. Se sim, registre o Resultado; se não, execute ou reagende com Adiar. Não conclua sem evidência.`
         : copy.explanation;
