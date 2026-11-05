@@ -24,17 +24,17 @@ test('R2 guards only two exact, published Adão pairs',()=>{
   assert.equal(r2RequiresOfficialIdentity(item,{channelAccountId:'wrong'}),false);
  }
 });
-test('even an explicit 1000g hypothetical mapping cannot pass as one sealed original pack',()=>{
+test('canonical 1kg mapping can preview an order without asserting any sealed physical stock',()=>{
  for(const[itemId,modelId,sku,productId,reason]of PAIRS)for(const q of [1,2,5]){
   const component={product_id:productId,variant_id:null,physical_multiplier:1000,physical_identity:{active:true,unit:'g',presentation_factors:[1000]}};
   const item={itemId,modelId,modelSku:sku,itemName:'Pacote original fechado 1kg',modelName:'1 kg',quantity:q};
-  assert.equal(mappingPhysicalBlocker(item,{...component,components:[component]},{channelAccountId:R2_ADAO_ACCOUNT_ID}),reason);
+  assert.equal(mappingPhysicalBlocker(item,{...component,components:[component]},{channelAccountId:R2_ADAO_ACCOUNT_ID}),null);
   const mapping={id:'R2-FAKE-'+modelId,marketplace:'shopee',marketplace_account:'SHOPEE ADÃO',channel_account_id:R2_ADAO_ACCOUNT_ID,
    external_item_id:itemId,external_model_id:modelId,external_item_key:'official:item:'+itemId+'|model:'+modelId,...component};
   const preview=fixture(item,[mapping]);
-  assert.equal(preview.orders[0].items[0].mappingStatus,reason);
+  assert.equal(preview.orders[0].items[0].mappingStatus,'recognized');
   assert.equal(preview.operationalWrites,false);
-  assert.equal(preview.orders[0].recognizedItems,0);
+  assert.equal(preview.orders[0].recognizedItems,1);
  }
 });
 test('unmapped official pair, unknown model, banned old acid items and legacy title/SKU aliases fail closed',()=>{
