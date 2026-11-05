@@ -1,3 +1,4 @@
+import {r2OriginalMappingBlocker,R2_ORIGINAL_MODELS} from './shopee-r2-original-p4-contract.mjs';
 import {italacR2V17PhysicalBlocker} from './shopee-rodada2-v17-italac-guard.mjs';
 import {r2SealedPackageBlocker} from './shopee-rodada2-sealed-1kg-guard.mjs';
 import {R1_EMB2_LEITE_KEY,R1_EMB1_MIX_KEY,r1EmballagePhysicalBlocker} from './shopee-rodada1-v16-leite-mix-guard.mjs';
@@ -120,6 +121,10 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   }
   if(amendoimKey===R1_EMB2_LEITE_KEY || amendoimKey===R1_EMB1_MIX_KEY)
     return r1EmballagePhysicalBlocker(item,components,scope);
+  // P2 backend accepts exact original presentations for order registration.
+  // Do not infer a sealed stock balance; shipment remains Operations-owned.
+  if(Object.hasOwn(R2_ORIGINAL_MODELS,amendoimKey))
+    return r2OriginalMappingBlocker(item,mapping,scope);
   const italacBlock=italacR2V17PhysicalBlocker(item,scope);
   if(italacBlock)return italacBlock;
   const r2SealedBlock=r2SealedPackageBlocker(item,scope);

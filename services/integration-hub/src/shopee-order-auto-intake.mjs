@@ -1,3 +1,4 @@
+import {r2OriginalContract} from './shopee-r2-original-p4-contract.mjs';
 import { shopeePortoGelLegacyBlocker } from './shopee-porto-gel-legacy-guard.mjs';
 import { shopeeTrufa40HistoricalBlocker } from './shopee-trufa40-historical-guard.mjs';
 import { shopeeTrufa30TemporalBlocker } from './shopee-trufa30-temporal-guard.mjs';
@@ -180,6 +181,17 @@ export function createShopeeControlledAutoIntake({
           continue;
         }
 
+        // The current canonical create_shopee_api_order RPC still inserts NULL
+        // commercial snapshot fields. Do not advertise these P2 orders as
+        // writable until that writer is migrated and independently verified.
+        // Preview is safe and remains available with real authenticated raw.
+        if (mode === 'commit' && normalized.orders[0].items.some(item =>
+          r2OriginalContract(item, normalized.channelAccountId))) {
+          blocked += 1;
+          results.push({ orderSn, status: 'blocked',
+            blockers: ['r2_original_writer_snapshot_not_ready'], write: null });
+          continue;
+        }
         const contract = applyShopeeInternalOrderContract(projected, {
           channelAccountId: normalized.channelAccountId,
           marketplaceAccount,
