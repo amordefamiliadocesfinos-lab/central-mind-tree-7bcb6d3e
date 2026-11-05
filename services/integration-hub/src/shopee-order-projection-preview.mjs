@@ -125,11 +125,12 @@ function buildBlockers(normalizedOrder, mappingOrder, duplicate, channelAccountI
       if (!nullableText(component?.productId)) blockers.push(`item_${index}:component_${componentIndex}:missing_product`);
       if (!finitePositive(component?.physicalMultiplier)) blockers.push(`item_${index}:component_${componentIndex}:invalid_multiplier`);
       const r2 = r2OriginalContract(item, channelAccountId);
-      const expectedCommercialQuantity = r2 ? quantity*r2.unitsPerOffer : quantity;
       if (!finitePositive(component?.commercialQuantity)
-        || finitePositive(component.commercialQuantity) !== expectedCommercialQuantity) {
+        || finitePositive(component.commercialQuantity) !== quantity) {
         blockers.push(`item_${index}:invalid_commercial_quantity`);
       }
+      if(r2 && r2OriginalProjectedLine(item, component, channelAccountId)?.blocked)
+        blockers.push(`item_${index}:r2_original_projection_invalid`);
       if (r2 && item.components.length !== 1) blockers.push(`item_${index}:r2_original_composition_invalid`);
       const physicalQuantity = finitePositive(component?.physicalQuantity);
       const expectedQuantity = quantity * finitePositive(component?.physicalMultiplier);
@@ -174,6 +175,15 @@ export function buildShopeeOrderProjectionPreview(
     const duplicate = orderSn ? existing.has(orderSn) : false;
     const blockers = buildBlockers(normalizedOrder, mappingOrder, duplicate, normalizedPayload.channelAccountId);
     const lines = (mappingOrder.items ?? []).flatMap(item => buildProjectionLines(item, normalizedPayload.channelAccountId));
+    // Validate the canonical commercial snapshot after expanding Shopee offers
+    // into intact units. This is distinct from the mapping's per-offer multiplier.
+    for (const line of lines) {
+      if (!r2OriginalContract(line, normalizedPayload.channelAccountId)) continue;
+      if (line.r2ProjectionBlocker || line.quantity !== line.commercialQuantity*line.physicalMultiplier
+        || !line.commercialPresentationId || !Number.isSafeInteger(line.commercialQuantity)) {
+        blockers.push('r2_original_canonical_snapshot_invalid');
+      }
+    }
 
     return {
       orderSn,
