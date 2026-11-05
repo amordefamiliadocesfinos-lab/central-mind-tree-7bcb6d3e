@@ -320,7 +320,8 @@ BEGIN
     'separation_id', v_separation_id
   );
 END;
-$function$
+$function$;
+
 
 REVOKE ALL ON FUNCTION public.create_shopee_api_order(jsonb,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.create_shopee_api_order(jsonb,jsonb) TO service_role;
