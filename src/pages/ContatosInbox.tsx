@@ -46,6 +46,7 @@ import { getCrmInboxAttendanceTone, getCrmInboxBadgeToneClass, getCrmInboxPriori
 import { getCrmInboxFilterClass } from '@/lib/crm/inboxFilterVisualHierarchy';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
+import { getCrmSocialEventReviewHint } from '@/lib/crm/socialEventReview';
 import { getOfficialCrmNextActionAt } from '@/lib/crm/officialTask';
 import { evaluateCrmHandoffEvidence, type CrmOrderLookup, type CrmReferencedOrder } from '@/lib/crm/handoffEvidence';
 import { evaluateCrmOperationalActionEvidence, type CrmOrderSeparationEvidenceRow, type CrmSeparationLookup } from '@/lib/crm/handoffOperationalAction';
@@ -850,6 +851,24 @@ export default function ContatosInbox() {
     ? getCrmInboxOrientation(projectCrmOperationalState(toCrmOperationalSource(selected)))
     : null;
   const orientationShortcut = selectedOrientation ? getCrmOrientationShortcut(selectedOrientation) : null;
+  const [lastSocialReview, setLastSocialReview] = useState<{ key: string; hint: string | null } | null>(null);
+  const socialReviewKey = selected?.conversation_id ?? null;
+  useEffect(() => {
+    setLastSocialReview(null);
+    if (!socialReviewKey || !selected?.needs_reply) return;
+    let current = true;
+    void supabase.from('service_messages')
+      .select('direction,message_type')
+      .eq('conversation_id', socialReviewKey)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!current) return;
+        const hint = error ? null : getCrmSocialEventReviewHint(data?.[0] ?? null);
+        setLastSocialReview({ key: socialReviewKey, hint });
+      });
+    return () => { current = false; };
+  }, [socialReviewKey, selected?.needs_reply]);
   // F4-A: consulta pontual pelo ID EXPLÍCITO do último Resultado. Não se
   // procura Pedido por nome, por data ou por simples histórico do contato.
   const [handoffLookup, setHandoffLookup] = useState<{
@@ -1893,6 +1912,15 @@ export default function ContatosInbox() {
                     <p className="mt-1 text-[11px] leading-relaxed text-foreground/80" aria-label="Próximo passo recomendado">
                       <span className="font-semibold">Próximo passo: </span>{selectedOrientation.explanation}
                     </p>
+                  )}
+                  {selectedOrientation.priorityReason === 'needs_reply'
+                    && lastSocialReview?.key === selected.conversation_id && lastSocialReview.hint && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 rounded border border-amber-300/60 px-2 py-1 text-[11px]">
+                      <span className="flex-1 text-foreground/80">{lastSocialReview.hint}</span>
+                      <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-[11px]" onClick={() => setDetailTab('historico')}>
+                        Conferir histórico
+                      </Button>
+                    </div>
                   )}
                   {selectedOrientation.handoffUnverified && !orientationExpanded && (
                     <p className="mt-1 text-amber-700 dark:text-amber-300">Atenção: continuidade operacional ainda não verificada. Consulte os detalhes.</p>
