@@ -36,8 +36,8 @@ BEGIN
   IF has_function_privilege('anon',signature,'EXECUTE')
      OR has_function_privilege('authenticated',signature,'EXECUTE')
   THEN RAISE EXCEPTION 'p2_canonical_internal_exposed: %',signature; END IF;
-  IF NOT has_function_privilege('service_role',signature,'EXECUTE')
-  THEN RAISE EXCEPTION 'p2_service_role_missing_internal_access: %',signature; END IF;
+  IF has_function_privilege('service_role',signature,'EXECUTE')
+  THEN RAISE EXCEPTION 'p2_service_role_internal_access_forbidden: %',signature; END IF;
  END LOOP;
  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
  WHERE ns.nspname='public'
