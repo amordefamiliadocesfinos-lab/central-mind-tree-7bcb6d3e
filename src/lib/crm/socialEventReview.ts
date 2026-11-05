@@ -28,11 +28,11 @@ export function getCrmSocialContextReviewHint(
 
   // A Meta pode entregar eventos cujo conteúdo não é exibível. São
   // pendências de verificação, não respostas que o CRM deva inventar.
-  const type = latestFirst[0].message_type;
-  if (type === 'unsupported' || type === 'system') {
+  const inboundType = latestFirst[0].message_type;
+  if (inboundType === 'unsupported' || inboundType === 'system') {
     return 'A última entrada não possui conteúdo interpretável neste CRM. Confira a mensagem no canal oficial e o histórico antes de responder ou registrar Resultado. A prioridade continua ativa até a conferência humana.';
   }
-  if (!isSocial(type)) return null;
+  if (!isSocial(inboundType)) return null;
 
   const pendingInbound: CrmLastMessage[] = [];
   for (const message of latestFirst) {
