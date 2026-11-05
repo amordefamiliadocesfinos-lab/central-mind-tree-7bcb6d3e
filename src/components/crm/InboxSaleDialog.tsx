@@ -27,6 +27,7 @@ import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
+import { OFFICIAL_WHATSAPP_PRODUCT_NAMES, getOfficialWhatsappTierPrice, type CrmCommercialPriceRow } from '@/lib/crm/commercialPriceContext';
 
 interface SaleItem {
   product_id: string;
@@ -65,6 +66,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [items, setItems] = useState<SaleItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [onlyFinishedProducts, setOnlyFinishedProducts] = useState(true);
+  const [officialPriceRows, setOfficialPriceRows] = useState<CrmCommercialPriceRow[]>([]);
   const [channel, setChannel] = useState('whatsapp');
   const [orderType, setOrderType] = useState<'stock' | 'production'>('stock');
   const [dueDate, setDueDate] = useState('');
@@ -108,6 +110,17 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   }, [products, productSearch, onlyFinishedProducts, items]);
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + getOrderItemLineTotal(item), 0), [items]);
   const total = Math.max(0, subtotal - discount + shipping);
+  const getOfficialPriceAdvice = (item: SaleItem): { amount: number; totalUnits: number } | null => {
+    if (channel !== 'whatsapp' || !item.product_id ||
+        (item.commercial_presentation && Number(item.commercial_presentation.conversion_factor) !== 1)) return null;
+    const product = products.find(candidate => candidate.id === item.product_id);
+    if (!product) return null;
+    const grouped = items.filter(candidate => candidate.product_id === item.product_id
+      && (!candidate.commercial_presentation || Number(candidate.commercial_presentation.conversion_factor) === 1));
+    const totalUnits = grouped.reduce((sum, candidate) => sum + Number(candidate.commercial_quantity || 0), 0);
+    const amount = getOfficialWhatsappTierPrice(officialPriceRows, product.name, totalUnits);
+    return amount === null ? null : { amount, totalUnits };
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -142,6 +155,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     (supabase as any).from('maltodextrina_sealed_stock').select('sacks')
       .then(({ data, error }: any) => setMaltoSealedSacks(error ? null :
         (data ?? []).reduce((sum: number, row: { sacks: number })=>sum+Number(row.sacks),0)));
+    // Consulta de leitura da tabela aprovada. Não reescreve preços ou pedidos.
+    void supabase.from('products')
+      .select('name,is_active,deleted_at,attributes')
+      .in('name', OFFICIAL_WHATSAPP_PRODUCT_NAMES)
+      .eq('is_active', true).is('deleted_at', null)
+      .then(({ data, error }) => setOfficialPriceRows(error ? [] : (data ?? []) as CrmCommercialPriceRow[]));
     saleRequestKeyRef.current = crypto.randomUUID();
   }, [open]);
 
@@ -435,6 +454,19 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     Composição: {(item.commercial_presentation.components ?? []).map(c => `${Number(c.quantity) * Number(item.commercial_quantity)} un. de ${variants.find(v => v.id === c.variant_id)?.variant_name ?? 'variante'}`).join(' + ')}
                   </p>
                 ) : <p className="text-[11px] text-muted-foreground">Estoque: {formatStockBalance(item)} · quantidade física: {(item.commercial_quantity || 0) * (item.commercial_presentation?.conversion_factor ?? 1)} {isAmendoimAM3(item.commercial_presentation?.id) ? 'saco' : getPhysicalIdentityUnit(products.find(product => product.id === item.product_id), item.variant_id ? variants.find(variant => variant.id === item.variant_id) : null)}</p>}
+                {getOfficialPriceAdvice(item) && (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="text-muted-foreground">Tabela WhatsApp: {formatCurrency(getOfficialPriceAdvice(item)!.amount)} por unidade · {getOfficialPriceAdvice(item)!.totalUnits} un. desta família</span>
+                    {Math.abs(Number(item.unit_price) - getOfficialPriceAdvice(item)!.amount) > 0.005 && (
+                      <>
+                        <span className="font-medium text-amber-700 dark:text-amber-300">Preço diferente da tabela: confirme condição negociada.</span>
+                        <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => updateItem(index, { unit_price: getOfficialPriceAdvice(item)!.amount, _unit_price_text: undefined })}>
+                          Aplicar preço oficial
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
