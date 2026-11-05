@@ -27,7 +27,8 @@ import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
 import { recordInboxCampaignSaleTrace } from '@/lib/crm/campaignSalesIO';
-import { OFFICIAL_WHATSAPP_PRODUCT_NAMES, getOfficialWhatsappTierPrice, type CrmCommercialPriceRow } from '@/lib/crm/commercialPriceContext';
+import { OFFICIAL_WHATSAPP_PRODUCT_NAMES, type CrmCommercialPriceRow } from '@/lib/crm/commercialPriceContext';
+import { resolveDirectSalePriceAdvice } from '@/lib/operations/commercialPricing';
 
 interface SaleItem {
   product_id: string;
@@ -114,23 +115,14 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     if (channel !== 'whatsapp' || !item.product_id) return null;
     const product = products.find(candidate => candidate.id === item.product_id);
     if (!product) return null;
-    const isBandeja = officialPriceRows.some(row => row.name === product.name
-      && row.attributes?.crm_direct_whatsapp_price_table?.unit === 'bandeja');
-    // Bandejas e unidades são bases comerciais distintas. Nunca utilizar
-    // preço por bandeja em item de unidade física nem converter por adivinhação.
-    const isMatchingUnit = (candidate: SaleItem) => {
-      if (candidate.product_id !== item.product_id) return false;
-      const presentation = candidate.commercial_presentation;
-      if (isBandeja) return presentation?.commercial_unit_label === 'bandeja'
-        && Number(presentation.conversion_factor) === 18;
-      return !presentation || (Number(presentation.conversion_factor) === 1
-        && presentation.commercial_unit_label === 'un');
-    };
-    if (!isMatchingUnit(item)) return null;
-    const totalQuantity = items.filter(isMatchingUnit)
-      .reduce((sum, candidate) => sum + Number(candidate.commercial_quantity || 0), 0);
-    const amount = getOfficialWhatsappTierPrice(officialPriceRows, product.name, totalQuantity);
-    return amount === null ? null : { amount, totalQuantity, unitLabel: isBandeja ? 'bandeja' : 'unidade' };
+    const quote = resolveDirectSalePriceAdvice(
+      officialPriceRows, product, item, items,
+    );
+    return quote ? {
+      amount: quote.unitPrice,
+      totalQuantity: quote.quantity,
+      unitLabel: quote.unit === 'bandeja' ? 'bandeja' : 'unidade',
+    } : null;
   };
 
   useEffect(() => {
