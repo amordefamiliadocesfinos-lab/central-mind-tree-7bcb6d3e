@@ -44,7 +44,30 @@ jobs:
         run: |
           set -euo pipefail
           test "$PGDATABASE" = 'p2_disposable'
-          psql -X -v ON_ERROR_STOP=1 -Atqc "SELECT CASE WHEN current_database()='p2_disposable' THEN 'ephemeral' ELSE 1/0::text END" | grep '^ephemeral$'
+          psql -X -v ON_ERROR_STOP=1 -Atqc "SELECT current_database()" | grep '^p2_disposable
+      - name: Install synthetic schema and tested proposals
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_disposable_fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_FOUNDATION_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_RPC_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_GENERIC_FALLBACK_GUARD_UNAPPLIED.sql
+      - name: Assert security, original receipt, opening, dispatch and rollback
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_foundation_contract.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_transaction_disposable.sql
+      - name: Ensure tests left no movements or original balances
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -Atqc "
+            SELECT CASE WHEN
+              (SELECT count(*) FROM public.p2_four_sealed_events)=0
+              AND (SELECT count(*) FROM public.p2_four_sealed_stock)=0
+              AND (SELECT count(*) FROM public.inventory_movements)=0
+              AND (SELECT count(*) FROM public.inventory WHERE quantity<>0)=0
+            THEN 'rollback_clean' ELSE 'ROLLBACK_FAILED' END" | grep '^rollback_clean$'
+
       - name: Install synthetic schema and tested proposals
         run: |
           set -euo pipefail
