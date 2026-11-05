@@ -61,6 +61,7 @@ import { PurchasesTab } from '@/components/operations/PurchasesTab';
 import { PurchasePresentationManager } from '@/components/operations/PurchasePresentationManager';
 import { BiscuitBoxStockManager } from '@/components/operations/BiscuitBoxStockManager';
 import { GlucodrySealedStockManager } from '@/components/operations/GlucodrySealedStockManager';
+import { FourSealedStockManager } from '@/components/operations/FourSealedStockManager';
 import { MaltodextrinaSealedStockManager } from '@/components/operations/MaltodextrinaSealedStockManager';
 import { AmendoimPhysicalStockManager } from '@/components/operations/AmendoimPhysicalStockManager';
 import { TrufaPackPhysicalStockManager } from '@/components/operations/TrufaPackPhysicalStockManager';
@@ -1575,6 +1576,7 @@ export default function Operacoes() {
             <PurchasePresentationManager products={rawProducts} />
             <BiscuitBoxStockManager onConverted={refetch} />
             <GlucodrySealedStockManager onConverted={refetch} />
+            <FourSealedStockManager onConverted={refetch} />
             <AmendoimPhysicalStockManager onConverted={refetch} />
 
             <div className="space-y-3">

@@ -1,0 +1,21 @@
+name: P2 Four Original Packages UI Validation
+on:
+  pull_request:
+    paths:
+      - 'src/components/operations/FourSealedStockManager.tsx'
+      - 'src/pages/Operacoes.tsx'
+      - '.github/workflows/p2-four-ui-build-validation.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
