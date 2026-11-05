@@ -1,0 +1,45 @@
+name: P4 Shopee Writer Disposable PostgreSQL
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/proposals/P4_SHOPEE_CORE_COMMERCIAL_SNAPSHOT_UNAPPLIED.sql'
+      - 'supabase/tests/p4_shopee_writer_*.sql'
+      - '.github/workflows/p4-shopee-writer-disposable.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-writer:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: p4_shopee_writer_disposable
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d p4_shopee_writer_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: p4_shopee_writer_disposable
+      PGUSER: postgres
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Verify canonical writer using synthetic orders only
+        run: |
+          set -euo pipefail
+          test "$PGDATABASE" = p4_shopee_writer_disposable
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_shopee_writer_fixture_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P4_SHOPEE_CORE_COMMERCIAL_SNAPSHOT_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_shopee_writer_disposable.sql
