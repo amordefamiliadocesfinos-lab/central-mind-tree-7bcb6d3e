@@ -54,6 +54,13 @@ BEGIN
  v_result:=public.apply_order_stock_event(order_id,'confirmed');
  IF (v_result->>'applied')::boolean IS DISTINCT FROM false THEN
   RAISE EXCEPTION 'p2_canonical_confirmed_order_debited_stock';END IF;
+ -- External shipment has no independently verified P2 physical event path.
+ BEGIN
+   PERFORM public.apply_order_stock_event(order_id,'external_shipped');
+   RAISE EXCEPTION 'p2_external_without_evidence_allowed';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM NOT LIKE '%p2_external_shipped_requires_verified_physical_event%' THEN RAISE; END IF;
+ END;
  -- Direct shipped call must fail for P2 even if the order exists.
  BEGIN
    PERFORM public.apply_order_stock_event(order_id,'shipped');
