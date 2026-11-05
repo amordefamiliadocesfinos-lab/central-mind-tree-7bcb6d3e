@@ -1,3 +1,4 @@
+import { ACP1_ITEM, ACP1_ACCOUNT, ACP1_MODELS, acp1PhysicalBlocker } from './shopee-acp1-v19-candidate-contract.mjs';
 import {r2OriginalMappingBlocker,R2_ORIGINAL_MODELS} from './shopee-r2-original-p4-contract.mjs';
 import {italacR2V17PhysicalBlocker} from './shopee-rodada2-v17-italac-guard.mjs';
 import {r2SealedPackageBlocker} from './shopee-rodada2-sealed-1kg-guard.mjs';
@@ -100,6 +101,14 @@ function chocoimPhysicalBlocker(item, components, scope, contract) {
 export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   const components = mapping.components?.length ? mapping.components : [mapping];
   const amendoimKey = String(item?.itemId) + '|' + String(item?.modelId);
+  if (String(item?.itemId) === ACP1_ITEM && scope?.channelAccountId === ACP1_ACCOUNT) {
+    // Protect historical/unknown models on the same item; never guess by SKU.
+    if (!Object.hasOwn(ACP1_MODELS,String(item?.modelId)))
+      return 'acp1_v19_unknown_or_historical_model';
+    return acp1PhysicalBlocker(item,components,scope);
+  }
+  if (String(item?.itemId) === ACP1_ITEM && scope?.channelAccountId !== ACP1_ACCOUNT)
+    return 'acp1_v19_account_unverified';
   if (Object.hasOwn(AMENDOIM_ADAO_MODELS, amendoimKey)) {
     return amendoimPhysicalBlocker(item, components, scope);
   }
