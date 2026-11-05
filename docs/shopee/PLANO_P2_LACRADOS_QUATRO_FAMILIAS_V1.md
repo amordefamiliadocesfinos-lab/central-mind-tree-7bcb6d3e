@@ -177,3 +177,19 @@ O atestado do operador autentica **quem declarou** a abertura no sistema; não �
 **Evidências mínimas por cenário:** identificador da ordem/recebimento real, SKU/apresentação e local, operador, data, quantidade contada, saldo físico antes/depois, evento único e movimentos correspondentes; quando houver bloqueio, demonstrar ausência de escrita. Evitar dados pessoais desnecessários.
 
 **Critério de encerramento de Operações:** engenharia e testes em CI podem ser concluídos sem inventário; ativação e uso real exigem todos os gates acima. O Especialista Mappings só retoma P4/E5 quando Operações comunicar explicitamente implantação habilitada com evidências. Quarentenas de #428 ficam ativas até lá.
+
+## Operações 9 — execução da engenharia e liberação controlada para Mappings (05/11/2026)
+
+**Esta seção substitui as declarações anteriores de que toda a P2 está apenas em proposta.** Não altera o histórico de decisões ou a obrigação de comprovação física em movimentos reais.
+
+**GitHub:** PR #430 mesclada em `1d79105b8da957b5faf54e2e65eafc6eaa9efbe7`; PR #431 (liberação de registro de pedidos Adão com apresentação original exata) mesclada em `fa402ee7252830be791eca66cefd01006ab06cc3`; PR #432 (interface na aba Estoque) mesclada em `013038cedc3bab956771033bec693aaa943a3d4d`.
+
+**Banco Lovable Cloud — aplicado diretamente com SQL transacional, fora do histórico de migrations do CLI:** `p2_four_sealed_stock`, `p2_four_sealed_events`, `p2_four_open_attestations`, `p2_four_apply_internal`, `p2_four_attest_and_open`, `p2_four_assert_generic_inventory_safe`, adapters de recebimento/expedição P2 e substituição das funções internas canônicas `confirm_purchase_receipt_unguarded_01b`, `apply_order_stock_event` e `finalize_order_separation_unguarded_01b`. O SQL canônico de recebimento foi executado com o `;` final corrigido e a correção foi versionada na PR #431. **Não reexecutar propostas com `CREATE TABLE` como migrations sem reconciliação prévia do estado LIVE.**
+
+**P3 Adão:** ambos os triggers `a_p3_adao_four_order_account_quarantine` e `a_p3_adao_four_order_item_quarantine` permanecem HABILITADOS. A função de proteção foi atualizada para permitir registros de pedidos com ID do produto, apresentação comercial, conversão, unidade intacta e quantidade física canônicos, preservando falha em identidades inválidas. Criação de pedido não gera saída de estoque. Para P2, `external_shipped` permanece bloqueado sem evidência de expedição; `shipped` depende de finalização canônica com saldo físico válido. A remoção indiscriminada dos gatilhos **não** foi feita.
+
+**Interface:** `FourSealedStockManager.tsx` integrada à aba Estoque. Exibe apenas registros existentes de recipientes fechados por local e permite atestar abertura física mediante `auth.uid()`, autorização operacional e confirmação explícita; não inicializa saldos. CI UI, operador móvel e pedido comercial aprovadas. Deploy solicitado por Lovable com retorno inicial `pending`; não tratar como publicação concluída sem verificação posterior do ID `9ab432ea-1d6e-4976-a4be-948ee059303e`.
+
+**Repasse para Mappings:** pode retomar **verificação de identidade e criação de pedido P4** das sete identidades Adão existentes, sem recriar cadastros. Registrar ordem e itens sem movimentação não necessita contagem de recipientes; não homologar baixa, expedição, `external_shipped` nem E5 produtivo sem prova do fluxo físico e confirmação de runtime. Ivoti segue sem identidade Shopee oficial; não inventar Item/Model. Google Cloud/Cloud Run fica no escopo Codex designado pelo responsável.
+
+**Observação de rastreabilidade:** atualizações SQL foram aplicadas diretamente via interface conectada Lovable Cloud conforme autorização de implantação. Criar migration idempotente de reconciliação **somente** antes de qualquer reaplicação por pipeline; evitar aplicar scripts `UNAPPLIED` outra vez sem conferência de esquema e grants. Nenhum registro físico inicial foi fabricado nesta execução.
