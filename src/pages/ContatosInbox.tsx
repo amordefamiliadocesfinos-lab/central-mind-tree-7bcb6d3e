@@ -1436,9 +1436,14 @@ export default function ContatosInbox() {
       toast.success('Revisão registrada. Nenhum Resultado foi criado.');
       const refreshedItems = await load();
       if (refreshedItems !== null && attendanceQueueScope.length > 0) {
-        // A revisão foi efetivamente persistida. Só então a sessão pode
-        // avançar, sem inventar Resultado ou encerrar obrigações oficiais.
-        await nextAttendance(refreshedItems, true);
+        // Erro na navegação não invalida a revisão já gravada: evitar indicar
+        // falha de persistência e induzir um segundo registro do mesmo fato.
+        try {
+          await nextAttendance(refreshedItems, true);
+        } catch (navigationError) {
+          console.warn('Revisão registrada; não foi possível avançar na fila:', navigationError);
+          toast.warning('Revisão registrada. Avance manualmente para o próximo atendimento.');
+        }
       }
     } catch (error) {
       console.error('CRM revisão sem fato novo:', error);
