@@ -1,0 +1,96 @@
+name: P2 Four Sealed Disposable PostgreSQL
+on:
+  pull_request:
+    paths:
+      - 'supabase/proposals/P2_FOUR_SEALED_*.sql'
+      - 'supabase/proposals/P2_FOUR_CANONICAL_*.sql'
+      - 'supabase/tests/p2_four_*.sql'
+      - 'supabase/tests/p2_four_*.sh'
+      - '.github/workflows/p2-four-sealed-postgres-disposable.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci-only
+          POSTGRES_DB: p2_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d p2_disposable"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: p2_disposable
+      PGUSER: postgres
+      PGPASSWORD: postgres-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Verify isolated database identity
+        run: |
+          set -euo pipefail
+          test "$PGDATABASE" = p2_disposable
+          test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT current_database()')" = p2_disposable
+      - name: Install synthetic schema and tested proposals
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_disposable_fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_FOUNDATION_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_RPC_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_GENERIC_FALLBACK_GUARD_UNAPPLIED.sql
+      - name: Assert security, receipt, opening, dispatch and rollback
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_foundation_contract.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_transaction_disposable.sql
+      - name: Verify isolated canonical line adapters with mixed-family transaction
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_RECEIPT_ADAPTER_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_SEALED_DISPATCH_ADAPTER_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_sealed_adapters_disposable.sql
+      - name: Check proposed full canonical functions with synthetic mixed order
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_minimal_fixture_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_RECEIPT_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/proposals/P2_FOUR_CANONICAL_DISPATCH_UNAPPLIED.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_canonical_mixed_flow_disposable.sql
+      - name: Verify LIVE-equivalent identity triggers and inventory uniqueness
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_identity_triggers_disposable.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_live_triggers_open_disposable.sql
+      - name: Exercise actual separation finalization lifecycle against P2 candidate
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_finalize_real_flow_disposable.sql
+      - name: Verify role grants and deny public RPC mutation
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_four_roles_disposable.sql
+      - name: Verify rollback left no stock or movements
+        run: |
+          set -euo pipefail
+          test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.p2_four_sealed_events')" = 0
+          test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.p2_four_sealed_stock')" = 0
+          test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory_movements')" = 0
+          test "$(psql -X -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.inventory WHERE quantity<>0')" = 0
+      - name: Confirm concurrent dispatch does not double-debit last package
+        run: |
+          set -euo pipefail
+          bash supabase/tests/p2_four_sealed_concurrency_disposable.sh
