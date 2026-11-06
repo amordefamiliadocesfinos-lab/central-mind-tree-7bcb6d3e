@@ -183,13 +183,14 @@ export function OrderSeparationBoard({ orders, shopeeLogisticsSelection = null, 
             const documents = documentsByOrderId.get(order.id) ?? [];
             const hasShippingLabel = documents.some(document => document.document_type === 'shipping_label');
             const isShopeeOrder = order.sale_origin === 'shopee_open_platform';
+            const isShopeeAdao = order.channel_account_id === 'b4027369-5abf-4ac1-ab24-862334fae892' && isShopeeOrder;
             const shopeeLogistics = isShopeeOrder
               ? presentShopeeLogistics(shopeeLogisticsSelection, order.order_number, order.channel_account_id)
               : null;
             const busy = busyOrderId === order.id;
             const itemGroups = groupedItems(order);
             const payment = getOrderPaymentPresentation(order.payment_status);
-            return <Card key={order.id} className="bg-background"><CardContent className="space-y-2 p-2.5">
+            return <Card key={order.id} className={cn("bg-background", isShopeeAdao && "border-purple-700 border-l-4 bg-purple-50 dark:border-purple-500 dark:bg-purple-950/35")}><CardContent className="space-y-2 p-2.5">
               <div className="flex items-start justify-between gap-2"><div className="min-w-0 flex-1"><p className="font-semibold leading-tight">{order.customer_name ?? 'Cliente não informado'}</p><p className="mt-0.5 text-xs text-muted-foreground">{order.channel ?? 'Origem não informada'} · {orderReference(order)}</p>{getOrderOperationalOrigin(order) && <p className="mt-0.5 text-xs text-muted-foreground">{getOrderOperationalOrigin(order)}</p>}</div><div className="flex shrink-0 flex-wrap justify-end gap-1"><Badge variant="outline" className={cn('text-[10px]', payment.className)}>{payment.label}</Badge>{documents.length > 0 && <Badge variant="outline" className="gap-1"><FileText className="h-3 w-3" /> Documento</Badge>}</div></div>
               {shopeeLogistics && <div className="rounded-md border bg-muted/20 px-2 py-1 text-xs" role="status"><span className="font-medium">Shopee: {shopeeLogistics.label}</span><p className="text-muted-foreground">Consulta logística informativa. A separação física e a emissão de etiqueta são processos distintos.</p></div>}
               <div className="space-y-1.5">
