@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import {createShopeeControlledAutoIntake} from '../src/shopee-order-auto-intake.mjs';
 import {R2_ORIGINAL_MODELS,R2_ADAO_ACCOUNT_ID} from '../src/shopee-r2-original-p4-contract.mjs';
 
+// Synthetic non-Easter model identities explicitly approved for these isolated
+// legacy P4 contract tests. Production never receives this test configuration.
+process.env.SHOPEE_ADAO_NON_EASTER_MODEL_PAIRS =
+  Object.keys(R2_ORIGINAL_MODELS).map(key => key.replace('|', ':')).join(',');
+
 function fixture([key, contract], q = 2) {
  const [item_id, model_id] = key.split('|');
  const order_sn = 'P4-FIXTURE-'+model_id;
