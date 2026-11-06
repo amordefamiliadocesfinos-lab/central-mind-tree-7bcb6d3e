@@ -84,6 +84,9 @@ export async function handleRequest(
         blocked: result?.blocked ?? 0,
         pages: result?.pages ?? 0,
         stopped: result?.stopped === true,
+        // Runner emits only vetted low-cardinality fields; never order IDs or tokens.
+        ...(result?.diagnostic ? { diagnostic: result.diagnostic } : {}),
+        ...(result?.last_blocker ? { last_blocker: result.last_blocker } : {}),
       };
       return json(result?.ok === true ? 200 : 503, report);
     } catch {
