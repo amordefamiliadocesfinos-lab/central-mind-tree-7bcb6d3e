@@ -44,6 +44,10 @@ export function createAdaoReadyLabelSync({
       if (key === 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') return ADAO_CHANNEL_ACCOUNT_ID;
       if (key === 'SHOPEE_LIVE_LABEL_ORDER_SN') return orderSn;
       if (key === 'SHOPEE_LIVE_LABEL_SHOP_ID') return String(SHOP);
+      // Do not inherit Viviane's fixed pilot package number. Adão's exact
+      // package identity is independently read from Shopee order detail,
+      // checked for singularity and matched in each document response.
+      if (key === 'SHOPEE_LIVE_LABEL_PACKAGE_NUMBER') return undefined;
       return getEnv(key);
     };
     const synchronizer = makeSync({
