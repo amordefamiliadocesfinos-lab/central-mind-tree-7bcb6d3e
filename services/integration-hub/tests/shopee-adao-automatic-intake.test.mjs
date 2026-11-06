@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -198,4 +198,44 @@ test('Adão OAuth read alone gets the extended bounded timeout', async () => {
   assert.equal(ADAO_OAUTH_READ_TIMEOUT_MS, 12_000);
   assert.deepEqual(calls, [{ data: account, options: { timeoutMs: 12_000 } }]);
   assert.equal(ADAO_AUTO_INTAKE_SCOPE.account, 'b4027369-5abf-4ac1-ab24-862334fae892');
+});
+
+test('Adão batch reader extends only its Core read budget and rejects other account IDs', async () => {
+  const seen = [];
+  const readBatch = async (data, options) => {
+    seen.push({ data, options });
+    return { ok: false, status: 503 };
+  };
+  const reader = createAdaoIntakeBatchReader(readBatch);
+  const data = { channel_account_id: ADAO_AUTO_INTAKE_SCOPE.account, limit: 1, order_sn: '261107KXS6MN9H' };
+  assert.deepEqual(await reader(data), { ok: false, status: 503 });
+  assert.equal(ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, 12_000);
+  assert.deepEqual(seen, [{ data, options: { timeoutMs: 12_000 } }]);
+  assert.deepEqual(await reader({ ...data, channel_account_id: '8a8ad166-0317-4597-8be6-e43fb46b4d1b' }),
+    { ok: false, status: 409, payload: null });
+  assert.equal(seen.length, 1);
+});
+
+test('Adão runner uses scoped Core batch reader, exact account and order, without a writer on read failure', async () => {
+  const reads = [];
+  let writes = 0;
+  const scopedIntake = createAdaoScopedIntake(async (data, options) => {
+    reads.push({ data, options });
+    return { ok: false, status: 503 };
+  }, async () => { writes++; return { ok: true }; });
+  const runner = createAdaoAutomaticIntake({
+    getEnv, now, readOrders: async () => page(['261107KXS6MN9H']),
+    intake: scopedIntake,
+  });
+  const r = await runner();
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'intake_uncertain_requires_review');
+  assert.equal(r.diagnostic.stage, 'core_intake');
+  assert.equal(r.diagnostic.reason, 'intake_batch_unavailable');
+  assert.equal(writes, 0);
+  assert.deepEqual(reads, [{ data: {
+    channel_account_id: ADAO_AUTO_INTAKE_SCOPE.account,
+    limit: 1,
+    order_sn: '261107KXS6MN9H',
+  }, options: { timeoutMs: 12_000 } }]);
 });
