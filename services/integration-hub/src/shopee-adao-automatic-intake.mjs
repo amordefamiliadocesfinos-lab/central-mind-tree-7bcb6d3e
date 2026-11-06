@@ -1,4 +1,5 @@
 import { createShopeeLiveOrdersReader } from './shopee-live-orders.mjs';
+import { readLiveShopeeOauthConnection } from './core-bridge.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 
@@ -15,6 +16,13 @@ export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
 const PAIRS_RE = /^\d+:\d+(,\d+:\d+)*$/;
 const ORDER_RE = /^[A-Za-z0-9]{8,100}$/;
 const enabled = value => String(value ?? '').trim().toLowerCase() === 'true';
+
+// Adão-only read budget: the Core OAuth read exceeded the shared 5s ceiling.
+// Keep the shared Core Bridge timeout (and Viviane) unchanged.
+export const ADAO_OAUTH_READ_TIMEOUT_MS = 12_000;
+export function createAdaoOauthConnectionReader(readConnection = readLiveShopeeOauthConnection) {
+  return data => readConnection(data, { timeoutMs: ADAO_OAUTH_READ_TIMEOUT_MS });
+}
 
 // Only finite, low-cardinality diagnostic values may leave the Hub.
 const SAFE_CODE = /^[a-z][a-z0-9_]{0,79}$/;
@@ -48,6 +56,7 @@ export function createAdaoAutomaticIntake({
   getEnv = key => process.env[key],
   now = Date.now,
   readOrders = null,
+  readConnection = readLiveShopeeOauthConnection,
   intake = runShopeeControlledAutoIntake,
 } = {}) {
   return async function runAdaoAutomaticIntake() {
@@ -79,6 +88,7 @@ export function createAdaoAutomaticIntake({
       now,
       allowRefresh: true,
       expectedShopId: ADAO_AUTO_INTAKE_SCOPE.shop,
+      readConnection: createAdaoOauthConnectionReader(readConnection),
     });
     let cursor = null;
     const cursors = new Set();

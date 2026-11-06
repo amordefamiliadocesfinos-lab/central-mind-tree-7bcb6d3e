@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -184,4 +184,18 @@ test('IAM route exposes only sanctioned diagnostic object', async () => {
   const body = JSON.parse(response.body);
   assert.equal(body.diagnostic.reason, 'intake_batch_unavailable');
   assert.equal(body.diagnostic.stage, 'core_intake');
+});
+
+
+test('Adão OAuth read alone gets the extended bounded timeout', async () => {
+  const calls = [];
+  const reader = createAdaoOauthConnectionReader(async (data, options) => {
+    calls.push({ data, options });
+    return { ok: false, status: 503 };
+  });
+  const account = { channel_account_id: ADAO_AUTO_INTAKE_SCOPE.account };
+  await reader(account);
+  assert.equal(ADAO_OAUTH_READ_TIMEOUT_MS, 12_000);
+  assert.deepEqual(calls, [{ data: account, options: { timeoutMs: 12_000 } }]);
+  assert.equal(ADAO_AUTO_INTAKE_SCOPE.account, 'b4027369-5abf-4ac1-ab24-862334fae892');
 });
