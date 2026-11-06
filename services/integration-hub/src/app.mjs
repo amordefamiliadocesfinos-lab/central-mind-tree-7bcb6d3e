@@ -2,6 +2,7 @@ import { previewAlfajorAdaoMappings } from './shopee-alfajor-adao-mapping-diagno
 import { previewAdaoMappings70 } from './shopee-adao-70-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
+import { runAdaoAutomaticIntake } from './shopee-adao-automatic-intake.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
@@ -37,6 +38,7 @@ export async function handleRequest(
   request,
   {
     runMinimumCycle = runShopeeMinimumCycle,
+    runAdaoIntake = runAdaoAutomaticIntake,
     readAdaoLogistics = readAdaoLogisticsReadOnly,
     syncCore = callCoreBridgeAction,
     probeCore = probeCoreBridge,
@@ -60,6 +62,34 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  // IAM-protected independent Adão intake: no shipping, labels or inventory effects.
+  if (normalizedPath === '/internal/shopee/adao/orders/intake/auto') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length
+      || Number(request.headers?.['content-length'] ?? 0) !== 0
+      || request.headers?.['transfer-encoding'] || request.body) {
+      return json(400, { error: 'body_or_query_not_allowed' });
+    }
+    try {
+      const result = await runAdaoIntake();
+      const report = {
+        status: result?.ok === true ? 'ok' : 'blocked',
+        code: result?.code ?? 'intake_unavailable',
+        account: 'adao',
+        discovered: result?.discovered ?? 0,
+        written: result?.written ?? 0,
+        already_registered: result?.already_registered ?? 0,
+        skipped: result?.skipped ?? 0,
+        blocked: result?.blocked ?? 0,
+        pages: result?.pages ?? 0,
+        stopped: result?.stopped === true,
+      };
+      return json(result?.ok === true ? 200 : 503, report);
+    } catch {
+      return json(503, { status: 'blocked', code: 'adao_intake_runtime_exception' });
+    }
+  }
 
   // IAM-only Cloud Run route. Never expose this endpoint through public frontend
   // until a user-authenticated server proxy is installed.
