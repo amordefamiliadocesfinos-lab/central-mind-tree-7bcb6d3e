@@ -3,6 +3,7 @@ import { previewAdaoMappings70 } from './shopee-adao-70-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { runAdaoAutomaticIntake } from './shopee-adao-automatic-intake.mjs';
+import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
@@ -39,6 +40,7 @@ export async function handleRequest(
   {
     runMinimumCycle = runShopeeMinimumCycle,
     runAdaoIntake = runAdaoAutomaticIntake,
+    syncAdaoLabel = syncAdaoReadyLabelOnce,
     readAdaoLogistics = readAdaoLogisticsReadOnly,
     syncCore = callCoreBridgeAction,
     probeCore = probeCoreBridge,
@@ -91,6 +93,30 @@ export async function handleRequest(
       return json(result?.ok === true ? 200 : 503, report);
     } catch {
       return json(503, { status: 'blocked', code: 'adao_intake_runtime_exception' });
+    }
+  }
+
+  // IAM-only real-use sync of an existing READY Shopee PDF for one reconciled Adão order.
+  // Does not create Shopee documents, arrange shipping or finalize separation.
+  if (normalizedPath === '/internal/shopee/adao/logistics/label/sync-ready') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Number(request.headers?.['content-length'] ?? 0) !== 0
+        || request.headers?.['transfer-encoding'] || request.body) {
+      return json(400, { error: 'body_not_allowed' });
+    }
+    const query = request.query ?? {};
+    if (Object.keys(query).length !== 1 || typeof query.order_sn !== 'string') {
+      return json(400, { error: 'order_scope_required' });
+    }
+    try {
+      const result = await syncAdaoLabel(query.order_sn);
+      return json(result?.ok ? 200 : 409, {
+        status: result?.ok ? 'ok' : 'blocked',
+        account: 'adao', code: result?.code ?? 'label_sync_unavailable',
+        document_id: result?.ok ? result.document_id ?? null : null,
+      });
+    } catch {
+      return json(503, { status: 'blocked', account: 'adao', code: 'label_sync_exception' });
     }
   }
 
