@@ -1,6 +1,6 @@
 import { createShopeeLiveOrdersReader } from './shopee-live-orders.mjs';
-import { readLiveShopeeOauthConnection } from './core-bridge.mjs';
-import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
+import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from './core-bridge.mjs';
+import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
@@ -22,6 +22,25 @@ const enabled = value => String(value ?? '').trim().toLowerCase() === 'true';
 export const ADAO_OAUTH_READ_TIMEOUT_MS = 12_000;
 export function createAdaoOauthConnectionReader(readConnection = readLiveShopeeOauthConnection) {
   return data => readConnection(data, { timeoutMs: ADAO_OAUTH_READ_TIMEOUT_MS });
+}
+
+// Adão-only batch reads crossed the default 5s Core deadline in the isolated test.
+// The shared timeout, Viviane and all non-Adão intake callers remain unchanged.
+export const ADAO_INTAKE_BATCH_READ_TIMEOUT_MS = 12_000;
+export function createAdaoIntakeBatchReader(readBatch = readLiveShopeeOrderIntakeBatch) {
+  return data => {
+    if (data?.channel_account_id !== ADAO_AUTO_INTAKE_SCOPE.account) {
+      return { ok: false, status: 409, payload: null };
+    }
+    return readBatch(data, { timeoutMs: ADAO_INTAKE_BATCH_READ_TIMEOUT_MS });
+  };
+}
+
+export function createAdaoScopedIntake(readBatch = readLiveShopeeOrderIntakeBatch, persistOrder = undefined) {
+  return createShopeeControlledAutoIntake({
+    readBatch: createAdaoIntakeBatchReader(readBatch),
+    ...(persistOrder === undefined ? {} : { persistOrder }),
+  });
 }
 
 // Only finite, low-cardinality diagnostic values may leave the Hub.
@@ -57,7 +76,7 @@ export function createAdaoAutomaticIntake({
   now = Date.now,
   readOrders = null,
   readConnection = readLiveShopeeOauthConnection,
-  intake = runShopeeControlledAutoIntake,
+  intake = createAdaoScopedIntake(),
 } = {}) {
   return async function runAdaoAutomaticIntake() {
     const report = {
