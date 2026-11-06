@@ -120,3 +120,68 @@ test('route accepts only zero-body POST, with sanitized aggregate response', asy
   assert.equal(JSON.parse(response.body).written, 1);
   assert.equal(calls, 1);
 });
+
+test('core intake failure explains stage and status without leaking payload', async () => {
+  let calls = 0;
+  const runner = createAdaoAutomaticIntake({
+    getEnv, now, readOrders: async () => page(['261107KXS6MN9H']),
+    intake: async () => {
+      calls++;
+      return { ok: false, code: 'intake_batch_unavailable', status: 503,
+        secret: 'do-not-expose', sourceCounts: { selected: 0, skipped_existing: 1 } };
+    },
+  });
+  const r = await runner();
+  assert.equal(r.code, 'intake_uncertain_requires_review');
+  assert.equal(r.stopped, true);
+  assert.equal(r.diagnostic.stage, 'core_intake');
+  assert.equal(r.diagnostic.reason, 'intake_batch_unavailable');
+  assert.equal(r.diagnostic.http_status, 503);
+  assert.deepEqual(r.diagnostic.selection_counts, { selected: 0, skipped_existing: 1 });
+  assert.equal(calls, 1);
+  assert.ok(!JSON.stringify(r).includes('do-not-expose'));
+});
+
+test('mappings blocked: no writer retries and classified blocker', async () => {
+  const runner = createAdaoAutomaticIntake({
+    getEnv, now, readOrders: async () => page(['261107KXS6MN9H']),
+    intake: async order => ({ ...result(order.expectedOrderSn, 'blocked'),
+      results: [{ orderSn: order.expectedOrderSn, status: 'blocked',
+        blockers: ['mapping_unavailable', 'some sensitive data'] }] }),
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.blocked, 1);
+  assert.equal(r.last_blocker, 'mapping_or_projection_blocked');
+  assert.ok(!JSON.stringify(r).includes('some sensitive data'));
+});
+
+test('unexpected successful selection is stopped with structured diagnosis', async () => {
+  const runner = createAdaoAutomaticIntake({
+    getEnv, now, readOrders: async () => page(['261107KXS6MN9H']),
+    intake: async () => ({ ok: true, selected: 0, results: [] }),
+  });
+  const r = await runner();
+  assert.equal(r.stopped, true);
+  assert.equal(r.diagnostic.stage, 'intake_contract');
+  assert.equal(r.diagnostic.reason, 'unexpected_selection');
+});
+
+test('IAM route exposes only sanctioned diagnostic object', async () => {
+  const response = await handleRequest({
+    method: 'POST', path: '/internal/shopee/adao/orders/intake/auto', query: {},
+    headers: { 'content-length': '0' },
+  }, {
+    handleShopeeLive: async () => null,
+    runAdaoIntake: async () => ({
+      ok: false, code: 'intake_uncertain_requires_review',
+      discovered: 1, written: 0, stopped: true,
+      diagnostic: { stage: 'core_intake', reason: 'intake_batch_unavailable',
+        http_status: 503, selection_counts: null },
+    }),
+  });
+  assert.equal(response.status, 503);
+  const body = JSON.parse(response.body);
+  assert.equal(body.diagnostic.reason, 'intake_batch_unavailable');
+  assert.equal(body.diagnostic.stage, 'core_intake');
+});

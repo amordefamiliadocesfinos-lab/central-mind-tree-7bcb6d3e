@@ -16,6 +16,34 @@ const PAIRS_RE = /^\d+:\d+(,\d+:\d+)*$/;
 const ORDER_RE = /^[A-Za-z0-9]{8,100}$/;
 const enabled = value => String(value ?? '').trim().toLowerCase() === 'true';
 
+// Only finite, low-cardinality diagnostic values may leave the Hub.
+const SAFE_CODE = /^[a-z][a-z0-9_]{0,79}$/;
+function safeCode(value) {
+  return typeof value === 'string' && SAFE_CODE.test(value) ? value : 'unknown';
+}
+function safeHttpStatus(value) {
+  return Number.isInteger(value) && value >= 400 && value <= 599 ? value : null;
+}
+function selectionCounts(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const counts = {};
+  for (const field of ['selected', 'skipped_existing', 'skipped_status', 'skipped_malformed']) {
+    const number = value[field];
+    if (Number.isSafeInteger(number) && number >= 0) counts[field] = number;
+  }
+  return counts;
+}
+function classifyBlockedEntry(blockers) {
+  const codes = Array.isArray(blockers) ? blockers.map(safeCode) : [];
+  if (codes.some(code => /mapping|physical|projection|catalog/.test(code))) return 'mapping_or_projection_blocked';
+  if (codes.some(code => /pascoa|easter|offer|temporal|historical/.test(code))) return 'offer_policy_blocked';
+  return 'pipeline_blocked';
+}
+function diagnostic(stage, reason, info = {}) {
+  return { stage, reason: safeCode(reason), ...info };
+}
+
+
 export function createAdaoAutomaticIntake({
   getEnv = key => process.env[key],
   now = Date.now,
@@ -67,13 +95,15 @@ export function createAdaoAutomaticIntake({
           responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time'],
         });
       } catch {
-        return { ...report, code: 'shopee_discovery_exception', stopped: true };
+        return { ...report, code: 'shopee_discovery_exception', stopped: true,
+          diagnostic: diagnostic('discovery', 'exception') };
       }
       if (!listed?.ok || listed.shop_id !== ADAO_AUTO_INTAKE_SCOPE.shop
         || !Array.isArray(listed.order_sns)
         || listed.order_sns.length > ADAO_AUTO_INTAKE_SCOPE.pageSize
         || listed.order_sns.some(sn => typeof sn !== 'string' || !ORDER_RE.test(sn) || seen.has(sn))) {
-        return { ...report, code: listed?.code ?? 'discovery_invalid', stopped: true };
+        return { ...report, code: safeCode(listed?.code ?? 'discovery_invalid'), stopped: true,
+          diagnostic: diagnostic('discovery', 'invalid_or_unavailable') };
       }
       report.pages++;
       for (const sn of listed.order_sns) {
@@ -86,22 +116,42 @@ export function createAdaoAutomaticIntake({
             expectedOrderSn: sn, limit: 1, mode: 'commit', verifyExisting: true,
           });
         } catch {
-          return { ...report, code: 'intake_exception_requires_review', stopped: true };
+          return { ...report, code: 'intake_exception_requires_review', stopped: true,
+            diagnostic: diagnostic('intake', 'exception') };
         }
         if (!committed?.ok && committed?.code === 'expected_order_unavailable') {
-          // The Core reader filters existing / non-eligible orders.
+          // The Core filters already-registered and ineligible orders before
+          // the writer. Keep a count but do not claim these were all duplicates.
           report.skipped++;
           continue;
         }
         const entry = committed?.results?.[0];
-        if (!committed?.ok || committed.roundStopped || committed.selected !== 1
-          || entry?.orderSn !== sn) {
-          return { ...report, code: 'intake_uncertain_requires_review', stopped: true };
+        if (!committed?.ok) {
+          return { ...report, code: 'intake_uncertain_requires_review', stopped: true,
+            diagnostic: diagnostic('core_intake', safeCode(committed?.code), {
+              http_status: safeHttpStatus(committed?.status),
+              selection_counts: selectionCounts(committed?.sourceCounts),
+            }) };
+        }
+        if (committed.roundStopped || committed.selected !== 1 || entry?.orderSn !== sn) {
+          return { ...report, code: 'intake_uncertain_requires_review', stopped: true,
+            diagnostic: diagnostic('intake_contract', committed.roundStopped
+              ? safeCode(committed.stopReason) : 'unexpected_selection', {
+              selected: Number.isSafeInteger(committed.selected) ? committed.selected : null,
+            }) };
         }
         if (entry.status === 'written') report.written++;
         else if (entry.status === 'already_registered') report.already_registered++;
-        else if (entry.status === 'blocked') report.blocked++;
-        else return { ...report, code: 'writer_uncertain_requires_review', stopped: true };
+        else if (entry.status === 'blocked') {
+          report.blocked++;
+          // A policy/mapping rejection is an expected scoped non-write.
+          // Keep it visible without revealing customer/order data.
+          report.last_blocker = classifyBlockedEntry(entry.blockers);
+        } else {
+          return { ...report, code: 'writer_uncertain_requires_review', stopped: true,
+            diagnostic: diagnostic('writer', entry.status === 'write_failed'
+              ? 'write_failed' : 'unexpected_write_status') };
+        }
       }
       if (listed.more !== true) return { ...report, ok: true, code: 'cycle_completed' };
       const next = listed.next_cursor;
