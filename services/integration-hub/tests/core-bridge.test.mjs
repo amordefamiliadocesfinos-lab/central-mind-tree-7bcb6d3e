@@ -270,14 +270,23 @@ test('intake catalog accepts a bounded response over 64 KiB with matching reques
   assert.equal(answer.ok,true);
   assert.equal(answer.status,200);
 });
-test('intake catalog above 256 KiB still fails closed',async()=>{
+test('intake catalog above 1 MiB still fails closed',async()=>{
   const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
     url:CORE_BRIDGE_URL,secret:SECRET,logger:quiet,
     fetchImpl:async (_url,request)=>new Response(JSON.stringify({
-      request_id:request.headers['X-Integration-Hub-Request-Id'],padding:'x'.repeat(257*1024),
+      request_id:request.headers['X-Integration-Hub-Request-Id'],padding:'x'.repeat(1024*1024),
     }),{status:200,headers:{'content-type':'application/json'}}),
   });
   assert.equal(answer.ok,false);
+});
+test('intake catalog accepts the observed 382,721-byte payload within the bounded 1 MiB limit',async()=>{
+  const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
+    url:CORE_BRIDGE_URL,secret:SECRET,logger:quiet,
+    fetchImpl:async (_url,request)=>new Response(JSON.stringify({
+      request_id:request.headers['X-Integration-Hub-Request-Id'],padding:'x'.repeat(382721),
+    }),{status:200,headers:{'content-type':'application/json'}}),
+  });
+  assert.equal(answer.ok,true);
 });
 test('intake preserves request_id correlation on larger payloads',async()=>{
   const answer=await readLiveShopeeOrderIntakeBatch({channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',limit:1},{
