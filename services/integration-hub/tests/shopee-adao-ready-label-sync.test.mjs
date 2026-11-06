@@ -32,6 +32,7 @@ test('real-use Adão label sync scopes account, shop and order; existing READY P
   assert.equal(keys('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID'), 'b4027369-5abf-4ac1-ab24-862334fae892');
   assert.equal(keys('SHOPEE_LIVE_LABEL_ORDER_SN'), orderSn);
   assert.equal(keys('SHOPEE_LIVE_LABEL_SHOP_ID'), '1156446003');
+  assert.equal(keys('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER'), undefined);
 });
 
 test('unknown and tombstoned orders cannot fetch labels', async () => {
@@ -73,4 +74,17 @@ test('IAM route validates method, exact query and returns sanitized label result
   assert.equal(result.status, 200);
   assert.equal(JSON.parse(result.body).document_id, 'document-id');
   assert.equal(calls, 1);
+});
+
+
+test('Adão ignores inherited Viviane fixed package while retaining Shopee package validation', async () => {
+  let scoped;
+  const sync = createAdaoReadyLabelSync({
+    getEnv: key => key === 'SHOPEE_LIVE_LABEL_PACKAGE_NUMBER' ? 'VIVIANE-OLD-PACKAGE' : env(key),
+    readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [] } }),
+    makeSync: options => { scoped = options.getEnv; return async () => ({ ok: false, code: 'document_not_ready' }); },
+  });
+  assert.equal((await sync(ADAO_LABEL_ORDER_SNS[0])).code, 'document_not_ready');
+  assert.equal(scoped('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER'), undefined);
+  assert.equal(scoped('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID'), 'b4027369-5abf-4ac1-ab24-862334fae892');
 });
