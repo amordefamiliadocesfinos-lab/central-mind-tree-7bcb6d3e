@@ -82,27 +82,22 @@ test('F6-Q.6C confirmation is mandatory and missing secret fails before network'
   assert.equal(calls,0);
 });
 
-test('F6-Q.6C one exact 18-unit alfajor order: 1 read then 1 verified create',async()=>{
+test('F6-Q.6C legacy pilot is denied without Páscoa eligibility proof',async()=>{
   const f=fixture();
   const result=await commitAdaoOne({confirmed:true,env:ENV,fetchImpl:f.fetchImpl});
-  assert.deepEqual(result,{ok:true,code:'written',account_id:PILOT.account,
-    order_sn:PILOT.order,attempted:1,written:1,
-    order_id:ORDER_ID,separation_id:SEP_ID});
-  assert.deepEqual(f.calls.map(x=>x.action),['shopee.order_intake_batch.read','shopee.order.create']);
-  const serialized=JSON.stringify(result);
-  for(const value of ['PRIVATE','fixture-secret','access_token','recipient_address','53']) {
-    assert.equal(serialized.includes(value),false);
-  }
+  assert.equal(result.ok,false);
+  assert.equal(result.code,'commit_unconfirmed');
+  assert.equal(result.attempted,0);
+  assert.equal(result.written,0);
+  assert.deepEqual(f.calls.map(x=>x.action),['shopee.order_intake_batch.read']);
 });
-
-test('F6-Q.6C duplicate is idempotent and not counted as a new order',async()=>{
+test('F6-Q.6C legacy duplicate never bypasses Páscoa guard',async()=>{
   const f=fixture({already:true});
   const result=await commitAdaoOne({confirmed:true,env:ENV,fetchImpl:f.fetchImpl});
-  assert.equal(result.code,'already_registered');
+  assert.equal(result.ok,false);
   assert.equal(result.written,0);
-  assert.equal(f.calls.length,2);
+  assert.equal(f.calls.length,1);
 });
-
 test('F6-Q.6C unexpected mapping blocks write',async()=>{
   const f=fixture({data:batch({mappings:[]})});
   const result=await commitAdaoOne({confirmed:true,env:ENV,fetchImpl:f.fetchImpl});
@@ -129,16 +124,15 @@ test('F6-Q.6C wrong source order status blocks writing',async()=>{
   assert.equal(f.calls.length,1);
 });
 
-test('F6-Q.6C uncertainty never causes an automatic retry',async()=>{
+test('F6-Q.6C guard prevents obsolete pilot from reaching uncertain writer',async()=>{
   const f=fixture({lost:true});
   const result=await commitAdaoOne({confirmed:true,env:ENV,fetchImpl:f.fetchImpl});
   assert.equal(result.ok,false);
   assert.equal(result.written,0);
-  assert.equal(result.attempted,1);
-  assert.equal(f.calls.length,2);
+  assert.equal(result.attempted,0);
+  assert.equal(f.calls.length,1);
   assert.equal(JSON.stringify(result).includes('PRIVATE'),false);
 });
-
 test('F6-Q.6C rejects wrong account in Core response',async()=>{
   const f=fixture({data:batch({marketplace_account:'SHOPEE VIVIANE'})});
   const result=await commitAdaoOne({confirmed:true,env:ENV,fetchImpl:f.fetchImpl});
