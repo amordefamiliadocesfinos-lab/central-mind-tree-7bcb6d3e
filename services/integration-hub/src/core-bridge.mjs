@@ -8,9 +8,10 @@ const TIMEOUT_MS = 5000;
 // Keep the original F3 response ceiling so oversized upstream responses fail closed.
 const MAX_RESPONSE_BYTES = 1024;
 // Account-scoped intake reads include every mapping plus physical catalog metadata.
-// Adão already holds 97 mappings / 174 components: 82,755 bytes before physical metadata.
-// Keep a strict cap (256 KiB), scoped only to read-heavy intake/cycle actions.
-const MAX_INTAKE_RESPONSE_BYTES = 256 * 1024;
+// The complete Adão catalog exceeded 382 KiB on 2026-11-06.
+// Keep the strict bounded streaming reader and limit all intake/cycle reads to 1 MiB.
+// Other Core actions retain the original 1 KiB ceiling.
+const MAX_INTAKE_RESPONSE_BYTES = 1024 * 1024;
 
 export const CORE_BRIDGE_ACTIONS = Object.freeze({
   CYCLE_ACQUIRE: 'shopee.cycle.acquire',
