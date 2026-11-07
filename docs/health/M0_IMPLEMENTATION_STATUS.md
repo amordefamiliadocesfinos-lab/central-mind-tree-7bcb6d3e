@@ -7,10 +7,10 @@
 - [x] Auth/app_users inspecionados
 - [x] Calendar adapter inspecionado
 - [x] Drizzle inspecionado
-- [ ] Supabase soberano acessível ao conector
-- [ ] Migrations cloud auditadas
-- [ ] RLS/grants cloud auditados
-- [ ] Storage cloud auditado
+- [x] Supabase soberano acessível via Lovable Cloud
+- [x] Migrations cloud auditadas em leitura
+- [x] RLS/policies cloud auditados em leitura
+- [x] Storage cloud auditado em leitura
 
 ## M0B — Fundação frontend
 - [x] Branch isolada
@@ -23,7 +23,8 @@
 - [ ] Smoke/build/lint executados no branch
 
 ## M0C — Dados
-BLOQUEADA até acesso ao Supabase oficial e fechamento do pipeline de migrations.
+PREPARAÇÃO LIBERADA. Acesso de leitura ao banco oficial foi confirmado via Lovable Cloud.
+DDL continua bloqueado até fechar a migration M0 revisável/reversível e os testes de RLS/Storage.
 
 
 ## Validação local nesta sessão
