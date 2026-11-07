@@ -6,6 +6,7 @@ CREATE TABLE public.health_athletes (
   auth_user_id uuid NULL REFERENCES auth.users(id) ON DELETE SET NULL,
   display_name text NOT NULL CHECK (btrim(display_name) <> ''),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived')),
+  owner_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -25,13 +26,16 @@ CREATE TABLE public.health_athlete_access (
   revoked_at timestamptz NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT health_athlete_access_unique_active_principal UNIQUE (athlete_id, principal_auth_user_id),
   CONSTRAINT health_athlete_access_revocation_consistency CHECK (revoked_at IS NULL OR revoked_at >= granted_at)
 );
 
 CREATE INDEX health_athletes_auth_user_idx
   ON public.health_athletes(auth_user_id)
   WHERE auth_user_id IS NOT NULL;
+
+CREATE UNIQUE INDEX health_athlete_access_one_active_principal
+  ON public.health_athlete_access(athlete_id, principal_auth_user_id)
+  WHERE revoked_at IS NULL;
 
 CREATE INDEX health_athlete_access_principal_idx
   ON public.health_athlete_access(principal_auth_user_id, athlete_id)
@@ -47,8 +51,18 @@ ALTER TABLE public.health_athlete_access ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.health_athletes, public.health_athlete_access FROM PUBLIC, anon;
 REVOKE ALL ON public.health_athletes, public.health_athlete_access FROM authenticated;
 
-GRANT SELECT, INSERT, UPDATE ON public.health_athletes TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.health_athlete_access TO authenticated;
+GRANT SELECT, INSERT ON public.health_athletes TO authenticated;
+GRANT UPDATE (display_name, status, updated_at) ON public.health_athletes TO authenticated;
+
+GRANT SELECT, INSERT, DELETE ON public.health_athlete_access TO authenticated;
+GRANT UPDATE (
+  access_role,
+  can_read,
+  can_write,
+  can_manage_access,
+  revoked_at,
+  updated_at
+) ON public.health_athlete_access TO authenticated;
 
 -- Security helper functions live in public because this project exposes public.
 -- EXECUTE is explicitly restricted; callers must still pass RLS on target tables.
@@ -67,7 +81,7 @@ AS $$
         SELECT 1
         FROM public.health_athletes ha
         WHERE ha.id = p_athlete_id
-          AND ha.auth_user_id = auth.uid()
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
@@ -95,7 +109,7 @@ AS $$
         SELECT 1
         FROM public.health_athletes ha
         WHERE ha.id = p_athlete_id
-          AND ha.auth_user_id = auth.uid()
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
@@ -123,7 +137,7 @@ AS $$
         SELECT 1
         FROM public.health_athletes ha
         WHERE ha.id = p_athlete_id
-          AND ha.auth_user_id = auth.uid()
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
@@ -145,14 +159,16 @@ GRANT EXECUTE ON FUNCTION public.health_can_read_athlete(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.health_can_write_athlete(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.health_can_manage_athlete_access(uuid) TO authenticated;
 
--- A logged-in person may create only their own athlete profile.
-CREATE POLICY health_athletes_insert_self
+-- A logged-in person may create their own athlete profile or a supervised
+-- athlete without login. The creator is the initial owner in both cases.
+CREATE POLICY health_athletes_insert_owned
 ON public.health_athletes
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  auth_user_id = auth.uid()
+  owner_auth_user_id = auth.uid()
   AND created_by_auth_user_id = auth.uid()
+  AND (auth_user_id IS NULL OR auth_user_id = auth.uid())
 );
 
 CREATE POLICY health_athletes_select_authorized
@@ -161,14 +177,17 @@ FOR SELECT
 TO authenticated
 USING (public.health_can_read_athlete(id));
 
-CREATE POLICY health_athletes_update_self
+CREATE POLICY health_athletes_update_owner_or_subject
 ON public.health_athletes
 FOR UPDATE
 TO authenticated
-USING (auth_user_id = auth.uid())
+USING (
+  auth_user_id = auth.uid()
+  OR owner_auth_user_id = auth.uid()
+)
 WITH CHECK (
   auth_user_id = auth.uid()
-  AND created_by_auth_user_id IS NOT NULL
+  OR owner_auth_user_id = auth.uid()
 );
 
 -- Access rows are visible only to the subject or explicitly authorized principals.
