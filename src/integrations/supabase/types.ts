@@ -3600,6 +3600,332 @@ export type Database = {
           },
         ]
       }
+      health_equipment_catalog: {
+        Row: {
+          code: string
+          created_at: string
+          equipment_type: string
+          id: string
+          increment_profile: Json | null
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          equipment_type: string
+          id?: string
+          increment_profile?: Json | null
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          equipment_type?: string
+          id?: string
+          increment_profile?: Json | null
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_exercise_equipment: {
+        Row: {
+          created_at: string
+          equipment_id: string
+          exercise_id: string
+          requirement_type: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_id: string
+          exercise_id: string
+          requirement_type?: string
+        }
+        Update: {
+          created_at?: string
+          equipment_id?: string
+          exercise_id?: string
+          requirement_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_exercise_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "health_equipment_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_exercise_equipment_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_exercise_equivalences: {
+        Row: {
+          confidence: string
+          created_at: string
+          equivalence_type: string
+          id: string
+          notes: string | null
+          source_exercise_id: string
+          target_exercise_id: string
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          equivalence_type: string
+          id?: string
+          notes?: string | null
+          source_exercise_id: string
+          target_exercise_id: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          equivalence_type?: string
+          id?: string
+          notes?: string | null
+          source_exercise_id?: string
+          target_exercise_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_exercise_equivalences_source_exercise_id_fkey"
+            columns: ["source_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_exercise_equivalences_target_exercise_id_fkey"
+            columns: ["target_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_exercise_muscles: {
+        Row: {
+          contribution_weight: number | null
+          created_at: string
+          evidence_status: string
+          exercise_id: string
+          muscle_group_id: string
+          notes: string | null
+          role: string
+        }
+        Insert: {
+          contribution_weight?: number | null
+          created_at?: string
+          evidence_status?: string
+          exercise_id: string
+          muscle_group_id: string
+          notes?: string | null
+          role: string
+        }
+        Update: {
+          contribution_weight?: number | null
+          created_at?: string
+          evidence_status?: string
+          exercise_id?: string
+          muscle_group_id?: string
+          notes?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_exercise_muscles_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_exercise_muscles_muscle_group_id_fkey"
+            columns: ["muscle_group_id"]
+            isOneToOne: false
+            referencedRelation: "health_muscle_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_exercises: {
+        Row: {
+          code: string
+          created_at: string
+          fatigue_cost: string | null
+          id: string
+          instructions: string | null
+          is_active: boolean
+          laterality: string
+          movement_pattern: string
+          name: string
+          sort_order: number
+          stability_demand: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          fatigue_cost?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          laterality?: string
+          movement_pattern: string
+          name: string
+          sort_order?: number
+          stability_demand?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          fatigue_cost?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          laterality?: string
+          movement_pattern?: string
+          name?: string
+          sort_order?: number
+          stability_demand?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_food_sources: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          license_label: string | null
+          name: string
+          provider_type: string
+          reference_url: string | null
+          release_label: string | null
+          source_code: string
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_label?: string | null
+          name: string
+          provider_type: string
+          reference_url?: string | null
+          release_label?: string | null
+          source_code: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_label?: string | null
+          name?: string
+          provider_type?: string
+          reference_url?: string | null
+          release_label?: string | null
+          source_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_foods: {
+        Row: {
+          basis_amount: number
+          basis_unit: string
+          brand: string | null
+          canonical_name: string
+          carbohydrate_g: number | null
+          country_code: string | null
+          created_at: string
+          data_quality: string
+          data_type: string | null
+          energy_kcal: number | null
+          fat_g: number | null
+          fiber_g: number | null
+          id: string
+          is_active: boolean
+          protein_g: number | null
+          sodium_mg: number | null
+          source_food_key: string
+          source_id: string
+          source_version: string | null
+          updated_at: string
+        }
+        Insert: {
+          basis_amount?: number
+          basis_unit?: string
+          brand?: string | null
+          canonical_name: string
+          carbohydrate_g?: number | null
+          country_code?: string | null
+          created_at?: string
+          data_quality?: string
+          data_type?: string | null
+          energy_kcal?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          is_active?: boolean
+          protein_g?: number | null
+          sodium_mg?: number | null
+          source_food_key: string
+          source_id: string
+          source_version?: string | null
+          updated_at?: string
+        }
+        Update: {
+          basis_amount?: number
+          basis_unit?: string
+          brand?: string | null
+          canonical_name?: string
+          carbohydrate_g?: number | null
+          country_code?: string | null
+          created_at?: string
+          data_quality?: string
+          data_type?: string | null
+          energy_kcal?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          is_active?: boolean
+          protein_g?: number | null
+          sodium_mg?: number | null
+          source_food_key?: string
+          source_id?: string
+          source_version?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_foods_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "health_food_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_goal_phases: {
         Row: {
           athlete_id: string
@@ -3712,6 +4038,50 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_muscle_groups: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          parent_id: string | null
+          region: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_id?: string | null
+          region: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_id?: string | null
+          region?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_muscle_groups_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "health_muscle_groups"
             referencedColumns: ["id"]
           },
         ]
