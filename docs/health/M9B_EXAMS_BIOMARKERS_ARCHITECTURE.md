@@ -275,8 +275,10 @@ Padrão:
 
 ## UI futura
 
-Rota sugerida:
-- `/saude/saude` ou rota equivalente definida antes da implementação.
+Rota candidata:
+- `/saude/exames`.
+
+A rota final deve ser confirmada antes da implementação para evitar conflito semântico ou duplicação no shell.
 
 Mobile-first.
 
