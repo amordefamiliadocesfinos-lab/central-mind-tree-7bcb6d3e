@@ -1,9 +1,17 @@
-name: Health M0 Validation
+name: Health Validation
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/health-m0-foundation-20261107
+      - main
+    paths:
+      - "src/modules/health/**"
+      - "src/App.tsx"
+      - "src/components/GlobalFooterBar.tsx"
+      - "src/lib/crm/crmGlobalNavigation.ts"
+      - "src/integrations/supabase/types.ts"
+      - "supabase/migrations/*health*.sql"
+      - ".github/workflows/health-m0-validation.yml"
   workflow_dispatch:
 
 permissions:
@@ -26,8 +34,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Health lint
+        run: npx eslint src/modules/health src/App.tsx src/components/GlobalFooterBar.tsx src/lib/crm/crmGlobalNavigation.ts
 
       - name: Build
         run: npm run build
