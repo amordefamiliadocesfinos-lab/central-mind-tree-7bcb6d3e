@@ -297,19 +297,41 @@ A sequência soberana vigente é:
 1. ✅ Reconciliação M0→M6
 2. ✅ M7 — Nutrition Decision
 3. ✅ M8 — Body Evolution — implantada e homologada visualmente
-4. ⏭️ **M9 — Sono / Recuperação / Biomarcadores — próxima fase, ainda não iniciada**
+4. 🟡 **M9 — Sono / Recuperação / Biomarcadores — aberta somente na camada documental; sem implementação**
 5. ⛔ Dashboard Integrado
 6. ⛔ Motor Integrado CCH
 7. ⛔ Jornada real completa
 8. ⛔ Evolução contínua por dados reais
 
-**A condição de entrada vinculada à prova visual da M8 foi satisfeita em 07/11/2026. M9 continua sujeita à abertura formal da fase, arquitetura versionada, branch própria e gates aplicáveis.**
+**A condição de entrada vinculada à prova visual da M8 foi satisfeita em 07/11/2026. M9 foi formalmente aberta apenas na camada documental na branch `docs/health-m9-architecture-20261107`; código, migrations, banco e deploy continuam não iniciados e sujeitos aos gates aplicáveis.**
 
 As etapas Dashboard Integrado, Motor Integrado CCH, Jornada real completa e Evolução contínua preservam a sequência aprovada no v1, mas permanecem **frentes reservadas, não escopo executável**. Antes de iniciar cada uma, deverá existir arquitetura/contrato versionado da fase e os gates aplicáveis; este mapa não antecipa nova autoridade nem decisão funcional.
 
 ---
 
 ## 9. ESCOPO PREVISTO M9
+
+### Estado documental M9 — 07/11/2026
+
+Arquiteturas candidatas abertas em branch própria:
+
+- `docs/health/M9A_SLEEP_RECOVERY_ARCHITECTURE.md`;
+- `docs/health/M9B_EXAMS_BIOMARKERS_ARCHITECTURE.md`;
+- `docs/health/M9_OPENING_AND_ACCEPTANCE_2026-11-07.md`.
+
+Estado:
+- herança dos especialistas 04 e 05 concluída;
+- fronteiras M9A/M9B documentadas;
+- critérios de aceitação documentados;
+- nenhuma migration criada;
+- nenhum banco alterado;
+- nenhum código funcional alterado;
+- nenhum deploy realizado;
+- nenhum dado real de Saúde inserido.
+
+A documentação desta branch somente altera o Mapa Soberano vigente após merge autorizado pelo Gate A.
+
+
 
 M9 deve respeitar especialistas e não misturar domínios.
 
@@ -453,8 +475,8 @@ Não usar memória solta como mecanismo de transferência.
 
 Próxima ação permitida:
 
-**M8 está encerrada e homologada visualmente.**
+**M8 está encerrada e homologada visualmente. M9 foi aberta na camada documental em branch própria.**
 
-Próxima ação permitida, sem antecipar gates:
+Próxima ação permitida, sem antecipar implementação:
 
-**abrir formalmente M9 — Sono / Recuperação / Biomarcadores — começando pela leitura e consolidação documental dos especialistas 04 e 05.**
+**revisar a arquitetura M9A/M9B, resolver as decisões abertas necessárias para o desenho técnico e submeter a documentação em PR Draft. Código/migrations permanecem bloqueados até essa revisão e os gates correspondentes.**
