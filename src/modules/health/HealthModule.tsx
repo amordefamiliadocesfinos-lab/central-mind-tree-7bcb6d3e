@@ -1,10 +1,12 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { HealthShell } from "./ui/HealthShell";
 import { FoundationPage } from "./ui/FoundationPage";
+import { HealthAccessGuard } from "./ui/HealthAccessGuard";
 
 export default function HealthModule() {
   return (
-    <Routes>
+    <HealthAccessGuard>
+      <Routes>
       <Route element={<HealthShell />}>
         <Route index element={<Navigate to="hoje" replace />} />
         <Route
@@ -72,6 +74,7 @@ export default function HealthModule() {
         />
         <Route path="*" element={<Navigate to="/saude/hoje" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </HealthAccessGuard>
   );
 }
