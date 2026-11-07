@@ -143,6 +143,18 @@ CREATE INDEX health_nutrition_daily_states_plan_version_idx
 ON public.health_nutrition_daily_states(plan_version_id)
 WHERE plan_version_id IS NOT NULL;
 
+CREATE INDEX health_nutrition_daily_states_day_athlete_idx
+ON public.health_nutrition_daily_states(food_log_day_id, athlete_id)
+WHERE food_log_day_id IS NOT NULL;
+
+CREATE INDEX health_nutrition_daily_states_plan_version_athlete_idx
+ON public.health_nutrition_daily_states(plan_version_id, athlete_id)
+WHERE plan_version_id IS NOT NULL;
+
+CREATE INDEX health_nutrition_daily_states_target_idx
+ON public.health_nutrition_daily_states(target_id)
+WHERE target_id IS NOT NULL;
+
 CREATE INDEX health_nutrition_rolling_states_athlete_window_idx
 ON public.health_nutrition_rolling_states(athlete_id, window_days, window_end_date DESC);
 
