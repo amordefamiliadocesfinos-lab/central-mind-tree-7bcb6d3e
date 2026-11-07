@@ -24,3 +24,10 @@
 
 ## M0C — Dados
 BLOQUEADA até acesso ao Supabase oficial e fechamento do pipeline de migrations.
+
+
+## Validação local nesta sessão
+- [ ] `npm ci` / `npm run build`: não executados porque o ambiente de execução desta conversa não resolve `github.com`.
+- [x] Diff GitHub verificado contra `main`.
+- [x] `src/App.tsx` reinspecionado após correção de quebras de linha.
+- [ ] Build/lint devem rodar em ambiente de desenvolvimento/CI com acesso de rede antes de merge.
