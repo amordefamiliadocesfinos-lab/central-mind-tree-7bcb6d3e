@@ -315,7 +315,8 @@ CREATE TABLE public.health_meal_items (
     REFERENCES public.health_meal_items(id, athlete_id)
     ON DELETE RESTRICT,
   CHECK (NOT (food_id IS NOT NULL AND recipe_version_id IS NOT NULL)),
-  CHECK (supersedes_item_id IS NULL OR status='active')
+  CONSTRAINT health_meal_items_no_self_supersede
+    CHECK (supersedes_item_id IS NULL OR supersedes_item_id <> id)
 );
 
 CREATE TABLE public.health_meal_item_events (
