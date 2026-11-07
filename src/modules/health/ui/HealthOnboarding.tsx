@@ -62,6 +62,7 @@ export function HealthOnboarding({ onCreate }: HealthOnboardingProps) {
                   enterKeyHint="done"
                   maxLength={120}
                   disabled={submitting}
+                  className="min-h-11"
                 />
               </div>
 
