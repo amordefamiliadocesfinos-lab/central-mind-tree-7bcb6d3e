@@ -182,19 +182,21 @@ export function HealthWorkoutPage() {
     [catalogs.exercises],
   );
 
+  const sessionStartedAt = workout.session?.started_at ?? null;
+
   useEffect(() => {
-    if (!workout.session?.started_at) {
+    if (!sessionStartedAt) {
       setElapsed(0);
       return;
     }
     const update = () => {
-      const start = new Date(workout.session!.started_at).getTime();
+      const start = new Date(sessionStartedAt).getTime();
       setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     };
     update();
     const interval = window.setInterval(update, 1000);
     return () => window.clearInterval(interval);
-  }, [workout.session?.started_at]);
+  }, [sessionStartedAt]);
 
   const run = async (label: string, action: () => Promise<void>) => {
     try {
