@@ -146,6 +146,35 @@ Rotas principais:
 
 O CCH está integrado ao mesmo shell/footer do PAINEL CENTRAL.
 
+### 5.1 Régua obrigatória de estado
+
+Nenhuma fase pode ser resumida apenas como "pronta" ou "em produção". Para toda continuidade do CCH, registrar separadamente:
+
+| Estado | Significado |
+|---|---|
+| Planejado | existe no mapa/arquitetura, sem afirmar existência técnica |
+| Implementado | código/SQL existe em branch ou `main` |
+| Testado | passou pelos testes definidos no ambiente oficial |
+| Integrado | foi incorporado à `main` por merge autorizado |
+| Banco produção | migrations aplicáveis foram confirmadas/aplicadas no Supabase canônico |
+| Deploy | código integrado foi publicado no PAINEL CENTRAL canônico |
+| Homologado | comportamento foi comprovado em sessão/uso real conforme critérios da fase |
+
+Regras:
+
+- um estado posterior não deve ser inferido automaticamente a partir de um anterior;
+- `mergeable: true` não significa revisado, aprovado, integrado ou homologado;
+- relatório de teste não prova deploy;
+- migration no Git não prova aplicação no banco;
+- deploy não prova funcionamento real;
+- homologação deve registrar exatamente o que foi comprovado e o que permaneceu pendente.
+
+Aplicação ao ponto atual do mapa:
+
+- M0→M7: tratados como fases já integradas/implantadas conforme os respectivos registros de merge, migrations, pós-checks e homologações preservados;
+- M8: implementada, testada, integrada à `main`, aplicada no banco canônico e publicada; **homologação visual final ainda pendente**;
+- M9 e fases posteriores: apenas previstas/reservadas até seus respectivos critérios de entrada serem satisfeitos.
+
 ---
 
 ## 6. RESUMO DAS FASES
