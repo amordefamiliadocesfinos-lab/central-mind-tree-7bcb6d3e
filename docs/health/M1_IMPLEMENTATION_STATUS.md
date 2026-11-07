@@ -28,8 +28,8 @@
 - [x] npm ci
 - [x] ESLint M1
 - [x] Build
-- [ ] Visual mobile 320–430px
-- [ ] M1 Acceptance Report
+- [x] Visual mobile 320–430px
+- [x] M1 Acceptance Report
 
 ## Persistência de teste
 
@@ -42,3 +42,9 @@ Após testes transacionais:
 - health_declared_equipment = 0
 - health_athlete_preferences = 0
 - health_consents = 0
+
+
+## Resultado
+- [x] M1 HEALTH: PASS
+- [x] PR #475 em Draft
+- [ ] Merge (ação separada, dependente da M0)
