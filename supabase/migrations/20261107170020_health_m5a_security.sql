@@ -26,10 +26,12 @@ REVOKE ALL ON
   public.health_meal_item_events
 FROM PUBLIC, anon, authenticated;
 
-GRANT SELECT, INSERT, UPDATE ON public.health_nutrition_plans TO authenticated;
+GRANT SELECT, INSERT ON public.health_nutrition_plans TO authenticated;
+GRANT UPDATE (name, goal_id, goal_phase_id, notes) ON public.health_nutrition_plans TO authenticated;
 GRANT SELECT, INSERT ON public.health_nutrition_plan_versions TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_nutrition_targets TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.health_recipes TO authenticated;
+GRANT SELECT, INSERT ON public.health_recipes TO authenticated;
+GRANT UPDATE (name) ON public.health_recipes TO authenticated;
 GRANT SELECT, INSERT ON public.health_recipe_versions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.health_recipe_ingredients TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_food_log_days TO authenticated;
@@ -43,7 +45,13 @@ USING (public.health_can_read_athlete(athlete_id));
 
 CREATE POLICY health_nutrition_plans_insert
 ON public.health_nutrition_plans FOR INSERT TO authenticated
-WITH CHECK (public.health_can_write_athlete(athlete_id));
+WITH CHECK (
+  public.health_can_write_athlete(athlete_id)
+  AND status='draft'
+  AND current_version_id IS NULL
+  AND source IN ('manual','template')
+  AND created_by_auth_user_id=auth.uid()
+);
 
 CREATE POLICY health_nutrition_plans_update
 ON public.health_nutrition_plans FOR UPDATE TO authenticated
@@ -60,6 +68,7 @@ WITH CHECK (
   public.health_can_write_athlete(athlete_id)
   AND status='draft'
   AND published_at IS NULL
+  AND created_by_auth_user_id=auth.uid()
 );
 
 CREATE POLICY health_nutrition_targets_select
@@ -105,7 +114,10 @@ ON public.health_recipes FOR INSERT TO authenticated
 WITH CHECK (
   owner_scope='athlete'
   AND athlete_id IS NOT NULL
+  AND status='draft'
+  AND current_version_id IS NULL
   AND public.health_can_write_athlete(athlete_id)
+  AND created_by_auth_user_id=auth.uid()
 );
 
 CREATE POLICY health_recipes_update_personal
@@ -134,6 +146,7 @@ WITH CHECK (
   AND public.health_can_write_athlete(athlete_id)
   AND status='draft'
   AND published_at IS NULL
+  AND created_by_auth_user_id=auth.uid()
 );
 
 CREATE POLICY health_recipe_ingredients_select
@@ -226,3 +239,5 @@ REVOKE ALL ON FUNCTION public.health_m5_guard_published_recipe_version() FROM PU
 REVOKE ALL ON FUNCTION public.health_m5_validate_recipe_ingredient_scope() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.health_m5_guard_published_recipe_ingredients() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.health_m5_validate_meal_item_recipe_scope() FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL ON FUNCTION public.health_m5_validate_nutrition_plan_goal_phase() FROM PUBLIC, anon, authenticated;
