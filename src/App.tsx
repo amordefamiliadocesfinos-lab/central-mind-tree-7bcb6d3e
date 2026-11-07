@@ -47,7 +47,8 @@ import Nucleo from "./pages/Nucleo";
 import CapturaCentral from "./pages/CapturaCentral";
 import OAuthConsent from "./pages/OAuthConsent";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
-import NotFound from "./pages/NotFound";\nimport HealthModule from "./modules/health/HealthModule";
+import NotFound from "./pages/NotFound";
+import HealthModule from "./modules/health/HealthModule";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
 import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
@@ -88,7 +89,8 @@ function AnimatedRoutes() {
           <Route path="/contatos/inbox" element={<ContatosInbox />} />
           <Route path="/contatos/tarefas" element={<TarefasAgendadas />} />
           <Route path="/rotas" element={<Rotas />} />
-          <Route path="/academia" element={<Academia />} />\n          <Route path="/saude/*" element={<HealthModule />} />
+          <Route path="/academia" element={<Academia />} />
+          <Route path="/saude/*" element={<HealthModule />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/oportunidades" element={<Oportunidades />} />
           <Route path="/nucleo" element={<Nucleo />} />
