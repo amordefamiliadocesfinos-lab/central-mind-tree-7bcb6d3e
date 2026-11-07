@@ -2,7 +2,29 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-const db = supabase as unknown as SupabaseClient<any>;
+type LooseTable = {
+  Row: Record<string, unknown>;
+  Insert: Record<string, unknown>;
+  Update: Record<string, unknown>;
+  Relationships: [];
+};
+
+type LooseDatabase = {
+  public: {
+    Tables: Record<string, LooseTable>;
+    Views: Record<string, never>;
+    Functions: Record<string, { Args: Record<string, unknown>; Returns: unknown }>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+
+type LooseOperationResult = {
+  data?: unknown;
+  error?: { message: string } | null;
+};
+
+const db = supabase as unknown as SupabaseClient<LooseDatabase>;
 
 export type NutritionDailyStateM6 = {
   id: string;
