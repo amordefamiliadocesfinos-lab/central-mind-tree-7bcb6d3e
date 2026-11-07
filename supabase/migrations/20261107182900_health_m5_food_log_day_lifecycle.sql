@@ -21,6 +21,13 @@ CREATE TABLE public.health_food_log_day_events (
 CREATE INDEX health_food_log_day_events_day_time_idx
 ON public.health_food_log_day_events(food_log_day_id, occurred_at);
 
+CREATE INDEX health_food_log_day_events_day_athlete_idx
+ON public.health_food_log_day_events(food_log_day_id, athlete_id);
+
+CREATE INDEX health_food_log_day_events_created_by_idx
+ON public.health_food_log_day_events(created_by_auth_user_id)
+WHERE created_by_auth_user_id IS NOT NULL;
+
 ALTER TABLE public.health_food_log_day_events ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.health_food_log_day_events FROM PUBLIC, anon, authenticated;
