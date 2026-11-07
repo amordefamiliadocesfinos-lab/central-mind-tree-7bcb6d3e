@@ -31,6 +31,18 @@ ON public.health_food_log_day_events
 FOR SELECT TO authenticated
 USING (public.health_can_read_athlete(athlete_id));
 
+-- A new day may only start unknown/partial. Completion is RPC-only and audited.
+DROP POLICY IF EXISTS health_food_log_days_insert ON public.health_food_log_days;
+CREATE POLICY health_food_log_days_insert
+ON public.health_food_log_days
+FOR INSERT TO authenticated
+WITH CHECK (
+  public.health_can_write_athlete(athlete_id)
+  AND completeness_status IN ('unknown','partial')
+  AND completed_at IS NULL
+  AND completion_confirmed_by IS NULL
+);
+
 -- Keep ordinary editable metadata available, but lifecycle fields are RPC-only.
 REVOKE UPDATE ON public.health_food_log_days FROM authenticated;
 GRANT UPDATE (
@@ -49,24 +61,12 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $$
+AS $
 DECLARE
   v_athlete_id uuid;
   v_status text;
   v_existing_day_id uuid;
 BEGIN
-  IF p_client_event_id IS NOT NULL THEN
-    SELECT e.food_log_day_id
-    INTO v_existing_day_id
-    FROM public.health_food_log_day_events e
-    WHERE e.client_event_id=p_client_event_id
-      AND e.event_type='completed';
-
-    IF v_existing_day_id IS NOT NULL THEN
-      RETURN v_existing_day_id;
-    END IF;
-  END IF;
-
   SELECT d.athlete_id,d.completeness_status
   INTO v_athlete_id,v_status
   FROM public.health_food_log_days d
@@ -79,6 +79,21 @@ BEGIN
 
   IF NOT public.health_can_write_athlete(v_athlete_id) THEN
     RAISE EXCEPTION 'not authorized for athlete';
+  END IF;
+
+  IF p_client_event_id IS NOT NULL THEN
+    SELECT e.food_log_day_id
+    INTO v_existing_day_id
+    FROM public.health_food_log_day_events e
+    WHERE e.athlete_id=v_athlete_id
+      AND e.client_event_id=p_client_event_id;
+
+    IF v_existing_day_id IS NOT NULL THEN
+      IF v_existing_day_id IS DISTINCT FROM p_day_id THEN
+        RAISE EXCEPTION 'client_event_id already used for another food log day';
+      END IF;
+      RETURN p_day_id;
+    END IF;
   END IF;
 
   IF v_status='complete' THEN
@@ -100,7 +115,7 @@ BEGIN
 
   RETURN p_day_id;
 END;
-$$;
+$;
 
 CREATE OR REPLACE FUNCTION public.health_m5_reopen_food_log_day(
   p_day_id uuid,
@@ -110,24 +125,12 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $$
+AS $
 DECLARE
   v_athlete_id uuid;
   v_status text;
   v_existing_day_id uuid;
 BEGIN
-  IF p_client_event_id IS NOT NULL THEN
-    SELECT e.food_log_day_id
-    INTO v_existing_day_id
-    FROM public.health_food_log_day_events e
-    WHERE e.client_event_id=p_client_event_id
-      AND e.event_type='reopened';
-
-    IF v_existing_day_id IS NOT NULL THEN
-      RETURN v_existing_day_id;
-    END IF;
-  END IF;
-
   SELECT d.athlete_id,d.completeness_status
   INTO v_athlete_id,v_status
   FROM public.health_food_log_days d
@@ -140,6 +143,21 @@ BEGIN
 
   IF NOT public.health_can_write_athlete(v_athlete_id) THEN
     RAISE EXCEPTION 'not authorized for athlete';
+  END IF;
+
+  IF p_client_event_id IS NOT NULL THEN
+    SELECT e.food_log_day_id
+    INTO v_existing_day_id
+    FROM public.health_food_log_day_events e
+    WHERE e.athlete_id=v_athlete_id
+      AND e.client_event_id=p_client_event_id;
+
+    IF v_existing_day_id IS NOT NULL THEN
+      IF v_existing_day_id IS DISTINCT FROM p_day_id THEN
+        RAISE EXCEPTION 'client_event_id already used for another food log day';
+      END IF;
+      RETURN p_day_id;
+    END IF;
   END IF;
 
   IF v_status<>'complete' THEN
@@ -161,7 +179,7 @@ BEGIN
 
   RETURN p_day_id;
 END;
-$$;
+$;
 
 REVOKE ALL ON FUNCTION public.health_m5_complete_food_log_day(uuid,uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.health_m5_reopen_food_log_day(uuid,uuid) FROM PUBLIC, anon;
