@@ -116,10 +116,21 @@ PASS.
 Nenhuma migration M7 aplicada em produção.
 Nenhum deploy M7 executado.
 
+## CI
+
+GitHub Actions run: `42415840553`
+
+- npm ci: PASS
+- lint Health: PASS
+- build completo do PAINEL CENTRAL: PASS
+- workflow temporário removido após validação
+
 ## Gate
 
-M7 está em validação de CI.
+M7 tecnicamente pronta para PR Draft.
 
-Após CI:
-- abrir PR Draft para main;
-- parar no gate de merge.
+- merge em main: NÃO EXECUTADO
+- migration M7 em produção: NÃO EXECUTADA
+- deploy M7: NÃO EXECUTADO
+
+Próximo passo: abrir PR Draft e parar no gate de merge.
