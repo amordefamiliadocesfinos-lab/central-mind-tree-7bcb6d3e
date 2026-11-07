@@ -56,18 +56,33 @@ export function useHealthAthlete() {
       const normalizedName = displayName.trim();
       if (normalizedName.length < 2) throw new Error("Informe um nome válido.");
 
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("health_athletes")
         .insert({
           auth_user_id: user.id,
           owner_auth_user_id: user.id,
           created_by_auth_user_id: user.id,
           display_name: normalizedName,
-        })
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      // Do not chain .select() to the INSERT. With the current RLS model,
+      // INSERT ... RETURNING is rejected even though the INSERT itself and a
+      // subsequent authorized SELECT both pass. Read the created row in a
+      // separate statement so onboarding remains RLS-safe.
+      const { data, error: readError } = await supabase
+        .from("health_athletes")
         .select("id,auth_user_id,owner_auth_user_id,display_name,status,created_at,updated_at")
+        .eq("auth_user_id", user.id)
+        .neq("status", "archived")
         .single();
 
-      if (insertError) throw insertError;
+      if (readError) {
+        throw new Error(readError.message);
+      }
 
       const created = data as HealthAthlete;
       setAthlete(created);
