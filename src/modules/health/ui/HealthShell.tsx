@@ -10,17 +10,17 @@ import {
 import { cn } from "@/lib/utils";
 
 const primaryItems = [
-  { to: "/saude/hoje", label: "Hoje", icon: Activity },
-  { to: "/saude/treino", label: "Treino", icon: Dumbbell },
-  { to: "/saude/alimentacao", label: "Alimentação", icon: Apple },
-  { to: "/saude/evolucao", label: "Evolução", icon: TrendingUp },
-  { to: "/saude/perfil", label: "Perfil", icon: UserRound },
+  { to: "/saude/hoje", label: "Hoje", mobileLabel: "Hoje", icon: Activity },
+  { to: "/saude/treino", label: "Treino", mobileLabel: "Treino", icon: Dumbbell },
+  { to: "/saude/alimentacao", label: "Alimentação", mobileLabel: "Dieta", icon: Apple },
+  { to: "/saude/evolucao", label: "Evolução", mobileLabel: "Evolução", icon: TrendingUp },
+  { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
 export function HealthShell() {
   return (
-    <div className="min-h-[100dvh] bg-background pb-24">
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+    <div className="min-h-[100dvh] bg-background pb-36 md:pb-20">
+      <header className="sticky top-0 z-30 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-3 sm:px-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <HeartPulse className="h-5 w-5" />
@@ -35,7 +35,7 @@ export function HealthShell() {
           aria-label="Navegação Saúde"
           className="mx-auto grid max-w-5xl grid-cols-5 border-t px-1 sm:px-3"
         >
-          {primaryItems.map(({ to, label, icon: Icon }) => (
+          {primaryItems.map(({ to, label, mobileLabel, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -48,7 +48,7 @@ export function HealthShell() {
               }
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
-              <span className="w-full truncate text-center">{label}</span>
+              <span className="w-full truncate text-center sm:hidden">{mobileLabel}</span>\n              <span className="hidden w-full truncate text-center sm:block">{label}</span>
             </NavLink>
           ))}
         </nav>
