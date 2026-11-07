@@ -1,3 +1,5 @@
+> **SUPERSESSÃO CONDICIONADA AO MERGE DA PR #486.** Enquanto a v2 não estiver incorporada à `main` por merge autorizado, esta v1 permanece a fonte soberana vigente. Após o merge, a fonte soberana passa a ser `docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v2.md` e este arquivo permanece apenas como registro histórico.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
