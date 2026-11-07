@@ -337,9 +337,36 @@ export function HealthNutritionPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base"><Apple className="h-4 w-4 text-primary" /> Diário de hoje</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base"><Apple className="h-4 w-4 text-primary" /> Diário de hoje</CardTitle>
+            {nutrition.day ? <Badge variant="outline">{nutrition.day.completeness_status}</Badge> : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              className="min-h-11"
+              disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
+              onClick={() => void run("Dia concluído explicitamente.", async () => {
+                await nutrition.completeToday();
+                await nutritionState.refresh();
+              })}
+            >
+              Concluir dia
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-11"
+              disabled={nutrition.saving || nutrition.day?.completeness_status !== "complete"}
+              onClick={() => void run("Dia reaberto para correções.", async () => {
+                await nutrition.reopenToday();
+                await nutritionState.refresh();
+              })}
+            >
+              Reabrir dia
+            </Button>
+          </div>
           <div className="grid grid-cols-4 gap-2 text-center text-xs">
             <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">kcal</p><p className="font-semibold">{Math.round(nutrition.totals.kcal)}</p></div>
             <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">P</p><p className="font-semibold">{nutrition.totals.protein.toFixed(1)} g</p></div>
