@@ -5,6 +5,7 @@ import { HealthAccessGuard } from "./ui/HealthAccessGuard";
 import { HealthProfilePage } from "./pages/HealthProfilePage";
 import { HealthLibraryPage } from "./pages/HealthLibraryPage";
 import { HealthProgramPage } from "./pages/HealthProgramPage";
+import { HealthWorkoutPage } from "./pages/HealthWorkoutPage";
 
 export default function HealthModule() {
   return (
@@ -21,7 +22,8 @@ export default function HealthModule() {
             />
           }
         />
-        <Route path="treino" element={<HealthProgramPage />} />
+        <Route path="treino" element={<HealthWorkoutPage />} />
+        <Route path="treino/programa" element={<HealthProgramPage />} />
         <Route
           path="alimentacao"
           element={
