@@ -146,6 +146,12 @@ ON public.health_recipe_nutrition_snapshots(recipe_version_id);
 CREATE INDEX health_recipe_ingredient_snapshots_recipe_version_idx
 ON public.health_recipe_ingredient_snapshots(recipe_version_id);
 
+CREATE INDEX health_recipe_ingredient_snapshots_food_idx
+ON public.health_recipe_ingredient_snapshots(food_id);
+
+CREATE INDEX health_recipe_ingredient_snapshots_ingredient_version_idx
+ON public.health_recipe_ingredient_snapshots(recipe_ingredient_id, recipe_version_id);
+
 -- 4) SCOPE VALIDATION
 
 CREATE OR REPLACE FUNCTION public.health_m5_validate_recipe_snapshot_scope()
