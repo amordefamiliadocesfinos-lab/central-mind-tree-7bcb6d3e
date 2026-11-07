@@ -7,9 +7,13 @@ export const CRM_GLOBAL_ENTRY_PATH = '/contatos/inbox' as const;
 export const CRM_SECTION_PATHS = ['/contatos', '/contatos/inbox', '/contatos/tarefas'] as const;
 
 export function isGlobalNavigationItemActive(pathname: string, itemPath: string): boolean {
-  return itemPath === CRM_GLOBAL_ENTRY_PATH
-    ? (CRM_SECTION_PATHS as readonly string[]).includes(pathname)
-    : pathname === itemPath;
+  if (itemPath === CRM_GLOBAL_ENTRY_PATH) {
+    return (CRM_SECTION_PATHS as readonly string[]).includes(pathname);
+  }
+  if (itemPath === '/saude') {
+    return pathname === '/saude' || pathname.startsWith('/saude/');
+  }
+  return pathname === itemPath;
 }
 
 export interface CrmInboxRouteProtection {
