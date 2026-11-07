@@ -48,7 +48,8 @@ export function HealthShell() {
               }
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
-              <span className="w-full truncate text-center sm:hidden">{mobileLabel}</span>\n              <span className="hidden w-full truncate text-center sm:block">{label}</span>
+              <span className="w-full truncate text-center sm:hidden">{mobileLabel}</span>
+              <span className="hidden w-full truncate text-center sm:block">{label}</span>
             </NavLink>
           ))}
         </nav>
