@@ -1,0 +1,32 @@
+name: Health onboarding fix validation
+
+on:
+  push:
+    branches:
+      - fix/health-onboarding-rls-returning-20261107
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint Health scope
+        run: npx eslint src/modules/health src/lib/crm/crmGlobalNavigation.ts
+
+      - name: Build full application
+        run: npm run build
