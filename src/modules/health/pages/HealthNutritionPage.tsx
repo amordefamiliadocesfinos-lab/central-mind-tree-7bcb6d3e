@@ -193,10 +193,18 @@ export function HealthNutritionPage() {
                   <SelectTrigger className="min-h-11"><SelectValue placeholder="Ingrediente" /></SelectTrigger>
                   <SelectContent>{nutrition.foods.map((food) => <SelectItem key={food.id} value={food.id}>{food.canonical_name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Input className="min-h-11" inputMode="decimal" placeholder="Quantidade g" value={ingredientQty} onChange={(e) => setIngredientQty(e.target.value)} />
+                <Input
+                  className="min-h-11"
+                  inputMode="decimal"
+                  placeholder={foodId ? `Quantidade ${nutrition.foods.find((item) => item.id === foodId)?.basis_unit ?? ""}` : "Quantidade"}
+                  value={ingredientQty}
+                  onChange={(e) => setIngredientQty(e.target.value)}
+                />
                 <Button variant="outline" className="min-h-11" disabled={!foodId || !num(ingredientQty) || nutrition.saving}
                   onClick={() => void run("Ingrediente adicionado.", async () => {
-                    await nutrition.addRecipeIngredient(selectedRecipeVersion.id, foodId, num(ingredientQty)!, "g");
+                    const food = nutrition.foods.find((item) => item.id === foodId);
+                    if (!food) throw new Error("Selecione um ingrediente válido.");
+                    await nutrition.addRecipeIngredient(selectedRecipeVersion.id, foodId, num(ingredientQty)!, food.basis_unit);
                     setFoodId(""); setIngredientQty("");
                   })}>
                   Adicionar
