@@ -133,7 +133,7 @@ Sempre exige autorização específica para DROP, reset, force push, perda ou re
 | M5 | Nutrition Foundation | ✅ produção |
 | M6 | Nutrition State | ✅ produção |
 | M7 | Nutrition Decision | ✅ produção |
-| M8 | Body Evolution | ✅ banco + código + deploy; homologação visual final pendente |
+| M8 | Body Evolution | ✅ banco + código + deploy + homologação visual final |
 
 ### Frontend Health publicado
 
@@ -172,8 +172,9 @@ Regras:
 Aplicação ao ponto atual do mapa:
 
 - M0→M7: tratados como fases já integradas/implantadas conforme os respectivos registros de merge, migrations, pós-checks e homologações preservados;
-- M8: implementada, testada, integrada à `main`, aplicada no banco canônico e publicada; **homologação visual final ainda pendente**;
-- M9 e fases posteriores: apenas previstas/reservadas até seus respectivos critérios de entrada serem satisfeitos.
+- M8: implementada, testada, integrada à `main`, aplicada no banco canônico, publicada e **homologada visualmente em sessão autenticada**;
+- M9: critério de entrada por fechamento visual da M8 satisfeito; permanece não iniciada até sua abertura formal conforme o método e os gates;
+- fases posteriores: apenas previstas/reservadas até seus respectivos critérios de entrada serem satisfeitos.
 
 ---
 
@@ -260,35 +261,33 @@ Consentimentos:
 - `private_media_storage = granted`;
 - `media_analysis = granted`.
 
-### Pendência M8
+### Homologação visual M8 — CONCLUÍDA em 07/11/2026
 
-**Homologação visual final:**
+Prova em sessão autenticada no PAINEL CENTRAL canônico:
 
-Abrir em sessão autenticada:
 `https://central-mind-tree.lovable.app/saude/evolucao`
 
-Confirmar:
-- tela Evolução corporal;
-- formulário de medidas;
-- estados 7/14/28;
-- protocolo fotográfico;
-- histórico;
-- ausência de erro fatal.
+Confirmado diretamente na rota publicada:
 
-Upload real de foto é uma homologação adicional opcional e deve usar imagem real do usuário, nunca fixture artificial.
+- título **Evolução corporal** carregado;
+- formulário **Registrar avaliação** presente;
+- campos de peso, cintura, gordura corporal, quadril, peito e pescoço presentes;
+- métodos de peso/gordura e condição da pesagem presentes;
+- bloco **Estado corporal** carregado;
+- janelas **7 / 14 / 28 dias** carregadas;
+- estado atual preserva `unknown != zero`: `unobserved · low`, sem inventar peso, cintura, tendência ou IMC;
+- reason codes apresentados em linguagem compreensível;
+- bloco **Protocolo de fotos** carregado;
+- quatro ângulos do protocolo fotográfico presentes;
+- indicação explícita de armazenamento privado das imagens;
+- bloco **Histórico de avaliações** carregado;
+- ausência de avaliação artificial;
+- ausência de erro fatal visível na rota;
+- conta autenticada confirmada no shell do PAINEL CENTRAL.
 
-### Evidência parcial de homologação — 07/11/2026
+O upload de foto real permanece **opcional para homologação adicional**, não sendo requisito para encerrar M8. Nenhuma fixture, foto artificial ou medida corporal foi criada para produzir esta prova.
 
-Comprovação já obtida sem alterar dados de Saúde:
-
-- sessão autenticada do PAINEL CENTRAL confirmada em `/saude/alimentacao`;
-- shell Health publicado expõe link navegável para `/saude/evolucao`;
-- conta autenticada confirmada no shell;
-- `main` contém `HealthBodyPage` com os blocos esperados da M8: **Evolução corporal**, **Registrar avaliação**, **Estado corporal**, **Protocolo de fotos**, **Linha do tempo visual** e **Histórico de avaliações**;
-- o hook `useHealthBodyM8` usa tabelas/RPCs M8 e bucket privado `health-private`, gera signed URLs e não exige criação de dado artificial para leitura.
-
-Esta evidência confirma **integração publicada + presença funcional no código**, mas **não substitui a prova visual da própria rota autenticada**. Enquanto `/saude/evolucao` não for observada em sessão autenticada, M8 permanece com homologação visual final pendente e M9 continua bloqueada.
-
+**Resultado:** M8 homologada visualmente. O bloqueio específico que impedia a abertura formal da M9 foi removido.
 ---
 
 ## 8. PRÓXIMA FASE OFICIAL
@@ -297,14 +296,14 @@ A sequência soberana vigente é:
 
 1. ✅ Reconciliação M0→M6
 2. ✅ M7 — Nutrition Decision
-3. 🟡 M8 — Body Evolution — implantada; fechar prova visual
-4. ⛔ **M9 — Sono / Recuperação / Biomarcadores**
+3. ✅ M8 — Body Evolution — implantada e homologada visualmente
+4. ⏭️ **M9 — Sono / Recuperação / Biomarcadores — próxima fase, ainda não iniciada**
 5. ⛔ Dashboard Integrado
 6. ⛔ Motor Integrado CCH
 7. ⛔ Jornada real completa
 8. ⛔ Evolução contínua por dados reais
 
-**M9 não começa enquanto a prova visual final da M8 estiver pendente.**
+**A condição de entrada vinculada à prova visual da M8 foi satisfeita em 07/11/2026. M9 continua sujeita à abertura formal da fase, arquitetura versionada, branch própria e gates aplicáveis.**
 
 As etapas Dashboard Integrado, Motor Integrado CCH, Jornada real completa e Evolução contínua preservam a sequência aprovada no v1, mas permanecem **frentes reservadas, não escopo executável**. Antes de iniciar cada uma, deverá existir arquitetura/contrato versionado da fase e os gates aplicáveis; este mapa não antecipa nova autoridade nem decisão funcional.
 
@@ -361,7 +360,7 @@ Não:
 
 ## 10. ORDEM DE IMPLEMENTAÇÃO M9
 
-Somente após fechar M8 visual:
+Com M8 visual encerrada, a abertura formal de M9 deve seguir:
 
 1. ler chats/documentos especialistas 04 e 05;
 2. inventariar dados já existentes;
@@ -454,8 +453,8 @@ Não usar memória solta como mecanismo de transferência.
 
 Próxima ação permitida:
 
-**fechar a homologação visual de M8 em `/saude/evolucao`.**
+**M8 está encerrada e homologada visualmente.**
 
-Somente depois disso:
+Próxima ação permitida, sem antecipar gates:
 
-**iniciar M9 — Sono / Recuperação / Biomarcadores.**
+**abrir formalmente M9 — Sono / Recuperação / Biomarcadores — começando pela leitura e consolidação documental dos especialistas 04 e 05.**
