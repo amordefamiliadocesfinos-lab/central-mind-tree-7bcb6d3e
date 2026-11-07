@@ -276,11 +276,11 @@ USING (public.health_can_read_athlete(athlete_id));
 CREATE POLICY health_program_muscle_priorities_insert
 ON public.health_program_muscle_priorities FOR INSERT TO authenticated
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_program_muscle_priorities.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_program_muscle_priorities.program_version_id
+      AND v.athlete_id=health_program_muscle_priorities.athlete_id
       AND v.status='draft'
   )
 );
@@ -288,20 +288,20 @@ WITH CHECK (
 CREATE POLICY health_program_muscle_priorities_update
 ON public.health_program_muscle_priorities FOR UPDATE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_program_muscle_priorities.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_program_muscle_priorities.program_version_id
+      AND v.athlete_id=health_program_muscle_priorities.athlete_id
       AND v.status='draft'
   )
 )
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_program_muscle_priorities.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_program_muscle_priorities.program_version_id
+      AND v.athlete_id=health_program_muscle_priorities.athlete_id
       AND v.status='draft'
   )
 );
@@ -309,11 +309,11 @@ WITH CHECK (
 CREATE POLICY health_program_muscle_priorities_delete
 ON public.health_program_muscle_priorities FOR DELETE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_program_muscle_priorities.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_program_muscle_priorities.program_version_id
+      AND v.athlete_id=health_program_muscle_priorities.athlete_id
       AND v.status='draft'
   )
 );
@@ -325,11 +325,11 @@ USING (public.health_can_read_athlete(athlete_id));
 CREATE POLICY health_session_templates_insert
 ON public.health_session_templates FOR INSERT TO authenticated
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_templates.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_session_templates.program_version_id
+      AND v.athlete_id=health_session_templates.athlete_id
       AND v.status='draft'
   )
 );
@@ -337,20 +337,20 @@ WITH CHECK (
 CREATE POLICY health_session_templates_update
 ON public.health_session_templates FOR UPDATE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_templates.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_session_templates.program_version_id
+      AND v.athlete_id=health_session_templates.athlete_id
       AND v.status='draft'
   )
 )
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_templates.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_session_templates.program_version_id
+      AND v.athlete_id=health_session_templates.athlete_id
       AND v.status='draft'
   )
 );
@@ -358,11 +358,11 @@ WITH CHECK (
 CREATE POLICY health_session_templates_delete
 ON public.health_session_templates FOR DELETE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_templates.athlete_id)
   AND EXISTS (
     SELECT 1 FROM public.health_program_versions v
-    WHERE v.id=program_version_id
-      AND v.athlete_id=athlete_id
+    WHERE v.id=health_session_templates.program_version_id
+      AND v.athlete_id=health_session_templates.athlete_id
       AND v.status='draft'
   )
 );
@@ -374,14 +374,14 @@ USING (public.health_can_read_athlete(athlete_id));
 CREATE POLICY health_session_template_exercises_insert
 ON public.health_session_template_exercises FOR INSERT TO authenticated
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_template_exercises.athlete_id)
   AND EXISTS (
     SELECT 1
     FROM public.health_session_templates t
     JOIN public.health_program_versions v ON v.id=t.program_version_id
-    WHERE t.id=session_template_id
-      AND t.athlete_id=athlete_id
-      AND v.athlete_id=athlete_id
+    WHERE t.id=health_session_template_exercises.session_template_id
+      AND t.athlete_id=health_session_template_exercises.athlete_id
+      AND v.athlete_id=health_session_template_exercises.athlete_id
       AND v.status='draft'
   )
 );
@@ -389,26 +389,26 @@ WITH CHECK (
 CREATE POLICY health_session_template_exercises_update
 ON public.health_session_template_exercises FOR UPDATE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_template_exercises.athlete_id)
   AND EXISTS (
     SELECT 1
     FROM public.health_session_templates t
     JOIN public.health_program_versions v ON v.id=t.program_version_id
-    WHERE t.id=session_template_id
-      AND t.athlete_id=athlete_id
-      AND v.athlete_id=athlete_id
+    WHERE t.id=health_session_template_exercises.session_template_id
+      AND t.athlete_id=health_session_template_exercises.athlete_id
+      AND v.athlete_id=health_session_template_exercises.athlete_id
       AND v.status='draft'
   )
 )
 WITH CHECK (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_template_exercises.athlete_id)
   AND EXISTS (
     SELECT 1
     FROM public.health_session_templates t
     JOIN public.health_program_versions v ON v.id=t.program_version_id
-    WHERE t.id=session_template_id
-      AND t.athlete_id=athlete_id
-      AND v.athlete_id=athlete_id
+    WHERE t.id=health_session_template_exercises.session_template_id
+      AND t.athlete_id=health_session_template_exercises.athlete_id
+      AND v.athlete_id=health_session_template_exercises.athlete_id
       AND v.status='draft'
   )
 );
@@ -416,14 +416,14 @@ WITH CHECK (
 CREATE POLICY health_session_template_exercises_delete
 ON public.health_session_template_exercises FOR DELETE TO authenticated
 USING (
-  public.health_can_write_athlete(athlete_id)
+  public.health_can_write_athlete(health_session_template_exercises.athlete_id)
   AND EXISTS (
     SELECT 1
     FROM public.health_session_templates t
     JOIN public.health_program_versions v ON v.id=t.program_version_id
-    WHERE t.id=session_template_id
-      AND t.athlete_id=athlete_id
-      AND v.athlete_id=athlete_id
+    WHERE t.id=health_session_template_exercises.session_template_id
+      AND t.athlete_id=health_session_template_exercises.athlete_id
+      AND v.athlete_id=health_session_template_exercises.athlete_id
       AND v.status='draft'
   )
 );
