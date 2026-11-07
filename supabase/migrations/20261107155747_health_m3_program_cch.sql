@@ -50,6 +50,7 @@ CREATE TABLE public.health_program_versions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (program_id, version_number),
+  UNIQUE (id, athlete_id),
   UNIQUE (id, program_id, athlete_id),
   CONSTRAINT health_program_versions_program_athlete_fkey
     FOREIGN KEY (program_id, athlete_id)
