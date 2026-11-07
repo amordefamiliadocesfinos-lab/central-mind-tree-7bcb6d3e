@@ -19,8 +19,8 @@
 - [x] Rotas internas iniciais
 - [x] Contratos base de domínio
 - [x] Gate de autorização Health
-- [ ] Item global Saúde no footer
-- [ ] Smoke/build/lint executados no branch
+- [x] Item global Saúde no footer
+- [x] Build/TypeScript e lint Health executados no branch
 
 ## M0C — Dados
 EXECUTADA PARCIALMENTE.
@@ -40,3 +40,9 @@ EXECUTADA PARCIALMENTE.
 - [x] Diff GitHub verificado contra `main`.
 - [x] `src/App.tsx` reinspecionado após correção de quebras de linha.
 - [ ] Build/lint devem rodar em ambiente de desenvolvimento/CI com acesso de rede antes de merge.
+
+
+## M0 Acceptance
+- [x] M0_ACCEPTANCE_REPORT_2026-11-07.md
+- [x] Resultado Health/M0: PASS
+- [ ] Merge do PR #474 na main (ação separada)
