@@ -137,7 +137,10 @@ export function HealthNutritionPage() {
                     Salvar metas
                   </Button>
                   <Button className="min-h-11 w-full" disabled={nutrition.saving || !nutrition.target}
-                    onClick={() => void run("Plano publicado.", nutrition.publishPlan)}>
+                    onClick={() => void run("Plano publicado.", async () => {
+                      await nutrition.publishPlan();
+                      await nutritionState.refresh();
+                    })}>
                     Publicar plano
                   </Button>
                 </>
@@ -367,6 +370,12 @@ export function HealthNutritionPage() {
               Reabrir dia
             </Button>
           </div>
+          {nutrition.day?.completeness_status === "complete" ? (
+            <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+              Dia concluído. Reabra o dia antes de alterar refeições ou itens.
+            </p>
+          ) : null}
+
           <div className="grid grid-cols-4 gap-2 text-center text-xs">
             <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">kcal</p><p className="font-semibold">{Math.round(nutrition.totals.kcal)}</p></div>
             <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">P</p><p className="font-semibold">{nutrition.totals.protein.toFixed(1)} g</p></div>
@@ -385,7 +394,11 @@ export function HealthNutritionPage() {
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="min-h-11" disabled={nutrition.saving} onClick={() => void run("Refeição criada.", () => nutrition.createMeal(mealType))}>
+            <Button
+              className="min-h-11"
+              disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
+              onClick={() => void run("Refeição criada.", () => nutrition.createMeal(mealType))}
+            >
               <Plus className="mr-2 h-4 w-4" /> Refeição
             </Button>
           </div>
@@ -402,14 +415,18 @@ export function HealthNutritionPage() {
                   <SelectContent>{nutrition.foods.map((food) => <SelectItem key={food.id} value={food.id}>{food.canonical_name}</SelectItem>)}</SelectContent>
                 </Select>
                 <Input className="min-h-11" inputMode="decimal" placeholder="g" value={mealQty} onChange={(e) => setMealQty(e.target.value)} />
-                <Button className="min-h-11" disabled={!mealFoodId || !num(mealQty) || nutrition.saving}
+                <Button
+                  className="min-h-11"
+                  disabled={!mealFoodId || !num(mealQty) || nutrition.saving || nutrition.day?.completeness_status === "complete"}
                   onClick={() => void run("Alimento registrado.", async () => {
                     const food = nutrition.foods.find((item) => item.id === mealFoodId);
                     const targetMeal = mealId || nutrition.meals[0]?.id;
                     if (!food || !targetMeal) throw new Error("Selecione alimento e refeição.");
                     await nutrition.logFoodItem(targetMeal, food, num(mealQty)!, food.basis_unit);
+                    await nutritionState.refresh();
                     setMealFoodId(""); setMealQty("");
-                  })}>
+                  })}
+                >
                   Registrar
                 </Button>
               </div>
@@ -424,8 +441,16 @@ export function HealthNutritionPage() {
                     <p className="truncate text-sm font-medium">{item.item_name_snapshot}</p>
                     <p className="text-xs text-muted-foreground">{item.quantity ?? "—"} {item.unit_code ?? ""} · {Math.round(Number(item.energy_kcal_snapshot) || 0)} kcal · {Number(item.protein_g_snapshot || 0).toFixed(1)} g proteína</p>
                   </div>
-                  <Button size="icon" variant="ghost" className="min-h-11 min-w-11 shrink-0" disabled={nutrition.saving}
-                    onClick={() => void run("Item anulado sem apagar o histórico.", () => nutrition.voidItem(item.id))}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="min-h-11 min-w-11 shrink-0"
+                    disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
+                    onClick={() => void run("Item anulado sem apagar o histórico.", async () => {
+                      await nutrition.voidItem(item.id);
+                      await nutritionState.refresh();
+                    })}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
