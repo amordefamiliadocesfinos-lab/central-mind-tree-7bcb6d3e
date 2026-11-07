@@ -23,8 +23,16 @@
 - [ ] Smoke/build/lint executados no branch
 
 ## M0C — Dados
-PREPARAÇÃO LIBERADA. Acesso de leitura ao banco oficial foi confirmado via Lovable Cloud.
-DDL continua bloqueado até fechar a migration M0 revisável/reversível e os testes de RLS/Storage.
+EXECUTADA PARCIALMENTE.
+- [x] Migration M0 versionada
+- [x] Rollback manual versionado
+- [x] DDL aplicado via Lovable Cloud
+- [x] Ledger Supabase reconciliado
+- [x] RLS cross-user validada em transação
+- [x] Bucket privado Health criado e policies validadas
+- [x] Nenhum dado sintético persistiu
+- [ ] Onboarding/guard frontend
+- [ ] Build/lint do branch
 
 
 ## Validação local nesta sessão
