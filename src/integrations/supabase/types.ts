@@ -10661,6 +10661,20 @@ export type Database = {
         Args: { p_athlete_id: string }
         Returns: boolean
       }
+      health_m3_create_program_draft: {
+        Args: { p_athlete_id: string; p_name: string }
+        Returns: {
+          program_id: string
+          program_version_id: string
+        }[]
+      }
+      health_m3_publish_program_version: {
+        Args: { p_program_version_id: string }
+        Returns: {
+          program_id: string
+          queued_count: number
+        }[]
+      }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
