@@ -99,7 +99,14 @@ CREATE TABLE public.health_nutrition_targets (
   CHECK (protein_g_max IS NULL OR protein_g_min IS NULL OR protein_g_max >= protein_g_min),
   CHECK (carbohydrate_g_max IS NULL OR carbohydrate_g_min IS NULL OR carbohydrate_g_max >= carbohydrate_g_min),
   CHECK (fat_g_max IS NULL OR fat_g_min IS NULL OR fat_g_max >= fat_g_min),
-  CHECK (fiber_g_max IS NULL OR fiber_g_min IS NULL OR fiber_g_max >= fiber_g_min)
+  CHECK (fiber_g_max IS NULL OR fiber_g_min IS NULL OR fiber_g_max >= fiber_g_min),
+  CHECK (
+    energy_kcal_min IS NOT NULL OR energy_kcal_max IS NOT NULL
+    OR protein_g_min IS NOT NULL OR protein_g_max IS NOT NULL
+    OR carbohydrate_g_min IS NOT NULL OR carbohydrate_g_max IS NOT NULL
+    OR fat_g_min IS NOT NULL OR fat_g_max IS NOT NULL
+    OR fiber_g_min IS NOT NULL OR fiber_g_max IS NOT NULL
+  )
 );
 
 -- 2) VERSIONED RECIPES
@@ -163,7 +170,8 @@ CREATE TABLE public.health_recipe_ingredients (
   is_optional boolean NOT NULL DEFAULT false,
   notes text NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (recipe_version_id, sequence_order)
+  UNIQUE (recipe_version_id, sequence_order),
+  UNIQUE (id, recipe_version_id)
 );
 
 -- 3) FOOD LOG EXECUTION FACTS
@@ -197,7 +205,8 @@ CREATE TABLE public.health_food_log_days (
   UNIQUE (id, athlete_id),
   CHECK (
     (completeness_status='complete' AND completed_at IS NOT NULL AND completion_confirmed_by IS NOT NULL)
-    OR (completeness_status<>'complete')
+    OR
+    (completeness_status<>'complete' AND completed_at IS NULL AND completion_confirmed_by IS NULL)
   )
 );
 
