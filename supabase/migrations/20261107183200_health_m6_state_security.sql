@@ -19,8 +19,7 @@ ON public.health_nutrition_rolling_states
 FOR SELECT TO authenticated
 USING (public.health_can_read_athlete(athlete_id));
 
-REVOKE ALL ON FUNCTION public.health_m6_target_status(numeric,numeric,numeric) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.health_m6_target_status(numeric,numeric,numeric) TO authenticated;
+REVOKE ALL ON FUNCTION public.health_m6_target_status(numeric,numeric,numeric) FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.health_m6_refresh_daily_state(uuid,date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.health_m6_refresh_daily_state(uuid,date) TO authenticated;
