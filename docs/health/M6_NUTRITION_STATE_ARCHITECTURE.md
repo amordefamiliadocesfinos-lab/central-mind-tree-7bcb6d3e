@@ -117,3 +117,44 @@ M6 não declara automaticamente:
 - mudança de plano.
 
 Essas são decisões, portanto pertencem à M7.
+
+
+## Dependência de lifecycle M5
+
+A validação da M6 mostrou que a completude do diário precisa ser um fato explícito e auditável.
+
+Foi adicionado o patch:
+- `health_food_log_day_events`;
+- `health_m5_complete_food_log_day`;
+- `health_m5_reopen_food_log_day`;
+- bloqueio de criação direta de dia já `complete`;
+- bloqueio de alteração de refeições/itens enquanto o dia estiver concluído.
+
+Regra operacional:
+1. registrar/corrigir refeições com o dia aberto;
+2. concluir explicitamente;
+3. M6 pode classificar o estado;
+4. para corrigir depois, reabrir o dia;
+5. realizar a correção;
+6. concluir novamente;
+7. recalcular M6.
+
+## ADR-M6-SEC-01 — RPCs privilegiadas
+
+As RPCs de lifecycle e refresh de estado permanecem `SECURITY DEFINER` intencionalmente.
+
+Motivo:
+- tabelas derivadas M6 são SELECT-only para o frontend;
+- lifecycle não pode ser alterado por UPDATE direto;
+- o cálculo deve gravar estado derivado sem abrir privilégios de escrita ampla.
+
+Controles:
+- `SET search_path = public, pg_temp`;
+- autorização explícita por `health_can_read_athlete` ou `health_can_write_athlete`;
+- `REVOKE ALL` de PUBLIC/anon;
+- EXECUTE apenas para `authenticated` nas RPCs públicas necessárias;
+- helper `health_m6_target_status` permanece interno;
+- RLS protege todas as leituras;
+- cross-athlete testado e bloqueado no sandbox.
+
+Os warnings do Supabase para funções `SECURITY DEFINER` executáveis por authenticated são aceitos e documentados por este ADR.
