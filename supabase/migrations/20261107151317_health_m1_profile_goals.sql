@@ -14,8 +14,7 @@ CREATE TABLE public.health_athlete_profiles (
   ),
   profile_notes text NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (id, athlete_id)
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE public.health_goals (
@@ -100,7 +99,7 @@ CREATE TABLE public.health_declared_equipment (
   CONSTRAINT health_declared_equipment_location_athlete_fkey
     FOREIGN KEY (location_id, athlete_id)
     REFERENCES public.health_training_locations(id, athlete_id)
-    ON DELETE SET NULL
+    ON DELETE RESTRICT
 );
 
 CREATE TABLE public.health_athlete_preferences (
@@ -123,7 +122,7 @@ CREATE TABLE public.health_athlete_preferences (
   CONSTRAINT health_athlete_preferences_location_athlete_fkey
     FOREIGN KEY (default_location_id, athlete_id)
     REFERENCES public.health_training_locations(id, athlete_id)
-    ON DELETE SET NULL
+    ON DELETE RESTRICT
 );
 
 CREATE TABLE public.health_consents (
