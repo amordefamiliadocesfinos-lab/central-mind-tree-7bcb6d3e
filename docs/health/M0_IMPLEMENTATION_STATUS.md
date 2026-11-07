@@ -18,7 +18,7 @@
 - [x] Shell mobile-first
 - [x] Rotas internas iniciais
 - [x] Contratos base de domínio
-- [ ] Gate de autorização Health
+- [x] Gate de autorização Health
 - [ ] Item global Saúde no footer
 - [ ] Smoke/build/lint executados no branch
 
@@ -31,7 +31,7 @@ EXECUTADA PARCIALMENTE.
 - [x] RLS cross-user validada em transação
 - [x] Bucket privado Health criado e policies validadas
 - [x] Nenhum dado sintético persistiu
-- [ ] Onboarding/guard frontend
+- [x] Onboarding/guard frontend
 - [ ] Build/lint do branch
 
 
