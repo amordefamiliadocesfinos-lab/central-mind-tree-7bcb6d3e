@@ -123,6 +123,13 @@ BEGIN
   END IF;
 
   UPDATE public.health_nutrition_plans
+  SET status='paused',
+      updated_at=now()
+  WHERE athlete_id=v_athlete_id
+    AND id<>v_plan_id
+    AND status='active';
+
+  UPDATE public.health_nutrition_plans
   SET current_version_id=p_plan_version_id,
       status='active'
   WHERE id=v_plan_id
