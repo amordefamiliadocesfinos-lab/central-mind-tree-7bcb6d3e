@@ -73,12 +73,12 @@ CREATE TABLE public.health_nutrition_daily_states (
   CONSTRAINT health_nutrition_daily_states_day_athlete_fkey
     FOREIGN KEY (food_log_day_id, athlete_id)
     REFERENCES public.health_food_log_days(id, athlete_id)
-    ON DELETE SET NULL,
+    ON DELETE RESTRICT,
 
   CONSTRAINT health_nutrition_daily_states_plan_version_athlete_fkey
     FOREIGN KEY (plan_version_id, athlete_id)
     REFERENCES public.health_nutrition_plan_versions(id, athlete_id)
-    ON DELETE SET NULL,
+    ON DELETE RESTRICT,
 
   CONSTRAINT health_nutrition_daily_states_target_fkey
     FOREIGN KEY (target_id)
