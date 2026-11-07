@@ -72,16 +72,17 @@ BEGIN
 
   SELECT pv.id
   INTO v_plan_version_id
-  FROM public.health_nutrition_plans p
-  JOIN public.health_nutrition_plan_versions pv
-    ON pv.id=p.current_version_id
-   AND pv.athlete_id=p.athlete_id
-  WHERE p.athlete_id=p_athlete_id
-    AND p.status='active'
+  FROM public.health_nutrition_plan_versions pv
+  JOIN public.health_nutrition_plans p
+    ON p.id=pv.plan_id
+   AND p.athlete_id=pv.athlete_id
+  WHERE pv.athlete_id=p_athlete_id
     AND pv.status='published'
-    AND (pv.effective_from IS NULL OR pv.effective_from <= p_state_date)
+    AND COALESCE(pv.effective_from,pv.published_at::date) <= p_state_date
     AND (pv.effective_to IS NULL OR pv.effective_to >= p_state_date)
-  ORDER BY pv.published_at DESC
+  ORDER BY
+    COALESCE(pv.effective_from,pv.published_at::date) DESC,
+    pv.published_at DESC
   LIMIT 1;
 
   IF v_plan_version_id IS NOT NULL THEN
@@ -96,7 +97,7 @@ BEGIN
   IF v_day.id IS NULL THEN
     v_reasons := array_append(v_reasons,'NO_FOOD_LOG_DAY');
     IF v_plan_version_id IS NULL THEN
-      v_reasons := array_append(v_reasons,'NO_ACTIVE_NUTRITION_PLAN');
+      v_reasons := array_append(v_reasons,'NO_NUTRITION_PLAN_FOR_DATE');
     ELSIF v_target.id IS NULL THEN
       v_reasons := array_append(v_reasons,'NO_NUTRITION_TARGET');
     END IF;
@@ -175,7 +176,7 @@ BEGIN
     END IF;
 
     IF v_plan_version_id IS NULL THEN
-      v_reasons := array_append(v_reasons,'NO_ACTIVE_NUTRITION_PLAN');
+      v_reasons := array_append(v_reasons,'NO_NUTRITION_PLAN_FOR_DATE');
     ELSIF v_target.id IS NULL THEN
       v_reasons := array_append(v_reasons,'NO_NUTRITION_TARGET');
     END IF;
