@@ -1059,6 +1059,282 @@ export type Database = {
         }
         Relationships: []
       }
+      health_programs: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          current_version_id: string | null
+          goal_id: string | null
+          goal_phase_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_program_versions: {
+        Row: {
+          algorithm_version: string | null
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          id: string
+          parameter_set: Json | null
+          program_id: string
+          published_at: string | null
+          rationale: string | null
+          status: string
+          title: string
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          algorithm_version?: string | null
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          id?: string
+          parameter_set?: Json | null
+          program_id: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          algorithm_version?: string | null
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          id?: string
+          parameter_set?: Json | null
+          program_id?: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: []
+      }
+      health_program_muscle_priorities: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          emphasis: string
+          muscle_group_id: string
+          notes: string | null
+          priority_rank: number
+          program_version_id: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          emphasis?: string
+          muscle_group_id: string
+          notes?: string | null
+          priority_rank: number
+          program_version_id: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          emphasis?: string
+          muscle_group_id?: string
+          notes?: string | null
+          priority_rank?: number
+          program_version_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_session_templates: {
+        Row: {
+          athlete_id: string
+          code: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          program_version_id: string
+          sequence_order: number
+          session_kind: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          program_version_id: string
+          sequence_order: number
+          session_kind?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          program_version_id?: string
+          sequence_order?: number
+          session_kind?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_session_template_exercises: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          exercise_id: string
+          id: string
+          is_optional: boolean
+          planned_sets_max: number | null
+          planned_sets_min: number | null
+          prescription_notes: string | null
+          reps_max: number | null
+          reps_min: number | null
+          rest_seconds: number | null
+          rir_target: number | null
+          sequence_order: number
+          session_template_id: string
+          substitution_group: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          exercise_id: string
+          id?: string
+          is_optional?: boolean
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          prescription_notes?: string | null
+          reps_max?: number | null
+          reps_min?: number | null
+          rest_seconds?: number | null
+          rir_target?: number | null
+          sequence_order: number
+          session_template_id: string
+          substitution_group?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          is_optional?: boolean
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          prescription_notes?: string | null
+          reps_max?: number | null
+          reps_min?: number | null
+          rest_seconds?: number | null
+          rir_target?: number | null
+          sequence_order?: number
+          session_template_id?: string
+          substitution_group?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_cch_queue_entries: {
+        Row: {
+          athlete_id: string
+          blocked_reason: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          eligible_after: string | null
+          id: string
+          predecessor_entry_id: string | null
+          program_version_id: string
+          queue_position: number
+          reason_codes: string[]
+          session_template_id: string
+          source: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          blocked_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          eligible_after?: string | null
+          id?: string
+          predecessor_entry_id?: string | null
+          program_version_id: string
+          queue_position: number
+          reason_codes?: string[]
+          session_template_id: string
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          blocked_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          eligible_after?: string | null
+          id?: string
+          predecessor_entry_id?: string | null
+          program_version_id?: string
+          queue_position?: number
+          reason_codes?: string[]
+          session_template_id?: string
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       automation_logs: {
         Row: {
           action_result: Json | null
@@ -9832,6 +10108,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      health_m3_create_program_draft: {
+        Args: { p_athlete_id: string; p_name: string }
+        Returns: {
+          program_id: string
+          program_version_id: string
+        }[]
+      }
+      health_m3_publish_program_version: {
+        Args: { p_program_version_id: string }
+        Returns: {
+          program_id: string
+          queued_count: number
+        }[]
+      }
+
       acquire_shopee_cycle: {
         Args: { p_channel_account_id: string }
         Returns: Json
