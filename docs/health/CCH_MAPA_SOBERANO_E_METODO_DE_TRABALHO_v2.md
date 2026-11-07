@@ -277,6 +277,18 @@ Confirmar:
 
 Upload real de foto é uma homologação adicional opcional e deve usar imagem real do usuário, nunca fixture artificial.
 
+### Evidência parcial de homologação — 07/11/2026
+
+Comprovação já obtida sem alterar dados de Saúde:
+
+- sessão autenticada do PAINEL CENTRAL confirmada em `/saude/alimentacao`;
+- shell Health publicado expõe link navegável para `/saude/evolucao`;
+- conta autenticada confirmada no shell;
+- `main` contém `HealthBodyPage` com os blocos esperados da M8: **Evolução corporal**, **Registrar avaliação**, **Estado corporal**, **Protocolo de fotos**, **Linha do tempo visual** e **Histórico de avaliações**;
+- o hook `useHealthBodyM8` usa tabelas/RPCs M8 e bucket privado `health-private`, gera signed URLs e não exige criação de dado artificial para leitura.
+
+Esta evidência confirma **integração publicada + presença funcional no código**, mas **não substitui a prova visual da própria rota autenticada**. Enquanto `/saude/evolucao` não for observada em sessão autenticada, M8 permanece com homologação visual final pendente e M9 continua bloqueada.
+
 ---
 
 ## 8. PRÓXIMA FASE OFICIAL
