@@ -3499,6 +3499,86 @@ export type Database = {
         }
         Relationships: []
       }
+      health_cch_queue_entries: {
+        Row: {
+          athlete_id: string
+          blocked_reason: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          eligible_after: string | null
+          id: string
+          predecessor_entry_id: string | null
+          program_version_id: string
+          queue_position: number
+          reason_codes: string[]
+          session_template_id: string
+          source: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          blocked_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          eligible_after?: string | null
+          id?: string
+          predecessor_entry_id?: string | null
+          program_version_id: string
+          queue_position: number
+          reason_codes?: string[]
+          session_template_id: string
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          blocked_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          eligible_after?: string | null
+          id?: string
+          predecessor_entry_id?: string | null
+          program_version_id?: string
+          queue_position?: number
+          reason_codes?: string[]
+          session_template_id?: string
+          source?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_cch_queue_entries_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_queue_entries_predecessor_entry_id_fkey"
+            columns: ["predecessor_entry_id"]
+            isOneToOne: false
+            referencedRelation: "health_cch_queue_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_queue_template_athlete_fkey"
+            columns: ["session_template_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_session_templates"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_cch_queue_version_athlete_fkey"
+            columns: ["program_version_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_program_versions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
       health_consents: {
         Row: {
           actor_auth_user_id: string
@@ -4090,6 +4170,334 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "health_muscle_groups"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_program_muscle_priorities: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          emphasis: string
+          muscle_group_id: string
+          notes: string | null
+          priority_rank: number
+          program_version_id: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          emphasis?: string
+          muscle_group_id: string
+          notes?: string | null
+          priority_rank: number
+          program_version_id: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          emphasis?: string
+          muscle_group_id?: string
+          notes?: string | null
+          priority_rank?: number
+          program_version_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_program_muscle_priorities_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_program_muscle_priorities_muscle_group_id_fkey"
+            columns: ["muscle_group_id"]
+            isOneToOne: false
+            referencedRelation: "health_muscle_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_program_muscle_priorities_version_athlete_fkey"
+            columns: ["program_version_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_program_versions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_program_versions: {
+        Row: {
+          algorithm_version: string | null
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          id: string
+          parameter_set: Json | null
+          program_id: string
+          published_at: string | null
+          rationale: string | null
+          status: string
+          title: string
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          algorithm_version?: string | null
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          id?: string
+          parameter_set?: Json | null
+          program_id: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          algorithm_version?: string | null
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          id?: string
+          parameter_set?: Json | null
+          program_id?: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_program_versions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_program_versions_program_athlete_fkey"
+            columns: ["program_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_programs"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_programs: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          current_version_id: string | null
+          goal_id: string | null
+          goal_phase_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_programs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_programs_current_version_fkey"
+            columns: ["current_version_id", "id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_program_versions"
+            referencedColumns: ["id", "program_id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_programs_goal_athlete_fkey"
+            columns: ["goal_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_goals"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_programs_goal_phase_athlete_fkey"
+            columns: ["goal_phase_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_goal_phases"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_session_template_exercises: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          exercise_id: string
+          id: string
+          is_optional: boolean
+          planned_sets_max: number | null
+          planned_sets_min: number | null
+          prescription_notes: string | null
+          reps_max: number | null
+          reps_min: number | null
+          rest_seconds: number | null
+          rir_target: number | null
+          sequence_order: number
+          session_template_id: string
+          substitution_group: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          exercise_id: string
+          id?: string
+          is_optional?: boolean
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          prescription_notes?: string | null
+          reps_max?: number | null
+          reps_min?: number | null
+          rest_seconds?: number | null
+          rir_target?: number | null
+          sequence_order: number
+          session_template_id: string
+          substitution_group?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          is_optional?: boolean
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          prescription_notes?: string | null
+          reps_max?: number | null
+          reps_min?: number | null
+          rest_seconds?: number | null
+          rir_target?: number | null
+          sequence_order?: number
+          session_template_id?: string
+          substitution_group?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_session_template_exercises_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_session_template_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_session_template_exercises_template_athlete_fkey"
+            columns: ["session_template_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_session_templates"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_session_templates: {
+        Row: {
+          athlete_id: string
+          code: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          program_version_id: string
+          sequence_order: number
+          session_kind: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          program_version_id: string
+          sequence_order: number
+          session_kind?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          program_version_id?: string
+          sequence_order?: number
+          session_kind?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_session_templates_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_session_templates_version_athlete_fkey"
+            columns: ["program_version_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_program_versions"
+            referencedColumns: ["id", "athlete_id"]
           },
         ]
       }
