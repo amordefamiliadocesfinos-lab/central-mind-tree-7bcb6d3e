@@ -32,5 +32,11 @@
 - [x] npm ci
 - [x] ESLint M4
 - [x] Build
-- [ ] Visual mobile 320–430px
-- [ ] M4 Acceptance Report
+- [x] Visual mobile 320–430px
+- [x] M4 Acceptance Report
+
+
+## Resultado
+- [x] M4 HEALTH: PASS
+- [x] PR #478 em Draft
+- [ ] Merge (ação separada, dependente de M0/M1/M2/M3)
