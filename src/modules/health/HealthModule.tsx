@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { HealthShell } from "./ui/HealthShell";
 import { FoundationPage } from "./ui/FoundationPage";
 import { HealthAccessGuard } from "./ui/HealthAccessGuard";
+import { HealthProfilePage } from "./pages/HealthProfilePage";
 
 export default function HealthModule() {
   return (
@@ -45,15 +46,7 @@ export default function HealthModule() {
             />
           }
         />
-        <Route
-          path="perfil"
-          element={
-            <FoundationPage
-              title="Perfil"
-              description="Objetivos, preferências e identidade do atleta."
-            />
-          }
-        />
+        <Route path="perfil" element={<HealthProfilePage />} />
         <Route
           path="recuperacao"
           element={
