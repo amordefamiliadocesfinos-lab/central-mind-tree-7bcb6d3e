@@ -3,6 +3,7 @@ import { HealthShell } from "./ui/HealthShell";
 import { FoundationPage } from "./ui/FoundationPage";
 import { HealthAccessGuard } from "./ui/HealthAccessGuard";
 import { HealthProfilePage } from "./pages/HealthProfilePage";
+import { HealthLibraryPage } from "./pages/HealthLibraryPage";
 
 export default function HealthModule() {
   return (
@@ -56,15 +57,7 @@ export default function HealthModule() {
             />
           }
         />
-        <Route
-          path="biblioteca"
-          element={
-            <FoundationPage
-              title="Biblioteca"
-              description="Exercícios, referências e mídia autorizada."
-            />
-          }
-        />
+        <Route path="biblioteca" element={<HealthLibraryPage />} />
         <Route path="*" element={<Navigate to="/saude/hoje" replace />} />
       </Route>
       </Routes>
