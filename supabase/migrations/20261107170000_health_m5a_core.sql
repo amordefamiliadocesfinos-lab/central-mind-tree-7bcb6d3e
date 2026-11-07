@@ -386,6 +386,9 @@ ON public.health_meal_item_events(meal_item_id, occurred_at);
 CREATE INDEX health_nutrition_plan_versions_athlete_idx
 ON public.health_nutrition_plan_versions(athlete_id);
 
+CREATE INDEX health_nutrition_plan_versions_plan_athlete_idx
+ON public.health_nutrition_plan_versions(plan_id, athlete_id);
+
 CREATE INDEX health_nutrition_plans_goal_athlete_idx
 ON public.health_nutrition_plans(goal_id, athlete_id)
 WHERE goal_id IS NOT NULL;
