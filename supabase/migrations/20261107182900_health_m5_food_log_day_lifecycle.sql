@@ -61,7 +61,7 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_athlete_id uuid;
   v_status text;
@@ -115,7 +115,7 @@ BEGIN
 
   RETURN p_day_id;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.health_m5_reopen_food_log_day(
   p_day_id uuid,
@@ -125,7 +125,7 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_athlete_id uuid;
   v_status text;
@@ -179,7 +179,7 @@ BEGIN
 
   RETURN p_day_id;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.health_m5_complete_food_log_day(uuid,uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.health_m5_reopen_food_log_day(uuid,uuid) FROM PUBLIC, anon;
