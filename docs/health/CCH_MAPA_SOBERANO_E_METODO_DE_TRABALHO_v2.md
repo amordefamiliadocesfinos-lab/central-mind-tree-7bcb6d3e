@@ -3,8 +3,8 @@
 **Documento:** Governança Mestre CCH / Saúde  
 **Versão:** v2.0  
 **Data:** 07/11/2026  
-**Status:** VIGENTE  
-**Substitui:** v1.0  
+**Status:** TORNA-SE VIGENTE SOMENTE APÓS MERGE AUTORIZADO DESTA ALTERAÇÃO EM `main`  
+**Substitui:** v1.0 após esse merge  
 **Objetivo:** manter o CCH como módulo do PAINEL CENTRAL canônico, com Git/GitHub first, banco canônico único, testes oficiais, gates explícitos e nenhuma autoria via Lovable Builder.
 
 ---
@@ -82,7 +82,9 @@ Toda evolução Health/CCH:
 - reaplicar migration já aplicada;
 - force push/reset destrutivo;
 - reescrever migration aplicada;
-- duplicar domínio ou fonte de verdade.
+- duplicar domínio ou fonte de verdade;
+- avançar com `main` divergente da SHA base sem reconciliação;
+- remover ou desativar infraestrutura Lovable necessária ao projeto sem evidência técnica de incompatibilidade.
 
 ### Permitido na Lovable
 
@@ -263,6 +265,8 @@ A sequência soberana vigente é:
 
 **M9 não começa enquanto a prova visual final da M8 estiver pendente.**
 
+As etapas Dashboard Integrado, Motor Integrado CCH, Jornada real completa e Evolução contínua preservam a sequência aprovada no v1, mas permanecem **frentes reservadas, não escopo executável**. Antes de iniciar cada uma, deverá existir arquitetura/contrato versionado da fase e os gates aplicáveis; este mapa não antecipa nova autoridade nem decisão funcional.
+
 ---
 
 ## 9. ESCOPO PREVISTO M9
@@ -340,6 +344,7 @@ Somente após fechar M8 visual:
 
 - `unknown != zero`;
 - planejamento != execução;
+- planejado != implementado != testado != implantado != homologado em uso real;
 - fato != observação != inferência != decisão != ação;
 - histórico não é reescrito silenciosamente;
 - correção por supersession quando necessário;
@@ -360,6 +365,7 @@ Somente após fechar M8 visual:
 [ ] Projeto canônico confirmado
 [ ] Repo/main confirmados
 [ ] SHA base registrado
+[ ] main sem divergência paralela não reconciliada desde a SHA base
 [ ] TESTES MT confirmado
 [ ] Produção confirmada
 [ ] Branch criada do main
@@ -403,7 +409,7 @@ Não usar memória solta como mecanismo de transferência.
 
 ## 14. DIRETRIZ FINAL
 
-**Este Mapa v2 é o guardrail operacional vigente do CCH.**
+**Este Mapa v2 torna-se o guardrail operacional vigente do CCH quando incorporado à `main` por merge autorizado.**
 
 Próxima ação permitida:
 
