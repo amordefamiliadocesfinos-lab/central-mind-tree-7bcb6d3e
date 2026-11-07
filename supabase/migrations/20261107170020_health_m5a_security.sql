@@ -52,7 +52,7 @@ WITH CHECK (
   AND status='draft'
   AND current_version_id IS NULL
   AND source IN ('manual','template')
-  AND created_by_auth_user_id=auth.uid()
+  AND created_by_auth_user_id=(select auth.uid())
 );
 
 CREATE POLICY health_nutrition_plans_update
@@ -70,7 +70,7 @@ WITH CHECK (
   public.health_can_write_athlete(athlete_id)
   AND status='draft'
   AND published_at IS NULL
-  AND created_by_auth_user_id=auth.uid()
+  AND created_by_auth_user_id=(select auth.uid())
 );
 
 CREATE POLICY health_nutrition_plan_versions_update_draft
@@ -132,7 +132,7 @@ WITH CHECK (
   AND status='draft'
   AND current_version_id IS NULL
   AND public.health_can_write_athlete(athlete_id)
-  AND created_by_auth_user_id=auth.uid()
+  AND created_by_auth_user_id=(select auth.uid())
 );
 
 CREATE POLICY health_recipes_update_personal
@@ -161,7 +161,7 @@ WITH CHECK (
   AND public.health_can_write_athlete(athlete_id)
   AND status='draft'
   AND published_at IS NULL
-  AND created_by_auth_user_id=auth.uid()
+  AND created_by_auth_user_id=(select auth.uid())
 );
 
 CREATE POLICY health_recipe_versions_update_personal_draft
