@@ -212,7 +212,46 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.health_m5_validate_nutrition_plan_goal_phase()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+DECLARE
+  v_phase_goal_id uuid;
+  v_phase_athlete_id uuid;
+BEGIN
+  IF NEW.goal_phase_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT gp.goal_id, gp.athlete_id
+  INTO v_phase_goal_id, v_phase_athlete_id
+  FROM public.health_goal_phases gp
+  WHERE gp.id=NEW.goal_phase_id;
+
+  IF v_phase_goal_id IS NULL THEN
+    RAISE EXCEPTION 'goal phase not found';
+  END IF;
+
+  IF v_phase_athlete_id IS DISTINCT FROM NEW.athlete_id THEN
+    RAISE EXCEPTION 'goal phase must belong to nutrition plan athlete';
+  END IF;
+
+  IF NEW.goal_id IS NULL OR NEW.goal_id IS DISTINCT FROM v_phase_goal_id THEN
+    RAISE EXCEPTION 'goal_phase_id must belong to the same goal_id';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
 -- 6) TRIGGERS
+
+CREATE TRIGGER health_nutrition_plans_validate_goal_phase
+BEFORE INSERT OR UPDATE OF goal_id, goal_phase_id, athlete_id ON public.health_nutrition_plans
+FOR EACH ROW EXECUTE FUNCTION public.health_m5_validate_nutrition_plan_goal_phase();
 
 CREATE TRIGGER health_nutrition_plans_updated_at
 BEFORE UPDATE ON public.health_nutrition_plans
