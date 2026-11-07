@@ -228,11 +228,11 @@ BEGIN
     v_target.carbohydrate_g_min,v_target.carbohydrate_g_max,
     v_target.fat_g_min,v_target.fat_g_max,
     v_target.fiber_g_min,v_target.fiber_g_max,
-    public.health_m6_target_status(v_energy,v_target.energy_kcal_min,v_target.energy_kcal_max),
-    public.health_m6_target_status(v_protein,v_target.protein_g_min,v_target.protein_g_max),
-    public.health_m6_target_status(v_carbs,v_target.carbohydrate_g_min,v_target.carbohydrate_g_max),
-    public.health_m6_target_status(v_fat,v_target.fat_g_min,v_target.fat_g_max),
-    public.health_m6_target_status(v_fiber,v_target.fiber_g_min,v_target.fiber_g_max),
+    public.health_m6_target_status(CASE WHEN v_state_status='sufficient' THEN v_energy ELSE NULL END,v_target.energy_kcal_min,v_target.energy_kcal_max),
+    public.health_m6_target_status(CASE WHEN v_state_status='sufficient' THEN v_protein ELSE NULL END,v_target.protein_g_min,v_target.protein_g_max),
+    public.health_m6_target_status(CASE WHEN v_state_status='sufficient' THEN v_carbs ELSE NULL END,v_target.carbohydrate_g_min,v_target.carbohydrate_g_max),
+    public.health_m6_target_status(CASE WHEN v_state_status='sufficient' THEN v_fat ELSE NULL END,v_target.fat_g_min,v_target.fat_g_max),
+    public.health_m6_target_status(CASE WHEN v_state_status='sufficient' THEN v_fiber ELSE NULL END,v_target.fiber_g_min,v_target.fiber_g_max),
     COALESCE(v_day.completeness_status,'unknown'),
     v_day.registration_level,
     v_state_status,v_confidence,v_confidence_score,
@@ -338,10 +338,10 @@ BEGIN
     count(*) FILTER (WHERE state_status = 'sufficient'),
     count(*) FILTER (WHERE state_status = 'partial'),
     count(*) FILTER (WHERE state_status = 'unobserved'),
-    count(*) FILTER (WHERE energy_target_status IN ('below','in_range','above')),
-    count(*) FILTER (WHERE energy_target_status='in_range'),
-    count(*) FILTER (WHERE protein_target_status IN ('below','in_range','above')),
-    count(*) FILTER (WHERE protein_target_status='in_range')
+    count(*) FILTER (WHERE state_status='sufficient' AND energy_target_status IN ('below','in_range','above')),
+    count(*) FILTER (WHERE state_status='sufficient' AND energy_target_status='in_range'),
+    count(*) FILTER (WHERE state_status='sufficient' AND protein_target_status IN ('below','in_range','above')),
+    count(*) FILTER (WHERE state_status='sufficient' AND protein_target_status='in_range')
   INTO
     v_observed,v_sufficient,v_partial,v_unobserved,
     v_energy_comp,v_energy_in,v_protein_comp,v_protein_in
