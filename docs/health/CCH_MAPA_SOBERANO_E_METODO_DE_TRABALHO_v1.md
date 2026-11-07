@@ -1,3 +1,5 @@
+> **SUPERSEDIDO em 07/11/2026.** A fonte soberana vigente é `docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v2.md`. Este arquivo permanece apenas como registro histórico.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
