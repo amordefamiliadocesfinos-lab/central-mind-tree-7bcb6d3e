@@ -58,7 +58,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_old_status text;
   v_new_status text;
@@ -85,14 +85,14 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.health_m5_guard_completed_day_item_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_old_status text;
   v_new_status text;
@@ -127,7 +127,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 CREATE TRIGGER health_meal_logs_guard_completed_day
 BEFORE INSERT OR UPDATE ON public.health_meal_logs
