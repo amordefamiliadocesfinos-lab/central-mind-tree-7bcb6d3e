@@ -3321,6 +3321,92 @@ export type Database = {
           },
         ]
       }
+      health_athlete_access: {
+        Row: {
+          access_role: string
+          athlete_id: string
+          can_manage_access: boolean
+          can_read: boolean
+          can_write: boolean
+          created_at: string
+          granted_at: string
+          granted_by_auth_user_id: string
+          id: string
+          principal_auth_user_id: string
+          revoked_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_role: string
+          athlete_id: string
+          can_manage_access?: boolean
+          can_read?: boolean
+          can_write?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by_auth_user_id?: string
+          id?: string
+          principal_auth_user_id: string
+          revoked_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_role?: string
+          athlete_id?: string
+          can_manage_access?: boolean
+          can_read?: boolean
+          can_write?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by_auth_user_id?: string
+          id?: string
+          principal_auth_user_id?: string
+          revoked_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_athlete_access_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_athletes: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          created_by_auth_user_id: string
+          display_name: string
+          id: string
+          owner_auth_user_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string
+          display_name: string
+          id?: string
+          owner_auth_user_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string
+          display_name?: string
+          id?: string
+          owner_auth_user_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inbox_entries: {
         Row: {
           attachments: Json
@@ -9421,6 +9507,18 @@ export type Database = {
           p_reference_type: string
         }
         Returns: undefined
+      }
+      health_can_manage_athlete_access: {
+        Args: { p_athlete_id: string }
+        Returns: boolean
+      }
+      health_can_read_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: boolean
+      }
+      health_can_write_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: boolean
       }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
