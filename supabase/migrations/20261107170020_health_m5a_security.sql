@@ -34,8 +34,8 @@ GRANT SELECT, INSERT ON public.health_recipe_versions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.health_recipe_ingredients TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_food_log_days TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_meal_logs TO authenticated;
-GRANT SELECT, INSERT ON public.health_meal_items TO authenticated;
-GRANT SELECT, INSERT ON public.health_meal_item_events TO authenticated;
+GRANT SELECT ON public.health_meal_items TO authenticated;
+GRANT SELECT ON public.health_meal_item_events TO authenticated;
 
 CREATE POLICY health_nutrition_plans_select
 ON public.health_nutrition_plans FOR SELECT TO authenticated
@@ -213,17 +213,9 @@ CREATE POLICY health_meal_items_select
 ON public.health_meal_items FOR SELECT TO authenticated
 USING (public.health_can_read_athlete(athlete_id));
 
-CREATE POLICY health_meal_items_insert
-ON public.health_meal_items FOR INSERT TO authenticated
-WITH CHECK (public.health_can_write_athlete(athlete_id));
-
 CREATE POLICY health_meal_item_events_select
 ON public.health_meal_item_events FOR SELECT TO authenticated
 USING (public.health_can_read_athlete(athlete_id));
-
-CREATE POLICY health_meal_item_events_insert
-ON public.health_meal_item_events FOR INSERT TO authenticated
-WITH CHECK (public.health_can_write_athlete(athlete_id));
 
 REVOKE ALL ON FUNCTION public.health_m5_validate_current_nutrition_plan_version() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.health_m5_validate_recipe_version_scope() FROM PUBLIC, anon, authenticated;
