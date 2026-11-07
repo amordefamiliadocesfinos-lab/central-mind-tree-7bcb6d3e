@@ -86,6 +86,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_guard_published_plan_version()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   IF TG_OP='UPDATE' AND OLD.status='published' THEN
@@ -98,6 +99,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_guard_published_targets()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_plan_version_id uuid;
@@ -122,6 +124,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_guard_published_recipe_version()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   IF TG_OP='UPDATE' AND OLD.status='published' THEN
@@ -134,6 +137,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_validate_recipe_ingredient_scope()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_scope text;
@@ -164,6 +168,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_guard_published_recipe_ingredients()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_version_id uuid;
@@ -184,6 +189,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_m5_validate_meal_item_recipe_scope()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_scope text;
