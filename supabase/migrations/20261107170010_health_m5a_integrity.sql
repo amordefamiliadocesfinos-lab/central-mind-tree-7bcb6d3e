@@ -217,7 +217,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
-AS $
+AS $$
 DECLARE
   v_phase_goal_id uuid;
   v_phase_athlete_id uuid;
@@ -245,7 +245,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 -- 6) TRIGGERS
 
