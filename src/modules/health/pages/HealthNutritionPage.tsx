@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Apple, BookOpen, Loader2, Plus, Target, Trash2 } from "lucide-react";
+import { Activity, Apple, BookOpen, Loader2, Plus, RefreshCw, Target, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthNutritionM5 } from "../hooks/useHealthNutritionM5";
+import { useHealthNutritionStateM6 } from "../hooks/useHealthNutritionStateM6";
 
 function num(value: string) {
   const parsed = Number(value);
@@ -19,6 +20,7 @@ export function HealthNutritionPage() {
   const { toast } = useToast();
   const { athlete, loading: athleteLoading } = useHealthAthlete();
   const nutrition = useHealthNutritionM5(athlete?.id);
+  const nutritionState = useHealthNutritionStateM6(athlete?.id);
 
   const [planName, setPlanName] = useState("Plano nutricional");
   const [strategy, setStrategy] = useState("maintenance");
@@ -147,6 +149,120 @@ export function HealthNutritionPage() {
               ) : null}
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="h-4 w-4 text-primary" /> Estado nutricional
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-10"
+              disabled={nutritionState.refreshing}
+              onClick={() => void nutritionState.refresh()}
+            >
+              {nutritionState.refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {nutritionState.error ? (
+            <p className="text-sm text-destructive">{nutritionState.error}</p>
+          ) : null}
+
+          {!nutritionState.daily ? (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              O estado M6 ainda não foi calculado para hoje. Atualize depois de registrar ou corrigir a alimentação.
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">Dia: {nutritionState.daily.state_status}</Badge>
+                <Badge variant="outline">Confiança: {nutritionState.daily.confidence}</Badge>
+                <Badge variant="outline">Registro: {nutritionState.daily.completeness_status}</Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Energia observada</p>
+                  <p className="font-semibold">
+                    {nutritionState.daily.energy_kcal_consumed == null ? "Desconhecida" : `${Math.round(Number(nutritionState.daily.energy_kcal_consumed))} kcal`}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Proteína observada</p>
+                  <p className="font-semibold">
+                    {nutritionState.daily.protein_g_consumed == null ? "Desconhecida" : `${Number(nutritionState.daily.protein_g_consumed).toFixed(1)} g`}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Energia × meta</p>
+                  <p className="font-semibold">{nutritionState.daily.energy_target_status}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Proteína × meta</p>
+                  <p className="font-semibold">{nutritionState.daily.protein_target_status}</p>
+                </div>
+              </div>
+
+              {nutritionState.daily.reason_codes.length ? (
+                <div className="rounded-lg bg-muted/30 p-3">
+                  <p className="text-xs font-medium">Por que o estado está assim</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{nutritionState.daily.reason_codes.join(" · ")}</p>
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {nutritionState.rolling7 ? (
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Janela de 7 dias</p>
+                  <p className="text-xs text-muted-foreground">
+                    {nutritionState.rolling7.observed_day_count}/7 dias observados · {nutritionState.rolling7.sufficient_day_count} suficientes
+                  </p>
+                </div>
+                <Badge variant="outline">{nutritionState.rolling7.coverage_status}</Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Cobertura observada</p>
+                  <p className="font-semibold">{Math.round(Number(nutritionState.rolling7.observation_coverage_ratio) * 100)}%</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Cobertura suficiente</p>
+                  <p className="font-semibold">{Math.round(Number(nutritionState.rolling7.sufficient_coverage_ratio) * 100)}%</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Energia na meta</p>
+                  <p className="font-semibold">
+                    {nutritionState.rolling7.energy_target_adherence_ratio == null
+                      ? "Sem base comparável"
+                      : `${Math.round(Number(nutritionState.rolling7.energy_target_adherence_ratio) * 100)}%`}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Proteína na meta</p>
+                  <p className="font-semibold">
+                    {nutritionState.rolling7.protein_target_adherence_ratio == null
+                      ? "Sem base comparável"
+                      : `${Math.round(Number(nutritionState.rolling7.protein_target_adherence_ratio) * 100)}%`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <p className="text-xs text-muted-foreground">
+            M6 descreve o estado dos dados. Ajustes e recomendações pertencem à M7.
+          </p>
         </CardContent>
       </Card>
 
