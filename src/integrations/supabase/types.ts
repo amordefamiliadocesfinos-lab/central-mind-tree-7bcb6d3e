@@ -1335,6 +1335,225 @@ export type Database = {
         }
         Relationships: []
       }
+      health_workout_sessions: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          ended_at: string | null
+          id: string
+          notes: string | null
+          program_version_id: string | null
+          queue_entry_id: string | null
+          session_template_id: string | null
+          source: string
+          start_client_event_id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          program_version_id?: string | null
+          queue_entry_id?: string | null
+          session_template_id?: string | null
+          source?: string
+          start_client_event_id: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          program_version_id?: string | null
+          queue_entry_id?: string | null
+          session_template_id?: string | null
+          source?: string
+          start_client_event_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_workout_exercises: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          origin: string
+          planned_reps_max: number | null
+          planned_reps_min: number | null
+          planned_rest_seconds: number | null
+          planned_rir_target: number | null
+          planned_sets_max: number | null
+          planned_sets_min: number | null
+          replaced_from_exercise_id: string | null
+          sequence_order: number
+          session_id: string
+          status: string
+          template_exercise_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          origin?: string
+          planned_reps_max?: number | null
+          planned_reps_min?: number | null
+          planned_rest_seconds?: number | null
+          planned_rir_target?: number | null
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          replaced_from_exercise_id?: string | null
+          sequence_order: number
+          session_id: string
+          status?: string
+          template_exercise_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          origin?: string
+          planned_reps_max?: number | null
+          planned_reps_min?: number | null
+          planned_rest_seconds?: number | null
+          planned_rir_target?: number | null
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          replaced_from_exercise_id?: string | null
+          sequence_order?: number
+          session_id?: string
+          status?: string
+          template_exercise_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_workout_sets: {
+        Row: {
+          athlete_id: string
+          client_event_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          load_unit: string
+          load_value: number | null
+          notes: string | null
+          reps: number | null
+          rest_seconds: number | null
+          rir: number | null
+          session_id: string
+          set_number: number
+          set_type: string
+          status: string
+          updated_at: string
+          workout_exercise_id: string
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          load_unit?: string
+          load_value?: number | null
+          notes?: string | null
+          reps?: number | null
+          rest_seconds?: number | null
+          rir?: number | null
+          session_id: string
+          set_number: number
+          set_type?: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id: string
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          load_unit?: string
+          load_value?: number | null
+          notes?: string | null
+          reps?: number | null
+          rest_seconds?: number | null
+          rir?: number | null
+          session_id?: string
+          set_number?: number
+          set_type?: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id?: string
+        }
+        Relationships: []
+      }
+      health_workout_events: {
+        Row: {
+          athlete_id: string
+          client_event_id: string
+          created_by_auth_user_id: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+          payload: Json | null
+          recorded_at: string
+          session_id: string
+          source: string
+          workout_exercise_id: string | null
+          workout_set_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id: string
+          created_by_auth_user_id?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+          session_id: string
+          source?: string
+          workout_exercise_id?: string | null
+          workout_set_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string
+          created_by_auth_user_id?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+          session_id?: string
+          source?: string
+          workout_exercise_id?: string | null
+          workout_set_id?: string | null
+        }
+        Relationships: []
+      }
       automation_logs: {
         Row: {
           action_result: Json | null
@@ -10108,6 +10327,58 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      health_m4_start_workout: {
+        Args: { p_queue_entry_id: string; p_client_event_id: string }
+        Returns: string
+      }
+      health_m4_log_set: {
+        Args: {
+          p_session_id: string
+          p_workout_exercise_id: string
+          p_client_event_id: string
+          p_set_number: number
+          p_set_type: string
+          p_load_value: number | null
+          p_load_unit: string
+          p_reps: number | null
+          p_rir: number | null
+          p_rest_seconds?: number | null
+        }
+        Returns: string
+      }
+      health_m4_update_set: {
+        Args: {
+          p_set_id: string
+          p_client_event_id: string
+          p_load_value: number | null
+          p_load_unit: string
+          p_reps: number | null
+          p_rir: number | null
+          p_rest_seconds?: number | null
+        }
+        Returns: string
+      }
+      health_m4_add_exercise: {
+        Args: { p_session_id: string; p_exercise_id: string; p_client_event_id: string }
+        Returns: string
+      }
+      health_m4_skip_exercise: {
+        Args: { p_workout_exercise_id: string; p_client_event_id: string }
+        Returns: string
+      }
+      health_m4_replace_exercise: {
+        Args: {
+          p_workout_exercise_id: string
+          p_replacement_exercise_id: string
+          p_client_event_id: string
+        }
+        Returns: string
+      }
+      health_m4_complete_workout: {
+        Args: { p_session_id: string; p_client_event_id: string }
+        Returns: string
+      }
+
       health_m3_create_program_draft: {
         Args: { p_athlete_id: string; p_name: string }
         Returns: {
