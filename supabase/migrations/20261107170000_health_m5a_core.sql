@@ -147,6 +147,10 @@ CREATE TABLE public.health_recipe_versions (
   CHECK (
     (status='draft' AND published_at IS NULL)
     OR (status='published' AND published_at IS NOT NULL)
+  ),
+  CHECK (
+    (yield_amount IS NULL AND yield_unit IS NULL)
+    OR (yield_amount IS NOT NULL AND yield_unit IS NOT NULL)
   )
 );
 
