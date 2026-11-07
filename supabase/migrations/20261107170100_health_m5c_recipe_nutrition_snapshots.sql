@@ -193,6 +193,7 @@ FOR EACH ROW EXECUTE FUNCTION public.health_m5_validate_recipe_snapshot_scope();
 CREATE OR REPLACE FUNCTION public.health_m5_guard_recipe_snapshot_immutable()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   RAISE EXCEPTION 'recipe nutrition snapshots are immutable';
