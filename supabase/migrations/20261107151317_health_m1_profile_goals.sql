@@ -14,7 +14,8 @@ CREATE TABLE public.health_athlete_profiles (
   ),
   profile_notes text NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (id, athlete_id)
 );
 
 CREATE TABLE public.health_goals (
@@ -38,13 +39,14 @@ CREATE TABLE public.health_goals (
   created_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (target_date IS NULL OR started_on IS NULL OR target_date >= started_on)
+  CHECK (target_date IS NULL OR started_on IS NULL OR target_date >= started_on),
+  UNIQUE (id, athlete_id)
 );
 
 CREATE TABLE public.health_goal_phases (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   athlete_id uuid NOT NULL REFERENCES public.health_athletes(id) ON DELETE CASCADE,
-  goal_id uuid NOT NULL REFERENCES public.health_goals(id) ON DELETE CASCADE,
+  goal_id uuid NOT NULL,
   phase_type text NOT NULL CHECK (
     phase_type IN ('build','cut','recomp','maintenance','performance','reentry','custom')
   ),
@@ -58,7 +60,11 @@ CREATE TABLE public.health_goal_phases (
   created_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (ends_on IS NULL OR starts_on IS NULL OR ends_on >= starts_on)
+  CHECK (ends_on IS NULL OR starts_on IS NULL OR ends_on >= starts_on),
+  CONSTRAINT health_goal_phases_goal_athlete_fkey
+    FOREIGN KEY (goal_id, athlete_id)
+    REFERENCES public.health_goals(id, athlete_id)
+    ON DELETE CASCADE
 );
 
 CREATE TABLE public.health_training_locations (
@@ -73,13 +79,14 @@ CREATE TABLE public.health_training_locations (
   notes text NULL,
   created_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (id, athlete_id)
 );
 
 CREATE TABLE public.health_declared_equipment (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   athlete_id uuid NOT NULL REFERENCES public.health_athletes(id) ON DELETE CASCADE,
-  location_id uuid NULL REFERENCES public.health_training_locations(id) ON DELETE SET NULL,
+  location_id uuid NULL,
   display_name text NOT NULL CHECK (btrim(display_name) <> ''),
   category text NULL,
   availability text NOT NULL DEFAULT 'available' CHECK (
@@ -89,7 +96,11 @@ CREATE TABLE public.health_declared_equipment (
   catalog_equipment_id uuid NULL,
   created_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT DEFAULT auth.uid(),
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT health_declared_equipment_location_athlete_fkey
+    FOREIGN KEY (location_id, athlete_id)
+    REFERENCES public.health_training_locations(id, athlete_id)
+    ON DELETE SET NULL
 );
 
 CREATE TABLE public.health_athlete_preferences (
@@ -101,14 +112,18 @@ CREATE TABLE public.health_athlete_preferences (
     preferred_sessions_per_week IS NULL OR preferred_sessions_per_week BETWEEN 1 AND 14
   ),
   unit_system text NOT NULL DEFAULT 'metric' CHECK (unit_system IN ('metric','imperial')),
-  default_location_id uuid NULL REFERENCES public.health_training_locations(id) ON DELETE SET NULL,
+  default_location_id uuid NULL,
   training_time_preference text NULL CHECK (
     training_time_preference IS NULL
     OR training_time_preference IN ('morning','afternoon','evening','variable')
   ),
   notes text NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT health_athlete_preferences_location_athlete_fkey
+    FOREIGN KEY (default_location_id, athlete_id)
+    REFERENCES public.health_training_locations(id, athlete_id)
+    ON DELETE SET NULL
 );
 
 CREATE TABLE public.health_consents (
