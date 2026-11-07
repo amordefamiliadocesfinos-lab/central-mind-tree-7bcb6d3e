@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, Apple, BookOpen, Loader2, Plus, RefreshCw, Target, Trash2 } from "lucide-react";
+import { Activity, Apple, BookOpen, BrainCircuit, Loader2, Plus, RefreshCw, Target, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,43 @@ import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthNutritionM5 } from "../hooks/useHealthNutritionM5";
 import { useHealthNutritionStateM6 } from "../hooks/useHealthNutritionStateM6";
+import { useHealthNutritionDecisionM7 } from "../hooks/useHealthNutritionDecisionM7";
 
 function num(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function decisionLabel(code: string) {
+  switch (code) {
+    case "review_data_quality":
+      return "Dados insuficientes para uma decisão confiável";
+    case "review_energy_execution":
+      return "Revisar a execução da meta de energia";
+    case "review_protein_execution":
+      return "Revisar a execução da meta de proteína";
+    case "review_energy_and_protein_execution":
+      return "Revisar a execução de energia e proteína";
+    case "maintain_plan":
+      return "Manter o plano nutricional atual";
+    default:
+      return "Decisão aguardando avaliação";
+  }
+}
+
+function reasonLabel(code: string) {
+  const labels: Record<string, string> = {
+    NO_NUTRITION_PLAN_FOR_DATE: "Não há plano nutricional aplicável à data.",
+    INSUFFICIENT_SUFFICIENT_DAYS: "Ainda faltam dias completos e suficientes.",
+    INSUFFICIENT_ENERGY_COMPARABLE_DAYS: "Ainda faltam dias comparáveis para energia.",
+    INSUFFICIENT_PROTEIN_COMPARABLE_DAYS: "Ainda faltam dias comparáveis para proteína.",
+    ROLLING_COVERAGE_TOO_LOW: "A cobertura da janela ainda é baixa.",
+    ENERGY_ADHERENCE_BELOW_THRESHOLD: "A execução da meta de energia ficou abaixo do limiar.",
+    PROTEIN_ADHERENCE_BELOW_THRESHOLD: "A execução da meta de proteína ficou abaixo do limiar.",
+    ENERGY_AND_PROTEIN_ADHERENCE_ACCEPTABLE: "Energia e proteína atingiram aderência suficiente.",
+    BODY_RESPONSE_REQUIRED_FOR_PLAN_ADJUSTMENT: "Ajustar o plano exige resposta corporal do módulo Físico/Body.",
+  };
+  return labels[code] ?? code;
 }
 
 export function HealthNutritionPage() {
@@ -21,6 +54,7 @@ export function HealthNutritionPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
   const nutrition = useHealthNutritionM5(athlete?.id);
   const nutritionState = useHealthNutritionStateM6(athlete?.id);
+  const nutritionDecision = useHealthNutritionDecisionM7(athlete?.id);
 
   const [planName, setPlanName] = useState("Plano nutricional");
   const [strategy, setStrategy] = useState("maintenance");
@@ -265,6 +299,105 @@ export function HealthNutritionPage() {
 
           <p className="text-xs text-muted-foreground">
             M6 descreve o estado dos dados. Ajustes e recomendações pertencem à M7.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BrainCircuit className="h-4 w-4 text-primary" /> Decisão nutricional
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-10"
+              disabled={nutritionDecision.evaluating}
+              onClick={() => void nutritionDecision.evaluate()}
+            >
+              {nutritionDecision.evaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
+              Avaliar decisão
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {nutritionDecision.error ? (
+            <p className="text-sm text-destructive">{nutritionDecision.error}</p>
+          ) : null}
+
+          {!nutritionDecision.decision ? (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              Nenhuma decisão M7 foi registrada para hoje. A avaliação é explícita e nunca altera o plano automaticamente.
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">Status: {nutritionDecision.decision.decision_status}</Badge>
+                <Badge variant="outline">Confiança: {nutritionDecision.decision.confidence}</Badge>
+                <Badge variant="outline">Classe: {nutritionDecision.decision.decision_class}</Badge>
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <p className="text-xs text-muted-foreground">Decisão atual</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {decisionLabel(nutritionDecision.decision.decision_code)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Dias suficientes</p>
+                  <p className="font-semibold">{nutritionDecision.decision.sufficient_day_count}/7</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Cobertura</p>
+                  <p className="font-semibold">{nutritionDecision.decision.rolling_coverage_status}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Aderência energia</p>
+                  <p className="font-semibold">
+                    {nutritionDecision.decision.energy_target_adherence_ratio == null
+                      ? "Sem base comparável"
+                      : `${Math.round(Number(nutritionDecision.decision.energy_target_adherence_ratio) * 100)}%`}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Aderência proteína</p>
+                  <p className="font-semibold">
+                    {nutritionDecision.decision.protein_target_adherence_ratio == null
+                      ? "Sem base comparável"
+                      : `${Math.round(Number(nutritionDecision.decision.protein_target_adherence_ratio) * 100)}%`}
+                  </p>
+                </div>
+              </div>
+
+              {nutritionDecision.decision.reason_codes.length ? (
+                <div className="rounded-lg bg-muted/30 p-3">
+                  <p className="text-xs font-medium">Por que a M7 decidiu assim</p>
+                  <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {nutritionDecision.decision.reason_codes.map((code) => (
+                      <li key={code}>• {reasonLabel(code)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="rounded-lg border border-dashed p-3">
+                <p className="text-xs font-medium">
+                  Ajuste do plano: {nutritionDecision.decision.plan_adjustment_status}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {nutritionDecision.decision.plan_adjustment_reason_codes
+                    .map((code) => reasonLabel(code))
+                    .join(" ")}
+                </p>
+              </div>
+            </>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            M7 decide e registra evidências. Ela não publica nem altera metas automaticamente.
           </p>
         </CardContent>
       </Card>
