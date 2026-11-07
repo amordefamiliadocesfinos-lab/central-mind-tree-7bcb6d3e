@@ -310,6 +310,22 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     }));
   }, [run]);
 
+  const completeToday = useCallback(async () => {
+    const dayId = await ensureToday();
+    await run(() => db.rpc("health_m5_complete_food_log_day", {
+      p_day_id: dayId,
+      p_client_event_id: clientEventId(),
+    }));
+  }, [ensureToday, run]);
+
+  const reopenToday = useCallback(async () => {
+    if (!state.day) throw new Error("Diário de hoje não disponível.");
+    await run(() => db.rpc("health_m5_reopen_food_log_day", {
+      p_day_id: state.day!.id,
+      p_client_event_id: clientEventId(),
+    }));
+  }, [run, state.day]);
+
   const activeItems = useMemo(() => state.items.filter((item) => item.status === "active"), [state.items]);
 
   const totals = useMemo(() => activeItems.reduce((acc, item) => ({
@@ -337,5 +353,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     createMeal,
     logFoodItem,
     voidItem,
+    completeToday,
+    reopenToday,
   };
 }
