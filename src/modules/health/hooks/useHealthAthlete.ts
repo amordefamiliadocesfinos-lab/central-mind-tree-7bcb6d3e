@@ -28,7 +28,7 @@ export function useHealthAthlete() {
     setLoading(true);
     setError(null);
 
-    const { data, error: queryError } = await (supabase as any)
+    const { data, error: queryError } = await supabase
       .from("health_athletes")
       .select("id,auth_user_id,owner_auth_user_id,display_name,status,created_at,updated_at")
       .eq("auth_user_id", user.id)
@@ -56,7 +56,7 @@ export function useHealthAthlete() {
       const normalizedName = displayName.trim();
       if (normalizedName.length < 2) throw new Error("Informe um nome válido.");
 
-      const { data, error: insertError } = await (supabase as any)
+      const { data, error: insertError } = await supabase
         .from("health_athletes")
         .insert({
           auth_user_id: user.id,
