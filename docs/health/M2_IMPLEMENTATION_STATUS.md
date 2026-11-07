@@ -39,5 +39,11 @@
 - [x] npm ci
 - [x] ESLint M2
 - [x] Build
-- [ ] Visual mobile 320–430px
-- [ ] M2 Acceptance Report
+- [x] Visual mobile 320–430px
+- [x] M2 Acceptance Report
+
+
+## Resultado
+- [x] M2 HEALTH: PASS
+- [x] PR #476 em Draft
+- [ ] Merge (ação separada, dependente de M0/M1)
