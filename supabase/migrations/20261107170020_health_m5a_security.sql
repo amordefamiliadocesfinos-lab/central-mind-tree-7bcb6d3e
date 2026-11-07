@@ -29,10 +29,12 @@ FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON public.health_nutrition_plans TO authenticated;
 GRANT UPDATE (name, goal_id, goal_phase_id, notes) ON public.health_nutrition_plans TO authenticated;
 GRANT SELECT, INSERT ON public.health_nutrition_plan_versions TO authenticated;
+GRANT UPDATE (strategy_type, title, rationale, effective_from, effective_to) ON public.health_nutrition_plan_versions TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_nutrition_targets TO authenticated;
 GRANT SELECT, INSERT ON public.health_recipes TO authenticated;
 GRANT UPDATE (name) ON public.health_recipes TO authenticated;
 GRANT SELECT, INSERT ON public.health_recipe_versions TO authenticated;
+GRANT UPDATE (title, preparation_notes, yield_amount, yield_unit, servings) ON public.health_recipe_versions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.health_recipe_ingredients TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_food_log_days TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.health_meal_logs TO authenticated;
@@ -69,6 +71,19 @@ WITH CHECK (
   AND status='draft'
   AND published_at IS NULL
   AND created_by_auth_user_id=auth.uid()
+);
+
+CREATE POLICY health_nutrition_plan_versions_update_draft
+ON public.health_nutrition_plan_versions FOR UPDATE TO authenticated
+USING (
+  public.health_can_write_athlete(athlete_id)
+  AND status='draft'
+  AND published_at IS NULL
+)
+WITH CHECK (
+  public.health_can_write_athlete(athlete_id)
+  AND status='draft'
+  AND published_at IS NULL
 );
 
 CREATE POLICY health_nutrition_targets_select
@@ -147,6 +162,21 @@ WITH CHECK (
   AND status='draft'
   AND published_at IS NULL
   AND created_by_auth_user_id=auth.uid()
+);
+
+CREATE POLICY health_recipe_versions_update_personal_draft
+ON public.health_recipe_versions FOR UPDATE TO authenticated
+USING (
+  athlete_id IS NOT NULL
+  AND public.health_can_write_athlete(athlete_id)
+  AND status='draft'
+  AND published_at IS NULL
+)
+WITH CHECK (
+  athlete_id IS NOT NULL
+  AND public.health_can_write_athlete(athlete_id)
+  AND status='draft'
+  AND published_at IS NULL
 );
 
 CREATE POLICY health_recipe_ingredients_select
