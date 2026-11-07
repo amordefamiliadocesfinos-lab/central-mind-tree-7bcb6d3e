@@ -3592,6 +3592,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "health_declared_equipment_catalog_equipment_fkey"
+            columns: ["catalog_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "health_equipment_catalog"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "health_declared_equipment_location_athlete_fkey"
             columns: ["location_id", "athlete_id"]
             isOneToOne: false
