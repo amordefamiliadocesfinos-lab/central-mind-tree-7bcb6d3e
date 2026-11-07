@@ -130,7 +130,12 @@ CREATE TABLE public.health_recipe_ingredient_snapshots (
 
   created_at timestamptz NOT NULL DEFAULT now(),
 
-  UNIQUE (recipe_version_id, recipe_ingredient_id)
+  UNIQUE (recipe_version_id, recipe_ingredient_id),
+
+  CONSTRAINT health_recipe_ingredient_snapshots_version_ingredient_fkey
+    FOREIGN KEY (recipe_ingredient_id, recipe_version_id)
+    REFERENCES public.health_recipe_ingredients(id, recipe_version_id)
+    ON DELETE RESTRICT
 );
 
 -- 3) INDEXES
