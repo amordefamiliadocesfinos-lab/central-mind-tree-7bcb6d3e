@@ -7,6 +7,7 @@ import { HealthLibraryPage } from "./pages/HealthLibraryPage";
 import { HealthProgramPage } from "./pages/HealthProgramPage";
 import { HealthWorkoutPage } from "./pages/HealthWorkoutPage";
 import { HealthNutritionPage } from "./pages/HealthNutritionPage";
+import { HealthBodyPage } from "./pages/HealthBodyPage";
 
 export default function HealthModule() {
   return (
@@ -26,15 +27,7 @@ export default function HealthModule() {
         <Route path="treino" element={<HealthWorkoutPage />} />
         <Route path="treino/programa" element={<HealthProgramPage />} />
         <Route path="alimentacao" element={<HealthNutritionPage />} />
-        <Route
-          path="evolucao"
-          element={
-            <FoundationPage
-              title="Evolução"
-              description="Peso, medidas, fotos comparáveis e linha do tempo corporal."
-            />
-          }
-        />
+        <Route path="evolucao" element={<HealthBodyPage />} />
         <Route path="perfil" element={<HealthProfilePage />} />
         <Route
           path="recuperacao"
