@@ -4548,6 +4548,334 @@ export type Database = {
           },
         ]
       }
+      health_workout_events: {
+        Row: {
+          athlete_id: string
+          client_event_id: string
+          created_by_auth_user_id: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+          payload: Json | null
+          recorded_at: string
+          session_id: string
+          source: string
+          workout_exercise_id: string | null
+          workout_set_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id: string
+          created_by_auth_user_id?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+          session_id: string
+          source?: string
+          workout_exercise_id?: string | null
+          workout_set_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string
+          created_by_auth_user_id?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+          session_id?: string
+          source?: string
+          workout_exercise_id?: string | null
+          workout_set_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_workout_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_events_session_athlete_fkey"
+            columns: ["session_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_sessions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_workout_events_workout_exercise_id_fkey"
+            columns: ["workout_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_events_workout_set_id_fkey"
+            columns: ["workout_set_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_workout_exercises: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          origin: string
+          planned_reps_max: number | null
+          planned_reps_min: number | null
+          planned_rest_seconds: number | null
+          planned_rir_target: number | null
+          planned_sets_max: number | null
+          planned_sets_min: number | null
+          replaced_from_exercise_id: string | null
+          sequence_order: number
+          session_id: string
+          status: string
+          template_exercise_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          origin?: string
+          planned_reps_max?: number | null
+          planned_reps_min?: number | null
+          planned_rest_seconds?: number | null
+          planned_rir_target?: number | null
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          replaced_from_exercise_id?: string | null
+          sequence_order: number
+          session_id: string
+          status?: string
+          template_exercise_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          origin?: string
+          planned_reps_max?: number | null
+          planned_reps_min?: number | null
+          planned_rest_seconds?: number | null
+          planned_rir_target?: number | null
+          planned_sets_max?: number | null
+          planned_sets_min?: number | null
+          replaced_from_exercise_id?: string | null
+          sequence_order?: number
+          session_id?: string
+          status?: string
+          template_exercise_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_workout_exercises_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_exercises_replaced_from_exercise_id_fkey"
+            columns: ["replaced_from_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_exercises_session_athlete_fkey"
+            columns: ["session_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_sessions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_workout_exercises_template_exercise_id_fkey"
+            columns: ["template_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_session_template_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_workout_sessions: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          ended_at: string | null
+          id: string
+          notes: string | null
+          program_version_id: string | null
+          queue_entry_id: string | null
+          session_template_id: string | null
+          source: string
+          start_client_event_id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          program_version_id?: string | null
+          queue_entry_id?: string | null
+          session_template_id?: string | null
+          source?: string
+          start_client_event_id: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          program_version_id?: string | null
+          queue_entry_id?: string | null
+          session_template_id?: string | null
+          source?: string
+          start_client_event_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_workout_sessions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_sessions_queue_entry_id_fkey"
+            columns: ["queue_entry_id"]
+            isOneToOne: false
+            referencedRelation: "health_cch_queue_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_sessions_template_athlete_fkey"
+            columns: ["session_template_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_session_templates"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_workout_sessions_version_athlete_fkey"
+            columns: ["program_version_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_program_versions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_workout_sets: {
+        Row: {
+          athlete_id: string
+          client_event_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          load_unit: string
+          load_value: number | null
+          notes: string | null
+          reps: number | null
+          rest_seconds: number | null
+          rir: number | null
+          session_id: string
+          set_number: number
+          set_type: string
+          status: string
+          updated_at: string
+          workout_exercise_id: string
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          load_unit?: string
+          load_value?: number | null
+          notes?: string | null
+          reps?: number | null
+          rest_seconds?: number | null
+          rir?: number | null
+          session_id: string
+          set_number: number
+          set_type?: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id: string
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          load_unit?: string
+          load_value?: number | null
+          notes?: string | null
+          reps?: number | null
+          rest_seconds?: number | null
+          rir?: number | null
+          session_id?: string
+          set_number?: number
+          set_type?: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_workout_sets_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_workout_sets_exercise_session_athlete_fkey"
+            columns: ["workout_exercise_id", "session_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_exercises"
+            referencedColumns: ["id", "session_id", "athlete_id"]
+          },
+        ]
+      }
       inbox_entries: {
         Row: {
           attachments: Json
@@ -10674,6 +11002,61 @@ export type Database = {
           program_id: string
           queued_count: number
         }[]
+      }
+      health_m4_add_exercise: {
+        Args: {
+          p_client_event_id: string
+          p_exercise_id: string
+          p_session_id: string
+        }
+        Returns: string
+      }
+      health_m4_complete_workout: {
+        Args: { p_client_event_id: string; p_session_id: string }
+        Returns: string
+      }
+      health_m4_log_set: {
+        Args: {
+          p_client_event_id: string
+          p_load_unit: string
+          p_load_value: number
+          p_reps: number
+          p_rest_seconds?: number
+          p_rir: number
+          p_session_id: string
+          p_set_number: number
+          p_set_type: string
+          p_workout_exercise_id: string
+        }
+        Returns: string
+      }
+      health_m4_replace_exercise: {
+        Args: {
+          p_client_event_id: string
+          p_replacement_exercise_id: string
+          p_workout_exercise_id: string
+        }
+        Returns: string
+      }
+      health_m4_skip_exercise: {
+        Args: { p_client_event_id: string; p_workout_exercise_id: string }
+        Returns: string
+      }
+      health_m4_start_workout: {
+        Args: { p_client_event_id: string; p_queue_entry_id: string }
+        Returns: string
+      }
+      health_m4_update_set: {
+        Args: {
+          p_client_event_id: string
+          p_load_unit: string
+          p_load_value: number
+          p_reps: number
+          p_rest_seconds?: number
+          p_rir: number
+          p_set_id: string
+        }
+        Returns: string
       }
       import_shopee_order_with_stock: {
         Args: { p_items: Json; p_order: Json }
