@@ -53,6 +53,93 @@ GRANT UPDATE (
   notes
 ) ON public.health_food_log_days TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.health_m5_guard_completed_day_meal_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+DECLARE
+  v_old_status text;
+  v_new_status text;
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    SELECT d.completeness_status
+    INTO v_old_status
+    FROM public.health_food_log_days d
+    WHERE d.id=OLD.food_log_day_id;
+
+    IF v_old_status='complete' THEN
+      RAISE EXCEPTION 'food log day is complete; reopen it before changing meals';
+    END IF;
+  END IF;
+
+  SELECT d.completeness_status
+  INTO v_new_status
+  FROM public.health_food_log_days d
+  WHERE d.id=NEW.food_log_day_id;
+
+  IF v_new_status='complete' THEN
+    RAISE EXCEPTION 'food log day is complete; reopen it before changing meals';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+CREATE OR REPLACE FUNCTION public.health_m5_guard_completed_day_item_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+DECLARE
+  v_old_status text;
+  v_new_status text;
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    SELECT d.completeness_status
+    INTO v_old_status
+    FROM public.health_meal_logs m
+    JOIN public.health_food_log_days d
+      ON d.id=m.food_log_day_id
+     AND d.athlete_id=m.athlete_id
+    WHERE m.id=OLD.meal_log_id
+      AND m.athlete_id=OLD.athlete_id;
+
+    IF v_old_status='complete' THEN
+      RAISE EXCEPTION 'food log day is complete; reopen it before changing meal items';
+    END IF;
+  END IF;
+
+  SELECT d.completeness_status
+  INTO v_new_status
+  FROM public.health_meal_logs m
+  JOIN public.health_food_log_days d
+    ON d.id=m.food_log_day_id
+   AND d.athlete_id=m.athlete_id
+  WHERE m.id=NEW.meal_log_id
+    AND m.athlete_id=NEW.athlete_id;
+
+  IF v_new_status='complete' THEN
+    RAISE EXCEPTION 'food log day is complete; reopen it before changing meal items';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+CREATE TRIGGER health_meal_logs_guard_completed_day
+BEFORE INSERT OR UPDATE ON public.health_meal_logs
+FOR EACH ROW EXECUTE FUNCTION public.health_m5_guard_completed_day_meal_mutation();
+
+CREATE TRIGGER health_meal_items_guard_completed_day
+BEFORE INSERT OR UPDATE ON public.health_meal_items
+FOR EACH ROW EXECUTE FUNCTION public.health_m5_guard_completed_day_item_mutation();
+
+REVOKE ALL ON FUNCTION public.health_m5_guard_completed_day_meal_mutation() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.health_m5_guard_completed_day_item_mutation() FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.health_m5_complete_food_log_day(
   p_day_id uuid,
   p_client_event_id uuid DEFAULT NULL
