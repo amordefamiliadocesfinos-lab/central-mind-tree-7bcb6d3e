@@ -1,0 +1,41 @@
+name: Health Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/modules/health/**"
+      - "src/App.tsx"
+      - "src/components/GlobalFooterBar.tsx"
+      - "src/lib/crm/crmGlobalNavigation.ts"
+      - "src/integrations/supabase/types.ts"
+      - "supabase/migrations/*health*.sql"
+      - ".github/workflows/health-m0-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Health lint
+        run: npx eslint src/modules/health src/App.tsx src/components/GlobalFooterBar.tsx src/lib/crm/crmGlobalNavigation.ts
+
+      - name: Build
+        run: npm run build
