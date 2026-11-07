@@ -382,3 +382,47 @@ WHERE recipe_version_id IS NOT NULL;
 
 CREATE INDEX health_meal_item_events_item_time_idx
 ON public.health_meal_item_events(meal_item_id, occurred_at);
+
+CREATE INDEX health_nutrition_plan_versions_athlete_idx
+ON public.health_nutrition_plan_versions(athlete_id);
+
+CREATE INDEX health_nutrition_plans_goal_athlete_idx
+ON public.health_nutrition_plans(goal_id, athlete_id)
+WHERE goal_id IS NOT NULL;
+
+CREATE INDEX health_nutrition_plans_goal_phase_athlete_idx
+ON public.health_nutrition_plans(goal_phase_id, athlete_id)
+WHERE goal_phase_id IS NOT NULL;
+
+CREATE INDEX health_nutrition_plans_current_version_idx
+ON public.health_nutrition_plans(current_version_id, id, athlete_id)
+WHERE current_version_id IS NOT NULL;
+
+CREATE INDEX health_nutrition_targets_athlete_idx
+ON public.health_nutrition_targets(athlete_id);
+
+CREATE INDEX health_recipes_current_version_idx
+ON public.health_recipes(current_version_id)
+WHERE current_version_id IS NOT NULL;
+
+CREATE INDEX health_recipe_ingredients_food_idx
+ON public.health_recipe_ingredients(food_id);
+
+CREATE INDEX health_meal_logs_athlete_idx
+ON public.health_meal_logs(athlete_id);
+
+CREATE INDEX health_meal_logs_day_athlete_idx
+ON public.health_meal_logs(food_log_day_id, athlete_id);
+
+CREATE INDEX health_meal_items_athlete_idx
+ON public.health_meal_items(athlete_id);
+
+CREATE INDEX health_meal_items_meal_athlete_idx
+ON public.health_meal_items(meal_log_id, athlete_id);
+
+CREATE INDEX health_meal_items_supersedes_athlete_idx
+ON public.health_meal_items(supersedes_item_id, athlete_id)
+WHERE supersedes_item_id IS NOT NULL;
+
+CREATE INDEX health_meal_item_events_item_athlete_idx
+ON public.health_meal_item_events(meal_item_id, athlete_id);
