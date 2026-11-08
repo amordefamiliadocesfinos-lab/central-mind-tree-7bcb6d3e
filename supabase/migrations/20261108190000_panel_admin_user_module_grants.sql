@@ -6,6 +6,35 @@ alter table public.app_users
 
 -- Access grants belong to authenticated identities, never to display roles.
 -- This table is foundational: grants are NOT yet proof of effective per-domain isolation.
+-- Prevent an authenticated client from promoting a scoped identity to legacy
+-- or attaching a new authenticated identity to a legacy collaborator record.
+create or replace function public.guard_app_users_access_model()
+returns trigger language plpgsql security invoker set search_path = ''
+as $guard$
+begin
+  if current_user = 'service_role' then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    if new.auth_user_id is not null then
+      raise exception 'Auth linkage requires privileged provisioning';
+    end if;
+  elsif tg_op = 'UPDATE' then
+    if new.access_model is distinct from old.access_model then
+      raise exception 'Access model cannot be changed by client';
+    end if;
+    if new.auth_user_id is distinct from old.auth_user_id then
+      raise exception 'Auth linkage requires privileged provisioning';
+    end if;
+  end if;
+  return new;
+end;
+$guard$;
+revoke all on function public.guard_app_users_access_model() from public,anon,authenticated;
+create trigger guard_app_users_access_model_trigger
+before insert or update on public.app_users
+for each row execute function public.guard_app_users_access_model();
+
 create table public.app_user_module_grants (
   auth_user_id uuid not null references auth.users(id) on delete cascade,
   module_key text not null check (module_key in (
