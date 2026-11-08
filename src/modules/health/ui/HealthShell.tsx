@@ -11,6 +11,7 @@ import {
   History,
   ListChecks,
   FileText,
+  BellRing,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const primaryItems = [
   { to: "/saude/revisao", label: "Revisão", mobileLabel: "Revisão", icon: History },
   { to: "/saude/replanejamento", label: "Replanejamento", mobileLabel: "Replanej.", icon: ListChecks },
   { to: "/saude/relatorios", label: "Relatórios", mobileLabel: "Relat.", icon: FileText },
+  { to: "/saude/rotina", label: "Rotina", mobileLabel: "Rotina", icon: BellRing },
   { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
