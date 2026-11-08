@@ -59,6 +59,9 @@ async function resolveAppUser(
       .eq("id", input.appUserId)
       .maybeSingle();
     if (error) throw error;
+    if (data && data.email && normalizeEmail(data.email) !== normalizeEmail(input.email)) {
+      throw new Error("E-mail informado diverge do cadastro selecionado.");
+    }
     return data ?? null;
   }
 
@@ -70,13 +73,9 @@ async function resolveAppUser(
   if (error) throw error;
   if ((data ?? []).length === 1) return data[0];
 
-  const { data: byName, error: nameError } = await admin
-    .from("app_users")
-    .select("id,name,email,role,is_active,auth_user_id")
-    .ilike("name", input.name.trim())
-    .limit(2);
-  if (nameError) throw nameError;
-  return (byName ?? []).length === 1 ? byName[0] : null;
+  if ((data ?? []).length > 1) throw new Error("E-mail ambíguo: selecione o cadastro por ID.");
+  // Display names are not unique identifiers; never link a person by name.
+  return null;
 }
 
 async function resolveHealthAthlete(
@@ -110,10 +109,57 @@ export async function listProvisioningContext(admin: SupabaseClient<Database>) {
   if (appUsersResult.error) throw appUsersResult.error;
   if (athletesResult.error) throw athletesResult.error;
 
+  const { data: moduleGrants, error: grantsError } = await admin
+    .from("app_user_module_grants")
+    .select("auth_user_id,module_key");
+  if (grantsError) throw grantsError;
+
   return {
     appUsers: appUsersResult.data ?? [],
     athletes: athletesResult.data ?? [],
+    moduleGrants: moduleGrants ?? [],
   };
+}
+
+export const ADMIN_MODULE_KEYS = [
+  "saude", "planejamento", "calendario", "rotina", "foco", "metas",
+  "minha-area", "assistente", "nucleo", "captura", "operacoes",
+  "financeiro", "crm", "digital", "producao", "academia",
+  "dashboard", "reunioes", "rotas", "oportunidades", "planilhas",
+] as const;
+
+export type AdminModuleKey = typeof ADMIN_MODULE_KEYS[number];
+
+export async function replaceUserModuleGrants(
+  admin: SupabaseClient<Database>,
+  actorAuthUserId: string,
+  targetAuthUserId: string,
+  modules: string[],
+) {
+  if (!targetAuthUserId || !Array.isArray(modules) ||
+      modules.some((module) => !ADMIN_MODULE_KEYS.includes(module as AdminModuleKey))) {
+    throw new Error("Seleção de permissões inválida.");
+  }
+  const { data: linkedUser, error: linkError } = await admin.from("app_users")
+    .select("id,auth_user_id,is_active").eq("auth_user_id", targetAuthUserId).maybeSingle();
+  if (linkError || !linkedUser?.is_active) {
+    throw new Error("Usuário ativo com vínculo Auth obrigatório.");
+  }
+  const { data: targetCapability, error: capabilityError } = await admin
+    .from("app_admin_capabilities")
+    .select("id").eq("auth_user_id", targetAuthUserId)
+    .eq("capability", "provision_users").eq("active", true)
+    .is("revoked_at", null).maybeSingle();
+  if (capabilityError || targetCapability) {
+    throw new Error("Não é permitido editar módulos de outro administrador por esta tela.");
+  }
+  const { data, error } = await admin.rpc("admin_replace_user_module_grants", {
+    p_target_auth_user_id: targetAuthUserId,
+    p_module_keys: [...new Set(modules)],
+    p_actor_auth_user_id: actorAuthUserId,
+  });
+  if (error) throw new Error("Não foi possível salvar as permissões.");
+  return { modules: data };
 }
 
 export async function provisionUser(
