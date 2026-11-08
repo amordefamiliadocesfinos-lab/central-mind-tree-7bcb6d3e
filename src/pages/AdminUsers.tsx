@@ -17,6 +17,7 @@ type AppUser = {
   role: string | null;
   is_active: boolean;
   auth_user_id: string | null;
+  access_model: "legacy" | "scoped";
 };
 
 type Athlete = {
@@ -156,6 +157,9 @@ export default function AdminUsers() {
                     {user.auth_user_id ? "Login vinculado" : "Sem login"}
                   </Badge>
                   {!user.is_active ? <Badge variant="destructive">Inativo</Badge> : null}
+                  {user.auth_user_id ? (
+                    <Badge variant="outline">{user.access_model === "scoped" ? "Acesso restrito" : "Modelo legado"}</Badge>
+                  ) : null}
                 </div>
                 <p className="mt-1 truncate text-sm text-muted-foreground">{user.email || "Sem e-mail"}</p>
               </div>
@@ -167,9 +171,15 @@ export default function AdminUsers() {
                       <CheckCircle2 className="h-4 w-4 text-primary" />
                       Login vinculado
                     </span>
-                    <Button variant="outline" className="min-h-11" onClick={() => setModulesForUser(user)}>
-                      Módulos
-                    </Button>
+                    {user.access_model === "scoped" ? (
+                      <Button variant="outline" className="min-h-11" onClick={() => setModulesForUser(user)}>
+                        Módulos
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Permissões legadas — migração controlada pendente
+                      </span>
+                    )}
                   </>
                 ) : (
                   <Button
