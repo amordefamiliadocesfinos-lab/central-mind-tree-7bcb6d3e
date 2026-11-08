@@ -1,0 +1,84 @@
+name: Health M9 Disposable Validation
+
+on:
+  push:
+    branches:
+      - feat/health-m9-implementation-20261107
+    paths:
+      - 'supabase/migrations/*health_m9_*.sql'
+      - 'supabase/tests/health_m9_*.sql'
+      - 'src/modules/health/**'
+      - '.github/workflows/health-m9-disposable-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/*health_m9_*.sql'
+      - 'supabase/tests/health_m9_*.sql'
+      - 'src/modules/health/**'
+      - '.github/workflows/health-m9-disposable-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci-only
+          POSTGRES_DB: health_m9_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d health_m9_disposable"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: health_m9_disposable
+      PGUSER: postgres
+      PGPASSWORD: postgres-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Install synthetic Health foundation
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_m9_disposable_fixture.sql
+      - name: Apply M9 migrations
+        run: |
+          set -euo pipefail
+          for f in \
+            supabase/migrations/20261108001646_health_m9_sleep_recovery_foundation.sql \
+            supabase/migrations/20261108001648_health_m9_sleep_recovery_rpcs.sql \
+            supabase/migrations/20261108001650_health_m9_clinical_foundation.sql \
+            supabase/migrations/20261108001652_health_m9_clinical_rpcs.sql \
+            supabase/migrations/20261108001653_health_m9_security.sql \
+            supabase/migrations/20261108001655_health_m9_integrity.sql
+          do
+            psql -X -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Run M9 contract tests
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_m9_disposable_contract.sql
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Health M9 lint
+        run: npx eslint src/modules/health/hooks/useHealthRecoveryM9.ts src/modules/health/hooks/useHealthExamsM9.ts src/modules/health/pages/HealthRecoveryPage.tsx src/modules/health/pages/HealthExamsPage.tsx src/modules/health/HealthModule.tsx src/modules/health/ui/HealthShell.tsx
+      - name: Full build
+        run: npm run build
