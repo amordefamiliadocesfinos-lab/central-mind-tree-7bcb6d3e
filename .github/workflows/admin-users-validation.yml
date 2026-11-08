@@ -9,6 +9,7 @@ on:
       - 'src/pages/AdminUsers.tsx'
       - 'src/integrations/supabase/types.ts'
       - 'src/App.tsx'
+      - 'src/hooks/useKeyboardAware.ts'
       - 'src/contexts/AuthContext.tsx'
       - 'tests/admin/**'
       - 'src/components/GlobalFooterBar.tsx'
