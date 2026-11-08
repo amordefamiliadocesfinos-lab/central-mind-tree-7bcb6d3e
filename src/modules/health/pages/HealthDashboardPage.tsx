@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Activity,
   AlertCircle,
+  BrainCircuit,
   CalendarDays,
   ChevronRight,
   Dumbbell,
@@ -18,6 +19,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthDashboardF10 } from "../hooks/useHealthDashboardF10";
+import {
+  integratedDecisionCodeLabel,
+  integratedReasonLabel,
+  useHealthIntegratedDecisionF11,
+} from "../hooks/useHealthIntegratedDecisionF11";
 import { formatMinutes, type DashboardFreshness } from "../dashboard/dashboardModel";
 
 function dateLabel(value: string | null | undefined) {
@@ -176,6 +182,92 @@ function DashboardSkeleton() {
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-full max-w-md" />
       </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BrainCircuit className="h-4 w-4 text-primary" />
+              Decisão integrada
+            </CardTitle>
+            <div className="flex flex-wrap justify-end gap-1">
+              {integrated.run?.historical ? <Badge variant="outline">Histórico</Badge> : null}
+              {integrated.run ? (
+                <Badge variant="outline">
+                  {integrated.run.runStatus === "complete" ? "Avaliada" : integrated.run.runStatus === "paused" ? "Pausada" : integrated.run.runStatus}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Motor F11 determinístico. Esta tela apenas lê decisões já materializadas.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {integrated.loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : integrated.error ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <div className="flex gap-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Não foi possível carregar a decisão integrada.</span>
+              </div>
+            </div>
+          ) : !integrated.run ? (
+            <div className="rounded-xl border p-3 text-sm">
+              <p className="font-medium">Ainda não há decisão integrada materializada.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                O Dashboard não executa o motor automaticamente e não inventa uma decisão ausente.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Metric label="Data da avaliação" value={dateLabel(integrated.run.asOfDate) ?? "Não informado"} />
+                <Metric label="Janela" value={`${integrated.run.windowDays} dias`} />
+                <Metric label="Algoritmo" value={integrated.run.algorithmVersion} />
+              </div>
+              <div className="space-y-2">
+                {integrated.run.decisions.map((decision) => (
+                  <div key={decision.id} className="rounded-xl border p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {decision.scope === "nutrition_execution"
+                            ? "Execução nutricional"
+                            : "Revisão de plano nutricional"}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {integratedDecisionCodeLabel(decision.code)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">
+                          {decision.status === "ready" ? "Pronta" : "Pausada"}
+                        </Badge>
+                        <Badge variant="outline">{confidenceLabel(decision.confidence)}</Badge>
+                      </div>
+                    </div>
+                    {decision.reasonCodes.length ? (
+                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                        {decision.reasonCodes.slice(0, 3).map((reason) => (
+                          <p key={reason}>• {integratedReasonLabel(reason)}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ação automática: nenhuma. A F11 v1 registra elegibilidade e revisão, não altera dieta ou treino.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         {[1, 2, 3, 4, 5].map((item) => (
           <Card key={item} className={item === 1 ? "lg:col-span-2" : undefined}>
@@ -197,6 +289,7 @@ function DashboardSkeleton() {
 export function HealthDashboardPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
   const dashboard = useHealthDashboardF10(athlete?.id);
+  const integrated = useHealthIntegratedDecisionF11(athlete?.id);
   const today = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
     day: "2-digit",
@@ -222,7 +315,12 @@ export function HealthDashboardPage() {
             {athlete?.display_name ? ` · ${athlete.display_name}` : ""}
           </p>
         </div>
-        <Button variant="outline" size="sm" className="min-h-10 shrink-0" onClick={() => void dashboard.reload()}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-10 shrink-0"
+          onClick={() => void Promise.all([dashboard.reload(), integrated.reload()])}
+        >
           <RefreshCw className="mr-2 h-4 w-4" />
           Atualizar
         </Button>
