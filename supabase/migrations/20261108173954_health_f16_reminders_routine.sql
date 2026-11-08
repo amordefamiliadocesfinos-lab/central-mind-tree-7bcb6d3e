@@ -193,6 +193,14 @@ BEGIN
     RAISE EXCEPTION 'valid timezone is required';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_timezone_names
+    WHERE name=v_timezone
+  ) THEN
+    RAISE EXCEPTION 'unknown timezone';
+  END IF;
+
   v_label := NULLIF(pg_catalog.btrim(COALESCE(p_label,'')),'');
   IF v_label IS NOT NULL AND char_length(v_label)>160 THEN
     RAISE EXCEPTION 'reminder label is too long';
