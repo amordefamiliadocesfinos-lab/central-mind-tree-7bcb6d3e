@@ -2,206 +2,242 @@
 
 ## Status
 
-**ARQUITETURA DOCUMENTAL — NÃO IMPLEMENTADA**
-
-Este documento abre formalmente a frente M9B após o encerramento da M8.
+**ARQUITETURA v1 FECHADA PARA DESENHO TÉCNICO — NÃO IMPLEMENTADA**
 
 Nenhuma tabela, RPC, migration, arquivo clínico, deploy ou dado real é criado por este documento.
 
+Decisões congeladas:
+`M9_ARCHITECTURAL_DECISIONS_V1.md`
+
 ## Missão
 
-Criar a camada longitudinal de **exames, biomarcadores e sinais fisiológicos fornecidos**, preservando a fonte original e separando dado de interpretação clínica.
+Criar a camada longitudinal de **exames, biomarcadores e sinais fisiológicos fornecidos**, preservando fonte original e separando dado de interpretação clínica.
 
-Fronteira oficial:
-
-- M9B registra e organiza fatos de saúde fornecidos;
-- M9B pode produzir estados estruturais/longitudinais descritivos;
-- M9B não produz diagnóstico;
-- M9B não substitui profissional de saúde;
-- M9B não altera treino, alimentação, medicação ou tratamento automaticamente;
-- decisões integradas pertencem a contratos posteriores.
+M9B:
+- registra fatos de saúde fornecidos;
+- produz estados estruturais/longitudinais descritivos;
+- não diagnostica;
+- não substitui profissional;
+- não altera treino, alimentação, medicação ou tratamento;
+- não cria conduta automaticamente.
 
 ## Fonte especialista herdada
 
-Fonte funcional especializada:
-- `05 — SAÚDE — EXAMES E BIOMARCADORES`
+`05 — SAÚDE — EXAMES E BIOMARCADORES`
 
-Princípios preservados:
-- documento original deve ser preservado quando disponível;
-- data, unidade, referência e sinalização original não podem ser removidas;
-- dado clínico != interpretação != hipótese != diagnóstico profissional != conduta profissional;
-- resultado fora da referência != diagnóstico;
-- resultado dentro da referência != garantia isolada de ausência de problema;
-- comparação longitudinal exige contexto e comparabilidade;
-- não coletar exame apenas para preencher painel;
+Princípios:
+- preservar documento original quando disponível;
+- preservar data, unidade, referência e flag original;
+- dado clínico != interpretação != hipótese != diagnóstico profissional != conduta;
+- fora da referência != diagnóstico;
+- dentro da referência != garantia isolada de normalidade;
+- comparação exige comparabilidade;
+- não coletar por coletar;
 - segurança clínica prevalece sobre otimização.
 
 ## Princípios M9B
 
 - `unknown != zero`;
 - fonte original é patrimônio do registro;
-- valor original nunca é silenciosamente normalizado ou substituído;
-- unidade original é obrigatória quando existente;
-- intervalo de referência pertence ao exame/laboratório daquela coleta;
-- conversão de unidade, quando existir futuramente, deve gerar valor derivado separado;
-- comparabilidade não é assumida quando unidade, método, laboratório ou contexto divergem;
+- valor original não é sobrescrito por normalização;
+- unidade original é preservada;
+- referência pertence àquela coleta/laboratório;
+- normalização é derivada e auditável;
 - flags estruturais não são diagnóstico;
-- fatos clínicos não viram ação automática;
-- correções preservam histórico.
+- correções preservam histórico;
+- extração != fato canônico.
 
-## Contrato factual proposto
+## Tabelas v1
 
-### 1. health_clinical_documents
+### health_clinical_documents
 
-Metadados de documentos originais enviados ao domínio Saúde.
+Metadados do documento original privado.
 
-Tipos possíveis:
-- laboratory_report;
-- medical_report;
-- imaging_report;
-- device_report;
-- other_health_document.
+Tipos:
+- `laboratory_report`;
+- `medical_report`;
+- `imaging_report`;
+- `device_report`;
+- `other_health_document`.
 
-Metadados:
+Preserva:
 - atleta;
-- tipo;
-- título/nome original;
-- data do documento;
-- provider/laboratório quando conhecido;
+- nome/título original;
+- provider/laboratório;
+- data;
 - `object_path`;
 - mime type;
 - hash/checksum quando aplicável;
 - origem;
 - status;
 - observações;
-- vínculo de supersession/void.
+- supersession/void.
 
-Binários devem permanecer privados.
-
-Caminho conceitual:
+Storage:
 `health-private/<athlete_id>/clinical/<document_id>/...`
 
-Acesso somente por autorização do atleta e URLs assinadas quando necessário.
+### health_clinical_document_extractions
 
-### 2. health_lab_reports
+Staging de extração.
 
-Representa um exame/coleta/painel laboratorial.
+Preserva:
+- documento;
+- status;
+- engine/provider;
+- versão;
+- payload estruturado;
+- confiança por campo quando disponível;
+- erros/warnings;
+- timestamps;
+- usuário que confirmou/rejeitou.
+
+Status:
+- `pending`;
+- `extracting`;
+- `extracted`;
+- `review_required`;
+- `confirmed`;
+- `rejected`;
+- `failed`.
+
+Extração confirmada pode gerar fatos canônicos via RPC transacional.
+Extração não confirmada nunca vira histórico clínico canônico.
+
+### health_lab_reports
+
+Representa relatório/coleta/painel.
 
 Preserva:
 - atleta;
-- documento de origem opcional;
+- documento/extraction de origem opcional;
 - laboratório/provider;
-- data/hora de coleta;
+- data/hora da coleta;
 - data do resultado;
-- condição de jejum quando conhecida;
-- contexto de coleta quando conhecido;
+- jejum/contexto quando conhecidos;
 - observações;
-- fonte;
-- confiança;
-- status;
+- fonte/confiança;
 - `client_event_id`;
+- status;
 - supersession/void.
 
-### 3. health_biomarker_results
+### health_biomarker_results
 
 Resultado factual por marcador.
 
-Preserva:
-- `lab_report_id`;
-- nome original do marcador;
-- código canônico opcional;
-- resultado original textual;
-- valor numérico estruturado somente quando seguro;
-- unidade original;
-- intervalo de referência original textual;
-- limites estruturados opcionais quando inequívocos;
-- flag original do laboratório;
-- método quando informado;
+Preserva obrigatoriamente quando disponível:
+- `original_analyte_name`;
+- `original_result_text`;
+- valor numérico estruturado opcional;
+- `original_unit`;
+- `original_reference_text`;
+- limites estruturados opcionais;
+- `original_flag`;
+- método;
 - observações;
-- status;
 - confiança.
 
-Regra central:
-o registro original deve permitir reconstruir o que estava no documento sem depender de interpretação posterior.
+Campos canônicos são adicionais, nunca substitutos.
 
-### 4. health_vital_observations
+### health_biomarker_catalog
 
-Observações fisiológicas que não exigem um painel laboratorial.
+Catálogo interno versionável:
+- `canonical_code`;
+- display name;
+- categoria/painel;
+- tipo de resultado;
+- coding system externo opcional;
+- external code opcional;
+- coding version opcional;
+- status.
 
-Exemplos:
+LOINC pode ser usado quando houver mapeamento confiável.
+
+### health_biomarker_aliases
+
+Mapeia:
+- alias normalizado;
+- laboratório/provider opcional;
+- `canonical_code`;
+- confiança/revisão;
+- versão do mapeamento.
+
+O alias original continua no resultado factual.
+
+Fuzzy match nunca confirma LOINC/canonical_code sozinho.
+
+### health_biomarker_longitudinal_states
+
+Estado descritivo por atleta + marcador.
+
+Pode conter:
+- último resultado;
+- resultado anterior comparável;
+- datas;
+- número de observações;
+- comparabilidade;
+- direção matemática `higher/lower/stable/unknown`;
+- referência atual;
+- flag original atual;
+- confiança;
+- reason codes;
+- `algorithm_version`.
+
+Não declara diagnóstico, risco clínico ou conduta.
+
+### health_vital_observations
+
+Sinais fisiológicos fornecidos:
 - pressão arterial;
 - frequência cardíaca;
 - temperatura;
 - saturação;
 - frequência respiratória;
-- glicemia quando fornecida;
-- outros sinais com utilidade real.
+- glicemia;
+- outros com utilidade real.
 
-Cada observação preserva:
-- instante;
-- valor(es);
-- unidade;
-- condição;
-- equipamento/origem;
-- confiança;
-- observações.
+Preserva instante, valor, unidade, condição, equipamento/origem e confiança.
 
-Não comparar indiscriminadamente medições feitas em condições incompatíveis.
+## RPCs v1
 
-## Normalização e catálogo
+- `health_m9_register_clinical_document`
+- `health_m9_stage_clinical_extraction`
+- `health_m9_confirm_clinical_extraction`
+- `health_m9_reject_clinical_extraction`
+- `health_m9_record_lab_report`
+- `health_m9_void_lab_report`
+- `health_m9_record_vital_observation`
+- `health_m9_void_vital_observation`
+- `health_m9_refresh_biomarker_state`
 
-M9B deve aceitar o **nome original** como fonte primária.
+## Interoperabilidade
 
-Um catálogo canônico de biomarcadores poderá mapear aliases para um `canonical_code`, mas:
-- o alias original permanece preservado;
-- o mapeamento é versionado;
-- nenhum resultado é descartado por falta de mapeamento;
-- unidade original permanece registrada;
-- conversão futura exige regra explícita e auditável.
+A modelagem segue compatibilidade conceitual com:
+- relatório diagnóstico;
+- observações atômicas;
+- terminologia opcional;
+- unidade original + unidade normalizada separada.
 
-## Estado longitudinal proposto
+LOINC:
+- identificador externo opcional;
+- nunca substitui nome original;
+- coding version preservada;
+- sem auto-confirmação por fuzzy match.
 
-Laboratórios são eventos irregulares. Portanto, M9B **não força 7/14/28 como estado primário de exames laboratoriais**.
+UCUM:
+- pode representar unidade normalizada quando conversão for explícita e válida;
+- unidade original permanece preservada.
 
-### health_biomarker_longitudinal_states
-
-Estado descritivo por atleta + marcador canônico/original.
-
-Pode incluir:
-- resultado mais recente;
-- resultado anterior comparável;
-- data mais recente;
-- unidade original/normalizada quando aplicável;
-- quantidade de observações;
-- comparabilidade;
-- direção estrutural `higher/lower/stable/unknown` somente quando matematicamente válida;
-- referência do laboratório do resultado atual;
-- flag original atual;
-- cobertura histórica;
-- confiança;
-- reason codes;
-- algorithm_version.
-
-Este estado não declara:
-- doença;
-- risco clínico;
-- necessidade terapêutica;
-- causa;
-- conduta.
-
-### Sinais fisiológicos repetidos
-
-Para sinais como pressão/frequência cardíaca, estados rolling podem ser considerados futuramente quando houver densidade de dados suficiente. Não são obrigatórios para a primeira implementação de M9B.
+O CCH não se declara uma implementação FHIR completa na M9 v1.
 
 ## Comparabilidade
 
-Antes de calcular tendência entre resultados:
-- marcador deve ser semanticamente compatível;
-- unidade deve ser a mesma ou convertível por regra versionada;
-- método/laboratório/contexto divergente deve ser sinalizado;
-- comparação não deve apagar o intervalo de referência específico de cada coleta.
+Antes de tendência:
+- marcador semanticamente compatível;
+- mesma unidade ou conversão versionada válida;
+- método/provider/contexto divergente sinalizado;
+- referência específica de cada coleta preservada.
 
-Reason codes possíveis:
+Reason codes:
 - `NO_BIOMARKER_DATA`;
 - `SINGLE_OBSERVATION_ONLY`;
 - `UNIT_NOT_COMPARABLE`;
@@ -210,110 +246,88 @@ Reason codes possíveis:
 - `REFERENCE_RANGE_CHANGED`;
 - `NON_NUMERIC_RESULT`;
 - `SOURCE_DOCUMENT_MISSING`;
-- `COMPARABLE_HISTORY_AVAILABLE`.
+- `COMPARABLE_HISTORY_AVAILABLE`;
+- `EXTRACTION_REVIEW_REQUIRED`.
+
+Laboratórios são eventos irregulares: M9B não força 7/14/28 para exames.
+
+## Extração documental v1
+
+Fluxo obrigatório para documento:
+1. upload privado;
+2. registro do documento;
+3. staging da extração;
+4. extração;
+5. revisão;
+6. confirmação/rejeição;
+7. somente confirmação gera fatos canônicos.
+
+Entrada manual direta é permitida com fonte `manual/declared`.
+
+Nenhuma interpretação médica é gerada pela extração.
 
 ## Flags estruturais
 
-M9B pode preservar/mostrar:
-- sinalização original do laboratório;
-- fora/dentro da referência quando isso estiver explicitamente disponível no documento;
-- diferença matemática em relação ao limite de referência quando estruturalmente inequívoca.
+Pode preservar/exibir:
+- flag original do laboratório;
+- dentro/fora da referência quando explicitamente representável;
+- diferença matemática do limite quando inequívoca.
 
-Essas flags devem ser rotuladas como **estruturais**, não diagnósticas.
+Sempre rotuladas como estruturais, não diagnósticas.
 
-## Documentos e extração
+## Segurança
 
-Fluxo futuro:
-
-1. receber documento privado;
-2. preservar binário original;
-3. extrair dados;
-4. apresentar/registrar dados estruturados;
-5. manter vínculo com a fonte;
-6. separar extração de interpretação.
-
-Se houver incerteza de leitura:
-- não inventar;
-- registrar necessidade de revisão;
-- não corrigir silenciosamente número aparentemente estranho.
-
-## Conexões intermódulo
-
-Achados podem ser encaminhados para análise em:
-- 00 — Central;
-- 01 — Treino;
-- 02 — Alimentação;
-- 03/M8 — Físico/Body;
-- 04/M9A — Sono/Recuperação;
-- 06 — Planejamento Integrado;
-- 07 — Base Científica.
-
-Conexão significa **merece análise conjunta**, não causalidade.
-
-## Segurança e privacidade
-
-Na futura implementação:
 - RLS deny-by-default;
 - anon sem acesso;
-- leitura/escrita por autorização do atleta;
-- documentos no `health-private`;
+- documentos em `health-private`;
 - signed URLs;
-- nenhuma URL pública de documento clínico;
+- nenhuma URL pública;
 - RPCs privilegiadas com `search_path` fixo;
 - cross-athlete obrigatório;
-- logs não devem expor conteúdo clínico desnecessário;
-- módulos externos recebem somente projeções mínimas explicitamente autorizadas.
+- logs sem conteúdo clínico desnecessário;
+- projeção externa mínima e autorizada.
 
 ## Correções
 
-Padrão:
-- supersession para correção factual;
-- void para invalidação;
-- documento original preservado;
-- valor antigo não é apagado silenciosamente;
-- estados derivados são recalculáveis.
+- supersession;
+- void;
+- original preservado;
+- estado derivado recalculável.
 
-## UI futura
+## UI v1
 
-Rota candidata:
-- `/saude/exames`.
-
-A rota final deve ser confirmada antes da implementação para evitar conflito semântico ou duplicação no shell.
+Rota final:
+`/saude/exames`
 
 Mobile-first.
 
-Blocos esperados:
-- documentos/exames;
-- painel de resultados;
+Blocos:
+- documentos;
+- exames/resultados;
 - histórico longitudinal;
 - sinais fisiológicos;
-- fonte/unidade/referência visíveis;
-- flags estruturais claramente separadas de interpretação;
-- estado de comparabilidade;
+- fonte/unidade/referência;
+- comparabilidade;
+- flags estruturais;
+- revisão de extração;
 - nenhuma linguagem diagnóstica automática.
-
-A rota final deve ser escolhida antes da implementação para evitar conflito semântico ou duplicação no shell.
 
 ## Fora do escopo M9B v1
 
 - diagnóstico automático;
 - prescrição;
-- interrupção/alteração de medicamento;
-- solicitação automática de exames para “completar painel”;
-- classificação de risco clínico automatizada sem contrato específico posterior;
-- explicação causal automática de desempenho, sono ou composição corporal;
-- mudança automática de treino/dieta;
-- transformação de documento clínico em dado público;
-- reinterpretação silenciosa de conduta profissional.
+- alterar medicamento;
+- solicitar exames automaticamente para preencher painel;
+- risco clínico automatizado sem contrato posterior;
+- causalidade automática;
+- mudar treino/dieta;
+- documento clínico público;
+- reinterpretar silenciosamente conduta profissional.
 
 ## Critério de saída arquitetural
 
-M9B só pode avançar para implementação após:
-- arquitetura versionada aprovada;
-- modelo de documentos/exames/resultados revisado;
-- estratégia de catálogo/aliases revisada;
-- regras de comparabilidade e reason codes revisadas;
-- política de Storage privado/RLS revisada;
-- critérios de aceitação M9 aprovados;
-- rota final decidida;
-- branch baseada na `main` vigente e sem divergência não reconciliada.
+**ATENDIDO DOCUMENTALMENTE.**
+
+Pode seguir para desenho técnico somente após conferência da PR #487 contra o Mapa Soberano.
+
+Implementação, migrations e gates permanecem separados.
