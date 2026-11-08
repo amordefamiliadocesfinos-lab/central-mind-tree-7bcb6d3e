@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session, User, SupabaseClient } from '@supabase/supabase-js';
+import type { AdminAccessDatabase } from '@/lib/admin/module-grants.types';
 import { supabase } from '@/integrations/supabase/client';
 
 export type AuthAppUser = {
@@ -81,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true);
     (async () => {
       try {
-        const { data, error } = await (supabase as any)
+        const scoped = supabase as unknown as SupabaseClient<AdminAccessDatabase>;
+        const { data, error } = await scoped
           .from('app_users')
           .select('id,name,role,email,avatar_url,is_active,auth_user_id,access_model')
           .eq('auth_user_id', session.user.id)
