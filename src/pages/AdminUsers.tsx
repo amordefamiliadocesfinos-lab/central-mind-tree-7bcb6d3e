@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, KeyRound, Loader2, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [lastResult, setLastResult] = useState<ProvisionUserResult | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setForbidden(false);
     try {
@@ -50,11 +50,11 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("pt-BR");
