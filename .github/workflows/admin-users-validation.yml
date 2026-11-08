@@ -48,8 +48,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|client\.server\.ts' dist --exclude='*.map'; then
-            echo 'Potential privileged server material found in client bundle.'
+          # Scan browser JavaScript only. Documentation strings naming environment
+          # variables are not credentials; dist/server is intentionally privileged.
+          if grep -R -n -E 'createSupabaseAdminClient|client\.server\.ts|process\.env\[[^]]*SUPABASE_SERVICE_ROLE_KEY|process\.env\.SUPABASE_SERVICE_ROLE_KEY' dist/client/assets --include='*.js'; then
+            echo 'Potential privileged server implementation included in browser assets.'
             exit 1
           fi
-          echo 'No privileged server material found in client bundle.'
+          if grep -R -n -E 'sb_secret_[A-Za-z0-9_-]{15,}' dist/client/assets --include='*.js'; then
+            echo 'Secret key-like literal included in browser assets.'
+            exit 1
+          fi
+          echo 'No privileged server implementation or secret-like literal found in browser assets.'
