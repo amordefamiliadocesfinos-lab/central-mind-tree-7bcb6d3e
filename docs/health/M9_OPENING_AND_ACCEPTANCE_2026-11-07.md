@@ -2,7 +2,7 @@
 
 ## Estado
 
-**ARQUITETURA v1 FECHADA PARA DESENHO TÉCNICO — IMPLEMENTAÇÃO AINDA NÃO INICIADA**
+**ARQUITETURA + DESENHO TÉCNICO v1 FECHADOS — IMPLEMENTAÇÃO AINDA NÃO INICIADA**
 
 Base:
 `main@4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`
@@ -172,11 +172,16 @@ Isso não autoriza migration, banco, merge, deploy ou escrita de dados reais.
 
 A PR Draft documental já está aberta e a revisão arquitetural foi concluída.
 
+Entregáveis técnicos concluídos:
+- `M9_TECHNICAL_DESIGN_V1.md`;
+- `M9_SECURITY_RLS_MATRIX_V1.md`;
+- `M9_TEST_PLAN_V1.md`;
+- `M9_MOBILE_UI_SPEC_V1.md`.
+
+O desenho define migrations/RPCs lógicas, RLS/grants/cross-athlete, casos de teste e UI mobile sem criar migration real, sem executar SQL e sem alterar código funcional.
+
 Próxima etapa permitida:
-- desenhar migrations/RPCs sem aplicá-las;
-- produzir matriz RLS/grants/cross-athlete;
-- produzir casos de teste TESTES MT;
-- produzir desenho de UI mobile;
-- manter toda implementação fora de produção e sem Gate B/C.
+- revisão final da PR #487 contra o Mapa Soberano;
+- depois, mediante autorização correspondente, iniciar implementação em branch apropriada com migrations reais geradas pelo CLI e aplicação primeiro no TESTES MT.
 
 Antes de qualquer merge da PR #487, o Gate A continua obrigatório.
