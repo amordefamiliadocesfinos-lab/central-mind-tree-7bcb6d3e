@@ -87,6 +87,13 @@ apenas deitar + acordar permite calcular **tempo na cama**, não sono efetivo.
 
 Observações subjetivas/diárias.
 
+A unidade factual é **uma métrica observada dentro de um check-in**. Várias métricas coletadas na mesma interação compartilham um `checkin_event_id`; cada linha preserva seu próprio `metric_code`.
+
+Idempotência v1:
+- unique lógico `(athlete_id, checkin_event_id, metric_code)`;
+- replay do mesmo check-in não duplica a mesma métrica;
+- métricas ausentes no check-in permanecem desconhecidas.
+
 Métricas v1:
 - `sleep_quality`;
 - `sleepiness`;
@@ -279,6 +286,6 @@ Blocos:
 
 **ATENDIDO DOCUMENTALMENTE.**
 
-Pode seguir para desenho técnico somente após conferência da PR #487 contra o Mapa Soberano.
+O desenho técnico v1 correspondente foi concluído na própria PR #487 e submetido à revisão final documental.
 
 Implementação, migrations e gates permanecem separados.
