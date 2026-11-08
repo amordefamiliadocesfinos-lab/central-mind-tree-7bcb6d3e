@@ -55,12 +55,30 @@ SELECT public.health_m9_record_sleep_period(
 DO $$
 DECLARE
   v_count integer;
+  v_declared integer;
+  v_calculated integer;
+  v_time_in_bed integer;
 BEGIN
-  SELECT count(*) INTO v_count FROM public.health_sleep_periods
+  SELECT count(*), max(declared_sleep_minutes), max(calculated_sleep_minutes), max(calculated_time_in_bed_minutes)
+  INTO v_count,v_declared,v_calculated,v_time_in_bed
+  FROM public.health_sleep_periods
   WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     AND client_event_id='10101010-1010-4010-8010-101010101010';
+
   IF v_count <> 1 THEN RAISE EXCEPTION 'sleep idempotency failed'; END IF;
+  IF v_declared IS NOT NULL OR v_calculated IS NOT NULL THEN
+    RAISE EXCEPTION 'time-in-bed-only record must not become sleep duration on replay';
+  END IF;
+  IF v_time_in_bed <> 490 THEN RAISE EXCEPTION 'time in bed calculation failed: %',v_time_in_bed; END IF;
 END $$;
+
+-- A distinct night with actual declared sleep duration creates one usable sleep day.
+SELECT public.health_m9_record_sleep_period(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  DATE '2026-11-02','nocturnal',NULL,NULL,NULL,NULL,480,NULL,NULL,NULL,
+  'USER_REPORTED','moderate','duração declarada',
+  '20202020-2020-4020-8020-202020202020',NULL
+);
 
 SELECT public.health_m9_record_recovery_checkin(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
