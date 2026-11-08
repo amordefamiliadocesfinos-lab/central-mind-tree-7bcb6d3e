@@ -3,6 +3,8 @@ import { Loader2, Mail, KeyRound, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MODULE_LABELS } from "@/components/admin/UserModuleAccessDialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +39,7 @@ type Props = {
     role?: string | null;
     appUserId?: string | null;
     healthAthleteId?: string | null;
+    modules?: string[];
   }) => Promise<ProvisionUserResult>;
   onCompleted: (result: ProvisionUserResult) => void;
 };
@@ -58,6 +61,7 @@ export function NewUserDialog({
   const [appUserId, setAppUserId] = useState<string>("none");
   const [healthAthleteId, setHealthAthleteId] = useState<string>("none");
   const [saving, setSaving] = useState(false);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,6 +69,7 @@ export function NewUserDialog({
     setError(null);
     setMode("invite");
     setTemporaryPassword("");
+    setSelectedModules([]);
 
     if (preselectedAppUser) {
       setName(preselectedAppUser.name);
@@ -121,6 +126,7 @@ export function NewUserDialog({
         role: role.trim() || null,
         appUserId: appUserId === "none" ? null : appUserId,
         healthAthleteId: healthAthleteId === "none" ? null : healthAthleteId,
+        modules: selectedModules,
       });
       setTemporaryPassword("");
       onCompleted(result);
@@ -203,6 +209,27 @@ export function NewUserDialog({
             <p className="text-xs text-muted-foreground">
               Selecione explicitamente o atleta correto. O vínculo reaproveita o perfil e todo o histórico.
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Módulos que o usuário poderá acessar</Label>
+            <p className="text-xs text-muted-foreground">
+              Sem seleção, o acesso fica negado. A liberação real depende das verificações
+              de segurança por módulo no servidor e no banco.
+            </p>
+            <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+              {Object.entries(MODULE_LABELS).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={selectedModules.includes(key)}
+                    onCheckedChange={(checked) => setSelectedModules((items) =>
+                      checked === true ? [...new Set([...items, key])] : items.filter((item) => item !== key)
+                    )}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-3">
