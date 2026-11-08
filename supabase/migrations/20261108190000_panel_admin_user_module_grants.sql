@@ -87,6 +87,9 @@ create table public.app_user_module_grants (
 alter table public.app_user_module_grants enable row level security;
 revoke all on public.app_user_module_grants from public,anon,authenticated;
 grant select on public.app_user_module_grants to authenticated;
+-- Auth Admin server uses service_role; make privileges explicit, independent of
+-- project-specific ALTER DEFAULT PRIVILEGES configuration.
+grant select, insert, update, delete on public.app_user_module_grants to service_role;
 create policy app_user_module_grants_read_self on public.app_user_module_grants
   for select to authenticated using (auth_user_id = (select auth.uid()));
 
@@ -100,6 +103,8 @@ create table public.app_user_module_grant_audit (
 );
 alter table public.app_user_module_grant_audit enable row level security;
 revoke all on public.app_user_module_grant_audit from public,anon,authenticated;
+grant select, insert, update, delete on public.app_user_module_grant_audit to service_role;
+grant usage, select on sequence public.app_user_module_grant_audit_id_seq to service_role;
 
 -- A single transaction replaces the complete grant set and writes an audit entry.
 -- Called ONLY from a server function after capability authentication.
