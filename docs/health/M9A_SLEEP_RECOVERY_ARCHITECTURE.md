@@ -2,11 +2,14 @@
 
 ## Status
 
-**ARQUITETURA DOCUMENTAL — NÃO IMPLEMENTADA**
+**ARQUITETURA v1 FECHADA PARA DESENHO TÉCNICO — NÃO IMPLEMENTADA**
 
-Este documento abre formalmente a frente M9A após o encerramento da M8.
+Este documento define a frente M9A após o encerramento da M8.
 
 Nenhuma tabela, RPC, migration, deploy ou dado real é criado por este documento.
+
+Decisões congeladas:
+`M9_ARCHITECTURAL_DECISIONS_V1.md`
 
 ## Missão
 
@@ -42,20 +45,21 @@ Princípios preservados:
 - `unknown != zero`;
 - fato != percepção != estado != hipótese != decisão != ação;
 - dado declarado != dado de dispositivo != dado calculado;
-- não converter texto qualitativo em escala numérica sem regra explícita;
+- não converter texto qualitativo em escala numérica automaticamente;
 - não assumir sono contínuo entre horário de deitar e acordar;
 - correção não apaga silenciosamente o fato original;
 - estado derivado é recalculável e versionado;
 - nenhum valor isolado produz recomendação automática;
-- nenhuma associação entre sono e outro módulo é tratada como causalidade automática.
+- nenhuma associação entre sono e outro módulo é tratada como causalidade automática;
+- cobertura é calculada por dimensão.
 
-## Contrato factual proposto
+## Tabelas v1
 
-### 1. health_sleep_periods
+### health_sleep_periods
 
-Representa um episódio/período de sono ou tentativa de sono.
+Representa episódio/período de sono ou tentativa de sono.
 
-Deve poder preservar, quando conhecidos:
+Preserva, quando conhecidos:
 - atleta;
 - instante/local date de referência;
 - horário de deitar;
@@ -65,9 +69,9 @@ Deve poder preservar, quando conhecidos:
 - duração declarada do sono;
 - tempo na cama calculável;
 - duração de sono calculável somente quando a evidência permitir;
-- quantidade de despertares;
-- duração acordado durante a noite quando conhecida;
-- cochilo/noturno;
+- despertares;
+- duração acordado quando conhecida;
+- tipo `nocturnal/nap/other`;
 - fonte;
 - confiança;
 - timezone/contexto;
@@ -77,57 +81,79 @@ Deve poder preservar, quando conhecidos:
 - vínculo de supersession.
 
 Regra:
-se existirem apenas horário de deitar e horário de acordar, o sistema pode calcular **tempo na cama**, mas não deve rotulá-lo automaticamente como duração efetiva de sono.
+apenas deitar + acordar permite calcular **tempo na cama**, não sono efetivo.
 
-### 2. health_recovery_checkins
+### health_recovery_checkins
 
-Observações diárias/subjetivas relacionadas à recuperação.
+Observações subjetivas/diárias.
 
-Campos conceituais:
-- qualidade percebida do sono;
-- sonolência;
-- fadiga geral;
-- fadiga muscular;
-- fadiga mental;
-- recuperação física percebida;
-- prontidão percebida para treinar;
-- dor muscular/soreness quando informada;
-- disposição;
-- observações;
-- fonte;
-- confiança;
-- data/hora de observação.
+Métricas v1:
+- `sleep_quality`;
+- `sleepiness`;
+- `general_fatigue`;
+- `muscular_fatigue`;
+- `mental_fatigue`;
+- `physical_recovery`;
+- `training_readiness`;
+- `muscle_soreness`;
+- `disposition`.
 
-Escalas podem existir futuramente, mas a v1 deve aceitar também descrições qualitativas sem forçar uma conversão artificial.
+Cada métrica pode ter:
+- `value_ordinal` 1–5 opcional;
+- `raw_text` opcional;
+- `scale_version`;
+- fonte/confiança;
+- data/hora.
 
-### 3. health_sleep_device_observations
+Direção positiva:
+`sleep_quality`, `physical_recovery`, `training_readiness`, `disposition`.
 
-Registra métricas produzidas por wearable/aplicativo/dispositivo.
+Direção negativa:
+`sleepiness`, `general_fatigue`, `muscular_fatigue`, `mental_fatigue`, `muscle_soreness`.
 
-Exemplos de `metric_code` possíveis:
-- sleep_duration_estimated;
-- resting_heart_rate;
-- hrv;
-- sleep_stage_light;
-- sleep_stage_deep;
-- sleep_stage_rem;
-- awake_time_estimated;
-- respiratory_rate;
-- outras métricas justificadas.
+Texto qualitativo não é convertido automaticamente em número.
 
-Cada observação deve preservar:
-- valor;
-- unidade;
-- origem/dispositivo;
+### health_sleep_device_observations
+
+Métricas produzidas por wearable/aplicativo/dispositivo.
+
+Catálogo canônico v1:
+- `sleep_duration_minutes_estimated`;
+- `time_in_bed_minutes`;
+- `sleep_latency_minutes_estimated`;
+- `wake_after_sleep_onset_minutes_estimated`;
+- `awakenings_count_estimated`;
+- `awake_minutes_estimated`;
+- `sleep_stage_light_minutes_estimated`;
+- `sleep_stage_deep_minutes_estimated`;
+- `sleep_stage_rem_minutes_estimated`;
+- `resting_heart_rate_bpm`;
+- `hrv_rmssd_ms`;
+- `respiratory_rate_breaths_per_min`.
+
+Preservar:
+- valor/unidade;
+- provider/device;
 - janela/instante;
-- método ou provider quando conhecido;
-- status de estimativa;
+- `external_id`;
 - confiança;
-- payload de origem apenas quando necessário e seguro.
+- versão de algoritmo/provider quando disponível.
 
-Métricas de estágios do sono permanecem **estimativas do dispositivo**, não medições clínicas perfeitas.
+Estágios permanecem explicitamente estimados.
 
-## Estado longitudinal proposto
+## RPCs v1
+
+- `health_m9_record_sleep_period`
+- `health_m9_void_sleep_period`
+- `health_m9_record_recovery_checkin`
+- `health_m9_void_recovery_checkin`
+- `health_m9_record_device_observations`
+- `health_m9_void_device_observation`
+- `health_m9_refresh_sleep_recovery_state`
+
+Importação de dispositivo deve suportar lote idempotente.
+
+## Estado longitudinal
 
 ### health_sleep_recovery_rolling_states
 
@@ -136,53 +162,64 @@ Janelas:
 - 14 dias;
 - 28 dias.
 
-Estado derivado pode incluir:
-- dias com qualquer observação;
-- dias com duração de sono utilizável;
-- média de duração quando comparável;
+O estado guarda cobertura por dimensão, não apenas cobertura geral.
+
+Dimensões:
+- duração;
+- timing;
+- qualidade;
+- recuperação;
+- fadiga;
+- prontidão.
+
+Para cada dimensão:
+- `unobserved`: 0 dias;
+- `sparse`: >0 e <50%;
+- `partial`: >=50% e <70%;
+- `complete`: >=70%.
+
+Suficiência v1:
+- 7 dias: 5;
+- 14 dias: 10;
+- 28 dias: 20.
+
+Somente dimensões suficientes podem produzir agregado/tendência classificado como suficiente.
+
+O estado pode incluir:
+- dias observados por dimensão;
+- média de duração comparável;
 - variabilidade de duração;
-- regularidade de horário quando calculável;
-- média/estado de qualidade percebida quando a escala for comparável;
-- média/estado de fadiga quando comparável;
-- média/estado de recuperação quando comparável;
-- média/estado de prontidão quando comparável;
+- regularidade de horários quando calculável;
+- agregados de escalas comparáveis;
 - cochilos observados;
-- cobertura;
+- cobertura por dimensão;
 - confiança;
 - `reason_codes`;
 - `algorithm_version`;
 - data de cálculo.
 
-### Cobertura v1 candidata
-
-A arquitetura propõe a mesma régua estrutural 7/14/28 usada em outros estados, sem transformar ausência em zero:
-
-- `unobserved`: nenhum dia observável;
-- `sparse`: evidência insuficiente para tendência;
-- `partial`: evidência útil, abaixo do limiar de cobertura;
-- `complete`: cobertura suficiente para o indicador calculado.
-
-O limiar final de suficiência deverá ser congelado na implementação versionada. A arquitetura recomenda **não reutilizar automaticamente** um limiar de outro domínio sem teste específico.
+Não existe score composto de prontidão na v1.
 
 ## Reason codes mínimos
 
-Exemplos estruturais:
 - `NO_SLEEP_DATA`;
 - `NO_USABLE_SLEEP_DURATION`;
 - `TIME_IN_BED_ONLY`;
 - `INSUFFICIENT_SLEEP_COVERAGE`;
+- `INSUFFICIENT_SLEEP_TIMING_COVERAGE`;
 - `RECOVERY_UNOBSERVED`;
 - `FATIGUE_UNOBSERVED`;
 - `READINESS_UNOBSERVED`;
 - `DEVICE_ESTIMATE_ONLY`;
 - `MIXED_SLEEP_SOURCES`;
-- `INSUFFICIENT_COMPARABLE_DAYS`.
+- `INSUFFICIENT_COMPARABLE_DAYS`;
+- `HRV_METHOD_NOT_COMPARABLE`.
 
-Reason code descreve a condição do dado; não é diagnóstico.
+Reason code descreve condição do dado; não é diagnóstico.
 
 ## Conexões intermódulo
 
-M9A pode gerar fatos/conexões para análise em:
+M9A pode gerar conexões para:
 - 00 — Central;
 - 01 — Treino;
 - 02 — Alimentação;
@@ -191,66 +228,57 @@ M9A pode gerar fatos/conexões para análise em:
 - 06 — Planejamento Integrado;
 - 07 — Base Científica.
 
-Contrato:
-uma conexão significa **merece análise conjunta**, não **causa comprovada**.
+Conexão = merece análise conjunta, não causa comprovada.
 
 ## Segurança e privacidade
 
 Na futura implementação:
-- mesmo `athlete_id` e matriz de autorização da fundação Health;
+- mesmo `athlete_id` e matriz de autorização Health;
 - RLS deny-by-default;
-- leitura/escrita somente para usuários autorizados ao atleta;
-- escrita factual preferencialmente por RPC versionada;
-- `SECURITY DEFINER` somente quando necessário, com `search_path` fixo;
 - anon sem acesso;
-- testes cross-athlete obrigatórios;
-- nenhuma projeção detalhada para módulos externos sem contrato explícito.
+- escrita factual por RPC versionada;
+- `SECURITY DEFINER` somente quando necessário com `search_path` fixo;
+- cross-athlete obrigatório;
+- projeções externas somente por contrato explícito.
 
 ## Correções
 
-Fatos relevantes devem preservar histórico.
+- supersession para substituição factual;
+- void para anulação;
+- estado recalculável;
+- histórico nunca destruído silenciosamente.
 
-Padrão:
-- supersession para substituir um registro factual incorreto;
-- void para anular registro inválido;
-- estado derivado é recalculado;
-- nenhuma correção silenciosa destrói o fato anterior.
+## UI v1
 
-## UI futura
-
-Rota sugerida dentro de `/saude/*`:
-- `/saude/recuperacao`
+Rota final:
+`/saude/recuperacao`
 
 Mobile-first.
 
-Blocos esperados:
+Blocos:
 - registro simples do sono;
 - check-in de recuperação;
-- estado 7/14/28;
+- estado 7/14/28 por dimensão;
 - histórico;
-- origem/confiança do dado;
-- indicação de dados ausentes sem zeros falsos;
-- conexões relevantes sem diagnóstico.
+- origem/confiança;
+- unknown explícito;
+- conexões sem diagnóstico.
 
 ## Fora do escopo M9A v1
 
-- diagnóstico de insônia, apneia ou outro transtorno;
-- interpretação clínica de estágios de sono;
-- prescrição de medicação;
-- alteração automática de treino;
-- alteração automática de dieta;
-- recomendação terapêutica automática;
-- decisão integrada de prontidão que governe treino;
-- inferir causalidade a partir de correlação;
-- exigir wearable para operar o módulo.
+- diagnóstico de transtorno de sono;
+- interpretação clínica automática de estágios;
+- prescrição;
+- alteração automática de treino/dieta;
+- recomendação terapêutica;
+- score composto de prontidão governando treino;
+- causalidade inferida de correlação;
+- wearable obrigatório.
 
 ## Critério de saída arquitetural
 
-M9A só pode avançar para implementação após:
-- arquitetura versionada aprovada;
-- modelo factual revisado;
-- contrato de estado/reason codes revisado;
-- critérios de suficiência definidos para implementação;
-- matriz RLS/cross-athlete definida;
-- critérios de aceitação M9 aprovados;
-- branch baseada na `main` vigente e sem divergência não reconciliada.
+**ATENDIDO DOCUMENTALMENTE.**
+
+Pode seguir para desenho técnico somente após conferência da PR #487 contra o Mapa Soberano.
+
+Implementação, migrations e gates permanecem separados.
