@@ -255,12 +255,13 @@ export async function provisionUser(
         throw new Error("O cadastro operacional selecionado já está vinculado a outro login.");
       }
 
-      const { error } = await admin
+      const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
+      const { error } = await scopedAdmin
         .from("app_users")
         .update({
           auth_user_id: authUser.id,
           email,
-          ...(input.role?.trim() ? { role: input.role.trim() } : {}),
+          ...(!appUser.auth_user_id ? { access_model: "scoped" as const } : {}),
         })
         .eq("id", appUser.id);
       if (error) throw error;
@@ -271,12 +272,14 @@ export async function provisionUser(
         id: appUser.id,
       };
     } else {
-      const { data, error } = await admin
+      const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
+      const { data, error } = await scopedAdmin
         .from("app_users")
         .insert({
           name,
           email,
           role: "EXTERNO",
+          access_model: "scoped",
           is_active: true,
           auth_user_id: authUser.id,
         })
