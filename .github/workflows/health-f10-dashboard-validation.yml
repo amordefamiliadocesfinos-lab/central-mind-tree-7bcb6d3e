@@ -3,7 +3,7 @@ name: Health F10 Dashboard Validation
 on:
   push:
     branches:
-      - feat/health-f10-dashboard-implementation-20261107
+      - feat/health-f10-dashboard-implementation-20261107-r1
     paths:
       - 'src/modules/health/**'
       - 'scripts/health-f10-dashboard-model.test.mjs'
