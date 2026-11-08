@@ -114,7 +114,7 @@ function ReportDomain({
                   </p>
                   <p className="text-sm">
                     {valueLabel(
-                      metric(block.current, item.key),
+                      metric(block?.current, item.key),
                       item.suffix,
                       item.digits,
                     )}
@@ -126,7 +126,7 @@ function ReportDomain({
                   </p>
                   <p className="text-sm">
                     {valueLabel(
-                      metric(block.prior, item.key),
+                      metric(block?.prior, item.key),
                       item.suffix,
                       item.digits,
                     )}
@@ -138,7 +138,7 @@ function ReportDomain({
                   </p>
                   <p className="text-sm">
                     {signedLabel(
-                      metric(block.delta, item.key),
+                      metric(block?.delta, item.key),
                       item.suffix,
                       item.digits,
                     )}
