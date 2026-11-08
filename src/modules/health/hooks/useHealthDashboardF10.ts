@@ -430,7 +430,9 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
           error: sessionError ?? queueError,
           notApplicable: !session && !queueData && !sessionError && !queueError,
         }),
-        freshness: session ? "today" : "not_applicable",
+        freshness: session
+          ? freshnessForDate(session.started_at.slice(0, 10), today)
+          : "not_applicable",
         asOf: session?.started_at ?? null,
         error: sessionError ?? queueError,
         confidence: null,
