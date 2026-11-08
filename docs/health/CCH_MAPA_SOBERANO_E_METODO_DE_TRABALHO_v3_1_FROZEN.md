@@ -1,3 +1,5 @@
+> **HISTÓRICO:** esta v3.1 permanece preservada. A v3.2 FROZEN passa a governar a ordem dos gates após seu merge autorizado, mantendo TESTES MT obrigatório antes do Gate B, porém não antes do Gate A.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
