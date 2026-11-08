@@ -1,3 +1,5 @@
+> **HISTÓRICO:** esta v2 permanece preservada como baseline. Após merge autorizado da v3 FROZEN, a fonte soberana passa a ser `docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v3_FROZEN.md`. Não ampliar escopo a partir desta v2.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
