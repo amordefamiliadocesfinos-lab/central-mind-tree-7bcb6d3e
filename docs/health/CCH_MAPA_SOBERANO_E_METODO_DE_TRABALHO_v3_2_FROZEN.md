@@ -1,3 +1,5 @@
+> **HISTÓRICO:** esta v3.2 permanece preservada. A v3.3 FROZEN passa a permitir desenvolvimento/Gate A da F12 antes da homologação operacional F11, sem liberar produção dependente.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
