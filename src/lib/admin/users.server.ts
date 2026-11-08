@@ -207,16 +207,29 @@ export async function provisionUser(
       existingAthlete.display_name.trim().toLocaleLowerCase("pt-BR") !== name.toLocaleLowerCase("pt-BR"))) {
     throw new Error("Atleta selecionado não corresponde a um perfil ativo desta pessoa.");
   }
-  // Provisioning never grants a managerial/operational role through free text.
+  // Do not convert enterprise collaborators to externally scoped identities.
+  // This check must run regardless of whether the request supplied a role field.
   if (input.role?.trim() && input.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
     throw new Error("Atribuição de função operacional não é permitida neste fluxo de acesso restrito.");
   }
-  if (existingApp && input.role?.trim() && existingApp.role &&
+  if (existingApp?.role?.trim() &&
       existingApp.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
-    throw new Error("Não alterar a função de um colaborador existente neste fluxo.");
+    throw new Error("O cadastro existente possui papel operacional. Não convertê-lo automaticamente em acesso restrito.");
+  }
+  if (existingAthlete && !input.modules.includes("saude")) {
+    throw new Error("Vincular atleta exige a seleção explícita do módulo Saúde.");
   }
 
   let authUser = await findAuthUserByEmail(admin, email);
+  // Reject conflicting identity links before creating a persistent Auth account.
+  if (existingApp?.auth_user_id &&
+      (!authUser || existingApp.auth_user_id !== authUser.id)) {
+    throw new Error("O cadastro já pertence a outro Auth ou o Auth correspondente não foi localizado.");
+  }
+  if (existingAthlete?.auth_user_id &&
+      (!authUser || existingAthlete.auth_user_id !== authUser.id)) {
+    throw new Error("O atleta já pertence a outro Auth ou o Auth correspondente não foi localizado.");
+  }
   let authCreatedNow = false;
 
   const result: ProvisionUserResult = {
@@ -314,6 +327,17 @@ export async function provisionUser(
     };
   }
 
+  // Never continue with athlete linking or grants after the application identity failed.
+  // Partial Auth creation must remain unprivileged and be reconciled explicitly.
+  if (result.appUser.status === "failed") {
+    result.healthAthlete = { status: "skipped", message: "Vínculo Saúde suspenso: vínculo da conta falhou." };
+    result.moduleGrants = { status: "skipped", message: "Permissões suspensas: vínculo da conta falhou." };
+    if (authCreatedNow) {
+      result.auth.message += " Conta sem privilégios, pendente de reconciliação.";
+    }
+    return result;
+  }
+
   try {
     const athlete = existingAthlete;
     if (input.healthAthleteId && !athlete) {
@@ -347,7 +371,8 @@ export async function provisionUser(
     };
   }
 
-  if (result.appUser.status !== "failed") {
+  if (result.appUser.status !== "failed" &&
+      result.healthAthlete.status !== "failed") {
     try {
       await replaceUserModuleGrants(admin, actorAuthUserId, authUser.id, input.modules);
       result.moduleGrants = {
