@@ -1,3 +1,5 @@
+> **HISTÓRICO:** esta v3.0 permanece preservada como baseline. A partir do merge autorizado da PR #495, a fonte soberana passa a ser `docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v3_1_FROZEN.md`. A exceção de desbloqueio documental da F11 existe somente na v3.1.
+
 # MAPA SOBERANO DO CCH / SAÚDE NO PAINEL CENTRAL
 
 **Documento:** Governança Mestre CCH / Saúde  
