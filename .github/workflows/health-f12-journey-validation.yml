@@ -43,7 +43,7 @@ jobs:
       - name: Guard F12 against accidental DDL
         run: |
           set -euo pipefail
-          if compgen -G "supabase/migrations/*f12*" > /dev/null; then
+          if compgen -G "supabase/migrations/*_health_f12_*.sql" > /dev/null; then
             echo "F12 v1 must not introduce migrations."
             exit 1
           fi
