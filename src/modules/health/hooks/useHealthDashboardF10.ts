@@ -294,7 +294,6 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
     ]);
 
     const sessionError = errorMessage(sessionResult.error);
-    let queueResult: Awaited<ReturnType<typeof db.from>> | null = null;
     let queueData: Record<string, unknown> | null = null;
     let queueError: string | null = null;
 
@@ -306,7 +305,6 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
         .order("queue_position", { ascending: true })
         .limit(1)
         .maybeSingle();
-      queueResult = response as never;
       queueData = (response.data ?? null) as Record<string, unknown> | null;
       queueError = errorMessage(response.error);
     }
