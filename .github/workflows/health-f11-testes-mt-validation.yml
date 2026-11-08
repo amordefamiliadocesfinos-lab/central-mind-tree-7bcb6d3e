@@ -1,0 +1,217 @@
+name: Health F11 TESTES MT Validation
+
+on:
+  push:
+    branches:
+      - feat/health-f11-integrated-motor-implementation-20261108
+    paths:
+      - '.github/workflows/health-f11-testes-mt-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  testes-mt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEST_REF: enfekhgcsbzovxtqdlwh
+
+      URL_A: ${{ secrets.TESTES_MT_DATABASE_URL }}
+      URL_B: ${{ secrets.TESTES_MT_DB_URL }}
+      URL_C: ${{ secrets.SUPABASE_TESTES_MT_DATABASE_URL }}
+      URL_D: ${{ secrets.SUPABASE_TESTES_MT_DB_URL }}
+      URL_E: ${{ secrets.SUPABASE_TEST_DATABASE_URL }}
+
+      TOKEN_A: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      TOKEN_B: ${{ secrets.TESTES_MT_SUPABASE_ACCESS_TOKEN }}
+      TOKEN_C: ${{ secrets.SUPABASE_TESTES_MT_ACCESS_TOKEN }}
+
+      PW_A: ${{ secrets.TESTES_MT_DB_PASSWORD }}
+      PW_B: ${{ secrets.SUPABASE_TESTES_MT_DB_PASSWORD }}
+      PW_C: ${{ secrets.SUPABASE_TEST_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Verify current Supabase CLI target syntax
+        run: |
+          set -euo pipefail
+          supabase --version
+          supabase db query --help | grep -q -- '--remote'
+
+      - name: Resolve TESTES MT credentials without exposing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          selected_url=""
+          for candidate in "$URL_A" "$URL_B" "$URL_C" "$URL_D" "$URL_E"; do
+            if [ -n "$candidate" ]; then
+              selected_url="$candidate"
+              break
+            fi
+          done
+
+          if [ -n "$selected_url" ]; then
+            python3 - "$selected_url" "$TEST_REF" <<'PY'
+import sys
+from urllib.parse import urlparse
+url, ref = sys.argv[1], sys.argv[2]
+parsed = urlparse(url)
+identity = f"{parsed.hostname or ''}|{parsed.username or ''}"
+if ref not in identity:
+    raise SystemExit("Refusing database URL: it does not identify the canonical TESTES MT project ref")
+PY
+            echo "::add-mask::$selected_url"
+            echo "F11_REMOTE=$selected_url" >> "$GITHUB_ENV"
+            echo "F11_REMOTE_MODE=url" >> "$GITHUB_ENV"
+            echo "Resolved TESTES MT target from a test-specific database URL."
+            exit 0
+          fi
+
+          selected_token=""
+          for candidate in "$TOKEN_A" "$TOKEN_B" "$TOKEN_C"; do
+            if [ -n "$candidate" ]; then
+              selected_token="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$selected_token" ]; then
+            echo "No GitHub secret is available for TESTES MT connectivity."
+            echo "Accepted connection secrets: TESTES_MT_DATABASE_URL / TESTES_MT_DB_URL / SUPABASE_TESTES_MT_DATABASE_URL / SUPABASE_TESTES_MT_DB_URL / SUPABASE_TEST_DATABASE_URL, or a Supabase access token."
+            exit 78
+          fi
+
+          echo "::add-mask::$selected_token"
+          echo "SUPABASE_ACCESS_TOKEN=$selected_token" >> "$GITHUB_ENV"
+          echo "F11_REMOTE=$TEST_REF" >> "$GITHUB_ENV"
+          echo "F11_REMOTE_MODE=project_ref" >> "$GITHUB_ENV"
+
+          selected_pw=""
+          for candidate in "$PW_A" "$PW_B" "$PW_C"; do
+            if [ -n "$candidate" ]; then
+              selected_pw="$candidate"
+              break
+            fi
+          done
+
+          if [ -n "$selected_pw" ]; then
+            echo "::add-mask::$selected_pw"
+            echo "SUPABASE_DB_PASSWORD=$selected_pw" >> "$GITHUB_ENV"
+            echo "Using test-specific DB password with canonical TESTES MT ref."
+          else
+            echo "No test-specific DB password found; CLI will use its authenticated remote connection flow."
+          fi
+
+      - name: Preflight canonical TESTES MT baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(supabase db query "
+            SELECT CASE WHEN
+              to_regclass('public.health_athletes') IS NOT NULL
+              AND to_regclass('public.health_nutrition_rolling_states') IS NOT NULL
+              AND to_regclass('public.health_nutrition_decisions') IS NOT NULL
+              AND to_regclass('public.health_body_rolling_states') IS NOT NULL
+              AND to_regclass('public.health_sleep_recovery_rolling_states') IS NOT NULL
+              AND to_regprocedure('public.health_can_read_athlete(uuid)') IS NOT NULL
+              AND to_regprocedure('public.health_can_write_athlete(uuid)') IS NOT NULL
+            THEN 'F11_TESTES_MT_BASELINE_OK'
+            ELSE 'F11_TESTES_MT_BASELINE_BAD'
+            END AS baseline,
+            CASE
+              WHEN to_regclass('public.health_integrated_decision_runs') IS NULL
+                AND to_regclass('public.health_integrated_decisions') IS NULL
+                AND to_regprocedure('public.health_f11_evaluate_integrated_decision(uuid,date,integer)') IS NULL
+                THEN 'F11_ABSENT'
+              WHEN to_regclass('public.health_integrated_decision_runs') IS NOT NULL
+                AND to_regclass('public.health_integrated_decisions') IS NOT NULL
+                AND to_regprocedure('public.health_f11_evaluate_integrated_decision(uuid,date,integer)') IS NOT NULL
+                THEN 'F11_PRESENT'
+              ELSE 'F11_PARTIAL'
+            END AS f11_state;
+          " --read-only --remote="$F11_REMOTE" 2>&1)"
+          printf '%s\n' "$output"
+
+          grep -q 'F11_TESTES_MT_BASELINE_OK' <<<"$output"
+
+          if grep -q 'F11_PARTIAL' <<<"$output"; then
+            echo "Partial F11 schema detected. Refusing to continue."
+            exit 1
+          fi
+
+          if grep -q 'F11_PRESENT' <<<"$output"; then
+            echo "F11_PRESENT=true" >> "$GITHUB_ENV"
+          else
+            grep -q 'F11_ABSENT' <<<"$output"
+            echo "F11_PRESENT=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Apply exactly four F11 migrations to TESTES MT
+        if: env.F11_PRESENT == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          {
+            echo 'BEGIN;'
+            cat supabase/migrations/20261108144603_health_f11_integrated_decision_foundation.sql
+            cat supabase/migrations/20261108144605_health_f11_integrated_decision_rpc.sql
+            cat supabase/migrations/20261108144607_health_f11_integrated_decision_security.sql
+            cat supabase/migrations/20261108144609_health_f11_integrated_decision_integrity.sql
+            echo 'COMMIT;'
+          } > "$tmp"
+
+          supabase db query --file "$tmp" --yes --remote="$F11_REMOTE"
+          rm -f "$tmp"
+
+      - name: F11 structural and security postcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(supabase db query --file supabase/tests/health_f11_testes_mt_postcheck.sql --read-only --remote="$F11_REMOTE" 2>&1)"
+          printf '%s\n' "$output"
+          grep -q 'F11_TESTES_MT_POSTCHECK_PASS' <<<"$output"
+
+      - name: F11 real functional smoke with full rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(supabase db query --file supabase/tests/health_f11_testes_mt_smoke.sql --yes --remote="$F11_REMOTE" 2>&1)"
+          printf '%s\n' "$output"
+          grep -q 'F11_TESTES_MT_FUNCTIONAL_PASS' <<<"$output"
+
+      - name: Confirm no synthetic 2099 F11 data persisted
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(supabase db query "
+            SELECT CASE WHEN
+              NOT EXISTS (
+                SELECT 1 FROM public.health_integrated_decision_runs
+                WHERE as_of_date=DATE '2099-01-07'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM public.health_nutrition_decisions
+                WHERE as_of_date=DATE '2099-01-07'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM public.health_body_rolling_states
+                WHERE as_of_date=DATE '2099-01-07'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM public.health_sleep_recovery_rolling_states
+                WHERE as_of_date=DATE '2099-01-07'
+              )
+            THEN 'F11_TESTES_MT_ROLLBACK_PASS'
+            ELSE 'F11_TESTES_MT_ROLLBACK_FAIL'
+            END AS result;
+          " --read-only --remote="$F11_REMOTE" 2>&1)"
+          printf '%s\n' "$output"
+          grep -q 'F11_TESTES_MT_ROLLBACK_PASS' <<<"$output"
