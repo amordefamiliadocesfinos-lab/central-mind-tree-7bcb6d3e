@@ -40,9 +40,10 @@ async function findAuthUserByEmail(admin: SupabaseClient<Database>, email: strin
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
 
-    const found = data.users.find((user) => normalizeEmail(user.email ?? "") === normalized);
+    const users: User[] = (data.users ?? []) as User[];
+    const found = users.find((user) => normalizeEmail(user.email ?? "") === normalized);
     if (found) return found;
-    if (data.users.length < perPage) break;
+    if (users.length < perPage) break;
     page += 1;
   }
 
