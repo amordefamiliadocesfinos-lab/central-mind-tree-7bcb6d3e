@@ -223,7 +223,9 @@ SELECT public.health_f13_record_review_outcome(
 ) AS outcome_b_2 \gset
 SELECT set_config('test.outcome_b_2', :'outcome_b_2', false);
 
-DO $$
+RESET ROLE;
+
+DO $
 DECLARE
   v_current integer;
   v_old integer;
@@ -247,10 +249,13 @@ BEGIN
   IF v_energy<>2200 THEN
     RAISE EXCEPTION 'F13 outcome mutated nutrition source';
   END IF;
-END $$;
+END $;
+
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
 
 -- Invalid outcome target must fail atomically.
-DO $$
+DO $
 BEGIN
   BEGIN
     PERFORM public.health_f13_record_review_outcome(
