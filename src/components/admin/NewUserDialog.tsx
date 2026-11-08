@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MODULE_LABELS } from "@/components/admin/UserModuleAccessDialog";
+import { ROLLOUT_READY_MODULE_KEYS } from "@/lib/admin/rollout-module-policy";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -214,19 +215,20 @@ export function NewUserDialog({
           <div className="space-y-3">
             <Label>Módulos que o usuário poderá acessar</Label>
             <p className="text-xs text-muted-foreground">
-              Sem seleção, o acesso fica negado. A liberação real depende das verificações
-              de segurança por módulo no servidor e no banco.
+              Sem seleção, o acesso fica negado. Apenas Saúde está disponível nesta etapa;
+              os demais módulos aguardam homologação de isolamento.
             </p>
             <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
               {Object.entries(MODULE_LABELS).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 text-sm">
                   <Checkbox
+                    disabled={!(ROLLOUT_READY_MODULE_KEYS as readonly string[]).includes(key)}
                     checked={selectedModules.includes(key)}
                     onCheckedChange={(checked) => setSelectedModules((items) =>
                       checked === true ? [...new Set([...items, key])] : items.filter((item) => item !== key)
                     )}
                   />
-                  {label}
+                  {label}{!(ROLLOUT_READY_MODULE_KEYS as readonly string[]).includes(key) ? " · Em homologação" : ""}
                 </label>
               ))}
             </div>
