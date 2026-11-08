@@ -89,10 +89,16 @@ PostgreSQL:
 - anon sem EXECUTE;
 - DML direto frontend bloqueado.
 
-Último estado confirmado durante esta emissão:
+Validação concluída:
+
+- GitHub Actions run: `42429860135`;
+- conclusão geral: **SUCCESS**;
 - PostgreSQL contract: **PASS**;
+- seis migrations aplicadas em PostgreSQL 17 descartável: **PASS**;
+- cross-athlete negative test não-vazio: **PASS**;
+- anon sem EXECUTE M9: **PASS**;
 - Health M9 lint: **PASS**;
-- full frontend build: em conclusão no run mais recente.
+- full frontend build: **PASS**.
 
 ## TESTES MT oficial
 
@@ -117,11 +123,11 @@ Portanto:
 ## Próximo gate técnico
 
 Antes de PR Draft de implementação, conforme o Mapa:
-1. concluir CI descartável;
+1. ✅ CI descartável concluído;
 2. obter acesso seguro ao TESTES MT;
 3. aplicar migrations no TESTES MT;
 4. executar validação RLS/RPC/cross-athlete no TESTES MT;
-5. advisors;
+5. executar advisors;
 6. somente com PASS oficial abrir PR Draft de implementação.
 
 Este relatório não autoriza produção ou deploy.
