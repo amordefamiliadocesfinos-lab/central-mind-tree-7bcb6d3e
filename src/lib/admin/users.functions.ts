@@ -39,8 +39,11 @@ async function assertProvisionCapability(
 export const getAdminUsersContext = createServerFn({ method: "GET" })
   .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if (!context) throw new Error("FORBIDDEN: sessão administrativa indisponível.");
-    await assertProvisionCapability(context.supabase, context.userId);
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listProvisioningContext } = await import("./users.server");
     return listProvisioningContext(supabaseAdmin);
@@ -50,8 +53,11 @@ export const provisionPanelUser = createServerFn({ method: "POST" })
   .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .validator((input: ProvisionUserInput) => input)
   .handler(async ({ data, context }) => {
-    if (!context) throw new Error("FORBIDDEN: sessão administrativa indisponível.");
-    await assertProvisionCapability(context.supabase, context.userId);
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
     // Fail closed while existing enterprise endpoints and RLS still allow broad access.
     // This flag must be enabled only after a complete negative security test of scoped users.
     if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
@@ -66,9 +72,12 @@ export const updateAdminUserModules = createServerFn({ method: "POST" })
   .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .validator((input: { authUserId: string; modules: string[] }) => input)
   .handler(async ({ data, context }) => {
-    if (!context) throw new Error("FORBIDDEN: sessão administrativa indisponível.");
-    await assertProvisionCapability(context.supabase, context.userId);
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { replaceUserModuleGrants } = await import("./users.server");
-    return replaceUserModuleGrants(supabaseAdmin, context.userId, data.authUserId, data.modules);
+    return replaceUserModuleGrants(supabaseAdmin, authorized.userId, data.authUserId, data.modules);
   });
