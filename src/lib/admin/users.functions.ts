@@ -1,6 +1,8 @@
 import { createMiddleware, createServerFn, type CustomFetch } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import type { ProvisionUserInput } from "./users.server";
 
 const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
@@ -18,7 +20,7 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async (
 });
 
 async function assertProvisionCapability(
-  userScopedSupabase: any,
+  userScopedSupabase: SupabaseClient<Database>,
   userId: string,
 ) {
   const { data, error } = await userScopedSupabase
