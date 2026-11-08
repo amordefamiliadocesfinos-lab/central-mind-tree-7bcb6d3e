@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { NewUserDialog } from "@/components/admin/NewUserDialog";
-import { getAdminUsersContext, provisionPanelUser } from "@/lib/admin/users.functions";
+import { UserModuleAccessDialog, type ModuleGrant } from "@/components/admin/UserModuleAccessDialog";
+import { getAdminUsersContext, provisionPanelUser, updateAdminUserModules } from "@/lib/admin/users.functions";
 import type { ProvisionUserResult } from "@/lib/admin/users.server";
 
 type AppUser = {
@@ -29,6 +30,8 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [moduleGrants, setModuleGrants] = useState<ModuleGrant[]>([]);
+  const [modulesForUser, setModulesForUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [query, setQuery] = useState("");
@@ -43,6 +46,7 @@ export default function AdminUsers() {
       const context = await getAdminUsersContext();
       setAppUsers((context.appUsers ?? []) as AppUser[]);
       setAthletes((context.athletes ?? []) as Athlete[]);
+      setModuleGrants((context.moduleGrants ?? []) as ModuleGrant[]);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Falha ao carregar usuários.";
       if (message.includes("FORBIDDEN")) setForbidden(true);
@@ -158,10 +162,15 @@ export default function AdminUsers() {
 
               <div className="flex items-center gap-2">
                 {user.auth_user_id ? (
-                  <span className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    Acesso criado
-                  </span>
+                  <>
+                    <span className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      Login vinculado
+                    </span>
+                    <Button variant="outline" className="min-h-11" onClick={() => setModulesForUser(user)}>
+                      Módulos
+                    </Button>
+                  </>
                 ) : (
                   <Button
                     variant="outline"
@@ -182,6 +191,17 @@ export default function AdminUsers() {
         ))}
       </div>
 
+      <UserModuleAccessDialog
+        open={!!modulesForUser}
+        onOpenChange={(open) => { if (!open) setModulesForUser(null); }}
+        user={modulesForUser?.auth_user_id ? { name: modulesForUser.name, auth_user_id: modulesForUser.auth_user_id } : null}
+        current={moduleGrants.filter((grant) => grant.auth_user_id === modulesForUser?.auth_user_id).map((grant) => grant.module_key)}
+        onSave={async (authUserId, modules) => {
+          await updateAdminUserModules({ data: { authUserId, modules } });
+          toast({ title: "Preferências de módulos registradas", description: "A aplicação das restrições depende da homologação de RLS." });
+          await load();
+        }}
+      />
       <NewUserDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
