@@ -19,7 +19,10 @@ export function useKeyboardAware() {
     const update = () => {
       const diff = window.innerHeight - vv.height;
       const open = diff > THRESHOLD;
-      document.body.classList.toggle("keyboard-open", open);
+      const body = document.body;
+      // Preview iframes can unmount while the document body is temporarily absent.
+      if (!body) return;
+      body.classList.toggle("keyboard-open", open);
     };
 
     vv.addEventListener("resize", update);
@@ -29,7 +32,8 @@ export function useKeyboardAware() {
     return () => {
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
-      document.body.classList.remove("keyboard-open");
+      // Cleanup may run after the preview document has detached its body.
+      document.body?.classList.remove("keyboard-open");
     };
   }, []);
 }
