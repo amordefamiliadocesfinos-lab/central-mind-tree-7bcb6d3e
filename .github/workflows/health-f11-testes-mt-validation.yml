@@ -58,15 +58,7 @@ jobs:
           done
 
           if [ -n "$selected_url" ]; then
-            python3 - "$selected_url" "$TEST_REF" <<'PY'
-import sys
-from urllib.parse import urlparse
-url, ref = sys.argv[1], sys.argv[2]
-parsed = urlparse(url)
-identity = f"{parsed.hostname or ''}|{parsed.username or ''}"
-if ref not in identity:
-    raise SystemExit("Refusing database URL: it does not identify the canonical TESTES MT project ref")
-PY
+            python3 -c 'import sys; from urllib.parse import urlparse; u=urlparse(sys.argv[1]); identity=f"{u.hostname or \"\"}|{u.username or \"\"}"; ref=sys.argv[2]; sys.exit(0 if ref in identity else "Refusing database URL: it does not identify the canonical TESTES MT project ref")' "$selected_url" "$TEST_REF"
             echo "::add-mask::$selected_url"
             echo "F11_REMOTE=$selected_url" >> "$GITHUB_ENV"
             echo "F11_REMOTE_MODE=url" >> "$GITHUB_ENV"
