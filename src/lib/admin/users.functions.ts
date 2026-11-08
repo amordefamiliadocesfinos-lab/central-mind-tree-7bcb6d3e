@@ -54,3 +54,13 @@ export const provisionPanelUser = createServerFn({ method: "POST" })
     const { provisionUser } = await import("./users.server");
     return provisionUser(supabaseAdmin, data);
   });
+
+export const updateAdminUserModules = createServerFn({ method: "POST" })
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
+  .validator((input: { authUserId: string; modules: string[] }) => input)
+  .handler(async ({ data, context }) => {
+    await assertProvisionCapability(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { replaceUserModuleGrants } = await import("./users.server");
+    return replaceUserModuleGrants(supabaseAdmin, context.userId, data.authUserId, data.modules);
+  });
