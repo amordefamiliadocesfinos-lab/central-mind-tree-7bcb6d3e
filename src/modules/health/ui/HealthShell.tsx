@@ -8,6 +8,7 @@ import {
   UserRound,
   MoonStar,
   FlaskConical,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ const primaryItems = [
   { to: "/saude/evolucao", label: "Evolução", mobileLabel: "Evolução", icon: TrendingUp },
   { to: "/saude/recuperacao", label: "Recuperação", mobileLabel: "Recup.", icon: MoonStar },
   { to: "/saude/exames", label: "Exames", mobileLabel: "Exames", icon: FlaskConical },
+  { to: "/saude/revisao", label: "Revisão", mobileLabel: "Revisão", icon: History },
   { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
