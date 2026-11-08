@@ -52,7 +52,7 @@ SELECT public.health_m9_record_sleep_period(
   '10101010-1010-4010-8010-101010101010',NULL
 );
 
-DO $
+DO $$
 DECLARE
   v_count integer;
 BEGIN
@@ -60,7 +60,7 @@ BEGIN
   WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     AND client_event_id='10101010-1010-4010-8010-101010101010';
   IF v_count <> 1 THEN RAISE EXCEPTION 'sleep idempotency failed'; END IF;
-END $;
+END $$;
 
 SELECT public.health_m9_record_recovery_checkin(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -105,7 +105,7 @@ SELECT public.health_m9_record_lab_report(
   p_fasting_status => 'fasting'
 );
 
-DO $
+DO $$
 DECLARE
   v_code text;
   v_count integer;
