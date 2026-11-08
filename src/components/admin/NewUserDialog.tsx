@@ -72,11 +72,8 @@ export function NewUserDialog({
       setRole(preselectedAppUser.role ?? "");
       setAppUserId(preselectedAppUser.id);
 
-      const normalizedName = preselectedAppUser.name.trim().toLocaleLowerCase("pt-BR");
-      const matchingAthlete = athletes.find(
-        (athlete) => athlete.display_name.trim().toLocaleLowerCase("pt-BR") === normalizedName,
-      );
-      setHealthAthleteId(matchingAthlete?.id ?? "none");
+      // Names are not unique identifiers; athlete linkage requires explicit selection.
+      setHealthAthleteId("none");
     } else {
       setName("");
       setEmail("");
@@ -204,7 +201,7 @@ export function NewUserDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              O vínculo reaproveita o perfil e todo o histórico; não cria outro atleta.
+              Selecione explicitamente o atleta correto. O vínculo reaproveita o perfil e todo o histórico.
             </p>
           </div>
 
