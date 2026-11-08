@@ -28,8 +28,8 @@ Regra:
 | health_biomarker_results | none | health_can_read_athlete | none | RPC |
 | health_biomarker_longitudinal_states | none | health_can_read_athlete | none | refresh RPC |
 | health_vital_observations | none | health_can_read_athlete | none | RPC |
-| health_biomarker_catalog | none | allow authenticated | none | migration/admin |
-| health_biomarker_aliases | none | prefer no frontend grant | none | migration/admin |
+| health_biomarker_catalog | none | authenticated via explicit global read policy | none | migration/admin |
+| health_biomarker_aliases | none | none por padrão | none | migration/admin |
 
 ## 3. Policy pattern por atleta
 
@@ -40,6 +40,15 @@ SELECT:
 Não criar INSERT/UPDATE/DELETE policies para facts M9 v1, pois o contrato é RPC-only.
 
 Derived states também não recebem DML direto do frontend.
+
+Catálogo global:
+- RLS habilitado;
+- policy SELECT explícita `TO authenticated USING (true)`;
+- nenhum INSERT/UPDATE/DELETE para frontend.
+
+Aliases:
+- RLS habilitado;
+- sem grant/policy de leitura ao frontend na v1, salvo necessidade futura explicitamente contratada.
 
 ## 4. Funções
 
@@ -81,6 +90,7 @@ Para cada fact/estado:
 - anon RPC: deny;
 - id de fato de A passado com athlete B: deny;
 - document de A não pode ser ligado a lab_report de B;
+- void de documento de A por B deve falhar;
 - extraction de A não confirma resultados para B;
 - sleep supersession de A não pode apontar para fato de B.
 
