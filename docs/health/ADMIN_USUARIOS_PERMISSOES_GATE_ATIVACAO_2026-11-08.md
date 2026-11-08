@@ -71,3 +71,27 @@ Essa combinação de privilégio + política ampla indica **possibilidade de con
 **Bloqueio elevado:** Uma conta com Auth restrito pode fazer chamadas anônimas usando chave pública. Portanto, acrescentar políticas RLS exclusivamente `TO authenticated` não corrige o isolamento. Antes de ativar login externo é necessário revisar/revogar permissões anônimas onde inadequadas, reforçar RLS com regras de negócio para os módulos e comprovar regressão dos consumidores existentes. Não aplicar mudanças em lote sem inventário de dependências e prova de compatibilidade.
 
 A proteção adicional de `app_users` criada nesta PR é apenas uma etapa do controle por identidade, não resolve permissões de todas as outras tabelas. Toda gravação de migrations continua não autorizada até homologação de segurança e processo de deploy.
+
+
+## Gate operacional de liberação (atualizado em 08/11/2026)
+
+**Confirmado por consulta somente leitura no Core xkskyutmtlhivvpfxkjg:**
+- 219 tabelas no schema `public`, das quais 2 sem RLS.
+- 113 com privilégio SQL SELECT de `anon`, 208 de `authenticated`.
+- 72 tabelas candidatas a leitura anônima por combinação de GRANT SELECT e política `USING true` para `public/anon`; **não equivalem a 72 vazamentos comprovados**.
+- 24 funções `SECURITY DEFINER` em `public` com EXECUTE SQL para `anon`, **17 dessas retornam trigger**, portanto não representam 24 endpoints RPC diretamente invocáveis.
+- `health-private`, `order-documents`, `shopee-labels` são buckets privados; `app-user-avatars`, `contact-avatars`, `delivery-proof`, `media` estão marcados públicos. O caráter público do bucket não basta para avaliar confidencialidade de todo seu conteúdo.
+- `app_user_module_grants` e `app_user_module_grant_audit` não existem no Core: migration ainda pendente.
+
+**Ação registrada na PR:** `scripts/security/admin_users_core_exposure_audit_20261108.sql` contém queries reproduzíveis de verificação, exclusivamente leitura.
+
+**A ordem segura, sem alterar usuários atuais:**
+1. Verificar dependências anônimas reais (aplicação, integrações, endpoints, bots, dados legitimamente públicos).
+2. Propor revogação de grants anônimos somente para tabelas com classificações empresariais, acompanhada de testes positivos e negativos no ambiente controlado; separar publicidades deliberadas.
+3. Revisar funções invocáveis (excluir triggers) e Edge Functions que usem service role; garantir Auth + autorização por recurso.
+4. Verificar Storage e URLs públicas (revogar acesso público quando o conteúdo não for público, após plano de compatibilidade).
+5. Aplicar e homologar migrations de catálogo de permissões, SEM habilitar `PANEL_SCOPED_USERS_RLS_READY`.
+6. Testar via Data API com token anônimo real, token Saúde-only de ensaio e contas legadas com autorização, incluindo revogação, refresh da sessão e outro atleta.
+7. Apenas quando todas as verificações passarem, habilitar feature flag **no ambiente correto**, realizar cadastro pelo Painel, vincular Rafaela via IDs existentes e registrar resultados PASS/FAIL.
+
+**Proibição:** não usar o projeto Supabase legado `gufyjtdgsdmowubdtdvo` nem `fmbarvtlfuvirwqpuydx` para supor resultado do Core oficial. O conector Supabase acessível para projetos independentes lista somente esses projetos antigos; a auditoria aqui foi feita na conexão somente leitura do Lovable Cloud Core.
