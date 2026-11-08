@@ -35,6 +35,44 @@ create trigger guard_app_users_access_model_trigger
 before insert or update on public.app_users
 for each row execute function public.guard_app_users_access_model();
 
+-- Dedicated guard avoids RLS self-recursion: its only input is the caller JWT,
+-- never a client-editable role or user_metadata claim.
+create schema if not exists app_private_access;
+revoke all on schema app_private_access from public;
+grant usage on schema app_private_access to authenticated;
+
+create or replace function app_private_access.is_scoped_identity()
+returns boolean language sql stable security definer set search_path = ''
+as $guard$
+  select coalesce((
+    select u.access_model = 'scoped'
+    from public.app_users u
+    where u.auth_user_id = (select auth.uid())
+    limit 1
+  ), true);
+$guard$;
+revoke all on function app_private_access.is_scoped_identity() from public, anon;
+grant execute on function app_private_access.is_scoped_identity() to authenticated;
+
+-- Existing permissive policies are preserved. A scoped login can read only
+-- its own app_users row and cannot edit/delete/create business user records.
+create policy app_users_scoped_select
+on public.app_users as restrictive for select to authenticated
+using (
+  not (select app_private_access.is_scoped_identity())
+  or auth_user_id = (select auth.uid())
+);
+create policy app_users_scoped_insert
+on public.app_users as restrictive for insert to authenticated
+with check (not (select app_private_access.is_scoped_identity()));
+create policy app_users_scoped_update
+on public.app_users as restrictive for update to authenticated
+using (not (select app_private_access.is_scoped_identity()))
+with check (not (select app_private_access.is_scoped_identity()));
+create policy app_users_scoped_delete
+on public.app_users as restrictive for delete to authenticated
+using (not (select app_private_access.is_scoped_identity()));
+
 create table public.app_user_module_grants (
   auth_user_id uuid not null references auth.users(id) on delete cascade,
   module_key text not null check (module_key in (
