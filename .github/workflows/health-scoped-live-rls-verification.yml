@@ -1,0 +1,36 @@
+name: Health Scoped Live RLS Verification
+
+# Manual only; do not run automatically with production credentials.
+# Use read-only fixture identities and configure GitHub environment secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Authorized test environment (staging preferred)"
+        type: choice
+        options: [staging]
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-rls:
+    name: Verify scoped REST isolation with temporary test credentials
+    runs-on: ubuntu-latest
+    environment: health-access-staging
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run live scoped access tests (READ ONLY)
+        env:
+          ACCESS_TEST_URL: ${{ secrets.ACCESS_TEST_URL }}
+          ACCESS_TEST_PUBLISHABLE_KEY: ${{ secrets.ACCESS_TEST_PUBLISHABLE_KEY }}
+          ACCESS_TEST_SCOPED_JWT: ${{ secrets.ACCESS_TEST_SCOPED_JWT }}
+          ACCESS_TEST_LEGACY_JWT: ${{ secrets.ACCESS_TEST_LEGACY_JWT }}
+          ACCESS_TEST_OWN_ATHLETE_ID: ${{ vars.ACCESS_TEST_OWN_ATHLETE_ID }}
+          ACCESS_TEST_OTHER_ATHLETE_ID: ${{ vars.ACCESS_TEST_OTHER_ATHLETE_ID }}
+        run: node --test tests/admin/live-scoped-data-api.test.mjs
