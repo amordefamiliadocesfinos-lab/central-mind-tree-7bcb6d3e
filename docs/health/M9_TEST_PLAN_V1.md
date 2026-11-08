@@ -35,6 +35,9 @@ Para policies, criar testes pgTAP em `supabase/tests/` quando a implementação 
 - void é idempotente.
 
 ### Recovery
+- várias métricas com o mesmo `checkin_event_id` são aceitas;
+- replay do mesmo `checkin_event_id + metric_code` não duplica;
+- métrica ausente no check-in permanece unknown;
 - ordinal 1 e 5 aceitos;
 - ordinal 0/6 rejeitado;
 - raw_text sem ordinal aceito;
@@ -90,6 +93,8 @@ Ausência nunca produz média zero.
 - confirmed cria report + results em transação;
 - falha em um result faz rollback de tudo;
 - reject não apaga documento;
+- void de documento exige motivo;
+- void de documento não apaga binário silenciosamente;
 - confirmar duas vezes não duplica;
 - engine/version/confidence preservados.
 
@@ -105,7 +110,8 @@ Ausência nunca produz média zero.
 - normalização não sobrescreve original;
 - reference range alterada gera reason code;
 - unidade incompatível => not comparable;
-- observação única => SINGLE_OBSERVATION_ONLY.
+- observação única => SINGLE_OBSERVATION_ONLY;
+- correção de marcador não faz UPDATE silencioso do filho: supersede/void do relatório + relatório substituto.
 
 ## 6. Sinais vitais
 
@@ -127,7 +133,7 @@ Para todas as tabelas por atleta:
 - RPC cross-athlete = deny.
 
 Catálogo:
-- authenticated select = allow;
+- authenticated select via policy global explícita = allow;
 - anon = deny;
 - frontend insert/update/delete = deny.
 
