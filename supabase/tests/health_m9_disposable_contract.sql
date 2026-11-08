@@ -42,7 +42,7 @@ SELECT public.health_m9_record_sleep_period(
   '2026-11-02 07:10:00+00',
   NULL,1,NULL,'America/Sao_Paulo','USER_REPORTED','moderate','fixture',
   '10101010-1010-4010-8010-101010101010',NULL
-) AS sleep_id \gset
+);
 
 -- Same client event must be idempotent.
 SELECT public.health_m9_record_sleep_period(
@@ -50,12 +50,17 @@ SELECT public.health_m9_record_sleep_period(
   DATE '2026-11-01','nocturnal',NULL,NULL,NULL,NULL,480,NULL,NULL,NULL,
   'USER_REPORTED','moderate',NULL,
   '10101010-1010-4010-8010-101010101010',NULL
-) AS sleep_id_replay \gset
+);
 
-DO $$
+DO $
+DECLARE
+  v_count integer;
 BEGIN
-  IF :'sleep_id' <> :'sleep_id_replay' THEN RAISE EXCEPTION 'sleep idempotency failed'; END IF;
-END $$;
+  SELECT count(*) INTO v_count FROM public.health_sleep_periods
+  WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    AND client_event_id='10101010-1010-4010-8010-101010101010';
+  IF v_count <> 1 THEN RAISE EXCEPTION 'sleep idempotency failed'; END IF;
+END $;
 
 SELECT public.health_m9_record_recovery_checkin(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -98,16 +103,21 @@ SELECT public.health_m9_record_lab_report(
   p_laboratory_name => 'Lab Teste',
   p_collected_at => '2026-11-01 10:00:00+00',
   p_fasting_status => 'fasting'
-) AS report_id \gset
+);
 
-DO $$
+DO $
 DECLARE
   v_code text;
   v_count integer;
+  v_report_id uuid;
 BEGIN
+  SELECT id INTO v_report_id FROM public.health_lab_reports
+  WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    AND client_event_id='40404040-4040-4040-8040-404040404040';
+
   SELECT canonical_code INTO v_code
   FROM public.health_biomarker_results
-  WHERE lab_report_id=:'report_id'::uuid;
+  WHERE lab_report_id=v_report_id;
   IF v_code <> 'glucose' THEN RAISE EXCEPTION 'biomarker alias mapping failed: %',v_code; END IF;
 
   SELECT count(*) INTO v_count FROM public.health_biomarker_longitudinal_states
