@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AdminAccessDatabase } from "./module-grants.types";
+import { assertScopedProvisionIdentity } from "./provision-identity-guard";
 
 export type ProvisionMode = "invite" | "temporary_password";
 
@@ -207,29 +208,16 @@ export async function provisionUser(
       existingAthlete.display_name.trim().toLocaleLowerCase("pt-BR") !== name.toLocaleLowerCase("pt-BR"))) {
     throw new Error("Atleta selecionado não corresponde a um perfil ativo desta pessoa.");
   }
-  // Do not convert enterprise collaborators to externally scoped identities.
-  // This check must run regardless of whether the request supplied a role field.
-  if (input.role?.trim() && input.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
-    throw new Error("Atribuição de função operacional não é permitida neste fluxo de acesso restrito.");
-  }
-  if (existingApp?.role?.trim() &&
-      existingApp.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
-    throw new Error("O cadastro existente possui papel operacional. Não convertê-lo automaticamente em acesso restrito.");
-  }
-  if (existingAthlete && !input.modules.includes("saude")) {
-    throw new Error("Vincular atleta exige a seleção explícita do módulo Saúde.");
-  }
-
   let authUser = await findAuthUserByEmail(admin, email);
-  // Reject conflicting identity links before creating a persistent Auth account.
-  if (existingApp?.auth_user_id &&
-      (!authUser || existingApp.auth_user_id !== authUser.id)) {
-    throw new Error("O cadastro já pertence a outro Auth ou o Auth correspondente não foi localizado.");
-  }
-  if (existingAthlete?.auth_user_id &&
-      (!authUser || existingAthlete.auth_user_id !== authUser.id)) {
-    throw new Error("O atleta já pertence a outro Auth ou o Auth correspondente não foi localizado.");
-  }
+  assertScopedProvisionIdentity({
+    requestedRole: input.role,
+    existingAppRole: existingApp?.role,
+    existingAppAuthId: existingApp?.auth_user_id,
+    existingAthleteAuthId: existingAthlete?.auth_user_id,
+    resolvedAuthId: authUser?.id,
+    healthAthleteSelected: !!existingAthlete,
+    modules: input.modules,
+  });
   let authCreatedNow = false;
 
   const result: ProvisionUserResult = {
