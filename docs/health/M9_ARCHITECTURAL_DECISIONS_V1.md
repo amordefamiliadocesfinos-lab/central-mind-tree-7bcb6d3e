@@ -46,6 +46,7 @@ Nada neste documento autoriza migration, banco, deploy ou dado real.
 ### M9B — RPCs
 
 - `health_m9_register_clinical_document`
+- `health_m9_void_clinical_document`
 - `health_m9_stage_clinical_extraction`
 - `health_m9_confirm_clinical_extraction`
 - `health_m9_reject_clinical_extraction`
@@ -96,6 +97,18 @@ Exemplo:
 - fadiga continua `sparse`.
 
 `unknown != zero` permanece obrigatório.
+
+---
+
+### Identidade do check-in M9A
+
+Cada métrica subjetiva é persistida como linha própria em `health_recovery_checkins`, agrupada por `checkin_event_id`.
+
+Contrato:
+- um check-in pode conter várias métricas;
+- unique lógico `(athlete_id, checkin_event_id, metric_code)`;
+- replay não duplica a mesma métrica;
+- ausência de uma métrica no evento não implica zero.
 
 ---
 
@@ -222,6 +235,18 @@ Uma unidade normalizada opcional pode usar representação UCUM quando houver co
 - `original_flag`.
 
 Campos canônicos/normalizados são adicionais, nunca substitutos.
+
+---
+
+### Correção factual de biomarcador
+
+Na v1, `health_biomarker_results` são filhos imutáveis de um `health_lab_report`.
+
+Se um resultado confirmado estiver incorreto:
+- não editar silenciosamente o filho;
+- superseder ou anular o relatório;
+- criar relatório substituto com o conjunto corrigido;
+- recalcular o estado longitudinal.
 
 ---
 
