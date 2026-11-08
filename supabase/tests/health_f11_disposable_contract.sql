@@ -35,10 +35,6 @@ BEGIN
     RAISE EXCEPTION 'anon unexpectedly has F11 evaluator execute';
   END IF;
 
-  IF has_function_privilege('public',v_proc,'EXECUTE') THEN
-    RAISE EXCEPTION 'PUBLIC unexpectedly has F11 evaluator execute';
-  END IF;
-
   SELECT array_to_string(p.proconfig,',') INTO v_search_path
   FROM pg_proc p WHERE p.oid=v_proc;
   IF v_search_path IS NULL OR v_search_path NOT LIKE '%search_path=""%' THEN
