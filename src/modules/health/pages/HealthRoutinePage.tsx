@@ -62,6 +62,39 @@ function daysBetween(startIso: string, endIso: string) {
   return Math.floor((end - start) / 86400000);
 }
 
+function clockForTimezone(timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return {
+    dateIso: `${values.year}-${values.month}-${values.day}`,
+    weekday: weekdayMap[values.weekday] ?? 0,
+    currentMinutes:
+      Number(values.hour ?? 0) * 60 + Number(values.minute ?? 0),
+  };
+}
+
 function isScheduledToday(
   rule: ReminderRule,
   today: string,
@@ -112,33 +145,10 @@ export function HealthRoutinePage() {
   const timezone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-  const today = localDateIso();
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const weekday = now.getDay();
-
-  const latestTodayEventByRule = useMemo(() => {
-    const result = new Map<
-      string,
-      (typeof reminders.events)[number]
-    >();
-
-    for (const event of reminders.events) {
-      if (event.eventDate !== today) continue;
-      if (!result.has(event.ruleId)) {
-        result.set(event.ruleId, event);
-      }
-    }
-    return result;
-  }, [reminders.events, today]);
-
-  const todayRules = useMemo(
-    () =>
-      reminders.rules.filter((rule) =>
-        isScheduledToday(rule, today, weekday),
-      ),
-    [reminders.rules, today, weekday],
-  );
+  const todayRules = reminders.rules.filter((rule) => {
+    const clock = clockForTimezone(rule.timezone);
+    return isScheduledToday(rule, clock.dateIso, clock.weekday);
+  });
 
   if (athleteLoading || reminders.loading) {
     return <PageSkeleton />;
@@ -275,9 +285,14 @@ export function HealthRoutinePage() {
             </p>
           ) : (
             todayRules.map((rule) => {
-              const latestEvent = latestTodayEventByRule.get(rule.id);
+              const clock = clockForTimezone(rule.timezone);
+              const latestEvent = reminders.events.find(
+                (event) =>
+                  event.ruleId === rule.id &&
+                  event.eventDate === clock.dateIso,
+              );
               const isDue =
-                currentMinutes >= minutesFromTime(rule.localTime);
+                clock.currentMinutes >= minutesFromTime(rule.localTime);
               const status = latestEvent
                 ? latestEvent.eventType === "completed"
                   ? "Concluído"
@@ -313,6 +328,7 @@ export function HealthRoutinePage() {
                         void reminders.recordEvent(
                           rule.id,
                           "completed",
+                          clock.dateIso,
                         )
                       }
                     >
@@ -327,6 +343,7 @@ export function HealthRoutinePage() {
                         void reminders.recordEvent(
                           rule.id,
                           "dismissed",
+                          clock.dateIso,
                         )
                       }
                     >
