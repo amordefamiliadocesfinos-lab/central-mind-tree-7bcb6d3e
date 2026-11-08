@@ -1,3 +1,9 @@
+-- Preserve existing operational users while allowing explicit scoped identities.
+-- Do not apply until API/RLS isolation is validated.
+alter table public.app_users
+  add column access_model text not null default 'legacy'
+  check (access_model in ('legacy','scoped'));
+
 -- Access grants belong to authenticated identities, never to display roles.
 -- This table is foundational: grants are NOT yet proof of effective per-domain isolation.
 create table public.app_user_module_grants (
