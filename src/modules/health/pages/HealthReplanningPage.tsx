@@ -517,6 +517,12 @@ export function HealthReplanningPage() {
         </Card>
       ) : null}
 
+      <Button asChild variant="outline" className="min-h-11 w-full print:hidden sm:w-auto">
+        <Link to="/saude/relatorios">
+          Abrir relatório longitudinal
+        </Link>
+      </Button>
+
       <p className="text-xs text-muted-foreground">
         F14 organiza replanejamento humano. Ela não publica programa, altera
         dieta, muda objetivo ou executa decisão automaticamente.
