@@ -114,3 +114,31 @@ Mudanças de código para corrigir erros e reduzir risco durante a evolução:
 - testes unitários negativos cobrem tentativa de elevação de papel, associação de outra identidade, rotas empresariais e concessão antecipada de módulos.
 
 **Estado:** a restrição visual e os testes unitários são preventivos, mas não substituem a prova externa de autorização por RLS, API, RPC e Storage. As contas não podem ser criadas antes dos gates finais. O cadastro da Rafaela permanece sem Auth.
+
+
+## Gate HTTP com identidades reais — execução manual e restrita (08/11/2026)
+
+A branch inclui `tests/admin/live-scoped-data-api.test.mjs` e workflow manual
+`.github/workflows/health-scoped-live-rls-verification.yml`, limitado ao
+ambiente GitHub `health-access-staging`. Configurar em GitHub Environment, nunca
+no código: `ACCESS_TEST_URL`, `ACCESS_TEST_PUBLISHABLE_KEY`,
+`ACCESS_TEST_SCOPED_JWT`, `ACCESS_TEST_LEGACY_JWT`; e como variáveis
+`ACCESS_TEST_OWN_ATHLETE_ID`, `ACCESS_TEST_OTHER_ATHLETE_ID`.
+Somente tokens de ensaio e de curta duração. O teste usa GET com `select=id`
+e limite 1, não exibe registros nem tokens.
+
+Verificações: `anon` e `scoped` não leem `contacts`,
+`financial_accounts`, `financial_movements`, `ai_insights`, `tasks`;
+legado autorizado mantém acesso à fixture `contacts`; scoped consulta
+próprio atleta e não consulta outro. O próprio teste recusa execução caso
+faltarem ambiente ou identidades. Nenhuma prova de isolamento poderá ser
+registrada como PASS sem execução real.
+
+**Limite:** a suíte REST não comprova RPCs, Storage, Realtime nem Edge Functions;
+executar testes equivalentes para esses canais. Nenhuma conexão de staging
+completa foi confirmada nesta conversa. Não usar os projetos antigos inativos
+como substitutos do Core.
+
+**Detalhe da migration:** concessões `service_role` para a tabela de grants,
+auditoria/sequência e capability são explícitas; usuários do browser continuam
+sem privilégios de escrita nessas estruturas.
