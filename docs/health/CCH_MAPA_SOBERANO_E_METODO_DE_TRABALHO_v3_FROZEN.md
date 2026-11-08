@@ -3,9 +3,11 @@
 **Documento:** Governança Mestre CCH / Saúde  
 **Versão:** v3.0 — FROZEN  
 **Data:** 07/11/2026  
-**Status:** CANDIDATO CONGELADO — torna-se VIGENTE após merge autorizado desta versão em `main`  
-**Substitui:** v2.0 após o merge autorizado  
-**Base de congelamento:** `main@de481b4593efece84081df2845ced1b98c086661`  
+**Status:** VIGENTE · FROZEN  
+**Substitui:** v2.0  
+**Baseline funcional pós-M9:** `main@de481b4593efece84081df2845ced1b98c086661`  
+**Base reconciliada do congelamento:** `main@6af9d88e2cb432aa9ab0ef543e1ac03c8667995a`  
+**Vigência da v3 FROZEN:** merge autorizado da PR #490, commit `c8fe59530e058eb10d44aa2c357e3c4850beeba4`  
 **Objetivo:** congelar o escopo aprovado do CCH, registrar M0→M9 no estado real de produção e impedir expansão silenciosa de produto, domínio ou autoridade.
 
 ---
