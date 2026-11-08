@@ -224,6 +224,7 @@ export async function provisionUser(
   try {
     const appUser = await resolveAppUser(admin, input);
 
+    if (input.appUserId && !appUser) throw new Error("Cadastro selecionado não encontrado.");
     if (appUser) {
       if (appUser.auth_user_id && appUser.auth_user_id !== authUser.id) {
         throw new Error("O cadastro operacional selecionado já está vinculado a outro login.");
@@ -273,7 +274,13 @@ export async function provisionUser(
 
   try {
     const athlete = await resolveHealthAthlete(admin, input);
+    if (input.healthAthleteId && !athlete) {
+      throw new Error("Atleta selecionado não encontrado.");
+    }
     if (athlete) {
+      if (athlete.display_name.trim().toLocaleLowerCase("pt-BR") !== name.toLocaleLowerCase("pt-BR")) {
+        throw new Error("Atleta selecionado não corresponde ao nome do usuário informado.");
+      }
       if (athlete.auth_user_id && athlete.auth_user_id !== authUser.id) {
         throw new Error("O perfil Saúde selecionado já está vinculado a outro login.");
       }
