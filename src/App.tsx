@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdminAccessDatabase } from "@/lib/admin/module-grants.types";
+import { scopedRouteAllowed } from "@/lib/admin/scoped-route-policy";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import ProductionOperator from "./pages/ProductionOperator";
@@ -213,7 +214,7 @@ function ScopedUserApp() {
       <Loader2 className="h-6 w-6 animate-spin" aria-label="Verificando permissões" />
     </div>;
   }
-  if (access.denied || !access.modules.includes("saude")) {
+  if (access.denied || !scopedRouteAllowed("/saude", access.modules)) {
     return <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-4 p-6 text-center">
       <h1 className="text-lg font-semibold">Acesso não liberado</h1>
       <p className="text-sm text-muted-foreground">
