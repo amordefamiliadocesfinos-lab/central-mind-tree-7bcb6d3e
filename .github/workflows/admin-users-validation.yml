@@ -66,3 +66,34 @@ jobs:
             exit 1
           fi
           echo 'No privileged server implementation or secret-like literal found in browser assets.'
+
+  validate-branch:
+    name: Validate administrator branch without main merge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Administrator ESLint
+        run: >-
+          npx eslint
+          src/lib/admin/users.server.ts
+          src/lib/admin/users.functions.ts
+          src/lib/admin/module-grants.types.ts
+          src/lib/admin/scoped-route-policy.ts
+          src/contexts/AuthContext.tsx
+          src/components/admin/UserModuleAccessDialog.tsx
+          src/components/admin/NewUserDialog.tsx
+          src/pages/AdminUsers.tsx
+          src/App.tsx
+      - name: Restricted route tests
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs
+      - name: Branch TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Branch Build
+        run: npm run build
