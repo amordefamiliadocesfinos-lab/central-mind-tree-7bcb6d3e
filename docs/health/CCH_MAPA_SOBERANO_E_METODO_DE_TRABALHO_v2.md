@@ -317,12 +317,15 @@ Arquiteturas candidatas abertas em branch própria:
 
 - `docs/health/M9A_SLEEP_RECOVERY_ARCHITECTURE.md`;
 - `docs/health/M9B_EXAMS_BIOMARKERS_ARCHITECTURE.md`;
-- `docs/health/M9_OPENING_AND_ACCEPTANCE_2026-11-07.md`.
+- `docs/health/M9_OPENING_AND_ACCEPTANCE_2026-11-07.md`;
+- `docs/health/M9_ARCHITECTURAL_DECISIONS_V1.md`.
 
 Estado:
 - herança dos especialistas 04 e 05 concluída;
 - fronteiras M9A/M9B documentadas;
 - critérios de aceitação documentados;
+- sete decisões arquiteturais v1 resolvidas e congeladas;
+- rotas finais definidas: `/saude/recuperacao` e `/saude/exames`;
 - nenhuma migration criada;
 - nenhum banco alterado;
 - nenhum código funcional alterado;
@@ -479,4 +482,4 @@ Próxima ação permitida:
 
 Próxima ação permitida, sem antecipar implementação:
 
-**revisar a arquitetura M9A/M9B, resolver as decisões abertas necessárias para o desenho técnico e submeter a documentação em PR Draft. Código/migrations permanecem bloqueados até essa revisão e os gates correspondentes.**
+**a revisão arquitetural v1 da M9A/M9B foi concluída na PR #487. A próxima etapa permitida é produzir o desenho técnico de migrations/RPCs, matriz RLS, testes e UI mobile, sem aplicar banco, sem deploy e sem antecipar os Gates.**
