@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { AdminModuleKey } from "@/lib/admin/users.server";
+import { ROLLOUT_READY_MODULE_KEYS } from "@/lib/admin/rollout-module-policy";
 
 export type ModuleGrant = { auth_user_id: string; module_key: string };
 
@@ -71,19 +72,21 @@ export function UserModuleAccessDialog({ open, onOpenChange, user, current, onSa
           <DialogTitle>Módulos autorizados — {user?.name}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Selecione os módulos desejados. Esta seleção só terá efeito de segurança após
-          implantação e homologação das políticas de rota, banco, Storage e APIs.
+          Os módulos fora da etapa Saúde estão indisponíveis até a homologação
+          de permissões na API, banco, Storage e rotas.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {KEYS.map((key) => (
             <label key={key} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border p-3 text-sm">
               <Checkbox
+                disabled={!(ROLLOUT_READY_MODULE_KEYS as readonly string[]).includes(key)}
                 checked={selected.includes(key)}
                 onCheckedChange={(checked) => setSelected((previous) =>
                   checked ? [...new Set([...previous, key])] : previous.filter((item) => item !== key)
                 )}
               />
               {MODULE_LABELS[key]}
+              {!(ROLLOUT_READY_MODULE_KEYS as readonly string[]).includes(key) ? " · Em homologação" : ""}
             </label>
           ))}
         </div>
