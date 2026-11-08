@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive,
@@ -142,8 +142,9 @@ export function HealthRoutinePage() {
   const [startOn, setStartOn] = useState(localDateIso());
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const timezone =
+  const detectedTimezone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const [timezone, setTimezone] = useState(detectedTimezone);
 
   const todayRules = reminders.rules.filter((rule) => {
     const clock = clockForTimezone(rule.timezone);
@@ -164,6 +165,7 @@ export function HealthRoutinePage() {
     setLocalTime("09:00");
     setIntervalDays("7");
     setStartOn(localDateIso());
+    setTimezone(detectedTimezone);
     setLocalError(null);
   };
 
@@ -177,6 +179,7 @@ export function HealthRoutinePage() {
     setLocalTime(rule.localTime.slice(0, 5));
     setIntervalDays(String(rule.intervalDays ?? 7));
     setStartOn(rule.startOn);
+    setTimezone(rule.timezone);
     setLocalError(null);
   };
 
