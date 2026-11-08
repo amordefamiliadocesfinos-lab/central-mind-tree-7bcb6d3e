@@ -1,0 +1,92 @@
+name: Health F11 Disposable Validation
+
+on:
+  push:
+    branches:
+      - feat/health-f11-integrated-motor-implementation-20261108
+    paths:
+      - 'supabase/migrations/*health_f11_*.sql'
+      - 'supabase/tests/health_f11_*.sql'
+      - 'src/modules/health/hooks/useHealthIntegratedDecisionF11.ts'
+      - 'src/modules/health/pages/HealthDashboardPage.tsx'
+      - '.github/workflows/health-f11-disposable-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/*health_f11_*.sql'
+      - 'supabase/tests/health_f11_*.sql'
+      - 'src/modules/health/hooks/useHealthIntegratedDecisionF11.ts'
+      - 'src/modules/health/pages/HealthDashboardPage.tsx'
+      - '.github/workflows/health-f11-disposable-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci-only
+          POSTGRES_DB: health_f11_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d health_f11_disposable"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: health_f11_disposable
+      PGUSER: postgres
+      PGPASSWORD: postgres-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Static F11 scope guard
+        run: |
+          set -euo pipefail
+          rpc=supabase/migrations/20261108144605_health_f11_integrated_decision_rpc.sql
+          if grep -Eiq 'health_m6_refresh|health_m7_evaluate|health_m8_refresh|health_m9_refresh|health_biomarker|UPDATE[[:space:]]+public\.health_(nutrition|body|sleep|recovery|lab|biomarker|vital)' "$rpc"; then
+            echo "F11 evaluator violates read-only specialist-domain contract"
+            exit 1
+          fi
+          if ! grep -Fq "SET search_path = ''" "$rpc"; then
+            echo "F11 evaluator must fix empty search_path"
+            exit 1
+          fi
+      - name: Install disposable Health foundation
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_f11_disposable_fixture.sql
+      - name: Apply F11 migrations
+        run: |
+          set -euo pipefail
+          for f in             supabase/migrations/20261108144603_health_f11_integrated_decision_foundation.sql             supabase/migrations/20261108144605_health_f11_integrated_decision_rpc.sql             supabase/migrations/20261108144607_health_f11_integrated_decision_security.sql             supabase/migrations/20261108144609_health_f11_integrated_decision_integrity.sql
+          do
+            psql -X -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Run F11 contract tests
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_f11_disposable_contract.sql
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: F11 Health lint
+        run: npx eslint src/modules/health/hooks/useHealthIntegratedDecisionF11.ts src/modules/health/pages/HealthDashboardPage.tsx
+      - name: Full build
+        run: npm run build
