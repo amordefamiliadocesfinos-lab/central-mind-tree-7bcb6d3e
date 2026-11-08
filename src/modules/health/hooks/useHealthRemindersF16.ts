@@ -343,13 +343,14 @@ export function useHealthRemindersF16(
     async (
       ruleId: string,
       eventType: ReminderEvent["eventType"],
+      eventDate: string = localDateIso(),
       notes?: string | null,
     ) =>
       runAction(async () => {
         const result = await db.rpc("health_f16_record_reminder_event", {
           p_rule_id: ruleId,
           p_event_type: eventType,
-          p_event_date: localDateIso(),
+          p_event_date: eventDate,
           p_notes: notes ?? null,
         });
         if (result.error) {
