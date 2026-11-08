@@ -67,7 +67,7 @@ SELECT public.health_m9_record_recovery_checkin(
   '30303030-3030-4030-8030-303030303030',
   '2026-11-02 08:00:00+00',
   DATE '2026-11-02',
-  'sleep_quality',4,NULL,'USER_REPORTED','moderate',NULL,NULL
+  'sleep_quality',4::smallint,NULL,'USER_REPORTED','moderate',NULL,NULL
 );
 
 SELECT public.health_m9_record_recovery_checkin(
@@ -75,7 +75,7 @@ SELECT public.health_m9_record_recovery_checkin(
   '30303030-3030-4030-8030-303030303030',
   '2026-11-02 08:00:00+00',
   DATE '2026-11-02',
-  'general_fatigue',2,NULL,'USER_REPORTED','moderate',NULL,NULL
+  'general_fatigue',2::smallint,NULL,'USER_REPORTED','moderate',NULL,NULL
 );
 
 SELECT public.health_m9_refresh_sleep_recovery_state(
