@@ -49,6 +49,7 @@ import OAuthConsent from "./pages/OAuthConsent";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import NotFound from "./pages/NotFound";
 import HealthModule from "./modules/health/HealthModule";
+import AdminUsers from "./pages/AdminUsers";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
 import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
@@ -91,6 +92,7 @@ function AnimatedRoutes() {
           <Route path="/rotas" element={<Rotas />} />
           <Route path="/academia" element={<Academia />} />
           <Route path="/saude/*" element={<HealthModule />} />
+          <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/oportunidades" element={<Oportunidades />} />
           <Route path="/nucleo" element={<Nucleo />} />
