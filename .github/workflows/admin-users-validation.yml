@@ -97,3 +97,15 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Branch Build
         run: npm run build
+      - name: Branch client bundle privilege scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'createSupabaseAdminClient|client\.server\.ts|process\.env\[[^]]*SUPABASE_SERVICE_ROLE_KEY|process\.env\.SUPABASE_SERVICE_ROLE_KEY' dist/client/assets --include='*.js'; then
+            echo 'Privileged implementation detected in browser assets.'
+            exit 1
+          fi
+          if grep -R -n -E 'sb_secret_[A-Za-z0-9_-]{15,}' dist/client/assets --include='*.js'; then
+            echo 'Secret-like literal detected in browser assets.'
+            exit 1
+          fi
