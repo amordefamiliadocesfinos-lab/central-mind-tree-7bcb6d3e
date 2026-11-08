@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Dumbbell,
   FlaskConical,
+  History,
   MoonStar,
   RefreshCw,
   TrendingUp,
@@ -268,6 +269,26 @@ export function HealthDashboardPage() {
         evaluationError={integrated.evaluationError}
         onEvaluate={integrated.evaluate}
       />
+
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <History className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Revisão longitudinal</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Compare períodos de 28 dias e registre uma revisão humana, sem mudanças automáticas.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="min-h-11 shrink-0">
+            <Link to="/saude/revisao">
+              Abrir revisão
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {visibleIssues.length ? (
         <Card>
