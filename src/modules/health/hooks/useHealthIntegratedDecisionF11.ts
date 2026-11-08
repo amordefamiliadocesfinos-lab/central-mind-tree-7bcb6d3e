@@ -68,9 +68,12 @@ function isBackendUnavailableError(
   const message = error.message ?? "";
   return (
     error.code === "42P01" ||
+    error.code === "PGRST202" ||
     error.code === "PGRST205" ||
-    /health_integrated_decision_(runs|decisions)/i.test(message) &&
+    (
+      /health_(integrated_decision_(runs|decisions)|f11_evaluate_integrated_decision)/i.test(message) &&
       /(does not exist|schema cache|could not find)/i.test(message)
+    )
   );
 }
 
@@ -175,6 +178,7 @@ export function useHealthIntegratedDecisionF11(
 
     if (decisionsResult.error) {
       setRun(null);
+      setBackendAvailable(!isBackendUnavailableError(decisionsResult.error));
       setError(errorMessage(decisionsResult.error));
       setLoading(false);
       return;
