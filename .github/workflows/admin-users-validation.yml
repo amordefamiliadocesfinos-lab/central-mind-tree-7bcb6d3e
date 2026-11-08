@@ -1,0 +1,52 @@
+name: Admin Users Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/admin/**'
+      - 'src/components/admin/**'
+      - 'src/pages/AdminUsers.tsx'
+      - 'src/integrations/supabase/types.ts'
+      - 'src/App.tsx'
+      - 'src/components/GlobalFooterBar.tsx'
+      - 'supabase/migrations/*panel_admin_user_provisioning.sql'
+      - '.github/workflows/admin-users-validation.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint admin user provisioning
+        run: >-
+          npx eslint
+          src/lib/admin/users.server.ts
+          src/lib/admin/users.functions.ts
+          src/components/admin/NewUserDialog.tsx
+          src/pages/AdminUsers.tsx
+          src/App.tsx
+
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Build
+        run: npm run build
+
+      - name: Client bundle must not expose service-role material
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|client\.server\.ts' dist --exclude='*.map'; then
+            echo 'Potential privileged server material found in client bundle.'
+            exit 1
+          fi
+          echo 'No privileged server material found in client bundle.'
