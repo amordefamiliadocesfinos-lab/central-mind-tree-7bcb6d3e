@@ -8,6 +8,8 @@ import { HealthProgramPage } from "./pages/HealthProgramPage";
 import { HealthWorkoutPage } from "./pages/HealthWorkoutPage";
 import { HealthNutritionPage } from "./pages/HealthNutritionPage";
 import { HealthBodyPage } from "./pages/HealthBodyPage";
+import { HealthRecoveryPage } from "./pages/HealthRecoveryPage";
+import { HealthExamsPage } from "./pages/HealthExamsPage";
 
 export default function HealthModule() {
   return (
@@ -28,16 +30,9 @@ export default function HealthModule() {
         <Route path="treino/programa" element={<HealthProgramPage />} />
         <Route path="alimentacao" element={<HealthNutritionPage />} />
         <Route path="evolucao" element={<HealthBodyPage />} />
+        <Route path="recuperacao" element={<HealthRecoveryPage />} />
+        <Route path="exames" element={<HealthExamsPage />} />
         <Route path="perfil" element={<HealthProfilePage />} />
-        <Route
-          path="recuperacao"
-          element={
-            <FoundationPage
-              title="Recuperação"
-              description="Sinais de recuperação, segurança e prontidão."
-            />
-          }
-        />
         <Route path="biblioteca" element={<HealthLibraryPage />} />
         <Route path="*" element={<Navigate to="/saude/hoje" replace />} />
       </Route>
