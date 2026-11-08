@@ -37,6 +37,7 @@ jobs:
           src/lib/admin/users.functions.ts
           src/lib/admin/module-grants.types.ts
           src/lib/admin/scoped-route-policy.ts
+          src/lib/admin/provision-identity-guard.ts
           src/contexts/AuthContext.tsx
           src/components/admin/UserModuleAccessDialog.tsx
           src/components/admin/NewUserDialog.tsx
@@ -44,7 +45,7 @@ jobs:
           src/App.tsx
 
       - name: Scoped route security unit tests
-        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs tests/admin/provision-identity-guard.test.mjs
 
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
@@ -87,13 +88,14 @@ jobs:
           src/lib/admin/users.functions.ts
           src/lib/admin/module-grants.types.ts
           src/lib/admin/scoped-route-policy.ts
+          src/lib/admin/provision-identity-guard.ts
           src/contexts/AuthContext.tsx
           src/components/admin/UserModuleAccessDialog.tsx
           src/components/admin/NewUserDialog.tsx
           src/pages/AdminUsers.tsx
           src/App.tsx
       - name: Restricted route tests
-        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs tests/admin/provision-identity-guard.test.mjs
       - name: Branch TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Branch Build
