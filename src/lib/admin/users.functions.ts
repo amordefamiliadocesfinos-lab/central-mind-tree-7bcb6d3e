@@ -50,6 +50,11 @@ export const provisionPanelUser = createServerFn({ method: "POST" })
   .validator((input: ProvisionUserInput) => input)
   .handler(async ({ data, context }) => {
     await assertProvisionCapability(context.supabase, context.userId);
+    // Fail closed while existing enterprise endpoints and RLS still allow broad access.
+    // This flag must be enabled only after a complete negative security test of scoped users.
+    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
+      throw new Error("Cadastro bloqueado: isolamento de módulos ainda não homologado.");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { provisionUser } = await import("./users.server");
     return provisionUser(supabaseAdmin, data);
