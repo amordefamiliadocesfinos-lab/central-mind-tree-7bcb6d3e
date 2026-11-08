@@ -3,8 +3,9 @@
 **Documento:** Governança Mestre CCH / Saúde  
 **Versão:** v2.0  
 **Data:** 07/11/2026  
-**Status:** TORNA-SE VIGENTE SOMENTE APÓS MERGE AUTORIZADO DESTA ALTERAÇÃO EM `main`  
-**Substitui:** v1.0 após esse merge  
+**Status:** VIGENTE  
+**Substitui:** v1.0  
+**Vigência da v2:** merge autorizado da PR #486 em `main`, commit `4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`  
 **Objetivo:** manter o CCH como módulo do PAINEL CENTRAL canônico, com Git/GitHub first, banco canônico único, testes oficiais, gates explícitos e nenhuma autoria via Lovable Builder.
 
 ---
@@ -17,7 +18,8 @@
 - Lovable Project ID: `1720a410-34cd-4410-995c-8c92c7edf16b`
 - GitHub: `amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e`
 - Branch canônica: `main`
-- HEAD vigente ao emitir v2: `97f108f5dd7ab311403a403b48dfcf93851f8f47`
+- HEAD de referência na emissão inicial da v2: `97f108f5dd7ab311403a403b48dfcf93851f8f47`
+- Merge que tornou a v2 vigente: `4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`
 - Supabase produção: `xkskyutmtlhivvpfxkjg`
 - URL: `https://central-mind-tree.lovable.app`
 
@@ -173,7 +175,7 @@ Aplicação ao ponto atual do mapa:
 
 - M0→M7: tratados como fases já integradas/implantadas conforme os respectivos registros de merge, migrations, pós-checks e homologações preservados;
 - M8: implementada, testada, integrada à `main`, aplicada no banco canônico, publicada e **homologada visualmente em sessão autenticada**;
-- M9: critério de entrada por fechamento visual da M8 satisfeito; permanece não iniciada até sua abertura formal conforme o método e os gates;
+- M9: critério de entrada satisfeito; arquitetura e desenho técnico v1 concluídos na PR #487, ainda não integrados à `main`; implementação real não iniciada;
 - fases posteriores: apenas previstas/reservadas até seus respectivos critérios de entrada serem satisfeitos.
 
 ---
@@ -482,7 +484,7 @@ Não usar memória solta como mecanismo de transferência.
 
 ## 14. DIRETRIZ FINAL
 
-**Este Mapa v2 torna-se o guardrail operacional vigente do CCH quando incorporado à `main` por merge autorizado.**
+**Este Mapa v2 é o guardrail operacional vigente do CCH desde o merge autorizado da PR #486 em `main`.**
 
 Próxima ação permitida:
 
@@ -490,4 +492,4 @@ Próxima ação permitida:
 
 Próxima ação permitida, sem antecipar implementação:
 
-**a revisão arquitetural e o desenho técnico v1 da M9A/M9B foram concluídos na PR #487. A próxima etapa é a revisão final documental e, somente após os gates/autorização aplicáveis, a implementação real com migrations geradas, TESTES MT primeiro, segurança e CI antes de qualquer produção.**
+**a revisão arquitetural, o desenho técnico e a revisão final documental da M9A/M9B foram concluídos na PR #487. A próxima decisão de governança é o Gate A documental da PR #487. A implementação real permanece bloqueada e deverá ocorrer em branch própria após incorporação autorizada desta documentação, com migrations geradas, TESTES MT primeiro, segurança e CI antes de qualquer produção.**
