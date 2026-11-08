@@ -97,10 +97,11 @@ async function resolveHealthAthlete(
 }
 
 export async function listProvisioningContext(admin: SupabaseClient<Database>) {
+  const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
   const [appUsersResult, athletesResult] = await Promise.all([
-    admin
+    scopedAdmin
       .from("app_users")
-      .select("id,name,email,role,is_active,auth_user_id")
+      .select("id,name,email,role,is_active,auth_user_id,access_model")
       .order("name"),
     admin
       .from("health_athletes")
@@ -112,7 +113,6 @@ export async function listProvisioningContext(admin: SupabaseClient<Database>) {
   if (appUsersResult.error) throw appUsersResult.error;
   if (athletesResult.error) throw athletesResult.error;
 
-  const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
   const { data: moduleGrants, error: grantsError } = await scopedAdmin
     .from("app_user_module_grants")
     .select("auth_user_id,module_key");
@@ -158,6 +158,11 @@ export async function replaceUserModuleGrants(
     throw new Error("Não é permitido editar módulos de outro administrador por esta tela.");
   }
   const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
+  const { data: scope, error: scopeError } = await scopedAdmin.from("app_users")
+    .select("access_model").eq("auth_user_id", targetAuthUserId).maybeSingle();
+  if (scopeError || scope?.access_model !== "scoped") {
+    throw new Error("Contas legadas não podem receber restrições fictícias por esta tela.");
+  }
   const { data, error } = await scopedAdmin.rpc("admin_replace_user_module_grants", {
     p_target_auth_user_id: targetAuthUserId,
     p_module_keys: [...new Set(modules)],
