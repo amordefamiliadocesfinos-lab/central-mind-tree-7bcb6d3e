@@ -12,6 +12,7 @@ export type ProvisionUserInput = {
   role?: string | null;
   appUserId?: string | null;
   healthAthleteId?: string | null;
+  modules?: string[];
 };
 
 export type ProvisionStep = {
@@ -25,6 +26,7 @@ export type ProvisionUserResult = {
   auth: ProvisionStep;
   appUser: ProvisionStep;
   healthAthlete: ProvisionStep;
+  moduleGrants: ProvisionStep;
 };
 
 function normalizeEmail(email: string) {
@@ -175,12 +177,18 @@ export async function replaceUserModuleGrants(
 export async function provisionUser(
   admin: SupabaseClient<Database>,
   input: ProvisionUserInput,
+  actorAuthUserId: string,
 ): Promise<ProvisionUserResult> {
   const name = input.name.trim();
   const email = normalizeEmail(input.email);
 
   if (!name) throw new Error("Nome é obrigatório.");
   if (!email || !email.includes("@")) throw new Error("E-mail inválido.");
+  if (!Array.isArray(input.modules) ||
+      input.modules.some((module) => typeof module !== "string" ||
+        !ADMIN_MODULE_KEYS.includes(module as AdminModuleKey))) {
+    throw new Error("Selecione módulos válidos, mesmo que seja uma lista vazia.");
+  }
   if (input.mode === "temporary_password" && (input.temporaryPassword?.length ?? 0) < 8) {
     throw new Error("A senha temporária deve ter pelo menos 8 caracteres.");
   }
@@ -216,6 +224,7 @@ export async function provisionUser(
     auth: { status: "existing", message: "Conta Auth já existente.", id: authUser?.id ?? null },
     appUser: { status: "skipped", message: "Sem vínculo operacional solicitado." },
     healthAthlete: { status: "skipped", message: "Sem vínculo Saúde solicitado." },
+    moduleGrants: { status: "skipped", message: "Permissões ainda não registradas." },
   };
 
   if (!authUser) {
@@ -336,6 +345,24 @@ export async function provisionUser(
       status: "failed",
       message: error instanceof Error ? error.message : "Falha no vínculo Saúde.",
     };
+  }
+
+  if (result.appUser.status !== "failed") {
+    try {
+      await replaceUserModuleGrants(admin, actorAuthUserId, authUser.id, input.modules);
+      result.moduleGrants = {
+        status: "linked",
+        message: input.modules.length
+          ? "Módulos selecionados registrados (isolamento de dados depende das RLS)."
+          : "Nenhum módulo autorizado.",
+      };
+    } catch (error) {
+      result.status = "partial_failure";
+      result.moduleGrants = {
+        status: "failed",
+        message: error instanceof Error ? error.message : "Erro ao salvar módulos.",
+      };
+    }
   }
 
   if (authCreatedNow && result.status === "partial_failure") {
