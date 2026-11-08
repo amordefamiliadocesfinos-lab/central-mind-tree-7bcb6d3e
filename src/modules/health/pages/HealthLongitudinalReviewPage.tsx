@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowRight,
@@ -539,6 +540,13 @@ export function HealthLongitudinalReviewPage() {
                   ) : null}
                   {review.outcome.notes ? (
                     <p className="mt-2 text-sm">{review.outcome.notes}</p>
+                  ) : null}
+                  {review.outcome.outcomeCode !== "continue_observation" ? (
+                    <Button asChild variant="outline" className="mt-3 min-h-11">
+                      <Link to="/saude/replanejamento">
+                        Abrir replanejamento
+                      </Link>
+                    </Button>
                   ) : null}
                 </div>
               ) : null}
