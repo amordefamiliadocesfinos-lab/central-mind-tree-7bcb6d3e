@@ -1,0 +1,23 @@
+name: TEMP F16 Migration Name
+
+on:
+  push:
+    branches:
+      - feat/health-f16-reminders-routine-implementation-20261108
+
+permissions:
+  contents: read
+
+jobs:
+  migration-name:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Create F16 migration filename
+        run: |
+          set -euo pipefail
+          supabase migration new health_f16_reminders_routine
+          echo "F16_MIGRATION_FILE=$(find supabase/migrations -maxdepth 1 -type f -name '*health_f16_reminders_routine.sql' -printf '%f\n' | tail -1)"
