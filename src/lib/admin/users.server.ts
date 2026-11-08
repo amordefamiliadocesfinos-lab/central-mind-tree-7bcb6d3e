@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import type { AdminAccessDatabase } from "./module-grants.types";
 
 export type ProvisionMode = "invite" | "temporary_password";
 
@@ -109,7 +110,8 @@ export async function listProvisioningContext(admin: SupabaseClient<Database>) {
   if (appUsersResult.error) throw appUsersResult.error;
   if (athletesResult.error) throw athletesResult.error;
 
-  const { data: moduleGrants, error: grantsError } = await admin
+  const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
+  const { data: moduleGrants, error: grantsError } = await scopedAdmin
     .from("app_user_module_grants")
     .select("auth_user_id,module_key");
   if (grantsError) throw grantsError;
@@ -153,7 +155,8 @@ export async function replaceUserModuleGrants(
   if (capabilityError || targetCapability) {
     throw new Error("Não é permitido editar módulos de outro administrador por esta tela.");
   }
-  const { data, error } = await admin.rpc("admin_replace_user_module_grants", {
+  const scopedAdmin = admin as unknown as SupabaseClient<AdminAccessDatabase>;
+  const { data, error } = await scopedAdmin.rpc("admin_replace_user_module_grants", {
     p_target_auth_user_id: targetAuthUserId,
     p_module_keys: [...new Set(modules)],
     p_actor_auth_user_id: actorAuthUserId,
