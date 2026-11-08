@@ -8,6 +8,14 @@ INSERT INTO public.health_athletes(id,auth_user_id,owner_auth_user_id,status) VA
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111','active'),
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-4222-8222-222222222222','22222222-2222-4222-8222-222222222222','active');
 
+-- Seed one real fact for athlete B as database owner so A's later SELECT is a real RLS negative test.
+INSERT INTO public.health_sleep_periods (
+  athlete_id,sleep_date,period_type,declared_sleep_minutes,data_source,confidence,status
+) VALUES (
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',DATE '2026-11-01','nocturnal',420,
+  'USER_REPORTED','moderate','active'
+);
+
 DO $$
 DECLARE
   v_count integer;
