@@ -137,10 +137,11 @@ export default function AdminUsers() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Resultado da última operação</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-2 text-sm sm:grid-cols-3">
+          <CardContent className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div><strong>Auth:</strong> {lastResult.auth.message}</div>
             <div><strong>Cadastro:</strong> {lastResult.appUser.message}</div>
             <div><strong>Saúde:</strong> {lastResult.healthAthlete.message}</div>
+            <div><strong>Permissões:</strong> {lastResult.moduleGrants.message}</div>
           </CardContent>
         </Card>
       ) : null}
