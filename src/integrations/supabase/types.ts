@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_admin_capabilities: {
+        Row: {
+          active: boolean
+          auth_user_id: string
+          capability: string
+          created_at: string
+          granted_by_auth_user_id: string | null
+          id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id: string
+          capability: string
+          created_at?: string
+          granted_by_auth_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string
+          capability?: string
+          created_at?: string
+          granted_by_auth_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
       ai_actions: {
         Row: {
           action_type: string
