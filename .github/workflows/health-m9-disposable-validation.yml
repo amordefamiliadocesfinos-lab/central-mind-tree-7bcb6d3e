@@ -61,7 +61,8 @@ jobs:
             supabase/migrations/20261108001650_health_m9_clinical_foundation.sql \
             supabase/migrations/20261108001652_health_m9_clinical_rpcs.sql \
             supabase/migrations/20261108001653_health_m9_security.sql \
-            supabase/migrations/20261108001655_health_m9_integrity.sql
+            supabase/migrations/20261108001655_health_m9_integrity.sql \
+            supabase/migrations/20261108003645_health_m9_performance_indexes.sql
           do
             psql -X -v ON_ERROR_STOP=1 -f "$f"
           done
