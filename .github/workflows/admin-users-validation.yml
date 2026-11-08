@@ -11,6 +11,7 @@ on:
       - 'src/App.tsx'
       - 'src/components/GlobalFooterBar.tsx'
       - 'supabase/migrations/*panel_admin_user_provisioning.sql'
+      - 'supabase/migrations/*panel_admin_user_module_grants.sql'
       - '.github/workflows/admin-users-validation.yml'
 
 jobs:
@@ -31,6 +32,8 @@ jobs:
           npx eslint
           src/lib/admin/users.server.ts
           src/lib/admin/users.functions.ts
+          src/lib/admin/module-grants.types.ts
+          src/components/admin/UserModuleAccessDialog.tsx
           src/components/admin/NewUserDialog.tsx
           src/pages/AdminUsers.tsx
           src/App.tsx
