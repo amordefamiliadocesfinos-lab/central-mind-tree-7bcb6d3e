@@ -221,7 +221,7 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
       extractionResult,
     ] = await Promise.all([
       db.from("health_workout_sessions")
-        .select("id,status,started_at,session_template_id,health_session_templates(name)")
+        .select("id,status,started_at,session_template_id,health_session_templates!health_workout_sessions_template_athlete_fkey(name)")
         .eq("athlete_id", athleteId)
         .in("status", ["active", "paused"])
         .order("started_at", { ascending: false })
@@ -299,7 +299,7 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
 
     if (!sessionError && !sessionResult.data) {
       const response = await db.from("health_cch_queue_entries")
-        .select("id,state,queue_position,session_template_id,health_session_templates(name)")
+        .select("id,state,queue_position,session_template_id,health_session_templates!health_cch_queue_template_athlete_fkey(name)")
         .eq("athlete_id", athleteId)
         .in("state", ["queued", "eligible", "prioritized"])
         .order("queue_position", { ascending: true })
