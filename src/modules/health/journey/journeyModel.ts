@@ -352,7 +352,7 @@ function actionForStage(stage: JourneyStage): JourneyNextAction | null {
             : "evaluate_integration",
         href:
           stage.journeyState === "complete" || stage.journeyState === "evaluated_paused"
-            ? "/saude/hoje"
+            ? "/saude/hoje#decisao-integrada"
             : undefined,
         label:
           stage.journeyState === "complete" || stage.journeyState === "evaluated_paused"
