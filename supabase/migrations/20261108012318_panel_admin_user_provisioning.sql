@@ -28,6 +28,7 @@ REVOKE ALL ON public.app_admin_capabilities
 FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT ON public.app_admin_capabilities TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_admin_capabilities TO service_role;
 
 CREATE POLICY app_admin_capabilities_select_own
 ON public.app_admin_capabilities
