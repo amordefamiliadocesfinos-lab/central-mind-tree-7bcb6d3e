@@ -138,6 +138,8 @@ Preserva obrigatoriamente quando disponível:
 
 Campos canônicos são adicionais, nunca substitutos.
 
+Na v1, `health_biomarker_results` são filhos imutáveis do relatório confirmado. Correção factual de um marcador exige supersession/void do `health_lab_report` e criação de relatório substituto; não há UPDATE silencioso do resultado filho.
+
 ### health_biomarker_catalog
 
 Catálogo interno versionável:
@@ -200,6 +202,7 @@ Preserva instante, valor, unidade, condição, equipamento/origem e confiança.
 ## RPCs v1
 
 - `health_m9_register_clinical_document`
+- `health_m9_void_clinical_document`
 - `health_m9_stage_clinical_extraction`
 - `health_m9_confirm_clinical_extraction`
 - `health_m9_reject_clinical_extraction`
@@ -328,6 +331,6 @@ Blocos:
 
 **ATENDIDO DOCUMENTALMENTE.**
 
-Pode seguir para desenho técnico somente após conferência da PR #487 contra o Mapa Soberano.
+O desenho técnico v1 correspondente foi concluído na própria PR #487 e submetido à revisão final documental.
 
 Implementação, migrations e gates permanecem separados.
