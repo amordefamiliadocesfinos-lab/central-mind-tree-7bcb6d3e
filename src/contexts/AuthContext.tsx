@@ -10,6 +10,7 @@ export type AuthAppUser = {
   avatar_url: string | null;
   is_active: boolean;
   auth_user_id: string | null;
+  access_model: "legacy" | "scoped";
 };
 
 interface AuthContextValue {
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await (supabase as any)
           .from('app_users')
-          .select('id,name,role,email,avatar_url,is_active,auth_user_id')
+          .select('id,name,role,email,avatar_url,is_active,auth_user_id,access_model')
           .eq('auth_user_id', session.user.id)
           .eq('is_active', true)
           .maybeSingle();
