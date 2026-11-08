@@ -9,6 +9,8 @@ on:
       - 'src/pages/AdminUsers.tsx'
       - 'src/integrations/supabase/types.ts'
       - 'src/App.tsx'
+      - 'src/contexts/AuthContext.tsx'
+      - 'tests/admin/**'
       - 'src/components/GlobalFooterBar.tsx'
       - 'supabase/migrations/*panel_admin_user_provisioning.sql'
       - 'supabase/migrations/*panel_admin_user_module_grants.sql'
@@ -33,10 +35,15 @@ jobs:
           src/lib/admin/users.server.ts
           src/lib/admin/users.functions.ts
           src/lib/admin/module-grants.types.ts
+          src/lib/admin/scoped-route-policy.ts
+          src/contexts/AuthContext.tsx
           src/components/admin/UserModuleAccessDialog.tsx
           src/components/admin/NewUserDialog.tsx
           src/pages/AdminUsers.tsx
           src/App.tsx
+
+      - name: Scoped route security unit tests
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs
 
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
