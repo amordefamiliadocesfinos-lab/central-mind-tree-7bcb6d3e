@@ -59,6 +59,7 @@ const NAV_ITEMS = [
   { path: "/metas", label: "Metas", shortLabel: "Metas", icon: Target },
   { path: "/oportunidades", label: "Oportunidades", shortLabel: "Oportunidades", icon: Lightbulb },
   { path: "/captura", label: "Captura Central", shortLabel: "Captura", icon: Inbox },
+  { path: "/admin/usuarios", label: "Usuários", shortLabel: "Usuários", icon: UsersRound },
 ] as const;
 
 const MOBILE_PRIMARY_PATHS = ["/dashboard", "/foco", CRM_GLOBAL_ENTRY_PATH, "/operacoes", "/captura"] as const;
