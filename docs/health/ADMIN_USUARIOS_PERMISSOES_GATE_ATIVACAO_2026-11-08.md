@@ -95,3 +95,22 @@ A proteção adicional de `app_users` criada nesta PR é apenas uma etapa do con
 7. Apenas quando todas as verificações passarem, habilitar feature flag **no ambiente correto**, realizar cadastro pelo Painel, vincular Rafaela via IDs existentes e registrar resultados PASS/FAIL.
 
 **Proibição:** não usar o projeto Supabase legado `gufyjtdgsdmowubdtdvo` nem `fmbarvtlfuvirwqpuydx` para supor resultado do Core oficial. O conector Supabase acessível para projetos independentes lista somente esses projetos antigos; a auditoria aqui foi feita na conexão somente leitura do Lovable Cloud Core.
+
+
+## Revisão de cobertura completa e proteção de provisionamento — 08/11 (continuidade)
+
+Auditoria executada no catálogo oficial, em **modo SELECT apenas**, com gerador de políticas `scripts/security/scoped_business_policy_coverage_REVIEW_ONLY.sql`:
+- 158 tabelas `public` fora do prefixo `health_` e das três tabelas especiais de cadastro/grants;
+- 146 tabelas com RLS ativa e privilégio SELECT para `authenticated` candidatas a revisão de política restritiva;
+- 2 tabelas sem RLS;
+- 113 tabelas no conjunto com privilégio SQL SELECT para `anon`.
+
+Os 146 candidatos **não são 146 políticas aprovadas**. O arquivo produz SQL de referência; nunca executa DDL e não é migration. Cada objeto necessita inventário de consumidores, política efetiva por módulo e teste de regressão.
+
+Mudanças de código para corrigir erros e reduzir risco durante a evolução:
+- `assertScopedProvisionIdentity`: rejeita conversão de colaboradores operacionais em externos, associações a outro Auth e vínculo atleta sem seleção de Saúde, **antes** da chamada Auth Admin;
+- falha de vínculo operacional interrompe vínculo do atleta e concessões posteriores; falha de vínculo atleta interrompe concessões;
+- `assertRolloutModules`: no estágio atual, somente `saude` é elegível para concessões a usuários `scoped`. Os demais módulos aparecem na interface como **Em homologação** e ficam bloqueados também no servidor;
+- testes unitários negativos cobrem tentativa de elevação de papel, associação de outra identidade, rotas empresariais e concessão antecipada de módulos.
+
+**Estado:** a restrição visual e os testes unitários são preventivos, mas não substituem a prova externa de autorização por RLS, API, RPC e Storage. As contas não podem ser criadas antes dos gates finais. O cadastro da Rafaela permanece sem Auth.
