@@ -55,3 +55,19 @@ Consulta somente leitura identificou 219 tabelas `public`, duas sem RLS (`produc
 A branch pode estar divergente da main por merge de frentes paralelas. Reconciliar antes do merge. Não implantar migrations ou ativar variável de ambiente por conta desta documentação. Com CI verde, a frente ainda será **parcial** até a prova negativa de isolamento e autorização transversal para alterar RLS empresarial.
 
 Para cada módulo adicional selecionável pelo administrador, distinguir: (a) registrado no catálogo, (b) roteável com UI, (c) efetivamente protegido em banco e serviços. Liberar somente depois de demonstrar **(c)**.
+
+
+## Auditoria objetiva adicional do Core — 08/11/2026
+
+Consulta de catálogo via leitura ao Supabase oficial (sem modificar dados ou aplicação) encontrou:
+- 219 tabelas `public`;
+- 208 tabelas com privilégio SQL `SELECT` para `authenticated`;
+- 113 tabelas com privilégio SQL `SELECT` para `anon`;
+- 2 tabelas com RLS desligada;
+- **72 tabelas distintas** cujas políticas `SELECT/ALL` `USING true` são destinadas a `public` ou `anon` e que possuem `SELECT` para `anon`. Exemplos de nomes de tabela: `contacts`, `financial_accounts`, `financial_movements`, `ai_insights`, `ai_actions`, `tasks`.
+
+Essa combinação de privilégio + política ampla indica **possibilidade de consulta anônima** para esses objetos quando estão expostos na Data API. Uma verificação real da Data API, schemas expostos, views e funções ainda é necessária para confirmação de exposição e alcance. O número 72 **não representa 72 acessos testados**.
+
+**Bloqueio elevado:** Uma conta com Auth restrito pode fazer chamadas anônimas usando chave pública. Portanto, acrescentar políticas RLS exclusivamente `TO authenticated` não corrige o isolamento. Antes de ativar login externo é necessário revisar/revogar permissões anônimas onde inadequadas, reforçar RLS com regras de negócio para os módulos e comprovar regressão dos consumidores existentes. Não aplicar mudanças em lote sem inventário de dependências e prova de compatibilidade.
+
+A proteção adicional de `app_users` criada nesta PR é apenas uma etapa do controle por identidade, não resolve permissões de todas as outras tabelas. Toda gravação de migrations continua não autorizada até homologação de segurança e processo de deploy.
