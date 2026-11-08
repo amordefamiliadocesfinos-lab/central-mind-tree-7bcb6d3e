@@ -44,6 +44,7 @@ async function findAuthUserByEmail(admin: SupabaseClient<Database>, email: strin
     const found = users.find((user) => normalizeEmail(user.email ?? "") === normalized);
     if (found) return found;
     if (users.length < perPage) break;
+    if (page === 10) throw new Error("A lista Auth ultrapassou o limite seguro de busca. Não será criada conta sem deduplicação completa.");
     page += 1;
   }
 
@@ -179,6 +180,29 @@ export async function provisionUser(
     throw new Error("A senha temporária deve ter pelo menos 8 caracteres.");
   }
 
+  // Validate all requested links before creating a persistent Auth identity.
+  // This prevents obvious mismatch cases from leaving an orphaned Auth user.
+  const existingApp = await resolveAppUser(admin, input);
+  if (input.appUserId && !existingApp) throw new Error("Cadastro selecionado não encontrado.");
+  if (existingApp && !existingApp.is_active) throw new Error("Cadastro selecionado está inativo.");
+  if (existingApp?.email && normalizeEmail(existingApp.email) !== email) {
+    throw new Error("O e-mail diverge do cadastro operacional existente.");
+  }
+  const existingAthlete = await resolveHealthAthlete(admin, input);
+  if (input.healthAthleteId && !existingAthlete) throw new Error("Atleta selecionado não encontrado.");
+  if (existingAthlete && (existingAthlete.status !== "active" ||
+      existingAthlete.display_name.trim().toLocaleLowerCase("pt-BR") !== name.toLocaleLowerCase("pt-BR"))) {
+    throw new Error("Atleta selecionado não corresponde a um perfil ativo desta pessoa.");
+  }
+  // Provisioning never grants a managerial/operational role through free text.
+  if (input.role?.trim() && input.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
+    throw new Error("Atribuição de função operacional não é permitida neste fluxo de acesso restrito.");
+  }
+  if (existingApp && input.role?.trim() && existingApp.role &&
+      existingApp.role.trim().toLocaleUpperCase("pt-BR") !== "EXTERNO") {
+    throw new Error("Não alterar a função de um colaborador existente neste fluxo.");
+  }
+
   let authUser = await findAuthUserByEmail(admin, email);
   let authCreatedNow = false;
 
@@ -223,7 +247,7 @@ export async function provisionUser(
   if (!authUser?.id) throw new Error("Não foi possível resolver o usuário Auth.");
 
   try {
-    const appUser = await resolveAppUser(admin, input);
+    const appUser = existingApp;
 
     if (input.appUserId && !appUser) throw new Error("Cadastro selecionado não encontrado.");
     if (appUser) {
@@ -246,13 +270,13 @@ export async function provisionUser(
         message: "Cadastro operacional vinculado ao login.",
         id: appUser.id,
       };
-    } else if (input.role?.trim()) {
+    } else {
       const { data, error } = await admin
         .from("app_users")
         .insert({
           name,
           email,
-          role: input.role.trim(),
+          role: "EXTERNO",
           is_active: true,
           auth_user_id: authUser.id,
         })
@@ -274,7 +298,7 @@ export async function provisionUser(
   }
 
   try {
-    const athlete = await resolveHealthAthlete(admin, input);
+    const athlete = existingAthlete;
     if (input.healthAthleteId && !athlete) {
       throw new Error("Atleta selecionado não encontrado.");
     }
