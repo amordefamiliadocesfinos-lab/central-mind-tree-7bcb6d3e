@@ -53,7 +53,7 @@ async function resolveAppUser(
   input: ProvisionUserInput,
 ) {
   if (input.appUserId) {
-    const { data, error } = await (admin as any)
+    const { data, error } = await admin
       .from("app_users")
       .select("id,name,email,role,is_active,auth_user_id")
       .eq("id", input.appUserId)
@@ -62,7 +62,7 @@ async function resolveAppUser(
     return data ?? null;
   }
 
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from("app_users")
     .select("id,name,email,role,is_active,auth_user_id")
     .ilike("email", normalizeEmail(input.email))
@@ -70,7 +70,7 @@ async function resolveAppUser(
   if (error) throw error;
   if ((data ?? []).length === 1) return data[0];
 
-  const { data: byName, error: nameError } = await (admin as any)
+  const { data: byName, error: nameError } = await admin
     .from("app_users")
     .select("id,name,email,role,is_active,auth_user_id")
     .ilike("name", input.name.trim())
@@ -85,7 +85,7 @@ async function resolveHealthAthlete(
 ) {
   if (!input.healthAthleteId) return null;
 
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from("health_athletes")
     .select("id,display_name,auth_user_id,owner_auth_user_id,status")
     .eq("id", input.healthAthleteId)
@@ -96,11 +96,11 @@ async function resolveHealthAthlete(
 
 export async function listProvisioningContext(admin: SupabaseClient<Database>) {
   const [appUsersResult, athletesResult] = await Promise.all([
-    (admin as any)
+    admin
       .from("app_users")
       .select("id,name,email,role,is_active,auth_user_id")
       .order("name"),
-    (admin as any)
+    admin
       .from("health_athletes")
       .select("id,display_name,auth_user_id,status")
       .eq("status", "active")
@@ -173,14 +173,14 @@ export async function provisionUser(
   if (!authUser?.id) throw new Error("Não foi possível resolver o usuário Auth.");
 
   try {
-    let appUser = await resolveAppUser(admin, input);
+    const appUser = await resolveAppUser(admin, input);
 
     if (appUser) {
       if (appUser.auth_user_id && appUser.auth_user_id !== authUser.id) {
         throw new Error("O cadastro operacional selecionado já está vinculado a outro login.");
       }
 
-      const { error } = await (admin as any)
+      const { error } = await admin
         .from("app_users")
         .update({
           auth_user_id: authUser.id,
@@ -196,7 +196,7 @@ export async function provisionUser(
         id: appUser.id,
       };
     } else if (input.role?.trim()) {
-      const { data, error } = await (admin as any)
+      const { data, error } = await admin
         .from("app_users")
         .insert({
           name,
@@ -229,7 +229,7 @@ export async function provisionUser(
         throw new Error("O perfil Saúde selecionado já está vinculado a outro login.");
       }
 
-      const { error } = await (admin as any)
+      const { error } = await admin
         .from("health_athletes")
         .update({ auth_user_id: authUser.id })
         .eq("id", athlete.id);
