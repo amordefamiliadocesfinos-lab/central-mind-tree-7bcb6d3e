@@ -65,7 +65,7 @@ export const provisionPanelUser = createServerFn({ method: "POST" })
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { provisionUser } = await import("./users.server");
-    return provisionUser(supabaseAdmin, data);
+    return provisionUser(supabaseAdmin, data, authorized.userId);
   });
 
 export const updateAdminUserModules = createServerFn({ method: "POST" })
