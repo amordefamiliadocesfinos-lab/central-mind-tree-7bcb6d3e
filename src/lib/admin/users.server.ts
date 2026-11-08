@@ -359,8 +359,7 @@ export async function provisionUser(
     };
   }
 
-  if (result.appUser.status !== "failed" &&
-      result.healthAthlete.status !== "failed") {
+  if (result.healthAthlete.status !== "failed") {
     try {
       await replaceUserModuleGrants(admin, actorAuthUserId, authUser.id, input.modules);
       result.moduleGrants = {
