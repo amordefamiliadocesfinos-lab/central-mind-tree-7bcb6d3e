@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { HealthShell } from "./ui/HealthShell";
-import { FoundationPage } from "./ui/FoundationPage";
 import { HealthAccessGuard } from "./ui/HealthAccessGuard";
 import { HealthProfilePage } from "./pages/HealthProfilePage";
 import { HealthLibraryPage } from "./pages/HealthLibraryPage";
@@ -10,6 +9,7 @@ import { HealthNutritionPage } from "./pages/HealthNutritionPage";
 import { HealthBodyPage } from "./pages/HealthBodyPage";
 import { HealthRecoveryPage } from "./pages/HealthRecoveryPage";
 import { HealthExamsPage } from "./pages/HealthExamsPage";
+import { HealthDashboardPage } from "./pages/HealthDashboardPage";
 
 export default function HealthModule() {
   return (
@@ -17,15 +17,7 @@ export default function HealthModule() {
       <Routes>
       <Route element={<HealthShell />}>
         <Route index element={<Navigate to="hoje" replace />} />
-        <Route
-          path="hoje"
-          element={
-            <FoundationPage
-              title="Hoje"
-              description="Centro diário de treino, alimentação, recuperação e evolução."
-            />
-          }
-        />
+        <Route path="hoje" element={<HealthDashboardPage />} />
         <Route path="treino" element={<HealthWorkoutPage />} />
         <Route path="treino/programa" element={<HealthProgramPage />} />
         <Route path="alimentacao" element={<HealthNutritionPage />} />
