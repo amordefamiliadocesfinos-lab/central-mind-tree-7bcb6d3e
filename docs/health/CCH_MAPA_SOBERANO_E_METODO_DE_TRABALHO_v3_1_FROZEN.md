@@ -3,11 +3,12 @@
 **Documento:** Governança Mestre CCH / Saúde  
 **Versão:** v3.1 — FROZEN  
 **Data:** 08/11/2026  
-**Status:** CANDIDATO FROZEN — vigência após merge autorizado  
-**Substitui:** v3.0 após merge autorizado  
+**Status:** VIGENTE · FROZEN  
+**Substitui:** v3.0  
 **Baseline funcional pós-M9:** `main@de481b4593efece84081df2845ced1b98c086661`  
 **Base reconciliada do congelamento:** `main@6af9d88e2cb432aa9ab0ef543e1ac03c8667995a`  
 **Vigência da v3 FROZEN:** merge autorizado da PR #490, commit `c8fe59530e058eb10d44aa2c357e3c4850beeba4`  
+**Vigência da v3.1 FROZEN:** merge autorizado da PR #495  
 **Objetivo:** preservar o escopo aprovado do CCH e registrar a autorização explícita para abrir documentalmente a F11 sem declarar a F10 integralmente homologada.
 
 ---
