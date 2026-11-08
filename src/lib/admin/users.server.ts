@@ -2,6 +2,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AdminAccessDatabase } from "./module-grants.types";
 import { assertScopedProvisionIdentity } from "./provision-identity-guard";
+import { assertRolloutModules } from "./rollout-module-policy";
 
 export type ProvisionMode = "invite" | "temporary_password";
 
@@ -147,6 +148,7 @@ export async function replaceUserModuleGrants(
       modules.some((module) => !ADMIN_MODULE_KEYS.includes(module as AdminModuleKey))) {
     throw new Error("Seleção de permissões inválida.");
   }
+  assertRolloutModules(modules);
   const { data: linkedUser, error: linkError } = await admin.from("app_users")
     .select("id,auth_user_id,is_active").eq("auth_user_id", targetAuthUserId).maybeSingle();
   if (linkError || !linkedUser?.is_active) {
@@ -190,6 +192,7 @@ export async function provisionUser(
         !ADMIN_MODULE_KEYS.includes(module as AdminModuleKey))) {
     throw new Error("Selecione módulos válidos, mesmo que seja uma lista vazia.");
   }
+  assertRolloutModules(input.modules);
   if (input.mode === "temporary_password" && (input.temporaryPassword?.length ?? 0) < 8) {
     throw new Error("A senha temporária deve ter pelo menos 8 caracteres.");
   }
