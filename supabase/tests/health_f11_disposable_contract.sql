@@ -472,7 +472,7 @@ END $$;
 
 RESET ROLE;
 
-DO $
+DO $$
 DECLARE
   v_bad integer;
 BEGIN
@@ -510,6 +510,6 @@ BEGIN
       AND (i.indkey::smallint[])[0:pg_catalog.cardinality(fk.conkey)-1]=fk.conkey
   );
   IF v_bad<>0 THEN RAISE EXCEPTION 'F11 foreign keys without leading index: %',v_bad; END IF;
-END $;
+END $$;
 
 SELECT 'F11 disposable contract PASS' AS result;
