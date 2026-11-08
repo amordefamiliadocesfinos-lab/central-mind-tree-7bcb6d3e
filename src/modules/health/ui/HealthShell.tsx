@@ -6,6 +6,8 @@ import {
   HeartPulse,
   TrendingUp,
   UserRound,
+  MoonStar,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,8 @@ const primaryItems = [
   { to: "/saude/treino", label: "Treino", mobileLabel: "Treino", icon: Dumbbell },
   { to: "/saude/alimentacao", label: "Alimentação", mobileLabel: "Dieta", icon: Apple },
   { to: "/saude/evolucao", label: "Evolução", mobileLabel: "Evolução", icon: TrendingUp },
+  { to: "/saude/recuperacao", label: "Recuperação", mobileLabel: "Recup.", icon: MoonStar },
+  { to: "/saude/exames", label: "Exames", mobileLabel: "Exames", icon: FlaskConical },
   { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
@@ -33,7 +37,7 @@ export function HealthShell() {
 
         <nav
           aria-label="Navegação Saúde"
-          className="mx-auto grid max-w-5xl grid-cols-5 border-t px-1 sm:px-3"
+          className="mx-auto flex max-w-5xl gap-1 overflow-x-auto border-t px-1 sm:px-3"
         >
           {primaryItems.map(({ to, label, mobileLabel, icon: Icon }) => (
             <NavLink
@@ -41,7 +45,7 @@ export function HealthShell() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-medium transition-colors",
+                  "flex min-h-14 min-w-[72px] flex-1 flex-col items-center justify-center gap-1 rounded-md px-2 text-[11px] font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )
