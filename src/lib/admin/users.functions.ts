@@ -77,6 +77,9 @@ export const updateAdminUserModules = createServerFn({ method: "POST" })
       throw new Error("FORBIDDEN: sessão administrativa indisponível.");
     }
     await assertProvisionCapability(authorized.supabase, authorized.userId);
+    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
+      throw new Error("Permissões bloqueadas: isolamento de módulos ainda não homologado.");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { replaceUserModuleGrants } = await import("./users.server");
     return replaceUserModuleGrants(supabaseAdmin, authorized.userId, data.authUserId, data.modules);
