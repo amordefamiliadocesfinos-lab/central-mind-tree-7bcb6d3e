@@ -84,7 +84,9 @@ Regras:
 
 ### health_recovery_checkins
 
-Uma linha por check-in; valores subjetivos em JSONB **não** são preferidos como fonte principal.
+Uma linha por **métrica observada** no check-in; valores subjetivos em JSONB **não** são preferidos como fonte principal.
+
+Métricas da mesma interação compartilham `checkin_event_id uuid not null`.
 
 Estrutura:
 - `id`
@@ -97,12 +99,15 @@ Estrutura:
 - `scale_version text not null default 'M9_RECOVERY_ORDINAL_V1'`
 - `data_source`
 - `confidence`
-- `client_event_id`
+- `checkin_event_id`
+- `client_event_id` opcional para evento de transporte/replay;
 - status/supersession/void;
 - audit.
 
-Check:
-ao menos um de `value_ordinal` ou `raw_text` deve existir.
+Checks/uniques:
+- ao menos um de `value_ordinal` ou `raw_text` deve existir;
+- unique `(athlete_id, checkin_event_id, metric_code)`;
+- supersession deve permanecer no mesmo atleta e mesma semântica de métrica.
 
 Métricas v1:
 - sleep_quality
@@ -182,11 +187,14 @@ Regras:
 ### health_m9_record_recovery_checkin
 Entrada:
 - athlete_id;
+- checkin_event_id;
 - observed_at/on;
 - metric_code;
 - ordinal/raw_text;
-- client_event_id;
+- client_event_id opcional;
 - supersedes id.
+
+Repetir o mesmo `checkin_event_id + metric_code` retorna a linha já registrada em vez de duplicar.
 
 ### health_m9_record_device_observations
 Entrada em lote JSONB.
@@ -360,6 +368,14 @@ Não usar 7/14/28 para laboratório.
 Registra metadados após upload Storage bem-sucedido.
 Não manipula binário por SQL.
 
+### health_m9_void_clinical_document
+- resolve athlete_id pelo documento;
+- exige autorização de escrita;
+- exige motivo;
+- marca metadado como voided;
+- não apaga binário silenciosamente;
+- remoção física do arquivo é ação separada/destrutiva e deve seguir política explícita.
+
 ### health_m9_stage_clinical_extraction
 Cria/atualiza staging; não cria fatos clínicos.
 
@@ -383,6 +399,8 @@ Marca rejected com auditoria; não apaga documento.
 Entrada manual direta.
 Cria report + resultados em transação.
 Fonte = manual/declared ou professional_recorded conforme contrato.
+
+Na v1, resultados filhos são imutáveis. Correção de marcador ocorre por supersession/void do relatório e criação de relatório substituto.
 
 ### health_m9_refresh_biomarker_state
 - comparar somente resultados ativos;
@@ -443,6 +461,7 @@ A migration lógica `health_m9_integrity` deverá consolidar:
 - paths seguros;
 - consistência status/void_reason;
 - consistência supersession;
+- imutabilidade prática dos filhos `health_biomarker_results` via ausência de DML direto;
 - índices de RLS;
 - constraints de idempotência;
 - FKs compostas com athlete_id quando evitarem cross-athlete linkage.
