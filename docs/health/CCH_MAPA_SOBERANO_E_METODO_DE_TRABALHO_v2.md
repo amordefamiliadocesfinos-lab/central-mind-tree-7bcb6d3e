@@ -3,8 +3,9 @@
 **Documento:** Governança Mestre CCH / Saúde  
 **Versão:** v2.0  
 **Data:** 07/11/2026  
-**Status:** TORNA-SE VIGENTE SOMENTE APÓS MERGE AUTORIZADO DESTA ALTERAÇÃO EM `main`  
-**Substitui:** v1.0 após esse merge  
+**Status:** VIGENTE  
+**Substitui:** v1.0  
+**Vigência da v2:** merge autorizado da PR #486 em `main`, commit `4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`  
 **Objetivo:** manter o CCH como módulo do PAINEL CENTRAL canônico, com Git/GitHub first, banco canônico único, testes oficiais, gates explícitos e nenhuma autoria via Lovable Builder.
 
 ---
@@ -17,7 +18,8 @@
 - Lovable Project ID: `1720a410-34cd-4410-995c-8c92c7edf16b`
 - GitHub: `amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e`
 - Branch canônica: `main`
-- HEAD vigente ao emitir v2: `97f108f5dd7ab311403a403b48dfcf93851f8f47`
+- HEAD de referência na emissão inicial da v2: `97f108f5dd7ab311403a403b48dfcf93851f8f47`
+- Merge que tornou a v2 vigente: `4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`
 - Supabase produção: `xkskyutmtlhivvpfxkjg`
 - URL: `https://central-mind-tree.lovable.app`
 
@@ -173,7 +175,7 @@ Aplicação ao ponto atual do mapa:
 
 - M0→M7: tratados como fases já integradas/implantadas conforme os respectivos registros de merge, migrations, pós-checks e homologações preservados;
 - M8: implementada, testada, integrada à `main`, aplicada no banco canônico, publicada e **homologada visualmente em sessão autenticada**;
-- M9: critério de entrada por fechamento visual da M8 satisfeito; permanece não iniciada até sua abertura formal conforme o método e os gates;
+- M9: critério de entrada satisfeito; arquitetura e desenho técnico v1 concluídos na PR #487, ainda não integrados à `main`; implementação real não iniciada;
 - fases posteriores: apenas previstas/reservadas até seus respectivos critérios de entrada serem satisfeitos.
 
 ---
@@ -297,19 +299,52 @@ A sequência soberana vigente é:
 1. ✅ Reconciliação M0→M6
 2. ✅ M7 — Nutrition Decision
 3. ✅ M8 — Body Evolution — implantada e homologada visualmente
-4. ⏭️ **M9 — Sono / Recuperação / Biomarcadores — próxima fase, ainda não iniciada**
+4. 🟡 **M9 — Sono / Recuperação / Biomarcadores — aberta somente na camada documental; sem implementação**
 5. ⛔ Dashboard Integrado
 6. ⛔ Motor Integrado CCH
 7. ⛔ Jornada real completa
 8. ⛔ Evolução contínua por dados reais
 
-**A condição de entrada vinculada à prova visual da M8 foi satisfeita em 07/11/2026. M9 continua sujeita à abertura formal da fase, arquitetura versionada, branch própria e gates aplicáveis.**
+**A condição de entrada vinculada à prova visual da M8 foi satisfeita em 07/11/2026. M9 foi formalmente aberta apenas na camada documental na branch `docs/health-m9-architecture-20261107`; código, migrations, banco e deploy continuam não iniciados e sujeitos aos gates aplicáveis.**
 
 As etapas Dashboard Integrado, Motor Integrado CCH, Jornada real completa e Evolução contínua preservam a sequência aprovada no v1, mas permanecem **frentes reservadas, não escopo executável**. Antes de iniciar cada uma, deverá existir arquitetura/contrato versionado da fase e os gates aplicáveis; este mapa não antecipa nova autoridade nem decisão funcional.
 
 ---
 
 ## 9. ESCOPO PREVISTO M9
+
+### Estado documental M9 — 07/11/2026
+
+Arquiteturas candidatas abertas em branch própria:
+
+- `docs/health/M9A_SLEEP_RECOVERY_ARCHITECTURE.md`;
+- `docs/health/M9B_EXAMS_BIOMARKERS_ARCHITECTURE.md`;
+- `docs/health/M9_OPENING_AND_ACCEPTANCE_2026-11-07.md`;
+- `docs/health/M9_ARCHITECTURAL_DECISIONS_V1.md`;
+- `docs/health/M9_TECHNICAL_DESIGN_V1.md`;
+- `docs/health/M9_SECURITY_RLS_MATRIX_V1.md`;
+- `docs/health/M9_TEST_PLAN_V1.md`;
+- `docs/health/M9_MOBILE_UI_SPEC_V1.md`.
+
+Estado:
+- herança dos especialistas 04 e 05 concluída;
+- fronteiras M9A/M9B documentadas;
+- critérios de aceitação documentados;
+- sete decisões arquiteturais v1 resolvidas e congeladas;
+- desenho técnico v1 de schema/RPCs concluído;
+- matriz RLS/grants/cross-athlete concluída;
+- plano de testes TESTES MT concluído;
+- especificação mobile concluída;
+- rotas finais definidas: `/saude/recuperacao` e `/saude/exames`;
+- nenhuma migration real criada;
+- nenhum banco alterado;
+- nenhum código funcional alterado;
+- nenhum deploy realizado;
+- nenhum dado real de Saúde inserido.
+
+A documentação desta branch somente altera o Mapa Soberano vigente após merge autorizado pelo Gate A.
+
+
 
 M9 deve respeitar especialistas e não misturar domínios.
 
@@ -449,12 +484,12 @@ Não usar memória solta como mecanismo de transferência.
 
 ## 14. DIRETRIZ FINAL
 
-**Este Mapa v2 torna-se o guardrail operacional vigente do CCH quando incorporado à `main` por merge autorizado.**
+**Este Mapa v2 é o guardrail operacional vigente do CCH desde o merge autorizado da PR #486 em `main`.**
 
 Próxima ação permitida:
 
-**M8 está encerrada e homologada visualmente.**
+**M8 está encerrada e homologada visualmente. M9 foi aberta na camada documental em branch própria.**
 
-Próxima ação permitida, sem antecipar gates:
+Próxima ação permitida, sem antecipar implementação:
 
-**abrir formalmente M9 — Sono / Recuperação / Biomarcadores — começando pela leitura e consolidação documental dos especialistas 04 e 05.**
+**a revisão arquitetural, o desenho técnico e a revisão final documental da M9A/M9B foram concluídos na PR #487. A próxima decisão de governança é o Gate A documental da PR #487. A implementação real permanece bloqueada e deverá ocorrer em branch própria após incorporação autorizada desta documentação, com migrations geradas, TESTES MT primeiro, segurança e CI antes de qualquer produção.**
