@@ -62,15 +62,15 @@ DECLARE
 BEGIN
   SELECT run_status INTO v_status
   FROM public.health_integrated_decision_runs
-  WHERE id=:'run_t1'::uuid;
+  WHERE id=current_setting('test.run_t1')::uuid;
 
   SELECT count(*) INTO v_count
   FROM public.health_integrated_decisions
-  WHERE run_id=:'run_t1'::uuid AND decision_status='paused';
+  WHERE run_id=current_setting('test.run_t1')::uuid AND decision_status='paused';
 
   SELECT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t1'::uuid
+    WHERE run_id=current_setting('test.run_t1')::uuid
       AND 'NUTRITION_DECISION_MISSING'=ANY(reason_codes)
   ) INTO v_has_missing;
 
@@ -101,7 +101,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t2'::uuid
+    WHERE run_id=current_setting('test.run_t2')::uuid
       AND decision_scope='nutrition_plan_review'
       AND decision_status='paused'
       AND 'NUTRITION_DECISION_PAUSED'=ANY(reason_codes)
@@ -131,7 +131,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t3'::uuid
+    WHERE run_id=current_setting('test.run_t3')::uuid
       AND decision_scope='nutrition_execution'
       AND decision_status='ready'
       AND decision_code='review_nutrition_execution'
@@ -140,7 +140,7 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t3'::uuid
+    WHERE run_id=current_setting('test.run_t3')::uuid
       AND decision_scope='nutrition_plan_review'
       AND decision_status='paused'
       AND 'NUTRITION_EXECUTION_REVIEW_PRECEDES_PLAN_REVIEW'=ANY(reason_codes)
@@ -168,7 +168,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t4'::uuid
+    WHERE run_id=current_setting('test.run_t4')::uuid
       AND decision_scope='nutrition_plan_review'
       AND decision_status='paused'
       AND 'BODY_STATE_MISSING'=ANY(reason_codes)
@@ -211,7 +211,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t5'::uuid
+    WHERE run_id=current_setting('test.run_t5')::uuid
       AND 'BODY_RESPONSE_INSUFFICIENT'=ANY(reason_codes)
   ) THEN RAISE EXCEPTION 'T5 body response insufficiency failed'; END IF;
 END $$;
@@ -243,7 +243,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t6'::uuid AND 'RECOVERY_STATE_MISSING'=ANY(reason_codes)
+    WHERE run_id=current_setting('test.run_t6')::uuid AND 'RECOVERY_STATE_MISSING'=ANY(reason_codes)
   ) THEN RAISE EXCEPTION 'T6 recovery missing failed'; END IF;
 END $$;
 RESET ROLE;
@@ -287,7 +287,7 @@ DECLARE
   v_count integer;
   v_conf text;
 BEGIN
-  IF :'run_t7a'::uuid <> :'run_t7b'::uuid THEN
+  IF current_setting('test.run_t7a')::uuid <> current_setting('test.run_t7b')::uuid THEN
     RAISE EXCEPTION 'T10 replay returned different run ids';
   END IF;
 
@@ -300,7 +300,7 @@ BEGIN
 
   SELECT confidence INTO v_conf
   FROM public.health_integrated_decisions
-  WHERE run_id=:'run_t7a'::uuid
+  WHERE run_id=current_setting('test.run_t7a')::uuid
     AND decision_scope='nutrition_plan_review'
     AND decision_status='ready'
     AND decision_code='review_nutrition_plan_candidate'
@@ -329,7 +329,7 @@ DECLARE
   v_current integer;
   v_superseded integer;
 BEGIN
-  IF :'run_t11'::uuid = :'run_t7a'::uuid THEN
+  IF current_setting('test.run_t11')::uuid = current_setting('test.run_t7a')::uuid THEN
     RAISE EXCEPTION 'T11 changed source content did not change run';
   END IF;
   SELECT count(*) FILTER (WHERE record_status='current'),
@@ -362,7 +362,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t8'::uuid AND 'SOURCE_WINDOW_MISMATCH'=ANY(reason_codes)
+    WHERE run_id=current_setting('test.run_t8')::uuid AND 'SOURCE_WINDOW_MISMATCH'=ANY(reason_codes)
   ) THEN RAISE EXCEPTION 'T8 window mismatch reason missing'; END IF;
 END $$;
 RESET ROLE;
@@ -386,7 +386,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.health_integrated_decisions
-    WHERE run_id=:'run_t9'::uuid AND 'SOURCE_DATE_MISMATCH'=ANY(reason_codes)
+    WHERE run_id=current_setting('test.run_t9')::uuid AND 'SOURCE_DATE_MISMATCH'=ANY(reason_codes)
   ) THEN RAISE EXCEPTION 'T9 date mismatch reason missing'; END IF;
 END $$;
 RESET ROLE;
