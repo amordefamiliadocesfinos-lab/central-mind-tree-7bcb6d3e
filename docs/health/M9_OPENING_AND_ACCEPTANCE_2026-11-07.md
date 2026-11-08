@@ -2,7 +2,7 @@
 
 ## Estado
 
-**FASE FORMALMENTE ABERTA APENAS NA CAMADA DOCUMENTAL**
+**ARQUITETURA v1 FECHADA PARA DESENHO TÉCNICO — IMPLEMENTAÇÃO AINDA NÃO INICIADA**
 
 Base:
 `main@4d6ebbeb71f39b9f3c39a07604e6e1f6a2fe54ae`
@@ -148,23 +148,35 @@ Quando a implementação for autorizada, exigir no mínimo:
 - Gate C;
 - homologação real.
 
-## Decisões ainda abertas
+## Decisões arquiteturais resolvidas
 
-Devem ser resolvidas antes da primeira migration:
+As sete decisões que bloqueavam o desenho técnico foram congeladas em:
 
-1. nomes finais das tabelas/RPCs;
-2. limiar de cobertura M9A;
-3. representação final de escalas subjetivas;
-4. catálogo mínimo de métricas de wearable;
-5. catálogo/alias de biomarcadores;
-6. rota final de M9B no shell Health;
-7. formato de extração documental e revisão humana quando houver incerteza.
+`docs/health/M9_ARCHITECTURAL_DECISIONS_V1.md`
 
-Nenhuma dessas pendências bloqueia a documentação arquitetural atual, mas bloqueia implementação irreversível.
+Resultado:
+
+1. nomes finais de tabelas/RPCs definidos;
+2. cobertura M9A definida por dimensão, com suficiência 5/7, 10/14 e 20/28;
+3. escalas subjetivas 1–5 opcionais definidas, preservando texto bruto e direção semântica;
+4. catálogo mínimo de wearable definido;
+5. catálogo/aliases de biomarcadores definido, com LOINC/UCUM opcionais e versionados;
+6. rotas finais definidas: `/saude/recuperacao` e `/saude/exames`;
+7. extração documental definida como staging + revisão + confirmação antes de fato clínico canônico.
+
+A arquitetura M9A/M9B está **apta para desenho técnico**.
+
+Isso não autoriza migration, banco, merge, deploy ou escrita de dados reais.
 
 ## Próxima ação permitida
 
-Após revisão desta documentação:
-- abrir PR Draft documental;
-- conferir compatibilidade com o Mapa Soberano;
-- somente depois preparar desenho técnico/migrations, ainda sem aplicar banco canônico antes dos gates.
+A PR Draft documental já está aberta e a revisão arquitetural foi concluída.
+
+Próxima etapa permitida:
+- desenhar migrations/RPCs sem aplicá-las;
+- produzir matriz RLS/grants/cross-athlete;
+- produzir casos de teste TESTES MT;
+- produzir desenho de UI mobile;
+- manter toda implementação fora de produção e sem Gate B/C.
+
+Antes de qualquer merge da PR #487, o Gate A continua obrigatório.
