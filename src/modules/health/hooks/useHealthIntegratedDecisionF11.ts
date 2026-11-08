@@ -14,7 +14,16 @@ type LooseDatabase = {
   public: {
     Tables: Record<string, LooseTable>;
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      health_f11_evaluate_integrated_decision: {
+        Args: {
+          p_athlete_id: string;
+          p_as_of_date: string;
+          p_window_days?: number;
+        };
+        Returns: string;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -50,6 +59,22 @@ export type IntegratedDecisionRunF11 = {
 
 function errorMessage(error: { message: string } | null | undefined) {
   return error?.message ?? null;
+}
+
+function isBackendUnavailableError(
+  error: { message?: string; code?: string } | null | undefined,
+) {
+  if (!error) return false;
+  const message = error.message ?? "";
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST202" ||
+    error.code === "PGRST205" ||
+    (
+      /health_(integrated_decision_(runs|decisions)|f11_evaluate_integrated_decision)/i.test(message) &&
+      /(does not exist|schema cache|could not find)/i.test(message)
+    )
+  );
 }
 
 export function integratedDecisionCodeLabel(code: string) {
@@ -89,12 +114,17 @@ export function useHealthIntegratedDecisionF11(
   const [run, setRun] = useState<IntegratedDecisionRunF11 | null>(null);
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [error, setError] = useState<string | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [evaluating, setEvaluating] = useState(false);
+  const [evaluationError, setEvaluationError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!athleteId) {
       setRun(null);
       setLoading(false);
       setError(null);
+      setBackendAvailable(true);
+      setEvaluationError(null);
       return;
     }
 
@@ -116,10 +146,13 @@ export function useHealthIntegratedDecisionF11(
 
     if (runResult.error) {
       setRun(null);
+      setBackendAvailable(!isBackendUnavailableError(runResult.error));
       setError(errorMessage(runResult.error));
       setLoading(false);
       return;
     }
+
+    setBackendAvailable(true);
 
     const rawRun = runResult.data as {
       id: string;
@@ -145,6 +178,7 @@ export function useHealthIntegratedDecisionF11(
 
     if (decisionsResult.error) {
       setRun(null);
+      setBackendAvailable(!isBackendUnavailableError(decisionsResult.error));
       setError(errorMessage(decisionsResult.error));
       setLoading(false);
       return;
@@ -187,5 +221,43 @@ export function useHealthIntegratedDecisionF11(
     void reload();
   }, [reload]);
 
-  return { run, loading, error, reload };
+  const evaluate = useCallback(async () => {
+    if (!athleteId) throw new Error("Atleta não disponível.");
+
+    setEvaluating(true);
+    setEvaluationError(null);
+    try {
+      const today = localDateIso();
+      const result = await db.rpc("health_f11_evaluate_integrated_decision", {
+        p_athlete_id: athleteId,
+        p_as_of_date: today,
+        p_window_days: 7,
+      });
+
+      if (result.error) {
+        if (isBackendUnavailableError(result.error)) {
+          setBackendAvailable(false);
+        }
+        setEvaluationError(result.error.message);
+        throw new Error(result.error.message);
+      }
+
+      setBackendAvailable(true);
+      await reload();
+      return result.data;
+    } finally {
+      setEvaluating(false);
+    }
+  }, [athleteId, reload]);
+
+  return {
+    run,
+    loading,
+    error,
+    backendAvailable,
+    evaluating,
+    evaluationError,
+    reload,
+    evaluate,
+  };
 }

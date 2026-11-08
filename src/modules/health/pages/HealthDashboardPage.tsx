@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthDashboardF10 } from "../hooks/useHealthDashboardF10";
+import { useHealthJourneyF12 } from "../hooks/useHealthJourneyF12";
+import { HealthJourneyF12 } from "../ui/HealthJourneyF12";
 import {
   integratedDecisionCodeLabel,
   integratedReasonLabel,
@@ -183,6 +185,116 @@ function DashboardSkeleton() {
         <Skeleton className="h-4 w-full max-w-md" />
       </div>
       <Card>
+        <CardContent className="space-y-3 p-5">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-16 w-full" />
+          <div className="grid gap-2 md:grid-cols-2">
+            {[1, 2, 3, 4].map((item) => (
+              <Skeleton key={item} className="h-20 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {[1, 2, 3, 4, 5].map((item) => (
+          <Card key={item} className={item === 1 ? "lg:col-span-2" : undefined}>
+            <CardContent className="space-y-3 p-5">
+              <Skeleton className="h-5 w-36" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+              </div>
+              <Skeleton className="h-11 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function HealthDashboardPage() {
+  const { athlete, loading: athleteLoading } = useHealthAthlete();
+  const dashboard = useHealthDashboardF10(athlete?.id);
+  const integrated = useHealthIntegratedDecisionF11(athlete?.id);
+  const journey = useHealthJourneyF12(athlete?.id, {
+    backendAvailable: integrated.backendAvailable,
+    run: integrated.run,
+    error: integrated.error,
+  });
+  const today = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(new Date());
+
+  if (athleteLoading || dashboard.loading) return <DashboardSkeleton />;
+
+  const visibleIssues = dashboard.issues.slice(0, 3);
+  const extraIssueCount = Math.max(0, dashboard.issues.length - visibleIssues.length);
+
+  return (
+    <div className="space-y-4 pb-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Hoje</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Visão integrada dos seus dados. Cada área mantém sua própria fonte e confiança.
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 text-xs capitalize text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {today}
+            {athlete?.display_name ? ` · ${athlete.display_name}` : ""}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-10 shrink-0"
+          onClick={() =>
+            void Promise.all([dashboard.reload(), integrated.reload(), journey.reload()])
+          }
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Atualizar
+        </Button>
+      </div>
+
+      <HealthJourneyF12
+        stages={journey.stages}
+        nextAction={journey.nextAction}
+        loading={journey.loading || integrated.loading}
+        evaluating={integrated.evaluating}
+        evaluationError={integrated.evaluationError}
+        onEvaluate={integrated.evaluate}
+      />
+
+      {visibleIssues.length ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Pendências operacionais</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {visibleIssues.map((issue) => (
+              <Link
+                key={issue.id}
+                to={issue.href}
+                className="flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-sm transition-colors hover:bg-muted/40"
+              >
+                <span>{issue.message}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
+            {extraIssueCount > 0 ? (
+              <p className="px-1 text-xs text-muted-foreground">
+                +{extraIssueCount} {extraIssueCount > 1 ? "pendências disponíveis" : "pendência disponível"} nos módulos especialistas.
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card id="decisao-integrada">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -193,13 +305,17 @@ function DashboardSkeleton() {
               {integrated.run?.historical ? <Badge variant="outline">Histórico</Badge> : null}
               {integrated.run ? (
                 <Badge variant="outline">
-                  {integrated.run.runStatus === "complete" ? "Avaliada" : integrated.run.runStatus === "paused" ? "Pausada" : integrated.run.runStatus}
+                  {integrated.run.runStatus === "complete"
+                    ? "Avaliada"
+                    : integrated.run.runStatus === "paused"
+                      ? "Pausada"
+                      : integrated.run.runStatus}
                 </Badge>
               ) : null}
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Motor F11 determinístico. Esta tela apenas lê decisões já materializadas.
+            Motor F11 determinístico. Esta tela lê o ledger e só executa nova avaliação por ação explícita.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -207,6 +323,13 @@ function DashboardSkeleton() {
             <div className="space-y-2">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
+            </div>
+          ) : !integrated.backendAvailable ? (
+            <div className="rounded-xl border p-3 text-sm">
+              <p className="font-medium">Motor integrado ainda não disponível neste ambiente.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Isso é diferente de não haver decisão. A dependência F11 precisa estar operacional no ambiente.
+              </p>
             </div>
           ) : integrated.error ? (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
@@ -219,7 +342,7 @@ function DashboardSkeleton() {
             <div className="rounded-xl border p-3 text-sm">
               <p className="font-medium">Ainda não há decisão integrada materializada.</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                O Dashboard não executa o motor automaticamente e não inventa uma decisão ausente.
+                Use “Avaliar integração” na jornada quando quiser executar o motor com os dados atuais.
               </p>
             </div>
           ) : (
@@ -267,89 +390,6 @@ function DashboardSkeleton() {
           )}
         </CardContent>
       </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {[1, 2, 3, 4, 5].map((item) => (
-          <Card key={item} className={item === 1 ? "lg:col-span-2" : undefined}>
-            <CardContent className="space-y-3 p-5">
-              <Skeleton className="h-5 w-36" />
-              <div className="grid grid-cols-2 gap-2">
-                <Skeleton className="h-16" />
-                <Skeleton className="h-16" />
-              </div>
-              <Skeleton className="h-11 w-full" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function HealthDashboardPage() {
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const dashboard = useHealthDashboardF10(athlete?.id);
-  const integrated = useHealthIntegratedDecisionF11(athlete?.id);
-  const today = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
-
-  if (athleteLoading || dashboard.loading) return <DashboardSkeleton />;
-
-  const visibleIssues = dashboard.issues.slice(0, 3);
-  const extraIssueCount = Math.max(0, dashboard.issues.length - visibleIssues.length);
-
-  return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Hoje</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Visão integrada dos seus dados. Cada área mantém sua própria fonte e confiança.
-          </p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs capitalize text-muted-foreground">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {today}
-            {athlete?.display_name ? ` · ${athlete.display_name}` : ""}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-10 shrink-0"
-          onClick={() => void Promise.all([dashboard.reload(), integrated.reload()])}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Atualizar
-        </Button>
-      </div>
-
-      {visibleIssues.length ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Pendências operacionais</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {visibleIssues.map((issue) => (
-              <Link
-                key={issue.id}
-                to={issue.href}
-                className="flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-sm transition-colors hover:bg-muted/40"
-              >
-                <span>{issue.message}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
-            ))}
-            {extraIssueCount > 0 ? (
-              <p className="px-1 text-xs text-muted-foreground">
-                +{extraIssueCount} {extraIssueCount > 1 ? "pendências disponíveis" : "pendência disponível"} nos módulos especialistas.
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="lg:col-span-2">

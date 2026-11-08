@@ -1,0 +1,73 @@
+name: Health F12 Journey Validation
+
+on:
+  push:
+    branches:
+      - feat/health-f12-real-journey-implementation-20261108
+    paths:
+      - 'src/modules/health/journey/**'
+      - 'src/modules/health/hooks/useHealthJourneyF12.ts'
+      - 'src/modules/health/hooks/useHealthIntegratedDecisionF11.ts'
+      - 'src/modules/health/ui/HealthJourneyF12.tsx'
+      - 'src/modules/health/pages/HealthDashboardPage.tsx'
+      - 'scripts/health-f12-journey-model.test.mjs'
+      - '.github/workflows/health-f12-journey-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/journey/**'
+      - 'src/modules/health/hooks/useHealthJourneyF12.ts'
+      - 'src/modules/health/hooks/useHealthIntegratedDecisionF11.ts'
+      - 'src/modules/health/ui/HealthJourneyF12.tsx'
+      - 'src/modules/health/pages/HealthDashboardPage.tsx'
+      - 'scripts/health-f12-journey-model.test.mjs'
+      - '.github/workflows/health-f12-journey-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Guard F12 against accidental DDL
+        run: |
+          set -euo pipefail
+          if compgen -G "supabase/migrations/*_health_f12_*.sql" > /dev/null; then
+            echo "F12 v1 must not introduce migrations."
+            exit 1
+          fi
+
+      - name: Compile pure F12 model
+        run: |
+          rm -rf .tmp-health-f12
+          npx tsc src/modules/health/journey/journeyModel.ts             --target ES2022             --module ES2022             --moduleResolution bundler             --rootDir src/modules/health/journey             --outDir .tmp-health-f12             --skipLibCheck
+
+      - name: F12 model contract tests
+        run: node --test scripts/health-f12-journey-model.test.mjs
+
+      - name: Static explicit-action guard
+        run: |
+          set -euo pipefail
+          if grep -Eiq 'useEffect\([^)]*evaluate|void[[:space:]]+evaluate\(' src/modules/health/hooks/useHealthIntegratedDecisionF11.ts; then
+            echo "F11 evaluation appears to be invoked automatically."
+            exit 1
+          fi
+          grep -Fq 'onClick={() => void onEvaluate()}' src/modules/health/ui/HealthJourneyF12.tsx
+
+      - name: F12 Health lint
+        run: |
+          npx eslint             src/modules/health/journey/journeyModel.ts             src/modules/health/hooks/useHealthJourneyF12.ts             src/modules/health/hooks/useHealthIntegratedDecisionF11.ts             src/modules/health/ui/HealthJourneyF12.tsx             src/modules/health/pages/HealthDashboardPage.tsx
+
+      - name: Full build
+        run: npm run build
