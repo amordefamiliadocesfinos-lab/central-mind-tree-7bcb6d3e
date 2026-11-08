@@ -1,0 +1,47 @@
+name: Health F10 Dashboard Validation
+
+on:
+  push:
+    branches:
+      - feat/health-f10-dashboard-implementation-20261107
+    paths:
+      - 'src/modules/health/**'
+      - 'scripts/health-f10-dashboard-model.test.mjs'
+      - '.github/workflows/health-f10-dashboard-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/**'
+      - 'scripts/health-f10-dashboard-model.test.mjs'
+      - '.github/workflows/health-f10-dashboard-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compile pure F10 model for tests
+        run: |
+          rm -rf .tmp-health-f10
+          npx tsc src/modules/health/dashboard/dashboardModel.ts \
+            --target ES2022 \
+            --module ES2022 \
+            --moduleResolution bundler \
+            --rootDir src/modules/health/dashboard \
+            --outDir .tmp-health-f10 \
+            --skipLibCheck
+      - name: F10 model contract tests
+        run: node --test scripts/health-f10-dashboard-model.test.mjs
+      - name: F10 Health lint
+        run: npx eslint src/modules/health/dashboard/dashboardModel.ts src/modules/health/hooks/useHealthDashboardF10.ts src/modules/health/pages/HealthDashboardPage.tsx src/modules/health/HealthModule.tsx
+      - name: Full build
+        run: npm run build
