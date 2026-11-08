@@ -3499,6 +3499,601 @@ export type Database = {
         }
         Relationships: []
       }
+      health_biomarker_aliases: {
+        Row: {
+          canonical_code: string
+          created_at: string
+          id: string
+          mapping_confidence: string
+          mapping_version: string
+          normalized_alias: string
+          provider_name: string | null
+          reviewed_by_auth_user_id: string | null
+        }
+        Insert: {
+          canonical_code: string
+          created_at?: string
+          id?: string
+          mapping_confidence?: string
+          mapping_version?: string
+          normalized_alias: string
+          provider_name?: string | null
+          reviewed_by_auth_user_id?: string | null
+        }
+        Update: {
+          canonical_code?: string
+          created_at?: string
+          id?: string
+          mapping_confidence?: string
+          mapping_version?: string
+          normalized_alias?: string
+          provider_name?: string | null
+          reviewed_by_auth_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_biomarker_aliases_canonical_code_fkey"
+            columns: ["canonical_code"]
+            isOneToOne: false
+            referencedRelation: "health_biomarker_catalog"
+            referencedColumns: ["canonical_code"]
+          },
+        ]
+      }
+      health_biomarker_catalog: {
+        Row: {
+          canonical_code: string
+          category: string
+          coding_version: string | null
+          created_at: string
+          display_name: string
+          expected_value_type: string
+          external_code: string | null
+          external_coding_system: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_code: string
+          category: string
+          coding_version?: string | null
+          created_at?: string
+          display_name: string
+          expected_value_type?: string
+          external_code?: string | null
+          external_coding_system?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_code?: string
+          category?: string
+          coding_version?: string | null
+          created_at?: string
+          display_name?: string
+          expected_value_type?: string
+          external_code?: string | null
+          external_coding_system?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_biomarker_longitudinal_states: {
+        Row: {
+          algorithm_version: string
+          as_of_date: string
+          athlete_id: string
+          canonical_code: string
+          comparability_status: string
+          comparison_unit: string | null
+          computed_at: string
+          confidence: string
+          current_flag: string | null
+          current_reference_text: string | null
+          direction_status: string
+          id: string
+          latest_numeric_value: number | null
+          latest_result_id: string | null
+          observation_count: number
+          previous_numeric_value: number | null
+          previous_result_id: string | null
+          reason_codes: string[]
+        }
+        Insert: {
+          algorithm_version?: string
+          as_of_date: string
+          athlete_id: string
+          canonical_code: string
+          comparability_status: string
+          comparison_unit?: string | null
+          computed_at?: string
+          confidence: string
+          current_flag?: string | null
+          current_reference_text?: string | null
+          direction_status: string
+          id?: string
+          latest_numeric_value?: number | null
+          latest_result_id?: string | null
+          observation_count?: number
+          previous_numeric_value?: number | null
+          previous_result_id?: string | null
+          reason_codes?: string[]
+        }
+        Update: {
+          algorithm_version?: string
+          as_of_date?: string
+          athlete_id?: string
+          canonical_code?: string
+          comparability_status?: string
+          comparison_unit?: string | null
+          computed_at?: string
+          confidence?: string
+          current_flag?: string | null
+          current_reference_text?: string | null
+          direction_status?: string
+          id?: string
+          latest_numeric_value?: number | null
+          latest_result_id?: string | null
+          observation_count?: number
+          previous_numeric_value?: number | null
+          previous_result_id?: string | null
+          reason_codes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_biomarker_longitudinal_states_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_biomarker_longitudinal_states_canonical_code_fkey"
+            columns: ["canonical_code"]
+            isOneToOne: false
+            referencedRelation: "health_biomarker_catalog"
+            referencedColumns: ["canonical_code"]
+          },
+          {
+            foreignKeyName: "health_biomarker_longitudinal_states_latest_result_id_fkey"
+            columns: ["latest_result_id"]
+            isOneToOne: false
+            referencedRelation: "health_biomarker_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_biomarker_longitudinal_states_previous_result_id_fkey"
+            columns: ["previous_result_id"]
+            isOneToOne: false
+            referencedRelation: "health_biomarker_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_biomarker_results: {
+        Row: {
+          athlete_id: string
+          canonical_code: string | null
+          confidence: string
+          created_at: string
+          id: string
+          lab_report_id: string
+          method_text: string | null
+          normalized_unit_ucum: string | null
+          normalized_value: number | null
+          notes: string | null
+          numeric_value: number | null
+          original_analyte_name: string
+          original_flag: string | null
+          original_reference_text: string | null
+          original_result_text: string
+          original_unit: string | null
+          reference_high: number | null
+          reference_low: number | null
+        }
+        Insert: {
+          athlete_id: string
+          canonical_code?: string | null
+          confidence?: string
+          created_at?: string
+          id?: string
+          lab_report_id: string
+          method_text?: string | null
+          normalized_unit_ucum?: string | null
+          normalized_value?: number | null
+          notes?: string | null
+          numeric_value?: number | null
+          original_analyte_name: string
+          original_flag?: string | null
+          original_reference_text?: string | null
+          original_result_text: string
+          original_unit?: string | null
+          reference_high?: number | null
+          reference_low?: number | null
+        }
+        Update: {
+          athlete_id?: string
+          canonical_code?: string | null
+          confidence?: string
+          created_at?: string
+          id?: string
+          lab_report_id?: string
+          method_text?: string | null
+          normalized_unit_ucum?: string | null
+          normalized_value?: number | null
+          notes?: string | null
+          numeric_value?: number | null
+          original_analyte_name?: string
+          original_flag?: string | null
+          original_reference_text?: string | null
+          original_result_text?: string
+          original_unit?: string | null
+          reference_high?: number | null
+          reference_low?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_biomarker_results_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_biomarker_results_canonical_code_fkey"
+            columns: ["canonical_code"]
+            isOneToOne: false
+            referencedRelation: "health_biomarker_catalog"
+            referencedColumns: ["canonical_code"]
+          },
+          {
+            foreignKeyName: "health_biomarker_results_report_athlete_fkey"
+            columns: ["lab_report_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_lab_reports"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_body_assessments: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          conditions: Json | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          id: string
+          notes: string | null
+          observed_at: string
+          observed_on: string
+          status: string
+          status_changed_at: string | null
+          supersedes_assessment_id: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          conditions?: Json | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          id?: string
+          notes?: string | null
+          observed_at: string
+          observed_on: string
+          status?: string
+          status_changed_at?: string | null
+          supersedes_assessment_id?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          conditions?: Json | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          id?: string
+          notes?: string | null
+          observed_at?: string
+          observed_on?: string
+          status?: string
+          status_changed_at?: string | null
+          supersedes_assessment_id?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_body_assessments_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_body_assessments_supersedes_assessment_id_fkey"
+            columns: ["supersedes_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "health_body_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_body_measurements: {
+        Row: {
+          assessment_id: string
+          athlete_id: string
+          confidence: string
+          created_at: string
+          id: string
+          method: string
+          metric_code: string
+          notes: string | null
+          unit_code: string
+          value: number
+        }
+        Insert: {
+          assessment_id: string
+          athlete_id: string
+          confidence?: string
+          created_at?: string
+          id?: string
+          method?: string
+          metric_code: string
+          notes?: string | null
+          unit_code: string
+          value: number
+        }
+        Update: {
+          assessment_id?: string
+          athlete_id?: string
+          confidence?: string
+          created_at?: string
+          id?: string
+          method?: string
+          metric_code?: string
+          notes?: string | null
+          unit_code?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_body_measurements_assessment_athlete_fkey"
+            columns: ["assessment_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_body_assessments"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_body_measurements_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_body_photo_sets: {
+        Row: {
+          assessment_id: string | null
+          athlete_id: string
+          captured_at: string
+          captured_on: string
+          conditions: Json | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          id: string
+          notes: string | null
+          protocol_version: string
+          status: string
+          status_changed_at: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          athlete_id: string
+          captured_at?: string
+          captured_on: string
+          conditions?: Json | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          notes?: string | null
+          protocol_version?: string
+          status?: string
+          status_changed_at?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          athlete_id?: string
+          captured_at?: string
+          captured_on?: string
+          conditions?: Json | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          notes?: string | null
+          protocol_version?: string
+          status?: string
+          status_changed_at?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_body_photo_sets_assessment_athlete_fkey"
+            columns: ["assessment_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_body_assessments"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_body_photo_sets_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_body_photos: {
+        Row: {
+          angle_code: string
+          athlete_id: string
+          capture_order: number
+          created_at: string
+          created_by_auth_user_id: string | null
+          id: string
+          mime_type: string
+          notes: string | null
+          object_path: string
+          photo_set_id: string
+          status: string
+        }
+        Insert: {
+          angle_code: string
+          athlete_id: string
+          capture_order: number
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          mime_type: string
+          notes?: string | null
+          object_path: string
+          photo_set_id: string
+          status?: string
+        }
+        Update: {
+          angle_code?: string
+          athlete_id?: string
+          capture_order?: number
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          mime_type?: string
+          notes?: string | null
+          object_path?: string
+          photo_set_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_body_photos_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_body_photos_set_athlete_fkey"
+            columns: ["photo_set_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_body_photo_sets"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_body_rolling_states: {
+        Row: {
+          algorithm_version: string
+          as_of_date: string
+          athlete_id: string
+          body_fat_change_pct: number | null
+          body_fat_first_pct: number | null
+          body_fat_latest_pct: number | null
+          body_fat_observation_count: number
+          computed_at: string
+          confidence: string
+          coverage_status: string
+          id: string
+          latest_bmi: number | null
+          photo_set_count: number
+          reason_codes: string[]
+          waist_change_cm: number | null
+          waist_first_cm: number | null
+          waist_latest_cm: number | null
+          waist_observation_count: number
+          weight_change_kg: number | null
+          weight_first_kg: number | null
+          weight_latest_kg: number | null
+          weight_method_count: number
+          weight_observation_count: number
+          weight_trend_kg_per_week: number | null
+          window_days: number
+          window_start_date: string
+        }
+        Insert: {
+          algorithm_version?: string
+          as_of_date: string
+          athlete_id: string
+          body_fat_change_pct?: number | null
+          body_fat_first_pct?: number | null
+          body_fat_latest_pct?: number | null
+          body_fat_observation_count?: number
+          computed_at?: string
+          confidence: string
+          coverage_status: string
+          id?: string
+          latest_bmi?: number | null
+          photo_set_count?: number
+          reason_codes?: string[]
+          waist_change_cm?: number | null
+          waist_first_cm?: number | null
+          waist_latest_cm?: number | null
+          waist_observation_count?: number
+          weight_change_kg?: number | null
+          weight_first_kg?: number | null
+          weight_latest_kg?: number | null
+          weight_method_count?: number
+          weight_observation_count?: number
+          weight_trend_kg_per_week?: number | null
+          window_days: number
+          window_start_date: string
+        }
+        Update: {
+          algorithm_version?: string
+          as_of_date?: string
+          athlete_id?: string
+          body_fat_change_pct?: number | null
+          body_fat_first_pct?: number | null
+          body_fat_latest_pct?: number | null
+          body_fat_observation_count?: number
+          computed_at?: string
+          confidence?: string
+          coverage_status?: string
+          id?: string
+          latest_bmi?: number | null
+          photo_set_count?: number
+          reason_codes?: string[]
+          waist_change_cm?: number | null
+          waist_first_cm?: number | null
+          waist_latest_cm?: number | null
+          waist_observation_count?: number
+          weight_change_kg?: number | null
+          weight_first_kg?: number | null
+          weight_latest_kg?: number | null
+          weight_method_count?: number
+          weight_observation_count?: number
+          weight_trend_kg_per_week?: number | null
+          window_days?: number
+          window_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_body_rolling_states_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_cch_queue_entries: {
         Row: {
           athlete_id: string
@@ -3576,6 +4171,156 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "health_program_versions"
             referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_clinical_document_extractions: {
+        Row: {
+          athlete_id: string
+          confirmed_at: string | null
+          confirmed_by_auth_user_id: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          document_id: string
+          engine_provider: string | null
+          engine_version: string | null
+          error_message: string | null
+          field_confidences: Json | null
+          id: string
+          rejected_at: string | null
+          rejected_by_auth_user_id: string | null
+          status: string
+          structured_payload: Json | null
+          updated_at: string
+          warnings: Json | null
+        }
+        Insert: {
+          athlete_id: string
+          confirmed_at?: string | null
+          confirmed_by_auth_user_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          document_id: string
+          engine_provider?: string | null
+          engine_version?: string | null
+          error_message?: string | null
+          field_confidences?: Json | null
+          id?: string
+          rejected_at?: string | null
+          rejected_by_auth_user_id?: string | null
+          status?: string
+          structured_payload?: Json | null
+          updated_at?: string
+          warnings?: Json | null
+        }
+        Update: {
+          athlete_id?: string
+          confirmed_at?: string | null
+          confirmed_by_auth_user_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          document_id?: string
+          engine_provider?: string | null
+          engine_version?: string | null
+          error_message?: string | null
+          field_confidences?: Json | null
+          id?: string
+          rejected_at?: string | null
+          rejected_by_auth_user_id?: string | null
+          status?: string
+          structured_payload?: Json | null
+          updated_at?: string
+          warnings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_clinical_document_extractions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_clinical_extractions_document_athlete_fkey"
+            columns: ["document_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_clinical_documents"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_clinical_documents: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          document_date: string | null
+          document_type: string
+          id: string
+          mime_type: string
+          notes: string | null
+          object_path: string
+          original_filename: string
+          provider_name: string | null
+          sha256: string | null
+          status: string
+          status_changed_at: string | null
+          supersedes_document_id: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          document_date?: string | null
+          document_type: string
+          id?: string
+          mime_type: string
+          notes?: string | null
+          object_path: string
+          original_filename: string
+          provider_name?: string | null
+          sha256?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_document_id?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          document_date?: string | null
+          document_type?: string
+          id?: string
+          mime_type?: string
+          notes?: string | null
+          object_path?: string
+          original_filename?: string
+          provider_name?: string | null
+          sha256?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_document_id?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_clinical_documents_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_clinical_documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "health_clinical_documents"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3894,6 +4639,113 @@ export type Database = {
         }
         Relationships: []
       }
+      health_food_log_day_events: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          created_by_auth_user_id: string | null
+          event_type: string
+          food_log_day_id: string
+          id: string
+          occurred_at: string
+          payload: Json | null
+          recorded_at: string
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          created_by_auth_user_id?: string | null
+          event_type: string
+          food_log_day_id: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          created_by_auth_user_id?: string | null
+          event_type?: string
+          food_log_day_id?: string
+          id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_food_log_day_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_food_log_day_events_day_athlete_fkey"
+            columns: ["food_log_day_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_food_log_days"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_food_log_days: {
+        Row: {
+          athlete_id: string
+          completed_at: string | null
+          completeness_status: string
+          completion_confirmed_by: string | null
+          confidence: string
+          confidence_reason_codes: string[]
+          confidence_score: number | null
+          created_at: string
+          id: string
+          log_date: string
+          notes: string | null
+          registration_level: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          completed_at?: string | null
+          completeness_status?: string
+          completion_confirmed_by?: string | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          log_date: string
+          notes?: string | null
+          registration_level?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          completed_at?: string | null
+          completeness_status?: string
+          completion_confirmed_by?: string | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          log_date?: string
+          notes?: string | null
+          registration_level?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_food_log_days_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_food_sources: {
         Row: {
           country_code: string | null
@@ -4129,6 +4981,344 @@ export type Database = {
           },
         ]
       }
+      health_lab_reports: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          collected_at: string | null
+          collection_context: Json | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          document_id: string | null
+          extraction_id: string | null
+          fasting_status: string | null
+          id: string
+          laboratory_name: string | null
+          notes: string | null
+          resulted_at: string | null
+          status: string
+          status_changed_at: string | null
+          supersedes_lab_report_id: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          collected_at?: string | null
+          collection_context?: Json | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          document_id?: string | null
+          extraction_id?: string | null
+          fasting_status?: string | null
+          id?: string
+          laboratory_name?: string | null
+          notes?: string | null
+          resulted_at?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_lab_report_id?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          collected_at?: string | null
+          collection_context?: Json | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          document_id?: string | null
+          extraction_id?: string | null
+          fasting_status?: string | null
+          id?: string
+          laboratory_name?: string | null
+          notes?: string | null
+          resulted_at?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_lab_report_id?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_lab_reports_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_lab_reports_document_athlete_fkey"
+            columns: ["document_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_clinical_documents"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_lab_reports_extraction_athlete_fkey"
+            columns: ["extraction_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_clinical_document_extractions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_lab_reports_supersedes_lab_report_id_fkey"
+            columns: ["supersedes_lab_report_id"]
+            isOneToOne: false
+            referencedRelation: "health_lab_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_meal_item_events: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          created_by_auth_user_id: string | null
+          event_type: string
+          id: string
+          meal_item_id: string
+          occurred_at: string
+          payload: Json | null
+          recorded_at: string
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          created_by_auth_user_id?: string | null
+          event_type: string
+          id?: string
+          meal_item_id: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          created_by_auth_user_id?: string | null
+          event_type?: string
+          id?: string
+          meal_item_id?: string
+          occurred_at?: string
+          payload?: Json | null
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_meal_item_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_meal_item_events_item_athlete_fkey"
+            columns: ["meal_item_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_meal_items"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_meal_items: {
+        Row: {
+          athlete_id: string
+          basis_amount_snapshot: number | null
+          basis_unit_snapshot: string | null
+          carbohydrate_g_snapshot: number | null
+          confidence: string
+          confidence_reason_codes: string[]
+          confidence_score: number | null
+          correction_reason: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_quality_snapshot: string | null
+          data_source: string
+          energy_kcal_snapshot: number | null
+          estimation_method: string
+          fat_g_snapshot: number | null
+          fiber_g_snapshot: number | null
+          food_id: string | null
+          food_source_id_snapshot: string | null
+          household_measure_text: string | null
+          id: string
+          item_name_snapshot: string
+          meal_log_id: string
+          preparation_state: string
+          protein_g_snapshot: number | null
+          quantity: number | null
+          recipe_version_id: string | null
+          sodium_mg_snapshot: number | null
+          source_version_snapshot: string | null
+          status: string
+          supersedes_item_id: string | null
+          unit_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          basis_amount_snapshot?: number | null
+          basis_unit_snapshot?: string | null
+          carbohydrate_g_snapshot?: number | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          confidence_score?: number | null
+          correction_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_quality_snapshot?: string | null
+          data_source: string
+          energy_kcal_snapshot?: number | null
+          estimation_method: string
+          fat_g_snapshot?: number | null
+          fiber_g_snapshot?: number | null
+          food_id?: string | null
+          food_source_id_snapshot?: string | null
+          household_measure_text?: string | null
+          id?: string
+          item_name_snapshot: string
+          meal_log_id: string
+          preparation_state?: string
+          protein_g_snapshot?: number | null
+          quantity?: number | null
+          recipe_version_id?: string | null
+          sodium_mg_snapshot?: number | null
+          source_version_snapshot?: string | null
+          status?: string
+          supersedes_item_id?: string | null
+          unit_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          basis_amount_snapshot?: number | null
+          basis_unit_snapshot?: string | null
+          carbohydrate_g_snapshot?: number | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          confidence_score?: number | null
+          correction_reason?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_quality_snapshot?: string | null
+          data_source?: string
+          energy_kcal_snapshot?: number | null
+          estimation_method?: string
+          fat_g_snapshot?: number | null
+          fiber_g_snapshot?: number | null
+          food_id?: string | null
+          food_source_id_snapshot?: string | null
+          household_measure_text?: string | null
+          id?: string
+          item_name_snapshot?: string
+          meal_log_id?: string
+          preparation_state?: string
+          protein_g_snapshot?: number | null
+          quantity?: number | null
+          recipe_version_id?: string | null
+          sodium_mg_snapshot?: number | null
+          source_version_snapshot?: string | null
+          status?: string
+          supersedes_item_id?: string | null
+          unit_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_meal_items_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_meal_items_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "health_foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_meal_items_meal_athlete_fkey"
+            columns: ["meal_log_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_meal_logs"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_meal_items_recipe_version_id_fkey"
+            columns: ["recipe_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_meal_items_supersedes_athlete_fkey"
+            columns: ["supersedes_item_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_meal_items"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_meal_logs: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          data_source: string
+          food_log_day_id: string
+          id: string
+          meal_type: string
+          notes: string | null
+          occurred_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          data_source: string
+          food_log_day_id: string
+          id?: string
+          meal_type?: string
+          notes?: string | null
+          occurred_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          data_source?: string
+          food_log_day_id?: string
+          id?: string
+          meal_type?: string
+          notes?: string | null
+          occurred_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_meal_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_meal_logs_day_athlete_fkey"
+            columns: ["food_log_day_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_food_log_days"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
       health_muscle_groups: {
         Row: {
           code: string
@@ -4170,6 +5360,641 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "health_muscle_groups"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_nutrition_daily_states: {
+        Row: {
+          algorithm_version: string
+          athlete_id: string
+          calculated_at: string
+          carbohydrate_g_consumed: number | null
+          carbohydrate_g_max_target: number | null
+          carbohydrate_g_min_target: number | null
+          carbohydrate_target_status: string
+          carbohydrate_unknown_item_count: number
+          completeness_status: string
+          confidence: string
+          confidence_score: number | null
+          created_at: string
+          energy_kcal_consumed: number | null
+          energy_kcal_max_target: number | null
+          energy_kcal_min_target: number | null
+          energy_target_status: string
+          energy_unknown_item_count: number
+          fat_g_consumed: number | null
+          fat_g_max_target: number | null
+          fat_g_min_target: number | null
+          fat_target_status: string
+          fat_unknown_item_count: number
+          fiber_g_consumed: number | null
+          fiber_g_max_target: number | null
+          fiber_g_min_target: number | null
+          fiber_target_status: string
+          fiber_unknown_item_count: number
+          food_log_day_id: string | null
+          id: string
+          observed_item_count: number
+          observed_meal_count: number
+          parameter_set: Json
+          plan_version_id: string | null
+          protein_g_consumed: number | null
+          protein_g_max_target: number | null
+          protein_g_min_target: number | null
+          protein_target_status: string
+          protein_unknown_item_count: number
+          reason_codes: string[]
+          registration_level: string | null
+          sodium_mg_consumed: number | null
+          sodium_unknown_item_count: number
+          state_date: string
+          state_status: string
+          target_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          algorithm_version?: string
+          athlete_id: string
+          calculated_at?: string
+          carbohydrate_g_consumed?: number | null
+          carbohydrate_g_max_target?: number | null
+          carbohydrate_g_min_target?: number | null
+          carbohydrate_target_status?: string
+          carbohydrate_unknown_item_count?: number
+          completeness_status?: string
+          confidence?: string
+          confidence_score?: number | null
+          created_at?: string
+          energy_kcal_consumed?: number | null
+          energy_kcal_max_target?: number | null
+          energy_kcal_min_target?: number | null
+          energy_target_status?: string
+          energy_unknown_item_count?: number
+          fat_g_consumed?: number | null
+          fat_g_max_target?: number | null
+          fat_g_min_target?: number | null
+          fat_target_status?: string
+          fat_unknown_item_count?: number
+          fiber_g_consumed?: number | null
+          fiber_g_max_target?: number | null
+          fiber_g_min_target?: number | null
+          fiber_target_status?: string
+          fiber_unknown_item_count?: number
+          food_log_day_id?: string | null
+          id?: string
+          observed_item_count?: number
+          observed_meal_count?: number
+          parameter_set?: Json
+          plan_version_id?: string | null
+          protein_g_consumed?: number | null
+          protein_g_max_target?: number | null
+          protein_g_min_target?: number | null
+          protein_target_status?: string
+          protein_unknown_item_count?: number
+          reason_codes?: string[]
+          registration_level?: string | null
+          sodium_mg_consumed?: number | null
+          sodium_unknown_item_count?: number
+          state_date: string
+          state_status?: string
+          target_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          algorithm_version?: string
+          athlete_id?: string
+          calculated_at?: string
+          carbohydrate_g_consumed?: number | null
+          carbohydrate_g_max_target?: number | null
+          carbohydrate_g_min_target?: number | null
+          carbohydrate_target_status?: string
+          carbohydrate_unknown_item_count?: number
+          completeness_status?: string
+          confidence?: string
+          confidence_score?: number | null
+          created_at?: string
+          energy_kcal_consumed?: number | null
+          energy_kcal_max_target?: number | null
+          energy_kcal_min_target?: number | null
+          energy_target_status?: string
+          energy_unknown_item_count?: number
+          fat_g_consumed?: number | null
+          fat_g_max_target?: number | null
+          fat_g_min_target?: number | null
+          fat_target_status?: string
+          fat_unknown_item_count?: number
+          fiber_g_consumed?: number | null
+          fiber_g_max_target?: number | null
+          fiber_g_min_target?: number | null
+          fiber_target_status?: string
+          fiber_unknown_item_count?: number
+          food_log_day_id?: string | null
+          id?: string
+          observed_item_count?: number
+          observed_meal_count?: number
+          parameter_set?: Json
+          plan_version_id?: string | null
+          protein_g_consumed?: number | null
+          protein_g_max_target?: number | null
+          protein_g_min_target?: number | null
+          protein_target_status?: string
+          protein_unknown_item_count?: number
+          reason_codes?: string[]
+          registration_level?: string | null
+          sodium_mg_consumed?: number | null
+          sodium_unknown_item_count?: number
+          state_date?: string
+          state_status?: string
+          target_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_daily_states_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_daily_states_day_athlete_fkey"
+            columns: ["food_log_day_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_food_log_days"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_daily_states_plan_version_athlete_fkey"
+            columns: ["plan_version_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_plan_versions"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_daily_states_target_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_nutrition_decisions: {
+        Row: {
+          algorithm_version: string
+          as_of_date: string
+          athlete_id: string
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          decision_class: string
+          decision_code: string
+          decision_status: string
+          energy_comparable_day_count: number
+          energy_target_adherence_ratio: number | null
+          evidence_snapshot: Json
+          id: string
+          observed_day_count: number
+          parameter_set: Json
+          plan_adjustment_reason_codes: string[]
+          plan_adjustment_status: string
+          plan_version_id: string | null
+          protein_comparable_day_count: number
+          protein_target_adherence_ratio: number | null
+          reason_codes: string[]
+          record_status: string
+          rolling_confidence: string
+          rolling_coverage_status: string
+          rolling_state_id: string
+          strategy_type: string | null
+          sufficient_day_count: number
+          supersedes_decision_id: string | null
+          target_domain: string
+          window_days: number
+        }
+        Insert: {
+          algorithm_version?: string
+          as_of_date: string
+          athlete_id: string
+          confidence: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          decision_class: string
+          decision_code: string
+          decision_status: string
+          energy_comparable_day_count?: number
+          energy_target_adherence_ratio?: number | null
+          evidence_snapshot: Json
+          id?: string
+          observed_day_count?: number
+          parameter_set: Json
+          plan_adjustment_reason_codes?: string[]
+          plan_adjustment_status?: string
+          plan_version_id?: string | null
+          protein_comparable_day_count?: number
+          protein_target_adherence_ratio?: number | null
+          reason_codes?: string[]
+          record_status?: string
+          rolling_confidence: string
+          rolling_coverage_status: string
+          rolling_state_id: string
+          strategy_type?: string | null
+          sufficient_day_count?: number
+          supersedes_decision_id?: string | null
+          target_domain: string
+          window_days: number
+        }
+        Update: {
+          algorithm_version?: string
+          as_of_date?: string
+          athlete_id?: string
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          decision_class?: string
+          decision_code?: string
+          decision_status?: string
+          energy_comparable_day_count?: number
+          energy_target_adherence_ratio?: number | null
+          evidence_snapshot?: Json
+          id?: string
+          observed_day_count?: number
+          parameter_set?: Json
+          plan_adjustment_reason_codes?: string[]
+          plan_adjustment_status?: string
+          plan_version_id?: string | null
+          protein_comparable_day_count?: number
+          protein_target_adherence_ratio?: number | null
+          reason_codes?: string[]
+          record_status?: string
+          rolling_confidence?: string
+          rolling_coverage_status?: string
+          rolling_state_id?: string
+          strategy_type?: string | null
+          sufficient_day_count?: number
+          supersedes_decision_id?: string | null
+          target_domain?: string
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_decisions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_decisions_plan_version_id_fkey"
+            columns: ["plan_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_plan_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_decisions_rolling_state_id_fkey"
+            columns: ["rolling_state_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_rolling_states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_decisions_supersedes_decision_id_fkey"
+            columns: ["supersedes_decision_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_nutrition_plan_versions: {
+        Row: {
+          algorithm_version: string | null
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          parameter_set: Json | null
+          plan_id: string
+          published_at: string | null
+          rationale: string | null
+          status: string
+          strategy_type: string
+          title: string
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          algorithm_version?: string | null
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          parameter_set?: Json | null
+          plan_id: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          strategy_type: string
+          title: string
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          algorithm_version?: string | null
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          parameter_set?: Json | null
+          plan_id?: string
+          published_at?: string | null
+          rationale?: string | null
+          status?: string
+          strategy_type?: string
+          title?: string
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_plan_versions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_plan_versions_plan_athlete_fkey"
+            columns: ["plan_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_plans"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_nutrition_plans: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          created_by_auth_user_id: string
+          current_version_id: string | null
+          goal_id: string | null
+          goal_phase_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          created_by_auth_user_id?: string
+          current_version_id?: string | null
+          goal_id?: string | null
+          goal_phase_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_plans_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_plans_current_version_fkey"
+            columns: ["current_version_id", "id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_nutrition_plan_versions"
+            referencedColumns: ["id", "plan_id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_plans_goal_athlete_fkey"
+            columns: ["goal_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_goals"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_plans_goal_phase_athlete_fkey"
+            columns: ["goal_phase_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_goal_phases"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_nutrition_rolling_states: {
+        Row: {
+          algorithm_version: string
+          athlete_id: string
+          avg_carbohydrate_g: number | null
+          avg_energy_kcal: number | null
+          avg_fat_g: number | null
+          avg_fiber_g: number | null
+          avg_protein_g: number | null
+          calculated_at: string
+          calendar_day_count: number
+          confidence: string
+          coverage_status: string
+          created_at: string
+          energy_comparable_day_count: number
+          energy_in_target_day_count: number
+          energy_target_adherence_ratio: number | null
+          id: string
+          observation_coverage_ratio: number
+          observed_day_count: number
+          parameter_set: Json
+          partial_day_count: number
+          protein_comparable_day_count: number
+          protein_in_target_day_count: number
+          protein_target_adherence_ratio: number | null
+          reason_codes: string[]
+          sufficient_coverage_ratio: number
+          sufficient_day_count: number
+          unobserved_day_count: number
+          updated_at: string
+          window_days: number
+          window_end_date: string
+          window_start_date: string
+        }
+        Insert: {
+          algorithm_version?: string
+          athlete_id: string
+          avg_carbohydrate_g?: number | null
+          avg_energy_kcal?: number | null
+          avg_fat_g?: number | null
+          avg_fiber_g?: number | null
+          avg_protein_g?: number | null
+          calculated_at?: string
+          calendar_day_count: number
+          confidence?: string
+          coverage_status?: string
+          created_at?: string
+          energy_comparable_day_count?: number
+          energy_in_target_day_count?: number
+          energy_target_adherence_ratio?: number | null
+          id?: string
+          observation_coverage_ratio?: number
+          observed_day_count?: number
+          parameter_set?: Json
+          partial_day_count?: number
+          protein_comparable_day_count?: number
+          protein_in_target_day_count?: number
+          protein_target_adherence_ratio?: number | null
+          reason_codes?: string[]
+          sufficient_coverage_ratio?: number
+          sufficient_day_count?: number
+          unobserved_day_count?: number
+          updated_at?: string
+          window_days: number
+          window_end_date: string
+          window_start_date: string
+        }
+        Update: {
+          algorithm_version?: string
+          athlete_id?: string
+          avg_carbohydrate_g?: number | null
+          avg_energy_kcal?: number | null
+          avg_fat_g?: number | null
+          avg_fiber_g?: number | null
+          avg_protein_g?: number | null
+          calculated_at?: string
+          calendar_day_count?: number
+          confidence?: string
+          coverage_status?: string
+          created_at?: string
+          energy_comparable_day_count?: number
+          energy_in_target_day_count?: number
+          energy_target_adherence_ratio?: number | null
+          id?: string
+          observation_coverage_ratio?: number
+          observed_day_count?: number
+          parameter_set?: Json
+          partial_day_count?: number
+          protein_comparable_day_count?: number
+          protein_in_target_day_count?: number
+          protein_target_adherence_ratio?: number | null
+          reason_codes?: string[]
+          sufficient_coverage_ratio?: number
+          sufficient_day_count?: number
+          unobserved_day_count?: number
+          updated_at?: string
+          window_days?: number
+          window_end_date?: string
+          window_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_rolling_states_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_nutrition_targets: {
+        Row: {
+          athlete_id: string
+          carbohydrate_g_max: number | null
+          carbohydrate_g_min: number | null
+          created_at: string
+          energy_kcal_max: number | null
+          energy_kcal_min: number | null
+          fat_g_max: number | null
+          fat_g_min: number | null
+          fiber_g_max: number | null
+          fiber_g_min: number | null
+          id: string
+          notes: string | null
+          plan_version_id: string
+          protein_g_max: number | null
+          protein_g_min: number | null
+          target_basis: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          carbohydrate_g_max?: number | null
+          carbohydrate_g_min?: number | null
+          created_at?: string
+          energy_kcal_max?: number | null
+          energy_kcal_min?: number | null
+          fat_g_max?: number | null
+          fat_g_min?: number | null
+          fiber_g_max?: number | null
+          fiber_g_min?: number | null
+          id?: string
+          notes?: string | null
+          plan_version_id: string
+          protein_g_max?: number | null
+          protein_g_min?: number | null
+          target_basis?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          carbohydrate_g_max?: number | null
+          carbohydrate_g_min?: number | null
+          created_at?: string
+          energy_kcal_max?: number | null
+          energy_kcal_min?: number | null
+          fat_g_max?: number | null
+          fat_g_min?: number | null
+          fiber_g_max?: number | null
+          fiber_g_min?: number | null
+          id?: string
+          notes?: string | null
+          plan_version_id?: string
+          protein_g_max?: number | null
+          protein_g_min?: number | null
+          target_basis?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_nutrition_targets_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_nutrition_targets_plan_version_athlete_fkey"
+            columns: ["plan_version_id", "athlete_id"]
+            isOneToOne: true
+            referencedRelation: "health_nutrition_plan_versions"
+            referencedColumns: ["id", "athlete_id"]
           },
         ]
       }
@@ -4365,6 +6190,420 @@ export type Database = {
           },
         ]
       }
+      health_recipe_ingredient_snapshots: {
+        Row: {
+          athlete_id: string | null
+          basis_amount_snapshot: number | null
+          basis_unit_snapshot: string | null
+          carbohydrate_g_snapshot: number | null
+          created_at: string
+          data_quality_snapshot: string | null
+          energy_kcal_snapshot: number | null
+          fat_g_snapshot: number | null
+          fiber_g_snapshot: number | null
+          food_id: string
+          food_name_snapshot: string
+          food_source_id_snapshot: string | null
+          id: string
+          protein_g_snapshot: number | null
+          quantity: number
+          recipe_ingredient_id: string
+          recipe_version_id: string
+          sodium_mg_snapshot: number | null
+          source_version_snapshot: string | null
+          unit_code: string
+        }
+        Insert: {
+          athlete_id?: string | null
+          basis_amount_snapshot?: number | null
+          basis_unit_snapshot?: string | null
+          carbohydrate_g_snapshot?: number | null
+          created_at?: string
+          data_quality_snapshot?: string | null
+          energy_kcal_snapshot?: number | null
+          fat_g_snapshot?: number | null
+          fiber_g_snapshot?: number | null
+          food_id: string
+          food_name_snapshot: string
+          food_source_id_snapshot?: string | null
+          id?: string
+          protein_g_snapshot?: number | null
+          quantity: number
+          recipe_ingredient_id: string
+          recipe_version_id: string
+          sodium_mg_snapshot?: number | null
+          source_version_snapshot?: string | null
+          unit_code: string
+        }
+        Update: {
+          athlete_id?: string | null
+          basis_amount_snapshot?: number | null
+          basis_unit_snapshot?: string | null
+          carbohydrate_g_snapshot?: number | null
+          created_at?: string
+          data_quality_snapshot?: string | null
+          energy_kcal_snapshot?: number | null
+          fat_g_snapshot?: number | null
+          fiber_g_snapshot?: number | null
+          food_id?: string
+          food_name_snapshot?: string
+          food_source_id_snapshot?: string | null
+          id?: string
+          protein_g_snapshot?: number | null
+          quantity?: number
+          recipe_ingredient_id?: string
+          recipe_version_id?: string
+          sodium_mg_snapshot?: number | null
+          source_version_snapshot?: string | null
+          unit_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recipe_ingredient_snapshots_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "health_foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recipe_ingredient_snapshots_recipe_ingredient_id_fkey"
+            columns: ["recipe_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recipe_ingredient_snapshots_recipe_version_id_fkey"
+            columns: ["recipe_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recipe_ingredient_snapshots_version_ingredient_fkey"
+            columns: ["recipe_ingredient_id", "recipe_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_ingredients"
+            referencedColumns: ["id", "recipe_version_id"]
+          },
+        ]
+      }
+      health_recipe_ingredients: {
+        Row: {
+          athlete_id: string | null
+          created_at: string
+          food_id: string
+          id: string
+          is_optional: boolean
+          notes: string | null
+          preparation_state: string
+          quantity: number
+          recipe_version_id: string
+          sequence_order: number
+          unit_code: string
+        }
+        Insert: {
+          athlete_id?: string | null
+          created_at?: string
+          food_id: string
+          id?: string
+          is_optional?: boolean
+          notes?: string | null
+          preparation_state?: string
+          quantity: number
+          recipe_version_id: string
+          sequence_order: number
+          unit_code: string
+        }
+        Update: {
+          athlete_id?: string | null
+          created_at?: string
+          food_id?: string
+          id?: string
+          is_optional?: boolean
+          notes?: string | null
+          preparation_state?: string
+          quantity?: number
+          recipe_version_id?: string
+          sequence_order?: number
+          unit_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recipe_ingredients_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "health_foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recipe_ingredients_recipe_version_id_fkey"
+            columns: ["recipe_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_recipe_nutrition_snapshots: {
+        Row: {
+          algorithm_version: string | null
+          athlete_id: string | null
+          basis_amount: number | null
+          basis_unit: string | null
+          calculated_at: string
+          calculation_method: string
+          carbohydrate_g: number | null
+          confidence: string
+          confidence_reason_codes: string[]
+          created_at: string
+          energy_kcal: number | null
+          fat_g: number | null
+          fiber_g: number | null
+          id: string
+          parameter_set: Json | null
+          protein_g: number | null
+          recipe_version_id: string
+          sodium_mg: number | null
+        }
+        Insert: {
+          algorithm_version?: string | null
+          athlete_id?: string | null
+          basis_amount?: number | null
+          basis_unit?: string | null
+          calculated_at?: string
+          calculation_method?: string
+          carbohydrate_g?: number | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          created_at?: string
+          energy_kcal?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          parameter_set?: Json | null
+          protein_g?: number | null
+          recipe_version_id: string
+          sodium_mg?: number | null
+        }
+        Update: {
+          algorithm_version?: string | null
+          athlete_id?: string | null
+          basis_amount?: number | null
+          basis_unit?: string | null
+          calculated_at?: string
+          calculation_method?: string
+          carbohydrate_g?: number | null
+          confidence?: string
+          confidence_reason_codes?: string[]
+          created_at?: string
+          energy_kcal?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          id?: string
+          parameter_set?: Json | null
+          protein_g?: number | null
+          recipe_version_id?: string
+          sodium_mg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recipe_nutrition_snapshots_recipe_version_id_fkey"
+            columns: ["recipe_version_id"]
+            isOneToOne: true
+            referencedRelation: "health_recipe_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_recipe_versions: {
+        Row: {
+          athlete_id: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          id: string
+          preparation_notes: string | null
+          published_at: string | null
+          recipe_id: string
+          servings: number | null
+          status: string
+          title: string
+          updated_at: string
+          version_number: number
+          yield_amount: number | null
+          yield_unit: string | null
+        }
+        Insert: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          preparation_notes?: string | null
+          published_at?: string | null
+          recipe_id: string
+          servings?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+          version_number: number
+          yield_amount?: number | null
+          yield_unit?: string | null
+        }
+        Update: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          id?: string
+          preparation_notes?: string | null
+          published_at?: string | null
+          recipe_id?: string
+          servings?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+          version_number?: number
+          yield_amount?: number | null
+          yield_unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recipe_versions_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_recipes: {
+        Row: {
+          athlete_id: string | null
+          created_at: string
+          created_by_auth_user_id: string | null
+          current_version_id: string | null
+          id: string
+          name: string
+          owner_scope: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          current_version_id?: string | null
+          id?: string
+          name: string
+          owner_scope?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          current_version_id?: string | null
+          id?: string
+          name?: string
+          owner_scope?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recipes_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recipes_current_version_fkey"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "health_recipe_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_recovery_checkins: {
+        Row: {
+          athlete_id: string
+          checkin_event_id: string
+          client_event_id: string | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          id: string
+          metric_code: string
+          observed_at: string
+          observed_on: string
+          raw_text: string | null
+          scale_version: string
+          status: string
+          status_changed_at: string | null
+          supersedes_checkin_id: string | null
+          value_ordinal: number | null
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          checkin_event_id: string
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          id?: string
+          metric_code: string
+          observed_at: string
+          observed_on: string
+          raw_text?: string | null
+          scale_version?: string
+          status?: string
+          status_changed_at?: string | null
+          supersedes_checkin_id?: string | null
+          value_ordinal?: number | null
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          checkin_event_id?: string
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          id?: string
+          metric_code?: string
+          observed_at?: string
+          observed_on?: string
+          raw_text?: string | null
+          scale_version?: string
+          status?: string
+          status_changed_at?: string | null
+          supersedes_checkin_id?: string | null
+          value_ordinal?: number | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_recovery_checkins_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_recovery_checkins_supersedes_checkin_id_fkey"
+            columns: ["supersedes_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "health_recovery_checkins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_session_template_exercises: {
         Row: {
           athlete_id: string
@@ -4501,6 +6740,280 @@ export type Database = {
           },
         ]
       }
+      health_sleep_device_observations: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          device_model: string | null
+          external_id: string | null
+          id: string
+          metric_code: string
+          numeric_value: number
+          observed_at: string
+          observed_on: string
+          provider: string
+          provider_algorithm_version: string | null
+          raw_metadata: Json | null
+          status: string
+          status_changed_at: string | null
+          unit_code: string
+          void_reason: string | null
+          window_end_at: string | null
+          window_start_at: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          device_model?: string | null
+          external_id?: string | null
+          id?: string
+          metric_code: string
+          numeric_value: number
+          observed_at: string
+          observed_on: string
+          provider: string
+          provider_algorithm_version?: string | null
+          raw_metadata?: Json | null
+          status?: string
+          status_changed_at?: string | null
+          unit_code: string
+          void_reason?: string | null
+          window_end_at?: string | null
+          window_start_at?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          device_model?: string | null
+          external_id?: string | null
+          id?: string
+          metric_code?: string
+          numeric_value?: number
+          observed_at?: string
+          observed_on?: string
+          provider?: string
+          provider_algorithm_version?: string | null
+          raw_metadata?: Json | null
+          status?: string
+          status_changed_at?: string | null
+          unit_code?: string
+          void_reason?: string | null
+          window_end_at?: string | null
+          window_start_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_sleep_device_observations_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_sleep_periods: {
+        Row: {
+          athlete_id: string
+          awake_during_period_minutes: number | null
+          awakenings_count: number | null
+          bed_at: string | null
+          calculated_sleep_minutes: number | null
+          calculated_time_in_bed_minutes: number | null
+          client_event_id: string | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          declared_sleep_minutes: number | null
+          final_wake_at: string | null
+          id: string
+          notes: string | null
+          out_of_bed_at: string | null
+          period_type: string
+          sleep_date: string
+          sleep_start_at: string | null
+          status: string
+          status_changed_at: string | null
+          supersedes_sleep_period_id: string | null
+          timezone: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          awake_during_period_minutes?: number | null
+          awakenings_count?: number | null
+          bed_at?: string | null
+          calculated_sleep_minutes?: number | null
+          calculated_time_in_bed_minutes?: number | null
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          declared_sleep_minutes?: number | null
+          final_wake_at?: string | null
+          id?: string
+          notes?: string | null
+          out_of_bed_at?: string | null
+          period_type?: string
+          sleep_date: string
+          sleep_start_at?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_sleep_period_id?: string | null
+          timezone?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          awake_during_period_minutes?: number | null
+          awakenings_count?: number | null
+          bed_at?: string | null
+          calculated_sleep_minutes?: number | null
+          calculated_time_in_bed_minutes?: number | null
+          client_event_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          declared_sleep_minutes?: number | null
+          final_wake_at?: string | null
+          id?: string
+          notes?: string | null
+          out_of_bed_at?: string | null
+          period_type?: string
+          sleep_date?: string
+          sleep_start_at?: string | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_sleep_period_id?: string | null
+          timezone?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_sleep_periods_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_sleep_periods_supersedes_sleep_period_id_fkey"
+            columns: ["supersedes_sleep_period_id"]
+            isOneToOne: false
+            referencedRelation: "health_sleep_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_sleep_recovery_rolling_states: {
+        Row: {
+          algorithm_version: string
+          as_of_date: string
+          athlete_id: string
+          average_fatigue: number | null
+          average_readiness: number | null
+          average_recovery: number | null
+          average_sleep_minutes: number | null
+          average_sleep_quality: number | null
+          computed_at: string
+          confidence: string
+          fatigue_coverage: string
+          fatigue_observed_days: number
+          id: string
+          readiness_coverage: string
+          readiness_observed_days: number
+          reason_codes: string[]
+          recovery_coverage: string
+          recovery_observed_days: number
+          sleep_duration_coverage: string
+          sleep_duration_observed_days: number
+          sleep_duration_variability_minutes: number | null
+          sleep_quality_coverage: string
+          sleep_quality_observed_days: number
+          sleep_timing_coverage: string
+          sleep_timing_observed_days: number
+          window_days: number
+          window_start_date: string
+        }
+        Insert: {
+          algorithm_version?: string
+          as_of_date: string
+          athlete_id: string
+          average_fatigue?: number | null
+          average_readiness?: number | null
+          average_recovery?: number | null
+          average_sleep_minutes?: number | null
+          average_sleep_quality?: number | null
+          computed_at?: string
+          confidence: string
+          fatigue_coverage: string
+          fatigue_observed_days?: number
+          id?: string
+          readiness_coverage: string
+          readiness_observed_days?: number
+          reason_codes?: string[]
+          recovery_coverage: string
+          recovery_observed_days?: number
+          sleep_duration_coverage: string
+          sleep_duration_observed_days?: number
+          sleep_duration_variability_minutes?: number | null
+          sleep_quality_coverage: string
+          sleep_quality_observed_days?: number
+          sleep_timing_coverage: string
+          sleep_timing_observed_days?: number
+          window_days: number
+          window_start_date: string
+        }
+        Update: {
+          algorithm_version?: string
+          as_of_date?: string
+          athlete_id?: string
+          average_fatigue?: number | null
+          average_readiness?: number | null
+          average_recovery?: number | null
+          average_sleep_minutes?: number | null
+          average_sleep_quality?: number | null
+          computed_at?: string
+          confidence?: string
+          fatigue_coverage?: string
+          fatigue_observed_days?: number
+          id?: string
+          readiness_coverage?: string
+          readiness_observed_days?: number
+          reason_codes?: string[]
+          recovery_coverage?: string
+          recovery_observed_days?: number
+          sleep_duration_coverage?: string
+          sleep_duration_observed_days?: number
+          sleep_duration_variability_minutes?: number | null
+          sleep_quality_coverage?: string
+          sleep_quality_observed_days?: number
+          sleep_timing_coverage?: string
+          sleep_timing_observed_days?: number
+          window_days?: number
+          window_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_sleep_recovery_rolling_states_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_training_locations: {
         Row: {
           athlete_id: string
@@ -4544,6 +7057,87 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_vital_observations: {
+        Row: {
+          athlete_id: string
+          client_event_id: string | null
+          condition_text: string | null
+          confidence: string
+          created_at: string
+          created_by_auth_user_id: string | null
+          data_source: string
+          device_text: string | null
+          id: string
+          metric_code: string
+          numeric_value: number
+          observed_at: string
+          observed_on: string
+          secondary_numeric_value: number | null
+          status: string
+          status_changed_at: string | null
+          supersedes_vital_observation_id: string | null
+          unit_code: string
+          void_reason: string | null
+        }
+        Insert: {
+          athlete_id: string
+          client_event_id?: string | null
+          condition_text?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          device_text?: string | null
+          id?: string
+          metric_code: string
+          numeric_value: number
+          observed_at: string
+          observed_on: string
+          secondary_numeric_value?: number | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_vital_observation_id?: string | null
+          unit_code: string
+          void_reason?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          client_event_id?: string | null
+          condition_text?: string | null
+          confidence?: string
+          created_at?: string
+          created_by_auth_user_id?: string | null
+          data_source?: string
+          device_text?: string | null
+          id?: string
+          metric_code?: string
+          numeric_value?: number
+          observed_at?: string
+          observed_on?: string
+          secondary_numeric_value?: number | null
+          status?: string
+          status_changed_at?: string | null
+          supersedes_vital_observation_id?: string | null
+          unit_code?: string
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_vital_observations_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_vital_observations_supersedes_vital_observation_id_fkey"
+            columns: ["supersedes_vital_observation_id"]
+            isOneToOne: false
+            referencedRelation: "health_vital_observations"
             referencedColumns: ["id"]
           },
         ]
@@ -11056,6 +13650,312 @@ export type Database = {
           p_rir: number
           p_set_id: string
         }
+        Returns: string
+      }
+      health_m5_complete_food_log_day: {
+        Args: { p_client_event_id?: string; p_day_id: string }
+        Returns: string
+      }
+      health_m5_correct_meal_item: {
+        Args: {
+          p_client_event_id: string
+          p_confidence?: string
+          p_correction_reason?: string
+          p_data_source?: string
+          p_estimation_method?: string
+          p_food_id?: string
+          p_household_measure_text?: string
+          p_item_name: string
+          p_original_item_id: string
+          p_preparation_state?: string
+          p_quantity?: number
+          p_recipe_version_id?: string
+          p_unit_code?: string
+        }
+        Returns: string
+      }
+      health_m5_create_nutrition_plan_draft: {
+        Args: {
+          p_athlete_id: string
+          p_goal_id?: string
+          p_goal_phase_id?: string
+          p_name: string
+          p_strategy_type?: string
+          p_title?: string
+        }
+        Returns: {
+          plan_id: string
+          plan_version_id: string
+        }[]
+      }
+      health_m5_create_recipe_draft: {
+        Args: { p_athlete_id: string; p_name: string; p_title?: string }
+        Returns: {
+          recipe_id: string
+          recipe_version_id: string
+        }[]
+      }
+      health_m5_log_meal_item: {
+        Args: {
+          p_client_event_id: string
+          p_confidence?: string
+          p_data_source?: string
+          p_estimation_method?: string
+          p_food_id?: string
+          p_household_measure_text?: string
+          p_item_name: string
+          p_meal_log_id: string
+          p_preparation_state?: string
+          p_quantity?: number
+          p_recipe_version_id?: string
+          p_unit_code?: string
+        }
+        Returns: string
+      }
+      health_m5_publish_nutrition_plan_version: {
+        Args: { p_plan_version_id: string }
+        Returns: {
+          plan_id: string
+          published_version_id: string
+        }[]
+      }
+      health_m5_publish_recipe_version: {
+        Args: { p_recipe_version_id: string }
+        Returns: {
+          published_version_id: string
+          recipe_id: string
+        }[]
+      }
+      health_m5_reopen_food_log_day: {
+        Args: { p_client_event_id?: string; p_day_id: string }
+        Returns: string
+      }
+      health_m5_void_meal_item: {
+        Args: {
+          p_client_event_id: string
+          p_item_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
+      health_m6_refresh_daily_state: {
+        Args: { p_athlete_id: string; p_state_date: string }
+        Returns: string
+      }
+      health_m6_refresh_rolling_state: {
+        Args: {
+          p_athlete_id: string
+          p_window_days?: number
+          p_window_end_date: string
+        }
+        Returns: string
+      }
+      health_m6_target_status: {
+        Args: { p_max: number; p_min: number; p_value: number }
+        Returns: string
+      }
+      health_m7_evaluate_nutrition_decision: {
+        Args: {
+          p_as_of_date: string
+          p_athlete_id: string
+          p_window_days?: number
+        }
+        Returns: string
+      }
+      health_m8_record_body_assessment: {
+        Args: {
+          p_athlete_id: string
+          p_client_event_id: string
+          p_conditions?: Json
+          p_confidence?: string
+          p_data_source?: string
+          p_measurements: Json
+          p_notes?: string
+          p_observed_at: string
+          p_observed_on: string
+          p_supersedes_assessment_id?: string
+        }
+        Returns: string
+      }
+      health_m8_refresh_body_state: {
+        Args: {
+          p_as_of_date: string
+          p_athlete_id: string
+          p_window_days?: number
+        }
+        Returns: string
+      }
+      health_m8_register_body_photo_set: {
+        Args: {
+          p_assessment_id?: string
+          p_athlete_id: string
+          p_captured_at: string
+          p_captured_on: string
+          p_conditions?: Json
+          p_notes?: string
+          p_photo_set_id: string
+          p_photos: Json
+        }
+        Returns: string
+      }
+      health_m8_void_body_assessment: {
+        Args: { p_assessment_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m8_void_body_photo_set: {
+        Args: { p_photo_set_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_confirm_clinical_extraction: {
+        Args: { p_extraction_id: string }
+        Returns: string
+      }
+      health_m9_record_device_observations: {
+        Args: { p_athlete_id: string; p_observations: Json }
+        Returns: number
+      }
+      health_m9_record_lab_report: {
+        Args: {
+          p_athlete_id: string
+          p_client_event_id: string
+          p_collected_at?: string
+          p_collection_context?: Json
+          p_confidence?: string
+          p_data_source?: string
+          p_document_id?: string
+          p_extraction_id?: string
+          p_fasting_status?: string
+          p_laboratory_name?: string
+          p_notes?: string
+          p_resulted_at?: string
+          p_results: Json
+          p_supersedes_lab_report_id?: string
+        }
+        Returns: string
+      }
+      health_m9_record_recovery_checkin: {
+        Args: {
+          p_athlete_id: string
+          p_checkin_event_id: string
+          p_client_event_id?: string
+          p_confidence?: string
+          p_data_source?: string
+          p_metric_code: string
+          p_observed_at: string
+          p_observed_on: string
+          p_raw_text?: string
+          p_supersedes_checkin_id?: string
+          p_value_ordinal?: number
+        }
+        Returns: string
+      }
+      health_m9_record_sleep_period: {
+        Args: {
+          p_athlete_id: string
+          p_awake_during_period_minutes?: number
+          p_awakenings_count?: number
+          p_bed_at?: string
+          p_client_event_id?: string
+          p_confidence?: string
+          p_data_source?: string
+          p_declared_sleep_minutes?: number
+          p_final_wake_at?: string
+          p_notes?: string
+          p_out_of_bed_at?: string
+          p_period_type?: string
+          p_sleep_date: string
+          p_sleep_start_at?: string
+          p_supersedes_sleep_period_id?: string
+          p_timezone?: string
+        }
+        Returns: string
+      }
+      health_m9_record_vital_observation: {
+        Args: {
+          p_athlete_id: string
+          p_client_event_id: string
+          p_condition_text: string
+          p_confidence: string
+          p_data_source: string
+          p_device_text: string
+          p_metric_code: string
+          p_numeric_value: number
+          p_observed_at: string
+          p_observed_on: string
+          p_secondary_numeric_value: number
+          p_supersedes_vital_observation_id: string
+          p_unit_code: string
+        }
+        Returns: string
+      }
+      health_m9_refresh_biomarker_state: {
+        Args: { p_as_of_date: string; p_athlete_id: string }
+        Returns: number
+      }
+      health_m9_refresh_sleep_recovery_state: {
+        Args: {
+          p_as_of_date: string
+          p_athlete_id: string
+          p_window_days: number
+        }
+        Returns: string
+      }
+      health_m9_register_clinical_document: {
+        Args: {
+          p_athlete_id: string
+          p_data_source: string
+          p_document_date: string
+          p_document_id: string
+          p_document_type: string
+          p_mime_type: string
+          p_notes: string
+          p_object_path: string
+          p_original_filename: string
+          p_provider_name: string
+          p_sha256: string
+        }
+        Returns: string
+      }
+      health_m9_reject_clinical_extraction: {
+        Args: { p_extraction_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_stage_clinical_extraction: {
+        Args: {
+          p_document_id: string
+          p_engine_provider?: string
+          p_engine_version?: string
+          p_error_message?: string
+          p_extraction_id: string
+          p_field_confidences?: Json
+          p_status: string
+          p_structured_payload?: Json
+          p_warnings?: Json
+        }
+        Returns: string
+      }
+      health_m9_void_clinical_document: {
+        Args: { p_document_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_void_device_observation: {
+        Args: { p_observation_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_void_lab_report: {
+        Args: { p_lab_report_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_void_recovery_checkin: {
+        Args: { p_checkin_id: string; p_reason: string }
+        Returns: string
+      }
+      health_m9_void_sleep_period: {
+        Args: { p_reason: string; p_sleep_period_id: string }
+        Returns: string
+      }
+      health_m9_void_vital_observation: {
+        Args: { p_reason: string; p_vital_observation_id: string }
         Returns: string
       }
       import_shopee_order_with_stock: {
