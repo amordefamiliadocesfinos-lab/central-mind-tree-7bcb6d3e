@@ -53,6 +53,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-01',7
 ) AS run_t1 \gset
+SELECT set_config('test.run_t1', :'run_t1', false);
 
 DO $$
 DECLARE
@@ -96,6 +97,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-02',7
 ) AS run_t2 \gset
+SELECT set_config('test.run_t2', :'run_t2', false);
 
 DO $$
 BEGIN
@@ -126,6 +128,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-03',7
 ) AS run_t3 \gset
+SELECT set_config('test.run_t3', :'run_t3', false);
 
 DO $$
 BEGIN
@@ -163,6 +166,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-04',7
 ) AS run_t4 \gset
+SELECT set_config('test.run_t4', :'run_t4', false);
 
 DO $$
 BEGIN
@@ -207,6 +211,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-05',7
 ) AS run_t5 \gset
+SELECT set_config('test.run_t5', :'run_t5', false);
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -239,6 +244,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-06',7
 ) AS run_t6 \gset
+SELECT set_config('test.run_t6', :'run_t6', false);
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -278,9 +284,11 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-07',7
 ) AS run_t7a \gset
+SELECT set_config('test.run_t7a', :'run_t7a', false);
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-07',7
 ) AS run_t7b \gset
+SELECT set_config('test.run_t7b', :'run_t7b', false);
 
 DO $$
 DECLARE
@@ -322,6 +330,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-07',7
 ) AS run_t11 \gset
+SELECT set_config('test.run_t11', :'run_t11', false);
 RESET ROLE;
 
 DO $$
@@ -358,6 +367,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-08',7
 ) AS run_t8 \gset
+SELECT set_config('test.run_t8', :'run_t8', false);
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -382,6 +392,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f11_evaluate_integrated_decision(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',DATE '2026-11-09',7
 ) AS run_t9 \gset
+SELECT set_config('test.run_t9', :'run_t9', false);
 DO $$
 BEGIN
   IF NOT EXISTS (
