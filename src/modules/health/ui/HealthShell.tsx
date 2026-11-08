@@ -9,6 +9,7 @@ import {
   MoonStar,
   FlaskConical,
   History,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const primaryItems = [
   { to: "/saude/recuperacao", label: "Recuperação", mobileLabel: "Recup.", icon: MoonStar },
   { to: "/saude/exames", label: "Exames", mobileLabel: "Exames", icon: FlaskConical },
   { to: "/saude/revisao", label: "Revisão", mobileLabel: "Revisão", icon: History },
+  { to: "/saude/replanejamento", label: "Replanejamento", mobileLabel: "Replanej.", icon: ListChecks },
   { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
