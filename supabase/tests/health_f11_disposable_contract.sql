@@ -476,4 +476,44 @@ END $$;
 
 RESET ROLE;
 
+DO $
+DECLARE
+  v_bad integer;
+BEGIN
+  SELECT count(*) INTO v_bad
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public'
+    AND c.relname IN ('health_integrated_decision_runs','health_integrated_decisions')
+    AND NOT c.relrowsecurity;
+  IF v_bad<>0 THEN RAISE EXCEPTION 'F11 tables without RLS: %',v_bad; END IF;
+
+  SELECT count(*) INTO v_bad
+  FROM information_schema.role_table_grants g
+  WHERE g.table_schema='public'
+    AND g.table_name IN ('health_integrated_decision_runs','health_integrated_decisions')
+    AND g.grantee='anon';
+  IF v_bad<>0 THEN RAISE EXCEPTION 'anon F11 table grants: %',v_bad; END IF;
+
+  WITH fk AS (
+    SELECT c.conname,c.conrelid,c.conkey
+    FROM pg_constraint c
+    WHERE c.contype='f'
+      AND c.conrelid::regclass::text IN (
+        'health_integrated_decision_runs',
+        'health_integrated_decisions'
+      )
+  )
+  SELECT count(*) INTO v_bad
+  FROM fk
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    WHERE i.indrelid=fk.conrelid
+      AND i.indisvalid
+      AND (i.indkey::smallint[])[0:pg_catalog.cardinality(fk.conkey)-1]=fk.conkey
+  );
+  IF v_bad<>0 THEN RAISE EXCEPTION 'F11 foreign keys without leading index: %',v_bad; END IF;
+END $;
+
 SELECT 'F11 disposable contract PASS' AS result;
