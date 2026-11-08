@@ -34,3 +34,24 @@ GitHub atualmente controla código e migrations como artefatos. Não há pipelin
 ## Resultado esperado
 
 Administrador vê usuário, escolhe Saúde / CCH e quaisquer outros módulos, confirma e consegue revogar. Um login restrito vê e consulta somente aquilo que foi autorizado. Só então executar missão Rafaela no Painel; preservar CCH Rafaela v1, fila e histórico.
+
+
+## Continuidade executada em 08/11 — evidência complementar
+
+- O administrador agora pode selecionar módulos tanto na **criação do acesso** quanto na edição posterior de uma conta restrita.
+- `app_users.access_model` separa contas `legacy` de `scoped`: o default conserva colaboradores existentes; somente novos vínculos provisionados são inscritos como `scoped`. O trigger proposto impede um cliente comum de converter `scoped` em `legacy` ou estabelecer `auth_user_id`.
+- `AuthContext` consulta o modelo de acesso; uma conta sem cadastro ativo deixa de carregar o shell empresarial.
+- Para contas `scoped`, a UI monta um shell mínimo sem pesquisa global, notificações de negócio, barra empresarial nem CRM. **Somente /saude/** está efetivamente habilitado até a homologação dos demais domínios.
+- Testes unitários negativos verificam bloqueio das rotas de CRM, Financeiro, Administração e Produção. São testes de UI, **não** comprovam RLS ou API.
+- O servidor rejeita provisionamento enquanto `PANEL_SCOPED_USERS_RLS_READY` não estiver habilitado em ambiente seguro após inspeção real. A mera presença do catálogo de permissões não é prova de acesso efetivo.
+- O vínculo por nome foi removido e seleção de atleta não ocorre automaticamente por coincidência de texto; usuário administrador deve conferir ID do cadastro e ID do atleta. Fluxo da Rafaela continua pendente.
+
+### Risco verificável no Core atual
+
+Consulta somente leitura identificou 219 tabelas `public`, duas sem RLS (`product_batch_recipe_items`, `product_batch_recipes`) e numerosas políticas abrangentes de dados comerciais. Entre os exemplos: `contacts`, `financial_accounts`, `financial_movements`, `ai_insights` e `ai_actions`. Sem analisar também privilégios de tabela, views, RPCs, endpoints, bucket policies e autenticação real, é **proibido afirmar** que um login Saúde-only não conseguiria lê-los diretamente. A possibilidade de leitura com a chave anônima precisa ser investigada separadamente; esconder rotas não resolve esse risco.
+
+### Estado de governança
+
+A branch pode estar divergente da main por merge de frentes paralelas. Reconciliar antes do merge. Não implantar migrations ou ativar variável de ambiente por conta desta documentação. Com CI verde, a frente ainda será **parcial** até a prova negativa de isolamento e autorização transversal para alterar RLS empresarial.
+
+Para cada módulo adicional selecionável pelo administrador, distinguir: (a) registrado no catálogo, (b) roteável com UI, (c) efetivamente protegido em banco e serviços. Liberar somente depois de demonstrar **(c)**.
