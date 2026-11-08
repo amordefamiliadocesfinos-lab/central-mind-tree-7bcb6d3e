@@ -39,8 +39,8 @@ async function listAs(role, table, params) {
   const url = new URL(table, api);
   for (const [k,v] of Object.entries(params)) url.searchParams.set(k,v);
   const headers = { apikey: key, Accept: "application/json" };
+  // Publishable keys are not JWTs. Anonymous requests send only apikey.
   if (jwt) headers.Authorization = `Bearer ${jwt}`;
-  else headers.Authorization = `Bearer ${key}`;
   const resp = await fetch(url, { method: "GET", headers, redirect: "error", signal: AbortSignal.timeout(15000) });
   const data = await resp.text();
   if (resp.status === 401 || resp.status === 403) return { denied: true, count: 0, status: resp.status };
