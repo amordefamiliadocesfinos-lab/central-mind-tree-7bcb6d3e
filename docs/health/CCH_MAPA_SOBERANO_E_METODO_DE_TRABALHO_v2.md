@@ -318,15 +318,23 @@ Arquiteturas candidatas abertas em branch própria:
 - `docs/health/M9A_SLEEP_RECOVERY_ARCHITECTURE.md`;
 - `docs/health/M9B_EXAMS_BIOMARKERS_ARCHITECTURE.md`;
 - `docs/health/M9_OPENING_AND_ACCEPTANCE_2026-11-07.md`;
-- `docs/health/M9_ARCHITECTURAL_DECISIONS_V1.md`.
+- `docs/health/M9_ARCHITECTURAL_DECISIONS_V1.md`;
+- `docs/health/M9_TECHNICAL_DESIGN_V1.md`;
+- `docs/health/M9_SECURITY_RLS_MATRIX_V1.md`;
+- `docs/health/M9_TEST_PLAN_V1.md`;
+- `docs/health/M9_MOBILE_UI_SPEC_V1.md`.
 
 Estado:
 - herança dos especialistas 04 e 05 concluída;
 - fronteiras M9A/M9B documentadas;
 - critérios de aceitação documentados;
 - sete decisões arquiteturais v1 resolvidas e congeladas;
+- desenho técnico v1 de schema/RPCs concluído;
+- matriz RLS/grants/cross-athlete concluída;
+- plano de testes TESTES MT concluído;
+- especificação mobile concluída;
 - rotas finais definidas: `/saude/recuperacao` e `/saude/exames`;
-- nenhuma migration criada;
+- nenhuma migration real criada;
 - nenhum banco alterado;
 - nenhum código funcional alterado;
 - nenhum deploy realizado;
@@ -482,4 +490,4 @@ Próxima ação permitida:
 
 Próxima ação permitida, sem antecipar implementação:
 
-**a revisão arquitetural v1 da M9A/M9B foi concluída na PR #487. A próxima etapa permitida é produzir o desenho técnico de migrations/RPCs, matriz RLS, testes e UI mobile, sem aplicar banco, sem deploy e sem antecipar os Gates.**
+**a revisão arquitetural e o desenho técnico v1 da M9A/M9B foram concluídos na PR #487. A próxima etapa é a revisão final documental e, somente após os gates/autorização aplicáveis, a implementação real com migrations geradas, TESTES MT primeiro, segurança e CI antes de qualquer produção.**
