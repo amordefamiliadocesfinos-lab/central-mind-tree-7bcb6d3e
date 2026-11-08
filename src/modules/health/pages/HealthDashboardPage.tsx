@@ -246,7 +246,7 @@ export function HealthDashboardPage() {
             ))}
             {extraIssueCount > 0 ? (
               <p className="px-1 text-xs text-muted-foreground">
-                +{extraIssueCount} pendência{extraIssueCount > 1 ? "s" : ""} disponível{extraIssueCount > 1 ? "eis" : ""} nos módulos especialistas.
+                +{extraIssueCount} {extraIssueCount > 1 ? "pendências disponíveis" : "pendência disponível"} nos módulos especialistas.
               </p>
             ) : null}
           </CardContent>
