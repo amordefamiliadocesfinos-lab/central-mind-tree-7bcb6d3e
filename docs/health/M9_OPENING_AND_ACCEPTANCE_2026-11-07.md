@@ -180,8 +180,15 @@ Entregáveis técnicos concluídos:
 
 O desenho define migrations/RPCs lógicas, RLS/grants/cross-athlete, casos de teste e UI mobile sem criar migration real, sem executar SQL e sem alterar código funcional.
 
-Próxima etapa permitida:
-- revisão final da PR #487 contra o Mapa Soberano;
-- depois, mediante autorização correspondente, iniciar implementação em branch apropriada com migrations reais geradas pelo CLI e aplicação primeiro no TESTES MT.
+Revisão final documental:
+- concluída;
+- inconsistências de estado reconciliadas;
+- identidade de check-ins endurecida;
+- void de documento clínico explicitado;
+- correção de biomarcadores congelada por supersession/void do relatório;
+- contratos de segurança global de catálogo esclarecidos.
 
-Antes de qualquer merge da PR #487, o Gate A continua obrigatório.
+Próxima decisão de governança:
+- **Gate A da PR #487**.
+
+A implementação continua bloqueada. Após merge autorizado da documentação, deve nascer em branch própria a partir da `main` então vigente, com migrations reais geradas pelo CLI e TESTES MT primeiro.
