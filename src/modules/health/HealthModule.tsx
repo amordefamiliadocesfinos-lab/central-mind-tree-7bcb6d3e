@@ -11,6 +11,7 @@ import { HealthRecoveryPage } from "./pages/HealthRecoveryPage";
 import { HealthExamsPage } from "./pages/HealthExamsPage";
 import { HealthDashboardPage } from "./pages/HealthDashboardPage";
 import { HealthLongitudinalReviewPage } from "./pages/HealthLongitudinalReviewPage";
+import { HealthReplanningPage } from "./pages/HealthReplanningPage";
 
 export default function HealthModule() {
   return (
@@ -26,6 +27,7 @@ export default function HealthModule() {
         <Route path="recuperacao" element={<HealthRecoveryPage />} />
         <Route path="exames" element={<HealthExamsPage />} />
         <Route path="revisao" element={<HealthLongitudinalReviewPage />} />
+        <Route path="replanejamento" element={<HealthReplanningPage />} />
         <Route path="perfil" element={<HealthProfilePage />} />
         <Route path="biblioteca" element={<HealthLibraryPage />} />
         <Route path="*" element={<Navigate to="/saude/hoje" replace />} />
