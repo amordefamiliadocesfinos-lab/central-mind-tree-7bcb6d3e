@@ -3,6 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { AdminAccessDatabase } from "./module-grants.types";
 import { assertScopedProvisionIdentity } from "./provision-identity-guard";
 import { assertRolloutModules } from "./rollout-module-policy";
+import { sameModuleGrants } from "./grant-reconciliation";
 
 export type ProvisionMode = "invite" | "temporary_password";
 
@@ -168,13 +169,22 @@ export async function replaceUserModuleGrants(
   if (scopeError || scope?.access_model !== "scoped") {
     throw new Error("Contas legadas não podem receber restrições fictícias por esta tela.");
   }
+  const { data: existingGrants, error: existingGrantsError } = await scopedAdmin
+    .from("app_user_module_grants")
+    .select("module_key")
+    .eq("auth_user_id", targetAuthUserId);
+  if (existingGrantsError) throw new Error("Não foi possível conferir as permissões existentes.");
+  const currentModules = (existingGrants ?? []).map((grant) => grant.module_key);
+  if (sameModuleGrants(currentModules, modules)) {
+    return { modules: [...new Set(modules)], unchanged: true };
+  }
   const { data, error } = await scopedAdmin.rpc("admin_replace_user_module_grants", {
     p_target_auth_user_id: targetAuthUserId,
     p_module_keys: [...new Set(modules)],
     p_actor_auth_user_id: actorAuthUserId,
   });
   if (error) throw new Error("Não foi possível salvar as permissões.");
-  return { modules: data };
+  return { modules: data, unchanged: false };
 }
 
 export async function provisionUser(
