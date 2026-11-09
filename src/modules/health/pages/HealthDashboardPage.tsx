@@ -290,6 +290,26 @@ export function HealthDashboardPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Analytics e histórico</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Veja gráficos de treino, alimentação, corpo e recuperação sem alterar os dados de origem.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="min-h-11 shrink-0">
+            <Link to="/saude/analytics">
+              Abrir gráficos
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       {visibleIssues.length ? (
         <Card>
           <CardHeader className="pb-2">
