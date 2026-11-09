@@ -4,7 +4,6 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Replace,
   Trash2,
   Utensils,
 } from "lucide-react";
@@ -331,7 +330,7 @@ function PlannedItemCard({
       {alternatives.length ? (
         <div className="mt-3 space-y-2 border-l-2 pl-3">
           <p className="flex items-center gap-2 text-xs font-medium">
-            <Replace className="h-3.5 w-3.5" />
+            <RefreshCw className="h-3.5 w-3.5" />
             Alternativas
           </p>
           {alternatives.map((alternative) => (
