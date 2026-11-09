@@ -101,6 +101,37 @@ test('O.2b PROCESSING stops before binary and Core writes', async () => {
   assert.equal(downstream, 0);
 });
 
+test('O.2b rejected document result returns only bounded upstream diagnostics and never writes', async () => {
+  let downstream = 0;
+  const { inspect } = fixtures({
+    readDocumentResult: async () => ({
+      response: { ok: false, status: 422 },
+      payload: { error: 'error_param', message: 'secret-account-and-token-should-not-leak' },
+    }),
+    downloadDocument: async () => { downstream++; throw Error('must not download'); },
+    callCore: async () => { downstream++; throw Error('must not write'); },
+  });
+  assert.deepEqual(await inspect(), {
+    ok: false, code: 'document_status_rejected',
+    diagnostic: { upstream_http_status: 422, upstream_error_code: 'error_param' },
+  });
+  assert.equal(downstream, 0);
+});
+
+test('O.2b sanitizes untrusted error text even when upstream HTTP is successful', async () => {
+  const { inspect } = fixtures({
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'invalid code: secret=abc', message: 'sensitive' },
+    }),
+    downloadDocument: async () => { throw Error('no download'); },
+  });
+  assert.deepEqual(await inspect(), {
+    ok: false, code: 'document_status_rejected',
+    diagnostic: { upstream_http_status: 200, upstream_error_code: 'unavailable' },
+  });
+});
+
 test('O.2b expired token never decrypts or calls Shopee', async () => {
   let externalReads = 0;
   const { inspect } = fixtures({
