@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ADAO_LABEL_ORDER_SNS, createAdaoReadyLabelSync } from '../src/shopee-adao-ready-label-sync.mjs';
+import { createAdaoReadyLabelSync } from '../src/shopee-adao-ready-label-sync.mjs';
 import { handleRequest } from '../src/app.mjs';
+
+const ORDER_SN = '261108PWWQ4K95';
 
 const env = key => ({
   SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'true',
@@ -12,7 +14,7 @@ const env = key => ({
 test('real-use Adão label sync scopes account, shop and order; existing READY PDF is attached', async () => {
   let keys;
   let tombstoneCalls = 0;
-  const orderSn = ADAO_LABEL_ORDER_SNS[0];
+  const orderSn = ORDER_SN;
   const sync = createAdaoReadyLabelSync({
     getEnv: env,
     readTombstones: async input => {
@@ -35,16 +37,35 @@ test('real-use Adão label sync scopes account, shop and order; existing READY P
   assert.equal(keys('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER'), undefined);
 });
 
-test('unknown and tombstoned orders cannot fetch labels', async () => {
+test('malformed and tombstoned orders cannot fetch labels', async () => {
   let syncCalls = 0;
   const sync = createAdaoReadyLabelSync({
     getEnv: env,
-    readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [ADAO_LABEL_ORDER_SNS[0]] } }),
+    readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [ORDER_SN] } }),
     makeSync: () => { syncCalls++; return async () => ({ ok: true }); },
   });
-  assert.equal((await sync('unknown-order')).code, 'order_not_approved');
-  assert.equal((await sync(ADAO_LABEL_ORDER_SNS[0])).code, 'order_deleted');
+  assert.equal((await sync('unknown-order')).code, 'invalid_order_identity');
+  assert.equal((await sync(ORDER_SN)).code, 'order_deleted');
   assert.equal(syncCalls, 0);
+});
+
+test('new eligible order is not blocked by the retired pilot list', async () => {
+  const newOrder = '261109TG59UDC7';
+  let selectedOrder = null;
+  const sync = createAdaoReadyLabelSync({
+    getEnv: env,
+    readTombstones: async input => {
+      assert.equal(input.channel_account_id, 'b4027369-5abf-4ac1-ab24-862334fae892');
+      assert.deepEqual(input.order_sns, [newOrder]);
+      return { ok: true, payload: { deleted_order_sns: [] } };
+    },
+    makeSync: options => {
+      selectedOrder = options.getEnv('SHOPEE_LIVE_LABEL_ORDER_SN');
+      return async () => ({ ok: false, code: 'document_not_ready' });
+    },
+  });
+  assert.deepEqual(await sync(newOrder), { ok: false, code: 'document_not_ready' });
+  assert.equal(selectedOrder, newOrder);
 });
 
 test('not-ready response is an explicit non-write failure', async () => {
@@ -53,7 +74,7 @@ test('not-ready response is an explicit non-write failure', async () => {
     readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [] } }),
     makeSync: () => async () => ({ ok: false, code: 'document_not_ready' }),
   });
-  assert.deepEqual(await sync(ADAO_LABEL_ORDER_SNS[0]),
+  assert.deepEqual(await sync(ORDER_SN),
     { ok: false, code: 'document_not_ready' });
 });
 
@@ -62,10 +83,10 @@ test('IAM route validates method, exact query and returns sanitized label result
   let calls = 0;
   const injection = {
     handleShopeeLive: async () => null,
-    syncAdaoLabel: async orderSn => { calls++; assert.equal(orderSn, ADAO_LABEL_ORDER_SNS[0]);
+    syncAdaoLabel: async orderSn => { calls++; assert.equal(orderSn, ORDER_SN);
       return { ok: true, code: 'label_attached', document_id: 'document-id' }; },
   };
-  const req = { path, method: 'POST', query: { order_sn: ADAO_LABEL_ORDER_SNS[0] },
+  const req = { path, method: 'POST', query: { order_sn: ORDER_SN },
     headers: { 'content-length': '0' } };
   assert.equal((await handleRequest({ ...req, method: 'GET' }, injection)).status, 405);
   assert.equal((await handleRequest({ ...req, query: {} }, injection)).status, 400);
@@ -84,7 +105,7 @@ test('Adão ignores inherited Viviane fixed package while retaining Shopee packa
     readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [] } }),
     makeSync: options => { scoped = options.getEnv; return async () => ({ ok: false, code: 'document_not_ready' }); },
   });
-  assert.equal((await sync(ADAO_LABEL_ORDER_SNS[0])).code, 'document_not_ready');
+  assert.equal((await sync(ORDER_SN)).code, 'document_not_ready');
   assert.equal(scoped('SHOPEE_LIVE_LABEL_PACKAGE_NUMBER'), undefined);
   assert.equal(scoped('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID'), 'b4027369-5abf-4ac1-ab24-862334fae892');
 });
