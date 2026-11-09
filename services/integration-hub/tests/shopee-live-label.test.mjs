@@ -132,6 +132,135 @@ test('O.2b sanitizes untrusted error text even when upstream HTTP is successful'
   });
 });
 
+test('Adão pilot creates one document task after print-first and stops before download', async () => {
+  const calls = [];
+  const { inspect } = fixtures({
+    prepareMissingDocument: true,
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'logistics.shipping_document_should_print_first' },
+    }),
+    readTracking: async input => {
+      calls.push('tracking');
+      assert.equal(input.orderSn, target);
+      assert.equal(input.packageNumber, pkg);
+      return { response: { ok: true }, payload: { response: { tracking_number: 'SPX1234567' } } };
+    },
+    callCore: async input => {
+      calls.push(input.action);
+      if (input.action === 'shopee.shipping_document.claim') {
+        assert.equal(input.data.channel_account_id, channel);
+        assert.equal(input.data.order_sn, target);
+        assert.equal(input.data.package_number, pkg);
+        assert.match(input.data.request_hash, /^[0-9a-f]{64}$/);
+        return { ok: true, payload: { status: 'claimed', fresh: true, attempt_id: 'attempt-id' } };
+      }
+      assert.equal(input.action, 'shopee.shipping_document.resolve');
+      assert.equal(input.data.outcome, 'succeeded');
+      return { ok: true, payload: { status: 'resolved', state: 'succeeded' } };
+    },
+    createDocument: async input => {
+      calls.push('create');
+      assert.equal(input.orderSn, target);
+      assert.equal(input.packageNumber, pkg);
+      assert.equal(input.trackingNumber, 'SPX1234567');
+      return {
+        response: { ok: true },
+        payload: { error: '', response: { result_list: [{ order_sn: target }] } },
+      };
+    },
+    downloadDocument: async () => { throw Error('not ready; never download'); },
+  });
+  assert.deepEqual(await inspect(), { ok: false, code: 'document_task_created_check_later' });
+  assert.deepEqual(calls, [
+    'tracking', 'shopee.shipping_document.claim',
+    'create', 'shopee.shipping_document.resolve',
+  ]);
+});
+
+test('Adão pilot never creates twice when Core claim is not fresh', async () => {
+  let creates = 0;
+  const { inspect } = fixtures({
+    prepareMissingDocument: true,
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'logistics.shipping_document_should_print_first' },
+    }),
+    readTracking: async () => ({
+      response: { ok: true },
+      payload: { response: { tracking_number: 'SPX1234567' } },
+    }),
+    callCore: async () => ({ ok: false, payload: { status: 'blocked', code: 'already_claimed' } }),
+    createDocument: async () => { creates++; throw Error('duplicate forbidden'); },
+  });
+  assert.equal((await inspect()).code, 'document_creation_already_claimed');
+  assert.equal(creates, 0);
+});
+
+test('Adão pilot does not create without tracking or a complete package identity', async () => {
+  let creates = 0;
+  const { inspect } = fixtures({
+    prepareMissingDocument: true,
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'logistics.shipping_document_should_print_first' },
+    }),
+    readTracking: async () => ({
+      response: { ok: true },
+      payload: { response: { tracking_number: '' } },
+    }),
+    createDocument: async () => { creates++; throw Error('must not run'); },
+    callCore: async () => { throw Error('must not claim'); },
+  });
+  assert.equal((await inspect()).code, 'document_tracking_missing');
+  assert.equal(creates, 0);
+});
+
+test('Adão pilot marks uncertain create reply without automatic retry', async () => {
+  const outcomes = [];
+  const { inspect } = fixtures({
+    prepareMissingDocument: true,
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'logistics.shipping_document_should_print_first' },
+    }),
+    readTracking: async () => ({
+      response: { ok: true },
+      payload: { response: { tracking_number: 'SPX1234567' } },
+    }),
+    callCore: async input => {
+      if (input.action.endsWith('.claim')) {
+        return { ok: true, payload: { status: 'claimed', fresh: true, attempt_id: 'attempt-id' } };
+      }
+      outcomes.push(input.data.outcome);
+      return { ok: true, payload: { status: 'resolved', state: 'uncertain' } };
+    },
+    createDocument: async () => ({
+      response: { ok: true },
+      payload: { error: 'common.batch_api_all_failed',
+        response: { result_list: [{ order_sn: target, fail_error: 'logistics.package_can_not_print' }] } },
+    }),
+    downloadDocument: async () => { throw Error('must not download'); },
+  });
+  assert.equal((await inspect()).code, 'document_creation_upstream_uncertain');
+  assert.deepEqual(outcomes, ['uncertain']);
+});
+
+test('other labels retain read-only print-first behavior by default', async () => {
+  let createCalls = 0;
+  const { inspect } = fixtures({
+    readDocumentResult: async () => ({
+      response: { ok: true, status: 200 },
+      payload: { error: 'logistics.shipping_document_should_print_first' },
+    }),
+    readTracking: async () => { throw Error('must not read tracking'); },
+    createDocument: async () => { createCalls++; throw Error('must not create'); },
+  });
+  const result = await inspect();
+  assert.equal(result.code, 'document_status_rejected');
+  assert.equal(createCalls, 0);
+});
+
 test('O.2b expired token never decrypts or calls Shopee', async () => {
   let externalReads = 0;
   const { inspect } = fixtures({
