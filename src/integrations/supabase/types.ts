@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      app_admin_capabilities: {
-        Row: {
-          active: boolean
-          auth_user_id: string
-          capability: string
-          created_at: string
-          granted_by_auth_user_id: string | null
-          id: string
-          revoked_at: string | null
-        }
-        Insert: {
-          active?: boolean
-          auth_user_id: string
-          capability: string
-          created_at?: string
-          granted_by_auth_user_id?: string | null
-          id?: string
-          revoked_at?: string | null
-        }
-        Update: {
-          active?: boolean
-          auth_user_id?: string
-          capability?: string
-          created_at?: string
-          granted_by_auth_user_id?: string | null
-          id?: string
-          revoked_at?: string | null
-        }
-        Relationships: []
-      }
       ai_actions: {
         Row: {
           action_type: string
@@ -298,8 +268,87 @@ export type Database = {
           },
         ]
       }
+      app_admin_capabilities: {
+        Row: {
+          active: boolean
+          auth_user_id: string
+          capability: string
+          created_at: string
+          granted_by_auth_user_id: string | null
+          id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id: string
+          capability: string
+          created_at?: string
+          granted_by_auth_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string
+          capability?: string
+          created_at?: string
+          granted_by_auth_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
+      app_user_module_grant_audit: {
+        Row: {
+          actor_auth_user_id: string
+          changed_at: string
+          id: number
+          new_module_keys: string[]
+          old_module_keys: string[]
+          target_auth_user_id: string
+        }
+        Insert: {
+          actor_auth_user_id: string
+          changed_at?: string
+          id?: never
+          new_module_keys: string[]
+          old_module_keys: string[]
+          target_auth_user_id: string
+        }
+        Update: {
+          actor_auth_user_id?: string
+          changed_at?: string
+          id?: never
+          new_module_keys?: string[]
+          old_module_keys?: string[]
+          target_auth_user_id?: string
+        }
+        Relationships: []
+      }
+      app_user_module_grants: {
+        Row: {
+          auth_user_id: string
+          created_at: string
+          granted_by_auth_user_id: string
+          module_key: string
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string
+          granted_by_auth_user_id: string
+          module_key: string
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string
+          granted_by_auth_user_id?: string
+          module_key?: string
+        }
+        Relationships: []
+      }
       app_users: {
         Row: {
+          access_model: string
           auth_user_id: string | null
           avatar_url: string | null
           created_at: string
@@ -310,6 +359,7 @@ export type Database = {
           role: string | null
         }
         Insert: {
+          access_model?: string
           auth_user_id?: string | null
           avatar_url?: string | null
           created_at?: string
@@ -320,6 +370,7 @@ export type Database = {
           role?: string | null
         }
         Update: {
+          access_model?: string
           auth_user_id?: string | null
           avatar_url?: string | null
           created_at?: string
@@ -13256,6 +13307,14 @@ export type Database = {
       acquire_shopee_cycle: {
         Args: { p_channel_account_id: string }
         Returns: Json
+      }
+      admin_replace_user_module_grants: {
+        Args: {
+          p_actor_auth_user_id: string
+          p_module_keys: string[]
+          p_target_auth_user_id: string
+        }
+        Returns: string[]
       }
       amendoim_convert_physical_stock: {
         Args: {
