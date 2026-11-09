@@ -3,11 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getCrmRouteBlockReason } from "@/lib/crm/crmRouteNavigationGuards";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AdminAccessDatabase } from "@/lib/admin/module-grants.types";
+import { scopedRouteAllowed } from "@/lib/admin/scoped-route-policy";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import ProductionOperator from "./pages/ProductionOperator";
@@ -49,6 +53,7 @@ import OAuthConsent from "./pages/OAuthConsent";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import NotFound from "./pages/NotFound";
 import HealthModule from "./modules/health/HealthModule";
+import AdminUsers from "./pages/AdminUsers";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
 import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
@@ -91,6 +96,7 @@ function AnimatedRoutes() {
           <Route path="/rotas" element={<Rotas />} />
           <Route path="/academia" element={<Academia />} />
           <Route path="/saude/*" element={<HealthModule />} />
+          <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/oportunidades" element={<Oportunidades />} />
           <Route path="/nucleo" element={<Nucleo />} />
@@ -170,8 +176,74 @@ function AuthenticatedShell() {
   );
 }
 
+
+/**
+ * Scoped identities must not mount the enterprise shell: its global widgets
+ * issue business-domain queries before the user chooses a screen.
+ * Until each other domain has audited RLS, only the Health route is enabled.
+ */
+function ScopedUserApp() {
+  const { user, appUser, signOut } = useAuth();
+  const [access, setAccess] = useState<{
+    authId: string;
+    modules: string[];
+    denied: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const authId = user?.id;
+    if (!authId || appUser?.access_model !== "scoped") return;
+    let alive = true;
+    const scoped = supabase as unknown as SupabaseClient<AdminAccessDatabase>;
+    scoped.from("app_user_module_grants")
+      .select("module_key")
+      .eq("auth_user_id", authId)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        setAccess({
+          authId,
+          modules: error ? [] : (data ?? []).map((row) => row.module_key),
+          denied: !!error,
+        });
+      });
+    return () => { alive = false; };
+  }, [user?.id, appUser?.access_model]);
+
+  if (!user || !access || access.authId !== user.id) {
+    return <div className="flex min-h-screen items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin" aria-label="Verificando permissões" />
+    </div>;
+  }
+  if (access.denied || !scopedRouteAllowed("/saude", access.modules)) {
+    return <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-lg font-semibold">Acesso não liberado</h1>
+      <p className="text-sm text-muted-foreground">
+        Seu perfil não possui acesso ativo ao módulo Saúde, ou a consulta de permissões falhou.
+        Solicite ao administrador a revisão do cadastro.
+      </p>
+      <button className="rounded-md border px-4 py-2" onClick={() => void signOut()}>
+        Sair
+      </button>
+    </div>;
+  }
+  return (
+    <>
+      <header className="flex items-center justify-between border-b p-3">
+        <span className="font-semibold">Painel Central — Saúde</span>
+        <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void signOut()}>
+          Sair
+        </button>
+      </header>
+      <Routes>
+        <Route path="/saude/*" element={<HealthModule />} />
+        <Route path="*" element={<Navigate to="/saude" replace />} />
+      </Routes>
+    </>
+  );
+}
+
 function RoleAwareAuthenticatedApp() {
-  const { profileLoading, isProductionOperator } = useAuth();
+  const { profileLoading, isProductionOperator, appUser } = useAuth();
 
   if (profileLoading) {
     return (
@@ -180,6 +252,14 @@ function RoleAwareAuthenticatedApp() {
       </div>
     );
   }
+
+  if (!appUser?.is_active) {
+    return <div className="mx-auto max-w-lg p-6 text-center" role="alert">
+      Conta sem perfil operacional ativo. Solicite acesso ao administrador.
+    </div>;
+  }
+
+  if (appUser.access_model === "scoped") return <ScopedUserApp />;
 
   if (isProductionOperator) {
     return (

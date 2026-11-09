@@ -1,0 +1,86 @@
+import { createMiddleware, createServerFn, type CustomFetch } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+import type { ProvisionUserInput } from "./users.server";
+
+const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Não autenticado.");
+
+  const authenticatedFetch: CustomFetch = async (url, init) => {
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", "Bearer " + token);
+    return fetch(url, { ...init, headers });
+  };
+
+  return next({ fetch: authenticatedFetch });
+});
+
+async function assertProvisionCapability(
+  userScopedSupabase: SupabaseClient<Database>,
+  userId: string,
+) {
+  const { data, error } = await userScopedSupabase
+    .from("app_admin_capabilities")
+    .select("id")
+    .eq("auth_user_id", userId)
+    .eq("capability", "provision_users")
+    .eq("active", true)
+    .is("revoked_at", null)
+    .maybeSingle();
+
+  if (error) throw new Error("Falha ao validar permissão administrativa.");
+  if (!data) throw new Error("FORBIDDEN: sem permissão para provisionar usuários.");
+}
+
+export const getAdminUsersContext = createServerFn({ method: "GET" })
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { listProvisioningContext } = await import("./users.server");
+    return listProvisioningContext(supabaseAdmin);
+  });
+
+export const provisionPanelUser = createServerFn({ method: "POST" })
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
+  .validator((input: ProvisionUserInput) => input)
+  .handler(async ({ data, context }) => {
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
+    // Fail closed while existing enterprise endpoints and RLS still allow broad access.
+    // This flag must be enabled only after a complete negative security test of scoped users.
+    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
+      throw new Error("Cadastro bloqueado: isolamento de módulos ainda não homologado.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { provisionUser } = await import("./users.server");
+    return provisionUser(supabaseAdmin, data, authorized.userId);
+  });
+
+export const updateAdminUserModules = createServerFn({ method: "POST" })
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
+  .validator((input: { authUserId: string; modules: string[] }) => input)
+  .handler(async ({ data, context }) => {
+    const authorized = context as unknown as { supabase?: SupabaseClient<Database>; userId?: string };
+    if (!authorized?.supabase || !authorized?.userId) {
+      throw new Error("FORBIDDEN: sessão administrativa indisponível.");
+    }
+    await assertProvisionCapability(authorized.supabase, authorized.userId);
+    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
+      throw new Error("Permissões bloqueadas: isolamento de módulos ainda não homologado.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { replaceUserModuleGrants } = await import("./users.server");
+    return replaceUserModuleGrants(supabaseAdmin, authorized.userId, data.authUserId, data.modules);
+  });

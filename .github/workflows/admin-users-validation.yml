@@ -1,0 +1,116 @@
+name: Admin Users Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/admin/**'
+      - 'src/components/admin/**'
+      - 'src/pages/AdminUsers.tsx'
+      - 'src/integrations/supabase/types.ts'
+      - 'src/App.tsx'
+      - 'src/hooks/useKeyboardAware.ts'
+      - 'src/contexts/AuthContext.tsx'
+      - 'tests/admin/**'
+      - 'src/components/GlobalFooterBar.tsx'
+      - 'supabase/migrations/*panel_admin_user_provisioning.sql'
+      - 'supabase/migrations/*panel_admin_user_module_grants.sql'
+      - '.github/workflows/admin-users-validation.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint admin user provisioning
+        run: >-
+          npx eslint
+          src/lib/admin/users.server.ts
+          src/lib/admin/users.functions.ts
+          src/lib/admin/module-grants.types.ts
+          src/lib/admin/scoped-route-policy.ts
+          src/lib/admin/provision-identity-guard.ts
+          src/lib/admin/rollout-module-policy.ts
+          src/contexts/AuthContext.tsx
+          src/components/admin/UserModuleAccessDialog.tsx
+          src/components/admin/NewUserDialog.tsx
+          src/pages/AdminUsers.tsx
+          src/App.tsx
+
+      - name: Scoped route security unit tests
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs tests/admin/provision-identity-guard.test.mjs tests/admin/rollout-module-policy.test.mjs
+
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Build
+        run: npm run build
+
+      - name: Client bundle must not expose service-role material
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Scan browser JavaScript only. Documentation strings naming environment
+          # variables are not credentials; dist/server is intentionally privileged.
+          if grep -R -n -E 'createSupabaseAdminClient|client\.server\.ts|process\.env\[[^]]*SUPABASE_SERVICE_ROLE_KEY|process\.env\.SUPABASE_SERVICE_ROLE_KEY' dist/client/assets --include='*.js'; then
+            echo 'Potential privileged server implementation included in browser assets.'
+            exit 1
+          fi
+          if grep -R -n -E 'sb_secret_[A-Za-z0-9_-]{15,}' dist/client/assets --include='*.js'; then
+            echo 'Secret key-like literal included in browser assets.'
+            exit 1
+          fi
+          echo 'No privileged server implementation or secret-like literal found in browser assets.'
+
+  validate-branch:
+    name: Validate administrator branch without main merge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Administrator ESLint
+        run: >-
+          npx eslint
+          src/lib/admin/users.server.ts
+          src/lib/admin/users.functions.ts
+          src/lib/admin/module-grants.types.ts
+          src/lib/admin/scoped-route-policy.ts
+          src/lib/admin/provision-identity-guard.ts
+          src/lib/admin/rollout-module-policy.ts
+          src/contexts/AuthContext.tsx
+          src/components/admin/UserModuleAccessDialog.tsx
+          src/components/admin/NewUserDialog.tsx
+          src/pages/AdminUsers.tsx
+          src/App.tsx
+      - name: Restricted route tests
+        run: node --experimental-strip-types --test tests/admin/scoped-route-policy.test.mjs tests/admin/provision-identity-guard.test.mjs tests/admin/rollout-module-policy.test.mjs
+      - name: Branch TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Branch Build
+        run: npm run build
+      - name: Branch client bundle privilege scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'createSupabaseAdminClient|client\.server\.ts|process\.env\[[^]]*SUPABASE_SERVICE_ROLE_KEY|process\.env\.SUPABASE_SERVICE_ROLE_KEY' dist/client/assets --include='*.js'; then
+            echo 'Privileged implementation detected in browser assets.'
+            exit 1
+          fi
+          if grep -R -n -E 'sb_secret_[A-Za-z0-9_-]{15,}' dist/client/assets --include='*.js'; then
+            echo 'Secret-like literal detected in browser assets.'
+            exit 1
+          fi
