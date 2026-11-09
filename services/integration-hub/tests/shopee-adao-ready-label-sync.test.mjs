@@ -104,6 +104,25 @@ test('Adão IAM route exposes only sanitized document rejection diagnostics', as
   });
 });
 
+test('document creation is permitted only for explicitly selected PED-00391 pilot', async () => {
+  for (const [order, expected] of [
+    ['261108PWWQ4K95', true],
+    ['261109TG59UDC7', false],
+  ]) {
+    let creationEnabled = null;
+    const sync = createAdaoReadyLabelSync({
+      getEnv: env,
+      readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [] } }),
+      makeSync: options => {
+        creationEnabled = options.prepareMissingDocument;
+        return async () => ({ ok: false, code: 'document_not_ready' });
+      },
+    });
+    assert.equal((await sync(order)).code, 'document_not_ready');
+    assert.equal(creationEnabled, expected);
+  }
+});
+
 test('not-ready response is an explicit non-write failure', async () => {
   const sync = createAdaoReadyLabelSync({
     getEnv: env,

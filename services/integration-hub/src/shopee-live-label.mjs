@@ -8,6 +8,8 @@ import {
   getShippingDocumentParameter,
   getShippingDocumentResult,
   downloadShippingDocument,
+  getTrackingNumber,
+  createShippingDocument,
   parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
@@ -18,6 +20,8 @@ const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
 const PARAMETER_PATH = '/api/v2/logistics/get_shipping_document_parameter';
 const RESULT_PATH = '/api/v2/logistics/get_shipping_document_result';
 const DOWNLOAD_PATH = '/api/v2/logistics/download_shipping_document';
+const TRACKING_PATH = '/api/v2/logistics/get_tracking_number';
+const PRINT_FIRST_ERROR = 'logistics.shipping_document_should_print_first';
 const PDF_TYPE = 'NORMAL_AIR_WAYBILL';
 const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
 
@@ -87,6 +91,9 @@ export function createShopeeLabelSynchronizer({
   readParameter = getShippingDocumentParameter,
   readDocumentResult = getShippingDocumentResult,
   downloadDocument = downloadShippingDocument,
+  readTracking = getTrackingNumber,
+  createDocument = createShippingDocument,
+  prepareMissingDocument = false,
   uploadFetch = globalThis.fetch, fetchImpl = globalThis.fetch,
 } = {}) {
   return async function syncReadyShopeeLabel() {
@@ -145,6 +152,74 @@ export function createShopeeLabelSynchronizer({
       ...shared, shippingDocumentResultPath: RESULT_PATH,
       orderSn, packageNumber, shippingDocumentType: PDF_TYPE,
     });
+    if (prepareMissingDocument && task.response?.ok
+        && parseShopeeError(task.payload) === PRINT_FIRST_ERROR) {
+      // Only the explicitly selected Adão pilot can reach this write path.
+      // A durable Core claim precedes exactly one upstream document task.
+      if (!packageNumber) return { ok: false, code: 'document_package_required' };
+      const tracking = await readTracking({
+        ...shared, getTrackingNumberPath: TRACKING_PATH, orderSn, packageNumber,
+      });
+      if (!tracking.response?.ok || parseShopeeError(tracking.payload)) {
+        return { ok: false, code: 'document_tracking_unavailable' };
+      }
+      const trackingNumber = tracking.payload?.response?.tracking_number;
+      if (typeof trackingNumber !== 'string'
+          || !/^[A-Za-z0-9_-]{1,100}$/.test(trackingNumber)) {
+        return { ok: false, code: 'document_tracking_missing' };
+      }
+      const metadata = {
+        channel_account_id: channelAccountId,
+        shop_id: shopId,
+        order_sn: orderSn,
+        package_number: packageNumber,
+        document_type: PDF_TYPE,
+      };
+      const requestHash = createHash('sha256').update(JSON.stringify({
+        ...metadata, tracking_number: trackingNumber,
+      })).digest('hex');
+      const claim = await callCore({
+        action: 'shopee.shipping_document.claim',
+        data: { ...metadata, request_hash: requestHash },
+      });
+      if (!claim?.ok || claim.payload?.status !== 'claimed'
+          || claim.payload?.fresh !== true
+          || typeof claim.payload?.attempt_id !== 'string') {
+        return { ok: false, code: claim?.payload?.code === 'already_claimed'
+          ? 'document_creation_already_claimed' : 'document_creation_claim_unavailable' };
+      }
+      let created;
+      try {
+        created = await createDocument({
+          ...shared, orderSn, packageNumber, trackingNumber,
+          shippingDocumentType: PDF_TYPE,
+        });
+      } catch {
+        created = null;
+      }
+      const creationResults = created?.payload?.response?.result_list;
+      const success = created?.response?.ok && !parseShopeeError(created?.payload)
+        && Array.isArray(creationResults) && creationResults.length === 1
+        && creationResults[0]?.order_sn === orderSn
+        && (!packageNumber || !creationResults[0]?.package_number
+          || creationResults[0].package_number === packageNumber)
+        && !creationResults[0]?.fail_error;
+      // No retry on uncertain responses. The ledger prevents duplicate creates.
+      const resolved = await callCore({
+        action: 'shopee.shipping_document.resolve',
+        data: {
+          attempt_id: claim.payload.attempt_id,
+          request_hash: requestHash,
+          outcome: success ? 'succeeded' : 'uncertain',
+        },
+      });
+      if (!resolved?.ok || !['resolved', 'already_resolved'].includes(resolved.payload?.status)) {
+        return { ok: false, code: 'document_creation_resolution_unconfirmed' };
+      }
+      return { ok: false, code: success
+        ? 'document_task_created_check_later'
+        : 'document_creation_upstream_uncertain' };
+    }
     if (!task.response.ok || parseShopeeError(task.payload)) {
       // Only a bounded machine-readable error token and upstream HTTP status.
       // Never disclose Shopee's free-text message, raw body, token or signed URL.

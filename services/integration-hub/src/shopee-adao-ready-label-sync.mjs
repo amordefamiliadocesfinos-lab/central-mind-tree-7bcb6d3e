@@ -51,6 +51,9 @@ export function createAdaoReadyLabelSync({
     const synchronizer = makeSync({
       getEnv: scopedEnv,
       readConnection: data => readConnection(data, { timeoutMs: TOKEN_READ_TIMEOUT_MS }),
+      // One real order already returned shipping_document_should_print_first.
+      // Other orders and Viviane remain on the existing read/download path.
+      prepareMissingDocument: orderSn === '261108PWWQ4K95',
     });
     const result = await synchronizer();
     if (!result?.ok) {
