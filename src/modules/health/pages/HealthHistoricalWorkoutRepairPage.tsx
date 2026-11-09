@@ -190,6 +190,12 @@ type SessionRow = {
   created_at: string;
 };
 
+type WorkoutSetRow = {
+  id: string;
+  session_id: string;
+  status: string;
+};
+
 type PreviewState = {
   program: ProgramRow;
   version: VersionRow;
@@ -197,6 +203,7 @@ type PreviewState = {
   queues: QueueRow[];
   templateExercises: TemplateExerciseRow[];
   sessions: SessionRow[];
+  sets: WorkoutSetRow[];
 };
 
 function isoDay(value: string) {
@@ -209,6 +216,10 @@ function technicalTimestamp(date: string) {
 
 function appendUnique(values: string[] | null | undefined, additions: string[]) {
   return Array.from(new Set([...(values ?? []), ...additions]));
+}
+
+function expectedSetCount(plan: SessionPlan) {
+  return Object.values(plan.exercises).reduce((sum, sets) => sum + sets.length, 0);
 }
 
 export function HealthHistoricalWorkoutRepairPage() {
@@ -309,13 +320,27 @@ export function HealthHistoricalWorkoutRepairPage() {
         throw new Error("Fila A1/C1/E1 não encontrada integralmente.");
       }
 
+      const sessions = (sessionData ?? []) as unknown as SessionRow[];
+      const sessionIds = sessions.map((item) => item.id);
+      const setsResult = sessionIds.length
+        ? await db
+            .from("health_workout_sets")
+            .select("id,session_id,status")
+            .eq("athlete_id", athlete.id)
+            .in("session_id", sessionIds)
+            .eq("status", "completed")
+        : { data: [], error: null };
+
+      if (setsResult.error) throw setsResult.error;
+
       setPreview({
         program,
         version,
         templates,
         queues,
         templateExercises: (exerciseData ?? []) as unknown as TemplateExerciseRow[],
-        sessions: (sessionData ?? []) as unknown as SessionRow[],
+        sessions,
+        sets: (setsResult.data ?? []) as unknown as WorkoutSetRow[],
       });
     } catch (cause) {
       setPreview(null);
@@ -329,35 +354,62 @@ export function HealthHistoricalWorkoutRepairPage() {
     if (!athleteLoading) void loadPreview();
   }, [athleteLoading, loadPreview]);
 
-  const testCandidates = useMemo(() => {
+  const sessionSetCount = useMemo(() => {
+    if (!preview) return new Map<string, number>();
+    const counts = new Map<string, number>();
+    for (const set of preview.sets) {
+      counts.set(set.session_id, (counts.get(set.session_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [preview]);
+
+  const validHistorical = useMemo(() => {
     if (!preview) return [];
     const templateCodeById = new Map(preview.templates.map((item) => [item.id, item.code]));
-    const expectedDateByCode = new Map(repairPlan.map((item) => [item.code, item.date]));
+    const planByCode = new Map(repairPlan.map((item) => [item.code, item]));
+    return preview.sessions.filter((session) => {
+      if (session.status !== "completed" || !session.session_template_id) return false;
+      const code = templateCodeById.get(session.session_template_id) as SessionPlan["code"] | undefined;
+      const plan = code ? planByCode.get(code) : undefined;
+      if (!plan) return false;
+      return (
+        isoDay(session.started_at) === plan.date &&
+        session.notes?.includes(REPAIR_MARKER) === true &&
+        (sessionSetCount.get(session.id) ?? 0) === expectedSetCount(plan)
+      );
+    });
+  }, [preview, sessionSetCount]);
+
+  const repairCandidates = useMemo(() => {
+    if (!preview) return [];
+    const templateCodeById = new Map(preview.templates.map((item) => [item.id, item.code]));
+    const planByCode = new Map(repairPlan.map((item) => [item.code, item]));
     const publishedAt = preview.version.published_at ? new Date(preview.version.published_at).getTime() : 0;
 
     return preview.sessions.filter((session) => {
-      if (session.status !== "completed" || session.source !== "queue" || !session.session_template_id) {
-        return false;
-      }
-      const code = templateCodeById.get(session.session_template_id);
-      const expectedDate = code ? expectedDateByCode.get(code as SessionPlan["code"]) : null;
-      if (!code || !expectedDate) return false;
-      const createdAfterPublish = publishedAt ? new Date(session.created_at).getTime() >= publishedAt : true;
-      return createdAfterPublish && isoDay(session.started_at) !== expectedDate;
-    });
-  }, [preview]);
+      if (!session.session_template_id || session.status === "aborted") return false;
+      const code = templateCodeById.get(session.session_template_id) as SessionPlan["code"] | undefined;
+      const plan = code ? planByCode.get(code) : undefined;
+      if (!plan) return false;
 
-  const existingHistorical = useMemo(() => {
-    if (!preview) return [];
-    const templateCodeById = new Map(preview.templates.map((item) => [item.id, item.code]));
-    const expectedDateByCode = new Map(repairPlan.map((item) => [item.code, item.date]));
-    return preview.sessions.filter((session) => {
-      if (session.status !== "completed" || !session.session_template_id) return false;
-      const code = templateCodeById.get(session.session_template_id);
-      const expectedDate = code ? expectedDateByCode.get(code as SessionPlan["code"]) : null;
-      return Boolean(expectedDate && isoDay(session.started_at) === expectedDate);
+      const isQueueTest =
+        session.status === "completed" &&
+        session.source === "queue" &&
+        (publishedAt ? new Date(session.created_at).getTime() >= publishedAt : true) &&
+        isoDay(session.started_at) !== plan.date;
+
+      const isPartialRepair =
+        session.source === "reentry" &&
+        session.notes?.includes(REPAIR_MARKER) === true &&
+        (
+          session.status !== "completed" ||
+          isoDay(session.started_at) !== plan.date ||
+          (sessionSetCount.get(session.id) ?? 0) !== expectedSetCount(plan)
+        );
+
+      return isQueueTest || isPartialRepair;
     });
-  }, [preview]);
+  }, [preview, sessionSetCount]);
 
   const applyRepair = async () => {
     if (!athlete?.id || !preview) return;
@@ -381,14 +433,18 @@ export function HealthHistoricalWorkoutRepairPage() {
         exercisesByTemplate.set(exercise.session_template_id, list);
       }
 
-      for (const session of testCandidates) {
+      for (const session of repairCandidates) {
         const nextNotes = [session.notes, VOID_MARKER, "Sessão criada durante calibração/teste e retirada da história válida a pedido do usuário."]
           .filter(Boolean)
           .join(" | ");
 
         const { error: abortError } = await db
           .from("health_workout_sessions")
-          .update({ status: "aborted", notes: nextNotes })
+          .update({
+            status: "aborted",
+            ended_at: session.ended_at ?? new Date().toISOString(),
+            notes: nextNotes,
+          })
           .eq("id", session.id)
           .eq("athlete_id", athlete.id)
           .eq("status", "completed");
@@ -417,11 +473,8 @@ export function HealthHistoricalWorkoutRepairPage() {
         const queue = queueByTemplate.get(template.id);
         if (!queue) throw new Error(`Fila ${plan.code} não encontrada.`);
 
-        const alreadyExists = preview.sessions.some(
-          (session) =>
-            session.status === "completed" &&
-            session.session_template_id === template.id &&
-            isoDay(session.started_at) === plan.date,
+        const alreadyExists = validHistorical.some(
+          (session) => session.session_template_id === template.id && isoDay(session.started_at) === plan.date,
         );
 
         if (!alreadyExists) {
@@ -707,9 +760,9 @@ export function HealthHistoricalWorkoutRepairPage() {
 
               <div className="rounded-xl border p-3">
                 <p className="text-sm font-medium">Sessões candidatas a teste</p>
-                {testCandidates.length ? (
+                {repairCandidates.length ? (
                   <div className="mt-2 space-y-2">
-                    {testCandidates.map((session) => {
+                    {repairCandidates.map((session) => {
                       const template = preview.templates.find(
                         (item) => item.id === session.session_template_id,
                       );
@@ -733,7 +786,7 @@ export function HealthHistoricalWorkoutRepairPage() {
               <div className="rounded-xl border p-3">
                 <p className="text-sm font-medium">Históricos reais já presentes</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {existingHistorical.length} de 3 sessões já existem nas datas esperadas.
+                  {validHistorical.length} de 3 sessões já existem nas datas esperadas.
                 </p>
               </div>
             </>
