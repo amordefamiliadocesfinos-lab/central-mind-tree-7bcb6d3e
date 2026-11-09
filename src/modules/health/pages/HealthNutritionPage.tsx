@@ -124,7 +124,17 @@ export function HealthNutritionPage() {
         <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{nutrition.error}</CardContent></Card>
       ) : null}
 
-      <Card>
+            <Tabs defaultValue="plan" className="space-y-4">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="plan">Plano</TabsTrigger>
+          <TabsTrigger value="meals">Refeições</TabsTrigger>
+          <TabsTrigger value="recipes">Receitas</TabsTrigger>
+          <TabsTrigger value="diary">Diário</TabsTrigger>
+          <TabsTrigger value="evolution">Evolução</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plan" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Target className="h-4 w-4 text-primary" /> Plano nutricional</CardTitle>
         </CardHeader>
@@ -209,8 +219,20 @@ export function HealthNutritionPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+        <TabsContent value="meals" className="space-y-4">
+          <HealthMealPrescriptionF18
+            athleteId={athlete?.id}
+            version={nutrition.version}
+            foods={nutrition.foods}
+            recipeVersions={nutrition.recipeVersions}
+          />
+        </TabsContent>
+
+
+              <TabsContent value="evolution" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -422,8 +444,11 @@ export function HealthNutritionPage() {
           </p>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+
+              <TabsContent value="recipes" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Receitas</CardTitle>
         </CardHeader>
@@ -491,8 +516,11 @@ export function HealthNutritionPage() {
           ) : null}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+
+              <TabsContent value="diary" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base"><Apple className="h-4 w-4 text-primary" /> Diário de hoje</CardTitle>
@@ -612,6 +640,9 @@ export function HealthNutritionPage() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }
