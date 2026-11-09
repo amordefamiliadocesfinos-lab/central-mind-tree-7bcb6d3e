@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthNutritionM5 } from "../hooks/useHealthNutritionM5";
 import { useHealthNutritionStateM6 } from "../hooks/useHealthNutritionStateM6";
 import { useHealthNutritionDecisionM7 } from "../hooks/useHealthNutritionDecisionM7";
+import { HealthMealPrescriptionF18 } from "../components/HealthMealPrescriptionF18";
 
 function num(value: string) {
   const parsed = Number(value);
@@ -62,6 +64,12 @@ export function HealthNutritionPage() {
   const [energyMax, setEnergyMax] = useState("");
   const [proteinMin, setProteinMin] = useState("");
   const [proteinMax, setProteinMax] = useState("");
+  const [carbMin, setCarbMin] = useState("");
+  const [carbMax, setCarbMax] = useState("");
+  const [fatMin, setFatMin] = useState("");
+  const [fatMax, setFatMax] = useState("");
+  const [fiberMin, setFiberMin] = useState("");
+  const [fiberMax, setFiberMax] = useState("");
 
   const [recipeName, setRecipeName] = useState("");
   const [recipeId, setRecipeId] = useState("");
@@ -116,7 +124,17 @@ export function HealthNutritionPage() {
         <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{nutrition.error}</CardContent></Card>
       ) : null}
 
-      <Card>
+            <Tabs defaultValue="plan" className="space-y-4">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="plan">Plano</TabsTrigger>
+          <TabsTrigger value="meals">Refeições</TabsTrigger>
+          <TabsTrigger value="recipes">Receitas</TabsTrigger>
+          <TabsTrigger value="diary">Diário</TabsTrigger>
+          <TabsTrigger value="evolution">Evolução</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plan" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Target className="h-4 w-4 text-primary" /> Plano nutricional</CardTitle>
         </CardHeader>
@@ -162,11 +180,21 @@ export function HealthNutritionPage() {
                     <div className="space-y-1"><Label className="text-xs">Kcal máx.</Label><Input className="min-h-11" inputMode="numeric" value={energyMax} onChange={(e) => setEnergyMax(e.target.value)} /></div>
                     <div className="space-y-1"><Label className="text-xs">Proteína mín. g</Label><Input className="min-h-11" inputMode="decimal" value={proteinMin} onChange={(e) => setProteinMin(e.target.value)} /></div>
                     <div className="space-y-1"><Label className="text-xs">Proteína máx. g</Label><Input className="min-h-11" inputMode="decimal" value={proteinMax} onChange={(e) => setProteinMax(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Carboidrato mín. g</Label><Input className="min-h-11" inputMode="decimal" value={carbMin} onChange={(e) => setCarbMin(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Carboidrato máx. g</Label><Input className="min-h-11" inputMode="decimal" value={carbMax} onChange={(e) => setCarbMax(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Gordura mín. g</Label><Input className="min-h-11" inputMode="decimal" value={fatMin} onChange={(e) => setFatMin(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Gordura máx. g</Label><Input className="min-h-11" inputMode="decimal" value={fatMax} onChange={(e) => setFatMax(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Fibra mín. g</Label><Input className="min-h-11" inputMode="decimal" value={fiberMin} onChange={(e) => setFiberMin(e.target.value)} /></div>
+                    <div className="space-y-1"><Label className="text-xs">Fibra máx. g</Label><Input className="min-h-11" inputMode="decimal" value={fiberMax} onChange={(e) => setFiberMax(e.target.value)} /></div>
                   </div>
+                  <p className="text-[11px] text-muted-foreground">Metas pertencem ao plano. O Diário continua registrando apenas o consumo real.</p>
                   <Button variant="secondary" className="min-h-11 w-full" disabled={nutrition.saving || !num(energyMin)}
                     onClick={() => void run("Metas salvas.", () => nutrition.saveTargets({
                       energy_kcal_min: num(energyMin), energy_kcal_max: num(energyMax),
                       protein_g_min: num(proteinMin), protein_g_max: num(proteinMax),
+                      carbohydrate_g_min: num(carbMin), carbohydrate_g_max: num(carbMax),
+                      fat_g_min: num(fatMin), fat_g_max: num(fatMax),
+                      fiber_g_min: num(fiberMin), fiber_g_max: num(fiberMax),
                     }))}>
                     Salvar metas
                   </Button>
@@ -179,17 +207,32 @@ export function HealthNutritionPage() {
                   </Button>
                 </>
               ) : nutrition.target ? (
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
                   <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Energia</p><p className="font-semibold">{nutrition.target.energy_kcal_min ?? "—"}–{nutrition.target.energy_kcal_max ?? "—"} kcal</p></div>
                   <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Proteína</p><p className="font-semibold">{nutrition.target.protein_g_min ?? "—"}–{nutrition.target.protein_g_max ?? "—"} g</p></div>
+                  <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Carboidratos</p><p className="font-semibold">{nutrition.target.carbohydrate_g_min ?? "—"}–{nutrition.target.carbohydrate_g_max ?? "—"} g</p></div>
+                  <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Gorduras</p><p className="font-semibold">{nutrition.target.fat_g_min ?? "—"}–{nutrition.target.fat_g_max ?? "—"} g</p></div>
+                  <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Fibras</p><p className="font-semibold">{nutrition.target.fiber_g_min ?? "—"}–{nutrition.target.fiber_g_max ?? "—"} g</p></div>
                 </div>
               ) : null}
             </>
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+        <TabsContent value="meals" className="space-y-4">
+          <HealthMealPrescriptionF18
+            athleteId={athlete?.id}
+            version={nutrition.version}
+            foods={nutrition.foods}
+            recipeVersions={nutrition.recipeVersions}
+          />
+        </TabsContent>
+
+
+              <TabsContent value="evolution" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -401,8 +444,11 @@ export function HealthNutritionPage() {
           </p>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+
+              <TabsContent value="recipes" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" /> Receitas</CardTitle>
         </CardHeader>
@@ -470,8 +516,11 @@ export function HealthNutritionPage() {
           ) : null}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Card>
+
+              <TabsContent value="diary" className="space-y-4">
+<Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base"><Apple className="h-4 w-4 text-primary" /> Diário de hoje</CardTitle>
@@ -591,6 +640,9 @@ export function HealthNutritionPage() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }
