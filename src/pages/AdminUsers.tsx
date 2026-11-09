@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { NewUserDialog } from "@/components/admin/NewUserDialog";
 import { UserModuleAccessDialog, type ModuleGrant } from "@/components/admin/UserModuleAccessDialog";
 import { getAdminUsersContext, provisionPanelUser, updateAdminUserModules } from "@/lib/admin/users.functions";
+import { sameModuleGrants } from "@/lib/admin/grant-reconciliation";
 import type { ProvisionUserResult } from "@/lib/admin/users.server";
 
 type AppUser = {
@@ -208,8 +209,30 @@ export default function AdminUsers() {
         user={modulesForUser?.auth_user_id ? { name: modulesForUser.name, auth_user_id: modulesForUser.auth_user_id } : null}
         current={moduleGrants.filter((grant) => grant.auth_user_id === modulesForUser?.auth_user_id).map((grant) => grant.module_key)}
         onSave={async (authUserId, modules) => {
-          await updateAdminUserModules({ data: { authUserId, modules } });
-          toast({ title: "Preferências de módulos registradas", description: "A aplicação das restrições depende da homologação de RLS." });
+          try {
+            const result = await updateAdminUserModules({ data: { authUserId, modules } });
+            toast({
+              title: result.unchanged ? "Permissões já estavam salvas" : "Permissões atualizadas",
+              description: "O acesso continua sujeito às regras de segurança do módulo.",
+            });
+          } catch (cause) {
+            // A network response can fail after a successful database commit.
+            // Only report success when a fresh authorized server read proves
+            // the desired grant set was persisted; otherwise preserve failure.
+            try {
+              const fresh = await getAdminUsersContext();
+              const persisted = (fresh.moduleGrants ?? [])
+                .filter((grant) => grant.auth_user_id === authUserId)
+                .map((grant) => grant.module_key);
+              if (!sameModuleGrants(persisted, modules)) throw cause;
+              toast({
+                title: "Permissões confirmadas",
+                description: "As permissões já estavam registradas no banco.",
+              });
+            } catch {
+              throw cause;
+            }
+          }
           await load();
         }}
       />
