@@ -3,6 +3,7 @@ import { previewAdaoMappings70 } from './shopee-adao-70-mapping-diagnostic.mjs';
 import { previewPortoGelVivianeMappings } from './shopee-porto-gel-mapping-diagnostic.mjs';
 import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { runAdaoAutomaticIntake } from './shopee-adao-automatic-intake.mjs';
+import { runAdaoCycle } from './shopee-adao-cycle.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
@@ -40,6 +41,7 @@ export async function handleRequest(
   {
     runMinimumCycle = runShopeeMinimumCycle,
     runAdaoIntake = runAdaoAutomaticIntake,
+    runAdaoAccountCycle = runAdaoCycle,
     syncAdaoLabel = syncAdaoReadyLabelOnce,
     readAdaoLogistics = readAdaoLogisticsReadOnly,
     syncCore = callCoreBridgeAction,
@@ -64,6 +66,32 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  // Account-scoped reuse of Viviane's EXISTING lease/checkpoint cycle.
+  // Default-off; no independent scheduler. The adapter refuses to run while
+  // the standalone Adão importer remains active to avoid competing writers.
+  if (normalizedPath === '/internal/shopee/adao/cycle/run') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length
+      || Number(request.headers?.['content-length'] ?? 0) !== 0
+      || request.headers?.['transfer-encoding'] || request.body) {
+      return json(400, { error: 'body_or_query_not_allowed' });
+    }
+    if (getEnv('SHOPEE_ADAO_CYCLE_ENABLED') !== 'true') {
+      return json(503, { status: 'blocked', code: 'adao_cycle_not_enabled' });
+    }
+    try {
+      const result = await runAdaoAccountCycle();
+      return json(result?.ok ? 200 : 503, {
+        status: result?.ok ? 'ok' : 'blocked',
+        account: 'adao',
+        code: result?.code ?? 'adao_cycle_unavailable',
+        document_id: result?.ok ? result.document_id ?? null : null,
+      });
+    } catch {
+      return json(503, { status: 'blocked', account: 'adao', code: 'adao_cycle_exception' });
+    }
+  }
 
   // IAM-protected independent Adão intake: no shipping, labels or inventory effects.
   if (normalizedPath === '/internal/shopee/adao/orders/intake/auto') {

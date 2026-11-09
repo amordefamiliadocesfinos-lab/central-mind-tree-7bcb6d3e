@@ -7,6 +7,7 @@ import { SHOPEE_CYCLE_ACCOUNT, validCycleScope } from './shopee-cycle-scope.mjs'
 export function createShopeeMinimumCycle({
   getEnv = k => process.env[k], now = Date.now, callCore = callCoreBridgeAction,
   readOrders, intake = runShopeeControlledAutoIntake, prepareLabel = createShopeeLabelPreparation,
+  accountScope = SHOPEE_CYCLE_ACCOUNT, labelForOrder = null,
 } = {}) {
   return async function runCycle() {
     const enabled = k => String(getEnv(k) ?? '').trim().toLowerCase() === 'true';
@@ -14,7 +15,7 @@ export function createShopeeMinimumCycle({
       'SHOPEE_LIVE_LABEL_CREATE_ENABLED', 'SHOPEE_LIVE_LABEL_SYNC_ENABLED']) {
       if (!enabled(gate)) return { ok: false, code: 'cycle_not_enabled' };
     }
-    const a = SHOPEE_CYCLE_ACCOUNT;
+    const a = accountScope;
     if (getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== a.account
       || Number(getEnv('SHOPEE_LIVE_PARTNER_ID')) !== a.partner) return { ok: false, code: 'cycle_account_refused' };
     // Dispatch remains exclusively in Seller Center, even if misconfigured.
@@ -65,7 +66,7 @@ export function createShopeeMinimumCycle({
         return { ok: outcome === 'pending', code, order_sn: candidate.order_sn, blockers: entry?.blockers ?? [projected?.code ?? code] };
       }
       if (!(Date.parse(lease.expires_at) > now() + 90000)) { code = 'cycle_budget_exhausted'; return { ok: false, code }; }
-      if (!validCycleScope({ ...a, order: candidate.order_sn, package: candidate.package_number })) {
+      if (!validCycleScope({ ...a, order: candidate.order_sn, package: candidate.package_number }, a)) {
         code = 'cycle_waiting_single_package';
         return { ok: true, code, order_sn: candidate.order_sn };
       }
@@ -73,7 +74,9 @@ export function createShopeeMinimumCycle({
       const overlay = { SHOPEE_LIVE_LABEL_ORDER_SN: scope.order, SHOPEE_LIVE_LABEL_PACKAGE_NUMBER: scope.package,
         SHOPEE_LIVE_LABEL_SHOP_ID: String(a.shop), SHOPEE_LIVE_LABEL_CREATE_WINDOW_EXPIRES_AT: new Date(lease.expires_at).toISOString() };
       const scopedEnv = k => Object.hasOwn(overlay, k) ? overlay[k] : getEnv(k);
-      const result = await prepareLabel({ getEnv: scopedEnv, now, recurringScope: scope })();
+      const result = labelForOrder
+        ? await labelForOrder(candidate.order_sn, scope)
+        : await prepareLabel({ getEnv: scopedEnv, now, recurringScope: scope })();
       code = result?.code ?? 'label_preparation_unavailable';
       outcome = result?.ok ? 'complete' : ['document_creation_uncertain', 'document_core_confirmation_missing',
         'document_claim_locked', 'document_claim_unavailable', 'document_failed', 'document_status_unknown',
