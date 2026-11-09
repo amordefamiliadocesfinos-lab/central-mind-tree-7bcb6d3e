@@ -1,20 +1,25 @@
-const ACCOUNT = '8a8ad166-0317-4597-8be6-e43fb46b4d1b';
+const CYCLE_ACCOUNTS = Object.freeze({
+  '8a8ad166-0317-4597-8be6-e43fb46b4d1b': 531736366, // Viviane
+  'b4027369-5abf-4ac1-ab24-862334fae892': 1156446003, // Adão
+});
 
 // Core alone selects queue entries. No client-supplied order/package can select
 // work. The lease is durable in Postgres, shared across all Hub instances.
 export async function executeCycleAction(core, payload) {
-  if (payload.channel_account_id !== ACCOUNT) return { status: 409, body: { error: 'cycle_account_refused' } };
+  const accountId = payload.channel_account_id;
+  const shopId = CYCLE_accountIdS[accountId];
+  if (!shopId) return { status: 409, body: { error: 'cycle_account_refused' } };
   const acquiring = payload.action === 'shopee.cycle.acquire';
   const { data, error } = await core.rpc(acquiring ? 'acquire_shopee_cycle' : 'finish_shopee_cycle', acquiring
-    ? { p_channel_account_id: ACCOUNT }
-    : { p_channel_account_id: ACCOUNT, p_lease_id: payload.lease_id, p_page: payload.page,
+    ? { p_channel_account_id: accountId }
+    : { p_channel_account_id: accountId, p_lease_id: payload.lease_id, p_page: payload.page,
       p_candidate_order_sn: payload.candidate_order_sn, p_outcome: payload.outcome, p_code: payload.code });
   if (error || !data) return { status: 503, body: { error: 'cycle_state_unavailable' } };
   if (data.status !== (acquiring ? 'acquired' : 'finished')) return { status: 409, body: { error: 'cycle_lease_refused' } };
   if (!acquiring || !data.candidate_order_sn) return { status: 200, body: { ...data, candidate: null } };
   const sn = data.candidate_order_sn;
   const raw = await core.from('marketplace_raw_snapshots').select('payload')
-    .eq('channel_account_id', ACCOUNT).eq('source', 'shopee_open_platform').eq('environment', 'live')
+    .eq('channel_account_id', accountId).eq('source', 'shopee_open_platform').eq('environment', 'live')
     .eq('external_entity_type', 'order').eq('endpoint', '/api/v2/order/get_order_detail')
     .eq('external_entity_id', sn).order('observed_at', { ascending: false }).limit(1).maybeSingle();
   // A failed read leaves the lease in place. Expired selected work is quarantined.
@@ -27,7 +32,7 @@ export async function executeCycleAction(core, payload) {
     terminal: ['CANCELLED', 'SHIPPED', 'COMPLETED', 'TO_RETURN'].includes(order?.order_status)
       || order?.package_list?.some(p => ['LOGISTICS_PICKUP_DONE','LOGISTICS_DELIVERY_DONE'].includes(p.logistics_status)) === true,
     blocked_reason: exact ? null : 'raw_identity_mismatch' };
-  const found = await core.from('orders').select('id,sale_origin,status').eq('channel_account_id', ACCOUNT)
+  const found = await core.from('orders').select('id,sale_origin,status').eq('channel_account_id', accountId)
     .eq('channel', 'shopee').eq('order_number', sn).is('deleted_at', null).limit(2);
   if (found.error) return { status: 503, body: { error: 'cycle_order_read_failed' } };
   if (found.data?.length > 1 || (found.data?.length === 1 && found.data[0].sale_origin !== 'shopee_open_platform')) {
@@ -42,7 +47,7 @@ export async function executeCycleAction(core, payload) {
     if (docs.data?.length) {
       const doc = docs.data[0];
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(
-        [ACCOUNT, 531736366, sn, candidate.package_number ?? ''].join(':')));
+        [accountId, shopId, sn, candidate.package_number ?? ''].join(':')));
       const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
       const expectedPath = found.data[0].id + '/shopee-' + hash + '.pdf';
       candidate.document_available = docs.data.length === 1 && doc.source === 'shopee_open_platform'
