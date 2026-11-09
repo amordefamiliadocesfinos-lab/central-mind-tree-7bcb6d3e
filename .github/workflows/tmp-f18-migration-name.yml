@@ -1,0 +1,30 @@
+name: tmp-f18-migration-name
+
+on:
+  push:
+    branches:
+      - feat/health-f18-individual-meal-plan-20261109
+    paths:
+      - .github/workflows/tmp-f18-migration-name.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate-name:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.1.0
+      - name: Discover CLI
+        run: |
+          supabase --version
+          supabase --help
+          supabase migration --help
+          supabase migration new --help
+      - name: Generate migration filename only
+        run: |
+          supabase migration new health_f18_individual_meal_plan
+          echo "MIGRATION_FILE=$(find supabase/migrations -maxdepth 1 -type f -name '*health_f18_individual_meal_plan.sql' -printf '%f\n' | sort | tail -n 1)"
