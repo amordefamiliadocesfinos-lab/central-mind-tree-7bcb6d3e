@@ -68,6 +68,42 @@ test('new eligible order is not blocked by the retired pilot list', async () => 
   assert.equal(selectedOrder, newOrder);
 });
 
+test('Adão forwards only safe document-status diagnostics', async () => {
+  const sync = createAdaoReadyLabelSync({
+    getEnv: env,
+    readTombstones: async () => ({ ok: true, payload: { deleted_order_sns: [] } }),
+    makeSync: () => async () => ({
+      ok: false, code: 'document_status_rejected',
+      diagnostic: { upstream_http_status: 400, upstream_error_code: 'error_param',
+        message: 'must-not-leak', access_token: 'hidden' },
+    }),
+  });
+  assert.deepEqual(await sync(ORDER_SN), {
+    ok: false, code: 'document_status_rejected',
+    diagnostic: { upstream_http_status: 400, upstream_error_code: 'error_param' },
+  });
+});
+
+test('Adão IAM route exposes only sanitized document rejection diagnostics', async () => {
+  const path = '/internal/shopee/adao/logistics/label/sync-ready';
+  const result = await handleRequest({
+    path, method: 'POST', query: { order_sn: ORDER_SN },
+    headers: { 'content-length': '0' },
+  }, {
+    handleShopeeLive: async () => null,
+    syncAdaoLabel: async () => ({
+      ok: false, code: 'document_status_rejected',
+      diagnostic: { upstream_http_status: 400, upstream_error_code: 'error_param' },
+    }),
+  });
+  assert.equal(result.status, 409);
+  assert.deepEqual(JSON.parse(result.body), {
+    status: 'blocked', account: 'adao', code: 'document_status_rejected',
+    document_id: null,
+    diagnostic: { upstream_http_status: 400, upstream_error_code: 'error_param' },
+  });
+});
+
 test('not-ready response is an explicit non-write failure', async () => {
   const sync = createAdaoReadyLabelSync({
     getEnv: env,

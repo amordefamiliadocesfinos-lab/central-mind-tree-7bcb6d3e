@@ -114,6 +114,8 @@ export async function handleRequest(
         status: result?.ok ? 'ok' : 'blocked',
         account: 'adao', code: result?.code ?? 'label_sync_unavailable',
         document_id: result?.ok ? result.document_id ?? null : null,
+        ...(result?.ok === false && result?.code === 'document_status_rejected'
+          && result?.diagnostic ? { diagnostic: result.diagnostic } : {}),
       });
     } catch {
       return json(503, { status: 'blocked', account: 'adao', code: 'label_sync_exception' });
