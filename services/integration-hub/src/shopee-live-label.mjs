@@ -146,7 +146,20 @@ export function createShopeeLabelSynchronizer({
       orderSn, packageNumber, shippingDocumentType: PDF_TYPE,
     });
     if (!task.response.ok || parseShopeeError(task.payload)) {
-      return { ok: false, code: 'document_status_rejected' };
+      // Only a bounded machine-readable error token and upstream HTTP status.
+      // Never disclose Shopee's free-text message, raw body, token or signed URL.
+      const upstreamCode = parseShopeeError(task.payload);
+      const upstreamStatus = Number(task.response.status);
+      return {
+        ok: false,
+        code: 'document_status_rejected',
+        diagnostic: {
+          upstream_http_status: Number.isInteger(upstreamStatus)
+            && upstreamStatus >= 100 && upstreamStatus <= 599 ? upstreamStatus : null,
+          upstream_error_code: /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(upstreamCode)
+            ? upstreamCode : 'unavailable',
+        },
+      };
     }
     const results = task.payload?.response?.result_list;
     if (!Array.isArray(results) || results.length !== 1
