@@ -26,6 +26,7 @@ const primaryItems = [
   { to: "/saude/replanejamento", label: "Replanejamento", mobileLabel: "Replanej.", icon: ListChecks },
   { to: "/saude/relatorios", label: "Relatórios", mobileLabel: "Relat.", icon: FileText },
   { to: "/saude/rotina", label: "Rotina", mobileLabel: "Rotina", icon: BellRing },
+  { to: "/saude/analytics", label: "Analytics", mobileLabel: "Gráficos", icon: TrendingUp },
   { to: "/saude/perfil", label: "Perfil", mobileLabel: "Perfil", icon: UserRound },
 ] as const;
 
