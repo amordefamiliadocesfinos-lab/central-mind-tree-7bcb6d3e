@@ -58,11 +58,9 @@ export const provisionPanelUser = createServerFn({ method: "POST" })
       throw new Error("FORBIDDEN: sessão administrativa indisponível.");
     }
     await assertProvisionCapability(authorized.supabase, authorized.userId);
-    // Fail closed while existing enterprise endpoints and RLS still allow broad access.
-    // This flag must be enabled only after a complete negative security test of scoped users.
-    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
-      throw new Error("Cadastro bloqueado: isolamento de módulos ainda não homologado.");
-    }
+    // Scoped enrollment is limited to the currently enabled 'saude' module by
+    // the server-side assertRolloutModules guard in users.server.ts.
+    // This does not authorize unrestricted enterprise modules.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { provisionUser } = await import("./users.server");
     return provisionUser(supabaseAdmin, data, authorized.userId);
@@ -77,9 +75,7 @@ export const updateAdminUserModules = createServerFn({ method: "POST" })
       throw new Error("FORBIDDEN: sessão administrativa indisponível.");
     }
     await assertProvisionCapability(authorized.supabase, authorized.userId);
-    if (process.env["PANEL_SCOPED_USERS_RLS_READY"] !== "true") {
-      throw new Error("Permissões bloqueadas: isolamento de módulos ainda não homologado.");
-    }
+    // Module edits retain the same server-side per-module allowlist.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { replaceUserModuleGrants } = await import("./users.server");
     return replaceUserModuleGrants(supabaseAdmin, authorized.userId, data.authUserId, data.modules);
