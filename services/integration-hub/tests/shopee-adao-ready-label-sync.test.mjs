@@ -104,10 +104,10 @@ test('Adão IAM route exposes only sanitized document rejection diagnostics', as
   });
 });
 
-test('document creation is permitted only for explicitly selected PED-00391 pilot', async () => {
-  for (const [order, expected] of [
-    ['261108PWWQ4K95', true],
-    ['261109TG59UDC7', false],
+test('one-time document preparation is available to scoped Adão orders', async () => {
+  for (const order of [
+    '261108PWWQ4K95', '261108PVDNUPFH', '261109TG59UDC7',
+    '261109SWB8MAV2', '261108RCKAFSRX', '261107P3VANTS1',
   ]) {
     let creationEnabled = null;
     const sync = createAdaoReadyLabelSync({
@@ -119,7 +119,7 @@ test('document creation is permitted only for explicitly selected PED-00391 pilo
       },
     });
     assert.equal((await sync(order)).code, 'document_not_ready');
-    assert.equal(creationEnabled, expected);
+    assert.equal(creationEnabled, true);
   }
 });
 

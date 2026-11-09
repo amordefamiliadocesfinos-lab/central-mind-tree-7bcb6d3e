@@ -3,7 +3,8 @@ import { readLiveShopeeOauthConnection, readShopeeLogisticsTombstones } from './
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 
 // Real-use Adão label synchronization for individual Shopee orders.
-// No create_shipping_document, ship_order, arrangement, stock or separation changes.
+// Uses the existing one-time Core-claimed document preparation when Shopee requires it.
+// No ship_order, arrangement, stock or separation changes.
 // Core verifies the order/account identity before storing the official PDF.
 const ORDER_RE = /^[A-Za-z0-9]{8,100}$/;
 const SHOP = 1156446003;
@@ -51,9 +52,9 @@ export function createAdaoReadyLabelSync({
     const synchronizer = makeSync({
       getEnv: scopedEnv,
       readConnection: data => readConnection(data, { timeoutMs: TOKEN_READ_TIMEOUT_MS }),
-      // One real order already returned shipping_document_should_print_first.
-      // Other orders and Viviane remain on the existing read/download path.
-      prepareMissingDocument: orderSn === '261108PWWQ4K95',
+      // All scoped Adão orders may prepare a missing document task once through
+      // the existing atomic Core claim. Viviane remains on her separate flow.
+      prepareMissingDocument: true,
     });
     const result = await synchronizer();
     if (!result?.ok) {
