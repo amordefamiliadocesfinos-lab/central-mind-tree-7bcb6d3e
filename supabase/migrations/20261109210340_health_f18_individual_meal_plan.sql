@@ -207,6 +207,7 @@ ON public.health_nutrition_item_alternatives(planned_item_id, sequence_order);
 CREATE OR REPLACE FUNCTION public.health_f18_guard_draft_plan_version()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
@@ -249,6 +250,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.health_f18_fill_prescription_snapshot()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
