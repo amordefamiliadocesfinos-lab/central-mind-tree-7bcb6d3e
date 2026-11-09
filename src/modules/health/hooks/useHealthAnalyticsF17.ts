@@ -325,11 +325,12 @@ export function useHealthAnalyticsF17(
           ? await db
               .from("health_meal_items")
               .select(
-                "meal_log_id,status,energy_kcal_snapshot,protein_g_snapshot",
+                "meal_log_id,status,energy_kcal_snapshot,protein_g_snapshot,created_at",
               )
               .eq("athlete_id", athleteId)
               .eq("status", "active")
-              .in("meal_log_id", mealIds)
+              .gte("created_at", fromTimestamp)
+              .order("created_at", { ascending: true })
               .limit(10000)
           : { data: [], error: null };
 
@@ -452,9 +453,14 @@ export function useHealthAnalyticsF17(
           if (raw.metric_code === "body_fat_pct") point.bodyFatPct = value;
         }
 
-        next.body.data = Array.from(dayMap.values()).sort((a, b) =>
-          a.date.localeCompare(b.date),
-        );
+        next.body.data = Array.from(dayMap.values())
+          .filter(
+            (point) =>
+              point.weightKg != null ||
+              point.waistCm != null ||
+              point.bodyFatPct != null,
+          )
+          .sort((a, b) => a.date.localeCompare(b.date));
       }
     }
 
