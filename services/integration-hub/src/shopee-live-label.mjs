@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { adaoShippingDocumentFingerprint } from './shopee-document-fingerprint.mjs';
 import {
   readLiveShopeeOauthConnection,
   callCoreBridgeAction,
@@ -175,9 +175,10 @@ export function createShopeeLabelSynchronizer({
         package_number: packageNumber,
         document_type: PDF_TYPE,
       };
-      const requestHash = createHash('sha256').update(JSON.stringify({
-        ...metadata, tracking_number: trackingNumber,
-      })).digest('hex');
+      const requestHash = adaoShippingDocumentFingerprint({
+        channelAccountId, shopId, orderSn, packageNumber,
+        documentType: PDF_TYPE, trackingNumber,
+      });
       const claim = await callCore({
         action: 'shopee.shipping_document.claim',
         data: { ...metadata, request_hash: requestHash },
