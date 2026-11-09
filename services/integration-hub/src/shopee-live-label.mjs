@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { adaoShippingDocumentFingerprint } from './shopee-document-fingerprint.mjs';
 import {
   readLiveShopeeOauthConnection,
