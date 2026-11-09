@@ -197,7 +197,13 @@ export function createShopeeLabelSynchronizer({
       } catch {
         created = null;
       }
-      const success = created?.response?.ok && !parseShopeeError(created?.payload);
+      const creationResults = created?.payload?.response?.result_list;
+      const success = created?.response?.ok && !parseShopeeError(created?.payload)
+        && Array.isArray(creationResults) && creationResults.length === 1
+        && creationResults[0]?.order_sn === orderSn
+        && (!packageNumber || !creationResults[0]?.package_number
+          || creationResults[0].package_number === packageNumber)
+        && !creationResults[0]?.fail_error;
       // No retry on uncertain responses. The ledger prevents duplicate creates.
       const resolved = await callCore({
         action: 'shopee.shipping_document.resolve',
