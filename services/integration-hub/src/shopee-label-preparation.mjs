@@ -1,5 +1,5 @@
 import { validCycleScope } from './shopee-cycle-scope.mjs';
-import { createHash } from 'node:crypto';
+import { vivianeShippingDocumentFingerprint } from './shopee-document-fingerprint.mjs';
 import { readLiveShopeeOauthConnection, claimShopeeShippingDocument, resolveShopeeShippingDocument } from './core-bridge.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
 import { getOrderDetail, getTrackingNumber, getShippingDocumentParameter,
@@ -97,7 +97,10 @@ export function createShopeeLabelPreparation({
       if (scope.tracking && number !== scope.tracking) return fail('tracking_number_required');
       const body = { order_list: [{ order_sn: scope.order, package_number: scope.package,
         tracking_number: number, shipping_document_type: TYPE }] };
-      const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+      const hash = vivianeShippingDocumentFingerprint({
+        orderSn: scope.order, packageNumber: scope.package,
+        trackingNumber: number, shippingDocumentType: TYPE,
+      });
       const metadata = { channel_account_id: scope.account, shop_id: scope.shop,
         order_sn: scope.order, package_number: scope.package, document_type: TYPE, request_hash: hash };
       if (budget - now() <= 10000) return fail('label_window_inactive');
