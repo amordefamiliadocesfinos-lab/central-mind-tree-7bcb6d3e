@@ -7,7 +7,7 @@ const CYCLE_ACCOUNTS = Object.freeze({
 // work. The lease is durable in Postgres, shared across all Hub instances.
 export async function executeCycleAction(core, payload) {
   const accountId = payload.channel_account_id;
-  const shopId = CYCLE_accountIdS[accountId];
+  const shopId = CYCLE_ACCOUNTS[accountId];
   if (!shopId) return { status: 409, body: { error: 'cycle_account_refused' } };
   const acquiring = payload.action === 'shopee.cycle.acquire';
   const { data, error } = await core.rpc(acquiring ? 'acquire_shopee_cycle' : 'finish_shopee_cycle', acquiring
