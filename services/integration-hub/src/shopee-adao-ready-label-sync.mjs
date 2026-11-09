@@ -60,7 +60,9 @@ export function createAdaoReadyLabelSync({
         ...(code === 'document_status_rejected' ? {
           diagnostic: {
             upstream_http_status: result?.diagnostic?.upstream_http_status ?? null,
-            upstream_error_code: safeCode(result?.diagnostic?.upstream_error_code),
+            upstream_error_code: typeof result?.diagnostic?.upstream_error_code === 'string'
+              && /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(result.diagnostic.upstream_error_code)
+              ? result.diagnostic.upstream_error_code : 'unavailable',
           },
         } : {}),
       };
