@@ -53,7 +53,18 @@ export function createAdaoReadyLabelSync({
       readConnection: data => readConnection(data, { timeoutMs: TOKEN_READ_TIMEOUT_MS }),
     });
     const result = await synchronizer();
-    if (!result?.ok) return { ok: false, code: safeCode(result?.code) };
+    if (!result?.ok) {
+      const code = safeCode(result?.code);
+      return {
+        ok: false, code,
+        ...(code === 'document_status_rejected' ? {
+          diagnostic: {
+            upstream_http_status: result?.diagnostic?.upstream_http_status ?? null,
+            upstream_error_code: safeCode(result?.diagnostic?.upstream_error_code),
+          },
+        } : {}),
+      };
+    }
     if (!['label_attached', 'already_available'].includes(result.code)) {
       return { ok: false, code: 'unexpected_label_result' };
     }
