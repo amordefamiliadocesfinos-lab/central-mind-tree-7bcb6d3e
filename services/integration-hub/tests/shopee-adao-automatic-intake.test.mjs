@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -239,4 +239,67 @@ test('Adão runner uses scoped Core batch reader, exact account and order, witho
     limit: 1,
     order_sn: '261107KXS6MN9H',
   }, options: { timeoutMs: 12_000 } }]);
+});
+
+
+test('automatic Adão label follows a newly imported order, without a second scheduler', async () => {
+  const labels = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'true' : getEnv(k),
+    now, readOrders: async () => page(['NEWADAO2026']),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    syncLabel: async sn => { labels.push(sn); return { ok: true, code: 'label_attached' }; },
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.written, 1);
+  assert.equal(r.labels_attached, 1);
+  assert.deepEqual(labels, ['NEWADAO2026']);
+  assert.equal(r.logistics_writes, 0);
+});
+
+test('already-imported eligible orders automatically recheck labels in bounded rotation', async () => {
+  const target = selectAdaoLabelCandidate(['ADASAMPLE1', 'ADASAMPLE2', 'ADASAMPLE3'], now());
+  const labels = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'true' : getEnv(k),
+    now, readOrders: async () => page(['ADASAMPLE1', 'ADASAMPLE2', 'ADASAMPLE3']),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    syncLabel: async sn => { labels.push(sn); return { ok: false, code: 'document_processing' }; },
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.skipped, 3);
+  assert.equal(r.labels_pending, 1);
+  assert.deepEqual(labels, [target]);
+  assert.equal(selectAdaoLabelCandidate(['ADASAMPLE1', 'ADASAMPLE2'], now()), 
+    selectAdaoLabelCandidate(['ADASAMPLE2', 'ADASAMPLE1'], now()));
+});
+
+test('label failure does not hide successfully received orders or retry shipping operations', async () => {
+  const runner = createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'true' : getEnv(k),
+    now, readOrders: async () => page(['ADASAMPLE1']),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    syncLabel: async () => { throw new Error('private upstream error'); },
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.written, 1);
+  assert.equal(r.labels_blocked, 1);
+  assert.equal(r.label_code, 'label_sync_exception');
+  assert.ok(!JSON.stringify(r).includes('private upstream'));
+});
+
+test('automatic label remains disabled unless Adão label sync is enabled', async () => {
+  let labels = 0;
+  const r = await createAdaoAutomaticIntake({
+    getEnv,
+    now, readOrders: async () => page(['ADASAMPLE1']),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    syncLabel: async () => { labels++; return { ok: true, code: 'label_attached' }; },
+  })();
+  assert.equal(r.ok, true);
+  assert.equal(labels, 0);
+  assert.equal(r.labels_attached, 0);
 });
