@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Clock3, Dumbbell, Loader2, Plus, RefreshCw, SkipForward } from "lucide-react";
+import { CheckCircle2, Dumbbell, Loader2, Plus, RefreshCw, SkipForward } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,18 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthCatalogs } from "../hooks/useHealthCatalogs";
 import { useHealthWorkoutM4, WorkoutExercise } from "../hooks/useHealthWorkoutM4";
+import { useHealthWorkoutTimerF19 } from "../hooks/useHealthWorkoutTimerF19";
+import { HealthWorkoutInteractiveTimerF19 } from "../components/HealthWorkoutInteractiveTimerF19";
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function formatElapsed(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  return [hours, minutes, secs].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 function WorkoutExerciseCard({
@@ -174,29 +169,17 @@ export function HealthWorkoutPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
   const catalogs = useHealthCatalogs();
   const workout = useHealthWorkoutM4(athlete?.id);
-  const [elapsed, setElapsed] = useState(0);
+  const timer = useHealthWorkoutTimerF19(
+    athlete?.id,
+    workout.session?.id,
+    workout.reload,
+  );
   const [extraExerciseId, setExtraExerciseId] = useState("");
 
   const exerciseNameById = useMemo(
     () => new Map(catalogs.exercises.map((item) => [item.id, item.name])),
     [catalogs.exercises],
   );
-
-  const sessionStartedAt = workout.session?.started_at ?? null;
-
-  useEffect(() => {
-    if (!sessionStartedAt) {
-      setElapsed(0);
-      return;
-    }
-    const update = () => {
-      const start = new Date(sessionStartedAt).getTime();
-      setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
-    };
-    update();
-    const interval = window.setInterval(update, 1000);
-    return () => window.clearInterval(interval);
-  }, [sessionStartedAt]);
 
   const run = async (label: string, action: () => Promise<void>) => {
     try {
@@ -269,64 +252,107 @@ export function HealthWorkoutPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <div className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Treino em andamento</p>
-            <h2 className="truncate text-lg font-semibold">{workout.nextTemplate?.code ?? "Sessão"} · {workout.nextTemplate?.name ?? "Treino"}</h2>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-lg bg-muted px-3 py-2 font-mono text-sm">
-            <Clock3 className="h-4 w-4" /> {formatElapsed(elapsed)}
-          </div>
+      <HealthWorkoutInteractiveTimerF19
+        sessionTitle={`${workout.nextTemplate?.code ?? "Sessão"} · ${workout.nextTemplate?.name ?? "Treino"}`}
+        fallbackStartedAt={workout.session.started_at}
+        exercises={workout.exercises}
+        setsByExercise={workout.setsByExercise}
+        exerciseNameById={exerciseNameById}
+        timer={timer}
+      />
+
+      <details className="rounded-xl border bg-muted/10 p-3">
+        <summary className="cursor-pointer text-sm font-medium">
+          Detalhes e correções manuais
+        </summary>
+        <p className="mt-2 text-xs text-muted-foreground">
+          O modo rápido acima funciona só com cliques. Abra esta área apenas
+          quando quiser registrar carga, reps, RIR, substituir ou pular manualmente.
+        </p>
+
+        <div className="mt-4 space-y-4">
+          {workout.exercises.map((item) => (
+            <WorkoutExerciseCard
+              key={item.id}
+              item={item}
+              name={exerciseNameById.get(item.exercise_id) ?? "Exercício"}
+              performedSets={(workout.setsByExercise.get(item.id) ?? []).map((set) => ({
+                id: set.id,
+                set_number: set.set_number,
+                load_value: set.load_value,
+                load_unit: set.load_unit,
+                reps: set.reps,
+                rir: set.rir,
+                rest_seconds: set.rest_seconds,
+              }))}
+              saving={
+                workout.saving ||
+                timer.saving ||
+                Boolean(timer.activeInterval) ||
+                timer.sessionTiming?.status === "paused"
+              }
+              exerciseOptions={catalogs.exercises.map((exercise) => ({
+                id: exercise.id,
+                name: exercise.name,
+              }))}
+              onLogSet={(values) =>
+                run("Série registrada.", () => workout.logSet(item.id, values))
+              }
+              onSkip={() =>
+                run("Exercício marcado como pulado.", () =>
+                  workout.skipExercise(item.id),
+                )
+              }
+              onReplace={(replacementExerciseId) =>
+                run("Exercício substituído.", () =>
+                  workout.replaceExercise(item.id, replacementExerciseId),
+                )
+              }
+            />
+          ))}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Plus className="h-4 w-4 text-primary" />
+                Adicionar exercício
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <Select value={extraExerciseId} onValueChange={setExtraExerciseId}>
+                <SelectTrigger className="min-h-11">
+                  <SelectValue placeholder="Escolha no catálogo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {catalogs.exercises.map((exercise) => (
+                    <SelectItem key={exercise.id} value={exercise.id}>
+                      {exercise.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="secondary"
+                className="min-h-11"
+                disabled={
+                  workout.saving ||
+                  timer.saving ||
+                  Boolean(timer.activeInterval) ||
+                  !extraExerciseId
+                }
+                onClick={() =>
+                  void run("Exercício adicionado ao treino.", async () => {
+                    await workout.addExercise(extraExerciseId);
+                    setExtraExerciseId("");
+                  })
+                }
+              >
+                Adicionar
+              </Button>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-
-      {workout.exercises.map((item) => (
-        <WorkoutExerciseCard
-          key={item.id}
-          item={item}
-          name={exerciseNameById.get(item.exercise_id) ?? "Exercício"}
-          performedSets={(workout.setsByExercise.get(item.id) ?? []).map((set) => ({
-            id: set.id,
-            set_number: set.set_number,
-            load_value: set.load_value,
-            load_unit: set.load_unit,
-            reps: set.reps,
-            rir: set.rir,
-            rest_seconds: set.rest_seconds,
-          }))}
-          saving={workout.saving}
-          exerciseOptions={catalogs.exercises.map((exercise) => ({ id: exercise.id, name: exercise.name }))}
-          onLogSet={(values) => run("Série registrada.", () => workout.logSet(item.id, values))}
-          onSkip={() => run("Exercício marcado como pulado.", () => workout.skipExercise(item.id))}
-          onReplace={(replacementExerciseId) => run("Exercício substituído.", () => workout.replaceExercise(item.id, replacementExerciseId))}
-        />
-      ))}
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4 text-primary" /> Adicionar exercício</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Select value={extraExerciseId} onValueChange={setExtraExerciseId}>
-            <SelectTrigger className="min-h-11"><SelectValue placeholder="Escolha no catálogo" /></SelectTrigger>
-            <SelectContent>
-              {catalogs.exercises.map((exercise) => <SelectItem key={exercise.id} value={exercise.id}>{exercise.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="secondary"
-            className="min-h-11"
-            disabled={workout.saving || !extraExerciseId}
-            onClick={() => void run("Exercício adicionado ao treino.", async () => {
-              await workout.addExercise(extraExerciseId);
-              setExtraExerciseId("");
-            })}
-          >
-            Adicionar
-          </Button>
-        </CardContent>
-      </Card>
+      </details>
 
       <Card>
         <CardContent className="space-y-3 py-4">
@@ -339,7 +365,13 @@ export function HealthWorkoutPage() {
           </div>
           <Button
             className="min-h-12 w-full"
-            disabled={workout.saving || completedSetCount < 1}
+            disabled={
+              workout.saving ||
+              timer.saving ||
+              completedSetCount < 1 ||
+              (timer.available && Boolean(timer.activeInterval)) ||
+              timer.sessionTiming?.status === "paused"
+            }
             onClick={() => void run("Treino concluído e fila atualizada.", workout.completeWorkout)}
           >
             Concluir treino
