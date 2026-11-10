@@ -2,6 +2,7 @@ import { createShopeeLiveOrdersReader } from './shopee-live-orders.mjs';
 import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from './core-bridge.mjs';
 import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
+import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
 export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
@@ -70,19 +71,34 @@ function diagnostic(stage, reason, info = {}) {
 }
 
 
+// A single label action per scheduled cycle keeps the existing 60s Cloud Run
+// request bounded. The stable round-robin covers already-imported candidates
+// over successive 5-minute runs, without manual per-order commands.
+// PDF persistence and one-time upstream document creation remain in the
+// existing Core-claimed synchronizer.
+export const ADAO_AUTO_LABELS_PER_CYCLE = 1;
+export function selectAdaoLabelCandidate(orderSns, nowMs) {
+  if (!Array.isArray(orderSns) || !orderSns.length || !Number.isFinite(nowMs)) return null;
+  const unique = [...new Set(orderSns)].filter(sn => typeof sn === 'string' && ORDER_RE.test(sn)).sort();
+  if (!unique.length) return null;
+  return unique[Math.floor(nowMs / 300_000) % unique.length];
+}
+
 export function createAdaoAutomaticIntake({
   getEnv = key => process.env[key],
   now = Date.now,
   readOrders = null,
   readConnection = readLiveShopeeOauthConnection,
   intake = createAdaoScopedIntake(),
+  syncLabel = syncAdaoReadyLabelOnce,
 } = {}) {
   return async function runAdaoAutomaticIntake() {
     const report = {
       ok: false, code: 'not_started', account: 'adao',
       discovered: 0, written: 0, already_registered: 0,
       skipped: 0, blocked: 0, pages: 0, stopped: false,
-      // No labels, shipment arrangement, inventory or physical finalization.
+      labels_attached: 0, labels_already: 0, labels_pending: 0, labels_blocked: 0,
+      // No shipping arrangement, inventory or physical finalization.
       logistics_writes: 0, inventory_writes: 0,
     };
     if (!enabled(getEnv('SHOPEE_ADAO_AUTO_INTAKE_ENABLED'))) {
@@ -108,6 +124,8 @@ export function createAdaoAutomaticIntake({
     let cursor = null;
     const cursors = new Set();
     const seen = new Set();
+    const labelCandidates = new Set();
+    const newlyWritten = [];
     for (let page = 0; page < ADAO_AUTO_INTAKE_SCOPE.maxPages; page++) {
       let listed;
       try {
@@ -149,6 +167,9 @@ export function createAdaoAutomaticIntake({
           // The Core filters already-registered and ineligible orders before
           // the writer. Keep a count but do not claim these were all duplicates.
           report.skipped++;
+          // The Core excludes orders already registered, too. Continue to
+          // reconcile their missing labels in later cycles.
+          labelCandidates.add(sn);
           continue;
         }
         const entry = committed?.results?.[0];
@@ -166,8 +187,15 @@ export function createAdaoAutomaticIntake({
               selected: Number.isSafeInteger(committed.selected) ? committed.selected : null,
             }) };
         }
-        if (entry.status === 'written') report.written++;
-        else if (entry.status === 'already_registered') report.already_registered++;
+        if (entry.status === 'written') {
+          report.written++;
+          newlyWritten.push(sn);
+          labelCandidates.add(sn);
+        }
+        else if (entry.status === 'already_registered') {
+          report.already_registered++;
+          labelCandidates.add(sn);
+        }
         else if (entry.status === 'blocked') {
           report.blocked++;
           // A policy/mapping rejection is an expected scoped non-write.
@@ -179,7 +207,31 @@ export function createAdaoAutomaticIntake({
               ? 'write_failed' : 'unexpected_write_status') };
         }
       }
-      if (listed.more !== true) return { ...report, ok: true, code: 'cycle_completed' };
+      if (listed.more !== true) {
+        // Process one official label per scheduled cycle. Priority is a newly
+        // imported order; otherwise rotate among already-known live candidates.
+        // Sync failures are recorded, not mistaken for order intake failures.
+        if (enabled(getEnv('SHOPEE_ADAO_LABEL_SYNC_ENABLED'))) {
+          const target = newlyWritten[0] ?? selectAdaoLabelCandidate([...labelCandidates], now());
+          if (target) {
+            try {
+              const label = await syncLabel(target);
+              if (label?.ok === true && label.code === 'label_attached') report.labels_attached++;
+              else if (label?.ok === true && label.code === 'already_available') report.labels_already++;
+              else if (['document_processing', 'document_task_created_check_later',
+                'document_creation_already_claimed', 'document_not_ready'].includes(label?.code)) report.labels_pending++;
+              else {
+                report.labels_blocked++;
+                report.label_code = safeCode(label?.code);
+              }
+            } catch {
+              report.labels_blocked++;
+              report.label_code = 'label_sync_exception';
+            }
+          }
+        }
+        return { ...report, ok: true, code: 'cycle_completed' };
+      }
       const next = listed.next_cursor;
       if (typeof next !== 'string' || !next || cursors.has(next) || next === cursor) {
         return { ...report, code: 'pagination_invalid', stopped: true };
