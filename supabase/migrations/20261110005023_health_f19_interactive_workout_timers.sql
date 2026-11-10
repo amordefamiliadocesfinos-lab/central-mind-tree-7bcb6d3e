@@ -9,6 +9,10 @@ ALTER TABLE public.health_workout_sessions
   ADD COLUMN IF NOT EXISTS pause_accumulated_seconds integer NOT NULL DEFAULT 0
     CHECK (pause_accumulated_seconds >= 0);
 
+ALTER TABLE public.health_workout_sets
+  ADD COLUMN IF NOT EXISTS work_seconds integer NULL
+    CHECK (work_seconds IS NULL OR work_seconds >= 0);
+
 -- Existing paused rows, if any, did not have F19 timing state.
 -- Start counting their current pause from migration time instead of fabricating prior duration.
 UPDATE public.health_workout_sessions
@@ -541,6 +545,7 @@ BEGIN
     load_unit,
     reps,
     rir,
+    work_seconds,
     rest_seconds,
     client_event_id,
     completed_at,
@@ -557,6 +562,7 @@ BEGIN
     COALESCE(NULLIF(p_load_unit,''),'kg'),
     p_reps,
     p_rir,
+    v_work_seconds,
     NULL,
     p_client_event_id,
     v_now,
