@@ -2,16 +2,17 @@
  * F6-O.2e.4 — third print option, generated only in the browser.
  * The Shopee PDF in private Storage is NEVER modified or overwritten.
  *
- * pdfjs renders its page at 4 pixels per PDF point (roughly 288 dpi on A4).
- * This print-only raster copy keeps the official geometry unchanged; the
- * original vector PDF remains available through the existing print button.
- * Use the extra page rather than crowding the official codes.
+ * pdfjs renders at 4 pixels per PDF point (roughly 288 dpi on A4).
+ * The COMBINED option uses only the first official label page and places
+ * the picking composition/observations below it on one A4 sheet.
+ * The original full PDF, including any DACE page, remains available unchanged
+ * through the regular official-document print action.
  */
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { supabase } from '@/integrations/supabase/client';
 import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
-import { fitOfficialPdfPage } from './printCombinedShopeeLabelLayout.mjs';
+import { fitOfficialPdfPage, fitCompactCompositionScale } from './printCombinedShopeeLabelLayout.mjs';
 import type { Order } from '@/hooks/useOrders';
 import type { OrderDocument } from '@/hooks/useOrderSeparation';
 
@@ -23,7 +24,6 @@ const A4_WIDTH = Math.round(595.28 * SCALE);
 const A4_HEIGHT = Math.round(841.89 * SCALE);
 const MARGIN = 32 * SCALE;
 const BOTTOM_GAP = 18 * SCALE;
-const MIN_AVAILABLE = 72 * SCALE;
 const MAX_PAGES = 8;
 
 type PrintLine = { value: string; height: number; font: string; before: number };
@@ -135,39 +135,6 @@ function blankPage(width: number, height: number): PrintPage {
   return { canvas, context };
 }
 
-function drawRows(
-  rows: PrintLine[],
-  pages: PrintPage[],
-  firstPageStart: number,
-  width: number,
-  height: number,
-  forceNewPage: boolean,
-): void {
-  const totalHeight = rows.reduce((total, row) => total + row.before + row.height, 0);
-  let target = pages[pages.length - 1];
-  let y = firstPageStart;
-  if (forceNewPage || height - MARGIN - firstPageStart < MIN_AVAILABLE
-      || totalHeight > height - MARGIN - firstPageStart) {
-    target = blankPage(width, height);
-    pages.push(target);
-    y = MARGIN;
-  }
-  for (const row of rows) {
-    if (y + row.before + row.height > height - MARGIN) {
-      if (pages.length >= MAX_PAGES) throw new Error('Composição excede o limite seguro de páginas.');
-      target = blankPage(width, height);
-      pages.push(target);
-      y = MARGIN;
-    }
-    y += row.before;
-    target.context.font = row.font;
-    target.context.fillStyle = '#111';
-    target.context.textBaseline = 'top';
-    target.context.fillText(row.value, MARGIN, y, width - 2 * MARGIN);
-    y += row.height;
-  }
-}
-
 /** On the print-only A4 copy, fit the picking details below the last label ink.
  * Never place text over official barcodes, silently crop rows or add another
  * sheet in the combined one-page action. Existing official PDF remains intact.
@@ -178,12 +145,7 @@ function drawCompactFirstSheet(rows: PrintLine[], page: PrintPage, startY: numbe
   if (!(usableHeight > 0) || totalHeight <= 0) {
     throw new Error('Não há espaço para a composição nesta folha.');
   }
-  const scale = Math.min(1, usableHeight / totalHeight);
-  // At this size the 10pt lines remain at least 6pt. For a truly full label,
-  // fail clearly rather than overlaying QR/barcodes or issuing a hidden page.
-  if (scale < 0.6) {
-    throw new Error('Não há espaço legível para a composição na primeira folha.');
-  }
+  const scale = fitCompactCompositionScale(totalHeight, usableHeight);
   const ctx = page.context;
   ctx.save();
   try {
