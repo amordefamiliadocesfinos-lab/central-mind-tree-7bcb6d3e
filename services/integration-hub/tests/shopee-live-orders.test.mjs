@@ -413,3 +413,36 @@ test('does not persist detail snapshots when Shopee rejects get_order_detail', a
   assert.equal(result.code, 'order_detail_rejected');
   assert.equal(persistedDetails, 0);
 });
+
+
+test('Adão-only eligible discovery skips irrelevant Core intake calls while preserving all order detail snapshots', async () => {
+  const persisted = [];
+  const reader = createShopeeLiveOrdersReader({
+    getEnv: env, now: () => NOW, allowRefresh: false, expectedShopId: SHOP_ID,
+    readConnection: async () => ({ ok: true, payload: {
+      partner_id: Number(PARTNER_ID), shop_id: SHOP_ID,
+      access_token_expires_at: new Date(NOW + 3600000).toISOString(),
+    } }),
+    decryptToken: async () => 'test-token',
+    readOrderList: async () => response({ response: {
+      order_list: [
+        { order_sn: 'CURRENT001' }, { order_sn: 'DONE001' }, { order_sn: 'READY001' },
+      ], more: false,
+    } }),
+    readOrderDetail: async () => response({ response: { order_list: [
+      { order_sn: 'CURRENT001', order_status: 'PROCESSED' },
+      { order_sn: 'DONE001', order_status: 'COMPLETED' },
+      { order_sn: 'READY001', order_status: 'READY_TO_SHIP' },
+    ] } }),
+    persistOrderListSnapshot: async () => ({ ok: true }),
+    persistOrderSnapshot: async data => { persisted.push(data.external_entity_id); return { ok: true }; },
+  });
+  const eligible = await reader({ ...WINDOW, onlyIntakeEligibleOrders: true });
+  assert.equal(eligible.ok, true);
+  assert.deepEqual(eligible.order_sns, ['CURRENT001', 'READY001']);
+  assert.equal(eligible.detailed_count, 3);
+  assert.deepEqual(persisted, ['CURRENT001', 'DONE001', 'READY001']);
+  persisted.length = 0;
+  const unchangedDefault = await reader(WINDOW);
+  assert.deepEqual(unchangedDefault.order_sns, ['CURRENT001', 'DONE001', 'READY001']);
+});
