@@ -18,7 +18,7 @@ const result = (orderSn, status) => ({
   results: [{ orderSn, status }],
 });
 
-test('fail closed when disabled or approved pair list missing', async () => {
+test('disabled runner stays off; mapped orders do not require a duplicate environment approval list', async () => {
   let calls = 0;
   const readOrders = async () => { calls++; return page([]); };
   const disabled = createAdaoAutomaticIntake({
@@ -30,8 +30,8 @@ test('fail closed when disabled or approved pair list missing', async () => {
     getEnv: key => key === 'SHOPEE_ADAO_NON_EASTER_MODEL_PAIRS' ? '' : getEnv(key),
     now, readOrders,
   });
-  assert.equal((await noPairs()).code, 'adao_approved_pairs_missing');
-  assert.equal(calls, 0);
+  assert.equal((await noPairs()).code, 'cycle_completed');
+  assert.equal(calls, 1);
 });
 
 test('discovers and imports in exact Adão scope, with pagination', async () => {
@@ -52,6 +52,7 @@ test('discovers and imports in exact Adão scope, with pagination', async () => 
   assert.equal(r.pages, 2);
   assert.equal(input[1].cursor, 'next1');
   assert.equal(input[0].timeRangeField, 'update_time');
+  assert.equal(input[0].onlyIntakeEligibleOrders, true);
   assert.deepEqual(seen.map(v => v.expectedOrderSn), ['261107KXS6MN9H', '261107KWVWKFBB']);
   assert.ok(seen.every(v => v.channelAccountId === ADAO_AUTO_INTAKE_SCOPE.account
     && v.mode === 'commit' && v.limit === 1 && v.verifyExisting === true));
