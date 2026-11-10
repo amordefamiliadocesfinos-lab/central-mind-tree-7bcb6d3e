@@ -151,7 +151,8 @@ export function createShopeeControlledAutoIntake({
         // This specific 23 Oct pilot is documented obsolete. Preserve its
         // old no-write behavior without an offer-level authorization list.
         // It is unrelated to current Adão orders or newly homologated mappings.
-        if (normalized.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+        if (mode === 'commit'
+          && normalized.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
           && orderSn === '261023C0CDYM5H') {
           blocked += 1;
           results.push({ orderSn, status: 'blocked',
