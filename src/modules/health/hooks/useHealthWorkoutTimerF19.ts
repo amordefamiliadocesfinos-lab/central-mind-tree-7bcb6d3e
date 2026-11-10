@@ -246,6 +246,37 @@ export function useHealthWorkoutTimerF19(
     [call],
   );
 
+  const updateSetExecution = useCallback(
+    async (
+      workoutSetId: string,
+      values: {
+        loadValue?: number;
+        loadUnit?: string;
+        reps?: number;
+        rir?: number;
+      },
+    ) => {
+      if (!athleteId) throw new Error("Atleta não disponível.");
+
+      const patch: Record<string, unknown> = {};
+      if (values.loadValue !== undefined) patch.load_value = values.loadValue;
+      if (values.loadUnit !== undefined) patch.load_unit = values.loadUnit;
+      if (values.reps !== undefined) patch.reps = values.reps;
+      if (values.rir !== undefined) patch.rir = values.rir;
+
+      if (!Object.keys(patch).length) return;
+
+      await call(() =>
+        db
+          .from("health_workout_sets")
+          .update(patch)
+          .eq("id", workoutSetId)
+          .eq("athlete_id", athleteId),
+      );
+    },
+    [athleteId, call],
+  );
+
   const cancelInterval = useCallback(
     async (intervalId: string) => {
       await call(() =>
@@ -292,6 +323,7 @@ export function useHealthWorkoutTimerF19(
     startWorkInterval,
     finishWorkStartRest,
     finishRest,
+    updateSetExecution,
     cancelInterval,
   };
 }

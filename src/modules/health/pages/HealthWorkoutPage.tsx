@@ -266,8 +266,9 @@ export function HealthWorkoutPage() {
           Detalhes e correções manuais
         </summary>
         <p className="mt-2 text-xs text-muted-foreground">
-          O modo rápido acima funciona só com cliques. Abra esta área apenas
-          quando quiser registrar carga, reps, RIR, substituir ou pular manualmente.
+          Use esta área para revisar o histórico do treino, corrigir séries antigas,
+          substituir, pular ou adicionar exercícios. Os dados da série atual ficam
+          sempre visíveis no card principal acima.
         </p>
 
         <div className="mt-4 space-y-4">
