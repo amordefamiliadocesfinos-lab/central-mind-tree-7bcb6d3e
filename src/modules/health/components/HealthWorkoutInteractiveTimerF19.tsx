@@ -560,7 +560,7 @@ export function HealthWorkoutInteractiveTimerF19({
                 </div>
 
                 <Button
-                  className="min-h-13 w-full text-base"
+                  className="min-h-12 w-full text-base"
                   disabled={disabled}
                   onClick={() =>
                     void run("Série concluída. Descanso iniciado.", () =>
@@ -630,7 +630,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
                 {completedOnCurrent < minSets ? (
                   <Button
-                    className="min-h-13 w-full text-base"
+                    className="min-h-12 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
                       void run(
@@ -649,7 +649,7 @@ export function HealthWorkoutInteractiveTimerF19({
                 ) : canDoOptionalExtra ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Button
-                      className="min-h-13"
+                      className="min-h-12"
                       disabled={disabled}
                       onClick={() =>
                         void run(
@@ -668,7 +668,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     {nextDifferentExercise ? (
                       <Button
                         variant="secondary"
-                        className="min-h-13"
+                        className="min-h-12"
                         disabled={disabled}
                         onClick={() =>
                           void run(
@@ -688,7 +688,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     ) : (
                       <Button
                         variant="secondary"
-                        className="min-h-13"
+                        className="min-h-12"
                         disabled={disabled}
                         onClick={() =>
                           void run(
@@ -703,7 +703,7 @@ export function HealthWorkoutInteractiveTimerF19({
                   </div>
                 ) : nextDifferentExercise ? (
                   <Button
-                    className="min-h-13 w-full text-base"
+                    className="min-h-12 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
                       void run(
@@ -721,7 +721,7 @@ export function HealthWorkoutInteractiveTimerF19({
                   </Button>
                 ) : (
                   <Button
-                    className="min-h-13 w-full text-base"
+                    className="min-h-12 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
                       void run(
@@ -754,7 +754,7 @@ export function HealthWorkoutInteractiveTimerF19({
                 </div>
 
                 <Button
-                  className="min-h-13 w-full text-base"
+                  className="min-h-12 w-full text-base"
                   disabled={disabled}
                   onClick={() =>
                     void run("Cronômetro de execução iniciado.", () =>
