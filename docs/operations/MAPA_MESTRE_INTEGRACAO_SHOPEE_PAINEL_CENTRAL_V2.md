@@ -1,6 +1,7 @@
 # MAPA MESTRE — INTEGRAÇÃO SHOPEE ↔ PAINEL CENTRAL V2
 
 **Data de consolidação:** 2026-10-14  
+**Estado documental:** marco histórico original datado de 14/10/2026; **atualização incremental comprovada de 10/11/2026 na Seção 12**. As seções históricas não foram reclassificadas retroativamente.  
 **Status:** mapa operacional vigente após F6-K  
 **Escopo:** Shopee Open Platform BR + Integration Hub + Painel Central  
 **Princípio:** CONSTRUIR → USAR → OBSERVAR → CORRIGIR → EVOLUIR
@@ -578,3 +579,61 @@ limites e sequência de ativação em [F6_CICLO_MINIMO_RECORRENTE_SHOPEE.md](F6_
 
 PED-00281: etiqueta existente preservada; coleta física informada pelo operador
 em 21/10/2026. Nenhuma nova ação desse pedido é autorizada por este registro.
+
+---
+
+## 12. CHECKPOINT EVOLUTIVO — 10/11/2026 (SEM SUBSTITUIR O HISTÓRICO)
+
+**Natureza:** adendo de continuidade e rastreabilidade. As seções anteriores retratam marcos datados de outubro; quando houver diferença temporal, este checkpoint informa o estado **mais recente comprovado** sem reescrever as decisões históricas. A **Arquitetura Mestre Shopee V1.0 congelada** e a **prioridade executiva do ciclo funcional (20/10)** continuam soberanas. A numeração F6-K/O deste mapa é **taxonomia técnica histórica**, enquanto as frentes soberanas são **F1 → F2 → F6 → F7-A → F3 → F5 → F4 → F7-B**.
+
+### 12.1 Resultado que governa a próxima execução
+
+**Missão atual:** **pedido originado na Shopee → Hub recebe → Pedido + Itens + Separação no Painel Central → etiqueta oficial vinculada e imprimível na Separação**, com operação assistida onde o Seller Center ainda seja necessário. O passo seguinte é **USO REAL da Central de Separação**, não mais uma nova infraestrutura, ciclo, auditoria ampla ou controle preventivo sem falha material.
+
+Critério de prova próximo: selecionar **pedido real já importado**, encontrá-lo visualmente na Central de Separação com composição correta, verificar documento oficial do pedido/pacote e realizar abertura/impressão conforme contrato de Operações. Distinguir **PDF persistido** de **PDF visível/imprimível pelo operador**. Não executar expedição, emissão fiscal, baixa de estoque ou finalização física apenas para provar a interface.
+
+### 12.2 Estado real comprovado por camada
+
+| Camada / frente | Marco após o mapa original | Evidência e limite |
+|---|---|---|
+| **F1 Conector / Core** | OAuth e Core Bridge HMAC existentes; expansão SQL do lease para contas Viviane e Adão aplicada no Lovable Cloud | Migration `20261109214500_f5_cycle_lease_account_scope_adao` **aplicada e registrada** em `supabase_migrations.schema_migrations` no Core canônico. SQL não significa ativação do ciclo. |
+| **F1 Edge Function** | `integration-core-bridge` publicada com suporte ao escopo compartilhado; exceção de publicação pelo agente Lovable encerrada | Relatório do executor de deploy: `source_sha256 05c03296ab36c4867ed62da3bf66225b71d9620bd60acfd732719f47ebae62b0`. O conector normal não publica Edge Functions isoladas. |
+| **F1 Hub / Cloud Run** | Imagem de teste construída e revisão isolada `adao-teste` implantada | Imagem `adao-f5u4-43793e2af68f`, revisão apontada pela tag `adao-teste` **(consultar nome exato em tempo real; houve erro de transcrição do sufixo em consultas anteriores)**, 0% do tráfego; revisão principal `integration-hub-00142-tlv` permaneceu com 100% no teste. Saúde `/health/core` respondeu HTTP 200. |
+| **F1 ciclo compartilhado Adão** | Adapter reutiliza lease/checkpoint da Viviane; nova rota IAM privada publicada, mas **OFF** | PR #548 mergeada `bad5dca4124c1279926ca5976271e64b6e2168ed`. POST `/internal/shopee/adao/cycle/run` retornou **HTTP 503 com `adao_cycle_not_enabled`**, bloqueio intencional. Não houve prova de ciclo Adão ativo. |
+| **F1 recorrência atual** | Dois Cloud Scheduler jobs reais, ativos, a cada cinco minutos | `shopee-adao-intake-v1` → importador independente Adão; `shopee-live-intake-v1` → ciclo Viviane. Ambos POST com OIDC. `SHOPEE_ADAO_AUTO_INTAKE_ENABLED=true`, `SHOPEE_ADAO_CYCLE_ENABLED` ausente, `SHOPEE_ADAO_LABEL_SYNC_ENABLED=true`. **Não ativar escritores Adão concorrentes.** |
+| **F2 Pedidos Adão** | Entrada automática real demonstrada no banco, apresentação/uso em tela ainda não comprovados | Consulta ao Core: **26** registros na conta; **16** com `sale_origin=shopee_open_platform`, `status=pendente`, `operational_status=todo` (06–09/11); **10** antigos `enviado/finalized` sem origem preenchida. Não afirmar que usuário realizou pedidos no Painel; vendas nasceram na Shopee. |
+| **F2 estado externo × interno** | Divergência material identificada, sem reconciliação automática | Entre os 16 pendentes internos, última captura Shopee de 10/11: **6 SHIPPED, 2 COMPLETED, 1 TO_CONFIRM_RECEIVE, 6 PROCESSED, 1 READY_TO_SHIP**. Desses PROCESSED, **5** capturas antigas de 06/11. Captura é evidência histórica; não equivale a elegibilidade Live agora. |
+| **F2 proteção de atualidade** | Guarda Adão-only implementado no GitHub, ainda **não implantado na Edge Function operacional** | PR #565, merge `4ee1cb4e76ab6437fe9ceac56b1eb4673bf31464`: `observed_at` e `created_at` com janela de 5 minutos, sem tocar comportamento Viviane. Isso protege **novas importações**, **não** reconcilia pedidos já registrados, nem substitui confirmação Live antes de ações irreversíveis. |
+| **F5 Etiquetas oficiais** | Documentos oficiais já persistidos; impressão na Separação ainda precisa prova operacional | Checkpoints Core de **6 PDFs Adão** com tentativas `succeeded`, e **20 documentos Viviane**. PRs #537/#538 ampliaram geração conforme exigência oficial `shipping_document_should_print_first`. PDF no Core não prova impressão real no Painel. |
+| **F5 Organização do envio** | Bibliotecas, preflight, claims e rotas técnicas são parciais | Não afirmar automação geral de `ship_order`, NF-e ou coleta. Para pedidos já despachados, jamais reexecutar preparação/envio. Seller Center ainda é contingência operacional vigente. |
+| **Operações / Separação** | Três colunas e contrato físico preservados | **A FAZER → EM PREPARAÇÃO → FINALIZADO**; impressão não comprova postagem/coleta, nem baixa estoque. Ação física e baixa pertencem ao módulo Operações. |
+| **Exceções / observabilidade** | `DEADLINE_EXCEEDED` no job Adão e erros HTTP Cloud Run vistos em logs | Erro do agendador **não demonstra ausência de registro do pedido**, nem identifica causa sozinho. Investigar apenas se obstruir o próximo pedido real; correlacionar horário, request/revisão e efeito canônico. |
+| **Catálogo / mappings** | Registros comerciais e mappings por conta evoluíram em paralelo | Respeitar matriz única, identidades Item/Model e histórico; não reabrir catálogo inteiro na prova do fluxo. Autoridade do especialista Mappings/Comercial permanece. |
+
+**Observação de precisão:** a revisão da tag `adao-teste` foi recuperada por consulta de tráfego e listagem; utilizar sempre `gcloud run services describe`/listagem para obter o identificador exato do instante, pois houve erro de transcrição manual em consultas anteriores. Os números de pedidos e documentos são **checkpoints**, não contagens permanentes.
+
+### 12.3 Próximas frentes por resultado — sem reabrir a arquitetura
+
+1. **P1 — F2 + Operações: comprovar o pedido na Separação (AGORA).** Abrir o Painel Central e validar **um pedido real já registrado** com itens, quantities, mapping e canal. Corrigir apenas diferença demonstrada na interface ou no vínculo canônico.
+2. **P2 — F5 + Operações: comprovar a etiqueta no mesmo fluxo (AGORA).** Localizar documento oficial já persistido, verificar associação conta + pedido + pacote, botão **IMPRIMIR**, abertura e impressão. Não confundir resumo interno com etiqueta Shopee.
+3. **P3 — F1: manter e observar importador recorrente existente.** Comparar pedidos Live com resultados do Core, sem criar outro scheduler/worker. Investigar deadline somente quando houver falha material e evidência correlacionada.
+4. **P4 — Operações/F5: fechar preparação física e coleta.** Respeitar contrato de impressão, aguardando coleta e baixa única idempotente; sem automatizar `finalized` por `SHIPPED` genérico.
+5. **P5 — F1/F5: ampliar automação logística.** Reduzir Seller Center por capacidade real da Open Platform, inclusive fiscal/organização do envio, sem bloquear P1/P2. Avaliar transição do importador independente para ciclo compartilhado **depois** da prova operacional; sem competição entre escritores.
+
+### 12.4 Regras de eficiência comprovadas em 10/11
+
+- **Não transformar hipótese em bloqueio:** uma divergência comprovada do uso real orienta a próxima correção; guardas úteis no GitHub não substituem a prova da interface.
+- **Fonte e prova por camada:** PR mergeada ≠ Edge deploy; Edge deploy ≠ Cloud Run 100%; PDF persistido ≠ etiqueta imprimível; HTTP 200 do health ≠ pedido/Separação validados.
+- **Diagnosticar efeito, não somente log:** `DEADLINE_EXCEEDED` requer cruzamento com Pedido/Itens/Separação antes de repetir ou classificar como perda de pedido.
+- **Usar revisões e caminhos reais:** consultar tag em vez de supor nome; testar revisão 0% sem promover tráfego; não colar exemplos JSON como comandos no Shell.
+- **Não extrapolar permissão:** a autorização pontual de construtor Lovable para deploy foi encerrada; quando usada, houve edição indevida de arquivo Saúde, revertida pela PR #550. Manter GitHub como editor oficial e delimitar a exceção de publicação.
+- **Não apagar patrimônio:** preservar arquiteturas, provas, contas, tombstones, PDFs, migrations e históricos; se o caminho atual atende P1/P2, reaproveitá-lo sem reconstruir.
+
+### 12.5 Checkpoint transferível
+
+**RESULTADO:** F1/F2/F5 implementadas em grau suficiente para iniciar prova de uso da Central de Separação; ciclo compartilhado Adão pronto tecnicamente mas OFF.  
+**FONTES / PROVAS:** Core Lovable Cloud (consultas SQL de 10/11), Cloud Run/Cloud Scheduler (capturas e comandos de 10/11), GitHub PRs #537, #538, #548, #550, #565, Mapa Mestre V2, Panorama V1.1 (06/11).  
+**PENDÊNCIA MATERIAL:** visibilidade e composição de um pedido Shopee real no Painel e acesso à etiqueta oficial no card.  
+**PRÓXIMA AÇÃO ÚNICA:** abrir a Central de Separação do Painel Central, localizar pedido real e confrontar seu card e impressão com `orders`/`order_items`/`order_separation`/`order_documents`.  
+**NÃO ALTERAR NESTE CHECKPOINT:** dados produtivos, scheduler, OAuth, Cloud Run, Edge Function, etiquetas, estoque, roteamento fiscal ou código funcional.
+
