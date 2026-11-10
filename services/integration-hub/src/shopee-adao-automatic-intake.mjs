@@ -121,7 +121,7 @@ export function createAdaoAutomaticIntake({
           cursor,
           pageSize: ADAO_AUTO_INTAKE_SCOPE.pageSize,
           timeRangeField: 'update_time',
-          responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time'],
+          responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time', 'buyer_message'],
         });
       } catch {
         return { ...report, code: 'shopee_discovery_exception', stopped: true,
