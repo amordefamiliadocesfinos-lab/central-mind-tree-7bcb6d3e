@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Dumbbell,
   Loader2,
@@ -195,6 +197,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [loadUnit, setLoadUnit] = useState("kg");
   const [reps, setReps] = useState("");
   const [rir, setRir] = useState("");
+  const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const alertedRestId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -212,7 +215,7 @@ export function HealthWorkoutInteractiveTimerF19({
       (item) => item.status === "completed",
     ).length;
 
-  const currentExercise = useMemo(() => {
+  const activeExercise = useMemo(() => {
     if (timer.activeInterval) {
       return (
         orderedExercises.find(
@@ -239,24 +242,59 @@ export function HealthWorkoutInteractiveTimerF19({
     );
   }, [orderedExercises, setsByExercise, timer.activeInterval]);
 
+  useEffect(() => {
+    if (!orderedExercises.length) {
+      setViewedExerciseId(null);
+      return;
+    }
+
+    if (!viewedExerciseId) {
+      setViewedExerciseId(activeExercise?.id ?? orderedExercises[0].id);
+      return;
+    }
+
+    if (!orderedExercises.some((item) => item.id === viewedExerciseId)) {
+      setViewedExerciseId(activeExercise?.id ?? orderedExercises[0].id);
+    }
+  }, [activeExercise?.id, orderedExercises, viewedExerciseId]);
+
+  const viewedExercise =
+    orderedExercises.find((item) => item.id === viewedExerciseId) ??
+    activeExercise ??
+    orderedExercises[0] ??
+    null;
+
+  const viewedIndex = viewedExercise
+    ? orderedExercises.findIndex((item) => item.id === viewedExercise.id)
+    : -1;
+
+  const previousExercise =
+    viewedIndex > 0 ? orderedExercises[viewedIndex - 1] : null;
+  const nextExercise =
+    viewedIndex >= 0 && viewedIndex < orderedExercises.length - 1
+      ? orderedExercises[viewedIndex + 1]
+      : null;
+
+  const currentExercise = activeExercise;
+
   const nextDifferentExercise = useMemo(() => {
-    if (!currentExercise) return null;
+    if (!activeExercise) return null;
 
     const candidates = orderedExercises.filter(
       (item) =>
-        item.id !== currentExercise.id &&
+        item.id !== activeExercise.id &&
         isExecutable(item) &&
         performedCount(item.id) < plannedMax(item),
     );
 
     return (
       candidates.find(
-        (item) => item.sequence_order > currentExercise.sequence_order,
+        (item) => item.sequence_order > activeExercise.sequence_order,
       ) ??
       candidates[0] ??
       null
     );
-  }, [currentExercise, orderedExercises, setsByExercise]);
+  }, [activeExercise, orderedExercises, setsByExercise]);
 
   const activeElapsed = timer.activeInterval
     ? intervalElapsed(timer.activeInterval, nowMs)
@@ -289,6 +327,15 @@ export function HealthWorkoutInteractiveTimerF19({
   const currentSets = currentExercise
     ? setsByExercise.get(currentExercise.id) ?? []
     : [];
+
+  const viewedSets = viewedExercise
+    ? setsByExercise.get(viewedExercise.id) ?? []
+    : [];
+
+  const viewingActiveExercise =
+    viewedExercise != null &&
+    currentExercise != null &&
+    viewedExercise.id === currentExercise.id;
 
   const restSet =
     activeRest?.workout_set_id != null
@@ -438,7 +485,68 @@ export function HealthWorkoutInteractiveTimerF19({
             }
             aria-label={sessionPaused ? "Retomar treino" : "Pausar treino"}
           >
-            {sessionPaused ? (
+            <Card className="border-primary/15">
+        <CardContent className="px-3 py-3">
+          <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+            <Button
+              size="icon"
+              variant="outline"
+              className="min-h-11 min-w-11"
+              disabled={!previousExercise}
+              onClick={() =>
+                previousExercise && setViewedExerciseId(previousExercise.id)
+              }
+              aria-label="Exercício anterior"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+
+            <div className="min-w-0 text-center">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Exercício {viewedIndex + 1} de {orderedExercises.length}
+              </p>
+              <p className="truncate text-base font-semibold">
+                {viewedExercise
+                  ? exerciseNameById.get(viewedExercise.exercise_id) ??
+                    "Exercício"
+                  : "—"}
+              </p>
+              {viewingActiveExercise ? (
+                <div className="mt-1 flex items-center justify-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-xs font-semibold text-primary">
+                    EM EXECUÇÃO
+                  </span>
+                </div>
+              ) : currentExercise ? (
+                <button
+                  type="button"
+                  className="mt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  onClick={() => setViewedExerciseId(currentExercise.id)}
+                >
+                  Em execução:{" "}
+                  {exerciseNameById.get(viewedExercise.exercise_id) ??
+                    "Exercício"}{" "}
+                  · voltar
+                </button>
+              ) : null}
+            </div>
+
+            <Button
+              size="icon"
+              variant="outline"
+              className="min-h-11 min-w-11"
+              disabled={!nextExercise}
+              onClick={() => nextExercise && setViewedExerciseId(nextExercise.id)}
+              aria-label="Próximo exercício"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {sessionPaused ? (
               <Play className="h-5 w-5" />
             ) : (
               <Pause className="h-5 w-5" />
@@ -461,8 +569,8 @@ export function HealthWorkoutInteractiveTimerF19({
             </Button>
           </CardContent>
         </Card>
-      ) : currentExercise ? (
-        <Card>
+      ) : viewedExercise ? (
+        <Card className={viewingActiveExercise ? "ring-1 ring-primary/25" : undefined}>
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -475,20 +583,73 @@ export function HealthWorkoutInteractiveTimerF19({
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Série{" "}
-                  {timer.activeInterval?.set_number ??
-                    completedOnCurrent + 1}{" "}
-                  · plano {minSets}
-                  {maxSets !== minSets ? `–${maxSets}` : ""} séries
+                  {viewingActiveExercise
+                    ? `Série ${timer.activeInterval?.set_number ?? completedOnCurrent + 1}`
+                    : `${viewedSets.filter((item) => item.status === "completed").length} série(s) concluída(s)`}
+                  {" · "}
+                  plano {plannedMin(viewedExercise)}
+                  {plannedMax(viewedExercise) !== plannedMin(viewedExercise)
+                    ? `–${plannedMax(viewedExercise)}`
+                    : ""} séries
                 </p>
               </div>
               <Badge variant="outline">
-                {currentExercise.planned_reps_min ?? "—"}–
-                {currentExercise.planned_reps_max ?? "—"} reps
+                {viewedExercise.planned_reps_min ?? "—"}–
+                {viewedExercise.planned_reps_max ?? "—"} reps
               </Badge>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {!viewingActiveExercise ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <p className="text-sm font-semibold">Visualização do exercício</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Este exercício não está em execução agora. Você pode consultar
+                    a prescrição e o histórico, mas os controles ficam bloqueados
+                    até ele se tornar o exercício ativo.
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    RIR alvo {viewedExercise.planned_rir_target ?? "—"} · descanso{" "}
+                    {viewedExercise.planned_rest_seconds != null
+                      ? `${viewedExercise.planned_rest_seconds}s`
+                      : "—"}
+                  </p>
+                </div>
+
+                {viewedSets.length ? (
+                  <div className="space-y-2">
+                    {viewedSets
+                      .filter((item) => item.status === "completed")
+                      .map((set) => (
+                        <div
+                          key={set.id}
+                          className="rounded-lg bg-muted/35 px-3 py-2 text-sm"
+                        >
+                          <span className="font-semibold">#{set.set_number}</span>
+                          {" · "}
+                          {set.load_value ?? "—"} {set.load_unit}
+                          {" · "}
+                          {set.reps ?? "—"} reps
+                          {" · RIR "}
+                          {set.rir ?? "—"}
+                          {set.rest_seconds != null
+                            ? ` · ${set.rest_seconds}s`
+                            : ""}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhuma série registrada neste exercício ainda.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {viewingActiveExercise ? (
+              <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="space-y-1">
                 <Label className="text-xs">Carga</Label>
@@ -767,6 +928,8 @@ export function HealthWorkoutInteractiveTimerF19({
                 </Button>
               </>
             )}
+              </>
+            ) : null}
           </CardContent>
         </Card>
       ) : (
