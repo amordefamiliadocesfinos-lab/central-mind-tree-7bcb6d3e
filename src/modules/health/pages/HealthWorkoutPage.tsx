@@ -55,9 +55,9 @@ function WorkoutExerciseCard({
 }) {
   const [load, setLoad] = useState("");
   const [loadUnit, setLoadUnit] = useState("kg");
-  const [reps, setReps] = useState(item.planned_reps_min?.toString() ?? "");
-  const [rir, setRir] = useState(item.planned_rir_target?.toString() ?? "");
-  const [rest, setRest] = useState(item.planned_rest_seconds?.toString() ?? "");
+  const [reps, setReps] = useState("");
+  const [rir, setRir] = useState("");
+  const [rest, setRest] = useState("");
   const [replacementId, setReplacementId] = useState("");
 
   const locked = item.status === "skipped" || item.status === "replaced";
@@ -110,15 +110,15 @@ function WorkoutExerciseCard({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Reps</Label>
-                <Input className="min-h-11" inputMode="numeric" value={reps} onChange={(event) => setReps(event.target.value)} />
+                <Input className="min-h-11" inputMode="numeric" value={reps} onChange={(event) => setReps(event.target.value)} placeholder={item.planned_reps_min != null ? `plano ${item.planned_reps_min}–${item.planned_reps_max ?? item.planned_reps_min}` : "opcional"} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">RIR</Label>
-                <Input className="min-h-11" inputMode="decimal" value={rir} onChange={(event) => setRir(event.target.value)} />
+                <Input className="min-h-11" inputMode="decimal" value={rir} onChange={(event) => setRir(event.target.value)} placeholder={item.planned_rir_target != null ? `alvo ${item.planned_rir_target}` : "opcional"} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Desc. s</Label>
-                <Input className="min-h-11" inputMode="numeric" value={rest} onChange={(event) => setRest(event.target.value)} />
+                <Input className="min-h-11" inputMode="numeric" value={rest} onChange={(event) => setRest(event.target.value)} placeholder={item.planned_rest_seconds != null ? `alvo ${item.planned_rest_seconds}s` : "opcional"} />
               </div>
             </div>
 
