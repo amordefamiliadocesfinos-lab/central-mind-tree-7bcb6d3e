@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fitOfficialPdfPage } from '../src/lib/orders/printCombinedShopeeLabelLayout.mjs';
+import { fitOfficialPdfPage } from './printCombinedShopeeLabelLayout.mjs';
 
 test('A4 official page retains dimensions on A4 sheet', () => {
   const p = fitOfficialPdfPage(595, 842, 595, 842);
