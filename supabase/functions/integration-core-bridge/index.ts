@@ -75,6 +75,11 @@ function sanitizeIntakeOrder(order: Record<string, unknown>) {
     currency: order.currency ?? null,
     total_amount: order.total_amount ?? null,
     payment_method: order.payment_method ?? null,
+    // Shopee buyer note is required on the combined picking sheet.
+    // Preserve the upstream field through Core's sanitized snapshot; the
+    // normalizer and order writer already support it.
+    message_to_seller: typeof order.message_to_seller === 'string'
+      ? order.message_to_seller.slice(0, 4000) : null,
     shipping_carrier: order.shipping_carrier ?? null,
     item_list: itemList,
   };

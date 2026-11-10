@@ -2,16 +2,17 @@
  * F6-O.2e.4 — third print option, generated only in the browser.
  * The Shopee PDF in private Storage is NEVER modified or overwritten.
  *
- * pdfjs renders its page at 4 pixels per PDF point (roughly 288 dpi on A4).
- * This print-only raster copy keeps the official geometry unchanged; the
- * original vector PDF remains available through the existing print button.
- * Use the extra page rather than crowding the official codes.
+ * pdfjs renders at 4 pixels per PDF point (roughly 288 dpi on A4).
+ * The COMBINED option uses only the first official label page and places
+ * the picking composition/observations below it on one A4 sheet.
+ * The original full PDF, including any DACE page, remains available unchanged
+ * through the regular official-document print action.
  */
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { supabase } from '@/integrations/supabase/client';
 import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
-import { fitOfficialPdfPage } from './printCombinedShopeeLabelLayout.mjs';
+import { fitOfficialPdfPage, fitCompactCompositionScale } from './printCombinedShopeeLabelLayout.mjs';
 import type { Order } from '@/hooks/useOrders';
 import type { OrderDocument } from '@/hooks/useOrderSeparation';
 
@@ -23,7 +24,6 @@ const A4_WIDTH = Math.round(595.28 * SCALE);
 const A4_HEIGHT = Math.round(841.89 * SCALE);
 const MARGIN = 32 * SCALE;
 const BOTTOM_GAP = 18 * SCALE;
-const MIN_AVAILABLE = 72 * SCALE;
 const MAX_PAGES = 8;
 
 type PrintLine = { value: string; height: number; font: string; before: number };
@@ -40,8 +40,14 @@ function formatLines(order: Order): Array<{ value: string; heading?: boolean }> 
     { value: 'COMPOSIÇÃO INTERNA', heading: true },
   ];
   // Same physical/commercial composition shown in the Separation card.
+  let previousProduct = '';
   for (const group of createSeparationDisplayEntries(order.items ?? [])) {
-    lines.push({ value: group.productName, heading: true });
+    // Repeated physical lines for one product do not need the same heading on
+    // every row; compact the picker list without dropping variants or totals.
+    if (group.productName !== previousProduct) {
+      lines.push({ value: group.productName, heading: true });
+      previousProduct = group.productName;
+    }
     if (group.presentationName) lines.push({ value: group.presentationName });
     if (group.commercialSummary) lines.push({ value: group.commercialSummary });
     if (group.composition) lines.push({ value: group.composition });
@@ -129,36 +135,33 @@ function blankPage(width: number, height: number): PrintPage {
   return { canvas, context };
 }
 
-function drawRows(
-  rows: PrintLine[],
-  pages: PrintPage[],
-  firstPageStart: number,
-  width: number,
-  height: number,
-  forceNewPage: boolean,
-): void {
-  const totalHeight = rows.reduce((total, row) => total + row.before + row.height, 0);
-  let target = pages[pages.length - 1];
-  let y = firstPageStart;
-  if (forceNewPage || height - MARGIN - firstPageStart < MIN_AVAILABLE
-      || totalHeight > height - MARGIN - firstPageStart) {
-    target = blankPage(width, height);
-    pages.push(target);
-    y = MARGIN;
+/** On the print-only A4 copy, fit the picking details below the last label ink.
+ * Never place text over official barcodes, silently crop rows or add another
+ * sheet in the combined one-page action. Existing official PDF remains intact.
+ */
+function drawCompactFirstSheet(rows: PrintLine[], page: PrintPage, startY: number): void {
+  const totalHeight = rows.reduce((sum, row) => sum + row.before + row.height, 0);
+  const usableHeight = page.canvas.height - MARGIN - startY;
+  if (!(usableHeight > 0) || totalHeight <= 0) {
+    throw new Error('Não há espaço para a composição nesta folha.');
   }
-  for (const row of rows) {
-    if (y + row.before + row.height > height - MARGIN) {
-      if (pages.length >= MAX_PAGES) throw new Error('Composição excede o limite seguro de páginas.');
-      target = blankPage(width, height);
-      pages.push(target);
-      y = MARGIN;
+  const scale = fitCompactCompositionScale(totalHeight, usableHeight);
+  const ctx = page.context;
+  ctx.save();
+  try {
+    ctx.translate(MARGIN, startY);
+    ctx.scale(scale, scale);
+    let y = 0;
+    for (const row of rows) {
+      y += row.before;
+      ctx.font = row.font;
+      ctx.fillStyle = '#111';
+      ctx.textBaseline = 'top';
+      ctx.fillText(row.value, 0, y);
+      y += row.height;
     }
-    y += row.before;
-    target.context.font = row.font;
-    target.context.fillStyle = '#111';
-    target.context.textBaseline = 'top';
-    target.context.fillText(row.value, MARGIN, y, width - 2 * MARGIN);
-    y += row.height;
+  } finally {
+    ctx.restore();
   }
 }
 
@@ -207,35 +210,25 @@ export async function prepareCombinedShopeeLabel(order: Order, official: OrderDo
     const pdf = await task.promise;
     if (pdf.numPages < 1 || pdf.numPages > 4) throw new Error('Formato de etiqueta não suportado.');
 
-    const pages: PrintPage[] = [];
-    let originalLastInk = 0;
-    let singlePageFitsA4 = false;
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const source = page.getViewport({ scale: 1 });
-      const placement = fitOfficialPdfPage(source.width, source.height, 595.28, 841.89);
-      const viewport = page.getViewport({ scale: placement.scale * SCALE });
-      const printedPage = blankPage(A4_WIDTH, A4_HEIGHT);
-      // PDF.js renders to the correct location on an A4 sheet; never stretch
-      // barcodes, alter aspect ratio or discard a second official page (DACE).
-      await page.render({
-        canvas: printedPage.canvas,
-        canvasContext: printedPage.context,
-        viewport,
-        transform: [1, 0, 0, 1, placement.x * SCALE, placement.y * SCALE],
-      }).promise;
-      pages.push(printedPage);
-      if (pdf.numPages === 1 && Math.abs(source.width / source.height - 210 / 297) <= 0.035) {
-        singlePageFitsA4 = true;
-        originalLastInk = lastInkY(printedPage.context, A4_WIDTH, A4_HEIGHT);
-      }
-    }
-
-    const rows = buildTextRows(pages[pages.length - 1].context, order, A4_WIDTH - 2 * MARGIN);
-    // Preserve Viviane's one-page behavior; multi-page/mixed-size Shopee PDFs
-    // always get a dedicated composition page after ALL official pages.
-    drawRows(rows, pages, originalLastInk + BOTTOM_GAP, A4_WIDTH, A4_HEIGHT,
-      pdf.numPages !== 1 || !singlePageFitsA4);
+    // The COMBINED button is a compact picking sheet: retain the first official
+    // label page only. The original Shopee PDF, including page 2 (DACE when
+    // present), remains unchanged and available under normal 'IMPRIMIR'.
+    const first = await pdf.getPage(1);
+    const source = first.getViewport({ scale: 1 });
+    const placement = fitOfficialPdfPage(source.width, source.height, 595.28, 841.89);
+    const viewport = first.getViewport({ scale: placement.scale * SCALE });
+    const sheet = blankPage(A4_WIDTH, A4_HEIGHT);
+    await first.render({
+      canvas: sheet.canvas,
+      canvasContext: sheet.context,
+      viewport,
+      // Top-align: the spare A4 area belongs to composition/observations.
+      transform: [1, 0, 0, 1, placement.x * SCALE, 0],
+    }).promise;
+    const lastInk = lastInkY(sheet.context, A4_WIDTH, A4_HEIGHT);
+    const rows = buildTextRows(sheet.context, order, A4_WIDTH - 2 * MARGIN);
+    drawCompactFirstSheet(rows, sheet, lastInk + BOTTOM_GAP);
+    const pages = [sheet];
 
     // Fully render images before opening ANY new tab. This is the core fix.
     return await Promise.all(pages.map(page => asPngBlob(page.canvas)));
