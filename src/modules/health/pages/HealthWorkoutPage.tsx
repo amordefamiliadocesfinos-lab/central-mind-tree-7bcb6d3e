@@ -263,12 +263,12 @@ export function HealthWorkoutPage() {
 
       <details className="rounded-xl border bg-muted/10 p-3">
         <summary className="cursor-pointer text-sm font-medium">
-          Detalhes e correções manuais
+          Correções e ferramentas avançadas
         </summary>
         <p className="mt-2 text-xs text-muted-foreground">
-          Use esta área para revisar o histórico do treino, corrigir séries antigas,
-          substituir, pular ou adicionar exercícios. Os dados da série atual ficam
-          sempre visíveis no card principal acima.
+          A execução normal fica travada no exercício selecionado acima e a troca
+          entre exercícios é feita pelas setas. Abra esta área apenas para exceções:
+          corrigir séries antigas, substituir, pular ou adicionar exercícios.
         </p>
 
         <div className="mt-4 space-y-4">
