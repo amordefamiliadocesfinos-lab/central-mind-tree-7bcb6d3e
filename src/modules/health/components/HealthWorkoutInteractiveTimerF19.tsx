@@ -231,6 +231,15 @@ export function HealthWorkoutInteractiveTimerF19({
       );
     }
 
+    const unfinishedActive =
+      orderedExercises.find(
+        (item) =>
+          item.status === "active" &&
+          performedCount(item.id) < plannedMax(item),
+      ) ?? null;
+
+    if (unfinishedActive) return unfinishedActive;
+
     return (
       orderedExercises.find(
         (item) =>
@@ -243,13 +252,19 @@ export function HealthWorkoutInteractiveTimerF19({
   const nextDifferentExercise = useMemo(() => {
     if (!currentExercise) return null;
 
+    const candidates = orderedExercises.filter(
+      (item) =>
+        item.id !== currentExercise.id &&
+        isExecutable(item) &&
+        performedCount(item.id) < plannedMax(item),
+    );
+
     return (
-      orderedExercises.find(
-        (item) =>
-          item.sequence_order > currentExercise.sequence_order &&
-          isExecutable(item) &&
-          performedCount(item.id) < plannedMax(item),
-      ) ?? null
+      candidates.find(
+        (item) => item.sequence_order > currentExercise.sequence_order,
+      ) ??
+      candidates[0] ??
+      null
     );
   }, [currentExercise, orderedExercises, setsByExercise]);
 
