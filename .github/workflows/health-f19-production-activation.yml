@@ -2,40 +2,18 @@ name: Health F19 Production Activation
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - .github/f19-production-activation-trigger.txt
 
 permissions:
   contents: read
 
-concurrency:
-  group: health-f19-production-activation
-  cancel-in-progress: false
-
 jobs:
-  activate:
+  activate-f19:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      PROD_REF: xkskyutmtlhivvpfxkjg
-      F19_VERSION: "20261110005023"
-
-      URL_A: ${{ secrets.PRODUCTION_DATABASE_URL }}
-      URL_B: ${{ secrets.PROD_DATABASE_URL }}
-      URL_C: ${{ secrets.SUPABASE_PRODUCTION_DATABASE_URL }}
-      URL_D: ${{ secrets.SUPABASE_PROD_DATABASE_URL }}
-      URL_E: ${{ secrets.SUPABASE_DATABASE_URL }}
-
-      TOKEN_A: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      TOKEN_B: ${{ secrets.PRODUCTION_SUPABASE_ACCESS_TOKEN }}
-      TOKEN_C: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
-      TOKEN_D: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
-
-      PW_A: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      PW_B: ${{ secrets.PRODUCTION_SUPABASE_DB_PASSWORD }}
-      PW_C: ${{ secrets.PROD_SUPABASE_DB_PASSWORD }}
-      PW_D: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -44,82 +22,73 @@ jobs:
         with:
           version: 3.1.0
 
-      - name: Verify CLI syntax before production use
+      - name: Activate only F19 on canonical production
         shell: bash
+        env:
+          PROD_REF: xkskyutmtlhivvpfxkjg
+          F19_VERSION: "20261110005023"
+
+          URL_A: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          URL_B: ${{ secrets.PROD_DATABASE_URL }}
+          URL_C: ${{ secrets.SUPABASE_PRODUCTION_DATABASE_URL }}
+          URL_D: ${{ secrets.SUPABASE_PROD_DATABASE_URL }}
+          URL_E: ${{ secrets.SUPABASE_DATABASE_URL }}
+
+          TOKEN_A: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TOKEN_B: ${{ secrets.PRODUCTION_SUPABASE_ACCESS_TOKEN }}
+          TOKEN_C: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
+          TOKEN_D: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
+
+          PW_A: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PW_B: ${{ secrets.PRODUCTION_SUPABASE_DB_PASSWORD }}
+          PW_C: ${{ secrets.PROD_SUPABASE_DB_PASSWORD }}
+          PW_D: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
         run: |
           set -euo pipefail
+
           supabase --version
           supabase db query --help | grep -q -- '--remote'
           supabase migration repair --help | grep -q -- '--remote'
 
-      - name: Resolve production credentials without exposing secrets
-        shell: bash
-        run: |
-          set -euo pipefail
+          remote=""
 
-          selected_url=""
           for candidate in "$URL_A" "$URL_B" "$URL_C" "$URL_D" "$URL_E"; do
             if [ -n "$candidate" ]; then
-              selected_url="$candidate"
+              python3 -c 'import sys; from urllib.parse import urlparse; u=urlparse(sys.argv[1]); identity=(u.hostname or "")+"|"+(u.username or ""); ref=sys.argv[2]; sys.exit(0 if ref in identity else 23)' "$candidate" "$PROD_REF"
+              echo "::add-mask::$candidate"
+              remote="$candidate"
               break
             fi
           done
 
-          if [ -n "$selected_url" ]; then
-            python3 -c 'import sys; from urllib.parse import urlparse; u=urlparse(sys.argv[1]); identity=(u.hostname or "")+"|"+(u.username or ""); ref=sys.argv[2]; sys.exit(0 if ref in identity else "Refusing database URL: it does not identify the canonical production ref")' "$selected_url" "$PROD_REF"
-            echo "::add-mask::$selected_url"
-            echo "F19_REMOTE=$selected_url" >> "$GITHUB_ENV"
-            echo "F19_REMOTE_MODE=url" >> "$GITHUB_ENV"
-            echo "Production target resolved from a production database URL."
-            exit 0
-          fi
+          if [ -z "$remote" ]; then
+            token=""
+            for candidate in "$TOKEN_A" "$TOKEN_B" "$TOKEN_C" "$TOKEN_D"; do
+              if [ -n "$candidate" ]; then
+                token="$candidate"
+                break
+              fi
+            done
 
-          selected_token=""
-          for candidate in "$TOKEN_A" "$TOKEN_B" "$TOKEN_C" "$TOKEN_D"; do
-            if [ -n "$candidate" ]; then
-              selected_token="$candidate"
-              break
+            if [ -z "$token" ]; then
+              echo "F19_PRODUCTION_ACTIVATION_BLOCKED_NO_CREDENTIALS"
+              exit 24
             fi
-          done
 
-          if [ -z "$selected_token" ]; then
-            echo "F19_ACTIVATION_AVAILABLE=false" >> "$GITHUB_ENV"
-            echo "No production database URL or Supabase access token is configured."
-            exit 0
+            echo "::add-mask::$token"
+            export SUPABASE_ACCESS_TOKEN="$token"
+            remote="$PROD_REF"
+
+            for candidate in "$PW_A" "$PW_B" "$PW_C" "$PW_D"; do
+              if [ -n "$candidate" ]; then
+                echo "::add-mask::$candidate"
+                export SUPABASE_DB_PASSWORD="$candidate"
+                break
+              fi
+            done
           fi
 
-          echo "::add-mask::$selected_token"
-          echo "SUPABASE_ACCESS_TOKEN=$selected_token" >> "$GITHUB_ENV"
-          echo "F19_REMOTE=$PROD_REF" >> "$GITHUB_ENV"
-          echo "F19_REMOTE_MODE=project_ref" >> "$GITHUB_ENV"
-
-          selected_pw=""
-          for candidate in "$PW_A" "$PW_B" "$PW_C" "$PW_D"; do
-            if [ -n "$candidate" ]; then
-              selected_pw="$candidate"
-              break
-            fi
-          done
-
-          if [ -n "$selected_pw" ]; then
-            echo "::add-mask::$selected_pw"
-            echo "SUPABASE_DB_PASSWORD=$selected_pw" >> "$GITHUB_ENV"
-          fi
-
-          echo "F19_ACTIVATION_AVAILABLE=true" >> "$GITHUB_ENV"
-          echo "Production target resolved from canonical project ref."
-
-      - name: Stop if production credentials are unavailable
-        if: env.F19_REMOTE == ''
-        run: |
-          echo "F19_PRODUCTION_ACTIVATION_BLOCKED_NO_CREDENTIALS"
-          exit 1
-
-      - name: Preflight canonical production F19 state
-        shell: bash
-        run: |
-          set -euo pipefail
-          output="$(supabase db query "
+          preflight="$(supabase db query "
             WITH state AS (
               SELECT
                 to_regclass('public.health_workout_sessions') IS NOT NULL AS sessions_ok,
@@ -160,7 +129,7 @@ jobs:
             SELECT
               CASE
                 WHEN sessions_ok AND exercises_ok AND sets_ok AND events_ok
-                  THEN 'M4_BASELINE_OK'
+                THEN 'M4_BASELINE_OK'
                 ELSE 'M4_BASELINE_BAD'
               END AS baseline,
               CASE
@@ -174,7 +143,7 @@ jobs:
                  AND NOT finish_work_rpc_ok
                  AND NOT finish_rest_rpc_ok
                  AND NOT cancel_rpc_ok
-                  THEN 'F19_ABSENT'
+                THEN 'F19_ABSENT'
                 WHEN timer_paused_at_ok
                  AND pause_seconds_ok
                  AND work_seconds_ok
@@ -185,68 +154,57 @@ jobs:
                  AND finish_work_rpc_ok
                  AND finish_rest_rpc_ok
                  AND cancel_rpc_ok
-                  THEN 'F19_PRESENT'
+                THEN 'F19_PRESENT'
                 ELSE 'F19_PARTIAL'
               END AS f19_state,
-              CASE WHEN history_ok THEN 'F19_HISTORY_PRESENT' ELSE 'F19_HISTORY_ABSENT' END AS history_state
+              CASE
+                WHEN history_ok THEN 'F19_HISTORY_PRESENT'
+                ELSE 'F19_HISTORY_ABSENT'
+              END AS history_state
             FROM state;
-          " --read-only --remote="$F19_REMOTE" 2>&1)"
-          printf '%s
-' "$output"
+          " --read-only --remote="$remote" 2>&1)"
 
-          grep -q 'M4_BASELINE_OK' <<<"$output"
+          echo "$preflight"
+          grep -q 'M4_BASELINE_OK' <<<"$preflight"
 
-          if grep -q 'F19_PARTIAL' <<<"$output"; then
-            echo "Partial F19 schema detected. Refusing production activation."
-            exit 1
+          if grep -q 'F19_PARTIAL' <<<"$preflight"; then
+            echo "Partial F19 schema detected. Refusing."
+            exit 25
           fi
 
-          if grep -q 'F19_ABSENT' <<<"$output"; then
-            echo "F19_SCHEMA_PRESENT=false" >> "$GITHUB_ENV"
-          else
-            grep -q 'F19_PRESENT' <<<"$output"
-            echo "F19_SCHEMA_PRESENT=true" >> "$GITHUB_ENV"
+          schema_present=false
+          history_present=false
+
+          if grep -q 'F19_PRESENT' <<<"$preflight"; then
+            schema_present=true
           fi
 
-          if grep -q 'F19_HISTORY_PRESENT' <<<"$output"; then
-            echo "F19_HISTORY_PRESENT=true" >> "$GITHUB_ENV"
-          else
-            echo "F19_HISTORY_PRESENT=false" >> "$GITHUB_ENV"
+          if grep -q 'F19_HISTORY_PRESENT' <<<"$preflight"; then
+            history_present=true
           fi
 
-      - name: Refuse impossible history/schema mismatch
-        if: env.F19_SCHEMA_PRESENT == 'false' && env.F19_HISTORY_PRESENT == 'true'
-        run: |
-          echo "Migration history says F19 is applied but schema is absent. Refusing."
-          exit 1
+          if [ "$schema_present" = false ] && [ "$history_present" = true ]; then
+            echo "History/schema mismatch. Refusing."
+            exit 26
+          fi
 
-      - name: Apply exactly the F19 versioned migration
-        if: env.F19_SCHEMA_PRESENT == 'false'
-        shell: bash
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp)"
-          {
-            echo 'BEGIN;'
-            cat supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql
-            echo 'COMMIT;'
-          } > "$tmp"
+          if [ "$schema_present" = false ]; then
+            tmp="$(mktemp)"
+            {
+              echo 'BEGIN;'
+              cat supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql
+              echo 'COMMIT;'
+            } > "$tmp"
 
-          supabase db query --file "$tmp" --yes --remote="$F19_REMOTE"
-          rm -f "$tmp"
+            supabase db query --file "$tmp" --yes --remote="$remote"
+            rm -f "$tmp"
+          fi
 
-      - name: Record F19 migration in remote history
-        if: env.F19_HISTORY_PRESENT == 'false'
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase migration repair "$F19_VERSION"             --status applied             --yes             --remote="$F19_REMOTE"
+          if [ "$history_present" = false ]; then
+            supabase migration repair "$F19_VERSION" --status applied --yes --remote="$remote"
+          fi
 
-      - name: Production structural and authority postcheck
-        shell: bash
-        run: |
-          set -euo pipefail
-          output="$(supabase db query "
+          postcheck="$(supabase db query "
             SELECT
               CASE WHEN
                 to_regclass('public.health_workout_timer_intervals') IS NOT NULL
@@ -282,7 +240,6 @@ jobs:
               THEN 'F19_PRODUCTION_SCHEMA_PASS'
               ELSE 'F19_PRODUCTION_SCHEMA_FAIL'
               END AS schema_result,
-
               CASE WHEN
                 NOT has_table_privilege('anon','public.health_workout_timer_intervals','INSERT')
                 AND NOT has_table_privilege('anon','public.health_workout_timer_intervals','UPDATE')
@@ -305,14 +262,10 @@ jobs:
               THEN 'F19_PRODUCTION_AUTHORITY_PASS'
               ELSE 'F19_PRODUCTION_AUTHORITY_FAIL'
               END AS authority_result;
-          " --read-only --remote="$F19_REMOTE" 2>&1)"
-          printf '%s
-' "$output"
-          grep -q 'F19_PRODUCTION_SCHEMA_PASS' <<<"$output"
-          grep -q 'F19_PRODUCTION_AUTHORITY_PASS' <<<"$output"
+          " --read-only --remote="$remote" 2>&1)"
 
-      - name: Show migration history alignment
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase migration list --remote="$F19_REMOTE" | grep -E '20261110005023|LOCAL|REMOTE|─' || true
+          echo "$postcheck"
+          grep -q 'F19_PRODUCTION_SCHEMA_PASS' <<<"$postcheck"
+          grep -q 'F19_PRODUCTION_AUTHORITY_PASS' <<<"$postcheck"
+
+          echo "F19_PRODUCTION_ACTIVATION_PASS"
