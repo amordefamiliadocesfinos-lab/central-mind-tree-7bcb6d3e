@@ -1,5 +1,4 @@
 import {r2OriginalContract} from './shopee-r2-original-p4-contract.mjs';
-import { shopeeAdaoEasterCommitBlocker } from './shopee-adao-easter-commit-guard.mjs';
 import { shopeePortoGelLegacyBlocker } from './shopee-porto-gel-legacy-guard.mjs';
 import { shopeeTrufa40HistoricalBlocker } from './shopee-trufa40-historical-guard.mjs';
 import { shopeeTrufa30TemporalBlocker } from './shopee-trufa30-temporal-guard.mjs';
@@ -160,18 +159,10 @@ export function createShopeeControlledAutoIntake({
             blockers: [temporalBlocker], write: null });
           continue;
         }
-        // All productive entrypoints converge here, including single, batch and cycle.
-        // This gate is independent of mapping resolution and cannot be bypassed
-        // merely because an Easter offer is mapped.
-        if (mode === 'commit') {
-          const easterBlocker = shopeeAdaoEasterCommitBlocker(normalized);
-          if (easterBlocker) {
-            blocked += 1;
-            results.push({ orderSn, status: 'blocked',
-              blockers: [easterBlocker], write: null });
-            continue;
-          }
-        }
+        // Exact account-scoped mapping, physical composition and commercial
+        // projection are the single source of eligibility for mapped offers.
+        // Do not impose a second per-model authorization list (regular/Easter)
+        // after those mappings have already been homologated.
         const mapping = buildShopeeMappingPreview(normalized, payload.mappings, {
           channelAccountId: normalized.channelAccountId,
           marketplaceAccount,
