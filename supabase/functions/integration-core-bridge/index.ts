@@ -4,6 +4,7 @@ import { createBridgeHandler } from './handler.mjs';
 import { executeCycleAction, verifyCycleOrder } from './cycle.mjs';
 import { attachMappingPhysicalCatalog } from './mapping-physical-catalog.mjs';
 import {readShopeeScopedMappingCatalog} from './shopee-intake-mapping-catalog.mjs';
+import { ADAO_INTAKE_ACCOUNT_ID, isFreshAdaoOrderSnapshot } from './adao-intake-freshness.mjs';
 
 const CORE_ORIGIN = 'https://xkskyutmtlhivvpfxkjg.supabase.co';
 const LIVE = 'live';
@@ -179,10 +180,19 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
   let skippedExisting = 0;
   let skippedStatus = 0;
   let skippedMalformed = 0;
+  let skippedStale = 0;
 
   for (const [orderSn, row] of latestByOrder) {
     if (existingOrders.has(orderSn)) {
       skippedExisting += 1;
+      continue;
+    }
+
+    // Only Adão: a historical PROCESSED/READY_TO_SHIP raw status must not
+    // authorize a new order. Missing/old/future timestamps fail closed.
+    // Viviane and every other account preserve their previous selection flow.
+    if (channelAccountId === ADAO_INTAKE_ACCOUNT_ID && !isFreshAdaoOrderSnapshot(row)) {
+      skippedStale += 1;
       continue;
     }
 
@@ -230,6 +240,7 @@ async function readShopeeIntakeBatch(core: CoreClient, channelAccountId: string,
         skipped_existing: skippedExisting,
         skipped_status: skippedStatus,
         skipped_malformed: skippedMalformed,
+        skipped_stale: skippedStale,
       },
     },
   };
