@@ -114,6 +114,11 @@ export async function handleRequest(
         blocked: result?.blocked ?? 0,
         pages: result?.pages ?? 0,
         stopped: result?.stopped === true,
+        labels_attached: result?.labels_attached ?? 0,
+        labels_already: result?.labels_already ?? 0,
+        labels_pending: result?.labels_pending ?? 0,
+        labels_blocked: result?.labels_blocked ?? 0,
+        ...(result?.label_code ? { label_code: result.label_code } : {}),
         // Runner emits only vetted low-cardinality fields; never order IDs or tokens.
         ...(result?.diagnostic ? { diagnostic: result.diagnostic } : {}),
         ...(result?.last_blocker ? { last_blocker: result.last_blocker } : {}),
