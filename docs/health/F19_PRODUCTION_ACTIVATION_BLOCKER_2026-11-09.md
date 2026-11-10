@@ -1,65 +1,65 @@
-# F19 — PRODUCTION ACTIVATION BLOCKER — 2026-11-09
+# F19 — PRODUCTION ACTIVATION — LOVABLE CLOUD — 2026-11-09
 
 ## Status
 
-Gate B permanece **NÃO EXECUTADO**.
+**BLOQUEIO ANTERIOR RESOLVIDO.**
 
-Nenhuma alteração de banco de produção foi realizada.
+O diagnóstico anterior via conector Supabase estava correto apenas para aquele conector:
+ele não enxergava o banco canônico porque o Painel Central usa **Lovable Cloud Database
+com stack Supabase**.
 
-## Evidências
+O caminho operacional correto é o projeto Lovable:
 
-### Supabase connector
+- projeto: `PAINEL CENTRAL`
+- project id: `1720a410-34cd-4410-995c-8c92c7edf16b`
+- database: enabled
+- stack: `supabase`
 
-O conector disponível nesta conversa lista apenas:
-- `gufyjtdgsdmowubdtdvo` — PAINEL AMOR DE FAMILIA — INACTIVE;
-- `fmbarvtlfuvirwqpuydx` — painel-central-testes-mt — INACTIVE.
+## Gate B — concluído
 
-O projeto canônico de produção:
-- `xkskyutmtlhivvpfxkjg`
+Migration aplicada diretamente pelo Lovable Cloud Database:
 
-não está disponível para o conector atual.
-
-### GitHub Actions
-
-Foi criado um workflow temporário, escopado exclusivamente para:
-- production ref `xkskyutmtlhivvpfxkjg`;
-- migration `20261110005023_health_f19_interactive_workout_timers.sql`.
-
-A execução corrigida chegou ao job e encerrou com:
-
-`F19_PRODUCTION_ACTIVATION_BLOCKED_NO_CREDENTIALS`
-
-Todos os candidatos de:
-- database URL;
-- Supabase access token;
-- database password
-
-estavam vazios.
-
-O workflow encerrou antes do preflight SQL e antes de qualquer DDL.
-
-## Consequência
-
-- F19 continua implementada em Git;
-- migration continua versionada;
-- Gate B continua pendente;
-- Gate C/deploy não deve ser executado antes do backend F19;
-- nenhum PASS operacional é inferido.
-
-## Desbloqueio necessário
-
-Uma das alternativas:
-
-1. conectar o Supabase desta conversa à organização/conta que contém o projeto
-   `xkskyutmtlhivvpfxkjg`;
-
-ou
-
-2. configurar credencial de produção no GitHub Actions, preferencialmente:
-   - `SUPABASE_ACCESS_TOKEN` com acesso ao projeto canônico;
-   - `SUPABASE_DB_PASSWORD` se exigido pela conexão remota.
-
-Após o desbloqueio, aplicar somente:
 `20261110005023_health_f19_interactive_workout_timers.sql`
 
-e executar postcheck estrutural/autoridade antes do Gate C.
+Preflight antes da aplicação:
+- M4 baseline presente;
+- F19 totalmente ausente;
+- nenhum estado parcial.
+
+Postcheck:
+- `F19_SCHEMA_PASS`
+- `F19_RLS_PASS`
+- `F19_AUTHORITY_PASS`
+
+Histórico de migrations alinhado:
+- version: `20261110005023`
+- name: `health_f19_interactive_workout_timers`
+- created_by: `chatgpt_lovable_cloud`
+
+## Gate C — publicação disparada
+
+Deploy solicitado pelo mecanismo de publicação do Lovable, sem uso do construtor/agent.
+
+- deployment id: `d4e19626-f6e8-4bcf-a47d-528e0fb83c22`
+- URL: `https://central-mind-tree.lovable.app`
+- commit sincronizado no projeto: `6e51b2b35e8a36a198ba4da59ef14d6c9935907d`
+- projeto reportado como published/ready após o disparo.
+
+A API de deploy retornou inicialmente `pending`; não inferir homologação funcional
+de usuário apenas a partir da publicação.
+
+## Regra operacional corrigida
+
+Para este projeto:
+
+- Git/GitHub continua sendo a fonte de código;
+- migrations continuam versionadas em Git;
+- banco de produção é acessado pelo **Lovable Cloud Database**;
+- não usar o Lovable Builder/agent para autoria;
+- a função de database/deploy do Lovable pode ser usada como infraestrutura operacional,
+  preservando Git como fonte soberana.
+
+## Testes
+
+Nenhum teste funcional adicional foi executado nesta ativação, conforme política vigente.
+Os postchecks foram estruturais/de autoridade.
