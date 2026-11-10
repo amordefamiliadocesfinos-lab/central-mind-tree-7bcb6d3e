@@ -10,13 +10,17 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { supabase } from '@/integrations/supabase/client';
-import { formatCommercialQuantity } from '@/lib/orders/commercialOrderItem';
+import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
+import { fitOfficialPdfPage } from './printCombinedShopeeLabelLayout.mjs';
 import type { Order } from '@/hooks/useOrders';
 import type { OrderDocument } from '@/hooks/useOrderSeparation';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const SCALE = 4;
+// One A4 print sheet per official PDF page, regardless of the original page dimensions.
+const A4_WIDTH = Math.round(595.28 * SCALE);
+const A4_HEIGHT = Math.round(841.89 * SCALE);
 const MARGIN = 32 * SCALE;
 const BOTTOM_GAP = 18 * SCALE;
 const MIN_AVAILABLE = 72 * SCALE;
@@ -35,10 +39,16 @@ function formatLines(order: Order): Array<{ value: string; heading?: boolean }> 
     { value: 'PEDIDO ' + (order.internal_order_number || order.order_number || order.id.slice(0, 8)), heading: true },
     { value: 'COMPOSIÇÃO INTERNA', heading: true },
   ];
-  for (const item of order.items ?? []) {
-    const product = item.product?.name ?? 'Produto';
-    const variant = item.variant?.variant_name;
-    lines.push({ value: formatCommercialQuantity(item) + ' · ' + product + (variant ? ' — ' + variant : '') });
+  // Same physical/commercial composition shown in the Separation card.
+  for (const group of createSeparationDisplayEntries(order.items ?? [])) {
+    lines.push({ value: group.productName, heading: true });
+    if (group.presentationName) lines.push({ value: group.presentationName });
+    if (group.commercialSummary) lines.push({ value: group.commercialSummary });
+    if (group.composition) lines.push({ value: group.composition });
+    for (const component of group.components) {
+      lines.push({ value: component.label + ': ' + component.quantityText });
+    }
+    if (group.totalText) lines.push({ value: group.totalText });
   }
   if (!order.items?.length) lines.push({ value: 'Nenhum item informado' });
   const fromShopee = buyerMessage(order);
@@ -198,27 +208,34 @@ export async function prepareCombinedShopeeLabel(order: Order, official: OrderDo
     if (pdf.numPages < 1 || pdf.numPages > 4) throw new Error('Formato de etiqueta não suportado.');
 
     const pages: PrintPage[] = [];
-    let width = 0;
-    let height = 0;
     let originalLastInk = 0;
+    let singlePageFitsA4 = false;
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: SCALE });
-      if (Math.abs(viewport.width / viewport.height - 210 / 297) > 0.035) {
-        throw new Error('O formato da etiqueta não é A4. Use a etiqueta oficial.');
-      }
-      if (i === 1) { width = Math.round(viewport.width); height = Math.round(viewport.height); }
-      if (Math.abs(viewport.width - width) > 3 || Math.abs(viewport.height - height) > 3) {
-        throw new Error('Documento com páginas de dimensões diferentes.');
-      }
-      const printedPage = blankPage(width, height);
-      await page.render({ canvas: printedPage.canvas, canvasContext: printedPage.context, viewport }).promise;
-      originalLastInk = lastInkY(printedPage.context, width, height);
+      const source = page.getViewport({ scale: 1 });
+      const placement = fitOfficialPdfPage(source.width, source.height, 595.28, 841.89);
+      const viewport = page.getViewport({ scale: placement.scale * SCALE });
+      const printedPage = blankPage(A4_WIDTH, A4_HEIGHT);
+      // PDF.js renders to the correct location on an A4 sheet; never stretch
+      // barcodes, alter aspect ratio or discard a second official page (DACE).
+      await page.render({
+        canvas: printedPage.canvas,
+        canvasContext: printedPage.context,
+        viewport,
+        transform: [1, 0, 0, 1, placement.x * SCALE, placement.y * SCALE],
+      }).promise;
       pages.push(printedPage);
+      if (pdf.numPages === 1 && Math.abs(source.width / source.height - 210 / 297) <= 0.035) {
+        singlePageFitsA4 = true;
+        originalLastInk = lastInkY(printedPage.context, A4_WIDTH, A4_HEIGHT);
+      }
     }
 
-    const rows = buildTextRows(pages[pages.length - 1].context, order, width - 2 * MARGIN);
-    drawRows(rows, pages, originalLastInk + BOTTOM_GAP, width, height, pdf.numPages !== 1);
+    const rows = buildTextRows(pages[pages.length - 1].context, order, A4_WIDTH - 2 * MARGIN);
+    // Preserve Viviane's one-page behavior; multi-page/mixed-size Shopee PDFs
+    // always get a dedicated composition page after ALL official pages.
+    drawRows(rows, pages, originalLastInk + BOTTOM_GAP, A4_WIDTH, A4_HEIGHT,
+      pdf.numPages !== 1 || !singlePageFitsA4);
 
     // Fully render images before opening ANY new tab. This is the core fix.
     return await Promise.all(pages.map(page => asPngBlob(page.canvas)));
