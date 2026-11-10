@@ -6,6 +6,7 @@ import {
   Loader2,
   Pause,
   Play,
+  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,27 @@ function numberOrNull(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function numberOrUndefined(value: string) {
+  const parsed = numberOrNull(value);
+  return parsed == null ? undefined : parsed;
+}
+
+function formatElapsed(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (hours > 0) {
+    return [hours, minutes, secs]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  }
+
+  return [minutes, secs]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
+}
+
 function elapsedSeconds(
   startedAt: string,
   pauseAccumulatedSeconds: number,
@@ -48,7 +70,6 @@ function elapsedSeconds(
     status === "completed" || status === "cancelled"
       ? new Date(endedAt ?? startedAt).getTime()
       : nowMs;
-
   const currentPause =
     status === "paused" && pausedAt
       ? Math.max(0, end - new Date(pausedAt).getTime()) / 1000
@@ -77,7 +98,6 @@ function sessionElapsedSeconds(
     status === "completed" || status === "aborted"
       ? new Date(endedAt ?? startedAt).getTime()
       : nowMs;
-
   const currentPause =
     status === "paused" && pausedAt
       ? Math.max(0, end - new Date(pausedAt).getTime()) / 1000
@@ -93,71 +113,7 @@ function sessionElapsedSeconds(
   );
 }
 
-function formatElapsed(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  if (hours > 0) {
-    return [hours, minutes, secs]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":");
-  }
-
-  return [minutes, secs]
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
-}
-
-function plannedMin(item: WorkoutExercise) {
-  return item.planned_sets_min ?? item.planned_sets_max ?? 1;
-}
-
-function plannedMax(item: WorkoutExercise) {
-  return item.planned_sets_max ?? item.planned_sets_min ?? 1;
-}
-
-function isExecutable(item: WorkoutExercise) {
-  return item.status !== "skipped" &&
-    item.status !== "replaced" &&
-    item.status !== "completed";
-}
-
-function playRestReadyAlert() {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate([180, 100, 180]);
-    } catch {
-      // Vibration is best-effort only.
-    }
-  }
-
-  if (typeof window === "undefined" || !window.AudioContext) return;
-
-  try {
-    const context = new window.AudioContext();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-
-    oscillator.frequency.value = 880;
-    gain.gain.value = 0.08;
-
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.16);
-    oscillator.addEventListener("ended", () => {
-      void context.close();
-    });
-  } catch {
-    // Audio is best-effort only.
-  }
-}
-
-function intervalElapsed(
-  interval: WorkoutTimerIntervalF19,
-  nowMs: number,
-) {
+function intervalElapsed(interval: WorkoutTimerIntervalF19, nowMs: number) {
   if (
     (interval.status === "completed" || interval.status === "cancelled") &&
     interval.actual_seconds != null
@@ -173,6 +129,49 @@ function intervalElapsed(
     interval.ended_at,
     nowMs,
   );
+}
+
+function plannedMin(item: WorkoutExercise) {
+  return item.planned_sets_min ?? item.planned_sets_max ?? 1;
+}
+
+function plannedMax(item: WorkoutExercise) {
+  return item.planned_sets_max ?? item.planned_sets_min ?? 1;
+}
+
+function isExecutable(item: WorkoutExercise) {
+  return (
+    item.status !== "skipped" &&
+    item.status !== "replaced" &&
+    item.status !== "completed"
+  );
+}
+
+function playRestReadyAlert() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate([180, 100, 180]);
+    } catch {
+      // Best effort only.
+    }
+  }
+
+  if (typeof window === "undefined" || !window.AudioContext) return;
+
+  try {
+    const context = new window.AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 880;
+    gain.gain.value = 0.08;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.16);
+    oscillator.addEventListener("ended", () => void context.close());
+  } catch {
+    // Best effort only.
+  }
 }
 
 export function HealthWorkoutInteractiveTimerF19({
@@ -202,15 +201,6 @@ export function HealthWorkoutInteractiveTimerF19({
     const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (timer.activeInterval?.interval_type === "work") {
-      setLoad("");
-      setLoadUnit("kg");
-      setReps("");
-      setRir("");
-    }
-  }, [timer.activeInterval?.id, timer.activeInterval?.interval_type]);
 
   const orderedExercises = useMemo(
     () => [...exercises].sort((a, b) => a.sequence_order - b.sequence_order),
@@ -283,28 +273,36 @@ export function HealthWorkoutInteractiveTimerF19({
       )
     : Math.max(
         0,
-        Math.floor(
-          (nowMs - new Date(fallbackStartedAt).getTime()) / 1000,
-        ),
+        Math.floor((nowMs - new Date(fallbackStartedAt).getTime()) / 1000),
       );
-
-  const exerciseWorkSeconds = currentExercise
-    ? (timer.workIntervalsByExercise.get(currentExercise.id) ?? []).reduce(
-        (sum, item) => {
-          if (item.id === timer.activeInterval?.id) {
-            return sum + activeElapsed;
-          }
-          if (item.status !== "completed") return sum;
-          return sum + Number(item.actual_seconds ?? 0);
-        },
-        0,
-      )
-    : 0;
 
   const activeRest =
     timer.activeInterval?.interval_type === "rest"
       ? timer.activeInterval
       : null;
+
+  const activeWork =
+    timer.activeInterval?.interval_type === "work"
+      ? timer.activeInterval
+      : null;
+
+  const currentSets = currentExercise
+    ? setsByExercise.get(currentExercise.id) ?? []
+    : [];
+
+  const restSet =
+    activeRest?.workout_set_id != null
+      ? currentSets.find((item) => item.id === activeRest.workout_set_id) ?? null
+      : null;
+
+  useEffect(() => {
+    if (!activeRest || !restSet) return;
+
+    setLoad(restSet.load_value == null ? "" : String(restSet.load_value));
+    setLoadUnit(restSet.load_unit || "kg");
+    setReps(restSet.reps == null ? "" : String(restSet.reps));
+    setRir(restSet.rir == null ? "" : String(restSet.rir));
+  }, [activeRest?.id, restSet?.id]);
 
   const restTarget = activeRest?.target_seconds ?? null;
   const restReached =
@@ -331,7 +329,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const run = async (label: string, action: () => Promise<void>) => {
     try {
       await action();
-      toast({ title: "Cronômetro atualizado", description: label });
+      toast({ title: "Treino atualizado", description: label });
     } catch (cause) {
       toast({
         variant: "destructive",
@@ -345,10 +343,52 @@ export function HealthWorkoutInteractiveTimerF19({
   const sessionPaused = timer.sessionTiming?.status === "paused";
   const disabled = timer.saving || sessionPaused;
 
+  const completedOnCurrent = currentExercise
+    ? performedCount(currentExercise.id)
+    : 0;
+  const minSets = currentExercise ? plannedMin(currentExercise) : 0;
+  const maxSets = currentExercise ? plannedMax(currentExercise) : 0;
+  const canDoOptionalExtra =
+    currentExercise != null &&
+    completedOnCurrent >= minSets &&
+    completedOnCurrent < maxSets;
+
+  const executionValues = () => ({
+    loadValue: numberOrNull(load),
+    loadUnit,
+    reps: numberOrNull(reps),
+    rir: numberOrNull(rir),
+  });
+
+  const saveRestSetIfNeeded = async () => {
+    if (!activeRest?.workout_set_id) return;
+
+    await timer.updateSetExecution(activeRest.workout_set_id, {
+      loadValue: numberOrUndefined(load),
+      loadUnit:
+        numberOrUndefined(load) !== undefined ? loadUnit : undefined,
+      reps: numberOrUndefined(reps),
+      rir: numberOrUndefined(rir),
+    });
+  };
+
+  const finishRestWithData = async (options?: {
+    startNextWork?: boolean;
+    nextWorkoutExerciseId?: string | null;
+  }) => {
+    if (!activeRest) return;
+    await saveRestSetIfNeeded();
+    await timer.finishRest(activeRest.id, options);
+    setLoad("");
+    setLoadUnit("kg");
+    setReps("");
+    setRir("");
+  };
+
   if (timer.loading && !timer.sessionTiming) {
     return (
       <Card>
-        <CardContent className="flex min-h-32 items-center justify-center">
+        <CardContent className="flex min-h-28 items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -357,105 +397,64 @@ export function HealthWorkoutInteractiveTimerF19({
 
   if (!timer.available) {
     return (
-      <div className="space-y-3">
-        <div className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">
-                Treino em andamento
-              </p>
-              <h2 className="truncate text-lg font-semibold">{sessionTitle}</h2>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 rounded-lg bg-muted px-3 py-2 font-mono text-sm">
-              <Clock3 className="h-4 w-4" />
-              {formatElapsed(sessionElapsed)}
-            </div>
-          </div>
-        </div>
-
-        <Card className="border-amber-500/30">
-          <CardContent className="py-4">
-            <p className="text-sm font-medium">
-              Cronômetro interativo ainda não está ativo neste ambiente.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              O treino M4 continua disponível normalmente. A F19 depende da
-              migration do ambiente; nenhum timer falso é criado localmente.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-amber-500/30">
+        <CardContent className="py-4">
+          <p className="text-sm font-medium">
+            Cronômetro interativo indisponível neste ambiente.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
-  const completedOnCurrent = currentExercise
-    ? performedCount(currentExercise.id)
-    : 0;
-
-  const minSets = currentExercise ? plannedMin(currentExercise) : 0;
-  const maxSets = currentExercise ? plannedMax(currentExercise) : 0;
-  const canDoOptionalExtra =
-    currentExercise != null &&
-    completedOnCurrent >= minSets &&
-    completedOnCurrent < maxSets;
-
   return (
-    <div className="space-y-4">
-      <div className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs text-muted-foreground">Tempo ativo</p>
+    <div className="space-y-3">
+      <div className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Tempo ativo</span>
               <Badge variant="outline">
                 {sessionPaused ? "pausado" : "ativo"}
               </Badge>
             </div>
-            <h2 className="truncate text-lg font-semibold">{sessionTitle}</h2>
+            <p className="truncate text-sm font-semibold">{sessionTitle}</p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="rounded-lg bg-muted px-3 py-2 font-mono text-base font-semibold">
-              {formatElapsed(sessionElapsed)}
-            </div>
-            <Button
-              size="icon"
-              variant={sessionPaused ? "default" : "outline"}
-              className="min-h-11 min-w-11"
-              disabled={timer.saving}
-              onClick={() =>
-                void run(
-                  sessionPaused ? "Treino retomado." : "Treino pausado.",
-                  sessionPaused
-                    ? timer.resumeWorkout
-                    : timer.pauseWorkout,
-                )
-              }
-              aria-label={sessionPaused ? "Retomar treino" : "Pausar treino"}
-            >
-              {sessionPaused ? (
-                <Play className="h-5 w-5" />
-              ) : (
-                <Pause className="h-5 w-5" />
-              )}
-            </Button>
+          <div className="rounded-lg bg-muted px-3 py-2 font-mono text-lg font-semibold">
+            {formatElapsed(sessionElapsed)}
           </div>
+
+          <Button
+            size="icon"
+            variant={sessionPaused ? "default" : "outline"}
+            className="min-h-11 min-w-11"
+            disabled={timer.saving}
+            onClick={() =>
+              void run(
+                sessionPaused ? "Treino retomado." : "Treino pausado.",
+                sessionPaused ? timer.resumeWorkout : timer.pauseWorkout,
+              )
+            }
+            aria-label={sessionPaused ? "Retomar treino" : "Pausar treino"}
+          >
+            {sessionPaused ? (
+              <Play className="h-5 w-5" />
+            ) : (
+              <Pause className="h-5 w-5" />
+            )}
+          </Button>
         </div>
       </div>
 
       {sessionPaused ? (
         <Card>
-          <CardContent className="py-6 text-center">
-            <Pause className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-2 text-lg font-semibold">Treino pausado</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              O tempo ativo, a execução e o descanso estão congelados.
-            </p>
+          <CardContent className="space-y-3 py-4">
+            <p className="text-center text-sm font-semibold">Treino pausado</p>
             <Button
-              className="mt-4 min-h-12 w-full text-base"
+              className="min-h-12 w-full"
               disabled={timer.saving}
-              onClick={() =>
-                void run("Treino retomado.", timer.resumeWorkout)
-              }
+              onClick={() => void run("Treino retomado.", timer.resumeWorkout)}
             >
               <Play className="mr-2 h-5 w-5" />
               Retomar treino
@@ -466,9 +465,9 @@ export function HealthWorkoutInteractiveTimerF19({
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Agora
+                  Exercício atual
                 </p>
                 <CardTitle className="mt-1 text-xl">
                   {exerciseNameById.get(currentExercise.exercise_id) ??
@@ -477,9 +476,8 @@ export function HealthWorkoutInteractiveTimerF19({
                 <p className="mt-1 text-sm text-muted-foreground">
                   Série{" "}
                   {timer.activeInterval?.set_number ??
-                    completedOnCurrent + 1}
-                  {" · "}
-                  plano {minSets}
+                    completedOnCurrent + 1}{" "}
+                  · plano {minSets}
                   {maxSets !== minSets ? `–${maxSets}` : ""} séries
                 </p>
               </div>
@@ -491,143 +489,157 @@ export function HealthWorkoutInteractiveTimerF19({
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {timer.activeInterval?.interval_type === "work" ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Carga</Label>
+                <Input
+                  className="min-h-11"
+                  inputMode="decimal"
+                  value={load}
+                  onChange={(event) => setLoad(event.target.value)}
+                  placeholder="kg"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Unid.</Label>
+                <Select value={loadUnit} onValueChange={setLoadUnit}>
+                  <SelectTrigger className="min-h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="lb">lb</SelectItem>
+                    <SelectItem value="bodyweight">Corpo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reps</Label>
+                <Input
+                  className="min-h-11"
+                  inputMode="numeric"
+                  value={reps}
+                  onChange={(event) => setReps(event.target.value)}
+                  placeholder={
+                    currentExercise.planned_reps_min != null
+                      ? `${currentExercise.planned_reps_min}–${currentExercise.planned_reps_max ?? currentExercise.planned_reps_min}`
+                      : "—"
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">RIR</Label>
+                <Input
+                  className="min-h-11"
+                  inputMode="decimal"
+                  value={rir}
+                  onChange={(event) => setRir(event.target.value)}
+                  placeholder={
+                    currentExercise.planned_rir_target != null
+                      ? `alvo ${currentExercise.planned_rir_target}`
+                      : "—"
+                  }
+                />
+              </div>
+            </div>
+
+            {activeWork ? (
               <>
-                <div className="rounded-2xl border p-5 text-center">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Execução
-                  </p>
-                  <p className="mt-2 font-mono text-4xl font-semibold">
+                <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/25 px-4 py-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Execução
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Preencha a série enquanto executa.
+                    </p>
+                  </div>
+                  <p className="font-mono text-2xl font-semibold">
                     {formatElapsed(activeElapsed)}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Exercício acumulado: {formatElapsed(exerciseWorkSeconds)}
                   </p>
                 </div>
 
                 <Button
-                  className="min-h-14 w-full text-base"
+                  className="min-h-13 w-full text-base"
                   disabled={disabled}
                   onClick={() =>
                     void run("Série concluída. Descanso iniciado.", () =>
-                      timer.finishWorkStartRest(timer.activeInterval!.id, {
-                        loadValue: numberOrNull(load),
-                        loadUnit,
-                        reps: numberOrNull(reps),
-                        rir: numberOrNull(rir),
-                      }),
+                      timer.finishWorkStartRest(
+                        activeWork.id,
+                        executionValues(),
+                      ),
                     )
                   }
                 >
                   <CheckCircle2 className="mr-2 h-5 w-5" />
                   Concluir série
                 </Button>
-
-                <details className="rounded-xl border p-3">
-                  <summary className="cursor-pointer text-sm font-medium">
-                    Detalhes opcionais da série
-                  </summary>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Carga</Label>
-                      <Input
-                        className="min-h-11"
-                        inputMode="decimal"
-                        value={load}
-                        onChange={(event) => setLoad(event.target.value)}
-                        placeholder="opcional"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Unidade</Label>
-                      <Select value={loadUnit} onValueChange={setLoadUnit}>
-                        <SelectTrigger className="min-h-11">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="lb">lb</SelectItem>
-                          <SelectItem value="bodyweight">Corpo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Reps</Label>
-                      <Input
-                        className="min-h-11"
-                        inputMode="numeric"
-                        value={reps}
-                        onChange={(event) => setReps(event.target.value)}
-                        placeholder="opcional"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">RIR</Label>
-                      <Input
-                        className="min-h-11"
-                        inputMode="decimal"
-                        value={rir}
-                        onChange={(event) => setRir(event.target.value)}
-                        placeholder="opcional"
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Se deixar vazio, a série continua válida como fato temporal.
-                    O sistema não copia carga, reps ou RIR planejados para a
-                    execução real.
-                  </p>
-                </details>
               </>
             ) : activeRest ? (
               <>
                 <div
-                  className="rounded-2xl border p-5 text-center"
+                  className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
                   aria-live="polite"
                 >
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Descanso
-                  </p>
-                  <p className="mt-2 font-mono text-4xl font-semibold">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Descanso
+                    </p>
+                    {restTarget == null ? (
+                      <p className="text-sm font-medium">
+                        Sem meta prescrita
+                      </p>
+                    ) : restReached ? (
+                      <>
+                        <p className="text-sm font-semibold">
+                          Pode voltar
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Meta {formatElapsed(restTarget)} · extra +
+                          {formatElapsed(activeElapsed - restTarget)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Meta {formatElapsed(restTarget)} · faltam{" "}
+                        {formatElapsed(restTarget - activeElapsed)}
+                      </p>
+                    )}
+                  </div>
+                  <p className="shrink-0 font-mono text-2xl font-semibold">
                     {formatElapsed(activeElapsed)}
                   </p>
-
-                  {restTarget == null ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Sem meta de descanso prescrita.
-                    </p>
-                  ) : restReached ? (
-                    <div className="mt-3">
-                      <p className="font-semibold">
-                        Descanso atingido — pode voltar
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Meta {formatElapsed(restTarget)} · extra +
-                        {formatElapsed(activeElapsed - restTarget)}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-3">
-                      <p className="text-sm font-medium">
-                        Meta {formatElapsed(restTarget)}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Faltam {formatElapsed(restTarget - activeElapsed)}
-                      </p>
-                    </div>
-                  )}
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Os campos acima são da série que acabou. Se algo ficou vazio,
+                  preencha agora; o sistema salva antes de avançar.
+                </p>
+
+                <Button
+                  variant="outline"
+                  className="min-h-11 w-full"
+                  disabled={timer.saving || !activeRest.workout_set_id}
+                  onClick={() =>
+                    void run("Dados da série salvos.", saveRestSetIfNeeded)
+                  }
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar dados da série
+                </Button>
 
                 {completedOnCurrent < minSets ? (
                   <Button
-                    className="min-h-14 w-full text-base"
+                    className="min-h-13 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
-                      void run("Descanso registrado. Próxima série iniciada.", () =>
-                        timer.finishRest(activeRest.id, {
-                          startNextWork: true,
-                          nextWorkoutExerciseId: currentExercise.id,
-                        }),
+                      void run(
+                        "Dados salvos. Próxima série iniciada.",
+                        () =>
+                          finishRestWithData({
+                            startNextWork: true,
+                            nextWorkoutExerciseId: currentExercise.id,
+                          }),
                       )
                     }
                   >
@@ -637,31 +649,32 @@ export function HealthWorkoutInteractiveTimerF19({
                 ) : canDoOptionalExtra ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Button
-                      className="min-h-14 text-base"
+                      className="min-h-13"
                       disabled={disabled}
                       onClick={() =>
-                        void run("Descanso registrado. Série extra iniciada.", () =>
-                          timer.finishRest(activeRest.id, {
-                            startNextWork: true,
-                            nextWorkoutExerciseId: currentExercise.id,
-                          }),
+                        void run(
+                          "Dados salvos. Série extra iniciada.",
+                          () =>
+                            finishRestWithData({
+                              startNextWork: true,
+                              nextWorkoutExerciseId: currentExercise.id,
+                            }),
                         )
                       }
                     >
                       <Play className="mr-2 h-5 w-5" />
                       Mais uma série
                     </Button>
-
                     {nextDifferentExercise ? (
                       <Button
                         variant="secondary"
-                        className="min-h-14 text-base"
+                        className="min-h-13"
                         disabled={disabled}
                         onClick={() =>
                           void run(
-                            "Descanso registrado. Próximo exercício iniciado.",
+                            "Dados salvos. Próximo exercício iniciado.",
                             () =>
-                              timer.finishRest(activeRest.id, {
+                              finishRestWithData({
                                 startNextWork: true,
                                 nextWorkoutExerciseId:
                                   nextDifferentExercise.id,
@@ -675,11 +688,12 @@ export function HealthWorkoutInteractiveTimerF19({
                     ) : (
                       <Button
                         variant="secondary"
-                        className="min-h-14 text-base"
+                        className="min-h-13"
                         disabled={disabled}
                         onClick={() =>
-                          void run("Descanso registrado.", () =>
-                            timer.finishRest(activeRest.id),
+                          void run(
+                            "Dados e descanso registrados.",
+                            () => finishRestWithData(),
                           )
                         }
                       >
@@ -689,13 +703,13 @@ export function HealthWorkoutInteractiveTimerF19({
                   </div>
                 ) : nextDifferentExercise ? (
                   <Button
-                    className="min-h-14 w-full text-base"
+                    className="min-h-13 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
                       void run(
-                        "Descanso registrado. Próximo exercício iniciado.",
+                        "Dados salvos. Próximo exercício iniciado.",
                         () =>
-                          timer.finishRest(activeRest.id, {
+                          finishRestWithData({
                             startNextWork: true,
                             nextWorkoutExerciseId: nextDifferentExercise.id,
                           }),
@@ -707,11 +721,12 @@ export function HealthWorkoutInteractiveTimerF19({
                   </Button>
                 ) : (
                   <Button
-                    className="min-h-14 w-full text-base"
+                    className="min-h-13 w-full text-base"
                     disabled={disabled}
                     onClick={() =>
-                      void run("Descanso final registrado.", () =>
-                        timer.finishRest(activeRest.id),
+                      void run(
+                        "Dados e descanso registrados.",
+                        () => finishRestWithData(),
                       )
                     }
                   >
@@ -719,29 +734,27 @@ export function HealthWorkoutInteractiveTimerF19({
                     Encerrar descanso
                   </Button>
                 )}
-
-                <p className="text-center text-xs text-muted-foreground">
-                  O contador não para ao atingir a meta. O tempo real só fecha
-                  quando você toca no botão.
-                </p>
               </>
             ) : (
               <>
-                <div className="rounded-xl border bg-muted/30 p-4">
-                  <p className="text-sm font-medium">
-                    Pronto para a próxima série
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    RIR alvo {currentExercise.planned_rir_target ?? "—"} ·
-                    descanso alvo{" "}
-                    {currentExercise.planned_rest_seconds != null
-                      ? `${currentExercise.planned_rest_seconds}s`
-                      : "—"}
-                  </p>
+                <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/25 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Pronto para a série
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      RIR alvo {currentExercise.planned_rir_target ?? "—"} ·
+                      descanso{" "}
+                      {currentExercise.planned_rest_seconds != null
+                        ? `${currentExercise.planned_rest_seconds}s`
+                        : "—"}
+                    </p>
+                  </div>
+                  <Clock3 className="h-5 w-5 text-muted-foreground" />
                 </div>
 
                 <Button
-                  className="min-h-14 w-full text-base"
+                  className="min-h-13 w-full text-base"
                   disabled={disabled}
                   onClick={() =>
                     void run("Cronômetro de execução iniciado.", () =>
@@ -758,14 +771,11 @@ export function HealthWorkoutInteractiveTimerF19({
         </Card>
       ) : (
         <Card>
-          <CardContent className="py-6 text-center">
-            <CheckCircle2 className="mx-auto h-8 w-8 text-primary" />
-            <p className="mt-2 text-lg font-semibold">
-              Séries rápidas concluídas
-            </p>
+          <CardContent className="py-5 text-center">
+            <CheckCircle2 className="mx-auto h-7 w-7 text-primary" />
+            <p className="mt-2 font-semibold">Séries rápidas concluídas</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Não há outra série planejada pendente. Revise os detalhes se
-              quiser e finalize o treino.
+              Revise os detalhes se quiser e finalize o treino.
             </p>
           </CardContent>
         </Card>
