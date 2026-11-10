@@ -9,11 +9,10 @@ export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
   shop: 1156446003,
   partner: 2047685,
   pageSize: 10,
-  maxPages: 4,
+  maxPages: 10,
   lookbackSeconds: 48 * 60 * 60,
 });
 
-const PAIRS_RE = /^\d+:\d+(,\d+:\d+)*$/;
 const ORDER_RE = /^[A-Za-z0-9]{8,100}$/;
 const enabled = value => String(value ?? '').trim().toLowerCase() === 'true';
 
@@ -89,9 +88,6 @@ export function createAdaoAutomaticIntake({
     if (!enabled(getEnv('SHOPEE_ADAO_AUTO_INTAKE_ENABLED'))) {
       return { ...report, code: 'adao_auto_intake_disabled' };
     }
-    if (!PAIRS_RE.test(String(getEnv('SHOPEE_ADAO_NON_EASTER_MODEL_PAIRS') ?? ''))) {
-      return { ...report, code: 'adao_approved_pairs_missing' };
-    }
     if (Number(getEnv('SHOPEE_LIVE_PARTNER_ID')) !== ADAO_AUTO_INTAKE_SCOPE.partner) {
       return { ...report, code: 'partner_identity_mismatch' };
     }
@@ -121,6 +117,7 @@ export function createAdaoAutomaticIntake({
           cursor,
           pageSize: ADAO_AUTO_INTAKE_SCOPE.pageSize,
           timeRangeField: 'update_time',
+          onlyIntakeEligibleOrders: true,
           responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time', 'buyer_message'],
         });
       } catch {

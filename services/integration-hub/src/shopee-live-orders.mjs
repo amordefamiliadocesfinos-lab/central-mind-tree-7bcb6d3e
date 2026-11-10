@@ -90,6 +90,7 @@ export function createShopeeLiveOrdersReader({
     cursor = null,
     orderStatus = null,
     timeRangeField = 'create_time',
+    onlyIntakeEligibleOrders = false,
     responseOptionalFields = [
       'item_list',
       'package_list',
@@ -286,7 +287,12 @@ export function createShopeeLiveOrdersReader({
       shop_id: shopId,
       listed_count: orderSns.length,
       detailed_count: detailedOrders.length,
-      order_sns: [...detailedOrderSns],
+      // Adão automatic intake skips non-actionable orders at the source,
+      // after saving ALL raw details. Default false preserves Viviane/other readers.
+      order_sns: onlyIntakeEligibleOrders
+        ? detailedOrders.filter(order => ['PROCESSED', 'READY_TO_SHIP'].includes(order?.order_status))
+          .map(order => String(order.order_sn).trim())
+        : [...detailedOrderSns],
       more: listPayload?.response?.more === true,
       next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
       duration_ms: now() - started,
