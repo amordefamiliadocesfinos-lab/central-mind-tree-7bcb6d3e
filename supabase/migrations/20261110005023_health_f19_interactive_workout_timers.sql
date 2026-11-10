@@ -23,7 +23,7 @@ ALTER TABLE public.health_workout_sets
 
 ALTER TABLE public.health_workout_sets
   ADD CONSTRAINT health_workout_sets_rest_seconds_check
-  CHECK (rest_seconds IS NULL OR (rest_seconds >= 0 AND rest_seconds <= 14400));
+  CHECK (rest_seconds IS NULL OR rest_seconds >= 0);
 
 -- 2) PERSISTENT TIMER INTERVALS
 
@@ -66,7 +66,7 @@ CREATE TABLE public.health_workout_timer_intervals (
   ended_at timestamptz NULL,
 
   actual_seconds integer NULL CHECK (
-    actual_seconds IS NULL OR (actual_seconds >= 0 AND actual_seconds <= 86400)
+    actual_seconds IS NULL OR actual_seconds >= 0
   ),
 
   client_event_id uuid NOT NULL,
