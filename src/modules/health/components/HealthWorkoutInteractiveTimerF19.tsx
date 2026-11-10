@@ -294,6 +294,7 @@ export function HealthWorkoutInteractiveTimerF19({
           if (item.id === timer.activeInterval?.id) {
             return sum + activeElapsed;
           }
+          if (item.status !== "completed") return sum;
           return sum + Number(item.actual_seconds ?? 0);
         },
         0,
