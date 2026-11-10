@@ -9,7 +9,7 @@ export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
   shop: 1156446003,
   partner: 2047685,
   pageSize: 10,
-  maxPages: 4,
+  maxPages: 10,
   lookbackSeconds: 48 * 60 * 60,
 });
 
@@ -117,6 +117,7 @@ export function createAdaoAutomaticIntake({
           cursor,
           pageSize: ADAO_AUTO_INTAKE_SCOPE.pageSize,
           timeRangeField: 'update_time',
+          onlyIntakeEligibleOrders: true,
           responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time', 'buyer_message'],
         });
       } catch {
