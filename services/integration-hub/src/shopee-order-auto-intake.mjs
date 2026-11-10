@@ -148,6 +148,16 @@ export function createShopeeControlledAutoIntake({
         }
 
         orderSn = normalized.orders[0]?.orderSn ?? orderSn;
+        // This specific 23 Oct pilot is documented obsolete. Preserve its
+        // old no-write behavior without an offer-level authorization list.
+        // It is unrelated to current Adão orders or newly homologated mappings.
+        if (normalized.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+          && orderSn === '261023C0CDYM5H') {
+          blocked += 1;
+          results.push({ orderSn, status: 'blocked',
+            blockers: ['obsolete_pilot_historical_order'], write: null });
+          continue;
+        }
         // Quarantine re-used model identities before any mapping/projection/writer.
         // Historical and current meanings must not be conflated.
         const temporalBlocker = shopeeTrufa30TemporalBlocker(normalized)
