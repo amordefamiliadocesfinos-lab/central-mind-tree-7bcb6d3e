@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fitOfficialPdfPage } from './printCombinedShopeeLabelLayout.mjs';
+import { fitOfficialPdfPage, fitCompactCompositionScale } from './printCombinedShopeeLabelLayout.mjs';
 
 test('A4 official page retains dimensions on A4 sheet', () => {
   const p = fitOfficialPdfPage(595, 842, 595, 842);
@@ -22,4 +22,12 @@ test('different-sized official pages can fit separate A4 sheets without distorti
 test('invalid page sizes fail closed', () => {
   assert.throws(() => fitOfficialPdfPage(0, 400, 595, 842));
   assert.throws(() => fitOfficialPdfPage(100, Number.NaN, 595, 842));
+});
+
+test('combined printing fits composition in remaining first-page space', () => {
+  assert.equal(fitCompactCompositionScale(300, 300), 1);
+  assert.equal(fitCompactCompositionScale(400, 300), 0.75);
+  assert.equal(fitCompactCompositionScale(500, 300), 0.6);
+  assert.throws(() => fitCompactCompositionScale(800, 200), /legível/);
+  assert.throws(() => fitCompactCompositionScale(100, 0));
 });
