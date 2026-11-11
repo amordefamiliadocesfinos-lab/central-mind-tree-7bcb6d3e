@@ -970,7 +970,11 @@ export function HealthWorkoutInteractiveTimerF19({
                       <Button
                         className="min-h-12 w-full"
                         variant={resultSaved ? "secondary" : "default"}
-                        disabled={timer.saving || !activeRest.workout_set_id}
+                        disabled={
+                          timer.saving ||
+                          !activeRest.workout_set_id ||
+                          resultSaved
+                        }
                         onClick={() =>
                           void run(
                             resultSaved
@@ -990,7 +994,9 @@ export function HealthWorkoutInteractiveTimerF19({
 
                       <p className="text-xs text-muted-foreground">
                         Salvar não inicia a próxima série e não encerra o descanso.
-                        Depois de salvar, escolha abaixo quando deseja avançar.
+                        {resultSaved
+                          ? " Resultado salvo — escolha abaixo quando deseja avançar."
+                          : " Salve o resultado para liberar os botões de avanço."}
                       </p>
                     </div>
 
@@ -1010,7 +1016,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         }
                       >
                         <Play className="mr-2 h-5 w-5" />
-                        Voltar ao exercício
+                        Iniciar próxima série
                       </Button>
                     ) : canDoOptionalExtra ? (
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1029,7 +1035,7 @@ export function HealthWorkoutInteractiveTimerF19({
                           }
                         >
                           <Play className="mr-2 h-5 w-5" />
-                          Mais uma série
+                          Fazer série extra
                         </Button>
 
                         {nextDifferentExercise ? (
