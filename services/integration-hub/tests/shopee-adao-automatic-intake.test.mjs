@@ -500,8 +500,8 @@ test('candidate rotation prevents one permanently ineligible order from starving
 
 
 test('recent PROCESSED Adão orders are prioritized over old label backlog', async () => {
-  const a = { order_sn: '26111137FS6GRM', create_time: 1794400000 };
-  const b = { order_sn: '2611123948MENG', create_time: 1794400500 };
+  const a = { order_sn: '26111137FS6GRM', create_time: 1794410000 };
+  const b = { order_sn: '2611123948MENG', create_time: 1794410500 };
   const old = { order_sn: 'OLDPROCESSED1', create_time: 1794200000 };
   const first = selectAdaoRecentProcessedLabelCandidate([old,a,b], Date.parse('2026-11-11T15:10:00Z'));
   assert.ok([a.order_sn,b.order_sn].includes(first));
@@ -521,8 +521,8 @@ test('automatic Adão cycle prioritizes recent processed PDF and emits sanitized
     readOrders: async () => ({
       ...page([old,first,second]),
       label_ready_candidates: [
-        { order_sn: first, create_time: 1794400000 },
-        { order_sn: second, create_time: 1794400500 },
+        { order_sn: first, create_time: 1794410000 },
+        { order_sn: second, create_time: 1794410500 },
       ],
     }),
     intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
