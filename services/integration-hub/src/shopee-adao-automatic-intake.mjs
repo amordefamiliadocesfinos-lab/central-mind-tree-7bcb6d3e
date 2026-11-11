@@ -173,6 +173,92 @@ export function createAdaoAutomaticIntake({
     const newlyWritten = [];
     const shippingCandidates = new Map();
     const acceptedForShipping = new Set();
+    // F12.1: drain the bounded logistics queue after EACH fully committed page.
+    // On real Adão cycles discovery takes ~70s across pages, starving the prior
+    // end-only 48s logistics budget. Keep one global cap and no reattempts per
+    // cycle, while the live preflight + Core claim remain the writer authority.
+    const attemptedShipments = new Set();
+    const attemptedLabels = new Set();
+    const processPageLogistics = async () => {
+        if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
+          // Continue helping when a new order was imported before the
+          // Shopee transition to READY_TO_SHIP. Rotation avoids starving
+          // later orders when the first candidate has unmet prerequisites.
+          // The Core claim checks the order remains operationally open.
+          const eligible = [...shippingCandidates.keys()].sort()
+            .filter(sn => acceptedForShipping.has(sn) && !attemptedShipments.has(sn));
+          report.shipment_candidates = [...shippingCandidates.keys()]
+            .filter(sn => acceptedForShipping.has(sn)).length;
+          // F12: bounded sequential actions. Never send competing POSTs;
+          // each call performs LIVE Shopee preflight + Core durable claim.
+          for (const target of selectAdaoBatchCandidates(eligible, now(), shippingBatchLimit)) {
+            if (report.shipment_attempted >= shippingBatchLimit) break;
+            if (!withinWorkBudget()) {
+              report.work_budget_exhausted = true;
+              break;
+            }
+            attemptedShipments.add(target);
+            report.shipment_attempted++;
+            try {
+              const arranged = await arrangeShipping(target);
+              if (arranged?.ok && arranged.code === 'ship_order_api_acknowledged_not_collected') {
+                report.shipment_acknowledged++;
+              } else {
+                report.shipment_pending++;
+                report.shipment_code = safeCode(arranged?.code);
+              }
+            } catch {
+              report.shipment_pending++;
+              report.shipment_code = 'automatic_shipping_exception';
+            }
+          }
+        }
+        // Process one official label per scheduled cycle. Priority is a newly
+        // imported order; otherwise rotate among already-known live candidates.
+        // Sync failures are recorded, not mistaken for order intake failures.
+        if (enabled(getEnv('SHOPEE_ADAO_LABEL_SYNC_ENABLED'))) {
+          const priority = [...processedLabelCandidates.values()]
+            .filter(v => labelCandidates.has(v.order_sn) && !attemptedLabels.has(v.order_sn) &&
+              v.create_time > ADAO_AUTO_SHIP_HISTORY_CUTOFF)
+            .sort((a, b) => b.create_time - a.create_time).slice(0, 8)
+            .map(v => v.order_sn);
+          const priorityTargets = selectAdaoBatchCandidates(priority, now(), labelBatchLimit);
+          const remainderTargets = selectAdaoBatchCandidates(
+            [ ...newlyWritten, ...labelCandidates ].filter(sn => !priorityTargets.includes(sn) && !attemptedLabels.has(sn)),
+            now(), labelBatchLimit);
+          const targets = [...priorityTargets, ...remainderTargets].slice(0, labelBatchLimit);
+          for (const target of targets) {
+            if (report.label_attempted >= labelBatchLimit) break;
+            if (!withinWorkBudget()) {
+              report.work_budget_exhausted = true;
+              break;
+            }
+            attemptedLabels.add(target);
+            report.label_attempted++;
+            try {
+              const label = await syncLabel(target);
+              // No PII/order IDs, auth material or upstream messages in logs.
+              try { logDiagnostic({ event: 'adao_auto_label_cycle',
+                result_code: safeCode(label?.code), outcome: label?.ok === true ? 'ok' : 'pending_or_blocked',
+                processed_candidates: processedLabelCandidates.size }); } catch { /* diagnostics optional */ }
+              if (label?.ok === true && label.code === 'label_attached') report.labels_attached++;
+              else if (label?.ok === true && label.code === 'already_available') report.labels_already++;
+              else if (['document_processing', 'document_task_created_check_later',
+                'document_creation_already_claimed', 'document_not_ready'].includes(label?.code)) report.labels_pending++;
+              else {
+                report.labels_blocked++;
+                report.label_code = safeCode(label?.code);
+              }
+            } catch {
+              report.labels_blocked++;
+              report.label_code = 'label_sync_exception';
+              try { logDiagnostic({ event: 'adao_auto_label_cycle',
+                result_code: 'label_sync_exception', outcome: 'blocked',
+                processed_candidates: processedLabelCandidates.size }); } catch { /* noop */ }
+            }
+          }
+        }
+    };
     for (let page = 0; page < ADAO_AUTO_INTAKE_SCOPE.maxPages; page++) {
       let listed;
       try {
@@ -290,84 +376,10 @@ export function createAdaoAutomaticIntake({
               ? 'write_failed' : 'unexpected_write_status') };
         }
       }
+      // Earlier pages may contain live READY_TO_SHIP candidates even when
+      // later pages or Core ingestion consume the remainder of the time budget.
+      await processPageLogistics();
       if (listed.more !== true) {
-        // Arrange at most one new/unfinalized Core order. The source is a
-        // current READY_TO_SHIP detail, not an old order in Separação. The
-        // trusted one-shot writer repeats LIVE eligibility and Core claim.
-        // Historical orders predating the administrative test cleanup are out.
-        if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
-          // Continue helping when a new order was imported before the
-          // Shopee transition to READY_TO_SHIP. Rotation avoids starving
-          // later orders when the first candidate has unmet prerequisites.
-          // The Core claim checks the order remains operationally open.
-          const eligible = [...shippingCandidates.keys()].sort()
-            .filter(sn => acceptedForShipping.has(sn));
-          report.shipment_candidates = eligible.length;
-          // F12: bounded sequential actions. Never send competing POSTs;
-          // each call performs LIVE Shopee preflight + Core durable claim.
-          for (const target of selectAdaoBatchCandidates(eligible, now(), shippingBatchLimit)) {
-            if (!withinWorkBudget()) {
-              report.work_budget_exhausted = true;
-              break;
-            }
-            report.shipment_attempted++;
-            try {
-              const arranged = await arrangeShipping(target);
-              if (arranged?.ok && arranged.code === 'ship_order_api_acknowledged_not_collected') {
-                report.shipment_acknowledged++;
-              } else {
-                report.shipment_pending++;
-                report.shipment_code = safeCode(arranged?.code);
-              }
-            } catch {
-              report.shipment_pending++;
-              report.shipment_code = 'automatic_shipping_exception';
-            }
-          }
-        }
-        // Process one official label per scheduled cycle. Priority is a newly
-        // imported order; otherwise rotate among already-known live candidates.
-        // Sync failures are recorded, not mistaken for order intake failures.
-        if (enabled(getEnv('SHOPEE_ADAO_LABEL_SYNC_ENABLED'))) {
-          const priority = [...processedLabelCandidates.values()]
-            .filter(v => labelCandidates.has(v.order_sn) &&
-              v.create_time > ADAO_AUTO_SHIP_HISTORY_CUTOFF)
-            .sort((a, b) => b.create_time - a.create_time).slice(0, 8)
-            .map(v => v.order_sn);
-          const priorityTargets = selectAdaoBatchCandidates(priority, now(), labelBatchLimit);
-          const remainderTargets = selectAdaoBatchCandidates(
-            [ ...newlyWritten, ...labelCandidates ].filter(sn => !priorityTargets.includes(sn)),
-            now(), labelBatchLimit);
-          const targets = [...priorityTargets, ...remainderTargets].slice(0, labelBatchLimit);
-          for (const target of targets) {
-            if (!withinWorkBudget()) {
-              report.work_budget_exhausted = true;
-              break;
-            }
-            report.label_attempted++;
-            try {
-              const label = await syncLabel(target);
-              // No PII/order IDs, auth material or upstream messages in logs.
-              try { logDiagnostic({ event: 'adao_auto_label_cycle',
-                result_code: safeCode(label?.code), outcome: label?.ok === true ? 'ok' : 'pending_or_blocked',
-                processed_candidates: processedLabelCandidates.size }); } catch { /* diagnostics optional */ }
-              if (label?.ok === true && label.code === 'label_attached') report.labels_attached++;
-              else if (label?.ok === true && label.code === 'already_available') report.labels_already++;
-              else if (['document_processing', 'document_task_created_check_later',
-                'document_creation_already_claimed', 'document_not_ready'].includes(label?.code)) report.labels_pending++;
-              else {
-                report.labels_blocked++;
-                report.label_code = safeCode(label?.code);
-              }
-            } catch {
-              report.labels_blocked++;
-              report.label_code = 'label_sync_exception';
-              try { logDiagnostic({ event: 'adao_auto_label_cycle',
-                result_code: 'label_sync_exception', outcome: 'blocked',
-                processed_candidates: processedLabelCandidates.size }); } catch { /* noop */ }
-            }
-          }
-        }
         return { ...report, ok: true, code: 'cycle_completed' };
       }
       const next = listed.next_cursor;
