@@ -102,6 +102,7 @@ export async function handleRequest(
       return json(400, { error: 'body_or_query_not_allowed' });
     }
     try {
+      const cycleStartedAt = Date.now();
       const result = await runAdaoIntake();
       const report = {
         status: result?.ok === true ? 'ok' : 'blocked',
@@ -135,6 +136,23 @@ export async function handleRequest(
         ...(result?.diagnostic ? { diagnostic: result.diagnostic } : {}),
         ...(result?.last_blocker ? { last_blocker: result.last_blocker } : {}),
       };
+      // F12.1: durable, aggregate-only Cloud Logging for naturally scheduled cycles.
+      // Do not log order identifiers, customer data, request payloads or OAuth secrets.
+      try {
+        logEvent({
+          event: 'adao_auto_intake_cycle_summary',
+          account: 'adao',
+          outcome: result?.ok === true ? 'ok' : 'blocked',
+          pages: Number.isSafeInteger(report.pages) ? report.pages : 0,
+          shipment_candidates: Number.isSafeInteger(report.shipment_candidates) ? report.shipment_candidates : 0,
+          shipment_attempted: report.shipment_attempted,
+          label_attempted: report.label_attempted,
+          shipment_acknowledged: Number.isSafeInteger(report.shipment_acknowledged) ? report.shipment_acknowledged : 0,
+          labels_attached: Number.isSafeInteger(report.labels_attached) ? report.labels_attached : 0,
+          work_budget_exhausted: report.work_budget_exhausted,
+          duration_ms: Math.max(0, Date.now() - cycleStartedAt),
+        });
+      } catch { /* Logging must never affect intake or logistics outcomes. */ }
       return json(result?.ok === true ? 200 : 503, report);
     } catch {
       return json(503, { status: 'blocked', code: 'adao_intake_runtime_exception' });
