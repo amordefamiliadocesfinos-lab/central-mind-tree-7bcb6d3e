@@ -665,6 +665,111 @@ test('F12: one failed shipping candidate does not prevent other scoped candidate
   assert.equal(r.shipment_acknowledged, 2);
 });
 
+test('F12: slow multi-page intake starts Adão shipping before the 48s discovery budget expires', async () => {
+  let elapsed = 0, reads = 0;
+  const events = [];
+  const first = 'NEWPAGEDSHIP1';
+  const second = 'NEWPAGEDSHIP2';
+  const runner = createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'false',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z') + elapsed,
+    readOrders: async () => {
+      reads++; elapsed += 7_000;
+      if (reads === 1) return {
+        ...page([first], { more: true, next_cursor: 'second' }),
+        ready_to_ship_candidates: [{ order_sn: first, create_time: 1794410500 }],
+      };
+      if (reads === 2) return {
+        ...page([second], { more: true, next_cursor: 'third' }),
+        ready_to_ship_candidates: [{ order_sn: second, create_time: 1794410500 }],
+      };
+      return { ...page([], { more: false }), ready_to_ship_candidates: [] };
+    },
+    intake: async ({ expectedOrderSn }) => {
+      elapsed += 12_000;
+      return result(expectedOrderSn, 'written');
+    },
+    arrangeShipping: async sn => {
+      events.push({ sn, atMs: elapsed });
+      elapsed += 1_000;
+      return { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.pages, 3);
+  assert.equal(r.shipment_candidates, 2);
+  assert.equal(r.shipment_attempted, 2);
+  assert.deepEqual(events.map(e => e.sn), [first, second]);
+  assert.ok(events.every(e => e.atMs < 48_000));
+  assert.ok(elapsed > 48_000);
+});
+
+test('F12: global cap applies across pages and each candidate has at most one attempt per cycle', async () => {
+  const ids = ['PAGESHIPONE1', 'PAGESHIPTWO2', 'PAGESHIPTHR3', 'PAGESHIPFOUR'];
+  let index = 0;
+  const shipped = [], labeled = [];
+  const r = await createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'true',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+      SHOPEE_ADAO_LABEL_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now,
+    readOrders: async () => {
+      const order_sn = ids[index++];
+      return {
+        ...page([order_sn], { more: index < ids.length, next_cursor: 'page' + index }),
+        ready_to_ship_candidates: [{ order_sn, create_time: 1794410500 }],
+        label_ready_candidates: [{ order_sn, create_time: 1794410500 }],
+      };
+    },
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async sn => {
+      shipped.push(sn); return { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+    syncLabel: async sn => {
+      labeled.push(sn); return { ok: true, code: 'label_attached' };
+    },
+    logDiagnostic: () => {},
+  })();
+  assert.equal(r.ok, true);
+  assert.equal(r.pages, 4);
+  assert.equal(r.shipment_candidates, 4);
+  assert.equal(r.shipment_attempted, 3);
+  assert.equal(r.label_attempted, 3);
+  assert.equal(new Set(shipped).size, 3);
+  assert.equal(new Set(labeled).size, 3);
+});
+
+test('F12: page-level failure does not repeat a previously claimed shipment within a cycle', async () => {
+  let reads = 0, shipments = 0;
+  const sn = 'NEWPAGECLAIM1';
+  const r = await createAdaoAutomaticIntake({
+    getEnv: key => key === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true' : getEnv(key),
+    now,
+    readOrders: async () => {
+      reads++;
+      if (reads === 1) return {
+        ...page([sn], { more: true, next_cursor: 'next' }),
+        ready_to_ship_candidates: [{ order_sn: sn, create_time: 1794410500 }],
+      };
+      throw new Error('later page failed');
+    },
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async () => { shipments++; return { ok: false, code: 'ship_order_uncertain_requires_reconciliation' }; },
+  })();
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'shopee_discovery_exception');
+  assert.equal(shipments, 1);
+  assert.equal(r.shipment_attempted, 1);
+});
+
 test('F12: wall-clock budget stops new logistics actions without interrupting completed calls', async () => {
   let elapsedMs = 0;
   const snList = ['NEWORDER001','NEWORDER002','NEWORDER003'];
