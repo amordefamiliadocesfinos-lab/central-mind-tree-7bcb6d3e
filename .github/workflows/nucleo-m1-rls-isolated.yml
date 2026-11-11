@@ -40,3 +40,18 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability_ddl_PROPOSTA_NAO_APLICAR.sql
       - name: Positive and negative authorization assertions
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-assertions.sql
+      - name: Reject physical rollback when documents exist
+        run: |
+          if psql -X -v ON_ERROR_STOP=1 -f docs/architecture/NUCLEO_M1_ROLLBACK_PREIMPORT_2026-11-11.sql; then
+            echo "ERROR: rollback was permitted despite existing synthetic documents"; exit 1
+          fi
+          psql -X -v ON_ERROR_STOP=1 -Atc "select case when (select count(*) from public.nucleo_documents)=1 then 'intact' else 'lost' end" | grep -qx intact
+      - name: Prove reversible empty-state migration in separate database
+        run: |
+          createdb nucleo_rollback_test
+          export PGDATABASE=nucleo_rollback_test
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability_ddl_PROPOSTA_NAO_APLICAR.sql
+          psql -X -v ON_ERROR_STOP=1 -f docs/architecture/NUCLEO_M1_ROLLBACK_PREIMPORT_2026-11-11.sql
+          psql -X -v ON_ERROR_STOP=1 -Atc "select count(*) from public.app_admin_capabilities where capability='provision_users'" | grep -qx 2
+          psql -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name like 'nucleo_%'" | grep -qx 0
