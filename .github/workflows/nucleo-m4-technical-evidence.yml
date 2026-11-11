@@ -1,0 +1,62 @@
+name: Nucleo M4 - Technical evidence contract
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql"
+      - "scripts/nucleo-m4-technical-evidence.test.sql"
+      - "src/components/nucleo/NucleoTechnicalEvidence.tsx"
+      - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "src/lib/nucleo/development.types.ts"
+      - ".github/workflows/nucleo-m4-technical-evidence.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: test-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install synthetic M1 M2 M3 contracts
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+          psql -X -v ON_ERROR_STOP=1 -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;"
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111232500_nucleo_m3_ignore_noop_updates.sql
+      - name: Apply M4 in disposable Postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql
+      - name: Verify authorized/denied, immutable, valid origins
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m4-technical-evidence.test.sql
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
