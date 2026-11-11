@@ -223,6 +223,7 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
       db.from("health_workout_sessions")
         .select("id,status,started_at,session_template_id,health_session_templates!health_workout_sessions_template_athlete_fkey(name)")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .in("status", ["active", "paused"])
         .order("started_at", { ascending: false })
         .limit(1)
