@@ -515,6 +515,12 @@ export function useHealthTrainingHistoryF21(
     [call],
   );
 
+  const modalities =
+    (modalitiesResult.data ?? []) as unknown as Array<{
+      code: string;
+      name: string;
+    }>;
+
   const strengthCount = useMemo(
     () => sessions.filter((item) => item.kind === "strength").length,
     [sessions],
@@ -523,6 +529,7 @@ export function useHealthTrainingHistoryF21(
 
   return {
     sessions,
+    modalities,
     strengthCount,
     activityCount,
     loading,
