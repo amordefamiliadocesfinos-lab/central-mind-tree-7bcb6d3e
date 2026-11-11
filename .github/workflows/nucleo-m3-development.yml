@@ -6,6 +6,9 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "src/components/nucleo/NucleoTechnicalEvidence.tsx"
+      - "src/lib/nucleo/development.types.ts"
+      - "supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql"
       - "src/pages/Nucleo.tsx"
   workflow_dispatch:
 permissions:
@@ -47,6 +50,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center.sql
       - name: Verify M3 access and history
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m3-workstreams-rls.test.sql
+      - name: Apply M4 evidence schema in disposable postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql
+      - name: Verify M4 source integrity and RLS
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m4-technical-evidence.test.sql
   frontend-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
