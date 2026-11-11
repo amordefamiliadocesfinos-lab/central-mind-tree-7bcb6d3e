@@ -375,3 +375,61 @@ test('uncertain shipment does not trigger another ship_order or hide successful 
   assert.equal(r.shipment_code, 'ship_order_uncertain_requires_reconciliation');
   assert.equal(calls, 1);
 });
+
+
+test('reopened pilot PED-00413 is eligible only with live READY_TO_SHIP evidence', async () => {
+  const arranged = [];
+  const sn = '2611111W8T6TE3';
+  const resultValue = await createAdaoAutomaticIntake({
+    getEnv: key => key === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+      : key === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(key),
+    now,
+    readOrders: async () => ({
+      ...page([sn]),
+      ready_to_ship_candidates: [{ order_sn: sn, create_time: 1794350000 }],
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async value => {
+      arranged.push(value);
+      return { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+  })();
+  assert.equal(resultValue.ok, true);
+  assert.equal(resultValue.shipment_acknowledged, 1);
+  assert.deepEqual(arranged, [sn]);
+});
+
+test('no old order except three explicitly reopened can be automatically arranged', async () => {
+  const arranged = [];
+  const sn = '261110UM3PJTUT'; // finalized PED-00409
+  const resultValue = await createAdaoAutomaticIntake({
+    getEnv: key => key === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+      : key === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(key),
+    now,
+    readOrders: async () => ({
+      ...page([sn]),
+      ready_to_ship_candidates: [{ order_sn: sn, create_time: 1794350000 }],
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async value => { arranged.push(value); },
+  })();
+  assert.equal(resultValue.ok, true);
+  assert.deepEqual(arranged, []);
+});
+
+test('reopened pilot never arranges without current Shopee READY_TO_SHIP evidence', async () => {
+  const arranged = [];
+  const sn = '2611111W8T6TE3';
+  const resultValue = await createAdaoAutomaticIntake({
+    getEnv: key => key === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+      : key === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(key),
+    now,
+    readOrders: async () => ({
+      ...page([sn]), ready_to_ship_candidates: [],
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async value => { arranged.push(value); },
+  })();
+  assert.equal(resultValue.ok, true);
+  assert.deepEqual(arranged, []);
+});

@@ -3,7 +3,7 @@ import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from '.
 import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
-import { arrangeAdaoNewOrderOnce, isAdaoNewShippingCandidate } from './shopee-adao-automatic-shipping.mjs';
+import { arrangeAdaoNewOrderOnce, isAdaoAutomaticShippingCandidate, isAdaoReopenedShippingPilotCandidate } from './shopee-adao-automatic-shipping.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
 export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
@@ -162,7 +162,7 @@ export function createAdaoAutomaticIntake({
         return { ...report, code: 'shipping_candidate_invalid', stopped: true };
       }
       for (const candidate of listed.ready_to_ship_candidates ?? []) {
-        if (isAdaoNewShippingCandidate(candidate)) shippingCandidates.set(candidate.order_sn, candidate);
+        if (isAdaoAutomaticShippingCandidate(candidate)) shippingCandidates.set(candidate.order_sn, candidate);
       }
       report.pages++;
       for (const sn of listed.order_sns) {
@@ -185,6 +185,13 @@ export function createAdaoAutomaticIntake({
           // The Core excludes orders already registered, too. Continue to
           // reconcile their missing labels in later cycles.
           labelCandidates.add(sn);
+          // Exactly three previously finalized test orders were explicitly
+          // reopened in the Adão Core. The reader must have supplied LIVE
+          // READY_TO_SHIP evidence on this cycle, and the writer must still
+          // pass a new live preflight and permanent Core shipping claim.
+          if (shippingCandidates.has(sn) && isAdaoReopenedShippingPilotCandidate({ order_sn: sn })) {
+            acceptedForShipping.add(sn);
+          }
           continue;
         }
         const entry = committed?.results?.[0];
@@ -211,8 +218,11 @@ export function createAdaoAutomaticIntake({
         else if (entry.status === 'already_registered') {
           report.already_registered++;
           labelCandidates.add(sn);
-          // Do not ship on a pre-existing record without fresh Core evidence
-          // it is still operational; a prior cleanup may have finalized it.
+          // A previously registered order is NOT generally eligible. Only
+          // the exact three operator-reopened pilot orders can be selected.
+          if (shippingCandidates.has(sn) && isAdaoReopenedShippingPilotCandidate({ order_sn: sn })) {
+            acceptedForShipping.add(sn);
+          }
         }
         else if (entry.status === 'blocked') {
           report.blocked++;

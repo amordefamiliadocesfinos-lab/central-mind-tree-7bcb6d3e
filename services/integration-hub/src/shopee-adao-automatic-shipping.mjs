@@ -12,10 +12,28 @@ export const ADAO_AUTO_SHIP_SHOP_ID = 1156446003;
 // this boundary can be picked up by an automatic shipping writer.
 export const ADAO_AUTO_SHIP_HISTORY_CUTOFF = Date.parse('2026-11-11T13:22:00Z') / 1000;
 
+// Explicit pilot orders reopened by the operator on 2026-11-11. This
+// exception is *not* an override of Shopee status, Core account, preflight or
+// the permanent one-shot shipping claim. Other historical orders stay excluded.
+export const ADAO_REOPENED_SHIPPING_PILOT_ORDERS = Object.freeze([
+  '2611111W8T6TE3', // PED-00413
+  '2611112RP7B34Q', // PED-00414
+  '2611112W8Y81TH', // PED-00415
+]);
+
+export function isAdaoReopenedShippingPilotCandidate({ order_sn } = {}) {
+  return ADAO_REOPENED_SHIPPING_PILOT_ORDERS.includes(order_sn);
+}
+
 export function isAdaoNewShippingCandidate({ order_sn, create_time } = {}) {
   return typeof order_sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(order_sn)
     && Number.isSafeInteger(create_time)
     && create_time > ADAO_AUTO_SHIP_HISTORY_CUTOFF;
+}
+
+export function isAdaoAutomaticShippingCandidate(candidate) {
+  return isAdaoNewShippingCandidate(candidate)
+    || isAdaoReopenedShippingPilotCandidate(candidate);
 }
 
 export function createAdaoAutomaticShip({

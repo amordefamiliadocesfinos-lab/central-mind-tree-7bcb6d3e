@@ -229,17 +229,10 @@ export function createShopeeLiveOrdersReader({
         listed_count: 0,
         detailed_count: 0,
         order_sns: [],
-        // Available only when requested by Adão; no side effects, exact details.
-      ...(includeReadyToShipCandidates ? {
-        ready_to_ship_candidates: detailedOrders
-          .filter(order => order?.order_status === 'READY_TO_SHIP'
-            && typeof order?.order_sn === 'string'
-            && Number.isSafeInteger(Number(order.create_time))
-            && Number(order.create_time) > 0)
-          .map(order => ({ order_sn: order.order_sn, create_time: Number(order.create_time) })),
-      } : {}),
-      more: listPayload?.response?.more === true,
-        next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
+        ...(includeReadyToShipCandidates ? { ready_to_ship_candidates: [] } : {}),
+        more: listPayload?.response?.more === true,
+        next_cursor: typeof listPayload?.response?.next_cursor === 'string'
+          ? listPayload.response.next_cursor : null,
         duration_ms: now() - started,
       };
     }
@@ -303,6 +296,15 @@ export function createShopeeLiveOrdersReader({
         ? detailedOrders.filter(order => ['PROCESSED', 'READY_TO_SHIP'].includes(order?.order_status))
           .map(order => String(order.order_sn).trim())
         : [...detailedOrderSns],
+      ...(includeReadyToShipCandidates ? {
+        ready_to_ship_candidates: detailedOrders
+          .filter(order => order?.order_status === 'READY_TO_SHIP'
+            && typeof order?.order_sn === 'string'
+            && Number.isSafeInteger(Number(order.create_time))
+            && Number(order.create_time) > 0)
+          .map(order => ({ order_sn: String(order.order_sn).trim(),
+            create_time: Number(order.create_time) })),
+      } : {}),
       more: listPayload?.response?.more === true,
       next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
       duration_ms: now() - started,
