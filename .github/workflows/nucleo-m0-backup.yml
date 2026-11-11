@@ -1,0 +1,29 @@
+name: Nucleo M0 — backup legado
+on:
+  pull_request:
+    paths:
+      - "src/lib/nucleo/exportLegacyNucleo.ts"
+      - "src/pages/Nucleo.tsx"
+      - "scripts/nucleo-backup-smoke.cjs"
+      - ".github/workflows/nucleo-m0-backup.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies from lockfile
+        run: npm ci --ignore-scripts
+      - name: Test backup preservation using synthetic fixtures
+        run: node scripts/nucleo-backup-smoke.cjs
+      - name: Build application
+        run: npm run build
