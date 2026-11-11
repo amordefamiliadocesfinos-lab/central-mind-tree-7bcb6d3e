@@ -221,6 +221,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [loadUnit, setLoadUnit] = useState("kg");
   const [reps, setReps] = useState("");
   const [rir, setRir] = useState("");
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const alertedRestId = useRef<string | null>(null);
   const previousActiveExerciseId = useRef<string | null>(null);
@@ -249,6 +250,18 @@ export function HealthWorkoutInteractiveTimerF19({
       );
     }
 
+    if (selectedExerciseId) {
+      const selected =
+        orderedExercises.find(
+          (item) =>
+            item.id === selectedExerciseId &&
+            isExecutable(item) &&
+            performedCount(item.id) < plannedMax(item),
+        ) ?? null;
+
+      if (selected) return selected;
+    }
+
     const unfinishedActive =
       orderedExercises.find(
         (item) =>
@@ -265,10 +278,19 @@ export function HealthWorkoutInteractiveTimerF19({
           performedCount(item.id) < plannedMax(item),
       ) ?? null
     );
-  }, [orderedExercises, setsByExercise, timer.activeInterval]);
+  }, [
+    orderedExercises,
+    selectedExerciseId,
+    setsByExercise,
+    timer.activeInterval,
+  ]);
 
   useEffect(() => {
     const activeId = activeExercise?.id ?? null;
+
+    if (timer.activeInterval?.workout_exercise_id) {
+      setSelectedExerciseId(timer.activeInterval.workout_exercise_id);
+    }
 
     if (activeId && previousActiveExerciseId.current !== activeId) {
       previousActiveExerciseId.current = activeId;
@@ -287,7 +309,12 @@ export function HealthWorkoutInteractiveTimerF19({
     ) {
       setViewedExerciseId(activeId ?? orderedExercises[0]?.id ?? null);
     }
-  }, [activeExercise?.id, orderedExercises, viewedExerciseId]);
+  }, [
+    activeExercise?.id,
+    orderedExercises,
+    timer.activeInterval?.workout_exercise_id,
+    viewedExerciseId,
+  ]);
 
   const viewedExercise =
     orderedExercises.find((item) => item.id === viewedExerciseId) ??
@@ -469,6 +496,35 @@ export function HealthWorkoutInteractiveTimerF19({
     setRir("");
   };
 
+  const viewedExerciseSelectable =
+    viewedExercise != null &&
+    isExecutable(viewedExercise) &&
+    performedCount(viewedExercise.id) < plannedMax(viewedExercise);
+
+  const canChooseViewedExercise =
+    viewedExerciseSelectable &&
+    (!timer.activeInterval || timer.activeInterval.interval_type === "rest");
+
+  const chooseViewedExercise = async () => {
+    if (!viewedExercise || !viewedExerciseSelectable) return;
+
+    if (activeRest) {
+      await finishRestWithData({
+        startNextWork: true,
+        nextWorkoutExerciseId: viewedExercise.id,
+      });
+      setSelectedExerciseId(viewedExercise.id);
+      return;
+    }
+
+    setSelectedExerciseId(viewedExercise.id);
+    setViewedExerciseId(viewedExercise.id);
+    setLoad("");
+    setLoadUnit("kg");
+    setReps("");
+    setRir("");
+  };
+
   if (timer.loading && !timer.sessionTiming) {
     return (
       <Card>
@@ -562,7 +618,7 @@ export function HealthWorkoutInteractiveTimerF19({
                 <div className="mt-1 flex items-center justify-center gap-2">
                   <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
                   <span className="text-xs font-semibold text-primary">
-                    EM EXECUÇÃO
+                    {timer.activeInterval ? "EM EXECUÇÃO" : "SELECIONADO"}
                   </span>
                 </div>
               ) : activeExercise ? (
@@ -631,7 +687,9 @@ export function HealthWorkoutInteractiveTimerF19({
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {viewingActiveExercise
-                    ? `Série ${timer.activeInterval?.set_number ?? completedOnActive + 1}`
+                    ? timer.activeInterval
+                      ? `Série ${timer.activeInterval.set_number ?? completedOnActive + 1}`
+                      : `Próxima série ${completedOnActive + 1}`
                     : `${viewedSets.filter((item) => item.status === "completed").length} série(s) concluída(s)`}
                   {" · "}
                   plano {plannedMin(viewedExercise)}
@@ -653,12 +711,12 @@ export function HealthWorkoutInteractiveTimerF19({
               <>
                 <div className="rounded-xl border bg-muted/30 p-4">
                   <p className="text-sm font-semibold">
-                    Controles bloqueados nesta visualização
+                    Escolha livre da sequência
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Você pode consultar este exercício com as setas, mas carga,
-                    reps, RIR e cronômetro pertencem ao exercício marcado como
-                    EM EXECUÇÃO.
+                    Você pode fazer os exercícios na ordem que estiver disponível
+                    na academia. A programação continua a mesma; muda apenas a
+                    sequência real de execução.
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     RIR alvo {viewedExercise.planned_rir_target ?? "—"} ·
@@ -668,6 +726,28 @@ export function HealthWorkoutInteractiveTimerF19({
                       : "—"}
                   </p>
                 </div>
+
+                {viewedExerciseSelectable ? (
+                  <Button
+                    className="min-h-12 w-full"
+                    disabled={!canChooseViewedExercise || timer.saving}
+                    onClick={() =>
+                      void run(
+                        activeRest
+                          ? "Descanso registrado. Exercício escolhido iniciado."
+                          : "Exercício selecionado.",
+                        chooseViewedExercise,
+                      )
+                    }
+                  >
+                    <Dumbbell className="mr-2 h-5 w-5" />
+                    {activeRest
+                      ? "Fazer este exercício agora"
+                      : timer.activeInterval?.interval_type === "work"
+                        ? "Conclua a série atual para trocar"
+                        : "Fazer este exercício agora"}
+                  </Button>
+                ) : null}
 
                 {viewedSets.filter((item) => item.status === "completed")
                   .length ? (
