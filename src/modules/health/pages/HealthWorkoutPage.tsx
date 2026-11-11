@@ -353,7 +353,10 @@ export function HealthWorkoutPage() {
             <h2 className="text-xl font-semibold tracking-tight">Treino ao vivo</h2>
             <p className="mt-1 text-sm text-muted-foreground">Execução real do próximo item da fila CCH.</p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <Button asChild variant="outline" className="min-h-11">
+              <Link to="/saude/treino/historico">Histórico</Link>
+            </Button>
             <Button asChild variant="outline" className="min-h-11">
               <Link to="/saude/treino/atividades">
                 <Activity className="mr-2 h-4 w-4" />
