@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Dumbbell, Loader2, Plus, RefreshCw, SkipForward } from "lucide-react";
+import { CheckCircle2, Dumbbell, Loader2, Pencil, Plus, RefreshCw, Save, SkipForward, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,143 @@ function numberOrNull(value: string): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
+function EditablePerformedSetRow({
+  set,
+  saving,
+  locked,
+  onUpdate,
+}: {
+  set: {
+    id: string;
+    set_number: number;
+    load_value: number | null;
+    load_unit: string;
+    reps: number | null;
+    rir: number | null;
+    rest_seconds: number | null;
+    work_seconds: number | null;
+  };
+  saving: boolean;
+  locked: boolean;
+  onUpdate: (values: {
+    loadValue: number | null;
+    loadUnit: string;
+    reps: number | null;
+    rir: number | null;
+    restSeconds: number | null;
+  }) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [load, setLoad] = useState("");
+  const [loadUnit, setLoadUnit] = useState("kg");
+  const [reps, setReps] = useState("");
+  const [rir, setRir] = useState("");
+  const [rest, setRest] = useState("");
+
+  const beginEdit = () => {
+    setLoad(set.load_value == null ? "" : String(set.load_value));
+    setLoadUnit(set.load_unit || "kg");
+    setReps(set.reps == null ? "" : String(set.reps));
+    setRir(set.rir == null ? "" : String(set.rir));
+    setRest(set.rest_seconds == null ? "" : String(set.rest_seconds));
+    setEditing(true);
+  };
+
+  if (!editing) {
+    return (
+      <div className="grid grid-cols-[34px_1fr_42px] items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+        <span className="font-semibold">#{set.set_number}</span>
+        <span className="min-w-0">
+          {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps · RIR{" "}
+          {set.rir ?? "—"}
+          {set.rest_seconds != null ? " · " + set.rest_seconds + "s" : ""}
+          {set.work_seconds != null ? " · execução " + set.work_seconds + "s" : ""}
+        </span>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="min-h-9 min-w-9"
+          disabled={saving || locked}
+          onClick={beginEdit}
+          aria-label={"Editar série " + set.set_number}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">Editar série #{set.set_number}</p>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="min-h-9 min-w-9"
+          disabled={saving}
+          onClick={() => setEditing(false)}
+          aria-label="Cancelar edição"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="space-y-1">
+          <Label className="text-xs">Carga</Label>
+          <Input className="min-h-11" inputMode="decimal" value={load} onChange={(event) => setLoad(event.target.value)} placeholder="—" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Unid.</Label>
+          <Select value={loadUnit} onValueChange={setLoadUnit}>
+            <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="kg">kg</SelectItem>
+              <SelectItem value="lb">lb</SelectItem>
+              <SelectItem value="bodyweight">Corpo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Reps</Label>
+          <Input className="min-h-11" inputMode="numeric" value={reps} onChange={(event) => setReps(event.target.value)} placeholder="—" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">RIR</Label>
+          <Input className="min-h-11" inputMode="decimal" value={rir} onChange={(event) => setRir(event.target.value)} placeholder="—" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Desc. s</Label>
+          <Input className="min-h-11" inputMode="numeric" value={rest} onChange={(event) => setRest(event.target.value)} placeholder="—" />
+        </div>
+      </div>
+
+      {set.work_seconds != null ? (
+        <p className="text-[11px] text-muted-foreground">
+          Tempo cronometrado da execução: {set.work_seconds}s. Esse dado factual não é alterado nesta correção manual.
+        </p>
+      ) : null}
+
+      <Button
+        className="min-h-11 w-full"
+        disabled={saving}
+        onClick={() =>
+          void onUpdate({
+            loadValue: numberOrNull(load),
+            loadUnit,
+            reps: numberOrNull(reps),
+            rir: numberOrNull(rir),
+            restSeconds: numberOrNull(rest),
+          }).then(() => setEditing(false))
+        }
+      >
+        <Save className="mr-2 h-4 w-4" />
+        Salvar correção
+      </Button>
+    </div>
+  );
+}
 
 function WorkoutExerciseCard({
   item,
@@ -27,8 +164,11 @@ function WorkoutExerciseCard({
   saving,
   exerciseOptions,
   onLogSet,
+  onUpdateSet,
   onSkip,
   onReplace,
+  lockedSetId,
+  manualActionsDisabled,
 }: {
   item: WorkoutExercise;
   name: string;
@@ -40,6 +180,7 @@ function WorkoutExerciseCard({
     reps: number | null;
     rir: number | null;
     rest_seconds: number | null;
+    work_seconds: number | null;
   }>;
   saving: boolean;
   exerciseOptions: Array<{ id: string; name: string }>;
@@ -50,8 +191,20 @@ function WorkoutExerciseCard({
     rir: number | null;
     restSeconds: number | null;
   }) => Promise<void>;
+  onUpdateSet: (
+    setId: string,
+    values: {
+      loadValue: number | null;
+      loadUnit: string;
+      reps: number | null;
+      rir: number | null;
+      restSeconds: number | null;
+    },
+  ) => Promise<void>;
   onSkip: () => Promise<void>;
   onReplace: (replacementExerciseId: string) => Promise<void>;
+  lockedSetId: string | null;
+  manualActionsDisabled: boolean;
 }) {
   const [load, setLoad] = useState("");
   const [loadUnit, setLoadUnit] = useState("kg");
@@ -79,13 +232,13 @@ function WorkoutExerciseCard({
         {performedSets.length > 0 ? (
           <div className="space-y-2">
             {performedSets.map((set) => (
-              <div key={set.id} className="grid grid-cols-[34px_1fr] gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
-                <span className="font-semibold">#{set.set_number}</span>
-                <span>
-                  {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps · RIR {set.rir ?? "—"}
-                  {set.rest_seconds != null ? " · " + set.rest_seconds + "s" : ""}
-                </span>
-              </div>
+              <EditablePerformedSetRow
+                key={set.id}
+                set={set}
+                saving={saving}
+                locked={lockedSetId === set.id}
+                onUpdate={(values) => onUpdateSet(set.id, values)}
+              />
             ))}
           </div>
         ) : null}
@@ -124,7 +277,7 @@ function WorkoutExerciseCard({
 
             <Button
               className="min-h-11 w-full"
-              disabled={saving}
+              disabled={saving || manualActionsDisabled}
               onClick={() => void onLogSet({
                 loadValue: numberOrNull(load),
                 loadUnit,
@@ -148,12 +301,12 @@ function WorkoutExerciseCard({
               <Button
                 variant="outline"
                 className="min-h-11"
-                disabled={saving || !replacementId}
+                disabled={saving || manualActionsDisabled || !replacementId}
                 onClick={() => void onReplace(replacementId)}
               >
                 <RefreshCw className="mr-2 h-4 w-4" /> Substituir
               </Button>
-              <Button variant="ghost" className="min-h-11" disabled={saving} onClick={() => void onSkip()}>
+              <Button variant="ghost" className="min-h-11" disabled={saving || manualActionsDisabled} onClick={() => void onSkip()}>
                 <SkipForward className="mr-2 h-4 w-4" /> Pular
               </Button>
             </div>
@@ -285,12 +438,17 @@ export function HealthWorkoutPage() {
                 reps: set.reps,
                 rir: set.rir,
                 rest_seconds: set.rest_seconds,
+                work_seconds: set.work_seconds ?? null,
               }))}
-              saving={
-                workout.saving ||
-                timer.saving ||
+              saving={workout.saving || timer.saving}
+              manualActionsDisabled={
                 Boolean(timer.activeInterval) ||
                 timer.sessionTiming?.status === "paused"
+              }
+              lockedSetId={
+                timer.activeInterval?.interval_type === "rest"
+                  ? timer.activeInterval.workout_set_id
+                  : null
               }
               exerciseOptions={catalogs.exercises.map((exercise) => ({
                 id: exercise.id,
@@ -298,6 +456,11 @@ export function HealthWorkoutPage() {
               }))}
               onLogSet={(values) =>
                 run("Série registrada.", () => workout.logSet(item.id, values))
+              }
+              onUpdateSet={(setId, values) =>
+                run("Série corrigida no histórico.", () =>
+                  workout.updateSet(setId, values),
+                )
               }
               onSkip={() =>
                 run("Exercício marcado como pulado.", () =>
