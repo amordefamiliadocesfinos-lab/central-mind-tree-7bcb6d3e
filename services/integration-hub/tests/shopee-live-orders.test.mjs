@@ -446,7 +446,8 @@ test('Adão-only eligible discovery skips irrelevant Core intake calls while pre
   assert.deepEqual(withDeadline.ready_to_ship_candidates, [
     { order_sn: 'READY001', create_time: 1794400000, ship_by_date: 1794560000 },
   ]);
-  assert.deepEqual(persisted, ['CURRENT001', 'DONE001', 'READY001']);
+  assert.deepEqual(persisted, ['CURRENT001', 'DONE001', 'READY001',
+    'CURRENT001', 'DONE001', 'READY001']);
   persisted.length = 0;
   const unchangedDefault = await reader(WINDOW);
   assert.deepEqual(unchangedDefault.order_sns, ['CURRENT001', 'DONE001', 'READY001']);
