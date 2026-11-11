@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate, selectAdaoRecentProcessedLabelCandidate } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -496,4 +496,43 @@ test('candidate rotation prevents one permanently ineligible order from starving
     assert.equal(resultValue.shipment_pending, 1);
   }
   assert.deepEqual([...new Set(calls)].sort(), orders);
+});
+
+
+test('recent PROCESSED Adão orders are prioritized over old label backlog', async () => {
+  const a = { order_sn: '26111137FS6GRM', create_time: 1794410000 };
+  const b = { order_sn: '2611123948MENG', create_time: 1794410500 };
+  const old = { order_sn: 'OLDPROCESSED1', create_time: 1794200000 };
+  const first = selectAdaoRecentProcessedLabelCandidate([old,a,b], Date.parse('2026-11-11T15:10:00Z'));
+  assert.ok([a.order_sn,b.order_sn].includes(first));
+  assert.equal(selectAdaoRecentProcessedLabelCandidate([old], Date.parse('2026-11-11T15:10:00Z')), null);
+});
+
+test('automatic Adão cycle prioritizes recent processed PDF and emits sanitized diagnostics', async () => {
+  const old = 'OLDPROCESSED1';
+  const first = '26111137FS6GRM';
+  const second = '2611123948MENG';
+  const synced = [];
+  const diagnostics = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: key => key === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'false'
+      : key === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'true' : getEnv(key),
+    now: () => Date.parse('2026-11-11T15:10:00Z'),
+    readOrders: async () => ({
+      ...page([old,first,second]),
+      label_ready_candidates: [
+        { order_sn: first, create_time: 1794410000 },
+        { order_sn: second, create_time: 1794410500 },
+      ],
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    syncLabel: async sn => { synced.push(sn); return {ok:false,code:'document_processing'}; },
+    logDiagnostic: entry => diagnostics.push(entry),
+  });
+  const report = await runner();
+  assert.equal(report.labels_pending,1);
+  assert.equal(synced.length,1);
+  assert.ok([first,second].includes(synced[0]));
+  assert.deepEqual(Object.keys(diagnostics[0]).sort(), ['event','outcome','processed_candidates','result_code']);
+  assert.equal(diagnostics[0].result_code,'document_processing');
 });

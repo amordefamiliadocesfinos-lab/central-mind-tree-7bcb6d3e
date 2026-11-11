@@ -3,7 +3,7 @@ import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from '.
 import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
-import { arrangeAdaoNewOrderOnce, isAdaoAutomaticShippingCandidate, isAdaoReopenedShippingPilotCandidate, isAdaoNewShippingCandidate } from './shopee-adao-automatic-shipping.mjs';
+import { arrangeAdaoNewOrderOnce, isAdaoAutomaticShippingCandidate, isAdaoReopenedShippingPilotCandidate, isAdaoNewShippingCandidate, ADAO_AUTO_SHIP_HISTORY_CUTOFF } from './shopee-adao-automatic-shipping.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
 export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
@@ -85,6 +85,23 @@ export function selectAdaoLabelCandidate(orderSns, nowMs) {
   return unique[Math.floor(nowMs / 300_000) % unique.length];
 }
 
+// Prioritize recently organized Adão orders over unrelated historic backlog.
+// Only PROCESSED orders after the administrative cutoff may enter this
+// fast path; other existing label candidates retain round-robin fallback.
+export function selectAdaoRecentProcessedLabelCandidate(candidates, nowMs) {
+  if (!Array.isArray(candidates) || !Number.isFinite(nowMs)) return null;
+  const recent = new Map();
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate.order_sn !== 'string' ||
+        !ORDER_RE.test(candidate.order_sn) || !Number.isSafeInteger(candidate.create_time) ||
+        candidate.create_time <= ADAO_AUTO_SHIP_HISTORY_CUTOFF) continue;
+    recent.set(candidate.order_sn, candidate.create_time);
+  }
+  const sorted = [...recent.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 8).map(([sn]) => sn);
+  return sorted.length ? sorted[Math.floor(nowMs / 300_000) % sorted.length] : null;
+}
+
 export function createAdaoAutomaticIntake({
   getEnv = key => process.env[key],
   now = Date.now,
@@ -93,6 +110,7 @@ export function createAdaoAutomaticIntake({
   intake = createAdaoScopedIntake(),
   syncLabel = syncAdaoReadyLabelOnce,
   arrangeShipping = arrangeAdaoNewOrderOnce,
+  logDiagnostic = entry => console.log(JSON.stringify(entry)),
 } = {}) {
   return async function runAdaoAutomaticIntake() {
     const report = {
@@ -129,6 +147,7 @@ export function createAdaoAutomaticIntake({
     const cursors = new Set();
     const seen = new Set();
     const labelCandidates = new Set();
+    const processedLabelCandidates = new Map();
     const newlyWritten = [];
     const shippingCandidates = new Map();
     const acceptedForShipping = new Set();
@@ -161,6 +180,15 @@ export function createAdaoAutomaticIntake({
             || listed.ready_to_ship_candidates.some(v => !listed.order_sns.includes(v?.order_sn)
               || !Number.isSafeInteger(v.create_time)))) {
         return { ...report, code: 'shipping_candidate_invalid', stopped: true };
+      }
+      if (listed.label_ready_candidates !== undefined &&
+          (!Array.isArray(listed.label_ready_candidates) ||
+           listed.label_ready_candidates.some(v => !listed.order_sns.includes(v?.order_sn) ||
+             !Number.isSafeInteger(v.create_time)))) {
+        return { ...report, code: 'label_candidate_invalid', stopped: true };
+      }
+      for (const candidate of listed.label_ready_candidates ?? []) {
+        processedLabelCandidates.set(candidate.order_sn, candidate);
       }
       for (const candidate of listed.ready_to_ship_candidates ?? []) {
         if (isAdaoAutomaticShippingCandidate(candidate)) shippingCandidates.set(candidate.order_sn, candidate);
@@ -274,10 +302,16 @@ export function createAdaoAutomaticIntake({
         // imported order; otherwise rotate among already-known live candidates.
         // Sync failures are recorded, not mistaken for order intake failures.
         if (enabled(getEnv('SHOPEE_ADAO_LABEL_SYNC_ENABLED'))) {
-          const target = newlyWritten[0] ?? selectAdaoLabelCandidate([...labelCandidates], now());
+          const target = selectAdaoRecentProcessedLabelCandidate(
+            [...processedLabelCandidates.values()].filter(v => labelCandidates.has(v.order_sn)), now())
+            ?? newlyWritten[0] ?? selectAdaoLabelCandidate([...labelCandidates], now());
           if (target) {
             try {
               const label = await syncLabel(target);
+              // No PII/order IDs, auth material or upstream messages in logs.
+              try { logDiagnostic({ event: 'adao_auto_label_cycle',
+                result_code: safeCode(label?.code), outcome: label?.ok === true ? 'ok' : 'pending_or_blocked',
+                processed_candidates: processedLabelCandidates.size }); } catch { /* diagnostics optional */ }
               if (label?.ok === true && label.code === 'label_attached') report.labels_attached++;
               else if (label?.ok === true && label.code === 'already_available') report.labels_already++;
               else if (['document_processing', 'document_task_created_check_later',
@@ -289,6 +323,9 @@ export function createAdaoAutomaticIntake({
             } catch {
               report.labels_blocked++;
               report.label_code = 'label_sync_exception';
+              try { logDiagnostic({ event: 'adao_auto_label_cycle',
+                result_code: 'label_sync_exception', outcome: 'blocked',
+                processed_candidates: processedLabelCandidates.size }); } catch { /* noop */ }
             }
           }
         }
