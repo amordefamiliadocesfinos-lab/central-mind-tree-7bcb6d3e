@@ -406,6 +406,7 @@ export function HealthWorkoutPage() {
         setsByExercise={workout.setsByExercise}
         exerciseNameById={exerciseNameById}
         timer={timer}
+        onCompleteWorkout={workout.completeWorkout}
       />
 
       <details className="rounded-xl border bg-muted/10 p-3">
@@ -511,33 +512,6 @@ export function HealthWorkoutPage() {
         </div>
       </details>
 
-      <Card>
-        <CardContent className="space-y-3 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium">Finalizar treino</p>
-              <p className="mt-1 text-xs text-muted-foreground">{completedSetCount} série(s) concluída(s).</p>
-            </div>
-            <CheckCircle2 className="h-5 w-5 text-primary" />
-          </div>
-          <Button
-            className="min-h-12 w-full"
-            disabled={
-              workout.saving ||
-              timer.saving ||
-              completedSetCount < 1 ||
-              (timer.available && Boolean(timer.activeInterval)) ||
-              timer.sessionTiming?.status === "paused"
-            }
-            onClick={() => void run("Treino concluído e fila atualizada.", workout.completeWorkout)}
-          >
-            Concluir treino
-          </Button>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Ao concluir, a execução fica preservada como fato histórico. O programa publicado da M3 não é alterado.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
