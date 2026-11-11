@@ -45,3 +45,16 @@ Antes de inserir qualquer snapshot `verificado`, confrontar a origem diretamente
 6. Confirmar interface autenticada na ficha; não supor E2E a partir do build.
 
 M4 inicia com **snapshots auditados**, não uma sincronização agendada/autônoma do GitHub. Qualquer coleta recorrente com credenciais e webhook demanda subetapa posterior dentro da M4 e validação de segurança própria.
+
+## Implantação aditiva — evidência efetivamente registrada em 11/11/2026
+
+- Migration `20261111234500_nucleo_m4_technical_evidence.sql` instalada no Core PostgreSQL 17.6 e registrada no histórico `supabase_migrations.schema_migrations`.
+- RLS ativa, 2 policies, 2 triggers de proteção (autoria e bloqueio UPDATE/DELETE); `authenticated` e `service_role` somente SELECT/INSERT, sem permissão anônima.
+- Snapshot inicial com **12 evidências**, todas confrontadas previamente com as origens: 4 PRs integradas (#608, #611, #614, #619), 3 execuções CI aprovadas (43094643388, 43103257248, 43108556183) e 5 migrations efetivamente presentes no Core (20261111193600, 20261111193601, 20261111210000, 20261111222000, 20261111232500).
+- Referências ligadas a NUC-M1/M2/M3; estado do Kanban **não foi alterado**. NUC-M4 continua `planejado` no registro anterior até revisão específica dos critérios; não deduzir conclusão pelo catálogo.
+- Pós-inserção: 12 evidências, 7 frentes, 11 eventos de acompanhamento, 3 referências Drive, zero documentos M1 importados, uma capacidade nucleo_manage ativa, preservada.
+- Teste transacional no Core: identidade administrativa autorizada visualiza 12; identidade sem grant visualiza 0. As transações de teste foram revertidas.
+- Registros originados por execução técnica administrativa `recorded_by_auth_uid=NULL`; não atribuir falsamente a escrita a uma sessão do navegador. A proveniência da conferência está anotada individualmente.
+- [GitHub Actions #43112091483](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43112091483): PostgreSQL 17 e build completo aprovados.
+
+**Fronteira:** a versão M4 implantada registra e exibe snapshots auditáveis. Não realiza sincronização em tempo real, webhook ou polling GitHub. E2E visual autenticado do novo componente permanece pendente.
