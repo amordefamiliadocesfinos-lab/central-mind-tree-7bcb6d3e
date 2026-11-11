@@ -101,6 +101,7 @@ export function createAdaoAutomaticIntake({
       skipped: 0, blocked: 0, pages: 0, stopped: false,
       labels_attached: 0, labels_already: 0, labels_pending: 0, labels_blocked: 0,
       shipment_acknowledged: 0, shipment_pending: 0,
+      shipment_candidates: 0,
       // No shipping arrangement, inventory or physical finalization.
       logistics_writes: 0, inventory_writes: 0,
     };
@@ -189,7 +190,9 @@ export function createAdaoAutomaticIntake({
           // reopened in the Adão Core. The reader must have supplied LIVE
           // READY_TO_SHIP evidence on this cycle, and the writer must still
           // pass a new live preflight and permanent Core shipping claim.
-          if (shippingCandidates.has(sn) && isAdaoReopenedShippingPilotCandidate({ order_sn: sn })) {
+          if (shippingCandidates.has(sn) &&
+              (isAdaoReopenedShippingPilotCandidate({ order_sn: sn })
+                || isAdaoNewShippingCandidate(shippingCandidates.get(sn)))) {
             acceptedForShipping.add(sn);
           }
           continue;
@@ -220,7 +223,9 @@ export function createAdaoAutomaticIntake({
           labelCandidates.add(sn);
           // A previously registered order is NOT generally eligible. Only
           // the exact three operator-reopened pilot orders can be selected.
-          if (shippingCandidates.has(sn) && isAdaoReopenedShippingPilotCandidate({ order_sn: sn })) {
+          if (shippingCandidates.has(sn) &&
+              (isAdaoReopenedShippingPilotCandidate({ order_sn: sn })
+                || isAdaoNewShippingCandidate(shippingCandidates.get(sn)))) {
             acceptedForShipping.add(sn);
           }
         }
@@ -241,8 +246,15 @@ export function createAdaoAutomaticIntake({
         // trusted one-shot writer repeats LIVE eligibility and Core claim.
         // Historical orders predating the administrative test cleanup are out.
         if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
-          const target = [...shippingCandidates.keys()].sort()
-            .find(sn => acceptedForShipping.has(sn));
+          // Continue helping when a new order was imported before the
+          // Shopee transition to READY_TO_SHIP. Rotation avoids starving
+          // later orders when the first candidate has unmet prerequisites.
+          // The Core claim checks the order remains operationally open.
+          const eligible = [...shippingCandidates.keys()].sort()
+            .filter(sn => acceptedForShipping.has(sn));
+          report.shipment_candidates = eligible.length;
+          const target = eligible.length
+            ? eligible[Math.floor(now() / 300_000) % eligible.length] : null;
           if (target) {
             try {
               const arranged = await arrangeShipping(target);
