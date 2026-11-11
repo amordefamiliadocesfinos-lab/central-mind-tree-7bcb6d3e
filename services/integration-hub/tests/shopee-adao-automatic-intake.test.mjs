@@ -638,7 +638,7 @@ test('F12.2: oldest live candidate is selected by actual page runner, failed fir
     readOrders: async () => ({ ...page(snList),
       ready_to_ship_candidates: [
         { order_sn: snList[0], create_time: 1794500000 },
-        { order_sn: snList[1], create_time: 1794400000 },
+        { order_sn: snList[1], create_time: 1794410000 },
         { order_sn: snList[2], create_time: 1794450000 },
       ],
     }),
