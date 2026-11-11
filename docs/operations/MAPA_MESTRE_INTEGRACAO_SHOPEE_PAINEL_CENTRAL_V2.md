@@ -707,3 +707,17 @@ Por solicitação do operador, os pedidos Shopee que permaneciam em Separação 
 4. Se a Shopee exigir modalidade diferente de dropoff simples, preservar envio via Seller Center e desenvolver a alternativa **com evidência real**, sem inventar parâmetros. HTTP 200 de `ship_order` nunca comprova coleta/postagem.
 
 **Estado:** base de código e testes direcionados entregues; implantação e prova Live pendentes. Não confundir fila de Separação limpa com inexistência de pedidos históricos; seus dados permanecem preservados.
+
+---
+
+## 15. F11 — REABERTURA DIRIGIDA E EVIDÊNCIA LIVE (11/11/2026)
+
+**Autorização operacional:** após a limpeza da separação, o usuário identificou no Seller Center Adão três pedidos ainda com ação "Organizar Envio": PED-00413 (`2611111W8T6TE3`), PED-00414 (`2611112RP7B34Q`) e PED-00415 (`2611112W8Y81TH`). O usuário autorizou a reabertura exclusiva desses três para prova da Frente 11.
+
+**Executado no Core:** três pedidos e respectivas separações alterados administrativamente de `finalized` para `todo` em uma operação de escopo exato e com anotação de reabertura no histórico do pedido. Nenhuma baixa/movimentação de estoque, criação de postagem ou alteração de NF-e. PED-00409 e os demais históricos permaneceram finalizados.
+
+**Correção em código:** PR #579 mergeada na `main` (`fcc6318fb4d2a8c36ee81fc761547e5e28da214b`). Ajuste da F11 para incluir **somente os três pedidos reabertos** na seleção de envio, desde que o leitor observe `READY_TO_SHIP` e o `ship_order` passe por preflight Live e claim permanente; não abrir todos os históricos. Corrigida a ausência de `ready_to_ship_candidates` em páginas não vazias do leitor F11 e referência indevida a `detailedOrders` no caminho vazio. Testes do Hub e Core aprovados; verificação TypeScript global segue falhando pelo erro existente de Saúde em `useHealthMealPlanF18.ts`.
+
+**Mudança observada durante a execução:** a última captura Raw Shopee consultada em **11/11/2026 ~11h25 BRT** apresentou os três pedidos como `PROCESSED`, quando capturas anteriores os mostravam `READY_TO_SHIP`. A conta Adão não possui tentativas `shopee_shipping_arrangement_attempts` nessa hora; logo, **não há prova de organização de envio pelo Hub**, tampouco autorização para repetir automaticamente o envio se a Shopee não o exige mais. PED-00413 já apresentava tentativa de documento `succeeded`, porém sem PDF no momento da consulta; PED-00414 e PED-00415 sem tentativas/PDF.
+
+**Estado de entrega:** PR mergeada ≠ Cloud Run publicado. A revisão operacional `adao-teste` usada anteriormente permanece com F11 anterior até nova publicação verificada. Após publicação, o motor só enviará `ship_order` se houver estado elegível atual confirmado; pedidos `PROCESSED` poderão seguir ao processo de recuperação de etiqueta sem reorganização. Validar na fonte antes de atribuir qualquer organização de envio à integração. Não alterar Viviane.
