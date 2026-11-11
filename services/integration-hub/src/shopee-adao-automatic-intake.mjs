@@ -95,6 +95,47 @@ export function selectAdaoBatchCandidates(sns, nowMs, limit = 1) {
   const offset = Math.floor(nowMs / 300_000) % sorted.length;
   return Array.from({ length: count }, (_, i) => sorted[(offset + i) % sorted.length]);
 }
+// F12.2: prefer the longest-standing LIVE pending orders where Shopee supplied
+// validated creation time. Never infer shipping deadline from creation time.
+// Missing timestamps get the existing fair rotation, not invented urgency.
+export function selectAdaoPendingShipments(candidates, nowMs, limit = 1) {
+  if (!Array.isArray(candidates) || !Number.isFinite(nowMs)) return [];
+  const valid = new Map();
+  for (const candidate of candidates) {
+    const sn = candidate?.order_sn;
+    if (typeof sn !== 'string' || !ORDER_RE.test(sn)) continue;
+    const created = candidate?.create_time;
+    if (valid.has(sn)) continue;
+    valid.set(sn, Number.isSafeInteger(created) && created > 0 ? created : null);
+  }
+  const known = [...valid].filter(([, time]) => time !== null)
+    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+  const unknown = [...valid].filter(([, time]) => time === null).map(([sn]) => sn);
+  // Rotate only among equal-age cohorts: older pending orders cannot be
+  // displaced by newer ones solely due to the scheduler's rotation.
+  const ranked = [];
+  for (let i = 0; i < known.length;) {
+    let j = i + 1;
+    while (j < known.length && known[j][1] === known[i][1]) j++;
+    ranked.push(...selectAdaoBatchCandidates(
+      known.slice(i, j).map(([sn]) => sn), nowMs, Math.min(j - i, ADAO_F12_MAX_BATCH_PER_TYPE),
+    ));
+    // When the cohort is larger than 3 the remaining candidates must stay
+    // visible to later cycles, not disappear from the ranking.
+    if (j - i > ADAO_F12_MAX_BATCH_PER_TYPE) {
+      const rotated = selectAdaoBatchCandidates(
+        known.slice(i, j).map(([sn]) => sn), nowMs, ADAO_F12_MAX_BATCH_PER_TYPE,
+      );
+      const leftovers = known.slice(i, j).map(([sn]) => sn).filter(sn => !rotated.includes(sn));
+      ranked.push(...leftovers);
+    }
+    i = j;
+  }
+  ranked.push(...selectAdaoBatchCandidates(unknown, nowMs, ADAO_F12_MAX_BATCH_PER_TYPE));
+  ranked.push(...unknown.filter(sn => !ranked.includes(sn)));
+  return ranked.slice(0, Math.min(adaoBatchLimit(limit), valid.size));
+}
+
 export function selectAdaoLabelCandidate(orderSns, nowMs) {
   if (!Array.isArray(orderSns) || !orderSns.length || !Number.isFinite(nowMs)) return null;
   const unique = [...new Set(orderSns)].filter(sn => typeof sn === 'string' && ORDER_RE.test(sn)).sort();
@@ -191,7 +232,12 @@ export function createAdaoAutomaticIntake({
             .filter(sn => acceptedForShipping.has(sn)).length;
           // F12: bounded sequential actions. Never send competing POSTs;
           // each call performs LIVE Shopee preflight + Core durable claim.
-          for (const target of selectAdaoBatchCandidates(eligible, now(), shippingBatchLimit)) {
+          // Age-ranked within each already-committed page. Every attempt still
+          // repeats LIVE preflight and its durable one-shot Core claim.
+          const ranked = selectAdaoPendingShipments(
+            eligible.map(sn => shippingCandidates.get(sn)), now(), shippingBatchLimit,
+          );
+          for (const target of ranked) {
             if (report.shipment_attempted >= shippingBatchLimit) break;
             if (!withinWorkBudget()) {
               report.work_budget_exhausted = true;
