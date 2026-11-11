@@ -17,6 +17,30 @@ BEGIN
  END IF;
 END $$;
 
+-- A role authenticated não pode conceder a si própria nucleo_manage,
+-- nem enxergar capabilities de terceiros (conferência de isolamento da fonte RLS).
+SET ROLE authenticated;
+SET request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
+DO $
+BEGIN
+  IF (SELECT count(*) FROM public.app_admin_capabilities)<>1 THEN
+    RAISE EXCEPTION 'Capability own-select leaked another identity';
+  END IF;
+  BEGIN
+    INSERT INTO public.app_admin_capabilities(auth_user_id,capability)
+    VALUES('22222222-2222-4222-8222-222222222222','nucleo_manage');
+    RAISE EXCEPTION 'Client could self-grant nucleo_manage';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    UPDATE public.app_admin_capabilities SET capability='nucleo_manage'
+    WHERE auth_user_id='22222222-2222-4222-8222-222222222222';
+    RAISE EXCEPTION 'Client could change own capability';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $;
+RESET ROLE;
+
 -- Autorizado: administra o Núcleo porque recebeu a capacidade específica.
 SET ROLE authenticated;
 SET request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
