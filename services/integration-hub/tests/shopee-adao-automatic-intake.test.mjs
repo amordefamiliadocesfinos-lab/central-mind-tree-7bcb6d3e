@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate, selectAdaoRecentProcessedLabelCandidate } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate, selectAdaoRecentProcessedLabelCandidate, adaoBatchLimit, selectAdaoBatchCandidates } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -535,4 +535,98 @@ test('automatic Adão cycle prioritizes recent processed PDF and emits sanitized
   assert.ok([first,second].includes(synced[0]));
   assert.deepEqual(Object.keys(diagnostics[0]).sort(), ['event','outcome','processed_candidates','result_code']);
   assert.equal(diagnostics[0].result_code,'document_processing');
+});
+
+
+test('F12: batch limits default to one and cap at three without changing old production env', () => {
+  assert.equal(adaoBatchLimit(undefined), 1);
+  assert.equal(adaoBatchLimit('10'), 1);
+  assert.equal(adaoBatchLimit('0'), 1);
+  assert.equal(adaoBatchLimit('3'), 3);
+  assert.equal(selectAdaoBatchCandidates(['NEWORDER001','NEWORDER002','NEWORDER003'], Date.parse('2026-11-11T19:00:00Z'), 3).length, 3);
+  assert.equal(new Set(selectAdaoBatchCandidates(['NEWORDER001','NEWORDER001','NEWORDER002'], Date.parse('2026-11-11T19:00:00Z'), 3)).size, 2);
+});
+
+test('F12: Adão bounded batches process three shipments and three labels, preserving 1 per order', async () => {
+  const snList = ['NEWORDER001','NEWORDER002','NEWORDER003','NEWORDER004'];
+  const shipCalls = [], labelCalls = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'true',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+      SHOPEE_ADAO_LABEL_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z'),
+    readOrders: async () => ({
+      ...page(snList),
+      ready_to_ship_candidates: snList.map(order_sn => ({ order_sn, create_time: 1794410500 })),
+      label_ready_candidates: snList.map(order_sn => ({ order_sn, create_time: 1794410500 })),
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async sn => { shipCalls.push(sn); return { ok: true, code: 'ship_order_api_acknowledged_not_collected' }; },
+    syncLabel: async sn => { labelCalls.push(sn); return { ok: true, code: 'label_attached' }; },
+    logDiagnostic: () => {},
+  });
+  const r = await runner();
+  assert.equal(r.ok, true);
+  assert.equal(r.shipment_candidates, 4);
+  assert.equal(r.shipment_attempted, 3);
+  assert.equal(r.shipment_acknowledged, 3);
+  assert.equal(r.label_attempted, 3);
+  assert.equal(r.labels_attached, 3);
+  assert.equal(new Set(shipCalls).size, 3);
+  assert.equal(new Set(labelCalls).size, 3);
+});
+
+test('F12: one failed shipping candidate does not prevent other scoped candidates', async () => {
+  const snList = ['NEWORDER001','NEWORDER002','NEWORDER003'];
+  const attempts = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'false',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z'),
+    readOrders: async () => ({
+      ...page(snList),
+      ready_to_ship_candidates: snList.map(order_sn => ({ order_sn, create_time: 1794410500 })),
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async sn => {
+      attempts.push(sn);
+      if (attempts.length === 1) throw new Error('simulated transport exception');
+      return {ok:true,code:'ship_order_api_acknowledged_not_collected'};
+    },
+  });
+  const r = await runner();
+  assert.equal(r.shipment_attempted, 3);
+  assert.equal(r.shipment_pending, 1);
+  assert.equal(r.shipment_acknowledged, 2);
+});
+
+test('F12: wall-clock budget stops new logistics actions without interrupting completed calls', async () => {
+  let elapsedMs = 0;
+  const snList = ['NEWORDER001','NEWORDER002','NEWORDER003'];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'true',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+      SHOPEE_ADAO_LABEL_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z') + elapsedMs,
+    readOrders: async () => ({
+      ...page(snList),
+      ready_to_ship_candidates: snList.map(order_sn => ({ order_sn, create_time: 1794410500 })),
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async () => { elapsedMs += 50_000; return {ok:true,code:'ship_order_api_acknowledged_not_collected'}; },
+    syncLabel: async () => { throw new Error('should not be called after timeout'); },
+  });
+  const r = await runner();
+  assert.equal(r.shipment_attempted, 1);
+  assert.equal(r.work_budget_exhausted, true);
+  assert.equal(r.label_attempted, 0);
 });
