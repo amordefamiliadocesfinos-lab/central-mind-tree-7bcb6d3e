@@ -145,6 +145,7 @@ export function useHealthAnalyticsF17(
         .from("health_workout_sessions")
         .select("id,started_at,ended_at,status")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .eq("status", "completed")
         .gte("started_at", fromTimestamp)
         .order("started_at", { ascending: true })
