@@ -675,4 +675,35 @@ Critério de prova próximo: selecionar **pedido real já importado**, encontrá
 **CONCLUÍDO:** recebimento automático, mapping utilizado, criação da Separação, PDF oficial automático e pré-visualização da impressão combinada em uma folha no PED-00409.  
 **AINDA NÃO COMPROVADO:** impressão física; mensagem do comprador real; organização automática do envio; coleta; conciliação fiscal/financeira; baixa de estoque.  
 **PRÓXIMA AÇÃO ÚNICA:** leitura dirigida do fluxo de organização do envio já existente no GitHub, separar capacidades prontas das pendentes e prosseguir com um pedido novo elegível sem reabrir a prova de impressão.  
-**FONTE:** consultas Core e capturas Cloud Run/Scheduler em 10/11/2026; PRs #569/#570; vídeo de operação `PEDIDO SHOPEE EXCLUIR 2.mp4`.  
+**FONTE:** consultas Core e capturas Cloud Run/Scheduler em 10/11/2026; PRs #569/#570; vídeo de operação `PEDIDO SHOPEE EXCLUIR 2.mp4`.
+
+---
+
+## 14. F11 — ORGANIZAÇÃO AUTOMÁTICA DO ENVIO: IMPLEMENTAÇÃO E LIMPEZA (11/11/2026)
+
+### 14.1 Limpeza administrativa de separações de teste
+
+Por solicitação do operador, os pedidos Shopee que permaneciam em Separação nos canais **Adão** e **Viviane** foram encerrados administrativamente como **histórico de teste**, mantendo a operação real no Seller Center. A primeira passagem finalizou **29 registros** (22 Adão, 7 Viviane). A segunda passagem identificou **quatro pedidos adicionais Adão**, ainda criados antes do marco operacional de **11/11/2026 13:22 UTC**, que haviam entrado após a primeira limpeza, e finalizou **PED-00413 a PED-00416**.
+
+**Total encerrado nessa ação: 33 pedidos (26 Adão, 7 Viviane)**. Todos mantêm seu pedido, documentos, itens, vínculos e anotação histórica; **nenhuma baixa de estoque, emissão fiscal, expedição Shopee, movimentação financeira ou impressão física foi executada**. A situação comercial antiga permanece preservada; este é um encerramento *administrativo da fila de Separação*, não uma declaração de postagem física pelo Painel. Pedidos cancelados não foram convertidos em finalizados. Consulta após a segunda passagem: **Adão 37 finalizados; Viviane 17 finalizados e 1 cancelado** no recorte de canal/conta da Central (inclui finalizações anteriores).
+
+### 14.2 F11 — evolução de código registrada
+
+**GitHub PR #577 — merge `a587af9c21ca84ca5ed4f0dcf3fe24efdefbb044`.** Evolução do Hub para utilizar o scheduler existente do Adão, **sem criar outro job** e sem modificar Viviane:
+
+- O leitor Live fornece opcionalmente a relação de **pedidos atualmente `READY_TO_SHIP`** e a data real de criação na Shopee, mantendo Raw e os caminhos de leitura antigos.
+- O motor só propõe `ship_order` para **pedido recém-criado depois de 11/11/2026 13:22 UTC**, **recém-importado com sucesso no Core na mesma execução** e dentro da conta Adão. Pedidos históricos encerrados, SHIPPED, cancelados ou anteriores ao corte não são candidatos.
+- O executor reutiliza `inspectShopeeShippingPreflight` e `createGuardedShopeeShipOrder`, com conferência Live da conta/pacote, operação `dropoff` simples apenas quando Shopee informa `info_needed.dropoff=[]`, perfil fiscal da conta, claim Core único por pedido/pacote, POST assinado e resolução durável. No máximo **uma organização por ciclo**; resultado incerto não deve ser repetido pelo writer.
+- A etiqueta permanece no sincronizador automático já existente. O transporte físico, postagem/coleta, NF-e, inventário e finalização física **não são realizados** por F11.
+- Feature flag separada **`SHOPEE_ADAO_AUTO_SHIP_ENABLED`**, inicialmente ausente/**OFF**. O código mergeado **não está implantado/ativado no Cloud Run apenas por existir na main**.
+
+**Limite funcional explícito da primeira versão:** pedidos que entram no Core antes de ficarem `READY_TO_SHIP` poderão exigir evolução de conciliação canônica de status para entrar em organização automática mais tarde; não tratar o simples fato de estarem cadastrados como prova de que ainda estão na fila operacional. Evitar reautorizar históricos encerrados sem dados canônicos atuais.
+
+### 14.3 Próxima comprovação
+
+1. **Publicar a imagem atualizada do Hub** na tag isolada `adao-teste`, preservando 100% do tráfego principal da Viviane.
+2. Ativar `SHOPEE_ADAO_AUTO_SHIP_ENABLED=true` **apenas na revisão Adão** quando sua saúde e configuração forem confirmadas. Manter o agendamento já existente, sem segundo writer.
+3. Com **um novo pedido criado após o corte**, conferir a sequência **READY_TO_SHIP → pré-verificação → confirmação da Shopee da organização → etiqueta oficial → documento na Central de Separação**.
+4. Se a Shopee exigir modalidade diferente de dropoff simples, preservar envio via Seller Center e desenvolver a alternativa **com evidência real**, sem inventar parâmetros. HTTP 200 de `ship_order` nunca comprova coleta/postagem.
+
+**Estado:** base de código e testes direcionados entregues; implantação e prova Live pendentes. Não confundir fila de Separação limpa com inexistência de pedidos históricos; seus dados permanecem preservados.
