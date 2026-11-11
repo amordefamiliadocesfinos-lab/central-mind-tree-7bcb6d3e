@@ -4139,7 +4139,7 @@ export default function Nucleo() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-5 space-y-5">
+      <main className={cn("mx-auto px-4 py-5 space-y-5", developmentMode ? "max-w-[1900px] w-full" : "max-w-7xl")}>
         {developmentMode ? <NucleoDevelopmentCenter /> : (
         <>
         {/* Areas grid */}

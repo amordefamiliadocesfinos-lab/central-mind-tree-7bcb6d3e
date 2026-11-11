@@ -27,6 +27,25 @@ const priorityNames: Record<Priority, string> = {
 const evidenceNames: Record<EvidenceState, string> = {
   sem_evidencia: "Sem evidência", relatada: "Relatada", comprovada: "Comprovada",
 };
+const EDITABLE_KEYS = [
+  "title", "description", "specialist", "status", "priority", "next_action",
+  "blocker", "acceptance_criteria", "evidence_state", "evidence_note",
+] as const;
+
+function changedEditableFields(
+  original: DevelopmentWorkstream,
+  values: Partial<DevelopmentWorkstream>,
+): Partial<DevelopmentWorkstream> {
+  const changes: Partial<DevelopmentWorkstream> = {};
+  for (const key of EDITABLE_KEYS) {
+    if (values[key] !== undefined && values[key] !== original[key]) {
+      // All editable columns in this view are strings.
+      (changes as Record<string, string>)[key] = values[key] as string;
+    }
+  }
+  return changes;
+}
+
 const emptyDraft = {
   code: "", title: "", parent_id: "", kind: "modulo" as DevelopmentKind,
   description: "", specialist: "", acceptance_criteria: "",
@@ -91,6 +110,11 @@ export default function NucleoDevelopmentCenter() {
 
   const byId = useMemo(() => new Map(items.map(item => [item.id, item])), [items]);
   const selected = byId.get(selectedId);
+  const pendingChanges = useMemo(
+    () => selected ? changedEditableFields(selected, edit) : {},
+    [selected, edit],
+  );
+  const hasPendingChanges = Object.keys(pendingChanges).length > 0;
   const visible = useMemo(() => {
     const term = filter.toLocaleLowerCase("pt-BR").trim();
     return items.filter(item => !term || [item.code,item.title,item.specialist,item.next_action]
@@ -145,6 +169,11 @@ export default function NucleoDevelopmentCenter() {
 
   const saveItem = async () => {
     if (!selected || saving) return;
+    const changes = changedEditableFields(selected, edit);
+    if (Object.keys(changes).length === 0) {
+      toast.info("Nenhuma alteração para salvar.");
+      return;
+    }
     if (edit.status === "concluido" &&
       (edit.evidence_state !== "comprovada" || !edit.evidence_note?.trim())) {
       toast.error("Para concluir, registre evidência comprovada e sua descrição."); return;
@@ -153,10 +182,16 @@ export default function NucleoDevelopmentCenter() {
       toast.error("Indique o motivo do bloqueio."); return;
     }
     setSaving(true);
-    const { error } = await client.from("nucleo_development_workstreams")
-      .update(edit).eq("id",selected.id);
+    const { data, error } = await client.from("nucleo_development_workstreams")
+      .update(changes).eq("id",selected.id).eq("updated_at",selected.updated_at)
+      .select("id").maybeSingle();
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    if (!data) {
+      toast.error("O registro mudou desde a abertura. Atualize e confira antes de salvar.");
+      await refresh();
+      return;
+    }
     toast.success("Atualização auditada.");
     await refresh();
   };
@@ -268,8 +303,9 @@ export default function NucleoDevelopmentCenter() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
+      <div className="grid grid-cols-1 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(350px,400px)] gap-4 items-start">
+        <div className="min-w-0 overflow-x-auto pb-2">
+          <div className="grid grid-cols-5 gap-3 min-w-[1100px] items-start">
           {states.map(state => (
             <Card className="p-3 space-y-2" key={state.key}>
               <h3 className="font-semibold text-sm">{state.label}</h3>
@@ -293,8 +329,9 @@ export default function NucleoDevelopmentCenter() {
                 <p className="text-xs text-muted-foreground">Sem registros</p>}
             </Card>
           ))}
+          </div>
         </div>
-        <Card className="p-4 space-y-3">
+        <Card className="p-4 space-y-3 min-w-0">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
@@ -349,7 +386,9 @@ export default function NucleoDevelopmentCenter() {
               <label className="block text-xs space-y-1">Evidência / justificativa
                 <Textarea value={edit.evidence_note||""} onChange={e=>setEdit(v=>({...v,evidence_note:e.target.value}))}/>
               </label>
-              <Button size="sm" disabled={saving} onClick={saveItem}>Salvar e registrar histórico</Button>
+              <Button size="sm" disabled={saving || !hasPendingChanges} onClick={saveItem}>
+                {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
+              </Button>
               <div className="border-t pt-3 space-y-2">
                 <h4 className="text-xs font-semibold">Dependências registradas</h4>
                 {dependencies.filter(d=>d.workstream_id===selected.id).map(d=>(
