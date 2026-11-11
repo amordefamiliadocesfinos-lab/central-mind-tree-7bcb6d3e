@@ -78,6 +78,23 @@ function diagnostic(stage, reason, info = {}) {
 // PDF persistence and one-time upstream document creation remain in the
 // existing Core-claimed synchronizer.
 export const ADAO_AUTO_LABELS_PER_CYCLE = 1;
+// F12 first-phase cap: independently set to 1-3 per type. The current
+// deployed account remains at 1 unless a reviewed env change opts in.
+export const ADAO_F12_MAX_BATCH_PER_TYPE = 3;
+export const ADAO_F12_WORK_BUDGET_MS = 48_000;
+export function adaoBatchLimit(value) {
+  const raw = String(value ?? '').trim();
+  if (!/^[1-3]$/.test(raw)) return 1;
+  return Math.min(Number(raw), ADAO_F12_MAX_BATCH_PER_TYPE);
+}
+export function selectAdaoBatchCandidates(sns, nowMs, limit = 1) {
+  if (!Array.isArray(sns) || !Number.isFinite(nowMs)) return [];
+  const sorted = [...new Set(sns)].filter(sn => typeof sn === 'string' && ORDER_RE.test(sn)).sort();
+  if (!sorted.length) return [];
+  const count = Math.min(adaoBatchLimit(limit), sorted.length);
+  const offset = Math.floor(nowMs / 300_000) % sorted.length;
+  return Array.from({ length: count }, (_, i) => sorted[(offset + i) % sorted.length]);
+}
 export function selectAdaoLabelCandidate(orderSns, nowMs) {
   if (!Array.isArray(orderSns) || !orderSns.length || !Number.isFinite(nowMs)) return null;
   const unique = [...new Set(orderSns)].filter(sn => typeof sn === 'string' && ORDER_RE.test(sn)).sort();
@@ -120,9 +137,14 @@ export function createAdaoAutomaticIntake({
       labels_attached: 0, labels_already: 0, labels_pending: 0, labels_blocked: 0,
       shipment_acknowledged: 0, shipment_pending: 0,
       shipment_candidates: 0,
+      shipment_attempted: 0, label_attempted: 0, work_budget_exhausted: false,
       // No shipping arrangement, inventory or physical finalization.
       logistics_writes: 0, inventory_writes: 0,
     };
+    const cycleStartedAt = now();
+    const withinWorkBudget = () => now() - cycleStartedAt < ADAO_F12_WORK_BUDGET_MS;
+    const shippingBatchLimit = adaoBatchLimit(getEnv('SHOPEE_ADAO_SHIP_BATCH_SIZE'));
+    const labelBatchLimit = adaoBatchLimit(getEnv('SHOPEE_ADAO_LABEL_BATCH_SIZE'));
     if (!enabled(getEnv('SHOPEE_ADAO_AUTO_INTAKE_ENABLED'))) {
       return { ...report, code: 'adao_auto_intake_disabled' };
     }
@@ -281,9 +303,14 @@ export function createAdaoAutomaticIntake({
           const eligible = [...shippingCandidates.keys()].sort()
             .filter(sn => acceptedForShipping.has(sn));
           report.shipment_candidates = eligible.length;
-          const target = eligible.length
-            ? eligible[Math.floor(now() / 300_000) % eligible.length] : null;
-          if (target) {
+          // F12: bounded sequential actions. Never send competing POSTs;
+          // each call performs LIVE Shopee preflight + Core durable claim.
+          for (const target of selectAdaoBatchCandidates(eligible, now(), shippingBatchLimit)) {
+            if (!withinWorkBudget()) {
+              report.work_budget_exhausted = true;
+              break;
+            }
+            report.shipment_attempted++;
             try {
               const arranged = await arrangeShipping(target);
               if (arranged?.ok && arranged.code === 'ship_order_api_acknowledged_not_collected') {
@@ -302,10 +329,22 @@ export function createAdaoAutomaticIntake({
         // imported order; otherwise rotate among already-known live candidates.
         // Sync failures are recorded, not mistaken for order intake failures.
         if (enabled(getEnv('SHOPEE_ADAO_LABEL_SYNC_ENABLED'))) {
-          const target = selectAdaoRecentProcessedLabelCandidate(
-            [...processedLabelCandidates.values()].filter(v => labelCandidates.has(v.order_sn)), now())
-            ?? newlyWritten[0] ?? selectAdaoLabelCandidate([...labelCandidates], now());
-          if (target) {
+          const priority = [...processedLabelCandidates.values()]
+            .filter(v => labelCandidates.has(v.order_sn) &&
+              v.create_time > ADAO_AUTO_SHIP_HISTORY_CUTOFF)
+            .sort((a, b) => b.create_time - a.create_time).slice(0, 8)
+            .map(v => v.order_sn);
+          const priorityTargets = selectAdaoBatchCandidates(priority, now(), labelBatchLimit);
+          const remainderTargets = selectAdaoBatchCandidates(
+            [ ...newlyWritten, ...labelCandidates ].filter(sn => !priorityTargets.includes(sn)),
+            now(), labelBatchLimit);
+          const targets = [...priorityTargets, ...remainderTargets].slice(0, labelBatchLimit);
+          for (const target of targets) {
+            if (!withinWorkBudget()) {
+              report.work_budget_exhausted = true;
+              break;
+            }
+            report.label_attempted++;
             try {
               const label = await syncLabel(target);
               // No PII/order IDs, auth material or upstream messages in logs.
