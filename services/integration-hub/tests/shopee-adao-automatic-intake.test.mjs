@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate, selectAdaoRecentProcessedLabelCandidate, adaoBatchLimit, selectAdaoBatchCandidates } from '../src/shopee-adao-automatic-intake.mjs';
+import { createAdaoAutomaticIntake, ADAO_AUTO_INTAKE_SCOPE, ADAO_OAUTH_READ_TIMEOUT_MS, createAdaoOauthConnectionReader, ADAO_INTAKE_BATCH_READ_TIMEOUT_MS, createAdaoIntakeBatchReader, createAdaoScopedIntake, selectAdaoLabelCandidate, selectAdaoRecentProcessedLabelCandidate, adaoBatchLimit, selectAdaoBatchCandidates, selectAdaoPendingShipments } from '../src/shopee-adao-automatic-intake.mjs';
 import { handleRequest } from '../src/app.mjs';
 
 const PAIRS = '18599184676:229452998568,22193668881:179732818913';
@@ -596,6 +596,65 @@ test('automatic Adão cycle prioritizes recent processed PDF and emits sanitized
   assert.equal(diagnostics[0].result_code,'document_processing');
 });
 
+
+test('F12.2: older trusted creation times take priority without inventing Shopee deadlines', () => {
+  const time = Date.parse('2026-11-11T18:00:00Z');
+  const c = [
+    { order_sn: 'NEWERORDER01', create_time: 1794500000 },
+    { order_sn: 'OLDESTORDER1', create_time: 1794400000 },
+    { order_sn: 'MIDDLEORDER1', create_time: 1794450000 },
+  ];
+  assert.deepEqual(selectAdaoPendingShipments(c, time, 3),
+    ['OLDESTORDER1','MIDDLEORDER1','NEWERORDER01']);
+  assert.deepEqual(selectAdaoPendingShipments(c, time, 1), ['OLDESTORDER1']);
+  assert.deepEqual(selectAdaoPendingShipments([...c,c[1]], time, 3),
+    ['OLDESTORDER1','MIDDLEORDER1','NEWERORDER01']);
+  assert.deepEqual(selectAdaoPendingShipments([{ order_sn: 'BAD##' }], time, 3), []);
+});
+
+test('F12.2: equal-age candidates rotate fairly across scheduler cycles', () => {
+  const c = ['FAIRORDER001','FAIRORDER002','FAIRORDER003','FAIRORDER004']
+    .map(order_sn => ({ order_sn, create_time: 1794400000 }));
+  const picked = new Set();
+  for (let k = 0; k < 4; k++) {
+    const result = selectAdaoPendingShipments(c,
+      Date.parse('2026-11-11T18:00:00Z') + k * 300_000, 1);
+    assert.equal(result.length, 1);
+    picked.add(result[0]);
+  }
+  assert.equal(picked.size, 4);
+});
+
+test('F12.2: oldest live candidate is selected by actual page runner, failed first order does not block second', async () => {
+  const snList = ['LATESTORDER1','EARLIESTORD1','MIDDLEORDER1'];
+  const attempts = [];
+  const r = await createAdaoAutomaticIntake({
+    getEnv: key => ({
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'false',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3',
+    })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z'),
+    readOrders: async () => ({ ...page(snList),
+      ready_to_ship_candidates: [
+        { order_sn: snList[0], create_time: 1794500000 },
+        { order_sn: snList[1], create_time: 1794400000 },
+        { order_sn: snList[2], create_time: 1794450000 },
+      ],
+    }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async sn => {
+      attempts.push(sn);
+      return attempts.length === 1
+        ? { ok: false, code: 'preflight_not_eligible' }
+        : { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+  })();
+  assert.equal(r.shipment_attempted, 3);
+  assert.equal(r.shipment_pending, 1);
+  assert.equal(r.shipment_acknowledged, 2);
+  assert.deepEqual(attempts, ['EARLIESTORD1','MIDDLEORDER1','LATESTORDER1']);
+});
 
 test('F12: batch limits default to one and cap at three without changing old production env', () => {
   assert.equal(adaoBatchLimit(undefined), 1);
