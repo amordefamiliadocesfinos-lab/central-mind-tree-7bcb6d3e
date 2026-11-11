@@ -53,6 +53,18 @@ BEGIN
  EXCEPTION WHEN raise_exception THEN
    IF SQLERRM<>'M3 identity fields immutable' THEN RAISE; END IF;
  END;
+ BEGIN
+  UPDATE public.nucleo_development_workstreams SET kind='subfrente' WHERE code='NUC-M3';
+  RAISE EXCEPTION 'M3 mutated hierarchical kind';
+ EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM<>'M3 identity fields immutable' THEN RAISE; END IF;
+ END;
+ BEGIN
+  INSERT INTO public.nucleo_development_events
+   (workstream_id,event_type,after_state,actor_auth_uid)
+  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','alterado','{}'::jsonb,auth.uid());
+  RAISE EXCEPTION 'M3 forged history event from client';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $check$;
 RESET ROLE;
 
