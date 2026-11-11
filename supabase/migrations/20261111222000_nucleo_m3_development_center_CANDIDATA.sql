@@ -111,6 +111,8 @@ RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $cycle$
 BEGIN
  IF NEW.workstream_id=NEW.depends_on_id THEN RAISE EXCEPTION 'M3 self dependency forbidden'; END IF;
+ NEW.created_at=now();
+ NEW.created_by_auth_uid=auth.uid();
  IF EXISTS (
    WITH RECURSIVE reachable(id) AS (
      SELECT d.depends_on_id FROM public.nucleo_development_dependencies d
