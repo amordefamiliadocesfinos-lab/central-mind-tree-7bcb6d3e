@@ -637,3 +637,42 @@ Critério de prova próximo: selecionar **pedido real já importado**, encontrá
 **PRÓXIMA AÇÃO ÚNICA:** abrir a Central de Separação do Painel Central, localizar pedido real e confrontar seu card e impressão com `orders`/`order_items`/`order_separation`/`order_documents`.  
 **NÃO ALTERAR NESTE CHECKPOINT:** dados produtivos, scheduler, OAuth, Cloud Run, Edge Function, etiquetas, estoque, roteamento fiscal ou código funcional.
 
+---
+
+## 13. PROVA DE USO REAL — PED-00409 / ETIQUETA AUTOMÁTICA (10/11/2026)
+
+**Natureza:** checkpoint complementar, posterior à seção 12. Não altera a arquitetura soberana nem apaga pendências de outros pedidos/contas. As menções anteriores a “ainda não comprovado” pertencem às datas originais e foram superadas **somente no escopo expressamente demonstrado abaixo**.
+
+### 13.1 Resultado comprovado na conta Shopee Adão
+
+1. **F10 — recebimento automático:** PR #569 (merge `9d3841bd7af`) retirou as listas de autorização comerciais redundantes para ofertas com mapping/composição válidos. Revisão isolada `integration-hub-00242-tov` e scheduler `shopee-adao-intake-v1` direcionado à tag `adao-teste`; os **sete pedidos anteriormente ausentes** ingressaram no Core como **PED-00406 a PED-00412**, com itens e separação `todo`. Os registros de importação têm horário aproximado **19h20–19h21 BRT**. Isso demonstra o recebimento do lote observado, não universalidade para qualquer pedido.
+2. **F10/F5 — etiquetas automáticas:** PR #570 (merge `1918038be8459ce62ae9eab53228d1bb44fbae4b`) conectou a sincronização oficial de PDF ao **scheduler Adão existente** (a cada cinco minutos), sem adicionar job. A execução trata no máximo um candidato por ciclo; recebimento e etiquetas são operações distintas. Cloud Build da imagem `etiquetas-auto-1918038be845` concluiu `SUCCESS`; revisões com tag `adao-teste` foram publicadas, a mais recente observada `integration-hub-00244-sah` com **0% do tráfego principal**. Viviane permaneceu na revisão principal `integration-hub-00142-tlv`, 100%. A tag permite invocação pelo scheduler sem promoção do tráfego público.
+3. **PED-00409 (Shopee `261110UM3PJTUT`) — prova canônica da etiqueta:** tentativa `create_shipping_document` / `NORMAL_AIR_WAYBILL` registrada `succeeded` em **10/11/2026 20h50min56s BRT**, com `outcome_source=api_success`. O PDF `shipping_label`, `application/pdf`, **117.112 bytes**, foi anexado em **20h56min03s BRT** ao `order_documents` no bucket privado `shopee-labels`, com caminho de armazenamento presente. `order_separation.separation_status=todo`, `print_count=0` na última consulta: não comprova impressão física nem postagem pelo Painel.
+4. **Evidência visual:** gravação enviada pelo usuário **`PEDIDO SHOPEE EXCLUIR 2.mp4`** demonstra o pedido PED-00409 na Central de Separação e a pré-visualização **“Imprimir etiqueta + composição”** em **uma folha A4**: etiqueta oficial no topo e composição interna de **Alfajor Artesanal 60 g Doce de Leite — Chocolate Meio Amargo, 108 unidades** abaixo. O fluxo antes comprovado pela Viviane foi reutilizado. A composição não equivale a segunda página DACE da Shopee, cuja cópia integral permanece na impressão oficial separada. A gravação não prova impressão física nem entrega/coleta.
+5. **Observação do comprador:** mecanismo foi implementado para incluir a mensagem Shopee quando existir, mas **não havia mensagem comprovada nesse pedido**. A prova da observação em pedido real com mensagem continua pendente, sem impedir a operação.
+6. **Estado atual dos sete pedidos:** última captura Raw Shopee examinada em **10/11/2026 ~21h10 BRT** confirmou **seis pedidos `SHIPPED`** (`261110UXKV2JPU`, `2611100KQSYW2B`, `261110V6FD1CSA`, `261109SED9K3B4`, `261109SB1D9BDV`, `261109SMFT8BR9`) e **um pedido `PROCESSED`** (`261110UM3PJTUT`, PED-00409). O operador informou que os seis já foram despachados no Seller Center. **Não iniciar nova preparação nem organização de envio para `SHIPPED`; confirmar status Live no momento de qualquer ação futura.** Pedidos existentes não devem ser apagados ou classificados como concluídos fisicamente apenas pela situação externa.
+
+**Resultado prático:** **pedido Shopee → Hub automático → pedido e itens no Core → separação no Painel → PDF oficial automático → etiqueta + composição em uma folha na pré-visualização: COMPROVADO para o PED-00409.**
+
+### 13.2 Limites e aprendizado de operação
+
+- **Não confundir preparo de etiqueta com organizar envio:** o envio dos sete pedidos foi organizado pelo operador no Seller Center. Nenhum `ship_order` automático do Painel Central foi demonstrado.
+- **Não confundir pré-visualização com impressão física:** a tela oferece impressão/salvar PDF; o registro canônico ainda reportou `print_count=0`.
+- **Não repetir checklists históricos:** os sete pedidos de 09–10/11 serviram como lote de prova; evitar investigações genéricas sobre pedidos já despachados. Comparar dados novos e elegibilidade Live quando for necessário.
+- **Sem desdobrar scheduler ou reconstruir workflows:** F10 utiliza o agendamento existente. Cada mudança de Cloud Run deve distinguir imagem construída, revisão publicada, tag e execução real. Não repetir builds/deploys apenas por instabilidade do Cloud Shell.
+- **Preservar limites de Operações:** movimentação física, controle de estoque, emissão fiscal, postagem e coleta não são comprovados pela criação do PDF.
+
+### 13.3 Próxima frente do Mapa — F5 / Operações (organização do envio)
+
+**Meta de negócio:** reduzir gradualmente a dependência do Seller Center, possibilitando **organizar envio por dentro do Painel Central** quando a Shopee e o perfil da conta permitirem, sem interromper a operação normal da loja.
+
+**Primeira execução:** **rastrear e reaproveitar** a implementação existente de pré-verificação logística, API `ship_order`, claims de idempotência e rotas privadas. Entregar um levantamento enxuto do que está pronto versus o que falta para uma **primeira prova Live com pedido elegível novo**, sem usar os seis já despachados nem assumir que o PED-00409 pode ser reorganizado. **Não executar `ship_order` no estágio de investigação** e não acionar NF-e, finalizar separação ou baixar estoque para produzir evidência.
+
+**Critério de encerramento da frente futura:** com pedido elegível real e autorização operacional específica, registrar organização de envio confirmada pela Shopee, seguida de etiqueta oficial obtida automaticamente e apresentada na Separação. Isso ainda é **pendente**.
+
+### 13.4 Checkpoint de repasse
+
+**CONCLUÍDO:** recebimento automático, mapping utilizado, criação da Separação, PDF oficial automático e pré-visualização da impressão combinada em uma folha no PED-00409.  
+**AINDA NÃO COMPROVADO:** impressão física; mensagem do comprador real; organização automática do envio; coleta; conciliação fiscal/financeira; baixa de estoque.  
+**PRÓXIMA AÇÃO ÚNICA:** leitura dirigida do fluxo de organização do envio já existente no GitHub, separar capacidades prontas das pendentes e prosseguir com um pedido novo elegível sem reabrir a prova de impressão.  
+**FONTE:** consultas Core e capturas Cloud Run/Scheduler em 10/11/2026; PRs #569/#570; vídeo de operação `PEDIDO SHOPEE EXCLUIR 2.mp4`.  
