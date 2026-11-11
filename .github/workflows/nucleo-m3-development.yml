@@ -1,0 +1,60 @@
+name: Nucleo M3 - Development center RLS
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261111222000_nucleo_m3_development_center_CANDIDATA.sql"
+      - "scripts/nucleo-m3-workstreams-rls.test.sql"
+      - ".github/workflows/nucleo-m3-development.yml"
+      - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "src/pages/Nucleo.tsx"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-m3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: test-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore synthetic M1 and M2 contracts
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+          psql -X -v ON_ERROR_STOP=1 -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;"
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
+      - name: Apply M3 migration to disposable postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center_CANDIDATA.sql
+      - name: Verify M3 access and history
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m3-workstreams-rls.test.sql
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
