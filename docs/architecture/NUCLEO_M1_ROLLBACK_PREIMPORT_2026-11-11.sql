@@ -18,6 +18,7 @@ DROP TABLE public.nucleo_document_revisions;
 DROP TABLE public.nucleo_documents;
 DROP TABLE public.nucleo_import_batches;
 DROP FUNCTION public.nucleo_revisions_immutable_guard();
+DROP FUNCTION IF EXISTS public.nucleo_reject_delete_guard();
 
 ALTER TABLE public.app_admin_capabilities
 DROP CONSTRAINT app_admin_capabilities_capability_check;
