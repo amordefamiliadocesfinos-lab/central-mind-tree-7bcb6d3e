@@ -42,7 +42,7 @@ A coleta direta do Drive nesta revisão confirmou metadados das duas diretrizes 
 
 ## 4. Contrato com a M1
 
-A migration **candidata** `20261111210000_nucleo_m2_source_references_CANDIDATA.sql` cria `public.nucleo_source_references`, tabela de metadados pertencente ao Núcleo existente, não um sistema paralelo. Não modifica `nucleo_documents` ou `nucleo_import_batches`; não muda a fonte local da UI.
+A migration **candidata** `20261111210000_nucleo_m2_source_references.sql` cria `public.nucleo_source_references`, tabela de metadados pertencente ao Núcleo existente, não um sistema paralelo. Não modifica `nucleo_documents` ou `nucleo_import_batches`; não muda a fonte local da UI.
 
 Portões:
 1. CI PostgreSQL 17 com contrato RLS M1 já aplicado: autorizado/legado/scoped/anon/revogação/colisão/imutabilidade.
