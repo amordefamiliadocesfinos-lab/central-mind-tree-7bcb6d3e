@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql"
+      - "supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql"
       - "scripts/nucleo-m1-db-test-*"
       - ".github/workflows/nucleo-m1-rls-isolated.yml"
   workflow_dispatch:
@@ -36,8 +37,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Prepare isolated original capability schema
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+      - name: Emulate production default privileges
+        run: psql -X -v ON_ERROR_STOP=1 -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;"
       - name: Apply M1 proposed DDL to disposable postgres only
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
+      - name: Harden new tables
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
       - name: Positive and negative authorization assertions
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-assertions.sql
       - name: Reject physical rollback when documents exist
@@ -52,6 +57,7 @@ jobs:
           export PGDATABASE=nucleo_rollback_test
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
           psql -X -v ON_ERROR_STOP=1 -f docs/architecture/NUCLEO_M1_ROLLBACK_PREIMPORT_2026-11-11.sql
           psql -X -v ON_ERROR_STOP=1 -Atc "select count(*) from public.app_admin_capabilities where capability='provision_users'" | grep -qx 2
           psql -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name like 'nucleo_%'" | grep -qx 0
