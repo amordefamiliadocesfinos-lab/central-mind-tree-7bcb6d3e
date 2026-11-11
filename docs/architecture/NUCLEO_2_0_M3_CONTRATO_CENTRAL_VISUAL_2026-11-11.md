@@ -36,3 +36,13 @@ Workflow `nucleo-m3-development.yml` usa PostgreSQL 17 descartável com contrato
 5. Homologar o uso com uma identidade expressamente autorizada, preservando snapshots M1/M2.
 
 **Sem uso do construtor visual Lovable.**
+
+## 11/11/2026 — Aplicação aditiva no Core e evidência
+- Migration versionada `20261111222000_nucleo_m3_development_center.sql` aplicada ao Lovable Cloud oficial PostgreSQL 17.6; `supabase_migrations.schema_migrations` registra `nucleo_m3_development_center` com a mesma versão.
+- Pré-requisitos M1/M2 conferidos antes da transação; nenhum conflito de schema pré-existente.
+- Inspeção SELECT pós-aplicação: **3 tabelas M3 presentes com RLS habilitada**; policies workstreams 3, events 2, dependencies 2; gatilhos ativos workstreams 3, events 1, dependencies 2.
+- `authenticated` e `service_role`: SELECT/INSERT em eventos/dependências; SELECT/INSERT/UPDATE nas frentes; nenhuma tabela M3 possui GRANT para `anon` ou GRANT DELETE.
+- **0 frentes, 0 eventos, 0 dependências, 0 documentos M1, 3 referências Drive M2, 0 concessões nucleo_manage.**
+- [GitHub Actions #43103257248](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43103257248): PostgreSQL 17 e frontend build passaram na versão final da migration.
+- Continuidade: código e SQL foram desenvolvidos por GitHub diretamente, sem construtor visual; eventual disponibilização de frontend no domínio oficial depende da sincronização/publicação do commit.
+- Homologação funcional com usuário real autorizado permanece separada: ainda **não foi criada qualquer capacidade nucleo_manage** e não foi possível validar o uso autenticado positivo com dados reais.
