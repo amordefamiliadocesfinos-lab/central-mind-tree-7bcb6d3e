@@ -101,6 +101,9 @@ export function useHealthTrainingHistoryF21(
   athleteId: string | null | undefined,
 ) {
   const [sessions, setSessions] = useState<HistorySessionF21[]>([]);
+  const [modalities, setModalities] = useState<
+    Array<{ code: string; name: string }>
+  >([]);
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState(true);
@@ -109,6 +112,7 @@ export function useHealthTrainingHistoryF21(
   const reload = useCallback(async () => {
     if (!athleteId) {
       setSessions([]);
+      setModalities([]);
       setLoading(false);
       setError(null);
       return;
@@ -375,6 +379,14 @@ export function useHealthTrainingHistoryF21(
           new Date(a.started_at).getTime(),
       ),
     );
+    setModalities(
+      ((modalitiesResult.data ?? []) as Array<Record<string, unknown>>).map(
+        (item) => ({
+          code: String(item.code),
+          name: String(item.name),
+        }),
+      ),
+    );
     setAvailable(true);
     setLoading(false);
   }, [athleteId]);
@@ -514,12 +526,6 @@ export function useHealthTrainingHistoryF21(
     },
     [call],
   );
-
-  const modalities =
-    (modalitiesResult.data ?? []) as unknown as Array<{
-      code: string;
-      name: string;
-    }>;
 
   const strengthCount = useMemo(
     () => sessions.filter((item) => item.kind === "strength").length,
