@@ -147,6 +147,23 @@ export function createGuardedShopeeShipOrder({
 
     let proof;
     try { proof = await preflight(); } catch { return { ok: false, code: 'preflight_unavailable' }; }
+    // On the account-scoped automatic path, expose a finite preflight reason
+    // so a real operational rejection can be fixed without guesswork.
+    // Preserve the old pilot route's opaque response and never leak payloads.
+    if (automaticScope !== null && proof?.ok === false) {
+      const reason = String(proof.code ?? '');
+      const allowed = new Set([
+        'order_not_ready_to_ship', 'package_not_ready_for_shipping_parameter',
+        'package_reschedule_not_supported', 'multiple_or_unknown_packages',
+        'package_identity_missing', 'invoice_pending_in_seller_center',
+        'fiscal_review_required', 'fiscal_profile_not_configured',
+        'shipping_requirements_missing', 'unsupported_shipping_requirements',
+        'unrecognized_shipping_requirements', 'shipping_mode_not_identified',
+        'shipping_parameter_rejected', 'order_detail_rejected',
+        'oauth_connection_unavailable', 'access_token_expired_read_only',
+      ]);
+      return { ok: false, code: allowed.has(reason) ? reason : 'preflight_not_eligible' };
+    }
     if (proof?.ok !== true || proof.order_sn !== orderSn
         || (automaticScope === null && proof.package_number !== pilotPackageNumber)
         || proof.shop_id !== pilotShopId

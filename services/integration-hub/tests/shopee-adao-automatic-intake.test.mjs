@@ -433,3 +433,67 @@ test('reopened pilot never arranges without current Shopee READY_TO_SHIP evidenc
   assert.equal(resultValue.ok, true);
   assert.deepEqual(arranged, []);
 });
+
+
+test('new Core order imported before READY_TO_SHIP is arranged when Shopee later becomes ready', async () => {
+  const sn = 'FRESHSHOPEE1';
+  const arranged = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+      : k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(k),
+    now,
+    readOrders: async () => ({
+      ...page([sn]),
+      ready_to_ship_candidates: [{ order_sn: sn, create_time: 1795000000 }],
+    }),
+    // Core does not reimport already registered order. It will be checked
+    // for active state atomically by the live shipping claim.
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async value => { arranged.push(value); return {
+      ok: true, code: 'ship_order_api_acknowledged_not_collected',
+    }; },
+  });
+  const resultValue = await runner();
+  assert.equal(resultValue.ok, true);
+  assert.equal(resultValue.skipped, 1);
+  assert.equal(resultValue.shipment_candidates, 1);
+  assert.equal(resultValue.shipment_acknowledged, 1);
+  assert.deepEqual(arranged, [sn]);
+});
+
+test('new order already in Core does not arrange unless latest Shopee state is READY_TO_SHIP', async () => {
+  const sn = 'FRESHSHOPEE1';
+  const arranged = [];
+  const runner = createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+      : k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(k),
+    now,
+    readOrders: async () => ({ ...page([sn]), ready_to_ship_candidates: [] }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async v => { arranged.push(v); return { ok: true }; },
+  });
+  const resultValue = await runner();
+  assert.equal(resultValue.shipment_candidates, 0);
+  assert.deepEqual(arranged, []);
+});
+
+test('candidate rotation prevents one permanently ineligible order from starving other orders', async () => {
+  const calls = [];
+  const orders = ['FRESHSHOPEE1','FRESHSHOPEE2'];
+  for (const time of [Date.parse('2026-11-11T14:40:00Z'), Date.parse('2026-11-11T14:45:00Z')]) {
+    const runner = createAdaoAutomaticIntake({
+      getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true'
+        : k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(k),
+      now: () => time,
+      readOrders: async () => ({ ...page(orders),
+        ready_to_ship_candidates: orders.map(order_sn => ({ order_sn, create_time: 1795000000 })),
+      }),
+      intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+      arrangeShipping: async sn => { calls.push(sn); return { ok: false, code: 'preflight_not_eligible' }; },
+    });
+    const resultValue = await runner();
+    assert.equal(resultValue.shipment_candidates, 2);
+    assert.equal(resultValue.shipment_pending, 1);
+  }
+  assert.deepEqual([...new Set(calls)].sort(), orders);
+});
