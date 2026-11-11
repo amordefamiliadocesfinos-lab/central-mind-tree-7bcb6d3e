@@ -150,6 +150,37 @@ test('F12.1 route counters stay bounded and default safely on missing or invalid
   assert.ok(!JSON.stringify(invalid).includes('sensitive-order'));
 });
 
+test('F12.1 natural cycle logs only sanitized summary without altering response or requiring log availability', async () => {
+  const events = [];
+  const path = '/internal/shopee/adao/orders/intake/auto';
+  const req = { method: 'POST', path, query: {}, headers: { 'content-length': '0' } };
+  const injected = {
+    handleShopeeLive: async () => null,
+    runAdaoIntake: async () => ({
+      ok: true, code: 'cycle_completed', pages: 2,
+      shipment_candidates: 2, shipment_attempted: 0,
+      label_attempted: 0, work_budget_exhausted: true,
+      order_sn: 'SENSITIVE_ORDER_SN',
+      token: 'SENSITIVE_TOKEN',
+    }),
+    logEvent: event => events.push(event),
+  };
+  const response = await handleRequest(req, injected);
+  assert.equal(response.status, 200);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event, 'adao_auto_intake_cycle_summary');
+  assert.equal(events[0].shipment_candidates, 2);
+  assert.equal(events[0].shipment_attempted, 0);
+  assert.equal(events[0].work_budget_exhausted, true);
+  assert.ok(!JSON.stringify(events).includes('SENSITIVE_'));
+  assert.ok(!JSON.stringify(response).includes('SENSITIVE_'));
+  const failedLoggerResponse = await handleRequest(req, {
+    ...injected,
+    logEvent: () => { throw new Error('logger unavailable'); },
+  });
+  assert.equal(failedLoggerResponse.status, 200);
+});
+
 test('core intake failure explains stage and status without leaking payload', async () => {
   let calls = 0;
   const runner = createAdaoAutomaticIntake({
