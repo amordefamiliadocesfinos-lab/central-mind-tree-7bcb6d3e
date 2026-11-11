@@ -303,3 +303,75 @@ test('automatic label remains disabled unless Adão label sync is enabled', asyn
   assert.equal(labels, 0);
   assert.equal(r.labels_attached, 0);
 });
+
+
+test('Adão auto shipping remains disabled when the account flag is unset', async () => {
+  let calls = 0;
+  const r = await createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_LABEL_SYNC_ENABLED' ? 'false' : getEnv(k),
+    now,
+    readOrders: async () => ({ ...page(['FRESHSHOPEE1']), ready_to_ship_candidates: [
+      { order_sn: 'FRESHSHOPEE1', create_time: 1795000000 },
+    ] }),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    arrangeShipping: async () => { calls++; return { ok: true }; },
+  })();
+  assert.equal(r.ok, true);
+  assert.equal(calls, 0);
+  assert.equal(r.shipment_acknowledged, 0);
+});
+
+test('one newly created Adão order may arrange using LIVE READY_TO_SHIP after Core commit', async () => {
+  const arranged = [];
+  const r = await createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true' : getEnv(k),
+    now,
+    readOrders: async () => ({ ...page(['FRESHSHOPEE1', 'FRESHSHOPEE2']),
+      ready_to_ship_candidates: [
+        { order_sn: 'FRESHSHOPEE1', create_time: 1795000000 },
+        { order_sn: 'FRESHSHOPEE2', create_time: 1795000000 },
+      ] }),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    arrangeShipping: async sn => {
+      arranged.push(sn);
+      return { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+  })();
+  assert.equal(r.ok, true);
+  assert.equal(r.shipment_acknowledged, 1);
+  assert.deepEqual(arranged, ['FRESHSHOPEE1']);
+  assert.equal(r.written, 2);
+});
+
+test('test history and shipped orders never receive automatic ship_order', async () => {
+  const calls = [];
+  const r = await createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true' : getEnv(k),
+    now,
+    readOrders: async () => ({ ...page(['HISTORICAL1', 'ALREADYSHIP1']),
+      ready_to_ship_candidates: [
+        { order_sn: 'HISTORICAL1', create_time: 1794000000 },
+      ] }),
+    intake: async () => ({ ok: false, code: 'expected_order_unavailable' }),
+    arrangeShipping: async sn => { calls.push(sn); return { ok: true }; },
+  })();
+  assert.equal(r.ok, true);
+  assert.equal(r.skipped, 2);
+  assert.deepEqual(calls, []);
+});
+
+test('uncertain shipment does not trigger another ship_order or hide successful intake', async () => {
+  let calls = 0;
+  const r = await createAdaoAutomaticIntake({
+    getEnv: k => k === 'SHOPEE_ADAO_AUTO_SHIP_ENABLED' ? 'true' : getEnv(k),
+    now,
+    readOrders: async () => ({ ...page(['FRESHSHOPEE1']),
+      ready_to_ship_candidates: [{ order_sn: 'FRESHSHOPEE1', create_time: 1795000000 }] }),
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    arrangeShipping: async () => { calls++; return { ok: false, code: 'ship_order_uncertain_requires_reconciliation' }; },
+  })();
+  assert.equal(r.written, 1);
+  assert.equal(r.shipment_pending, 1);
+  assert.equal(r.shipment_code, 'ship_order_uncertain_requires_reconciliation');
+  assert.equal(calls, 1);
+});
