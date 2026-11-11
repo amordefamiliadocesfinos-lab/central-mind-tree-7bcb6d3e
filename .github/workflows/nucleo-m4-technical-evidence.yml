@@ -5,6 +5,9 @@ on:
       - "supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql"
       - "scripts/nucleo-m4-technical-evidence.test.sql"
       - "src/components/nucleo/NucleoTechnicalEvidence.tsx"
+      - "scripts/nucleo-m4-github-refresh.cjs"
+      - "scripts/nucleo-m4-github-refresh.test.cjs"
+      - ".github/workflows/nucleo-m4-github-refresh.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/lib/nucleo/development.types.ts"
       - ".github/workflows/nucleo-m4-technical-evidence.yml"
@@ -59,4 +62,5 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: node scripts/nucleo-m4-github-refresh.test.cjs
       - run: npm run build

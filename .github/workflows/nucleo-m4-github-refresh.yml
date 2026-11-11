@@ -1,0 +1,30 @@
+name: Nucleo M4 - GitHub read-only refresh preflight
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 11 * * *"
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  evidence-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate refresh logic with synthetic GitHub responses
+        run: node scripts/nucleo-m4-github-refresh.test.cjs
+      - name: Read official GitHub references and build review manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          M4_MANIFEST_OUTPUT: artifacts/nucleo-m4-gh-refresh-manifest.json
+        run: node scripts/nucleo-m4-github-refresh.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nucleo-m4-github-preflight
+          path: artifacts/nucleo-m4-gh-refresh-manifest.json
+          retention-days: 7
