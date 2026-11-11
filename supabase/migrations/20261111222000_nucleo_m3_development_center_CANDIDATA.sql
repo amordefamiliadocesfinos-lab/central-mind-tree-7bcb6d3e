@@ -104,6 +104,30 @@ BEGIN
  RETURN NULL;
 END $fn$;
 
+-- Dependências podem ser declaradas, mas um ciclo A -> B -> A não representa
+-- um caminho executável. O grafo é preservado, sem reescrever registros.
+CREATE FUNCTION public.nucleo_m3_dependency_cycle_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $cycle$
+BEGIN
+ IF NEW.workstream_id=NEW.depends_on_id THEN RAISE EXCEPTION 'M3 self dependency forbidden'; END IF;
+ IF EXISTS (
+   WITH RECURSIVE reachable(id) AS (
+     SELECT d.depends_on_id FROM public.nucleo_development_dependencies d
+      WHERE d.workstream_id=NEW.depends_on_id
+     UNION
+     SELECT d.depends_on_id FROM public.nucleo_development_dependencies d
+      JOIN reachable r ON d.workstream_id=r.id
+   )
+   SELECT 1 FROM reachable WHERE id=NEW.workstream_id
+ ) THEN RAISE EXCEPTION 'M3 dependency cycle forbidden'; END IF;
+ RETURN NEW;
+END $cycle$;
+
+CREATE TRIGGER nucleo_m3_dependency_acyclic BEFORE INSERT
+ ON public.nucleo_development_dependencies FOR EACH ROW
+ EXECUTE FUNCTION public.nucleo_m3_dependency_cycle_guard();
+
 CREATE TRIGGER nucleo_m3_workstream_before BEFORE INSERT OR UPDATE
  ON public.nucleo_development_workstreams FOR EACH ROW EXECUTE FUNCTION public.nucleo_m3_workstream_audit();
 CREATE TRIGGER nucleo_m3_workstream_history AFTER INSERT OR UPDATE
