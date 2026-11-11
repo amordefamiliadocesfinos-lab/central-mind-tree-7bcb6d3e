@@ -795,3 +795,13 @@ Por solicitação do operador, os pedidos Shopee que permaneciam em Separação 
 **Classificação exata da evidência:** F11 tem **fluxo de ponta a ponta e prévia visual comprovados**, desde ingestão, separação, organização automática, preparo/obtenção dos PDFs e abertura do documento combinado. As capturas são da **prévia dentro do Painel**, não de impressão física ou do PDF final do diálogo de impressão; portanto não afirmar comprovação independente de página única na impressora física. Também não se observou pedido com mensagem do comprador comprovada nos dois exemplos: a exibição de observação real permanece um caso de verificação complementar. Isso não é bloqueio para a F12.
 
 **Próximo foco:** F12 em paralelo pelo mini mapa `docs/operations/F12_MINI_MAPA_ESCALABILIDADE_SHOPEE_2026-11-11.md`. F12.1, lotes de até 3+3, já integrada no GitHub pela PR #603 mas exige confirmação de build e implantação na revisão Adão `adao-teste` e parâmetros de ativação; não confundir integração da PR com operação em produção. Manter tráfego principal Viviane intacto.
+
+---
+
+## 22. F12.1 — PILOTO 3+3 PUBLICADO EM REVISÃO ADÃO (11/11/2026)
+
+**Evidência de implantação:** captura do Cloud Shell em 11/11/2026 às 16h42 BRT confirmou `BUILD: SUCCESS` para `f12-batch-04b12f036ec8`, seguido de `gcloud run deploy integration-hub` concluído na revisão `integration-hub-00252-cwv`, tag `adao-teste`, `--no-traffic` (0% do tráfego principal). O comando usou `--update-env-vars=SHOPEE_ADAO_SHIP_BATCH_SIZE=3,SHOPEE_ADAO_LABEL_BATCH_SIZE=3`. Não criou scheduler concorrente nem alterou a revisão principal Viviane. Lotes máximos no código: três tentativas sequenciais por tipo e por ciclo, com orçamento de 48s para iniciar novas ações, preflight Live e claim idempotente em cada pedido.
+
+**Estado observado:** consulta do Core às 16h43 BRT encontrou ambos os PDFs oficiais ainda presentes para PED-00417 e PED-00418; não havia novos `ship_order` reivindicados na última hora. **Implantação comprovada, desempenho de três envios reais por ciclo ainda NÃO comprovado.** Não atribuir ausência de tentativas ao mau funcionamento; pode não haver novos pedidos elegíveis. Próxima verificação: revisar a configuração da revisão e medir `shipment_attempted`/`label_attempted`, duração e bloqueios em ciclos reais; só evoluir para F12.2/F12.3 a partir dessas evidências.
+
+**F11:** prévia `Etiqueta Shopee + Composição Interna` aberta e apresentada para ambos os pedidos, com composição abaixo da etiqueta na mesma prévia. A inspeção não comprova impressão física/PDF final nem observação real de comprador não demonstrada; essas ressalvas permanecem complementares, sem bloquear F12.
