@@ -110,6 +110,40 @@ BEGIN
 END $$;
 RESET ROLE;
 
+-- Service role deve ter somente leitura/inserção mesmo com grants default amplos.
+DO $
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['nucleo_documents','nucleo_document_revisions','nucleo_import_batches'] LOOP
+    IF has_table_privilege('service_role',format('public.%I',t),'DELETE')
+      OR has_table_privilege('service_role',format('public.%I',t),'UPDATE')
+      OR has_table_privilege('service_role',format('public.%I',t),'TRUNCATE') THEN
+      RAISE EXCEPTION 'Excessive service_role privileges on %',t;
+    END IF;
+    IF NOT has_table_privilege('service_role',format('public.%I',t),'SELECT')
+      OR NOT has_table_privilege('service_role',format('public.%I',t),'INSERT') THEN
+      RAISE EXCEPTION 'Missing service_role basic privileges on %',t;
+    END IF;
+  END LOOP;
+END $;
+
+-- Mesmo postgres não pode excluir registros sem remover conscientemente os guards.
+DO $
+BEGIN
+  BEGIN
+    DELETE FROM public.nucleo_documents WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    RAISE EXCEPTION 'M1 document deletion incorrectly allowed';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Núcleo M1: deletion forbidden; preserve document heritage' THEN RAISE; END IF;
+  END;
+  BEGIN
+    DELETE FROM public.nucleo_import_batches WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    RAISE EXCEPTION 'M1 batch deletion incorrectly allowed';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Núcleo M1: deletion forbidden; preserve document heritage' THEN RAISE; END IF;
+  END;
+END $;
+
 -- Imutabilidade também quando a tentativa parte do ator privilegiado da simulação.
 DO $$
 BEGIN
