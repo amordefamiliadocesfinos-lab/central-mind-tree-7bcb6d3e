@@ -23,7 +23,7 @@
 - Nenhuma permissão `nucleo_manage` será concedida automaticamente. Com zero concessões, a visualização fica restrita e não há edição acessível aos operadores atuais.
 
 ## Segurança e testes
-Migration candidata `20261111222000_nucleo_m3_development_center_CANDIDATA.sql`, três tabelas:
+Migration candidata `20261111222000_nucleo_m3_development_center.sql`, três tabelas:
 `nucleo_development_workstreams`, `nucleo_development_events`, `nucleo_development_dependencies`.
 
 Workflow `nucleo-m3-development.yml` usa PostgreSQL 17 descartável com contratos sintéticos M1/M2. Verifica hierarquia, identidade estável, ausência de conclusão sem evidência, histórico, negação a anônimos, usuários scoped e legado sem capability, revogação, tentativa de histórico forjado e proteção contra exclusões. O build completo do frontend é executado separadamente.
