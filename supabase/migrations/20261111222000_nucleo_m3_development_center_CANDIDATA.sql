@@ -75,7 +75,8 @@ BEGIN
  IF TG_OP='UPDATE' THEN
    IF NEW.id IS DISTINCT FROM OLD.id OR NEW.code IS DISTINCT FROM OLD.code
     OR NEW.created_at IS DISTINCT FROM OLD.created_at
-    OR NEW.created_by_auth_uid IS DISTINCT FROM OLD.created_by_auth_uid THEN
+    OR NEW.created_by_auth_uid IS DISTINCT FROM OLD.created_by_auth_uid
+    OR NEW.kind IS DISTINCT FROM OLD.kind OR NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN
      RAISE EXCEPTION 'M3 identity fields immutable';
    END IF;
  END IF;
@@ -144,7 +145,10 @@ FOR SELECT TO authenticated USING (EXISTS (
  SELECT 1 FROM public.app_admin_capabilities c WHERE c.auth_user_id=(SELECT auth.uid())
  AND c.capability='nucleo_manage' AND c.active AND c.revoked_at IS NULL));
 CREATE POLICY nucleo_m3_events_insert ON public.nucleo_development_events
-FOR INSERT TO authenticated WITH CHECK (EXISTS (
+FOR INSERT TO authenticated WITH CHECK (
+ pg_trigger_depth() > 0
+ AND actor_auth_uid=(SELECT auth.uid())
+ AND EXISTS (
  SELECT 1 FROM public.app_admin_capabilities c WHERE c.auth_user_id=(SELECT auth.uid())
  AND c.capability='nucleo_manage' AND c.active AND c.revoked_at IS NULL));
 
