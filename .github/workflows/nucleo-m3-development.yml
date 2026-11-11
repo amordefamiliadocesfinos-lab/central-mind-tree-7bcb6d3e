@@ -2,7 +2,7 @@ name: Nucleo M3 - Development center RLS
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20261111222000_nucleo_m3_development_center_CANDIDATA.sql"
+      - "supabase/migrations/20261111222000_nucleo_m3_development_center.sql"
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
@@ -44,7 +44,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
       - name: Apply M3 migration to disposable postgres
-        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center_CANDIDATA.sql
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center.sql
       - name: Verify M3 access and history
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m3-workstreams-rls.test.sql
   frontend-build:
