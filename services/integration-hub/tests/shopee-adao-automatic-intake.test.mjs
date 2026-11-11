@@ -678,7 +678,7 @@ test('F12: slow multi-page intake starts Adão shipping before the 48s discovery
     })[key] ?? getEnv(key),
     now: () => Date.parse('2026-11-11T18:00:00Z') + elapsed,
     readOrders: async () => {
-      reads++; elapsed += 7_000;
+      reads++; elapsed += 9_000;
       if (reads === 1) return {
         ...page([first], { more: true, next_cursor: 'second' }),
         ready_to_ship_candidates: [{ order_sn: first, create_time: 1794410500 }],
