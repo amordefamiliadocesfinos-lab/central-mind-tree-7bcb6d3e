@@ -33,6 +33,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { exportLegacyNucleo } from "@/lib/nucleo/exportLegacyNucleo";
+import NucleoDriveReferences from "@/components/nucleo/NucleoDriveReferences";
 
 // ---------- Types ----------
 
@@ -4177,6 +4178,8 @@ export default function Nucleo() {
             );
           })}
         </div>
+
+        {activeArea === "biblioteca" && <NucleoDriveReferences />}
 
         {/* Workspace */}
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">

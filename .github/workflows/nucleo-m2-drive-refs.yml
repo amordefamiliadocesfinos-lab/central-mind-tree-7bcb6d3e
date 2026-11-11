@@ -1,0 +1,64 @@
+name: Nucleo M2 - Drive refs RLS isolated
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261111210000_nucleo_m2_source_references.sql"
+      - "scripts/nucleo-m2-reference-rls.test.sql"
+      - "src/lib/nucleo/source-references.types.ts"
+      - "src/components/nucleo/NucleoDriveReferences.tsx"
+      - "src/pages/Nucleo.tsx"
+      - ".github/workflows/nucleo-m2-drive-refs.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m2-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: test-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate original core capabilities
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+      - name: Simulate Cloud default grants
+        run: psql -X -v ON_ERROR_STOP=1 -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;"
+      - name: Apply already-approved M1 schema in disposable database
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
+      - name: Apply M2 candidate only to disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
+      - name: Test authorization and document preservation
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m2-reference-rls.test.sql
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build complete Painel Central
+        run: npm run build
