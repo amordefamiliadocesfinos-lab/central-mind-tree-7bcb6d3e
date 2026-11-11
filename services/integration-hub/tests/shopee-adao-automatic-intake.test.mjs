@@ -612,6 +612,40 @@ test('F12.2: older trusted creation times take priority without inventing Shopee
   assert.deepEqual(selectAdaoPendingShipments([{ order_sn: 'BAD##' }], time, 3), []);
 });
 
+test('F12.2: Shopee deadline takes priority over age when verified; missing and malformed deadlines fall back', () => {
+  const nowMs = Date.parse('2026-11-11T18:00:00Z');
+  const candidates = [
+    { order_sn: 'OLDERBUTLATE', create_time: 1794400000, ship_by_date: 1794730000 },
+    { order_sn: 'NEWERURGENT1', create_time: 1794450000, ship_by_date: 1794560000 },
+    { order_sn: 'MISSINGDATE1', create_time: 1794100000 },
+    { order_sn: 'INVALIDDATE1', create_time: 1794200000, ship_by_date: '1794300000' },
+  ];
+  assert.deepEqual(selectAdaoPendingShipments(candidates, nowMs, 3),
+    ['NEWERURGENT1','OLDERBUTLATE','MISSINGDATE1']);
+  assert.deepEqual(selectAdaoPendingShipments(
+    [candidates[2],candidates[3]],nowMs,2),
+    ['MISSINGDATE1','INVALIDDATE1']);
+  assert.deepEqual(selectAdaoPendingShipments(
+    [...candidates,candidates[1]],nowMs,3),
+    ['NEWERURGENT1','OLDERBUTLATE','MISSINGDATE1']);
+});
+
+test('F12.2: equal live deadlines favor older pending order and rotate exact ties', () => {
+  const ts = Date.parse('2026-11-11T18:00:00Z');
+  const deadline = 1794560000;
+  const candidates = [
+    { order_sn: 'SAMEDEADOLD1', create_time: 1794400000, ship_by_date: deadline },
+    { order_sn: 'SAMEDEADNEW1', create_time: 1794450000, ship_by_date: deadline },
+  ];
+  assert.deepEqual(selectAdaoPendingShipments(candidates,ts,2),
+    ['SAMEDEADOLD1','SAMEDEADNEW1']);
+  const tied = ['SAMEDEADTA1','SAMEDEADTB2','SAMEDEADTC3','SAMEDEADTD4']
+    .map(order_sn=>({order_sn,create_time:1794400000,ship_by_date:deadline}));
+  const picks = new Set();
+  for(let i=0;i<4;i++) picks.add(selectAdaoPendingShipments(tied,ts+i*300000,1)[0]);
+  assert.equal(picks.size,4);
+});
+
 test('F12.2: equal-age candidates rotate fairly across scheduler cycles', () => {
   const c = ['FAIRORDER001','FAIRORDER002','FAIRORDER003','FAIRORDER004']
     .map(order_sn => ({ order_sn, create_time: 1794400000 }));

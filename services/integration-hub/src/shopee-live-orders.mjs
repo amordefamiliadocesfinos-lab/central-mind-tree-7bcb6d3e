@@ -314,8 +314,18 @@ export function createShopeeLiveOrdersReader({
             && typeof order?.order_sn === 'string'
             && Number.isSafeInteger(Number(order.create_time))
             && Number(order.create_time) > 0)
-          .map(order => ({ order_sn: String(order.order_sn).trim(),
-            create_time: Number(order.create_time) })),
+          .map(order => ({
+            order_sn: String(order.order_sn).trim(),
+            create_time: Number(order.create_time),
+            // Shopee order detail provides the actual ship-by timestamp.
+            // Use only a strict live Unix-second number, never a guessed
+            // deadline derived from days_to_ship or order creation time.
+            ...(typeof order.ship_by_date === 'number'
+              && Number.isSafeInteger(order.ship_by_date)
+              && order.ship_by_date >= 1_000_000_000
+              && order.ship_by_date <= 4_102_444_800
+              ? { ship_by_date: order.ship_by_date } : {}),
+          })),
       } : {}),
       more: listPayload?.response?.more === true,
       next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
