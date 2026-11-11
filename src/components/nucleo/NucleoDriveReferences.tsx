@@ -36,7 +36,7 @@ export default function NucleoDriveReferences() {
     if (!session?.user?.id) return;
     (async () => {
       const { data, error } = await supabase
-        .from("app_admin_capabilities" as keyof NucleoRefsDatabase["public"]["Tables"])
+        .from("app_admin_capabilities")
         .select("capability")
         .eq("auth_user_id", session.user.id)
         .eq("capability", "nucleo_manage")
