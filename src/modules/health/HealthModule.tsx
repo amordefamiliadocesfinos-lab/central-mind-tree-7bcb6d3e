@@ -6,6 +6,7 @@ import { HealthLibraryPage } from "./pages/HealthLibraryPage";
 import { HealthProgramPage } from "./pages/HealthProgramPage";
 import { HealthWorkoutPage } from "./pages/HealthWorkoutPage";
 import { HealthActivitiesPage } from "./pages/HealthActivitiesPage";
+import { HealthTrainingHistoryPage } from "./pages/HealthTrainingHistoryPage";
 import { HealthNutritionPage } from "./pages/HealthNutritionPage";
 import { HealthBodyPage } from "./pages/HealthBodyPage";
 import { HealthRecoveryPage } from "./pages/HealthRecoveryPage";
@@ -26,6 +27,7 @@ export default function HealthModule() {
         <Route path="hoje" element={<HealthDashboardPage />} />
         <Route path="treino" element={<HealthWorkoutPage />} />
         <Route path="treino/atividades" element={<HealthActivitiesPage />} />
+        <Route path="treino/historico" element={<HealthTrainingHistoryPage />} />
         <Route path="treino/programa" element={<HealthProgramPage />} />
         <Route path="alimentacao" element={<HealthNutritionPage />} />
         <Route path="evolucao" element={<HealthBodyPage />} />
