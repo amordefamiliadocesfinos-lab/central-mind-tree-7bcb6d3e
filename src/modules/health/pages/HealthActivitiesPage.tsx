@@ -307,12 +307,17 @@ export function HealthActivitiesPage() {
             registrar várias sessões no mesmo dia.
           </p>
         </div>
-        <Button asChild variant="outline" className="min-h-11 shrink-0">
-          <Link to="/saude/treino">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Treino
-          </Link>
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/saude/treino/historico">Histórico</Link>
+          </Button>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/saude/treino">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Treino
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {activities.error ? (
