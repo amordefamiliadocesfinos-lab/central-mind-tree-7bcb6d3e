@@ -84,6 +84,8 @@ export function createGuardedShopeeShipOrder({
   fetchImpl = globalThis.fetch,
   // Structured, allowlisted Cloud Logging events; never output signed URLs or payloads.
   logDiagnostic = entry => console.log(JSON.stringify(entry)),
+  // Trusted Adão scheduler caller only; legacy single-pilot route stays unchanged.
+  automaticScope = null,
 } = {}) {
   return async function shipOrderOnce() {
     // Always refuse before touching the Core or Shopee when not explicitly armed.
@@ -92,6 +94,23 @@ export function createGuardedShopeeShipOrder({
     }
     let orderSn, channelAccountId, pilotPackageNumber, pilotShopId, fiscalMode, windowExpiresAt;
     try {
+      if (automaticScope !== null) {
+        if (typeof automaticScope !== 'object'
+            || !/^[A-Za-z0-9]{8,100}$/.test(automaticScope.orderSn ?? '')
+            || automaticScope.channelAccountId !== 'b4027369-5abf-4ac1-ab24-862334fae892'
+            || automaticScope.shopId !== 1156446003
+            || automaticScope.fiscalMode !== 'cpf_no_invoice_step') {
+          return { ok: false, code: 'automatic_account_scope_mismatch' };
+        }
+        orderSn = automaticScope.orderSn;
+        channelAccountId = automaticScope.channelAccountId;
+        pilotPackageNumber = null;
+        pilotShopId = automaticScope.shopId;
+        fiscalMode = automaticScope.fiscalMode;
+        // This short deadline bounds the *one current request*, not a recurring
+        // authorization of arbitrary orders. Fresh live preflight is still mandatory.
+        windowExpiresAt = now() + 2 * 60_000;
+      } else {
       orderSn = envRequired(getEnv, 'SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN');
       channelAccountId = envRequired(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
       pilotPackageNumber = envRequired(getEnv, 'SHOPEE_LIVE_SHIP_ORDER_PILOT_PACKAGE_NUMBER');
@@ -117,6 +136,7 @@ export function createGuardedShopeeShipOrder({
         return { ok: false, code: 'ship_order_window_inactive' };
       }
       windowExpiresAt = expiryMs;
+      }
     } catch {
       return { ok: false, code: 'ship_order_pilot_not_configured' };
     }
@@ -128,7 +148,7 @@ export function createGuardedShopeeShipOrder({
     let proof;
     try { proof = await preflight(); } catch { return { ok: false, code: 'preflight_unavailable' }; }
     if (proof?.ok !== true || proof.order_sn !== orderSn
-        || proof.package_number !== pilotPackageNumber
+        || (automaticScope === null && proof.package_number !== pilotPackageNumber)
         || proof.shop_id !== pilotShopId
         || proof.package_logistics_status !== 'LOGISTICS_READY'
         || proof.order_status !== 'READY_TO_SHIP'
