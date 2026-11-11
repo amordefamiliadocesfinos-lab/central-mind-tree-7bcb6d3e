@@ -175,7 +175,6 @@ function WorkoutExerciseCard({
     reps: number | null;
     rir: number | null;
     rest_seconds: number | null;
-    work_seconds: number | null;
   }>;
   saving: boolean;
   exerciseOptions: Array<{ id: string; name: string }>;
