@@ -432,7 +432,7 @@ test('Adão-only eligible discovery skips irrelevant Core intake calls while pre
     readOrderDetail: async () => response({ response: { order_list: [
       { order_sn: 'CURRENT001', order_status: 'PROCESSED' },
       { order_sn: 'DONE001', order_status: 'COMPLETED' },
-      { order_sn: 'READY001', order_status: 'READY_TO_SHIP' },
+      { order_sn: 'READY001', order_status: 'READY_TO_SHIP', create_time: 1794400000, ship_by_date: 1794560000 },
     ] } }),
     persistOrderListSnapshot: async () => ({ ok: true }),
     persistOrderSnapshot: async data => { persisted.push(data.external_entity_id); return { ok: true }; },
@@ -441,6 +441,11 @@ test('Adão-only eligible discovery skips irrelevant Core intake calls while pre
   assert.equal(eligible.ok, true);
   assert.deepEqual(eligible.order_sns, ['CURRENT001', 'READY001']);
   assert.equal(eligible.detailed_count, 3);
+  // Requested explicitly by the Adão pilot; no new output in the shared default reader.
+  const withDeadline = await reader({ ...WINDOW, onlyIntakeEligibleOrders: true, includeReadyToShipCandidates: true });
+  assert.deepEqual(withDeadline.ready_to_ship_candidates, [
+    { order_sn: 'READY001', create_time: 1794400000, ship_by_date: 1794560000 },
+  ]);
   assert.deepEqual(persisted, ['CURRENT001', 'DONE001', 'READY001']);
   persisted.length = 0;
   const unchangedDefault = await reader(WINDOW);
