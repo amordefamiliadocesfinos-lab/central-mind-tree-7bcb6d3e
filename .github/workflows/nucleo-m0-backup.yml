@@ -22,7 +22,7 @@ jobs:
           node-version: "22"
           cache: npm
       - name: Install dependencies from lockfile
-        run: npm ci --ignore-scripts
+        run: npm ci
       - name: Test backup preservation using synthetic fixtures
         run: node scripts/nucleo-backup-smoke.cjs
       - name: Build application
