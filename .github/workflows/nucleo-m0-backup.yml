@@ -27,3 +27,10 @@ jobs:
         run: node scripts/nucleo-backup-smoke.cjs
       - name: Build application
         run: npm run build
+      - name: Preserve isolated build for preview inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: nucleo-m0-build-preview
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
