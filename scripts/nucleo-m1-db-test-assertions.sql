@@ -21,7 +21,7 @@ END $$;
 -- nem enxergar capabilities de terceiros (conferência de isolamento da fonte RLS).
 SET ROLE authenticated;
 SET request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
-DO $
+DO $selfgrant$
 BEGIN
   IF (SELECT count(*) FROM public.app_admin_capabilities)<>1 THEN
     RAISE EXCEPTION 'Capability own-select leaked another identity';
@@ -38,7 +38,7 @@ BEGIN
     RAISE EXCEPTION 'Client could change own capability';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
-END $;
+END $selfgrant$;
 RESET ROLE;
 
 -- Autorizado: administra o Núcleo porque recebeu a capacidade específica.
