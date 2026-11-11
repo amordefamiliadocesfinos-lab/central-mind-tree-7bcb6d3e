@@ -118,6 +118,9 @@ export async function handleRequest(
         labels_already: result?.labels_already ?? 0,
         labels_pending: result?.labels_pending ?? 0,
         labels_blocked: result?.labels_blocked ?? 0,
+        shipment_acknowledged: result?.shipment_acknowledged ?? 0,
+        shipment_pending: result?.shipment_pending ?? 0,
+        ...(result?.shipment_code ? { shipment_code: result.shipment_code } : {}),
         ...(result?.label_code ? { label_code: result.label_code } : {}),
         // Runner emits only vetted low-cardinality fields; never order IDs or tokens.
         ...(result?.diagnostic ? { diagnostic: result.diagnostic } : {}),

@@ -3,6 +3,7 @@ import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from '.
 import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
+import { arrangeAdaoNewOrderOnce, isAdaoNewShippingCandidate } from './shopee-adao-automatic-shipping.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
 export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
@@ -91,6 +92,7 @@ export function createAdaoAutomaticIntake({
   readConnection = readLiveShopeeOauthConnection,
   intake = createAdaoScopedIntake(),
   syncLabel = syncAdaoReadyLabelOnce,
+  arrangeShipping = arrangeAdaoNewOrderOnce,
 } = {}) {
   return async function runAdaoAutomaticIntake() {
     const report = {
@@ -98,6 +100,7 @@ export function createAdaoAutomaticIntake({
       discovered: 0, written: 0, already_registered: 0,
       skipped: 0, blocked: 0, pages: 0, stopped: false,
       labels_attached: 0, labels_already: 0, labels_pending: 0, labels_blocked: 0,
+      shipment_acknowledged: 0, shipment_pending: 0,
       // No shipping arrangement, inventory or physical finalization.
       logistics_writes: 0, inventory_writes: 0,
     };
@@ -126,6 +129,8 @@ export function createAdaoAutomaticIntake({
     const seen = new Set();
     const labelCandidates = new Set();
     const newlyWritten = [];
+    const shippingCandidates = new Map();
+    const acceptedForShipping = new Set();
     for (let page = 0; page < ADAO_AUTO_INTAKE_SCOPE.maxPages; page++) {
       let listed;
       try {
@@ -136,6 +141,7 @@ export function createAdaoAutomaticIntake({
           pageSize: ADAO_AUTO_INTAKE_SCOPE.pageSize,
           timeRangeField: 'update_time',
           onlyIntakeEligibleOrders: true,
+          includeReadyToShipCandidates: true,
           responseOptionalFields: ['item_list', 'total_amount', 'payment_method', 'pay_time', 'buyer_message'],
         });
       } catch {
@@ -148,6 +154,15 @@ export function createAdaoAutomaticIntake({
         || listed.order_sns.some(sn => typeof sn !== 'string' || !ORDER_RE.test(sn) || seen.has(sn))) {
         return { ...report, code: safeCode(listed?.code ?? 'discovery_invalid'), stopped: true,
           diagnostic: diagnostic('discovery', 'invalid_or_unavailable') };
+      }
+      if (listed.ready_to_ship_candidates !== undefined
+          && (!Array.isArray(listed.ready_to_ship_candidates)
+            || listed.ready_to_ship_candidates.some(v => !listed.order_sns.includes(v?.order_sn)
+              || !Number.isSafeInteger(v.create_time)))) {
+        return { ...report, code: 'shipping_candidate_invalid', stopped: true };
+      }
+      for (const candidate of listed.ready_to_ship_candidates ?? []) {
+        if (isAdaoNewShippingCandidate(candidate)) shippingCandidates.set(candidate.order_sn, candidate);
       }
       report.pages++;
       for (const sn of listed.order_sns) {
@@ -191,10 +206,13 @@ export function createAdaoAutomaticIntake({
           report.written++;
           newlyWritten.push(sn);
           labelCandidates.add(sn);
+          acceptedForShipping.add(sn);
         }
         else if (entry.status === 'already_registered') {
           report.already_registered++;
           labelCandidates.add(sn);
+          // Do not ship on a pre-existing record without fresh Core evidence
+          // it is still operational; a prior cleanup may have finalized it.
         }
         else if (entry.status === 'blocked') {
           report.blocked++;
@@ -208,6 +226,28 @@ export function createAdaoAutomaticIntake({
         }
       }
       if (listed.more !== true) {
+        // Arrange at most one new/unfinalized Core order. The source is a
+        // current READY_TO_SHIP detail, not an old order in Separação. The
+        // trusted one-shot writer repeats LIVE eligibility and Core claim.
+        // Historical orders predating the administrative test cleanup are out.
+        if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
+          const target = [...shippingCandidates.keys()].sort()
+            .find(sn => acceptedForShipping.has(sn));
+          if (target) {
+            try {
+              const arranged = await arrangeShipping(target);
+              if (arranged?.ok && arranged.code === 'ship_order_api_acknowledged_not_collected') {
+                report.shipment_acknowledged++;
+              } else {
+                report.shipment_pending++;
+                report.shipment_code = safeCode(arranged?.code);
+              }
+            } catch {
+              report.shipment_pending++;
+              report.shipment_code = 'automatic_shipping_exception';
+            }
+          }
+        }
         // Process one official label per scheduled cycle. Priority is a newly
         // imported order; otherwise rotate among already-known live candidates.
         // Sync failures are recorded, not mistaken for order intake failures.
