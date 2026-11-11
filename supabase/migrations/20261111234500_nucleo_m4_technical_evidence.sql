@@ -44,6 +44,12 @@ CREATE FUNCTION public.nucleo_m4_evidence_audit()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $audit$
 BEGIN
+ -- A origem verificada é um ato de reconciliação de fonte externa, não
+ -- uma declaração disponível ao usuário ou service_role do app.
+ IF current_user IN ('authenticated','service_role')
+   AND NEW.observed_state <> 'observado' THEN
+  RAISE EXCEPTION 'M4 client may only record unverified observations';
+ END IF;
  NEW.recorded_at=now();
  NEW.recorded_by_auth_uid=auth.uid();
  RETURN NEW;
