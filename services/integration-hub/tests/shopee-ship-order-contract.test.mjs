@@ -163,3 +163,31 @@ test('empty tracking remains empty and does not trigger another operation', asyn
   assert.equal(result.payload.response.tracking_number, '');
   assert.equal(count, 1);
 });
+
+
+test('unsplit Shopee simple dropoff omits package_number from POST but validates ledger package identity', async () => {
+  const calls = [];
+  const body = buildSimpleDropoffRequest({
+    orderSn: base.orderSn, packageNumber: base.packageNumber,
+    infoNeeded: simpleDropoff, omitPackageNumber: true,
+  });
+  assert.deepEqual(body, { order_sn: base.orderSn, dropoff: {} });
+  await shipOrderSimpleDropoff({
+    ...base, infoNeeded: simpleDropoff, omitPackageNumber: true,
+    shipOrderPath: '/api/v2/logistics/ship_order',
+    fetchImpl: async (url, options) => {
+      calls.push(JSON.parse(options.body));
+      return new Response(JSON.stringify({ error: '', message: '' }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+  });
+  assert.deepEqual(calls, [{ order_sn: base.orderSn, dropoff: {} }]);
+  assert.throws(() => buildSimpleDropoffRequest({
+    orderSn: base.orderSn, packageNumber: '../other',
+    infoNeeded: simpleDropoff, omitPackageNumber: true,
+  }), TypeError);
+  assert.throws(() => buildSimpleDropoffRequest({
+    orderSn: base.orderSn, packageNumber: base.packageNumber,
+    infoNeeded: simpleDropoff, omitPackageNumber: 'true',
+  }), TypeError);
+});
