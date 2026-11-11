@@ -58,12 +58,37 @@ type DependencyTable = {
   Relationships: [];
 };
 
+export type TechnicalEvidence = {
+  id: string;
+  workstream_id: string;
+  source: "github" | "supabase";
+  kind: "pull_request" | "commit" | "workflow_run" | "migration";
+  repository: string | null;
+  external_key: string;
+  reference_url: string | null;
+  title: string;
+  observed_state: "observado" | "verificado" | "divergente" | "nao_verificado";
+  source_observed_at: string | null;
+  checked_at: string | null;
+  evidence_note: string;
+  snapshot: Record<string, unknown>;
+  recorded_at: string;
+  recorded_by_auth_uid: string | null;
+};
+type EvidenceTable = {
+  Row: TechnicalEvidence;
+  Insert: Pick<TechnicalEvidence, "workstream_id" | "source" | "kind" | "external_key" | "title"> & Partial<TechnicalEvidence>;
+  Update: never;
+  Relationships: [];
+};
+
 export type NucleoDevelopmentDatabase = Omit<Database, "public"> & {
   public: Omit<Database["public"], "Tables"> & {
     Tables: Database["public"]["Tables"] & {
       nucleo_development_workstreams: WorkstreamTable;
       nucleo_development_events: EventTable;
       nucleo_development_dependencies: DependencyTable;
+      nucleo_development_evidence: EvidenceTable;
     };
   };
 };
