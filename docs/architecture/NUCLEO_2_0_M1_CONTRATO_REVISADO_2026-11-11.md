@@ -1,6 +1,6 @@
 # Núcleo 2.0 — M1: contrato revisado e implantação reversível
 **Data:** 11/11/2026 | **Autoridade:** Camada Mestre, decisões nas PRs #606 e #594.
-**Status:** SQL em branch isolada, NÃO APLICADO ao Lovable Cloud produtivo.
+**Status:** SQL versionado em branch; aplicação condicionada aos portões de integridade e segurança.
 **Referência:** MAPA MESTRE NÚCLEO 2.0 V1.0, preservação M0 e persistência M1.
 
 ## Mudanças em relação à PR #594 (rascunho superado)
@@ -58,6 +58,6 @@ Os testes do CI são reais em Postgres descartável, **não simulam todos os gra
 - **Depois da importação:** rollback **lógico** (feature flag/retorno de leitura para fonte legada e exportação integral do banco); nunca apagar tabelas/documentos. Mudança de schema para trás requer plano próprio com backup e autorização.
 
 ## Limitações deliberadas
-- A migração está sob `supabase/migrations` **somente nesta branch de PR**; não fazer merge nem sincronizar com Cloud até homologação de produção. O sufixo `PROPOSTA_NAO_APLICAR` é um sinalizador de governança, não substitui bloqueio de deploy.
+- A migração está sob `supabase/migrations` **somente nesta branch de PR**; não fazer merge nem sincronizar com Cloud antes dos testes e do preflight produtivo. O sufixo `PROPOSTA_NAO_APLICAR` é um sinalizador de governança, não substitui bloqueio de deploy.
 - Ausência de política UPDATE é proposital: nenhuma edição compartilhada liberada nesta entrega.
 - Nenhum grant de `nucleo_manage` é criado e nenhuma das 82 páginas é exposta em GitHub.
