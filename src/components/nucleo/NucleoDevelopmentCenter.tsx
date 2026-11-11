@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -389,6 +390,7 @@ export default function NucleoDevelopmentCenter() {
               <Button size="sm" disabled={saving || !hasPendingChanges} onClick={saveItem}>
                 {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
               </Button>
+              <NucleoTechnicalEvidence workstreamId={selected.id} />
               <div className="border-t pt-3 space-y-2">
                 <h4 className="text-xs font-semibold">Dependências registradas</h4>
                 {dependencies.filter(d=>d.workstream_id===selected.id).map(d=>(
