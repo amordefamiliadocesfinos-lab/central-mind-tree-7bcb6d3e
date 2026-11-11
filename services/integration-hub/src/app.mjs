@@ -121,6 +121,14 @@ export async function handleRequest(
         shipment_acknowledged: result?.shipment_acknowledged ?? 0,
         shipment_pending: result?.shipment_pending ?? 0,
         shipment_candidates: result?.shipment_candidates ?? 0,
+        // F12.1: bounded, low-cardinality observability only; no order IDs or PII.
+        shipment_attempted: Number.isSafeInteger(result?.shipment_attempted)
+          && result.shipment_attempted >= 0 && result.shipment_attempted <= 3
+          ? result.shipment_attempted : 0,
+        label_attempted: Number.isSafeInteger(result?.label_attempted)
+          && result.label_attempted >= 0 && result.label_attempted <= 3
+          ? result.label_attempted : 0,
+        work_budget_exhausted: result?.work_budget_exhausted === true,
         ...(result?.shipment_code ? { shipment_code: result.shipment_code } : {}),
         ...(result?.label_code ? { label_code: result.label_code } : {}),
         // Runner emits only vetted low-cardinality fields; never order IDs or tokens.
