@@ -31,7 +31,7 @@ Fonte: consultas SELECT no Lovable Cloud oficial, PostgreSQL **17.6**.
 ## Testes isolados
 - GitHub Actions [#43091707041](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43091707041): PostgreSQL 17, autorização e rollback PASS.
 - GitHub Actions [#43094486905](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43094486905): encontrou falha sintática no teste de hardening, corrigida, sem impacto em produção.
-- Execução atual de hardening: atualizar este registro com a evidência mais recente antes do merge.
+- GitHub Actions [#43094643388](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43094643388): **SUCCESS** com privilégios padrão amplos simulados, hardening, autorização positiva/negativa e rollback seguro.
 
 ## Preservação e limites
 - O backup legado de uma origem, com 82 páginas e SHA-256 `83fc9795454568efdccfcf32746d684d5ff9890267273bfb1236012c49c09438`, permanece **fora do GitHub e fora do banco**.
