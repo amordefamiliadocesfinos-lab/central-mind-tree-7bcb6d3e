@@ -9,6 +9,8 @@ import {
   Pause,
   Play,
   Save,
+  Square,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -207,6 +209,7 @@ export function HealthWorkoutInteractiveTimerF19({
   setsByExercise,
   exerciseNameById,
   timer,
+  onCompleteWorkout,
 }: {
   sessionTitle: string;
   fallbackStartedAt: string;
@@ -214,6 +217,7 @@ export function HealthWorkoutInteractiveTimerF19({
   setsByExercise: Map<string, WorkoutSet[]>;
   exerciseNameById: Map<string, string>;
   timer: HealthWorkoutTimerF19Controller;
+  onCompleteWorkout: () => Promise<void>;
 }) {
   const { toast } = useToast();
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -222,6 +226,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [reps, setReps] = useState("");
   const [rir, setRir] = useState("");
   const [resultSaved, setResultSaved] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const alertedRestId = useRef<string | null>(null);
@@ -512,6 +517,24 @@ export function HealthWorkoutInteractiveTimerF19({
     setResultSaved(false);
   };
 
+  const completeWorkoutNow = async (saveCurrentResult: boolean) => {
+    if (activeRest) {
+      let shouldCloseRest = resultSaved;
+
+      if (saveCurrentResult && !resultSaved) {
+        await saveRestResult();
+        shouldCloseRest = true;
+      }
+
+      if (shouldCloseRest && timer.sessionTiming?.status === "active") {
+        await timer.finishRest(activeRest.id);
+      }
+    }
+
+    await onCompleteWorkout();
+    setShowEndConfirm(false);
+  };
+
   const viewedExerciseSelectable =
     viewedExercise != null &&
     isExecutable(viewedExercise) &&
@@ -602,7 +625,104 @@ export function HealthWorkoutInteractiveTimerF19({
             )}
           </Button>
         </div>
+
+        <div className="mt-2 flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs text-destructive hover:text-destructive"
+            disabled={timer.saving}
+            onClick={() => setShowEndConfirm(true)}
+          >
+            <Square className="mr-1.5 h-3.5 w-3.5" />
+            Encerrar treino
+          </Button>
+        </div>
       </div>
+
+      {showEndConfirm ? (
+        <Card className="border-destructive/30">
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Encerrar treino agora?</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tudo que já foi registrado será preservado. Exercícios não
+                  realizados permanecerão como não executados nesta sessão.
+                </p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="min-h-9 min-w-9"
+                disabled={timer.saving}
+                onClick={() => setShowEndConfirm(false)}
+                aria-label="Cancelar encerramento"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {activeWork ? (
+              <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                Há uma série em execução. Se encerrar agora, esse cronômetro será
+                fechado e essa série incompleta não será registrada como concluída.
+              </p>
+            ) : null}
+
+            {activeRest && !resultSaved ? (
+              <div className="space-y-2">
+                <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                  O resultado da última série ainda não foi salvo. Você pode salvar
+                  carga/reps/RIR antes de encerrar ou finalizar sem essas alterações.
+                </p>
+                <Button
+                  className="min-h-11 w-full"
+                  disabled={timer.saving}
+                  onClick={() =>
+                    void run(
+                      "Resultado salvo e treino encerrado.",
+                      () => completeWorkoutNow(true),
+                    )
+                  }
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar resultado e encerrar
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-11 w-full"
+                  disabled={timer.saving}
+                  onClick={() =>
+                    void run(
+                      "Treino encerrado sem salvar o resultado pendente.",
+                      () => completeWorkoutNow(false),
+                    )
+                  }
+                >
+                  Encerrar sem salvar resultado
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className="min-h-11 w-full"
+                variant="destructive"
+                disabled={timer.saving}
+                onClick={() =>
+                  void run(
+                    "Treino encerrado. Histórico preservado.",
+                    () => completeWorkoutNow(false),
+                  )
+                }
+              >
+                <Square className="mr-2 h-4 w-4" />
+                Confirmar encerramento
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-primary/15">
         <CardContent className="px-3 py-3">
