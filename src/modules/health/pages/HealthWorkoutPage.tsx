@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Dumbbell, Loader2, Pencil, Plus, RefreshCw, Save, SkipForward, X } from "lucide-react";
+import { Activity, CheckCircle2, Dumbbell, Loader2, Pencil, Plus, RefreshCw, Save, SkipForward, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -353,10 +353,33 @@ export function HealthWorkoutPage() {
             <h2 className="text-xl font-semibold tracking-tight">Treino ao vivo</h2>
             <p className="mt-1 text-sm text-muted-foreground">Execução real do próximo item da fila CCH.</p>
           </div>
-          <Button asChild variant="outline" className="min-h-11 shrink-0">
-            <Link to="/saude/treino/programa">Programa</Link>
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button asChild variant="outline" className="min-h-11">
+              <Link to="/saude/treino/atividades">
+                <Activity className="mr-2 h-4 w-4" />
+                Atividades
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link to="/saude/treino/programa">Programa</Link>
+            </Button>
+          </div>
         </div>
+
+        <Card className="border-primary/15">
+          <CardContent className="flex items-center justify-between gap-3 py-4">
+            <div>
+              <p className="text-sm font-medium">Outra atividade hoje</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Corrida, caminhada, cardio, Pilates, ritmos e outras modalidades
+                podem ser registradas além da musculação.
+              </p>
+            </div>
+            <Button asChild variant="secondary" className="min-h-11 shrink-0">
+              <Link to="/saude/treino/atividades">Registrar</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {workout.error ? (
           <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{workout.error}</CardContent></Card>
