@@ -214,7 +214,16 @@ export function useHealthActivitiesF20(
     const activities =
       (activitiesResult.data ?? []) as unknown as HealthActivitySessionF20[];
 
-    const activityIds = activities.map((item) => item.id);
+    const activeActivity =
+      (activeActivityResult.data as unknown as HealthActivitySessionF20 | null) ??
+      null;
+
+    const activityIds = [
+      ...new Set([
+        ...activities.map((item) => item.id),
+        ...(activeActivity ? [activeActivity.id] : []),
+      ]),
+    ];
     const segmentsResult = activityIds.length
       ? await db
           .from("health_activity_segments")
@@ -295,9 +304,7 @@ export function useHealthActivitiesF20(
       modalities:
         (modalitiesResult.data ?? []) as unknown as HealthActivityModalityF20[],
       activitiesToday: activities,
-      activeActivity:
-        (activeActivityResult.data as unknown as HealthActivitySessionF20 | null) ??
-        null,
+      activeActivity,
       segments:
         (segmentsResult.data ?? []) as unknown as HealthActivitySegmentF20[],
       strengthToday,
