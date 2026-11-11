@@ -170,6 +170,7 @@ export function useHealthActivitiesF20(
         .from("health_activity_sessions")
         .select("*")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .gte("started_at", bounds.start)
         .lt("started_at", bounds.end)
         .order("started_at", { ascending: true }),
@@ -177,6 +178,7 @@ export function useHealthActivitiesF20(
         .from("health_activity_sessions")
         .select("*")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .in("status", ["active", "paused"])
         .order("started_at", { ascending: false })
         .limit(1)
@@ -185,6 +187,7 @@ export function useHealthActivitiesF20(
         .from("health_workout_sessions")
         .select("id,status,started_at,ended_at,source,session_template_id")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .gte("started_at", bounds.start)
         .lt("started_at", bounds.end)
         .order("started_at", { ascending: true }),
@@ -192,6 +195,7 @@ export function useHealthActivitiesF20(
         .from("health_workout_sessions")
         .select("id")
         .eq("athlete_id", athleteId)
+        .eq("record_status", "active")
         .in("status", ["active", "paused"])
         .limit(1)
         .maybeSingle(),
