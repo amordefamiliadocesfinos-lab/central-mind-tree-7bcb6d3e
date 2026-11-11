@@ -1,0 +1,42 @@
+name: Nucleo M1 - SQL RLS isolated
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261111193600_nucleo_m1_schema_capability_ddl_PROPOSTA_NAO_APLICAR.sql"
+      - "scripts/nucleo-m1-db-test-*"
+      - ".github/workflows/nucleo-m1-rls-isolated.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-contract-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: test-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated original capability schema
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-bootstrap.sql
+      - name: Apply M1 proposed DDL to disposable postgres only
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability_ddl_PROPOSTA_NAO_APLICAR.sql
+      - name: Positive and negative authorization assertions
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m1-db-test-assertions.sql
