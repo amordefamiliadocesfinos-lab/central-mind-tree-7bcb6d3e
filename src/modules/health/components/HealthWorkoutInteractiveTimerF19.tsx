@@ -401,6 +401,19 @@ export function HealthWorkoutInteractiveTimerF19({
       ? activeSets.find((item) => item.id === activeRest.workout_set_id) ?? null
       : null;
 
+  const completedWorkForRest =
+    activeRest?.workout_set_id != null
+      ? [...timer.intervals]
+          .reverse()
+          .find(
+            (item) =>
+              item.interval_type === "work" &&
+              item.workout_set_id === activeRest.workout_set_id &&
+              item.status === "completed",
+          ) ?? null
+      : null;
+
+
   useEffect(() => {
     if (!activeRest || !restSet) return;
 
@@ -460,13 +473,6 @@ export function HealthWorkoutInteractiveTimerF19({
     activeExercise != null &&
     completedOnActive >= minSets &&
     completedOnActive < maxSets;
-
-  const executionValues = () => ({
-    loadValue: numberOrNull(load),
-    loadUnit,
-    reps: numberOrNull(reps),
-    rir: numberOrNull(rir),
-  });
 
   const saveRestSetIfNeeded = async () => {
     if (!activeRest?.workout_set_id) return;
@@ -776,63 +782,6 @@ export function HealthWorkoutInteractiveTimerF19({
               </>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Carga</Label>
-                    <Input
-                      className="min-h-11"
-                      inputMode="decimal"
-                      value={load}
-                      onChange={(event) => setLoad(event.target.value)}
-                      placeholder="kg"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Unid.</Label>
-                    <Select value={loadUnit} onValueChange={setLoadUnit}>
-                      <SelectTrigger className="min-h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="kg">kg</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="bodyweight">Corpo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Reps</Label>
-                    <Input
-                      className="min-h-11"
-                      inputMode="numeric"
-                      value={reps}
-                      onChange={(event) => setReps(event.target.value)}
-                      placeholder={
-                        viewedExercise.planned_reps_min != null
-                          ? `${viewedExercise.planned_reps_min}–${viewedExercise.planned_reps_max ?? viewedExercise.planned_reps_min}`
-                          : "—"
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">RIR</Label>
-                    <Input
-                      className="min-h-11"
-                      inputMode="decimal"
-                      value={rir}
-                      onChange={(event) => setRir(event.target.value)}
-                      placeholder={
-                        viewedExercise.planned_rir_target != null
-                          ? `alvo ${viewedExercise.planned_rir_target}`
-                          : "—"
-                      }
-                    />
-                  </div>
-                </div>
-
                 {activeWork ? (
                   <>
                     <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/25 px-4 py-3">
@@ -841,12 +790,17 @@ export function HealthWorkoutInteractiveTimerF19({
                           Execução
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Preencha a série enquanto executa.
+                          Apenas execute. O resultado será preenchido ao terminar.
                         </p>
                       </div>
-                      <p className="font-mono text-2xl font-semibold">
-                        {formatElapsed(activeElapsed)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          Tempo da série
+                        </p>
+                        <p className="font-mono text-3xl font-semibold">
+                          {formatElapsed(activeElapsed)}
+                        </p>
+                      </div>
                     </div>
 
                     <Button
@@ -856,10 +810,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         void run(
                           "Série concluída. Descanso iniciado.",
                           () =>
-                            timer.finishWorkStartRest(
-                              activeWork.id,
-                              executionValues(),
-                            ),
+                            timer.finishWorkStartRest(activeWork.id),
                         )
                       }
                     >
@@ -905,10 +856,91 @@ export function HealthWorkoutInteractiveTimerF19({
                       </p>
                     </div>
 
+                    <div className="rounded-xl border bg-muted/20 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Resultado da série
+                          </p>
+                          <p className="mt-1 text-sm font-semibold">
+                            Série {activeRest.set_number ?? completedOnActive} concluída
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] text-muted-foreground">
+                            Tempo de execução
+                          </p>
+                          <p className="font-mono text-lg font-semibold">
+                            {completedWorkForRest?.actual_seconds != null
+                              ? formatElapsed(
+                                  Number(completedWorkForRest.actual_seconds),
+                                )
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Carga</Label>
+                          <Input
+                            className="min-h-11"
+                            inputMode="decimal"
+                            value={load}
+                            onChange={(event) => setLoad(event.target.value)}
+                            placeholder="kg"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">Unid.</Label>
+                          <Select value={loadUnit} onValueChange={setLoadUnit}>
+                            <SelectTrigger className="min-h-11">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="lb">lb</SelectItem>
+                              <SelectItem value="bodyweight">Corpo</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">Reps feitas</Label>
+                          <Input
+                            className="min-h-11"
+                            inputMode="numeric"
+                            value={reps}
+                            onChange={(event) => setReps(event.target.value)}
+                            placeholder={
+                              viewedExercise.planned_reps_min != null
+                                ? `plano ${viewedExercise.planned_reps_min}–${viewedExercise.planned_reps_max ?? viewedExercise.planned_reps_min}`
+                                : "—"
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">RIR real</Label>
+                          <Input
+                            className="min-h-11"
+                            inputMode="decimal"
+                            value={rir}
+                            onChange={(event) => setRir(event.target.value)}
+                            placeholder={
+                              viewedExercise.planned_rir_target != null
+                                ? `alvo ${viewedExercise.planned_rir_target}`
+                                : "—"
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <p className="text-xs text-muted-foreground">
-                      Os campos acima pertencem à série que acabou. Se algo
-                      ficou vazio, preencha agora; o sistema salva antes de
-                      avançar.
+                      O descanso já está contando enquanto você registra o resultado.
+                      Ao avançar, os dados são salvos automaticamente.
                     </p>
 
                     <Button
@@ -1037,21 +1069,42 @@ export function HealthWorkoutInteractiveTimerF19({
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/25 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium">
-                          Pronto para a série
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          RIR alvo {activeExercise?.planned_rir_target ?? "—"} ·
-                          descanso{" "}
-                          {activeExercise?.planned_rest_seconds != null
-                            ? `${activeExercise.planned_rest_seconds}s`
-                            : "—"}
-                        </p>
+                    <div className="rounded-xl border bg-muted/25 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium">
+                            Pronto para a série
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Faça a série primeiro. Carga, reps e RIR serão
+                            registrados depois que você tocar em concluir.
+                          </p>
+                        </div>
+                        <Clock3 className="h-5 w-5 shrink-0 text-muted-foreground" />
                       </div>
-                      <Clock3 className="h-5 w-5 text-muted-foreground" />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Plano: {activeExercise?.planned_reps_min ?? "—"}–
+                        {activeExercise?.planned_reps_max ?? "—"} reps · RIR{" "}
+                        {activeExercise?.planned_rir_target ?? "—"} · descanso{" "}
+                        {activeExercise?.planned_rest_seconds != null
+                          ? `${activeExercise.planned_rest_seconds}s`
+                          : "—"}
+                      </p>
                     </div>
+
+                    {activeSets.filter((item) => item.status === "completed").length ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Séries anteriores deste exercício
+                        </p>
+                        {activeSets
+                          .filter((item) => item.status === "completed")
+                          .slice(-2)
+                          .map((set) => (
+                            <PerformedSetLine key={set.id} set={set} />
+                          ))}
+                      </div>
+                    ) : null}
 
                     <Button
                       className="min-h-12 w-full text-base"
