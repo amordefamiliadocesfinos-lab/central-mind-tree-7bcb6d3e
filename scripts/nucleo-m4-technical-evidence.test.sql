@@ -37,7 +37,7 @@ BEGIN
   (workstream_id,source,kind,repository,external_key,reference_url,title,observed_state)
   VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','github','pull_request',
   'amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e','fake',
-  'https://github.com/evil/repo/pull/1','invalid','verificado');
+  'https://github.com/evil/repo/pull/1','invalid','observado');
   RAISE EXCEPTION 'M4 invalid URL or unchecked verification allowed';
  EXCEPTION WHEN check_violation THEN NULL;
  END;
