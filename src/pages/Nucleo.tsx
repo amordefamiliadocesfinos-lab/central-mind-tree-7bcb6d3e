@@ -22,6 +22,7 @@ import {
   FileText,
   Save,
   Download,
+  LayoutDashboard,
   Search,
   ChevronRight,
   History,
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { exportLegacyNucleo } from "@/lib/nucleo/exportLegacyNucleo";
 import NucleoDriveReferences from "@/components/nucleo/NucleoDriveReferences";
+import NucleoDevelopmentCenter from "@/components/nucleo/NucleoDevelopmentCenter";
 
 // ---------- Types ----------
 
@@ -4071,6 +4073,7 @@ export default function Nucleo() {
     );
   };
 
+  const [developmentMode, setDevelopmentMode] = useState(false);
   const [backupInProgress, setBackupInProgress] = useState(false);
   const handleExportLegacy = async () => {
     if (backupInProgress) return;
@@ -4115,6 +4118,12 @@ export default function Nucleo() {
               Base estratégica e documental do sistema
             </p>
           </div>
+          <Button type="button" size="sm" variant={developmentMode ? "default" : "outline"}
+            className="gap-1 shrink-0" onClick={() => setDevelopmentMode(v => !v)}
+            title="Alternar entre as oito áreas originais e a Central Visual de Desenvolvimento">
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="hidden sm:inline">{developmentMode ? "Áreas do Núcleo" : "Desenvolvimento"}</span>
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -4131,6 +4140,8 @@ export default function Nucleo() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-5 space-y-5">
+        {developmentMode ? <NucleoDevelopmentCenter /> : (
+        <>
         {/* Areas grid */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
           {AREAS.map((a) => {
@@ -4317,6 +4328,8 @@ export default function Nucleo() {
           Estrutura preparada para crescimento — sem integrações ativas com
           outros módulos.
         </p>
+        </>
+        )}
       </main>
     </div>
   );
