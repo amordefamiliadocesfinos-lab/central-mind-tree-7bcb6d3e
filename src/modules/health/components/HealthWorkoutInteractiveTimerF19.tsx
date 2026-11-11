@@ -339,35 +339,6 @@ export function HealthWorkoutInteractiveTimerF19({
     activeExercise != null &&
     viewedExercise.id === activeExercise.id;
 
-  const viewedExerciseSelectable =
-    viewedExercise != null &&
-    isExecutable(viewedExercise) &&
-    performedCount(viewedExercise.id) < plannedMax(viewedExercise);
-
-  const canChooseViewedExercise =
-    viewedExerciseSelectable &&
-    (!timer.activeInterval || timer.activeInterval.interval_type === "rest");
-
-  const chooseViewedExercise = async () => {
-    if (!viewedExercise || !viewedExerciseSelectable) return;
-
-    if (activeRest) {
-      await finishRestWithData({
-        startNextWork: true,
-        nextWorkoutExerciseId: viewedExercise.id,
-      });
-      setSelectedExerciseId(viewedExercise.id);
-      return;
-    }
-
-    setSelectedExerciseId(viewedExercise.id);
-    setViewedExerciseId(viewedExercise.id);
-    setLoad("");
-    setLoadUnit("kg");
-    setReps("");
-    setRir("");
-  };
-
   const nextDifferentExercise = useMemo(() => {
     if (!activeExercise) return null;
 
@@ -519,6 +490,35 @@ export function HealthWorkoutInteractiveTimerF19({
     await saveRestSetIfNeeded();
     await timer.finishRest(activeRest.id, options);
 
+    setLoad("");
+    setLoadUnit("kg");
+    setReps("");
+    setRir("");
+  };
+
+  const viewedExerciseSelectable =
+    viewedExercise != null &&
+    isExecutable(viewedExercise) &&
+    performedCount(viewedExercise.id) < plannedMax(viewedExercise);
+
+  const canChooseViewedExercise =
+    viewedExerciseSelectable &&
+    (!timer.activeInterval || timer.activeInterval.interval_type === "rest");
+
+  const chooseViewedExercise = async () => {
+    if (!viewedExercise || !viewedExerciseSelectable) return;
+
+    if (activeRest) {
+      await finishRestWithData({
+        startNextWork: true,
+        nextWorkoutExerciseId: viewedExercise.id,
+      });
+      setSelectedExerciseId(viewedExercise.id);
+      return;
+    }
+
+    setSelectedExerciseId(viewedExercise.id);
+    setViewedExerciseId(viewedExercise.id);
     setLoad("");
     setLoadUnit("kg");
     setReps("");
