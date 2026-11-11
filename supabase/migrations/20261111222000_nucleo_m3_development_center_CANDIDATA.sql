@@ -4,12 +4,6 @@
 BEGIN;
 DO $gate$
 BEGIN
- IF to_regclass('public.nucleo_source_references') IS NULL
-  OR to_regclass('public.app_admin_capabilities') IS NULL
-  OR to_regclass('public.nucleo_reject_delete_guard') IS NOT NULL THEN
-  -- to_regclass somente é útil para relações, função é verificada abaixo.
-  NULL;
- END IF;
  IF to_regclass('public.nucleo_source_references') IS NULL OR
   to_regprocedure('public.nucleo_reject_delete_guard()') IS NULL THEN
    RAISE EXCEPTION 'M3 requires approved M1 and M2 foundation';
