@@ -7,7 +7,7 @@
 
 - Lovable Cloud do projeto `1720a410-34cd-4410-995c-8c92c7edf16b`: Supabase habilitado; consultas SELECT funcionam.
 - `public.app_users` contém `auth_user_id`, `role`, `access_model`, `is_active`; identificada 1 identidade ativa com `role='Administrador'`, `access_model='legacy'`. Não se registram nomes nem e-mails aqui.
-- `public.app_admin_capabilities` possui capacidade `provision_users`; **não presumir** que ela concede acesso ao Núcleo.
+- `public.app_admin_capabilities` possui capacidade `provision_users`; **não presumir** que ela concede acesso ao Núcleo. A autorização futura requer a capacidade dedicada `nucleo_manage`, concedida por ato administrativo explícito.
 - `digital_knowledge_base` é base de perguntas/respostas específica do Digital; **não reutilizar como repositório canônico do Núcleo**.
 - Não foram encontradas tabelas `nucleo_*` entre as tabelas publicadas no schema `public` consultado.
 - Estado legado: `src/pages/Nucleo.tsx` usa `localStorage['nucleo_painel_central_pages_v3']`; conteúdo real de navegadores dos operadores ainda não inventariado.
@@ -77,45 +77,54 @@ alter table public.nucleo_documents enable row level security;
 alter table public.nucleo_document_revisions enable row level security;
 alter table public.nucleo_import_batches enable row level security;
 
--- Estritamente administrador ativo pelo vínculo auth_user_id da tabela
--- operacional; não confiar em user_metadata, rótulo visual ou JWT role.
--- SELECT na tabela app_users está disponível a authenticated no contrato atual;
--- revalidar em teste com identidades administrativas e restritas.
+-- Autorização positiva exclusivamente pela capacidade dedicada nucleo_manage.
+-- Não usar papel textual em app_users como autorização: políticas atuais de edição
+-- de app_users por gestores exigem auditoria contra escalada de privilégio.
+-- A capacidade deve ser provisionada em operação separada e autorizada.
+-- Não confiar em user_metadata, rótulo visual ou papel textual.
 create policy nucleo_documents_admin_select on public.nucleo_documents
 for select to authenticated using (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 create policy nucleo_documents_admin_insert on public.nucleo_documents
 for insert to authenticated with check (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 create policy nucleo_documents_admin_update on public.nucleo_documents
 for update to authenticated using (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'))
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null))
 with check (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 -- Não conceder DELETE: remover conteúdo histórico requer autorização específica.
 
 create policy nucleo_revisions_admin_select on public.nucleo_document_revisions
 for select to authenticated using (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 create policy nucleo_revisions_admin_insert on public.nucleo_document_revisions
 for insert to authenticated with check (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 -- Sem UPDATE/DELETE para revisions: append-only.
 
 create policy nucleo_batches_admin_select on public.nucleo_import_batches
 for select to authenticated using (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 create policy nucleo_batches_admin_insert on public.nucleo_import_batches
 for insert to authenticated with check (
-  exists (select 1 from public.app_users a where a.auth_user_id = (select auth.uid())
-    and a.is_active and a.access_model = 'legacy' and upper(trim(a.role)) = 'ADMINISTRADOR'));
+  exists (select 1 from public.app_admin_capabilities cap
+    where cap.auth_user_id = (select auth.uid()) and cap.capability = 'nucleo_manage'
+      and cap.active = true and cap.revoked_at is null));
 -- Atualizações de estado de batch e escrita de revisões exigem transação
 -- controlada e auditoria futura; não conceder permissão ampla por padrão.
 ```
@@ -123,7 +132,7 @@ for insert to authenticated with check (
 ## Portões obrigatórios ANTES da aplicação
 
 1. Fazer backup real de **cada navegador com conteúdo distinto**, validar checksum e registrar quantidades/títulos/versões. Não considerar a PR do exportador como prova de arquivo baixado.
-2. Rever políticas `app_users`, grants efetivos e acesso de identities `legacy` / `scoped`; provar admin positivo e perfis restritos negativos por JWT real. Não alterar RLS transversal.
+2. Revisar risco de elevação de papel textual via políticas `app_users`. Provisionar capacidade `nucleo_manage` apenas em operação administrativa específica autorizada; sem ela o Núcleo fica fechado. Provar identidade autorizada positiva e perfis restritos negativos por JWT real. Não alterar RLS transversal.
 3. Completar grants de tabelas novas para `authenticated` de forma mínima (SELECT/INSERT/UPDATE somente quando necessário), mantendo RLS habilitado. `service_role` nunca no navegador.
 4. Validar colisões de `legacy_id`, título, conteúdo e versões entre navegadores. Título não é identidade; preservar dados divergentes em vez de substituir.
 5. Produzir migration rastreável em branch própria; executar em ambiente autorizado/teste e comprovar rollback. Aplicação no Cloud produtivo requer autorização correspondente.
