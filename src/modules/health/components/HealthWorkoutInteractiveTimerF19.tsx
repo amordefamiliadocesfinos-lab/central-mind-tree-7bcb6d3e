@@ -8,7 +8,6 @@ import {
   Loader2,
   Pause,
   Play,
-  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -942,21 +941,6 @@ export function HealthWorkoutInteractiveTimerF19({
                       O descanso já está contando enquanto você registra o resultado.
                       Ao avançar, os dados são salvos automaticamente.
                     </p>
-
-                    <Button
-                      variant="outline"
-                      className="min-h-11 w-full"
-                      disabled={timer.saving || !activeRest.workout_set_id}
-                      onClick={() =>
-                        void run(
-                          "Dados da série salvos.",
-                          saveRestSetIfNeeded,
-                        )
-                      }
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      Salvar dados da série
-                    </Button>
 
                     {completedOnActive < minSets ? (
                       <Button
