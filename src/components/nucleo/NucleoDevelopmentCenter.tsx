@@ -46,6 +46,7 @@ export default function NucleoDevelopmentCenter() {
   const [filter, setFilter] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
+  const [dependencyTarget, setDependencyTarget] = useState("");
   const [saving, setSaving] = useState(false);
   const [edit, setEdit] = useState<Partial<DevelopmentWorkstream>>({});
 
@@ -99,6 +100,7 @@ export default function NucleoDevelopmentCenter() {
 
   const choose = (id: string) => {
     setSelectedId(id);
+    setDependencyTarget("");
     const item = byId.get(id);
     setEdit(item ? {
       title:item.title,description:item.description,specialist:item.specialist,
@@ -124,6 +126,20 @@ export default function NucleoDevelopmentCenter() {
     toast.success("Frente registrada, com histórico auditável.");
     setCreating(false);
     setDraft(emptyDraft);
+    await refresh();
+  };
+
+  const addDependency = async () => {
+    if (!selected || !dependencyTarget || dependencyTarget === selected.id || saving) return;
+    setSaving(true);
+    const { error } = await client.from("nucleo_development_dependencies").insert({
+      workstream_id: selected.id, depends_on_id: dependencyTarget,
+      description: "Dependência declarada para acompanhamento",
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Dependência adicionada sem substituir as anteriores.");
+    setDependencyTarget("");
     await refresh();
   };
 
@@ -213,6 +229,35 @@ export default function NucleoDevelopmentCenter() {
           placeholder="Filtrar código, especialista, frente ou próxima ação"/>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Atualizar</Button>
       </div>
+
+      <Card className="p-3 space-y-2">
+        <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
+        <p className="text-xs text-muted-foreground">
+          Identidade numerada e relações pai–filho preservadas. Selecione qualquer item para abrir a ficha.
+        </p>
+        {items.filter(i => i.kind === "modulo").map(mod => (
+          <div key={mod.id} className="rounded-md border px-3 py-2 space-y-1">
+            <button type="button" className="text-sm font-medium hover:underline" onClick={() => choose(mod.id)}>
+              {mod.code} — {mod.title}
+            </button>
+            {items.filter(i => i.parent_id === mod.id).map(front => (
+              <div key={front.id} className="ml-3 pl-3 border-l space-y-1">
+                <button type="button" className="text-xs font-medium hover:underline" onClick={() => choose(front.id)}>
+                  {front.code} — {front.title}
+                </button>
+                {items.filter(i => i.parent_id === front.id).map(sub => (
+                  <div key={sub.id} className="ml-3 pl-3 border-l">
+                    <button type="button" className="text-xs hover:underline" onClick={() => choose(sub.id)}>
+                      {sub.code} — {sub.title}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+        {!loading && !items.length && <p className="text-xs text-muted-foreground">Nenhuma frente cadastrada.</p>}
+      </Card>
 
       <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
         {states.map(state => (
@@ -312,6 +357,16 @@ export default function NucleoDevelopmentCenter() {
                 ))}
                 {dependencies.every(d=>d.workstream_id!==selected.id)&&
                   <p className="text-xs text-muted-foreground">Sem dependências cadastradas.</p>}
+                <div className="flex items-center gap-2">
+                  <select className="w-full min-w-0 rounded-md border bg-background p-2" aria-label="Selecionar dependência"
+                    value={dependencyTarget} onChange={e => setDependencyTarget(e.target.value)}>
+                    <option value="">Vincular dependência</option>
+                    {items.filter(i => i.id!==selected.id &&
+                      !dependencies.some(d=>d.workstream_id===selected.id && d.depends_on_id===i.id))
+                      .map(i=><option value={i.id} key={i.id}>{i.code} — {i.title}</option>)}
+                  </select>
+                  <Button size="sm" variant="outline" disabled={!dependencyTarget||saving} onClick={addDependency}>Adicionar</Button>
+                </div>
                 <h4 className="text-xs font-semibold pt-2">Linha do tempo (últimos 200 eventos globais)</h4>
                 {selectedHistory.map(event=>(
                   <div key={event.id} className="text-xs border-l-2 pl-2">
