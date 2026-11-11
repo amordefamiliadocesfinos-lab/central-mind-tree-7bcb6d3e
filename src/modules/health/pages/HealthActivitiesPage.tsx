@@ -8,7 +8,6 @@ import {
   Clock3,
   Dumbbell,
   Footprints,
-  HeartPulse,
   ListPlus,
   Loader2,
   Pause,
@@ -32,10 +31,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
-import {
-  HealthActivitySessionF20,
-  useHealthActivitiesF20,
-} from "../hooks/useHealthActivitiesF20";
+import { useHealthActivitiesF20 } from "../hooks/useHealthActivitiesF20";
+import type { HealthActivitySessionF20 } from "../hooks/useHealthActivitiesF20";
 
 function num(value: string): number | null {
   if (!value.trim()) return null;
