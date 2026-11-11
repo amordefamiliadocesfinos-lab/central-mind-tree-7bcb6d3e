@@ -21,6 +21,19 @@ INSERT INTO public.nucleo_development_workstreams
 INSERT INTO public.nucleo_development_dependencies(workstream_id,depends_on_id,description)
 VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Depende da frente mãe');
 
+-- A segunda aresta fecharia um ciclo frente -> subfrente -> frente.
+DO $acyclic$
+BEGIN
+ BEGIN
+  INSERT INTO public.nucleo_development_dependencies(workstream_id,depends_on_id)
+  VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+  RAISE EXCEPTION 'M3 dependency cycle was allowed';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'M3 dependency cycle forbidden' THEN RAISE; END IF;
+ END;
+END $acyclic$;
+
 UPDATE public.nucleo_development_workstreams
 SET status='em_andamento',next_action='Testar interface',priority='alta'
 WHERE code='NUC-M3-F1';
