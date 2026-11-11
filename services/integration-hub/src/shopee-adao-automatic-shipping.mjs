@@ -1,5 +1,6 @@
 import { createGuardedShopeeShipOrder } from './shopee-ship-order-guard.mjs';
 import { createShopeeShippingPreflight } from './shopee-shipping-preflight.mjs';
+import { readLiveShopeeOauthConnection } from './core-bridge.mjs';
 
 // The live Adão scheduler reuses exactly the existing Core-claimed one-shot
 // simple-dropoff shipping operation, never the legacy single-pilot environment.
@@ -36,10 +37,14 @@ export function createAdaoAutomaticShip({
       if (key === 'SHOPEE_LIVE_SHIP_ORDER_ENABLED') return 'true';
       return getEnv(key);
     };
-    const preflight = makePreflight({ getEnv: scopedEnv });
+    // Adão Core OAuth reads have demonstrated latency beyond the shared 5s
+    // budget. Keep this adjustment private to the Adão scheduler.
+    const readConnection = data => readLiveShopeeOauthConnection(data, { timeoutMs: 12_000 });
+    const preflight = makePreflight({ getEnv: scopedEnv, readConnection });
     const ship = makeShip({
       getEnv: scopedEnv,
       preflight,
+      readConnection,
       automaticScope: {
         orderSn, channelAccountId: ADAO_AUTO_SHIP_ACCOUNT_ID,
         shopId: ADAO_AUTO_SHIP_SHOP_ID, fiscalMode: 'cpf_no_invoice_step',
