@@ -95,44 +95,47 @@ export function selectAdaoBatchCandidates(sns, nowMs, limit = 1) {
   const offset = Math.floor(nowMs / 300_000) % sorted.length;
   return Array.from({ length: count }, (_, i) => sorted[(offset + i) % sorted.length]);
 }
-// F12.2: prefer the longest-standing LIVE pending orders where Shopee supplied
-// validated creation time. Never infer shipping deadline from creation time.
-// Missing timestamps get the existing fair rotation, not invented urgency.
+// F12.2: trust only the live Shopee ship_by_date (Unix seconds). Orders
+// without a trustworthy deadline use older create_time first; never infer
+// a ship-by timestamp from paid time or days_to_ship.
 export function selectAdaoPendingShipments(candidates, nowMs, limit = 1) {
   if (!Array.isArray(candidates) || !Number.isFinite(nowMs)) return [];
   const valid = new Map();
   for (const candidate of candidates) {
     const sn = candidate?.order_sn;
-    if (typeof sn !== 'string' || !ORDER_RE.test(sn)) continue;
+    if (typeof sn !== 'string' || !ORDER_RE.test(sn) || valid.has(sn)) continue;
     const created = candidate?.create_time;
-    if (valid.has(sn)) continue;
-    valid.set(sn, Number.isSafeInteger(created) && created > 0 ? created : null);
+    const deadline = candidate?.ship_by_date;
+    valid.set(sn, {
+      created: Number.isSafeInteger(created) && created > 0 ? created : null,
+      deadline: Number.isSafeInteger(deadline) && deadline >= 1_000_000_000
+        && deadline <= 4_102_444_800 ? deadline : null,
+    });
   }
-  const known = [...valid].filter(([, time]) => time !== null)
-    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
-  const unknown = [...valid].filter(([, time]) => time === null).map(([sn]) => sn);
-  // Rotate only among equal-age cohorts: older pending orders cannot be
-  // displaced by newer ones solely due to the scheduler's rotation.
+  // Official deadlines take precedence over age-only fallback. No field
+  // means no asserted deadline; it does not mean already overdue.
+  const ordered = [...valid].sort(([a, x], [b, y]) =>
+    (x.deadline === null) - (y.deadline === null)
+    || (x.deadline ?? 0) - (y.deadline ?? 0)
+    || (x.created === null) - (y.created === null)
+    || (x.created ?? 0) - (y.created ?? 0)
+    || a.localeCompare(b)
+  );
+  // Preserve fairness across scheduler cycles among candidates with the
+  // same deadline AND age; do not rotate newer ones ahead of older.
   const ranked = [];
-  for (let i = 0; i < known.length;) {
+  for (let i = 0; i < ordered.length;) {
     let j = i + 1;
-    while (j < known.length && known[j][1] === known[i][1]) j++;
-    ranked.push(...selectAdaoBatchCandidates(
-      known.slice(i, j).map(([sn]) => sn), nowMs, Math.min(j - i, ADAO_F12_MAX_BATCH_PER_TYPE),
-    ));
-    // When the cohort is larger than 3 the remaining candidates must stay
-    // visible to later cycles, not disappear from the ranking.
-    if (j - i > ADAO_F12_MAX_BATCH_PER_TYPE) {
-      const rotated = selectAdaoBatchCandidates(
-        known.slice(i, j).map(([sn]) => sn), nowMs, ADAO_F12_MAX_BATCH_PER_TYPE,
-      );
-      const leftovers = known.slice(i, j).map(([sn]) => sn).filter(sn => !rotated.includes(sn));
-      ranked.push(...leftovers);
-    }
+    while (j < ordered.length
+      && ordered[j][1].deadline === ordered[i][1].deadline
+      && ordered[j][1].created === ordered[i][1].created) j++;
+    const group = ordered.slice(i, j).map(([sn]) => sn);
+    const rotated = group.length <= 1 ? group :
+      [...group.slice(Math.floor(nowMs / 300_000) % group.length),
+        ...group.slice(0, Math.floor(nowMs / 300_000) % group.length)];
+    ranked.push(...rotated);
     i = j;
   }
-  ranked.push(...selectAdaoBatchCandidates(unknown, nowMs, ADAO_F12_MAX_BATCH_PER_TYPE));
-  ranked.push(...unknown.filter(sn => !ranked.includes(sn)));
   return ranked.slice(0, Math.min(adaoBatchLimit(limit), valid.size));
 }
 
