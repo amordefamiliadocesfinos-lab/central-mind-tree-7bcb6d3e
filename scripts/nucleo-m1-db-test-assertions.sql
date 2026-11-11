@@ -111,7 +111,7 @@ END $$;
 RESET ROLE;
 
 -- Service role deve ter somente leitura/inserção mesmo com grants default amplos.
-DO $
+DO $svcgrant$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['nucleo_documents','nucleo_document_revisions','nucleo_import_batches'] LOOP
@@ -125,10 +125,10 @@ BEGIN
       RAISE EXCEPTION 'Missing service_role basic privileges on %',t;
     END IF;
   END LOOP;
-END $;
+END $svcgrant$;
 
 -- Mesmo postgres não pode excluir registros sem remover conscientemente os guards.
-DO $
+DO $nodelete$
 BEGIN
   BEGIN
     DELETE FROM public.nucleo_documents WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -142,7 +142,7 @@ BEGIN
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'Núcleo M1: deletion forbidden; preserve document heritage' THEN RAISE; END IF;
   END;
-END $;
+END $nodelete$;
 
 -- Imutabilidade também quando a tentativa parte do ator privilegiado da simulação.
 DO $$
