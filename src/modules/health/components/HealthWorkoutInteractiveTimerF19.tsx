@@ -8,6 +8,7 @@ import {
   Loader2,
   Pause,
   Play,
+  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -220,6 +221,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [loadUnit, setLoadUnit] = useState("kg");
   const [reps, setReps] = useState("");
   const [rir, setRir] = useState("");
+  const [resultSaved, setResultSaved] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const alertedRestId = useRef<string | null>(null);
@@ -414,12 +416,16 @@ export function HealthWorkoutInteractiveTimerF19({
 
 
   useEffect(() => {
-    if (!activeRest || !restSet) return;
+    if (!activeRest || !restSet) {
+      setResultSaved(false);
+      return;
+    }
 
     setLoad(restSet.load_value == null ? "" : String(restSet.load_value));
     setLoadUnit(restSet.load_unit || "kg");
     setReps(restSet.reps == null ? "" : String(restSet.reps));
     setRir(restSet.rir == null ? "" : String(restSet.rir));
+    setResultSaved(false);
   }, [activeRest?.id, restSet?.id]);
 
   const restTarget = activeRest?.target_seconds ?? null;
@@ -473,7 +479,7 @@ export function HealthWorkoutInteractiveTimerF19({
     completedOnActive >= minSets &&
     completedOnActive < maxSets;
 
-  const saveRestSetIfNeeded = async () => {
+  const saveRestResult = async () => {
     if (!activeRest?.workout_set_id) return;
 
     const parsedLoad = numberOrUndefined(load);
@@ -484,21 +490,26 @@ export function HealthWorkoutInteractiveTimerF19({
       reps: numberOrUndefined(reps),
       rir: numberOrUndefined(rir),
     });
+
+    setResultSaved(true);
   };
 
-  const finishRestWithData = async (options?: {
+  const finishRestAfterSaved = async (options?: {
     startNextWork?: boolean;
     nextWorkoutExerciseId?: string | null;
   }) => {
     if (!activeRest) return;
+    if (!resultSaved) {
+      throw new Error("Salve o resultado da série antes de avançar.");
+    }
 
-    await saveRestSetIfNeeded();
     await timer.finishRest(activeRest.id, options);
 
     setLoad("");
     setLoadUnit("kg");
     setReps("");
     setRir("");
+    setResultSaved(false);
   };
 
   const viewedExerciseSelectable =
@@ -508,13 +519,14 @@ export function HealthWorkoutInteractiveTimerF19({
 
   const canChooseViewedExercise =
     viewedExerciseSelectable &&
-    (!timer.activeInterval || timer.activeInterval.interval_type === "rest");
+    (!timer.activeInterval ||
+      (timer.activeInterval.interval_type === "rest" && resultSaved));
 
   const chooseViewedExercise = async () => {
     if (!viewedExercise || !viewedExerciseSelectable) return;
 
     if (activeRest) {
-      await finishRestWithData({
+      await finishRestAfterSaved({
         startNextWork: true,
         nextWorkoutExerciseId: viewedExercise.id,
       });
@@ -747,7 +759,9 @@ export function HealthWorkoutInteractiveTimerF19({
                   >
                     <Dumbbell className="mr-2 h-5 w-5" />
                     {activeRest
-                      ? "Fazer este exercício agora"
+                      ? resultSaved
+                        ? "Fazer este exercício agora"
+                        : "Salve o resultado antes de trocar"
                       : timer.activeInterval?.interval_type === "work"
                         ? "Conclua a série atual para trocar"
                         : "Fazer este exercício agora"}
@@ -886,14 +900,23 @@ export function HealthWorkoutInteractiveTimerF19({
                             className="min-h-11"
                             inputMode="decimal"
                             value={load}
-                            onChange={(event) => setLoad(event.target.value)}
+                            onChange={(event) => {
+                              setLoad(event.target.value);
+                              setResultSaved(false);
+                            }}
                             placeholder="kg"
                           />
                         </div>
 
                         <div className="space-y-1">
                           <Label className="text-xs">Unid.</Label>
-                          <Select value={loadUnit} onValueChange={setLoadUnit}>
+                          <Select
+                            value={loadUnit}
+                            onValueChange={(value) => {
+                              setLoadUnit(value);
+                              setResultSaved(false);
+                            }}
+                          >
                             <SelectTrigger className="min-h-11">
                               <SelectValue />
                             </SelectTrigger>
@@ -911,7 +934,10 @@ export function HealthWorkoutInteractiveTimerF19({
                             className="min-h-11"
                             inputMode="numeric"
                             value={reps}
-                            onChange={(event) => setReps(event.target.value)}
+                            onChange={(event) => {
+                              setReps(event.target.value);
+                              setResultSaved(false);
+                            }}
                             placeholder={
                               viewedExercise.planned_reps_min != null
                                 ? `plano ${viewedExercise.planned_reps_min}–${viewedExercise.planned_reps_max ?? viewedExercise.planned_reps_min}`
@@ -926,7 +952,10 @@ export function HealthWorkoutInteractiveTimerF19({
                             className="min-h-11"
                             inputMode="decimal"
                             value={rir}
-                            onChange={(event) => setRir(event.target.value)}
+                            onChange={(event) => {
+                              setRir(event.target.value);
+                              setResultSaved(false);
+                            }}
                             placeholder={
                               viewedExercise.planned_rir_target != null
                                 ? `alvo ${viewedExercise.planned_rir_target}`
@@ -937,20 +966,49 @@ export function HealthWorkoutInteractiveTimerF19({
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground">
-                      O descanso já está contando enquanto você registra o resultado.
-                      Ao avançar, os dados são salvos automaticamente.
-                    </p>
+                    <div className="space-y-2">
+                      <Button
+                        className="min-h-12 w-full"
+                        variant={resultSaved ? "secondary" : "default"}
+                        disabled={
+                          timer.saving ||
+                          !activeRest.workout_set_id ||
+                          resultSaved
+                        }
+                        onClick={() =>
+                          void run(
+                            resultSaved
+                              ? "Resultado já estava salvo."
+                              : "Resultado da série salvo. O descanso continua.",
+                            saveRestResult,
+                          )
+                        }
+                      >
+                        {resultSaved ? (
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                        ) : (
+                          <Save className="mr-2 h-5 w-5" />
+                        )}
+                        {resultSaved ? "Resultado salvo" : "Salvar resultado"}
+                      </Button>
+
+                      <p className="text-xs text-muted-foreground">
+                        Salvar não inicia a próxima série e não encerra o descanso.
+                        {resultSaved
+                          ? " Resultado salvo — escolha abaixo quando deseja avançar."
+                          : " Salve o resultado para liberar os botões de avanço."}
+                      </p>
+                    </div>
 
                     {completedOnActive < minSets ? (
                       <Button
                         className="min-h-12 w-full text-base"
-                        disabled={disabled}
+                        disabled={disabled || !resultSaved}
                         onClick={() =>
                           void run(
-                            "Dados salvos. Próxima série iniciada.",
+                            "Próxima série iniciada.",
                             () =>
-                              finishRestWithData({
+                              finishRestAfterSaved({
                                 startNextWork: true,
                                 nextWorkoutExerciseId: activeExercise.id,
                               }),
@@ -958,18 +1016,18 @@ export function HealthWorkoutInteractiveTimerF19({
                         }
                       >
                         <Play className="mr-2 h-5 w-5" />
-                        Voltar ao exercício
+                        Iniciar próxima série
                       </Button>
                     ) : canDoOptionalExtra ? (
                       <div className="grid gap-2 sm:grid-cols-2">
                         <Button
                           className="min-h-12"
-                          disabled={disabled}
+                          disabled={disabled || !resultSaved}
                           onClick={() =>
                             void run(
-                              "Dados salvos. Série extra iniciada.",
+                              "Série extra iniciada.",
                               () =>
-                                finishRestWithData({
+                                finishRestAfterSaved({
                                   startNextWork: true,
                                   nextWorkoutExerciseId: activeExercise.id,
                                 }),
@@ -977,19 +1035,19 @@ export function HealthWorkoutInteractiveTimerF19({
                           }
                         >
                           <Play className="mr-2 h-5 w-5" />
-                          Mais uma série
+                          Fazer série extra
                         </Button>
 
                         {nextDifferentExercise ? (
                           <Button
                             variant="secondary"
                             className="min-h-12"
-                            disabled={disabled}
+                            disabled={disabled || !resultSaved}
                             onClick={() =>
                               void run(
-                                "Dados salvos. Próximo exercício iniciado.",
+                                "Próximo exercício iniciado.",
                                 () =>
-                                  finishRestWithData({
+                                  finishRestAfterSaved({
                                     startNextWork: true,
                                     nextWorkoutExerciseId:
                                       nextDifferentExercise.id,
@@ -1004,11 +1062,11 @@ export function HealthWorkoutInteractiveTimerF19({
                           <Button
                             variant="secondary"
                             className="min-h-12"
-                            disabled={disabled}
+                            disabled={disabled || !resultSaved}
                             onClick={() =>
                               void run(
-                                "Dados e descanso registrados.",
-                                () => finishRestWithData(),
+                                "Descanso encerrado.",
+                                () => finishRestAfterSaved(),
                               )
                             }
                           >
@@ -1019,12 +1077,12 @@ export function HealthWorkoutInteractiveTimerF19({
                     ) : nextDifferentExercise ? (
                       <Button
                         className="min-h-12 w-full text-base"
-                        disabled={disabled}
+                        disabled={disabled || !resultSaved}
                         onClick={() =>
                           void run(
-                            "Dados salvos. Próximo exercício iniciado.",
+                            "Próximo exercício iniciado.",
                             () =>
-                              finishRestWithData({
+                              finishRestAfterSaved({
                                 startNextWork: true,
                                 nextWorkoutExerciseId:
                                   nextDifferentExercise.id,
@@ -1038,11 +1096,11 @@ export function HealthWorkoutInteractiveTimerF19({
                     ) : (
                       <Button
                         className="min-h-12 w-full text-base"
-                        disabled={disabled}
+                        disabled={disabled || !resultSaved}
                         onClick={() =>
                           void run(
-                            "Dados e descanso registrados.",
-                            () => finishRestWithData(),
+                            "Descanso encerrado.",
+                            () => finishRestAfterSaved(),
                           )
                         }
                       >
