@@ -716,7 +716,9 @@ function VoidPanel({
         <p className="text-sm font-semibold">Excluir do histórico?</p>
         <p className="mt-1 text-xs text-muted-foreground">
           O registro sairá do histórico ativo e das análises, mas continuará
-          preservado tecnicamente para auditoria. A fila CCH não será alterada.
+          preservado tecnicamente para auditoria. Na musculação da fila CCH,
+          se não existir treino posterior válido, o treino excluído volta
+          automaticamente a ser o próximo da sequência.
         </p>
       </div>
 
