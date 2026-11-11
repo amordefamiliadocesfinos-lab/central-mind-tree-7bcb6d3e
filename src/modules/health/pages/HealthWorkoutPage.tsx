@@ -33,7 +33,6 @@ function EditablePerformedSetRow({
     reps: number | null;
     rir: number | null;
     rest_seconds: number | null;
-    work_seconds: number | null;
   };
   saving: boolean;
   locked: boolean;
@@ -69,7 +68,6 @@ function EditablePerformedSetRow({
           {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps · RIR{" "}
           {set.rir ?? "—"}
           {set.rest_seconds != null ? " · " + set.rest_seconds + "s" : ""}
-          {set.work_seconds != null ? " · execução " + set.work_seconds + "s" : ""}
         </span>
         <Button
           size="icon"
@@ -131,11 +129,8 @@ function EditablePerformedSetRow({
         </div>
       </div>
 
-      {set.work_seconds != null ? (
-        <p className="text-[11px] text-muted-foreground">
-          Tempo cronometrado da execução: {set.work_seconds}s. Esse dado factual não é alterado nesta correção manual.
-        </p>
-      ) : null}
+      <p className="text-[11px] text-muted-foreground">O tempo cronometrado da série permanece preservado e não é alterado nesta correção manual.</p>
+
 
       <Button
         className="min-h-11 w-full"
@@ -438,7 +433,6 @@ export function HealthWorkoutPage() {
                 reps: set.reps,
                 rir: set.rir,
                 rest_seconds: set.rest_seconds,
-                work_seconds: set.work_seconds ?? null,
               }))}
               saving={workout.saving || timer.saving}
               manualActionsDisabled={
