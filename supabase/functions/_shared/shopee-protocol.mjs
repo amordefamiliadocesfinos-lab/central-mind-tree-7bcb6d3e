@@ -547,10 +547,11 @@ export function downloadShippingDocument({
  * an atomic durable idempotency claim and explicit feature gate BEFORE
  * invoking this mutating Shopee API. No route invokes it in this phase.
  */
-export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded, ...additional }) {
+export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded, omitPackageNumber = false, ...additional }) {
   if (Reflect.ownKeys(additional).length !== 0) throw new TypeError('unsupported_shipping_parameters');
   const order = requiredText(orderSn, 'orderSn');
   const pkg = requiredText(packageNumber, 'packageNumber');
+  if (typeof omitPackageNumber !== 'boolean') throw new TypeError('invalid_package_omission');
   if (!/^[A-Za-z0-9]{8,100}$/.test(order) || !/^[A-Za-z0-9_-]{1,100}$/.test(pkg)) {
     throw new TypeError('invalid_shipping_identity');
   }
@@ -559,7 +560,7 @@ export function buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded, 
       || !Array.isArray(infoNeeded.dropoff) || infoNeeded.dropoff.length !== 0) {
     throw new TypeError('simple_dropoff_requires_empty_dropoff_only');
   }
-  return { order_sn: order, package_number: pkg, dropoff: {} };
+  return { order_sn: order, ...(!omitPackageNumber ? { package_number: pkg } : {}), dropoff: {} };
 }
 
 export function shipOrderSimpleDropoff({
@@ -572,12 +573,13 @@ export function shipOrderSimpleDropoff({
   orderSn,
   packageNumber,
   infoNeeded,
+  omitPackageNumber = false,
   fetchImpl = globalThis.fetch,
   timestamp,
   ...additional
 }) {
   if (Reflect.ownKeys(additional).length !== 0) throw new TypeError('unsupported_shipping_parameters');
-  const body = buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded });
+  const body = buildSimpleDropoffRequest({ orderSn, packageNumber, infoNeeded, omitPackageNumber });
   return signedShopPost({
     apiBaseUrl,
     path: shipOrderPath,

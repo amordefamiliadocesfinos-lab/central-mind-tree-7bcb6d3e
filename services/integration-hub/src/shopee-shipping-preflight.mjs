@@ -133,7 +133,7 @@ export function createShopeeShippingPreflight({
     const detail = await readOrderDetail({
       ...signed, orderDetailPath: ORDER_DETAIL_PATH,
       orderSnList: [orderSn],
-      responseOptionalFields: ['package_list', 'invoice_data', 'shipping_carrier'],
+      responseOptionalFields: ['package_list', 'invoice_data', 'shipping_carrier', 'split_up'],
     });
     if (!detail?.response?.ok || parseShopeeError(detail.payload)) {
       return { ok: false, code: 'order_detail_rejected' };
@@ -181,6 +181,9 @@ export function createShopeeShippingPreflight({
       // Caller must still acquire a durable Core claim before any Shopee POST.
       order_sn: orderSn,
       package_number: pkg.packageNumber,
+      // Explicit Shopee split_up is required to decide whether ship_order
+      // should include package_number. Missing evidence never means false.
+      split_up: typeof order.split_up === 'boolean' ? order.split_up : null,
       package_logistics_status: pkg.logisticsStatus,
       shop_id: shopId,
       simple_dropoff_confirmed: (

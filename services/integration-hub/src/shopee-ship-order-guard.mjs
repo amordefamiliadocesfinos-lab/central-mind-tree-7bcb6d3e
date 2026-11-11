@@ -176,6 +176,13 @@ export function createGuardedShopeeShipOrder({
         || !/^[A-Za-z0-9_-]{1,100}$/.test(String(proof.package_number ?? ''))) {
       return { ok: false, code: 'preflight_not_eligible' };
     }
+    // The Shopee split_up flag controls the outgoing ship_order shape.
+    // Package identity stays in the durable claim for both variants.
+    // Do not infer unsplit from missing fields, or change the old pilot.
+    if (automaticScope !== null && typeof proof.split_up !== 'boolean') {
+      return { ok: false, code: 'order_split_state_unknown' };
+    }
+    const omitPackageNumber = automaticScope !== null && proof.split_up === false;
     const shopId = positiveSafeInteger(proof.shop_id);
     if (!shopId) return { ok: false, code: 'preflight_shop_missing' };
     const oauth = await readConnection({ channel_account_id: channelAccountId });
@@ -193,6 +200,7 @@ export function createGuardedShopeeShipOrder({
 
     const body = buildSimpleDropoffRequest({
       orderSn, packageNumber: proof.package_number, infoNeeded: { dropoff: [] },
+      omitPackageNumber,
     });
     const requestHash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
     const metadata = {
@@ -254,6 +262,7 @@ export function createGuardedShopeeShipOrder({
         apiBaseUrl: API_BASE, shipOrderPath: SHIPPING_PATH,
         partnerId, partnerKey, accessToken, shopId,
         orderSn, packageNumber: proof.package_number, infoNeeded: { dropoff: [] },
+        omitPackageNumber,
         fetchImpl: async (url, options) => {
           // Signing/preparation can cross the deadline after the earlier check.
           // Keep the originally approved expiry and check at the network boundary.
