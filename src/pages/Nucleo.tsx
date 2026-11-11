@@ -21,6 +21,7 @@ import {
   Trash2,
   FileText,
   Save,
+  Download,
   Search,
   ChevronRight,
   History,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { exportLegacyNucleo } from "@/lib/nucleo/exportLegacyNucleo";
 
 // ---------- Types ----------
 
@@ -4068,6 +4070,20 @@ export default function Nucleo() {
     );
   };
 
+  const [backupInProgress, setBackupInProgress] = useState(false);
+  const handleExportLegacy = async () => {
+    if (backupInProgress) return;
+    setBackupInProgress(true);
+    try {
+      const { pageCount } = await exportLegacyNucleo();
+      toast.success(`Backup local preparado: ${pageCount} páginas. Guarde o arquivo com segurança.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao preparar backup do Núcleo.");
+    } finally {
+      setBackupInProgress(false);
+    }
+  };
+
   const selectArea = (id: AreaId) => {
     setActiveArea(id);
     setActivePageId(null);
@@ -4098,6 +4114,18 @@ export default function Nucleo() {
               Base estratégica e documental do sistema
             </p>
           </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1 shrink-0"
+            disabled={backupInProgress}
+            onClick={handleExportLegacy}
+            title="Baixar cópia íntegra das páginas e marcadores locais deste navegador; nenhuma alteração no banco"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Backup local</span>
+          </Button>
         </div>
       </header>
 
