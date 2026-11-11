@@ -91,6 +91,7 @@ export function createShopeeLiveOrdersReader({
     orderStatus = null,
     timeRangeField = 'create_time',
     onlyIntakeEligibleOrders = false,
+    includeReadyToShipCandidates = false,
     responseOptionalFields = [
       'item_list',
       'package_list',
@@ -228,7 +229,16 @@ export function createShopeeLiveOrdersReader({
         listed_count: 0,
         detailed_count: 0,
         order_sns: [],
-        more: listPayload?.response?.more === true,
+        // Available only when requested by Adão; no side effects, exact details.
+      ...(includeReadyToShipCandidates ? {
+        ready_to_ship_candidates: detailedOrders
+          .filter(order => order?.order_status === 'READY_TO_SHIP'
+            && typeof order?.order_sn === 'string'
+            && Number.isSafeInteger(Number(order.create_time))
+            && Number(order.create_time) > 0)
+          .map(order => ({ order_sn: order.order_sn, create_time: Number(order.create_time) })),
+      } : {}),
+      more: listPayload?.response?.more === true,
         next_cursor: typeof listPayload?.response?.next_cursor === 'string' ? listPayload.response.next_cursor : null,
         duration_ms: now() - started,
       };
