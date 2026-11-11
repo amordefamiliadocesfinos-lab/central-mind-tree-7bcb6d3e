@@ -3,7 +3,7 @@ import { readLiveShopeeOauthConnection, readLiveShopeeOrderIntakeBatch } from '.
 import { createShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { ADAO_CHANNEL_ACCOUNT_ID } from './shopee-adao-easter-commit-guard.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
-import { arrangeAdaoNewOrderOnce, isAdaoAutomaticShippingCandidate, isAdaoReopenedShippingPilotCandidate, isAdaoNewShippingCandidate } from './shopee-adao-automatic-shipping.mjs';
+import { arrangeAdaoNewOrderOnce, isAdaoAutomaticShippingCandidate, isAdaoReopenedShippingPilotCandidate, isAdaoNewShippingCandidate, ADAO_AUTO_SHIP_HISTORY_CUTOFF } from './shopee-adao-automatic-shipping.mjs';
 
 // Independent of Viviane's cycle, label workflow and shipping arrangement.
 export const ADAO_AUTO_INTAKE_SCOPE = Object.freeze({
