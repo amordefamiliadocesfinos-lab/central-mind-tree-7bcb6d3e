@@ -211,7 +211,8 @@ export function createAdaoAutomaticIntake({
         else if (entry.status === 'already_registered') {
           report.already_registered++;
           labelCandidates.add(sn);
-          acceptedForShipping.add(sn);
+          // Do not ship on a pre-existing record without fresh Core evidence
+          // it is still operational; a prior cleanup may have finalized it.
         }
         else if (entry.status === 'blocked') {
           report.blocked++;
