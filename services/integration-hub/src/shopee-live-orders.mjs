@@ -230,6 +230,7 @@ export function createShopeeLiveOrdersReader({
         detailed_count: 0,
         order_sns: [],
         ...(includeReadyToShipCandidates ? { ready_to_ship_candidates: [] } : {}),
+        ...(onlyIntakeEligibleOrders ? { label_ready_candidates: [] } : {}),
         more: listPayload?.response?.more === true,
         next_cursor: typeof listPayload?.response?.next_cursor === 'string'
           ? listPayload.response.next_cursor : null,
@@ -296,6 +297,17 @@ export function createShopeeLiveOrdersReader({
         ? detailedOrders.filter(order => ['PROCESSED', 'READY_TO_SHIP'].includes(order?.order_status))
           .map(order => String(order.order_sn).trim())
         : [...detailedOrderSns],
+      ...(onlyIntakeEligibleOrders ? {
+        // Recently organized orders take precedence for automatic PDF
+        // reconciliation. Keep the default reader contract unchanged.
+        label_ready_candidates: detailedOrders
+          .filter(order => order?.order_status === 'PROCESSED'
+            && typeof order?.order_sn === 'string'
+            && Number.isSafeInteger(Number(order.create_time))
+            && Number(order.create_time) > 0)
+          .map(order => ({ order_sn: String(order.order_sn).trim(),
+            create_time: Number(order.create_time) })),
+      } : {}),
       ...(includeReadyToShipCandidates ? {
         ready_to_ship_candidates: detailedOrders
           .filter(order => order?.order_status === 'READY_TO_SHIP'
