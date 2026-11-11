@@ -2,7 +2,7 @@ name: Nucleo M2 - Drive refs RLS isolated
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20261111210000_nucleo_m2_source_references_CANDIDATA.sql"
+      - "supabase/migrations/20261111210000_nucleo_m2_source_references.sql"
       - "scripts/nucleo-m2-reference-rls.test.sql"
       - "src/lib/nucleo/source-references.types.ts"
       - "src/components/nucleo/NucleoDriveReferences.tsx"
@@ -46,7 +46,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193600_nucleo_m1_schema_capability.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
       - name: Apply M2 candidate only to disposable PostgreSQL
-        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references_CANDIDATA.sql
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
       - name: Test authorization and document preservation
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m2-reference-rls.test.sql
   frontend-build:
