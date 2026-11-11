@@ -42,6 +42,8 @@ BEGIN
  IF (SELECT count(*) FROM public.nucleo_development_workstreams)<>3 THEN RAISE EXCEPTION 'M3 hierarchy missing'; END IF;
  IF (SELECT count(*) FROM public.nucleo_development_events)<>4 THEN RAISE EXCEPTION 'M3 append-only audit missing'; END IF;
  IF (SELECT count(*) FROM public.nucleo_development_dependencies)<>1 THEN RAISE EXCEPTION 'M3 dependency missing'; END IF;
+ IF (SELECT count(*) FROM public.nucleo_development_dependencies WHERE created_by_auth_uid=auth.uid())<>1 THEN
+  RAISE EXCEPTION 'M3 dependency actor audit missing'; END IF;
  IF (SELECT count(*) FROM public.nucleo_development_events WHERE actor_auth_uid=auth.uid())<>4 THEN
   RAISE EXCEPTION 'M3 actor audit missing';
  END IF;
