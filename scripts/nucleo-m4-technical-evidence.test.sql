@@ -10,11 +10,24 @@ INSERT INTO public.nucleo_development_evidence
 VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','github','pull_request',
 'amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e','614',
 'https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/614',
-'PR sintética','verificado',now(),'{"merged":true}'::jsonb);
+'PR sintética','observado',NULL,'{"merged":true}'::jsonb);
 INSERT INTO public.nucleo_development_evidence
 (workstream_id,source,kind,external_key,title,observed_state,checked_at)
 VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','supabase','migration',
-'20261111222000','Migration sintética','verificado',now());
+'20261111222000','Migration sintética','observado',NULL);
+-- Usuário autorizado não pode se autodeclarar verificado.
+DO $client_verify$
+BEGIN
+ BEGIN
+  INSERT INTO public.nucleo_development_evidence
+  (workstream_id,source,kind,external_key,title,observed_state,checked_at)
+  VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','supabase','migration',
+  '20261111232500','Tentativa de autoverificação','verificado',now());
+  RAISE EXCEPTION 'M4 self-verification allowed';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'M4 client may only record unverified observations' THEN RAISE; END IF;
+ END;
+END $client_verify$;
 DO $assert$
 BEGIN
  IF (SELECT count(*) FROM public.nucleo_development_evidence)<>2 THEN RAISE EXCEPTION 'M4 authorized read failed'; END IF;
