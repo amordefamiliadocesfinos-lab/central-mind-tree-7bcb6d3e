@@ -111,6 +111,8 @@ test('route accepts only zero-body POST, with sanitized aggregate response', asy
     runAdaoIntake: async () => { calls++; return {
       ok: true, code: 'cycle_completed', discovered: 2, written: 1,
       skipped: 1, pages: 1, blocked: 0,
+      shipment_attempted: 3, label_attempted: 2, work_budget_exhausted: true,
+      secret: 'never-return-this-sensitive-value',
     }; },
   };
   const path = '/internal/shopee/adao/orders/intake/auto';
@@ -119,7 +121,33 @@ test('route accepts only zero-body POST, with sanitized aggregate response', asy
   const response = await handleRequest({ method: 'POST', path, query: {}, headers: { 'content-length': '0' } }, injected);
   assert.equal(response.status, 200);
   assert.equal(JSON.parse(response.body).written, 1);
+  assert.equal(JSON.parse(response.body).shipment_attempted, 3);
+  assert.equal(JSON.parse(response.body).label_attempted, 2);
+  assert.equal(JSON.parse(response.body).work_budget_exhausted, true);
+  assert.ok(!response.body.includes('never-return-this-sensitive-value'));
   assert.equal(calls, 1);
+});
+
+test('F12.1 route counters stay bounded and default safely on missing or invalid runner values', async () => {
+  const path = '/internal/shopee/adao/orders/intake/auto';
+  const request = { method: 'POST', path, query: {}, headers: { 'content-length': '0' } };
+  const run = async result => JSON.parse((await handleRequest(request, {
+    handleShopeeLive: async () => null,
+    runAdaoIntake: async () => ({ ok: true, code: 'cycle_completed', ...result }),
+  })).body);
+  assert.deepEqual(
+    (({ shipment_attempted, label_attempted, work_budget_exhausted }) =>
+      ({ shipment_attempted, label_attempted, work_budget_exhausted }))(await run({})),
+    { shipment_attempted: 0, label_attempted: 0, work_budget_exhausted: false },
+  );
+  const invalid = await run({
+    shipment_attempted: 999, label_attempted: '3',
+    work_budget_exhausted: 'true', order_sn: 'sensitive-order',
+  });
+  assert.equal(invalid.shipment_attempted, 0);
+  assert.equal(invalid.label_attempted, 0);
+  assert.equal(invalid.work_budget_exhausted, false);
+  assert.ok(!JSON.stringify(invalid).includes('sensitive-order'));
 });
 
 test('core intake failure explains stage and status without leaking payload', async () => {
