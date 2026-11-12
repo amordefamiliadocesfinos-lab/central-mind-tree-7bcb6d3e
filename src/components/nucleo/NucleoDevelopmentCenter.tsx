@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
+import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -213,7 +214,7 @@ export default function NucleoDevelopmentCenter() {
         <div>
           <h2 className="font-semibold text-lg">Central Visual de Desenvolvimento</h2>
           <p className="text-xs text-muted-foreground">
-            Estados declarados e histórico auditável; evidências técnicas do GitHub e do Supabase serão vinculadas na M4.
+            Estados declarados, histórico auditável, evidências técnicas M4 e supervisão assistida M5 em modo de leitura.
           </p>
         </div>
         <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
@@ -265,6 +266,8 @@ export default function NucleoDevelopmentCenter() {
           placeholder="Filtrar código, especialista, frente ou próxima ação"/>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Atualizar</Button>
       </div>
+
+      {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
 
       <Card className="p-3 space-y-2">
         <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>

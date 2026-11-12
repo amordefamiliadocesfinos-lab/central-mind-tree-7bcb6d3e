@@ -1,0 +1,27 @@
+name: Nucleo M5 - Read-only supervision
+on:
+  pull_request:
+    paths:
+      - "src/lib/nucleo/supervision.ts"
+      - "src/components/nucleo/NucleoSupervisionPanel.tsx"
+      - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "scripts/nucleo-m5-supervision.test.cjs"
+      - ".github/workflows/nucleo-m5-supervision.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Test M5 deterministic supervisor
+        run: node scripts/nucleo-m5-supervision.test.cjs
+      - name: Build full Panel Central
+        run: npm run build
