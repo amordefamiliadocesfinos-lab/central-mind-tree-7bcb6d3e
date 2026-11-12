@@ -3402,283 +3402,6 @@ export type Database = {
           },
         ]
       }
-      health_activity_events: {
-        Row: {
-          activity_segment_id: string | null
-          activity_session_id: string
-          athlete_id: string
-          client_event_id: string
-          created_by_auth_user_id: string | null
-          event_type: string
-          id: string
-          occurred_at: string
-          payload: Json | null
-          recorded_at: string
-          source: string
-        }
-        Insert: {
-          activity_segment_id?: string | null
-          activity_session_id: string
-          athlete_id: string
-          client_event_id: string
-          created_by_auth_user_id?: string | null
-          event_type: string
-          id?: string
-          occurred_at?: string
-          payload?: Json | null
-          recorded_at?: string
-          source?: string
-        }
-        Update: {
-          activity_segment_id?: string | null
-          activity_session_id?: string
-          athlete_id?: string
-          client_event_id?: string
-          created_by_auth_user_id?: string | null
-          event_type?: string
-          id?: string
-          occurred_at?: string
-          payload?: Json | null
-          recorded_at?: string
-          source?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_activity_events_activity_segment_id_fkey"
-            columns: ["activity_segment_id"]
-            isOneToOne: false
-            referencedRelation: "health_activity_segments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_activity_events_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_activity_events_session_athlete_fkey"
-            columns: ["activity_session_id", "athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_activity_sessions"
-            referencedColumns: ["id", "athlete_id"]
-          },
-        ]
-      }
-      health_activity_modalities: {
-        Row: {
-          code: string
-          created_at: string
-          is_active: boolean
-          metric_profile: string
-          name: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          is_active?: boolean
-          metric_profile: string
-          name: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          is_active?: boolean
-          metric_profile?: string
-          name?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      health_activity_segments: {
-        Row: {
-          activity_session_id: string
-          athlete_id: string
-          avg_hr_bpm: number | null
-          cadence_spm: number | null
-          client_event_id: string
-          created_at: string
-          distance_meters: number | null
-          duration_seconds: number | null
-          id: string
-          label: string | null
-          notes: string | null
-          pace_seconds_per_km: number | null
-          segment_type: string
-          sequence_order: number
-          updated_at: string
-        }
-        Insert: {
-          activity_session_id: string
-          athlete_id: string
-          avg_hr_bpm?: number | null
-          cadence_spm?: number | null
-          client_event_id: string
-          created_at?: string
-          distance_meters?: number | null
-          duration_seconds?: number | null
-          id?: string
-          label?: string | null
-          notes?: string | null
-          pace_seconds_per_km?: number | null
-          segment_type?: string
-          sequence_order: number
-          updated_at?: string
-        }
-        Update: {
-          activity_session_id?: string
-          athlete_id?: string
-          avg_hr_bpm?: number | null
-          cadence_spm?: number | null
-          client_event_id?: string
-          created_at?: string
-          distance_meters?: number | null
-          duration_seconds?: number | null
-          id?: string
-          label?: string | null
-          notes?: string | null
-          pace_seconds_per_km?: number | null
-          segment_type?: string
-          sequence_order?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_activity_segments_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_activity_segments_session_athlete_fkey"
-            columns: ["activity_session_id", "athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_activity_sessions"
-            referencedColumns: ["id", "athlete_id"]
-          },
-        ]
-      }
-      health_activity_sessions: {
-        Row: {
-          active_duration_seconds: number | null
-          athlete_id: string
-          avg_hr_bpm: number | null
-          avg_pace_seconds_per_km: number | null
-          avg_speed_kmh: number | null
-          cadence_spm: number | null
-          calories_kcal: number | null
-          client_event_id: string
-          created_at: string
-          created_by_auth_user_id: string
-          distance_meters: number | null
-          elevation_gain_m: number | null
-          ended_at: string | null
-          id: string
-          max_hr_bpm: number | null
-          modality_code: string
-          notes: string | null
-          pause_accumulated_seconds: number
-          paused_at: string | null
-          record_status: string
-          rpe: number | null
-          source: string
-          started_at: string
-          status: string
-          steps: number | null
-          title: string
-          updated_at: string
-          void_reason: string | null
-          voided_at: string | null
-          voided_by_auth_user_id: string | null
-        }
-        Insert: {
-          active_duration_seconds?: number | null
-          athlete_id: string
-          avg_hr_bpm?: number | null
-          avg_pace_seconds_per_km?: number | null
-          avg_speed_kmh?: number | null
-          cadence_spm?: number | null
-          calories_kcal?: number | null
-          client_event_id: string
-          created_at?: string
-          created_by_auth_user_id?: string
-          distance_meters?: number | null
-          elevation_gain_m?: number | null
-          ended_at?: string | null
-          id?: string
-          max_hr_bpm?: number | null
-          modality_code: string
-          notes?: string | null
-          pause_accumulated_seconds?: number
-          paused_at?: string | null
-          record_status?: string
-          rpe?: number | null
-          source?: string
-          started_at?: string
-          status?: string
-          steps?: number | null
-          title: string
-          updated_at?: string
-          void_reason?: string | null
-          voided_at?: string | null
-          voided_by_auth_user_id?: string | null
-        }
-        Update: {
-          active_duration_seconds?: number | null
-          athlete_id?: string
-          avg_hr_bpm?: number | null
-          avg_pace_seconds_per_km?: number | null
-          avg_speed_kmh?: number | null
-          cadence_spm?: number | null
-          calories_kcal?: number | null
-          client_event_id?: string
-          created_at?: string
-          created_by_auth_user_id?: string
-          distance_meters?: number | null
-          elevation_gain_m?: number | null
-          ended_at?: string | null
-          id?: string
-          max_hr_bpm?: number | null
-          modality_code?: string
-          notes?: string | null
-          pause_accumulated_seconds?: number
-          paused_at?: string | null
-          record_status?: string
-          rpe?: number | null
-          source?: string
-          started_at?: string
-          status?: string
-          steps?: number | null
-          title?: string
-          updated_at?: string
-          void_reason?: string | null
-          voided_at?: string | null
-          voided_by_auth_user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_activity_sessions_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_activity_sessions_modality_code_fkey"
-            columns: ["modality_code"]
-            isOneToOne: false
-            referencedRelation: "health_activity_modalities"
-            referencedColumns: ["code"]
-          },
-        ]
-      }
       health_athlete_access: {
         Row: {
           access_role: string
@@ -4825,72 +4548,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      health_exercise_calibration_profiles: {
-        Row: {
-          athlete_id: string
-          calibration_status: string
-          completed_sets: number
-          created_at: string
-          exercise_id: string
-          exposure_sessions: number
-          last_exposure_at: string | null
-          load_confidence: string
-          load_observations: number
-          notes: string | null
-          rep_response_confidence: string
-          rir_confidence: string
-          rir_observations: number
-          updated_at: string
-        }
-        Insert: {
-          athlete_id: string
-          calibration_status?: string
-          completed_sets?: number
-          created_at?: string
-          exercise_id: string
-          exposure_sessions?: number
-          last_exposure_at?: string | null
-          load_confidence?: string
-          load_observations?: number
-          notes?: string | null
-          rep_response_confidence?: string
-          rir_confidence?: string
-          rir_observations?: number
-          updated_at?: string
-        }
-        Update: {
-          athlete_id?: string
-          calibration_status?: string
-          completed_sets?: number
-          created_at?: string
-          exercise_id?: string
-          exposure_sessions?: number
-          last_exposure_at?: string | null
-          load_confidence?: string
-          load_observations?: number
-          notes?: string | null
-          rep_response_confidence?: string
-          rir_confidence?: string
-          rir_observations?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_exercise_calibration_profiles_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_exercise_calibration_profiles_exercise_id_fkey"
-            columns: ["exercise_id"]
-            isOneToOne: false
-            referencedRelation: "health_exercises"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       health_exercise_equipment: {
         Row: {
@@ -7485,68 +7142,6 @@ export type Database = {
           },
         ]
       }
-      health_training_profiles: {
-        Row: {
-          athlete_id: string
-          baseline_state: string
-          calibration_active: boolean
-          calibration_policy: string
-          created_at: string
-          created_by_auth_user_id: string | null
-          notes: string | null
-          overall_data_confidence: string
-          recovery_confidence: string
-          rir_data_confidence: string
-          technical_data_confidence: string
-          training_level: string
-          training_level_source: string
-          updated_at: string
-          volume_tolerance_confidence: string
-        }
-        Insert: {
-          athlete_id: string
-          baseline_state?: string
-          calibration_active?: boolean
-          calibration_policy?: string
-          created_at?: string
-          created_by_auth_user_id?: string | null
-          notes?: string | null
-          overall_data_confidence?: string
-          recovery_confidence?: string
-          rir_data_confidence?: string
-          technical_data_confidence?: string
-          training_level: string
-          training_level_source?: string
-          updated_at?: string
-          volume_tolerance_confidence?: string
-        }
-        Update: {
-          athlete_id?: string
-          baseline_state?: string
-          calibration_active?: boolean
-          calibration_policy?: string
-          created_at?: string
-          created_by_auth_user_id?: string | null
-          notes?: string | null
-          overall_data_confidence?: string
-          recovery_confidence?: string
-          rir_data_confidence?: string
-          technical_data_confidence?: string
-          training_level?: string
-          training_level_source?: string
-          updated_at?: string
-          volume_tolerance_confidence?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_training_profiles_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: true
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       health_vital_observations: {
         Row: {
           athlete_id: string
@@ -7809,20 +7404,14 @@ export type Database = {
           ended_at: string | null
           id: string
           notes: string | null
-          pause_accumulated_seconds: number
           program_version_id: string | null
           queue_entry_id: string | null
-          record_status: string
           session_template_id: string | null
           source: string
           start_client_event_id: string
           started_at: string
           status: string
-          timer_paused_at: string | null
           updated_at: string
-          void_reason: string | null
-          voided_at: string | null
-          voided_by_auth_user_id: string | null
         }
         Insert: {
           athlete_id: string
@@ -7831,20 +7420,14 @@ export type Database = {
           ended_at?: string | null
           id?: string
           notes?: string | null
-          pause_accumulated_seconds?: number
           program_version_id?: string | null
           queue_entry_id?: string | null
-          record_status?: string
           session_template_id?: string | null
           source?: string
           start_client_event_id: string
           started_at?: string
           status?: string
-          timer_paused_at?: string | null
           updated_at?: string
-          void_reason?: string | null
-          voided_at?: string | null
-          voided_by_auth_user_id?: string | null
         }
         Update: {
           athlete_id?: string
@@ -7853,20 +7436,14 @@ export type Database = {
           ended_at?: string | null
           id?: string
           notes?: string | null
-          pause_accumulated_seconds?: number
           program_version_id?: string | null
           queue_entry_id?: string | null
-          record_status?: string
           session_template_id?: string | null
           source?: string
           start_client_event_id?: string
           started_at?: string
           status?: string
-          timer_paused_at?: string | null
           updated_at?: string
-          void_reason?: string | null
-          voided_at?: string | null
-          voided_by_auth_user_id?: string | null
         }
         Relationships: [
           {
@@ -7917,7 +7494,6 @@ export type Database = {
           set_type: string
           status: string
           updated_at: string
-          work_seconds: number | null
           workout_exercise_id: string
         }
         Insert: {
@@ -7937,7 +7513,6 @@ export type Database = {
           set_type?: string
           status?: string
           updated_at?: string
-          work_seconds?: number | null
           workout_exercise_id: string
         }
         Update: {
@@ -7957,7 +7532,6 @@ export type Database = {
           set_type?: string
           status?: string
           updated_at?: string
-          work_seconds?: number | null
           workout_exercise_id?: string
         }
         Relationships: [
@@ -7974,101 +7548,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "health_workout_exercises"
             referencedColumns: ["id", "session_id", "athlete_id"]
-          },
-        ]
-      }
-      health_workout_timer_intervals: {
-        Row: {
-          actual_seconds: number | null
-          athlete_id: string
-          client_event_id: string
-          created_at: string
-          created_by_auth_user_id: string
-          ended_at: string | null
-          id: string
-          interval_type: string
-          notes: string | null
-          pause_accumulated_seconds: number
-          paused_at: string | null
-          session_id: string
-          set_number: number | null
-          started_at: string
-          status: string
-          target_seconds: number | null
-          updated_at: string
-          workout_exercise_id: string | null
-          workout_set_id: string | null
-        }
-        Insert: {
-          actual_seconds?: number | null
-          athlete_id: string
-          client_event_id: string
-          created_at?: string
-          created_by_auth_user_id?: string
-          ended_at?: string | null
-          id?: string
-          interval_type: string
-          notes?: string | null
-          pause_accumulated_seconds?: number
-          paused_at?: string | null
-          session_id: string
-          set_number?: number | null
-          started_at?: string
-          status?: string
-          target_seconds?: number | null
-          updated_at?: string
-          workout_exercise_id?: string | null
-          workout_set_id?: string | null
-        }
-        Update: {
-          actual_seconds?: number | null
-          athlete_id?: string
-          client_event_id?: string
-          created_at?: string
-          created_by_auth_user_id?: string
-          ended_at?: string | null
-          id?: string
-          interval_type?: string
-          notes?: string | null
-          pause_accumulated_seconds?: number
-          paused_at?: string | null
-          session_id?: string
-          set_number?: number | null
-          started_at?: string
-          status?: string
-          target_seconds?: number | null
-          updated_at?: string
-          workout_exercise_id?: string | null
-          workout_set_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_workout_timer_intervals_athlete_id_fkey"
-            columns: ["athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_athletes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_workout_timer_intervals_exercise_session_athlete_fkey"
-            columns: ["workout_exercise_id", "session_id", "athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_workout_exercises"
-            referencedColumns: ["id", "session_id", "athlete_id"]
-          },
-          {
-            foreignKeyName: "health_workout_timer_intervals_session_athlete_fkey"
-            columns: ["session_id", "athlete_id"]
-            isOneToOne: false
-            referencedRelation: "health_workout_sessions"
-            referencedColumns: ["id", "athlete_id"]
-          },
-          {
-            foreignKeyName: "health_workout_timer_intervals_workout_set_id_fkey"
-            columns: ["workout_set_id"]
-            isOneToOne: false
-            referencedRelation: "health_workout_sets"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -9027,424 +8506,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      nucleo_development_dependencies: {
-        Row: {
-          created_at: string
-          created_by_auth_uid: string | null
-          depends_on_id: string
-          description: string
-          id: string
-          workstream_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by_auth_uid?: string | null
-          depends_on_id: string
-          description?: string
-          id?: string
-          workstream_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by_auth_uid?: string | null
-          depends_on_id?: string
-          description?: string
-          id?: string
-          workstream_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_development_dependencies_depends_on_id_fkey"
-            columns: ["depends_on_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_development_workstreams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nucleo_development_dependencies_workstream_id_fkey"
-            columns: ["workstream_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_development_workstreams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_development_events: {
-        Row: {
-          actor_auth_uid: string | null
-          after_state: Json
-          before_state: Json | null
-          event_type: string
-          id: string
-          recorded_at: string
-          workstream_id: string
-        }
-        Insert: {
-          actor_auth_uid?: string | null
-          after_state: Json
-          before_state?: Json | null
-          event_type: string
-          id?: string
-          recorded_at?: string
-          workstream_id: string
-        }
-        Update: {
-          actor_auth_uid?: string | null
-          after_state?: Json
-          before_state?: Json | null
-          event_type?: string
-          id?: string
-          recorded_at?: string
-          workstream_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_development_events_workstream_id_fkey"
-            columns: ["workstream_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_development_workstreams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_development_evidence: {
-        Row: {
-          checked_at: string | null
-          evidence_note: string
-          external_key: string
-          id: string
-          kind: string
-          observed_state: string
-          recorded_at: string
-          recorded_by_auth_uid: string | null
-          reference_url: string | null
-          repository: string | null
-          snapshot: Json
-          source: string
-          source_observed_at: string | null
-          title: string
-          workstream_id: string
-        }
-        Insert: {
-          checked_at?: string | null
-          evidence_note?: string
-          external_key: string
-          id?: string
-          kind: string
-          observed_state?: string
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          reference_url?: string | null
-          repository?: string | null
-          snapshot?: Json
-          source: string
-          source_observed_at?: string | null
-          title: string
-          workstream_id: string
-        }
-        Update: {
-          checked_at?: string | null
-          evidence_note?: string
-          external_key?: string
-          id?: string
-          kind?: string
-          observed_state?: string
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          reference_url?: string | null
-          repository?: string | null
-          snapshot?: Json
-          source?: string
-          source_observed_at?: string | null
-          title?: string
-          workstream_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_development_evidence_workstream_id_fkey"
-            columns: ["workstream_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_development_workstreams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_development_workstreams: {
-        Row: {
-          acceptance_criteria: string
-          blocker: string
-          code: string
-          created_at: string
-          created_by_auth_uid: string | null
-          description: string
-          evidence_note: string
-          evidence_state: string
-          id: string
-          kind: string
-          next_action: string
-          parent_id: string | null
-          priority: string
-          specialist: string
-          status: string
-          title: string
-          updated_at: string
-          updated_by_auth_uid: string | null
-        }
-        Insert: {
-          acceptance_criteria?: string
-          blocker?: string
-          code: string
-          created_at?: string
-          created_by_auth_uid?: string | null
-          description?: string
-          evidence_note?: string
-          evidence_state?: string
-          id?: string
-          kind: string
-          next_action?: string
-          parent_id?: string | null
-          priority?: string
-          specialist?: string
-          status?: string
-          title: string
-          updated_at?: string
-          updated_by_auth_uid?: string | null
-        }
-        Update: {
-          acceptance_criteria?: string
-          blocker?: string
-          code?: string
-          created_at?: string
-          created_by_auth_uid?: string | null
-          description?: string
-          evidence_note?: string
-          evidence_state?: string
-          id?: string
-          kind?: string
-          next_action?: string
-          parent_id?: string | null
-          priority?: string
-          specialist?: string
-          status?: string
-          title?: string
-          updated_at?: string
-          updated_by_auth_uid?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_development_workstreams_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_development_workstreams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_document_revisions: {
-        Row: {
-          content: string
-          content_sha256: string
-          document_id: string
-          id: string
-          label: string | null
-          recorded_at: string
-          recorded_by_auth_uid: string | null
-          revision_number: number
-          source_version_id: string | null
-          tags: string[]
-          title: string
-        }
-        Insert: {
-          content: string
-          content_sha256: string
-          document_id: string
-          id?: string
-          label?: string | null
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          revision_number: number
-          source_version_id?: string | null
-          tags?: string[]
-          title: string
-        }
-        Update: {
-          content?: string
-          content_sha256?: string
-          document_id?: string
-          id?: string
-          label?: string | null
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          revision_number?: number
-          source_version_id?: string | null
-          tags?: string[]
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_document_revisions_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_documents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_documents: {
-        Row: {
-          area_id: string
-          authority_state: string
-          content: string
-          content_sha256: string
-          created_at: string
-          id: string
-          import_batch_id: string | null
-          legacy_id: string | null
-          origin_kind: string
-          recorded_at: string
-          recorded_by_auth_uid: string | null
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          area_id: string
-          authority_state?: string
-          content: string
-          content_sha256: string
-          created_at: string
-          id?: string
-          import_batch_id?: string | null
-          legacy_id?: string | null
-          origin_kind: string
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          tags?: string[]
-          title: string
-          updated_at: string
-        }
-        Update: {
-          area_id?: string
-          authority_state?: string
-          content?: string
-          content_sha256?: string
-          created_at?: string
-          id?: string
-          import_batch_id?: string | null
-          legacy_id?: string | null
-          origin_kind?: string
-          recorded_at?: string
-          recorded_by_auth_uid?: string | null
-          tags?: string[]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nucleo_documents_import_batch_id_fkey"
-            columns: ["import_batch_id"]
-            isOneToOne: false
-            referencedRelation: "nucleo_import_batches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      nucleo_import_batches: {
-        Row: {
-          created_at: string
-          exported_at: string
-          flags: Json
-          id: string
-          imported_at: string | null
-          imported_by_auth_uid: string | null
-          page_count: number
-          source_kind: string
-          source_label: string
-          source_sha256: string
-          state: string
-        }
-        Insert: {
-          created_at?: string
-          exported_at: string
-          flags?: Json
-          id?: string
-          imported_at?: string | null
-          imported_by_auth_uid?: string | null
-          page_count: number
-          source_kind: string
-          source_label: string
-          source_sha256: string
-          state?: string
-        }
-        Update: {
-          created_at?: string
-          exported_at?: string
-          flags?: Json
-          id?: string
-          imported_at?: string | null
-          imported_by_auth_uid?: string | null
-          page_count?: number
-          source_kind?: string
-          source_label?: string
-          source_sha256?: string
-          state?: string
-        }
-        Relationships: []
-      }
-      nucleo_source_references: {
-        Row: {
-          authority_state: string
-          content_imported: boolean
-          created_at: string
-          id: string
-          provenance_note: string | null
-          provider: string
-          provider_file_id: string
-          recorded_by_auth_uid: string | null
-          reference_state: string
-          source_access_class: string
-          source_checksum_sha256: string | null
-          source_mime_type: string
-          source_modified_at: string | null
-          source_name: string
-          source_parent_id: string | null
-        }
-        Insert: {
-          authority_state?: string
-          content_imported?: boolean
-          created_at?: string
-          id?: string
-          provenance_note?: string | null
-          provider: string
-          provider_file_id: string
-          recorded_by_auth_uid?: string | null
-          reference_state?: string
-          source_access_class?: string
-          source_checksum_sha256?: string | null
-          source_mime_type: string
-          source_modified_at?: string | null
-          source_name: string
-          source_parent_id?: string | null
-        }
-        Update: {
-          authority_state?: string
-          content_imported?: boolean
-          created_at?: string
-          id?: string
-          provenance_note?: string | null
-          provider?: string
-          provider_file_id?: string
-          recorded_by_auth_uid?: string | null
-          reference_state?: string
-          source_access_class?: string
-          source_checksum_sha256?: string | null
-          source_mime_type?: string
-          source_modified_at?: string | null
-          source_name?: string
-          source_parent_id?: string | null
-        }
-        Relationships: []
       }
       on_hold_log: {
         Row: {
@@ -12987,45 +12048,6 @@ export type Database = {
           },
         ]
       }
-      shopee_adao_f12_discovery_state: {
-        Row: {
-          channel_account_id: string
-          checkpoint: Json | null
-          generation: number
-          lease_expires_at: string | null
-          lease_id: string | null
-          phase: string
-          shop_id: number
-          staged_complete: boolean
-          staged_pages: Json | null
-          updated_at: string
-        }
-        Insert: {
-          channel_account_id: string
-          checkpoint?: Json | null
-          generation?: number
-          lease_expires_at?: string | null
-          lease_id?: string | null
-          phase?: string
-          shop_id?: number
-          staged_complete?: boolean
-          staged_pages?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          channel_account_id?: string
-          checkpoint?: Json | null
-          generation?: number
-          lease_expires_at?: string | null
-          lease_id?: string | null
-          phase?: string
-          shop_id?: number
-          staged_complete?: boolean
-          staged_pages?: Json | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       shopee_cycle_orders: {
         Row: {
           channel_account_id: string
@@ -13317,7 +12339,6 @@ export type Database = {
       }
       shopee_shipping_arrangement_attempts: {
         Row: {
-          attempt_sequence: number
           channel_account_id: string
           claimed_at: string
           id: string
@@ -13332,7 +12353,6 @@ export type Database = {
           state: string
         }
         Insert: {
-          attempt_sequence?: number
           channel_account_id: string
           claimed_at?: string
           id?: string
@@ -13347,7 +12367,6 @@ export type Database = {
           state?: string
         }
         Update: {
-          attempt_sequence?: number
           channel_account_id?: string
           claimed_at?: string
           id?: string
@@ -13374,41 +12393,6 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      shopee_shipping_arrangement_recovery_approvals: {
-        Row: {
-          api_error_code: string
-          consumed: boolean
-          consumed_at: string | null
-          created_at: string
-          enabled: boolean
-          original_attempt_id: string
-        }
-        Insert: {
-          api_error_code: string
-          consumed?: boolean
-          consumed_at?: string | null
-          created_at?: string
-          enabled?: boolean
-          original_attempt_id: string
-        }
-        Update: {
-          api_error_code?: string
-          consumed?: boolean
-          consumed_at?: string | null
-          created_at?: string
-          enabled?: boolean
-          original_attempt_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "shopee_shipping_arrangement_recovery_a_original_attempt_id_fkey"
-            columns: ["original_attempt_id"]
-            isOneToOne: true
-            referencedRelation: "shopee_shipping_arrangement_attempts"
             referencedColumns: ["id"]
           },
         ]
@@ -14320,18 +13304,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      ack_shopee_adao_f12_discovery: {
-        Args: {
-          p_channel_account_id: string
-          p_generation: number
-          p_lease_id: string
-        }
-        Returns: Json
-      }
-      acquire_shopee_adao_f12_discovery: {
-        Args: { p_channel_account_id: string }
-        Returns: Json
-      }
       acquire_shopee_cycle: {
         Args: { p_channel_account_id: string }
         Returns: Json
@@ -14699,181 +13671,6 @@ export type Database = {
       health_can_write_athlete: {
         Args: { p_athlete_id: string }
         Returns: boolean
-      }
-      health_f19_cancel_interval: {
-        Args: { p_client_event_id: string; p_interval_id: string }
-        Returns: string
-      }
-      health_f19_finish_rest: {
-        Args: {
-          p_client_event_id: string
-          p_next_workout_exercise_id?: string
-          p_rest_interval_id: string
-          p_start_next_work?: boolean
-        }
-        Returns: {
-          next_work_interval_id: string
-          rest_interval_id: string
-        }[]
-      }
-      health_f19_finish_work_start_rest: {
-        Args: {
-          p_client_event_id: string
-          p_load_unit?: string
-          p_load_value?: number
-          p_reps?: number
-          p_rir?: number
-          p_work_interval_id: string
-        }
-        Returns: {
-          rest_interval_id: string
-          workout_set_id: string
-        }[]
-      }
-      health_f19_pause_workout: {
-        Args: { p_client_event_id: string; p_session_id: string }
-        Returns: string
-      }
-      health_f19_resume_workout: {
-        Args: { p_client_event_id: string; p_session_id: string }
-        Returns: string
-      }
-      health_f19_start_work_interval: {
-        Args: { p_client_event_id: string; p_workout_exercise_id: string }
-        Returns: string
-      }
-      health_f20_add_segment: {
-        Args: {
-          p_activity_id: string
-          p_avg_hr_bpm?: number
-          p_cadence_spm?: number
-          p_client_event_id: string
-          p_distance_meters?: number
-          p_duration_seconds?: number
-          p_label?: string
-          p_notes?: string
-          p_segment_type?: string
-        }
-        Returns: string
-      }
-      health_f20_complete_activity: {
-        Args: {
-          p_activity_id: string
-          p_avg_hr_bpm?: number
-          p_cadence_spm?: number
-          p_calories_kcal?: number
-          p_client_event_id: string
-          p_distance_meters?: number
-          p_elevation_gain_m?: number
-          p_max_hr_bpm?: number
-          p_notes?: string
-          p_rpe?: number
-          p_steps?: number
-        }
-        Returns: string
-      }
-      health_f20_create_manual_activity: {
-        Args: {
-          p_athlete_id: string
-          p_avg_hr_bpm?: number
-          p_cadence_spm?: number
-          p_calories_kcal?: number
-          p_client_event_id: string
-          p_distance_meters?: number
-          p_duration_seconds: number
-          p_elevation_gain_m?: number
-          p_max_hr_bpm?: number
-          p_modality_code: string
-          p_notes?: string
-          p_rpe?: number
-          p_started_at: string
-          p_steps?: number
-          p_title: string
-        }
-        Returns: string
-      }
-      health_f20_pause_activity: {
-        Args: { p_activity_id: string; p_client_event_id: string }
-        Returns: string
-      }
-      health_f20_resume_activity: {
-        Args: { p_activity_id: string; p_client_event_id: string }
-        Returns: string
-      }
-      health_f20_start_activity: {
-        Args: {
-          p_athlete_id: string
-          p_client_event_id: string
-          p_modality_code: string
-          p_title: string
-        }
-        Returns: string
-      }
-      health_f21_update_activity_session: {
-        Args: {
-          p_activity_id: string
-          p_avg_hr_bpm?: number
-          p_cadence_spm?: number
-          p_calories_kcal?: number
-          p_client_event_id: string
-          p_distance_meters?: number
-          p_duration_seconds: number
-          p_elevation_gain_m?: number
-          p_max_hr_bpm?: number
-          p_modality_code: string
-          p_notes?: string
-          p_rpe?: number
-          p_started_at: string
-          p_steps?: number
-          p_title: string
-        }
-        Returns: string
-      }
-      health_f21_update_historical_set: {
-        Args: {
-          p_client_event_id: string
-          p_load_unit: string
-          p_load_value: number
-          p_reps: number
-          p_rest_seconds?: number
-          p_rir: number
-          p_set_id: string
-        }
-        Returns: string
-      }
-      health_f21_update_workout_session: {
-        Args: {
-          p_client_event_id: string
-          p_ended_at: string
-          p_notes?: string
-          p_session_id: string
-          p_started_at: string
-        }
-        Returns: string
-      }
-      health_f21_void_activity_session: {
-        Args: {
-          p_activity_id: string
-          p_client_event_id: string
-          p_reason: string
-        }
-        Returns: string
-      }
-      health_f21_void_workout_session: {
-        Args: {
-          p_client_event_id: string
-          p_reason: string
-          p_session_id: string
-        }
-        Returns: string
-      }
-      health_f22_assert_program_version_structure: {
-        Args: { p_program_version_id: string }
-        Returns: undefined
-      }
-      health_f22_refresh_exercise_calibration: {
-        Args: { p_athlete_id: string; p_exercise_id: string }
-        Returns: undefined
       }
       health_m3_create_program_draft: {
         Args: { p_athlete_id: string; p_name: string }
@@ -15530,10 +14327,6 @@ export type Database = {
         }
         Returns: Json
       }
-      resume_shopee_adao_f12_staged: {
-        Args: { p_channel_account_id: string }
-        Returns: Json
-      }
       reverse_production_fact: {
         Args: { p_production_fact_id: string; p_reason: string }
         Returns: Json
@@ -15551,17 +14344,6 @@ export type Database = {
           p_process_ids: string[]
           p_product_id: string
           p_variant_id: string
-        }
-        Returns: Json
-      }
-      stage_shopee_adao_f12_discovery: {
-        Args: {
-          p_channel_account_id: string
-          p_checkpoint: Json
-          p_completed: boolean
-          p_generation: number
-          p_lease_id: string
-          p_pages: Json
         }
         Returns: Json
       }
