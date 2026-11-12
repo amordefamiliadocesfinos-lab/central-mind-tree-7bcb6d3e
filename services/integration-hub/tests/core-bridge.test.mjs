@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { buildSignedHeaders, CORE_BRIDGE_URL, hmacHex, probeCoreBridge, sha256Hex, readLiveShopeeOrderIntakeBatch } from '../src/core-bridge.mjs';
+import { buildSignedHeaders, CORE_BRIDGE_URL, hmacHex, probeCoreBridge, sha256Hex, readLiveShopeeOrderIntakeBatch, resumeAdaoF12Staged, acknowledgeAdaoF12Discovery } from '../src/core-bridge.mjs';
 import { handleRequest, routeRequest } from '../src/app.mjs';
 import { createBridgeHandler } from '../../../supabase/functions/integration-core-bridge/handler.mjs';
 
@@ -295,4 +295,45 @@ test('intake preserves request_id correlation on larger payloads',async()=>{
       status:200,headers:{'content-type':'application/json'}}),
   });
   assert.equal(answer.ok,false);
+});
+
+test('F12.3 HMAC Bridge accepts only exact Adão staged recovery, no productive writers',async()=>{
+  const seen=[];
+  const bridge=createBridgeHandler({
+    getSecret:()=>SECRET,
+    executeAction:async payload=>{
+      seen.push(payload);
+      if(payload.action==='shopee.adao_f12.resume')
+        return {status:200,body:{status:'resumed',lease_id:'99999999-9999-4999-8999-999999999999',
+          generation:3,staged_pages:[['26111200000001']],completed:false}};
+      if(payload.action==='shopee.adao_f12.ack')
+        return {status:409,body:{status:'blocked',code:'reconciliation_required'}};
+      throw Error('unexpected writer');
+    },
+    logger:quiet,
+  });
+  const fetchImpl=(_url,options)=>bridge(new Request(CORE_BRIDGE_URL,options));
+  const base={url:CORE_BRIDGE_URL,secret:SECRET,fetchImpl,logger:quiet};
+  const resumed=await resumeAdaoF12Staged({
+    channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',
+  },base);
+  assert.equal(resumed.ok,true);
+  assert.equal(resumed.payload.status,'resumed');
+  assert.equal(resumed.payload.staged_pages.length,1);
+  const ack=await acknowledgeAdaoF12Discovery({
+    channel_account_id:'b4027369-5abf-4ac1-ab24-862334fae892',
+    lease_id:resumed.payload.lease_id,generation:3,
+  },base);
+  assert.equal(ack.ok,false);
+  assert.equal(ack.status,409);
+  assert.equal(ack.payload.code,'reconciliation_required');
+  assert.deepEqual(seen.map(x=>x.action),[
+    'shopee.adao_f12.resume','shopee.adao_f12.ack',
+  ]);
+  const foreign=await resumeAdaoF12Staged({
+    channel_account_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  },base);
+  assert.equal(foreign.ok,false);
+  assert.equal(foreign.status,400);
+  assert.equal(seen.length,2);
 });
