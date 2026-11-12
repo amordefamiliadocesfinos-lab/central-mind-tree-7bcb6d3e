@@ -6,13 +6,12 @@ import {F12_3_SCOPE} from './shopee-adao-resumable-discovery.mjs';
 // preview client: callers must inject the existing canonical scoped intake
 // with mode='preview' and an exact expectedOrderSn.
 const ORDER_RE=/^[A-Za-z0-9]{8,100}$/;
-const allowedStatuses=new Set(['PROCESSED','READY_TO_SHIP']);
 const maxAgeMs=120000;
 
 export function createAdaoF12OneOrderPreviewGate({previewOrder,now=Date.now}={}) {
   if(typeof previewOrder!=='function'||typeof now!=='function')
     throw new TypeError('preview_order_and_clock_required');
-  return async function assessOneCandidate({livePage,observedAt,allowPreview=false}={}) {
+  return async function assessOneCandidate({livePage,readRequest,account,observedAt,allowPreview=false}={}) {
     if(allowPreview!==true)return {ok:false,code:'f12_preview_disabled'};
     const current=now();
     if(!Number.isSafeInteger(current)||!Number.isSafeInteger(observedAt)
@@ -20,9 +19,10 @@ export function createAdaoF12OneOrderPreviewGate({previewOrder,now=Date.now}={})
       return {ok:false,code:'f12_live_evidence_stale'};
     if(!livePage ||livePage.ok!==true
       ||livePage.shop_id!==F12_3_SCOPE.shop
-      ||livePage.channel_account_id!==F12_3_SCOPE.account
-      ||livePage.timeRangeField!=='update_time'
-      ||livePage.onlyIntakeEligibleOrders!==true
+      ||account!==F12_3_SCOPE.account
+      ||readRequest?.timeRangeField!=='update_time'
+      ||readRequest?.onlyIntakeEligibleOrders!==true
+      ||readRequest?.pageSize!==F12_3_SCOPE.pageSize
       ||!Array.isArray(livePage.order_sns)
       ||livePage.order_sns.length>F12_3_SCOPE.pageSize
       ||livePage.more===true
@@ -34,11 +34,9 @@ export function createAdaoF12OneOrderPreviewGate({previewOrder,now=Date.now}={})
     if(livePage.order_sns.length!==1)
       return {ok:false,code:livePage.order_sns.length===0
         ?'f12_no_live_candidate':'f12_multiple_candidates_requires_review'};
-    if(!Array.isArray(livePage.eligible_orders)
-      ||livePage.eligible_orders.length!==1
-      ||livePage.eligible_orders[0]?.order_sn!==livePage.order_sns[0]
-      ||!allowedStatuses.has(livePage.eligible_orders[0]?.order_status))
-      return {ok:false,code:'f12_live_status_unverified'};
+    // The existing reader filters the LIVE detail statuses when the
+    // request's onlyIntakeEligibleOrders flag is true. The result itself
+    // carries no per-order status field; do not invent one.
     const sn=livePage.order_sns[0];
     let preview;
     try{
