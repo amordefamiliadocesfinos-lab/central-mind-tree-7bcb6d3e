@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/nucleo-m4-github-refresh.yml"
+      - "scripts/nucleo-m4-github-refresh.cjs"
+      - "scripts/nucleo-m4-reconcile-review.cjs"
   schedule:
     - cron: "17 11 * * *"
 permissions:
