@@ -225,7 +225,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [loadUnit, setLoadUnit] = useState("kg");
   const [reps, setReps] = useState("");
   const [rir, setRir] = useState("");
-  const [resultSaved, setResultSaved] = useState(false);
+  const [resultDirty, setResultDirty] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
@@ -422,7 +422,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
   useEffect(() => {
     if (!activeRest || !restSet) {
-      setResultSaved(false);
+      setResultDirty(false);
       return;
     }
 
@@ -430,18 +430,20 @@ export function HealthWorkoutInteractiveTimerF19({
     setLoadUnit(restSet.load_unit || "kg");
     setReps(restSet.reps == null ? "" : String(restSet.reps));
     setRir(restSet.rir == null ? "" : String(restSet.rir));
-
-    const persistedAfterRestStarted =
-      new Date(restSet.updated_at).getTime() >
-      new Date(activeRest.started_at).getTime();
-
-    setResultSaved(persistedAfterRestStarted);
+    setResultDirty(false);
   }, [
     activeRest?.id,
-    activeRest?.started_at,
     restSet?.id,
     restSet?.updated_at,
   ]);
+
+  const resultPersisted =
+    activeRest != null &&
+    restSet != null &&
+    new Date(restSet.updated_at).getTime() >
+      new Date(activeRest.started_at).getTime();
+
+  const resultSaved = resultPersisted && !resultDirty;
 
   const restTarget = activeRest?.target_seconds ?? null;
   const restReached =
@@ -506,7 +508,7 @@ export function HealthWorkoutInteractiveTimerF19({
       rir: numberOrUndefined(rir),
     });
 
-    setResultSaved(true);
+    setResultDirty(false);
   };
 
   const finishRestAfterSaved = async (options?: {
@@ -524,7 +526,7 @@ export function HealthWorkoutInteractiveTimerF19({
     setLoadUnit("kg");
     setReps("");
     setRir("");
-    setResultSaved(false);
+    setResultDirty(false);
   };
 
   const completeWorkoutNow = async (saveCurrentResult: boolean) => {
@@ -1032,7 +1034,7 @@ export function HealthWorkoutInteractiveTimerF19({
                             value={load}
                             onChange={(event) => {
                               setLoad(event.target.value);
-                              setResultSaved(false);
+                              setResultDirty(true);
                             }}
                             placeholder="kg"
                           />
@@ -1044,7 +1046,7 @@ export function HealthWorkoutInteractiveTimerF19({
                             value={loadUnit}
                             onValueChange={(value) => {
                               setLoadUnit(value);
-                              setResultSaved(false);
+                              setResultDirty(true);
                             }}
                           >
                             <SelectTrigger className="min-h-11">
@@ -1066,7 +1068,7 @@ export function HealthWorkoutInteractiveTimerF19({
                             value={reps}
                             onChange={(event) => {
                               setReps(event.target.value);
-                              setResultSaved(false);
+                              setResultDirty(true);
                             }}
                             placeholder={
                               viewedExercise.planned_reps_min != null
@@ -1084,7 +1086,7 @@ export function HealthWorkoutInteractiveTimerF19({
                             value={rir}
                             onChange={(event) => {
                               setRir(event.target.value);
-                              setResultSaved(false);
+                              setResultDirty(true);
                             }}
                             placeholder={
                               viewedExercise.planned_rir_target != null
