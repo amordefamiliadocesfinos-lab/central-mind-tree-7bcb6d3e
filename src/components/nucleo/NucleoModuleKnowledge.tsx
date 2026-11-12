@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -48,16 +48,6 @@ export default function NucleoModuleKnowledge({moduleId}:{moduleId:string}) {
   const [body,setBody]=useState("");
   const [source,setSource]=useState("");
   const [saving,setSaving]=useState(false);
-
-  const read=useCallback(async()=>{
-    setLoading(true);setError(null);setRevisions([]);
-    const result=await client.from("nucleo_module_knowledge_revisions").select("*")
-      .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(300);
-    if(result.error) {
-      setError("Ficha Viva ainda não disponível neste Core ou acesso não autorizado; nenhum dado anterior será exibido.");
-    } else setRevisions(result.data ?? []);
-    setLoading(false);
-  },[moduleId]);
 
   useEffect(()=>{
     let current=true;
