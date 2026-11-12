@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
+import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
   const [actionSearch, setActionSearch] = useState("");
+  const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
   const modules = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     return MODULES_V12.filter(item => !term ||
@@ -37,6 +39,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
   const selected = MODULES_V12.find(item => item.id === selectedId) ?? null;
   const crmRoot = workstreams.find(item => item.code === "CRM" && item.kind === "modulo");
   const crmFronts = crmRoot ? workstreams.filter(item => item.parent_id === crmRoot.id) : [];
+  const registeredModules = workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC");
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||
@@ -46,6 +49,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
     setSelectedId(item.id);
     setLevel("module");
     setActionSearch("");
+    setEvidenceFrontId(null);
   };
 
   return (
@@ -70,8 +74,8 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
         </div>
         <div className="rounded-md border p-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-          Catálogo inicial de rotas, não inventário homologado do banco. Nenhum módulo ou frente externa foi criado no Core.
-          Conhecer um procedimento não autoriza a IA a executá-lo.
+          Catálogo inicial de rotas, ainda sem inventário global homologado. O Core registra {registeredModules.length} módulo(s) externo(s) ao Núcleo;
+          as demais entradas permanecem apenas como levantamento de rotas. Conhecer um procedimento não autoriza a IA a executá-lo.
         </div>
       </Card>
 
@@ -80,7 +84,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
               <h3 className="font-semibold text-sm">Visão geral — módulos identificados</h3>
-              <p className="text-xs text-muted-foreground">{MODULES_V12.length} entradas iniciais; rotas confirmadas apenas onde o código foi inspecionado.</p>
+              <p className="text-xs text-muted-foreground">{MODULES_V12.length} entradas no catálogo de fontes · {registeredModules.length} módulo(s) externo(s) cadastrado(s) no Core. Não representa cobertura global.</p>
             </div>
             <Badge variant="secondary">Não representa progresso global</Badge>
           </div>
@@ -101,6 +105,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                 </div>
                 <p className="font-semibold text-sm">{item.name}</p>
                 <p className="text-xs text-muted-foreground">{item.domain} · {item.route ?? "Rota não verificada"}</p>
+                <p className="text-xs text-muted-foreground">{workstreams.some(front => front.code === item.id && front.kind === "modulo") ? "Cadastro no Core confirmado" : "Somente inventário inicial · cadastro não verificado"}</p>
                 <p className="text-xs">Ver ficha e fontes</p>
               </button>
             ))}
@@ -151,9 +156,24 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                       <p className="text-xs text-muted-foreground">{front.status.replaceAll("_", " ")} · {front.evidence_state.replaceAll("_", " ")} · {front.specialist || "Especialista não informado"}</p>
                       <p className="text-xs">Próxima ação: {front.next_action || "Não registrada"}</p>
                     </div>
-                    <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(front.id)}>Abrir frente na Central</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(front.id)}>Abrir frente na Central</Button>
+                      <Button type="button" size="sm" variant="outline" aria-expanded={evidenceFrontId === front.id}
+                        onClick={() => setEvidenceFrontId(current => current === front.id ? null : front.id)}>
+                        {evidenceFrontId === front.id ? "Ocultar provas" : "Ver provas GitHub/Supabase"}
+                      </Button>
+                    </div>
+                    {evidenceFrontId === front.id && <div className="w-full border-t pt-2"><NucleoTechnicalEvidence workstreamId={front.id}/></div>}
                   </div>
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente CRM vinculada ao Core foi encontrada nesta sessão.</p>}
+              </div>
+              <div className="rounded-md border p-3 space-y-1 text-xs">
+                <p className="font-semibold">Checkpoint de especialista — referência histórica, não norma vigente</p>
+                <p>CRM UX 02: mapa A3.1 / B3.1-A, com oito incrementos registrados como mergeados no checkpoint de 16/10/2026. A vigência do método e a homologação de uso real exigem reconciliação.</p>
+                <a className="underline underline-offset-2" target="_blank" rel="noopener noreferrer"
+                  href="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/docs/crm/CRM_UX_02_MAPA_EXECUCAO_A31_B31A.md">
+                  Consultar fonte documental original
+                </a>
               </div>
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold">Mapa de telas comprovadas no repositório</h4>

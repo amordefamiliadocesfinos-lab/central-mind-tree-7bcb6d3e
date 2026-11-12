@@ -80,7 +80,13 @@ export default function NucleoDevelopmentCenter() {
       client.from("nucleo_development_events").select("*").order("recorded_at", { ascending: false }).limit(200),
     ]);
     if (fronts.error || links.error || events.error) {
-      toast.error("Não foi possível consultar o acompanhamento M3.");
+      // Não apresentar um snapshot anterior como se fosse leitura M3 atual.
+      setItems([]);
+      setDependencies([]);
+      setHistory([]);
+      setSelectedId("");
+      setEdit({});
+      toast.error("Leitura M3 indisponível. Nenhum estado anterior foi reutilizado.");
     } else {
       setItems(fronts.data ?? []);
       setDependencies(links.data ?? []);
