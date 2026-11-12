@@ -31,15 +31,40 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
   const [level, setLevel] = useState<Level>("overview");
   const [actionSearch, setActionSearch] = useState("");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
+  // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
+  // observadas e mantém entradas ainda não catalogadas como não verificadas.
+  // Novos módulos M3 aparecem aqui sem alterações de código.
+  const registeredModules = useMemo(
+    () => workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC"),
+    [workstreams],
+  );
+  const catalog = useMemo<KnowledgeModule[]>(() => {
+    const byCode = new Map(MODULES_V12.map(module => [module.id, module]));
+    for (const record of workstreams.filter(item => item.kind === "modulo")) {
+      const source = byCode.get(record.code);
+      byCode.set(record.code, source ? {
+        ...source, name: record.title, purpose: record.description || source.purpose,
+        specialist: record.specialist || source.specialist,
+        specialistConfidence: record.specialist ? "declarado" : source.specialistConfidence,
+      } : {
+        id: record.code, name: record.title,
+        domain: "Domínio ainda não classificado", route: null,
+        purpose: record.description || "Finalidade detalhada não verificada.",
+        coverage: "inventario_de_rotas", specialist: record.specialist || null,
+        specialistConfidence: record.specialist ? "declarado" : "nao_verificado",
+        source: "Ficha do módulo no Core M3 — estado declarado, sem prova externa de rota",
+      });
+    }
+    return [...byCode.values()];
+  }, [workstreams]);
   const modules = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
-    return MODULES_V12.filter(item => !term ||
-      [item.name, item.domain, item.id].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
-  }, [search]);
-  const selected = MODULES_V12.find(item => item.id === selectedId) ?? null;
-  const crmRoot = workstreams.find(item => item.code === "CRM" && item.kind === "modulo");
-  const crmFronts = crmRoot ? workstreams.filter(item => item.parent_id === crmRoot.id) : [];
-  const registeredModules = workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC");
+    return catalog.filter(item => !term ||
+      [item.name, item.domain, item.id, item.specialist ?? ""].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
+  }, [catalog, search]);
+  const selected = catalog.find(item => item.id === selectedId) ?? null;
+  const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
+  const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||
@@ -84,7 +109,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
               <h3 className="font-semibold text-sm">Visão geral — módulos identificados</h3>
-              <p className="text-xs text-muted-foreground">{MODULES_V12.length} entradas no catálogo de fontes · {registeredModules.length} módulo(s) externo(s) cadastrado(s) no Core. Não representa cobertura global.</p>
+              <p className="text-xs text-muted-foreground">{catalog.length} entradas exibidas (Core + fontes de rotas) · {registeredModules.length} módulo(s) externo(s) cadastrado(s) no Core. Não representa cobertura global.</p>
             </div>
             <Badge variant="secondary">Não representa progresso global</Badge>
           </div>
@@ -144,12 +169,11 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
           </div>
-          {selected.id==="CRM" ? (
-            <>
+          {selectedRecord && (
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
                 <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real.</p>
-                {crmFronts.length ? crmFronts.map(front => (
+                {selectedFronts.length ? selectedFronts.map(front => (
                   <div key={front.id} className="rounded-md border p-3 flex flex-wrap justify-between items-start gap-3">
                     <div className="space-y-1 min-w-0 flex-1">
                       <p className="font-medium text-sm">{front.code} · {front.title}</p>
@@ -165,8 +189,11 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                     </div>
                     {evidenceFrontId === front.id && <div className="w-full border-t pt-2"><NucleoTechnicalEvidence workstreamId={front.id}/></div>}
                   </div>
-                )) : <p className="text-xs text-muted-foreground">Nenhuma frente CRM vinculada ao Core foi encontrada nesta sessão.</p>}
+                )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
+          )}
+          {selected.id==="CRM" ? (
+            <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
                 <p className="font-semibold">Checkpoint de especialista — referência histórica, não norma vigente</p>
                 <p>CRM UX 02: mapa A3.1 / B3.1-A, com oito incrementos registrados como mergeados no checkpoint de 16/10/2026. A vigência do método e a homologação de uso real exigem reconciliação.</p>

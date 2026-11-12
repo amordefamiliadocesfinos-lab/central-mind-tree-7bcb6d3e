@@ -340,3 +340,15 @@ A PR associada a este checkpoint adiciona `src/lib/nucleo/operationalKnowledgeV1
 **Limites e portões:** mudança é somente leitura e não introduz nova tabela, migration, permissão ou ligação fictícia. CI comprova compilação/contratos existentes, **não** publicação, navegação de gestor ou compreensão por operador. As duas jornadas do piloto, a legitimidade e versão do método CRM, o cadastro parametrizável de ficha viva FM-01–FM-10, a expansão factual para outras áreas e os ensaios CA-15/16/20/21/22 permanecem abertos. Testes M3 e M5 adiados não foram executados. A Entrega B segue não autorizada.
 
 **Próxima ação:** reconciliar documentos de especialista/método do CRM com fonte e autoridade, elaborar extensão relacional mínima de fichas operacionais sujeita a RLS/testes e avançar cobertura por módulos com a mesma proveniência; validar a interface no ambiente publicado e por operador independente, sem inferir aceite A+.
+
+## 23. V1.2 A+ — Atlas dinâmico parametrizado pelos módulos do Core M3 (12/11/2026)
+
+**Situação:** incremento autorizado pelo mapa soberano V1.2, desdobramento da M3, **não** M6. A PR desta seção corrige o limite de catálogo estático observado no piloto CRM, preservando seu manual parcial.
+
+**Causa:** `NucleoOperationalAtlas` ainda enumerava os módulos somente pela lista `MODULES_V12`. Mesmo uma nova ficha de módulo registrada corretamente pela UI/SQL M3 não apareceria no atlas sem uma mudança no código, contrariando o caráter parametrizável dos critérios CA-01/11/22.
+
+**Ação:** o Atlas passa a combinar os módulos de `nucleo_development_workstreams` lidos sob a concessão/RLS já existente com o catálogo metadata-only de rotas verificadas no GitHub. Para cadastro no Core, usa código, título, descrição e especialista **declarado**, sem inferir rota, domínio, método, prova de deploy ou homologação de uso. Mantém entradas de rotas ainda não cadastradas claramente identificadas como tal; um módulo que entrar no Core passa a ser selecionável sem alterar o código. Frentes filhas e provas M4 passam a ser acessíveis pelo mesmo caminho de módulo, sem base concorrente. O manual operacional de ações continua detalhado somente no CRM, com estado parcial indicado.
+
+**Automação de testes:** `.github/workflows/nucleo-m3-development.yml` passou a vigiar explicitamente `NucleoOperationalAtlas.tsx` e `operationalKnowledgeV12.ts`, acionando os gates M3 PostgreSQL/TypeScript/build para futuras mudanças do piloto. **CI e merge não equivalem à navegação homologada**.
+
+**Limites:** sem migration, usuários novos, grants, alterações de documento, importação da Entrega B ou operação sobre CRM. Não foi homologada a compreensão por operador externo, a acessibilidade em mobile/teclado, nem a versão/autoridade do método do especialista CRM. O status A+ permanece **em desenvolvimento** até demonstrar as duas jornadas com fonte e readback; a Entrega A conserva aceite técnico restrito com ressalvas; M3 Salvar e M5 E2E seguem adiados.
