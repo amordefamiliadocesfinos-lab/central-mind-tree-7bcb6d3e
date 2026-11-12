@@ -588,7 +588,7 @@ export function useHealthMealPlanF18(
         if (!requiredItems.length) return null;
         const values = requiredItems.map((item) => item[key]);
         if (values.some((value) => value == null)) return null;
-        return values.reduce((acc, value) => acc + Number(value), 0);
+        return values.reduce<number>((acc, value) => acc + Number(value), 0);
       };
 
       map.set(pattern.id, {
