@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import type {
 } from "@/lib/nucleo/development.types";
 import { inspectNucleoSupervision } from "@/lib/nucleo/supervision";
 import { findNucleoFindingSources } from "@/lib/nucleo/supervision-provenance";
+import { createM5RequestGuard } from "@/lib/nucleo/supervision-request-guard";
 import { buildM5DemoSnapshot, DEMO_M5_CASES, type M5DemoKey } from "@/lib/nucleo/supervision-demo";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
@@ -31,12 +32,14 @@ export default function NucleoSupervisionPanel({
   const [reloadKey, setReloadKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [permissionConfirmed, setPermissionConfirmed] = useState(false);
+  const requestGuard = useRef(createM5RequestGuard());
   const [lastSuccessfulRead, setLastSuccessfulRead] = useState<string | null>(null);
   const [authorizedReadCount, setAuthorizedReadCount] = useState(0);
   const frontsVersion = workstreams.map(w => `${w.id}:${w.updated_at}`).join("|");
 
   useEffect(() => {
     let cancelled = false;
+    const requestToken = requestGuard.current.issue();
     setLoading(true);
     setLoadError(false);
     setLoaded(false);
@@ -49,7 +52,7 @@ export default function NucleoSupervisionPanel({
       // Reconfirm a real authenticated identity and a currently active explicit grant.
       // No secret, service role or privileged function; every SELECT obeys RLS.
       const identity = await client.auth.getUser();
-      if (cancelled) return;
+      if (cancelled || !requestGuard.current.isCurrent(requestToken)) return;
       const uid = identity.data.user?.id;
       if (identity.error || !uid) {
         setLoadError(true); setLoading(false); return;
@@ -58,7 +61,7 @@ export default function NucleoSupervisionPanel({
         .select("auth_user_id").eq("auth_user_id", uid)
         .eq("capability", "nucleo_manage").eq("active", true)
         .is("revoked_at", null).limit(2);
-      if (cancelled) return;
+      if (cancelled || !requestGuard.current.isCurrent(requestToken)) return;
       if (grant.error || grant.data?.length !== 1 || grant.data[0]?.auth_user_id !== uid) {
         setLoadError(true); setLoading(false); return;
       }
@@ -70,7 +73,7 @@ export default function NucleoSupervisionPanel({
         client.from("nucleo_development_dependencies")
           .select("*").limit(500),
       ]);
-      if (cancelled) return;
+      if (cancelled || !requestGuard.current.isCurrent(requestToken)) return;
       const fronts = frontCheck.data ?? [];
       const allowed = !frontCheck.error && !result.error && !depCheck.error &&
         fronts.length > 0 && fronts.length < 500 &&
@@ -91,16 +94,18 @@ export default function NucleoSupervisionPanel({
       setAuthorizedReadCount(previous => previous + 1);
       setLoading(false);
     })().catch(() => {
-      if (!cancelled) {
+      if (!cancelled && requestGuard.current.isCurrent(requestToken)) {
         setLoadError(true); setLoaded(false); setPermissionConfirmed(false);
         setEvidence([]); setLatestFronts([]); setLoading(false);
       }
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; requestGuard.current.invalidate(); };
   }, [reloadKey]);
 
   useEffect(() => {
     const { data: authListener } = client.auth.onAuthStateChange(() => {
+      // Reject any pending earlier authorized read synchronously on auth changes.
+      requestGuard.current.invalidate();
       // Revoke visible report immediately; new SELECT must revalidate active grant.
       setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
       setLastSuccessfulRead(null);
@@ -108,6 +113,7 @@ export default function NucleoSupervisionPanel({
     });
     const revalidateVisible = () => {
       if (document.visibilityState === "visible") {
+        requestGuard.current.invalidate();
         setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
       setLastSuccessfulRead(null);
         setReloadKey(key => key + 1);
