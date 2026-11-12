@@ -7,6 +7,7 @@ on:
       - ".github/workflows/nucleo-m4-github-refresh.yml"
       - "scripts/nucleo-m4-github-refresh.cjs"
       - "scripts/nucleo-m4-reconcile-review.cjs"
+      - "scripts/nucleo-m4-discover-github.cjs"
   schedule:
     - cron: "17 11 * * *"
 permissions:
@@ -24,6 +25,13 @@ jobs:
           node-version: "22"
       - name: Validate refresh logic with synthetic GitHub responses
         run: node scripts/nucleo-m4-github-refresh.test.cjs
+      - name: Validate unassigned discovery behavior
+        run: node scripts/nucleo-m4-discover-github.test.cjs
+      - name: Discover recent PRs and CI without front assignment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          M4_DISCOVERY_OUTPUT: artifacts/nucleo-m4-discovery-unassigned.json
+        run: node scripts/nucleo-m4-discover-github.cjs
       - name: Read official GitHub references and build review manifest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,5 +40,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: nucleo-m4-github-preflight
-          path: artifacts/nucleo-m4-gh-refresh-manifest.json
+          path: |
+            artifacts/nucleo-m4-gh-refresh-manifest.json
+            artifacts/nucleo-m4-discovery-unassigned.json
           retention-days: 7
