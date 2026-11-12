@@ -47,7 +47,6 @@ test('F12.3 refuses unsafe pages and wrong account before reading canonical prev
     {account:'8a8ad166-0317-4597-8be6-e43fb46b4d1b'},
     {livePage:{...evidence().livePage,shop_id:531736366}},
     {livePage:{...evidence().livePage,order_sns:[]}},
-    {livePage:{...evidence().livePage,order_sns:[SN,'SYNTHETICF12ADAO2']}},
     {livePage:{...evidence().livePage,order_sns:[SN,SN]}},
     {livePage:{...evidence().livePage,order_sns:[SN],more:true}},
     {livePage:{...evidence().livePage,order_sns:['INVALID!']}},
@@ -82,4 +81,53 @@ test('F12.3 never certifies preview when canonical pipeline rejects or misidenti
     previewOrder:async()=>{throw Error('disconnect');},now:()=>NOW,
   });
   assert.equal((await error(evidence())).code,'f12_canonical_preview_unavailable');
+});
+
+const SECOND='SYNTHETICF12ADAO2';
+const THIRD='SYNTHETICF12ADAO3';
+const multiple=()=>({...evidence(),livePage:{
+  ...evidence().livePage,order_sns:[SN,SECOND,THIRD]}});
+
+test('F12.3 one ready among three LIVE IDs is selected only after all canonical previews',async()=>{
+  const calls=[];
+  const gate=createAdaoF12OneOrderPreviewGate({now:()=>NOW,
+    previewOrder:async p=>{
+      calls.push(p);
+      if(p.expectedOrderSn===SECOND)return ready(p);
+      return {ok:true,mode:'preview',selected:1,ready:0,blocked:1,written:0,
+        results:[{orderSn:p.expectedOrderSn,status:'blocked',
+          blockers:['mapping_needs_mapping'],write:null}]};
+    },
+  });
+  assert.deepEqual(await gate(multiple()),{
+    ok:true,code:'f12_one_live_candidate_previewed',candidates:1,
+    productionAuthorized:false,commitAuthorized:false,
+  });
+  assert.deepEqual(calls.map(p=>p.expectedOrderSn),[SN,SECOND,THIRD]);
+  assert.ok(calls.every(p=>p.mode==='preview'&&p.verifyExisting===false&&p.limit===1));
+});
+
+test('F12.3 multiple canonically ready IDs are not reduced to an arbitrary one',async()=>{
+  const gate=createAdaoF12OneOrderPreviewGate({
+    now:()=>NOW,previewOrder:async p=>ready(p),
+  });
+  assert.equal((await gate(multiple())).code,'f12_multiple_candidates_requires_review');
+});
+
+test('F12.3 any unknown or malformed result among other IDs blocks selecting a ready ID',async()=>{
+  for(const unknown of [
+    {ok:false,code:'expected_order_unavailable'},
+    {ok:true,mode:'preview',selected:0,ready:0,blocked:0,written:0,results:[]},
+    {ok:true,mode:'preview',selected:1,ready:0,blocked:1,written:0,
+      results:[{orderSn:THIRD,status:'blocked',blockers:[],write:null}]},
+  ]){
+    const gate=createAdaoF12OneOrderPreviewGate({
+      now:()=>NOW,previewOrder:async p=>p.expectedOrderSn===THIRD?unknown:
+        p.expectedOrderSn===SECOND?
+          {ok:true,mode:'preview',selected:1,ready:0,blocked:1,written:0,
+            results:[{orderSn:SECOND,status:'blocked',blockers:['mapping'],write:null}]}:
+          ready(p),
+    });
+    assert.equal((await gate(multiple())).code,'f12_canonical_preview_blocked');
+  }
 });
