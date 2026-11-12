@@ -40,6 +40,13 @@ RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $fn$
 DECLARE module_kind text;
 BEGIN
+ IF current_user IN ('authenticated','service_role') AND NOT EXISTS (
+    SELECT 1 FROM public.app_admin_capabilities c
+    WHERE c.auth_user_id=auth.uid() AND c.capability='nucleo_manage'
+      AND c.active AND c.revoked_at IS NULL
+ ) THEN
+    RAISE EXCEPTION 'Ficha Viva authorization required';
+ END IF;
  SELECT kind INTO module_kind FROM public.nucleo_development_workstreams WHERE id=NEW.module_id;
  IF module_kind IS DISTINCT FROM 'modulo' THEN
    RAISE EXCEPTION 'Ficha Viva requires an existing module record';
