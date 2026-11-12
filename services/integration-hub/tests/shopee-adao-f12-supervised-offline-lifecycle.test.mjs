@@ -172,3 +172,54 @@ test('F12.3 pilot readiness cannot activate any of the real execution paths',asy
   assert.equal(calls,0);
   assert.equal(db.state.phase,'idle');
 });
+
+
+test('F12.3 two concurrent synthetic acquires admit only one and reject stale stage token',async()=>{
+  const db=fakeCore();
+  const [a,b]=await Promise.all([
+    db.acquire({channel_account_id:ACCOUNT}),
+    db.acquire({channel_account_id:ACCOUNT}),
+  ]);
+  assert.equal(a.payload.status,'acquired');
+  assert.equal(b.payload.status,'busy');
+  assert.equal(db.state.generation,1);
+  assert.equal(db.state.orders.size,0);
+  assert.equal((await db.stage({
+    channel_account_id:ACCOUNT,lease_id:leaseId(999),generation:999,
+    checkpoint:null,pages:[[SN]],completed:true,
+  })).payload.status,'stale_lease');
+  assert.equal(db.state.phase,'reading');
+  const stage=await db.stage({
+    channel_account_id:ACCOUNT,lease_id:a.payload.lease_id,generation:a.payload.generation,
+    checkpoint:null,pages:[[SN]],completed:true,
+  });
+  assert.equal(stage.payload.status,'staged');
+  assert.equal((await db.acquire({channel_account_id:ACCOUNT})).payload.status,'staged_requires_ack');
+});
+
+test('F12.3 simultaneous synthetic recovery has only one lease; old worker cannot ACK',async()=>{
+  const db=fakeCore();
+  const first=await db.acquire({channel_account_id:ACCOUNT});
+  await db.stage({channel_account_id:ACCOUNT,
+    lease_id:first.payload.lease_id,generation:first.payload.generation,
+    checkpoint:null,pages:[[SN]],completed:true});
+  db.advance(180001);
+  const [a,b]=await Promise.all([
+    db.resume({channel_account_id:ACCOUNT}),
+    db.resume({channel_account_id:ACCOUNT}),
+  ]);
+  assert.equal(a.payload.status,'resumed');
+  assert.equal(b.payload.status,'busy');
+  assert.equal(a.payload.generation,2);
+  db.state.orders.add(SN);
+  assert.equal((await db.acknowledge({
+    channel_account_id:ACCOUNT,lease_id:first.payload.lease_id,
+    generation:first.payload.generation,
+  })).payload.status,'stale_or_staged_requires_reconciliation');
+  assert.equal(db.state.phase,'staged');
+  assert.equal((await db.acknowledge({
+    channel_account_id:ACCOUNT,lease_id:a.payload.lease_id,
+    generation:a.payload.generation,
+  })).payload.status,'acknowledged');
+  assert.equal(db.state.phase,'idle');
+});
