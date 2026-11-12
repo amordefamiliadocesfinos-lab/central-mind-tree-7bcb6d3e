@@ -99,3 +99,20 @@ Se a autoridade considerar B parte obrigatória do mapa V1.0, o fechamento geral
 **Grande risco de atraso artificial:** exigir IA autônoma, sincronização bidirecional ou repetir CI já homologada como condição da implantação técnica V1.0.
 
 Documento de auditoria: não é autorização para promover estados ou importar conteúdo.
+
+
+## 9. Reconciliação dirigida da M5 — Especialista Governança e Desenvolvimento 02 (12/11/2026)
+
+**Natureza:** atualização de checkpoint na fonte já existente; não substitui o mapa soberano nem altera critérios de aceite. Fonte: consultas de leitura direta ao Core oficial (projeto Painel Central `1720a410-34cd-4410-995c-8c92c7edf16b`) e metadados de PRs do GitHub. A tentativa pelo conector Supabase isolado retornou falta de permissão; a conferência do Core foi feita pela conexão direta ao banco do projeto, **sem Lovable Builder**.
+
+### Comparação da fonte operacional com o GitHub
+
+- **Core lido neste checkpoint:** 7 frentes (`NUC` e `NUC-M0`…`NUC-M5`), 42 evidências técnicas, 13 eventos de histórico, 3 referências de origem e 0 documentos importados. `NUC-M5` continua `em_validacao`, com `evidence_state=comprovada` restrito à entrega técnica inicial. As 42 evidências existentes distribuem-se por M0=2, M1=7, M2=4, M3=9, M4=20 e **M5=0**.
+- **PRs M5 mergeadas identificadas na fonte GitHub:** [#655](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/655) — supervisão read-only; [#659](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/659) — 18 cenários sintéticos; [#662](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/662) — laboratório visual; [#668](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/668) — proveniência e revalidação; [#672](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/672) — Reavaliar; [#674](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/674) — simulação de revogação e resposta tardia; [#677](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/677) — ensaio RLS PostgreSQL 17 isolado.
+- **Lacuna O-06:** PR mergeada não insere prova automaticamente no registro M4. Necessária conciliação controlada dessas identidades canônicas com `nucleo_development_evidence`, sem duplicar (`source`, `repository`, `kind`, `external_key`) nem usar PR como prova de deploy, sessão Auth E2E ou homologação final. **Nenhuma inserção de evidência foi executada neste checkpoint**; registros append-only não devem ser preenchidos com proveniência/estado não conferidos.
+- **Lacuna O-05:** a revogação RLS aprovada em PostgreSQL 17 isolado e os testes de respostas assíncronas não equivalem à revogação de concessão em sessão Supabase Auth + navegador. O teste funcional permanece limitado a uma identidade de ensaio autorizada; **não revogar o único grant `nucleo_manage` produtivo**.
+- **Sem alterações produtivas:** nenhum grant, RLS, documento, página histórica, migration, status ou campo de aceite foi modificado por esta reconciliação. Nenhuma fase foi concluída automaticamente.
+
+### Continuidade única
+
+**Próximo trabalho delimitado:** executar a rotina M4 de atribuição/reconciliação já existente para os sete PRs da M5 com preflight de unicidade, prova de origem por PR e readback independente; não acrescentar automaticamente runs de CI sem verificar correspondência. Em seguida fazer uma sessão funcional autorizada de M1/M2/M3/M5, com `Reavaliar` e prova positiva/negativa, mantendo a revogação real E2E isolada como portão específico. Atualizar O-06 somente após comprovação de cada vínculo; manter `em_validacao` até aceite humano.
