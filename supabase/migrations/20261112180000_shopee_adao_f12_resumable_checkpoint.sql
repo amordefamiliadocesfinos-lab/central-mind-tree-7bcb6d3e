@@ -98,7 +98,7 @@ BEGIN
         (SELECT count(*) FROM jsonb_array_elements_text(p_checkpoint->'visited')) IS DISTINCT FROM
         (SELECT count(DISTINCT value) FROM jsonb_array_elements_text(p_checkpoint->'visited') AS v(value))
         ELSE true END
-    ))) THEN RETURN jsonb_build_object('status','invalid_checkpoint'); END IF;
+    )) THEN RETURN jsonb_build_object('status','invalid_checkpoint'); END IF;
   IF p_pages IS NULL OR jsonb_typeof(p_pages) IS DISTINCT FROM 'array'
      OR jsonb_array_length(p_pages) NOT BETWEEN 1 AND 2 THEN
     RETURN jsonb_build_object('status','invalid_pages'); END IF;
