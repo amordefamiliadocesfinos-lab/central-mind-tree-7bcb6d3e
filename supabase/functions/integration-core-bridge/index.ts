@@ -401,15 +401,18 @@ async function executeAction(payload: Record<string, unknown>) {
   // The RPCs enforce exact account, service role, generation and lease.
   if (payload.action === 'shopee.adao_f12.acquire'
       || payload.action === 'shopee.adao_f12.stage'
-      || payload.action === 'shopee.adao_f12.ack') {
+      || payload.action === 'shopee.adao_f12.ack'
+      || payload.action === 'shopee.adao_f12.resume') {
     const acquiring = payload.action === 'shopee.adao_f12.acquire';
+    const resuming = payload.action === 'shopee.adao_f12.resume';
     const staging = payload.action === 'shopee.adao_f12.stage';
-    const rpc = acquiring ? 'acquire_shopee_adao_f12_discovery'
+    const rpc = resuming ? 'resume_shopee_adao_f12_staged'
+      : acquiring ? 'acquire_shopee_adao_f12_discovery'
       : staging ? 'stage_shopee_adao_f12_discovery'
       : 'ack_shopee_adao_f12_discovery';
     const params = {
       p_channel_account_id: String(payload.channel_account_id),
-      ...(!acquiring ? {
+      ...(!acquiring && !resuming ? {
         p_lease_id: String(payload.lease_id),
         p_generation: Number(payload.generation),
       } : {}),
@@ -423,7 +426,10 @@ async function executeAction(payload: Record<string, unknown>) {
     if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
       return { status: 503, body: { error: 'f12_checkpoint_unavailable' } };
     }
-    if ((acquiring && data.status === 'acquired'
+    if ((resuming && data.status === 'resumed'
+          && typeof data.lease_id === 'string' && Number.isSafeInteger(data.generation)
+          && Array.isArray(data.staged_pages))
+        || (acquiring && data.status === 'acquired'
           && typeof data.lease_id === 'string' && Number.isSafeInteger(data.generation))
         || (staging && data.status === 'staged'
           && Number.isSafeInteger(data.generation))
@@ -433,7 +439,7 @@ async function executeAction(payload: Record<string, unknown>) {
     if (['busy','staged_requires_ack','stale_lease',
         'stale_or_staged_requires_reconciliation','invalid_checkpoint',
         'invalid_pages','account_refused','reconciliation_required',
-        'staged_pages_invalid'].includes(data.status)) {
+        'staged_pages_invalid','nothing_staged'].includes(data.status)) {
       return { status: 409, body: { status: 'blocked', code: data.status } };
     }
     return { status: 503, body: { error: 'f12_checkpoint_unavailable' } };
