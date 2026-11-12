@@ -31,6 +31,8 @@ export default function NucleoSupervisionPanel({
   const [reloadKey, setReloadKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [permissionConfirmed, setPermissionConfirmed] = useState(false);
+  const [lastSuccessfulRead, setLastSuccessfulRead] = useState<string | null>(null);
+  const [authorizedReadCount, setAuthorizedReadCount] = useState(0);
   const frontsVersion = workstreams.map(w => `${w.id}:${w.updated_at}`).join("|");
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function NucleoSupervisionPanel({
     setLoadError(false);
     setLoaded(false);
     setPermissionConfirmed(false);
+    setLastSuccessfulRead(null);
     setEvidence([]);
     setLatestFronts([]);
     setLatestDependencies([]);
@@ -83,6 +86,9 @@ export default function NucleoSupervisionPanel({
       setEvidence(result.data ?? []);
       setPermissionConfirmed(true);
       setLoaded(true);
+      // Timestamp/counter only after a fresh complete authorized read under RLS.
+      setLastSuccessfulRead(new Date().toISOString());
+      setAuthorizedReadCount(previous => previous + 1);
       setLoading(false);
     })().catch(() => {
       if (!cancelled) {
@@ -97,11 +103,13 @@ export default function NucleoSupervisionPanel({
     const { data: authListener } = client.auth.onAuthStateChange(() => {
       // Revoke visible report immediately; new SELECT must revalidate active grant.
       setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
+      setLastSuccessfulRead(null);
       setReloadKey(key => key + 1);
     });
     const revalidateVisible = () => {
       if (document.visibilityState === "visible") {
         setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
+      setLastSuccessfulRead(null);
         setReloadKey(key => key + 1);
       }
     };
@@ -150,6 +158,13 @@ export default function NucleoSupervisionPanel({
       )}
       {snapshot && (
         <>
+          {lastSuccessfulRead && (
+            <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+              Última leitura autorizada: {new Date(lastSuccessfulRead).toLocaleString("pt-BR")} ·
+              consultas válidas nesta sessão: {authorizedReadCount}.
+              Para confirmar uma nova consulta, clique em Reavaliar e confira a atualização.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             {snapshot.workstreamCount} registros M3 · {snapshot.evidenceCount} evidências consultadas ·{" "}
             {snapshot.declaredDependencies} dependências explícitas · {snapshot.findings.length} alertas.
