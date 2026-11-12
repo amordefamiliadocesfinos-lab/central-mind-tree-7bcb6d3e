@@ -190,3 +190,25 @@ Documento de auditoria: não é autorização para promover estados ou importar 
 **Validação técnica:** sete checks GitHub Actions aprovados no head da PR #693, abrangendo PostgreSQL 17, regras e build frontend; merge efetivado. O ensaio anterior de transação M3 com rollback comprovou o gatilho no Core. **Importante:** a PR e a CI não comprovam automaticamente publicação nem clique real na UI. O cenário positivo de seleção, edição, Salvar, Atualizar e histórico permanece na homologação funcional de O-03.
 
 **Core oficial:** ficha `NUC-M3` atualizada para registrar a mudança de código e o gate de navegador ainda pendente, via trilha nativa. Readback: **22 eventos**, **49 evidências**, **3 referências**, **0 documentos**, **1 grant nucleo_manage ativo** e **0 frentes concluídas**. Não foram gravados dados sintéticos no Core. M0 segue delimitada à origem local de 82 páginas; M1/M2 seguem com fronteiras e ACL preservadas, e a revogação E2E da M5 continua adiada.
+
+## 17. Reconciliação de governança NUC — matriz de aceites individuais e escopo A/B (12/11/2026)
+
+**Natureza:** confrontação factual da `main` GitHub e do Core, sem modificar o mapa soberano. Este checkpoint atualiza a auditoria oficial existente; não equivale a aceite formal da Camada Mestre, não promove estado e não reabre auditorias técnicas já concluídas.
+
+| Frente | Evidências M4 no Core | Entrega técnica comprovada | Portão formal/funcional ainda aberto |
+|---|---:|---|---|
+| NUC-M0 | 2 | Snapshot de **uma** origem local, 82 páginas, 8 áreas, SHA-256 preservado; exportador somente localStorage do navegador corrente | Delimitação de outras origens e decisão de alcance do inventário; não afirmar inventário global |
+| NUC-M1 | 7 | Schema/RLS/imutabilidade, migrations e testes CI; zero documentos importados | Acesso positivo a documento só após fonte elegível e decisão explícita de importação; migração documental não autorizada |
+| NUC-M2 | 4 | Três fontes Drive privadas com metadata-only, RLS positivo/negativo controlado; PR #696 adicionou reconsulta, contador e falha segura com CI e build aprovados | Homologação visual do botão Atualizar referências na Biblioteca publicada e da autorização correspondente; não abrir conteúdo privado ou promover autoridade |
+| NUC-M3 | 9 | Árvore/Kanban, histórico M3, ensaio SQL UPDATE→readback→evento→rollback; PR #693 confirma gravação e auditoria antes de mensagem de sucesso, com CI aprovada | Teste funcional real Salvar→Atualizar→histórico **adiado expressamente pelo proprietário**; nenhuma dependência fictícia |
+| NUC-M4 | 20 | Treze PRs e sete CI vinculadas, imutabilidade e reconciliação controlada; parecer técnico restrito favorável | Aceite formal da Camada Mestre do limite snapshots/read-only/atribuição humana; não presumir integração bidirecional |
+| NUC-M5 | 7 | Supervisão read-only determinística, laboratório sintético, print autenticado com 49 evidências; testes RLS positivos/negativos e seis cenários de revogação em PostgreSQL isolado | Revogação E2E em navegador com conta de ensaio **adiada expressamente pelo proprietário**; não declarar homologação desse caso |
+
+**Reconciliação independente de integridade:** 7 frentes (NUC e M0–M5), **49 evidências e 49 identidades técnicas distintas**, 3 referências Drive privadas, 0 documentos importados, 0 dependências declaradas, 1 `nucleo_manage` ativo e 0 frentes concluídas. A consulta ao Core antes do ajuste de governança mostrou 23 eventos. Duas atualizações estritamente factuais no Core (nota e próxima ação de NUC; próxima ação M3 explicitando adiamento) geraram dois eventos auditáveis adicionais, com **25 eventos após o readback**, sem alterar `status`, `evidence_state`, políticas, grants, evidências, Drive ou documentos. A autoria de atualização administrativa técnica não deve ser confundida com aprovação humana formal.
+
+### Decisão A versus B — encaminhamento, sem presunção
+
+- **Entrega A — implantação técnica e governança restrita:** infraestrutura, catálogo metadata-only, acompanhamento visual, snapshots técnicos, supervisão read-only e preservação do legado; não requer importar as 82 páginas. O proprietário/Camada Mestre deverá confirmar expressamente se esse é o escopo de aceite que deseja encerrar, e avaliar os portões funcionais ainda abertos.
+- **Entrega B — migração documental integral:** depende de autorização própria para preparar staging, inventariar as origens adicionais, comparar 82/82 com conteúdo/tags/flags/hash, versionar edições e aprovar mudança de leitura. **Não autorizada, não iniciada e não implícita na entrega A.**
+
+**Próxima ação única de governança:** submeter a matriz acima à Camada Mestre para decisão sobre escopo de aceite técnico A e pendências individualizadas, mantendo M0–M5 em validação até pronunciamento humano. Não repetir CI consolidada, não exigir M5 E2E adiado para continuar outras frentes, não transformar decisão de adiar M3 em homologação, não iniciar migração B por inferência.
