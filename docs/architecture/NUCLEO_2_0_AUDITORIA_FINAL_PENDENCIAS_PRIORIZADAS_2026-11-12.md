@@ -212,3 +212,36 @@ Documento de auditoria: não é autorização para promover estados ou importar 
 - **Entrega B — migração documental integral:** depende de autorização própria para preparar staging, inventariar as origens adicionais, comparar 82/82 com conteúdo/tags/flags/hash, versionar edições e aprovar mudança de leitura. **Não autorizada, não iniciada e não implícita na entrega A.**
 
 **Próxima ação única de governança:** submeter a matriz acima à Camada Mestre para decisão sobre escopo de aceite técnico A e pendências individualizadas, mantendo M0–M5 em validação até pronunciamento humano. Não repetir CI consolidada, não exigir M5 E2E adiado para continuar outras frentes, não transformar decisão de adiar M3 em homologação, não iniciar migração B por inferência.
+
+## 18. Encaminhamento decisório para Camada Mestre — escopo A e aceites individuais (12/11/2026)
+
+**Tipo de registro:** parecer consolidado para deliberação, não homologação automática. O comando de continuidade do proprietário autoriza **preparar e encaminhar** a decisão baseada na matriz comprovada; não deve ser interpretado como aprovação tácita de importação documental, alteração de `status` ou dispensa de testes adiados. Referências: seções 1–17 desta auditoria e parecer M4 existente.
+
+### Proposta objetiva para decisão
+
+**Recomendação técnica do especialista: adotar A como delimitação da entrega de implantação inicial do Núcleo 2.0**, sujeita à ratificação pela Camada Mestre e aos aceites funcionais individualizados. A significa governança e acompanhamento já instalados **sem transferência de leitura ou importação** das 82 páginas. B, a migração documental integral, permanece uma frente condicionada de autorização própria (C-01 a C-05), e não deve ser presumida como pré-requisito técnico ou produto entregue em A.
+
+**Não é decisão final:** a Camada Mestre ainda deve deliberar se A corresponde ao compromisso de implantação do mapa soberano. Se o mapa exigir B para o encerramento total, registrar a divergência de escopo e conservar o estado em validação; não reclassificar B unilateralmente como posterior.
+
+### Matriz de decisão pronta para aceite humano
+
+| Frente | Julgamento técnico consolidado | Decisão ainda necessária | Posição recomendada no Core |
+|---|---|---|---|
+| M0 | Integridade e origem local única de 82 páginas comprovadas, mas alcance global não demonstrado | Aceitar preservação **limitada à origem identificada** ou exigir inventário adicional para encerrar M0 | Manter `em_validacao` até definição do limite |
+| M1 | Schema/RLS/imutabilidade instalados; 0 documentos importados | Aceitar M1 como **infraestrutura sem importação**, ou condicionar aceite funcional à etapa documental B | Manter `em_validacao`; não importar |
+| M2 | 3 fontes metadata-only, controle RLS e PR #696 aprovada em CI; UI pós-merge não homologada | Aceitar implementação técnica e manter teste de catálogo publicado separado | Manter `em_validacao`; sem promoção de autoridade |
+| M3 | Árvore/Kanban/histórico e PR #693 verificados; teste real de Salvar expressamente adiado | Registrar adiamento como pendência funcional explícita; não tratá-lo como teste aprovado | Manter `em_validacao` |
+| M4 | **Parecer favorável** à entrega restrita de snapshots, descoberta read-only e reconciliação humana; 20 provas próprias | Camada Mestre aceitar formalmente **a fronteira técnica restrita**, sem alegar sincronização ao vivo | Manter `em_validacao` até aceite expresso |
+| M5 | Supervisão determinística, 7 provas, leitura visual 49/49 e teste RLS isolado; E2E revogação adiado | Registrar aceite técnico restrito separadamente do teste de revogação E2E ainda não realizado | Manter `em_validacao` |
+
+### Condições mínimas da deliberação
+
+1. Declarar expressamente **A ou B** como critério de encerramento da implantação inicial; caso A seja escolhido, declarar B fora dessa entrega, mas preservado como trabalho condicionado e não cancelado.
+2. Para cada frente, registrar decisão humana **aceita / aceita com ressalvas / não aceita / postergada**, nome da autoridade, data, escopo e evidências; não deduzir a aprovação de commits ou automações.
+3. Reconhecer separadamente as postergações solicitadas pelo proprietário: **M3 Salvar em navegador** e **M5 revogação E2E**; ambas permanecem rastreáveis e não podem ser renomeadas como concluídas.
+4. Não criar documento no M1 nem alterar a origem das páginas locais; preservar a única concessão ativa `nucleo_manage`, as três referências privadas e a inalterabilidade de evidências M4.
+5. Somente após decisão expressa usar a auditoria M3 para eventual promoção individual de status; o evento de mudança precisa indicar a autoridade real, sem atribuir assinatura humana a `actor_auth_uid=null`.
+
+**Readback anterior à deliberação:** 7 registros de frente, 49 evidências = 49 identidades distintas, 25 eventos, 3 referências privadas, 0 documentos, 0 dependências explícitas, 1 concessão administrativa ativa; NUC `em_andamento`, M0–M5 `em_validacao`. O registro da proposta neste GitHub **não modifica esses dados**.
+
+**Encaminhamento:** Camada Mestre deve deliberar sobre a recomendação A, especialmente o aceite formal restrito de M4 e as ressalvas das demais frentes. Até lá, o resultado deste especialista é **pacote decisório pronto**, e não implantação encerrada.
