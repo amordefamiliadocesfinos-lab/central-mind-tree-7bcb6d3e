@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,12 @@ const confidenceLabels = {
 };
 
 /** V1.2: descoberta orientada, sem escrita em outras frentes ou cópia documental. */
-export default function NucleoOperationalAtlas() {
+interface Props {
+  workstreams: DevelopmentWorkstream[];
+  onSelectWorkstream: (id: string) => void;
+}
+
+export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream }: Props) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
@@ -29,6 +35,8 @@ export default function NucleoOperationalAtlas() {
       [item.name, item.domain, item.id].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [search]);
   const selected = MODULES_V12.find(item => item.id === selectedId) ?? null;
+  const crmRoot = workstreams.find(item => item.code === "CRM" && item.kind === "modulo");
+  const crmFronts = crmRoot ? workstreams.filter(item => item.parent_id === crmRoot.id) : [];
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||
@@ -133,6 +141,20 @@ export default function NucleoOperationalAtlas() {
           </div>
           {selected.id==="CRM" ? (
             <>
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
+                <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real.</p>
+                {crmFronts.length ? crmFronts.map(front => (
+                  <div key={front.id} className="rounded-md border p-3 flex flex-wrap justify-between items-start gap-3">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-medium text-sm">{front.code} · {front.title}</p>
+                      <p className="text-xs text-muted-foreground">{front.status.replaceAll("_", " ")} · {front.evidence_state.replaceAll("_", " ")} · {front.specialist || "Especialista não informado"}</p>
+                      <p className="text-xs">Próxima ação: {front.next_action || "Não registrada"}</p>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(front.id)}>Abrir frente na Central</Button>
+                  </div>
+                )) : <p className="text-xs text-muted-foreground">Nenhuma frente CRM vinculada ao Core foi encontrada nesta sessão.</p>}
+              </div>
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold">Mapa de telas comprovadas no repositório</h4>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
