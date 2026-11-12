@@ -365,36 +365,6 @@ export function HealthWorkoutInteractiveTimerF19({
     );
   }, [activeExercise, orderedExercises, setsByExercise]);
 
-  const plannedNextExercise =
-    orderedExercises.find(
-      (item) =>
-        item.id === plannedNextExerciseId &&
-        isExecutable(item) &&
-        performedCount(item.id) < plannedMax(item),
-    ) ?? null;
-
-  useEffect(() => {
-    if (!activeRest) {
-      setPlannedNextExerciseId(null);
-      return;
-    }
-
-    if (plannedNextExercise) return;
-
-    if (activeExercise && performedCount(activeExercise.id) < plannedMax(activeExercise)) {
-      setPlannedNextExerciseId(activeExercise.id);
-      return;
-    }
-
-    setPlannedNextExerciseId(nextDifferentExercise?.id ?? null);
-  }, [
-    activeRest?.id,
-    activeExercise?.id,
-    nextDifferentExercise?.id,
-    plannedNextExercise?.id,
-    setsByExercise,
-  ]);
-
   const exercisePlanSummary = (exercise: WorkoutExercise | null) => {
     if (!exercise) return "Sem outro exercício pendente.";
 
@@ -448,6 +418,39 @@ export function HealthWorkoutInteractiveTimerF19({
     timer.activeInterval?.interval_type === "work"
       ? timer.activeInterval
       : null;
+
+  const plannedNextExercise =
+    orderedExercises.find(
+      (item) =>
+        item.id === plannedNextExerciseId &&
+        isExecutable(item) &&
+        performedCount(item.id) < plannedMax(item),
+    ) ?? null;
+
+  useEffect(() => {
+    if (!activeRest) {
+      setPlannedNextExerciseId(null);
+      return;
+    }
+
+    if (plannedNextExercise) return;
+
+    if (
+      activeExercise &&
+      performedCount(activeExercise.id) < plannedMax(activeExercise)
+    ) {
+      setPlannedNextExerciseId(activeExercise.id);
+      return;
+    }
+
+    setPlannedNextExerciseId(nextDifferentExercise?.id ?? null);
+  }, [
+    activeRest?.id,
+    activeExercise?.id,
+    nextDifferentExercise?.id,
+    plannedNextExercise?.id,
+    setsByExercise,
+  ]);
 
   const activeSets = activeExercise
     ? setsByExercise.get(activeExercise.id) ?? []
