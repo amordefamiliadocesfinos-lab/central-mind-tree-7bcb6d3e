@@ -1,0 +1,101 @@
+# Núcleo 2.0 — Auditoria final de pendências: obrigatórias, condicionais e posteriores
+
+**Data:** 12/11/2026  
+**Autoridade:** Camada Mestre; MAPA MESTRE NÚCLEO 2.0 V1.0 — ESCOPO CONGELADO.  
+**Escopo desta auditoria:** Núcleo existente, macrofrentes NUC-M0 a NUC-M5. Sem alterar código funcional, status, migrations, permissões, páginas ou dados.  
+**Base de evidências:** leitura do Core oficial em 12/11/2026, contratos e relatórios versionados na `main`, GitHub Actions/PRs já aprovados e capturas do sistema publicado fornecidas ao especialista.
+
+## 1. Linha de base oficial e ressalvas
+
+| Recurso | Estado confirmado no Core |
+|---|---|
+| Macro-registros M3 | 7 (NUC e NUC-M0…NUC-M5) |
+| Estados | NUC `em_andamento`, M0…M5 `em_validacao`; nenhum `concluido` |
+| Evidências técnicas M4 | 42, atribuídas a M0:2, M1:7, M2:4, M3:9, M4:20; **M5:0 evidências M4 vinculadas** |
+| Eventos históricos M3 | 13 |
+| Dependências M3 explícitas | 0 |
+| Referências M2 | 3, todas privadas, só metadados, sem conteúdo importado |
+| Autoridade das três referências | 1 histórica, 1 não classificada, 1 pendente de homologação |
+| Documentos M1, revisões e lotes de importação | **0 / 0 / 0** |
+| Concessões ativas `nucleo_manage` | 1, sem concessão automática |
+| Snapshot M0 | 82 páginas e SHA-256 `83fc9795454568efdccfcf32746d684d5ff9890267273bfb1236012c49c09438` validados para **uma origem específica**, não para todos os navegadores ou a base documental geral |
+
+Migrations do Núcleo registradas no Core em `supabase_migrations.schema_migrations`: `20261111193600`, `20261111193601`, `20261111210000`, `20261111222000`, `20261111232500`, `20261111234500`. RLS nas oito tabelas `nucleo_*` presente.
+
+**Atenção de reconciliação:** a nota da ficha M3 ainda diz “homologação visual positiva pendente”, embora capturas posteriores da interface publicada comprovem árvore, Kanban, edição e evidências; trata-se de **registro documental desatualizado**, não de prova de falha. A ficha M5 ainda cita tarefas parcialmente executadas (Reavaliar e teste RLS isolado), necessitando atualização de evidência após o aceite final. Não atualizar fichas automaticamente por esta auditoria.
+
+## 2. Definir o que significa “implantação concluída”
+
+Duas modalidades de aceite distintas; não misturá-las:
+
+**A — Encerramento da implantação técnica/governança do Núcleo V1.0:** M0 preserva origem e delimita o inventário; M1 instala banco/segurança sem importação; M2 oferece referências controladas; M3 opera árvore/Kanban/histórico; M4 fornece evidências técnicas rastreáveis; M5 apresenta supervisão determinística read-only. Acesso e fluxos mínimos homologados. **Pode ser encerrado sem importar as 82 páginas**, desde que o proprietário/Camada Mestre registre expressamente que *migração documental compartilhada e mudança da fonte de leitura ficam fora desta entrega*.
+
+**B — Encerramento da implantação documental compartilhada integral:** além de A, exige decisão formal de importação, inventário reconciliado das origens, staging, verificação 82/82 por ID/corpo/tags/datas/flags/hashes, reversibilidade, nova política de edição/versionamento compartilhado, leitura centralizada e homologação de não perda. **Ainda não entregue nem autorizada**. Não declarar B completo só porque o schema M1 está vazio e aplicado.
+
+Se a autoridade considerar B parte obrigatória do mapa V1.0, o fechamento geral permanece dependente de B. Esta auditoria **não modifica o escopo soberano**; apenas separa critérios e propõe uma decisão explícita.
+
+## 3. Pendências obrigatórias para o encerramento técnico A
+
+| ID | Frente | Critério objetivo remanescente | Evidência de aceite necessária |
+|---|---|---|---|
+| O-01 | M0 | Delimitar formalmente a abrangência do inventário: uma origem com 82 páginas vs outras origens locais/Drive/ZIPs. Preservar a cópia já validada e registrar fontes não verificadas como tais | Inventário de origem e declaração de alcance; não inventar ausência de outras origens |
+| O-02 | M1/M2 | Homologar acesso **positivo** autenticado aos documentos/referências permitidos e **negativo** sem concessão, sem copiar conteúdo Drive ou criar novo grant automático. Conferir leitura, separação de perfis e ACL original | Evidência de navegação/consulta sob identidade permitida e teste de negação; RLS SQL já comprovada não substitui a interface |
+| O-03 | M3 | Executar e registrar roteiro funcional mínimo real: selecionar frente, editar campo permitido, salvar, reler, conferir linha do tempo/auditoria e dependência somente quando explicitamente autorizada; não forçar criação de vínculo artificial | Log/capturas da navegação e comparação antes/depois, com uso de dados não sensíveis e sem alterar mapa indevidamente |
+| O-04 | M4 | Deliberar aceite de entrega técnica **restrita a snapshots/CI, descoberta e reconciliação controlada**, com proveniência e ausência de escrita automática. Atualizar classificação da frente apenas após decisão humana | Parecer de fechamento assinado/registrado pela Camada Mestre, mencionando expressamente os limites |
+| O-05 | M5 | Consolidar prova de Reavaliar no navegador (contador antes/depois já visto), rastreabilidade, laboratório sintético e revogação. Revogação SQL/RLS em PostgreSQL 17 isolado **aprovada 6/6**, e proteção de resposta assíncrona testada; falta E2E com conta de ensaio **se exigido pelo aceite de sessão real** | Relatório com distinção entre PostgreSQL isolado e sessão Supabase Auth; se E2E for obrigatório, usar identidade isolada, nunca revogar a única concessão produtiva |
+| O-06 | NUC/governança | Atualizar notas/ações desatualizadas, conciliar evidências de PR/CI posteriores (M5 tem zero provas técnicas vinculadas na tabela M4), validar aceites individualizados e registrar evento de encerramento de cada frente | Lista de aceites com responsável, fontes e decisão por frente; somente então marcar `concluido` |
+
+**Sequência enxuta:** O-02/O-03 podem compartilhar **uma sessão funcional autorizada**; O-04 usa fatos já comprovados, sem reexecutar toda CI; O-05 usa os testes já executados e um E2E apenas se a Camada Mestre exigir; O-01 não exige presumir exaustividade, mas sim reconhecer explicitamente a abrangência. O-06 é registro final, não uma nova frente de desenvolvimento.
+
+## 4. Pendências condicionais — obrigatórias SOMENTE para encerramento integral B
+
+| ID | Frente | Trabalho e condição |
+|---|---|---|
+| C-01 | M0/M1 | Autorizar expressamente a importação e definir patrimônio elegível. Nenhuma importação deve ocorrer com a base V1.2 ainda pendente de homologação e o acervo global sem reconciliação |
+| C-02 | M1 | Pré-importação: staging e lote identificado, contagem 82/82 da origem local aprovada, origem/hash/checksum e correspondência integral de dados e marcadores; rollback lógico, sem remover `localStorage` |
+| C-03 | M1/M3 | Implementar e homologar controle de edição/versionamento compartilhado antes de mudar a fonte oficial de leitura. O contrato M1 atual é **append-only**, sem UPDATE via cliente |
+| C-04 | M1/M2 | Autorizar e validar mudança progressiva de leitura para documentos centrais, preservando original e permissões Drive; comprovar sem perda, duplicação, exposição ou promoção de autoridade |
+| C-05 | M0/M2 | Classificação ampliada da base documental, reconciliação de versões e ACL por documento, não apenas pelo ZIP administrativo; especialmente a base V1.2 provisória |
+
+**Portão de decisão obrigatório:** a Camada Mestre precisa definir se o compromisso final da implantação é A ou B. Sem essa decisão, não homologar “tudo concluído” e não antecipar importação.
+
+## 5. Posteriores — NÃO bloquear A nem inventar implementação
+
+| ID | Evolução posterior | Justificativa |
+|---|---|---|
+| P-01 | Sincronização GitHub/Supabase ao vivo, webhook, ingestão bidirecional | M4 aprovada como snapshots, revisão humana e fontes rastreáveis, sem sincronização contínua |
+| P-02 | Cobertura exaustiva de todo histórico de GitHub e todas as migrations | Descoberta M4 é explicitamente limitada/paginada; não requisito de conclusão da versão atual |
+| P-03 | IA generativa/agente autônomo que escreve no Core, cria PRs ou concede privilégios | M5 V1 é deliberadamente determinística e read-only; novos fluxos exigem contrato, aprovação e risco próprio |
+| P-04 | Conceder `nucleo_manage` a outras pessoas por conveniência | Princípio de menor privilégio; não faz parte da implantação, e concessão automática é proibida |
+| P-05 | Monitoramento instantâneo de revogações enquanto aba fica aberta sem interação | Modelo atual valida em Reavaliar/troca de autenticação/retorno de aba; funcionalidade extra deve ser contratada separadamente |
+| P-06 | Importar toda a base V1.2, anexos privados, ZIPs e planilhas automaticamente | Fonte explicitamente `pendente_homologacao`; não promover autoridade ou replicar dados sem classificação |
+| P-07 | Nova auditoria visual extensa de toda tela que já passou por homologação | Repetição sem novo achado não melhora aceite; usar provas e casos de regressão existentes |
+| P-08 | Criar módulos paralelos, reconstruir Núcleo, alterar arquitetura M0–M5 | Fora do mapa congelado e contrário à preservação do sistema existente |
+
+## 6. Plano de encerramento sem redundância
+
+**Pacote A1 — Conciliação e testes funcionais mínimos:** O-01 + O-02 + O-03. Aprovador verifica que origem limitada está explicitada, ACL positiva/negativa e histórico persistem.
+
+**Pacote A2 — Aceite técnico/governança:** O-04 + O-05. Juntar provas existentes (PRs, CI, capturas, ensaio RLS PostgreSQL 17) e executar só o teste E2E de conta de ensaio se formalmente exigido no contrato de aceite.
+
+**Pacote A3 — Fechamento:** O-06, confrontar cada critério de aceite, evidência e status, registrar pendências posteriores e encaminhar à Camada Mestre; sem transição automática por conclusão de CI.
+
+**Pacote B — Apenas se explicitamente definido no escopo final:** C-01…C-05, com autorização documental separada, rastreio 82/82, importação gradual e leitura central homologada.
+
+## 7. Regras inegociáveis
+
+- Proteger o snapshot das 82 páginas e eventuais outras origens; nunca confundir cópia íntegra de uma origem com inventário global.
+- Não converter as 3 referências privadas Drive em documentos nem aprovar a Base V1.2 implicitamente.
+- Não concluir frente por sucesso de CI; não alterar status/decisões sem humano.
+- Não conceder nova capacidade nem revogar a concessão administrativa produtiva para fazer teste.
+- Não trocar leitura do `localStorage` prematuramente; não deletar schema nem zerar histórico.
+- Não usar construtor visual Lovable; código via GitHub, Core por mecanismos autorizados.
+
+## 8. Parecer conclusivo
+
+**Implantação técnica essencial: avançada e comprovada, porém pendente dos portões O-01…O-06 e de homologação formal.**  
+**Implantação documental compartilhada: não concluída; nenhum lote/documento/revisão foi importado e a fonte atual não foi substituída.**  
+**Grande risco de falso encerramento:** confundir instalação de tabelas e 42 evidências técnicas com migração de patrimônio e aprovação documental.  
+**Grande risco de atraso artificial:** exigir IA autônoma, sincronização bidirecional ou repetir CI já homologada como condição da implantação técnica V1.0.
+
+Documento de auditoria: não é autorização para promover estados ou importar conteúdo.
