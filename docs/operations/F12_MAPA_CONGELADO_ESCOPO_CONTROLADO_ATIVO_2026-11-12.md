@@ -34,3 +34,9 @@ Tornar o processo automático da conta Shopee Adão — captura, registro no Cor
 
 ## Critério para eventual encerramento (não atingido)
 Somente após as quatro frentes terem seus critérios de aceite provados, com escala medida, integridade validada e decisão expressa do proprietário. **Congelamento do mapa NÃO significa encerramento do desenvolvimento.**
+
+
+## Checkpoint incremental — F12.3, 12/11/2026 (sem alterar o escopo)
+**F12.3 INICIADA EM CÓDIGO, NÃO HOMOLOGADA.** PR #647 introduz `services/integration-hub/src/shopee-adao-resumable-discovery.mjs` e testes de 100 pedidos **sintéticos**, somente leitura e fora de qualquer rota ativa. O teste cobre dez páginas em cinco fatias de até duas páginas com janela temporal congelada, identidade Adão, cursores validados, máximo de 100 pedidos e rejeição de estado inválido. Testes Node22 Hub/contêiner e Core/Postgres aprovados; TypeScript geral permanece falhando no módulo Saúde sem ligação com F12. Não houve chamadas de envio, escrita de pedidos, migration, deploy ou mudança de Scheduler nesta PR.
+
+**Próximos recortes dentro da mesma F12.3:** (1) definir contrato durável Core para checkpoint/fencing e controle contra execução concorrente, preservando claims por pedido; (2) integrar leituras resumíveis com writer existente sem falsos reprocessamentos; (3) ensaiar 100 pedidos simulados end-to-end e medir latência, chamadas e falhas; (4) observar rollout Adão 10/30/100 apenas com evidência de segurança e condições reais. Não afirmar capacidade real de 100 pedidos/dia por causa do teste de leitura.
