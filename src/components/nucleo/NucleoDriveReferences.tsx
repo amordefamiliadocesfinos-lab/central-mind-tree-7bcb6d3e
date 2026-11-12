@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Search, ExternalLink, Database } from "lucide-react";
+import { Search, ExternalLink, Database, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export default function NucleoDriveReferences() {
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,8 +53,11 @@ export default function NucleoDriveReferences() {
     if (!authorized) return;
     let cancelled = false;
     setBusy(true);
+    setUnavailable(false);
+    setItems([]); // Não manter catálogo antigo como se fosse uma consulta atual.
     const client = supabase as unknown as SupabaseClient<NucleoRefsDatabase>;
     (async () => {
+      try {
       // Busca remota somente em metadados; nenhum conteúdo do Drive é carregado.
       let query = client.from(M2_TABLE)
         .select("id,provider,provider_file_id,source_name,source_mime_type,source_parent_id,source_modified_at,source_checksum_sha256,source_access_class,authority_state,reference_state,provenance_note,content_imported,created_at,recorded_by_auth_uid", { count: "exact" })
@@ -67,9 +71,16 @@ export default function NucleoDriveReferences() {
       setItems(error ? [] : (data ?? []) as NucleoSourceReference[]);
       setTotal(error ? 0 : count ?? 0);
       setBusy(false);
+      } catch {
+        if (cancelled) return;
+        setUnavailable(true);
+        setItems([]);
+        setTotal(0);
+        setBusy(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, [authorized, page, search]);
+  }, [authorized, page, search, reloadKey]);
 
   const pageCount = useMemo(() => Math.ceil(total / PAGE_SIZE), [total]);
   if (!authorized) return null;
@@ -80,6 +91,10 @@ export default function NucleoDriveReferences() {
         <Database className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-sm font-semibold">Referências externas — Google Drive</h2>
         <Badge variant="secondary" className="text-[10px]">Restrito</Badge>
+        <Button type="button" variant="outline" size="sm" className="ml-auto"
+          disabled={busy} onClick={() => setReloadKey(key => key + 1)}>
+          <RefreshCw className="w-3 h-3 mr-1" aria-hidden="true" /> Atualizar referências
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">
         Catálogo de metadados sob governança. A referência não comprova vigência ou homologação;
@@ -103,6 +118,7 @@ export default function NucleoDriveReferences() {
         <p role="status" className="text-xs text-muted-foreground">Nenhuma referência disponível nesta consulta.</p>
       ) : (
         <div className="space-y-2">
+          <p className="text-xs text-muted-foreground" role="status">{total} referência(s) disponível(is) nesta consulta autorizada.</p>
           {items.map((item) => {
             const url = safeDriveUrl(item.provider_file_id);
             return (
