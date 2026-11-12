@@ -29,7 +29,7 @@ test('F12.3: native Bridge rejects foreign account before dispatch and bad lease
       assert.ok(body.action.startsWith('shopee.adao_f12.'));
       if(body.action.endsWith('acquire')||body.action.endsWith('resume'))
         assert.notEqual(body.channel_account_id,'b4027369-5abf-4ac1-ab24-862334fae892');
-      else assert.equal(body.lease_id,'00000000-0000-0000-0000-000000000000');
+      else assert.equal(body.lease_id,'00000000-0000-1000-8000-000000000000');
       return bridge(new Request(url,init));
     },
   });
