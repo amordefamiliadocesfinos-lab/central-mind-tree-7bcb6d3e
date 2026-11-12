@@ -13,6 +13,8 @@ on:
       - "scripts/nucleo-m4-discover-github.test.cjs"
       - "scripts/nucleo-m4-assignment-review.cjs"
       - "scripts/nucleo-m4-assignment-review.test.cjs"
+      - "scripts/nucleo-m4-prioritize-review.cjs"
+      - "scripts/nucleo-m4-prioritize-review.test.cjs"
       - ".github/workflows/nucleo-m4-github-refresh.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/lib/nucleo/development.types.ts"
@@ -72,4 +74,5 @@ jobs:
       - run: node scripts/nucleo-m4-reconcile-review.test.cjs
       - run: node scripts/nucleo-m4-discover-github.test.cjs
       - run: node scripts/nucleo-m4-assignment-review.test.cjs
+      - run: node scripts/nucleo-m4-prioritize-review.test.cjs
       - run: npm run build
