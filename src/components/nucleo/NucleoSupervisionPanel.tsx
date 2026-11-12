@@ -23,28 +23,39 @@ export default function NucleoSupervisionPanel({
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [permissionConfirmed, setPermissionConfirmed] = useState(false);
+  const frontsVersion = workstreams.map(w => `${w.id}:${w.updated_at}`).join("|");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(false);
     setLoaded(false);
+    setPermissionConfirmed(false);
     setEvidence([]);
     void (async () => {
       // Usa RLS da identidade atual, sem função privilegiada e sem escrever.
-      const result = await client.from("nucleo_development_evidence")
-        .select("*").order("recorded_at", { ascending: false }).limit(MAX_EVIDENCE);
+      const [result, frontCheck] = await Promise.all([
+        client.from("nucleo_development_evidence")
+          .select("*").order("recorded_at", { ascending: false }).limit(MAX_EVIDENCE),
+        client.from("nucleo_development_workstreams").select("id").limit(500),
+      ]);
       if (cancelled) return;
-      setLoadError(!!result.error);
-      setEvidence(result.error ? [] : result.data ?? []);
-      setLoaded(!result.error);
+      const granted = !frontCheck.error && workstreams.length > 0 &&
+        (frontCheck.data?.length ?? 0) >= workstreams.length &&
+        workstreams.every(w => frontCheck.data?.some(row => row.id === w.id));
+      const failed = !!result.error || !granted;
+      setLoadError(failed);
+      setPermissionConfirmed(granted);
+      setEvidence(failed ? [] : result.data ?? []);
+      setLoaded(!failed);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [reloadKey]);
+  }, [reloadKey, frontsVersion]);
 
   // Não produzir alertas de ausência com leitura parcial, erro ou ausência de frentes M3.
-  const complete = loaded && !loadError && evidence.length < MAX_EVIDENCE && workstreams.length > 0;
+  const complete = loaded && permissionConfirmed && !loadError && evidence.length < MAX_EVIDENCE && workstreams.length > 0;
   const snapshot = useMemo(
     () => complete ? inspectNucleoSupervision(workstreams, evidence, dependencies) : null,
     [complete, workstreams, evidence, dependencies],
@@ -68,7 +79,7 @@ export default function NucleoSupervisionPanel({
       </div>
       {loading && <p className="text-xs text-muted-foreground" role="status">Consultando evidências autorizadas…</p>}
       {loadError && <p className="text-xs text-destructive" role="alert">
-        Não foi possível consultar as evidências. Nenhum alerta foi inferido.
+        Não foi possível confirmar a leitura autorizada da M3/M4. Nenhum alerta foi inferido.
       </p>}
       {!loading && !loadError && evidence.length >= MAX_EVIDENCE && (
         <p className="text-xs text-destructive" role="alert">
