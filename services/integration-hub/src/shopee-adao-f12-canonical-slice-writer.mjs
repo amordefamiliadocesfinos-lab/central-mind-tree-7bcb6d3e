@@ -58,7 +58,8 @@ export function createAdaoF12CanonicalSliceWriter({
     for(const sn of ids){
       // No automatic retry: uncertain writer response quarantines this stage
       // until a later explicit reconciliation path is reviewed.
-      if (!Number.isFinite(now()) || now()-began>=MAX_WORK_MS)
+      const sampledNow=now();
+      if (!Number.isFinite(sampledNow) || sampledNow-began>=MAX_WORK_MS)
         return {ok:false,code:'f12_writer_budget_exhausted',processed:written+alreadyRegistered};
       let result;
       try {
