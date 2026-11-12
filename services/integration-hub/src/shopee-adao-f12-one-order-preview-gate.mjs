@@ -25,7 +25,16 @@ export function createAdaoF12OneOrderPreviewGate({previewOrder,now=Date.now}={})
       ||readRequest?.pageSize!==F12_3_SCOPE.pageSize
       ||!Array.isArray(livePage.order_sns)
       ||livePage.order_sns.length>F12_3_SCOPE.pageSize
-      ||livePage.more===true
+      // The Shopee reader exposes both counts after validating get_order_detail.
+      // A missing or mismatched count must never become pilot evidence.
+      ||!Number.isSafeInteger(livePage.listed_count)
+      ||!Number.isSafeInteger(livePage.detailed_count)
+      ||livePage.listed_count<0
+      ||livePage.listed_count>F12_3_SCOPE.pageSize
+      ||livePage.detailed_count!==livePage.listed_count
+      ||livePage.order_sns.length>livePage.detailed_count
+      // Explicit end-of-pagination proof; undefined is not equivalent to false.
+      ||livePage.more!==false
       ||livePage.order_sns.some(sn=>typeof sn!=='string'||!ORDER_RE.test(sn))
       ||new Set(livePage.order_sns).size!==livePage.order_sns.length)
       return {ok:false,code:'f12_live_page_unverified'};
