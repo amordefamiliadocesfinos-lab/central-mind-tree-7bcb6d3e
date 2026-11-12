@@ -16,6 +16,10 @@ const BASELINE = [
   { code: "NUC-M1", kind: "workflow_run", id: 43094643388 },
   { code: "NUC-M3", kind: "workflow_run", id: 43103257248 },
   { code: "NUC-M3", kind: "workflow_run", id: 43108556183 },
+  { code: "NUC-M4", kind: "pull_request", id: 622 },
+  { code: "NUC-M4", kind: "pull_request", id: 624 },
+  { code: "NUC-M4", kind: "pull_request", id: 626 },
+  { code: "NUC-M4", kind: "workflow_run", id: 43115167528 },
 ];
 
 function assertIdentity(value, expected) {
