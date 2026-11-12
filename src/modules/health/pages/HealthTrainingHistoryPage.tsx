@@ -77,6 +77,14 @@ function formatDuration(seconds: number | null | undefined) {
   return `${minutes}min`;
 }
 
+function formatSeriesClock(seconds: number | null | undefined) {
+  if (seconds == null) return "—";
+  const safe = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
 function HistoricalSetEditor({
   set,
   saving,
@@ -112,11 +120,17 @@ function HistoricalSetEditor({
     return (
       <div className="grid grid-cols-[34px_1fr_40px] items-center gap-2 rounded-lg bg-muted/35 px-3 py-2 text-sm">
         <span className="font-semibold">#{set.set_number}</span>
-        <span>
-          {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps ·
-          RIR {set.rir ?? "—"}
-          {set.rest_seconds != null ? ` · ${set.rest_seconds}s` : ""}
-        </span>
+        <div className="min-w-0">
+          <p>
+            {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps ·
+            RIR {set.rir ?? "—"}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Execução {formatSeriesClock(set.work_seconds)}
+            {" · "}
+            Descanso após {formatSeriesClock(set.rest_seconds)}
+          </p>
+        </div>
         <Button
           size="icon"
           variant="ghost"
@@ -185,6 +199,11 @@ function HistoricalSetEditor({
           />
         </Field>
       </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        O tempo de execução é medido pelo cronômetro e permanece preservado.
+        O campo de descanso acima representa o descanso após esta série.
+      </p>
 
       <Button
         className="min-h-11 w-full"

@@ -19,6 +19,14 @@ function numberOrNull(value: string): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
+
+function formatSetClock(seconds: number | null | undefined) {
+  if (seconds == null) return "—";
+  const safe = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
 function EditablePerformedSetRow({
   set,
   saving,
@@ -33,6 +41,8 @@ function EditablePerformedSetRow({
     reps: number | null;
     rir: number | null;
     rest_seconds: number | null;
+    work_seconds: number | null;
+    rest_in_progress: boolean;
   };
   saving: boolean;
   locked: boolean;
@@ -64,11 +74,20 @@ function EditablePerformedSetRow({
     return (
       <div className="grid grid-cols-[34px_1fr_42px] items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
         <span className="font-semibold">#{set.set_number}</span>
-        <span className="min-w-0">
-          {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps · RIR{" "}
-          {set.rir ?? "—"}
-          {set.rest_seconds != null ? " · " + set.rest_seconds + "s" : ""}
-        </span>
+        <div className="min-w-0">
+          <p>
+            {set.load_value ?? "—"} {set.load_unit} · {set.reps ?? "—"} reps · RIR{" "}
+            {set.rir ?? "—"}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Execução {formatSetClock(set.work_seconds)}
+            {" · "}
+            Descanso após{" "}
+            {set.rest_in_progress
+              ? "em andamento"
+              : formatSetClock(set.rest_seconds)}
+          </p>
+        </div>
         <Button
           size="icon"
           variant="ghost"
@@ -175,6 +194,8 @@ function WorkoutExerciseCard({
     reps: number | null;
     rir: number | null;
     rest_seconds: number | null;
+    work_seconds: number | null;
+    rest_in_progress: boolean;
   }>;
   saving: boolean;
   exerciseOptions: Array<{ id: string; name: string }>;
@@ -467,6 +488,22 @@ export function HealthWorkoutPage() {
                 reps: set.reps,
                 rir: set.rir,
                 rest_seconds: set.rest_seconds,
+                work_seconds:
+                  timer.intervals
+                    .filter(
+                      (interval) =>
+                        interval.workout_set_id === set.id &&
+                        interval.interval_type === "work" &&
+                        interval.status === "completed",
+                    )
+                    .slice(-1)[0]?.actual_seconds ?? null,
+                rest_in_progress: timer.intervals.some(
+                  (interval) =>
+                    interval.workout_set_id === set.id &&
+                    interval.interval_type === "rest" &&
+                    (interval.status === "running" ||
+                      interval.status === "paused"),
+                ),
               }))}
               saving={workout.saving || timer.saving}
               manualActionsDisabled={
