@@ -245,3 +245,34 @@ Documento de auditoria: não é autorização para promover estados ou importar 
 **Readback anterior à deliberação:** 7 registros de frente, 49 evidências = 49 identidades distintas, 25 eventos, 3 referências privadas, 0 documentos, 0 dependências explícitas, 1 concessão administrativa ativa; NUC `em_andamento`, M0–M5 `em_validacao`. O registro da proposta neste GitHub **não modifica esses dados**.
 
 **Encaminhamento:** Camada Mestre deve deliberar sobre a recomendação A, especialmente o aceite formal restrito de M4 e as ressalvas das demais frentes. Até lá, o resultado deste especialista é **pacote decisório pronto**, e não implantação encerrada.
+
+## 19. Deliberação formal da Camada Mestre — Entrega A aceita com ressalvas (12/11/2026)
+
+**Estado decisório vigente (substitui as recomendações ainda abertas da seção 18 quanto à escolha A/B e aceite humano):** a Camada Mestre publicou sua deliberação formal no comentário [PR #699, comentário #6837285096](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/699#issuecomment-6837285096), após a PR #699 ter sido integrada no commit `14284cca4b12a6fbda312a04d22d40718c2be8d7`. Autoridade da decisão: **Camada Mestre — Painel Central**; data indicada no ato: **12/11/2026**. Esta seção é transcrição estruturada do alcance da decisão, e **não** representa nova aprovação pelo especialista nem assinatura presumida de outro usuário.
+
+### Decisão A/B
+
+- **Entrega A — implantação técnica e governança restrita: ACEITA COM RESSALVAS**, limitada às implementações comprovadas. O aceite não homologa todos os fluxos reais nem conclui integralmente o Núcleo 2.0.
+- **Entrega B — migração documental integral: PENDENTE, PRESERVADA e NÃO AUTORIZADA por esta deliberação**. Continua dentro do Mapa Mestre V1.0 para etapa futura, sem início de importação, substituição, exclusão ou troca definitiva da leitura das 82 páginas.
+
+### Decisões individuais vinculantes para governança
+
+| Frente | Decisão expressa da Camada Mestre | Ressalva / gate preservado |
+|---|---|---|
+| NUC-M0 | **Aceita com ressalvas** | A preservação comprovada cobre somente uma origem local: 82 páginas, 8 áreas e SHA verificado; patrimônio global não inventariado |
+| NUC-M1 | **Aceita com ressalvas** | Infraestrutura/schema/RLS/imutabilidade reconhecidos, sem importação e sem prova de leitura positiva de documento inexistente |
+| NUC-M2 | **Aceita com ressalvas** | Catálogo com 3 referências privadas metadata-only; interação visual de **Atualizar referências** ainda não homologada |
+| NUC-M3 | **Implementação aceita com ressalvas; homologação funcional postergada** | Teste real **editar → Salvar → Atualizar → Histórico** não realizado; não convertê-lo em teste aprovado |
+| NUC-M4 | **Aceite técnico restrito aprovado** | Apenas snapshots, descoberta read-only e atribuição/reconciliação humana; sem sincronização bidirecional, deploy ou migrations automáticas |
+| NUC-M5 | **Implementação técnica aceita com ressalvas; E2E de revogação postergado** | Supervisão somente leitura e 49 evidências visualizadas; revogação em sessão real de conta de ensaio não homologada |
+
+### Efeitos operacionais e limites
+
+1. **Distinguir aceite técnico de `status` operacional.** O aceite humano nesta seção não transforma automaticamente as fichas M0–M5 de `em_validacao` em `concluido`. NUC permanece `em_andamento` até procedimento próprio, com atribuição verdadeira de autoridade, observação e readback.
+2. **Preservar integralmente o patrimônio**: conteúdo, versões, tags, flags, hashes, `localStorage`, demais origens locais e 82 páginas originais. Não sobrescrever nem migrar dados por inferência.
+3. **Sem alterações de banco nesta incorporação:** nenhuma migration, RLS, grant, usuário, fonte Drive, conteúdo M1, evento, dependência, evidência ou `status` será alterado; a decisão é registrada **neste documento GitHub**, conforme ordem da Camada Mestre.
+4. **Continuar frentes independentes** sem exigir as homologações M3/M5 expressamente postergadas como condição de desenvolvimento. A M2 mantém validação visual ainda aberta. Repetir testes consolidados apenas por novo achado ou risco concreto.
+5. **Entrega B exige portão posterior específico**, com inventário das origens elegíveis, staging, reconciliação integral 82/82 (IDs, conteúdo, tags, datas, flags e checksums), reversibilidade e homologação de mudança de leitura. Nenhuma dessas ações foi aprovada no comentário.
+6. A decisão formal **corrige o estado decisório** descrito nos itens 8, 17 e 18, que são históricos e continuam preservados. A partir deste checkpoint, não se deve voltar a tratar o aceite restrito da M4 ou a escolha da Entrega A como ainda aguardando deliberação.
+
+**Resultado:** Entrega A tecnicamente aceita com ressalvas; M0–M5 individualmente avaliadas; entrega B preservada e pendente; implementação e desenvolvimento do Núcleo seguem abertos. Fonte de autoridade: comentário formal #6837285096, não CI, merge, agente automatizado ou alteração silenciosa no Supabase.
