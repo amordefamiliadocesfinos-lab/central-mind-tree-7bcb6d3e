@@ -341,8 +341,16 @@ export function HealthWorkoutPage() {
     }
   };
 
-  if (athleteLoading || catalogs.loading || workout.loading) {
-    return <div className="flex min-h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  if (
+    athleteLoading ||
+    catalogs.loading ||
+    (workout.loading && !workout.session)
+  ) {
+    return (
+      <div className="flex min-h-56 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   if (!workout.session) {
