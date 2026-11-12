@@ -430,8 +430,18 @@ export function HealthWorkoutInteractiveTimerF19({
     setLoadUnit(restSet.load_unit || "kg");
     setReps(restSet.reps == null ? "" : String(restSet.reps));
     setRir(restSet.rir == null ? "" : String(restSet.rir));
-    setResultSaved(false);
-  }, [activeRest?.id, restSet?.id]);
+
+    const persistedAfterRestStarted =
+      new Date(restSet.updated_at).getTime() >
+      new Date(activeRest.started_at).getTime();
+
+    setResultSaved(persistedAfterRestStarted);
+  }, [
+    activeRest?.id,
+    activeRest?.started_at,
+    restSet?.id,
+    restSet?.updated_at,
+  ]);
 
   const restTarget = activeRest?.target_seconds ?? null;
   const restReached =
