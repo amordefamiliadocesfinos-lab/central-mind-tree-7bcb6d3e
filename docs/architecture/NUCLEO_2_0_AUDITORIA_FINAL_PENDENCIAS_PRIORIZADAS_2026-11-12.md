@@ -276,3 +276,37 @@ Documento de auditoria: não é autorização para promover estados ou importar 
 6. A decisão formal **corrige o estado decisório** descrito nos itens 8, 17 e 18, que são históricos e continuam preservados. A partir deste checkpoint, não se deve voltar a tratar o aceite restrito da M4 ou a escolha da Entrega A como ainda aguardando deliberação.
 
 **Resultado:** Entrega A tecnicamente aceita com ressalvas; M0–M5 individualmente avaliadas; entrega B preservada e pendente; implementação e desenvolvimento do Núcleo seguem abertos. Fonte de autoridade: comentário formal #6837285096, não CI, merge, agente automatizado ou alteração silenciosa no Supabase.
+
+## 20. Ativação do Mapa Mestre V1.2 — Conhecimento operacional, especialistas e experiência visual (12/11/2026)
+
+**Nova autoridade de escopo:** `MAPA_MESTRE_NUCLEO_2_0_V1_2_CONHECIMENTO_OPERACIONAL_VISUAL_CONGELADO_2026-11-12`, transmitido pela Camada Mestre com o `COMANDO_ESPECIALISTA_NUCLEO_2_0_EVOLUCAO_V1_2_MODULOS_METODOS_UX_2026-11-12`. V1.2 herda integralmente V1.0 e V1.1, acrescenta as Fichas Vivas FM-01–FM-10, especialista funcional persistente, manuais operacionais e CA-13–CA-22, sem criar Núcleo paralelo/M6. O arquivo original da determinação continua fonte externa; este registro incorpora o alcance **na auditoria canônica existente**, sem substituí-lo ou inventar outra autoridade.
+
+**Três entregas distintas:** A = base técnica **aceita com ressalvas** conforme comentário da Camada Mestre na PR #699; A+ = acompanhamento do Painel inteiro e entendimento operacional real por humano/IA, **ainda não entregue**; B = migração documental integral **não autorizada**, permanece pendente no mapa. Manter os testes de Salvar M3 e revogação E2E M5 adiados, sem reinterpretá-los como aprovados.
+
+### Confronto V1.2 versus estado aplicado
+
+| Exigência | Linha de base conferida | Lacuna/ação segura |
+|---|---|---|
+| Visão de todos os módulos (CA-01/02/11/22) | O Core oficial tinha somente 7 registros: NUC e M0–M5, 49 evidências internas | Inventariar módulos reais com grau de cobertura, sem inventar frentes ou status; cadastro parametrizável e vínculos persistentes ainda não entregues |
+| Conhecimento operacional e especialista (CA-13/14/17) | Rotas CRM/Financeiro/Operações/Captura/Rotina/Saúde/Digital/Assistente identificáveis em `src/App.tsx`; componentes CRM identificáveis no GitHub | Piloto CRM com ficha progressiva e ações verificadas por código; método/ecossistema vigente e transferência formal ainda requerem fonte e classificação |
+| Interface em três níveis (CA-19/20) | M3 possui árvore, Kanban e ficha de frente focada nas sete macrofrentes NUC | Incorporar à mesma Central uma visão de módulos e a operação/prova CRM; validar acessibilidade, responsividade e teste real, **não presumir homologação por build** |
+| Escrita estruturada, readback e histórico (CA-03/04/21) | M3 possui tabela e gatilhos auditáveis, PR #693 adicionou readback; UI de inventário externo ainda não persistida | Modelo relacional mínimo do conhecimento e vínculos de especialistas a desenvolver com RLS/testes, sem modificar grants transversais |
+| Documentos e evidências (CA-05/06/07/08/09/18) | 3 referências privadas metadata-only, 0 documentos importados, 49 evidências técnicas únicas | Ligar manual/ações às fontes por URL/commit e grau de prova; não copiar originais Drive nem promover vigência de arquivos |
+| Acompanhamento integral e compreensão por operador (CA-10/15/16) | Nenhum ensaio comprovou as duas jornadas A+ sobre módulos externos ao Núcleo | Validar gestor encontra CRM→frente→prova e operador encontra tarefa→controle→confirmação; ensaio humano e IA autorizada ainda pendentes |
+
+### Inventário inicial investigado (não equivale ao cadastro canônico no Core)
+
+- **CRM** — `/contatos`, `/contatos/inbox`, `/contatos/tarefas` sustentados por `src/App.tsx`, `src/pages/Contatos.tsx`, `src/pages/ContatosInbox.tsx`; controles `Registrar resultado`, `Confirmar resultado`, `Adiar atendimento` sustentados por `src/components/crm/AttendanceActionBar.tsx` e fila `CrmFocusQueue.tsx`. *Implementação observada no código*, não prova E2E da versão publicada.
+- **Financeiro, Operações, Captura Central, Rotina, Saúde/CCH, Digital e Assistente** — rotas conferidas no roteador. Fichas ainda são **inventário de presença por rota**, com finalidade detalhada, especialista, método, fluxo e status **não verificados** neste ciclo.
+- **Shopee** — incluída como escopo mínimo da investigação V1.2; nenhuma rota própria foi confirmada no primeiro levantamento; **não** afirmar inexistência da integração.
+- **Especialista CRM** — papel funcional declarado no trabalho herdado; identidade persistente, autoridade de método vigente, ecossistema e checkpoint específico ainda **não reconciliados documentalmente**. Não registrar nomes pessoais nem marcar método histórico como vigente por inferência.
+
+### Primeiro corte de código A+ — piloto vertical parcial CRM
+
+A PR associada a este checkpoint adiciona `src/lib/nucleo/operationalKnowledgeV12.ts` (inventário tipado e proveniência) e `src/components/nucleo/NucleoOperationalAtlas.tsx` (Visão Geral → Módulo → Operação/Prova, busca por módulos/ações, rótulos reais do CRM, pré-condições, efeitos, confirmações e limites). Montado **no componente M3 já existente**, sem substituir a árvore/Kanban e sem tocar no leitor das oito áreas do Núcleo. Os rótulos e a jornada são apresentados como conhecimento extraído do **código**; não são homologação de uso real nem autorização para IA executar ações.
+
+**Limites explícitos:** este corte de UI é inicialmente **read-only e com catálogo de fontes versionado no código**, não há módulo CRM criado no Core, frente externa vinculada no banco, CRUD completo de ficha viva, timeline própria por módulo, método vigente verificado ou importação de documentação. Assim, os gates CA-01–CA-22 não podem ser declarados atendidos integralmente. A evolução subsequente deverá implementar persistência mínima e vínculo a frente real depois de classificar fontes e contratos de especialista, sem supor progressos.
+
+**Integridade pré-execução:** Core com 7 registros de frentes NUC, 49 evidências, 25 eventos, 3 referências privadas, 0 documentos, 0 dependências e 1 `nucleo_manage` ativo. Nenhuma alteração de banco ou grant foi necessária neste primeiro corte. A Entrega A conserva integralmente seu aceite com ressalvas e a Entrega B permanece não autorizada.
+
+**Próximo ciclo estrito:** (1) checar build/CI e qualidade do piloto; (2) confrontar método/ecossistema CRM com arquivos vigentes e fontes verificáveis; (3) projetar mínima persistência relacional e readback para fichas e vínculos sem duplicar documentos; (4) realizar piloto real de gestor e operador; (5) expandir incrementos apenas após provas e correções de UX.
