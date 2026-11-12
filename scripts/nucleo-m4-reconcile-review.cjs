@@ -31,7 +31,7 @@ function sourceState(item) {
 }
 function snapshotValue(row) {
   const s = row.snapshot && typeof row.snapshot === "object" ? row.snapshot : {};
-  return s.merge_sha || s.source_sha || s.head_sha || s.conclusion || (s.merged === true ? "merged" : null);
+  return s.merge_commit_sha || s.merge_sha || s.source_sha || s.head_sha || s.conclusion || (s.merged === true ? "merged" : null);
 }
 function sourceValue(item) {
   return item.source_sha || item.source_status || null;
