@@ -243,6 +243,8 @@ export default function NucleoDevelopmentCenter() {
         <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
       </div>
 
+      <NucleoOperationalAtlas />
+
       {creating && (
         <Card className="p-4 space-y-3">
           <h3 className="font-semibold text-sm">Cadastrar módulo, frente ou subfrente</h3>
@@ -291,8 +293,6 @@ export default function NucleoDevelopmentCenter() {
       </div>
 
       {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
-
-      <NucleoOperationalAtlas />
 
       <Card className="p-3 space-y-2">
         <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
