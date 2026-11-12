@@ -116,3 +116,17 @@ Documento de auditoria: não é autorização para promover estados ou importar 
 ### Continuidade única
 
 **Próximo trabalho delimitado:** executar a rotina M4 de atribuição/reconciliação já existente para os sete PRs da M5 com preflight de unicidade, prova de origem por PR e readback independente; não acrescentar automaticamente runs de CI sem verificar correspondência. Em seguida fazer uma sessão funcional autorizada de M1/M2/M3/M5, com `Reavaliar` e prova positiva/negativa, mantendo a revogação real E2E isolada como portão específico. Atualizar O-06 somente após comprovação de cada vínculo; manter `em_validacao` até aceite humano.
+
+## 10. Execução da reconciliação M5 no Core — 12/11/2026 (checkpoint posterior à seção 9)
+
+**O-06, parcela de atribuição técnica das PRs M5: EXECUTADA E CONFERIDA.** Este registro posterior substitui a indicação de ausência de inserção na fotografia histórica da seção 9; os números antigos permanecem como linha de base datada, não como situação vigente.
+
+- **Autorização:** continuidade executiva expressa do proprietário para vinculação controlada das evidências M5; limitada a sete PRs mergeadas. Nenhuma concessão administrativa foi alterada.
+- **Preflight real:** NUC-M5 existente e em_validacao, total de 42 evidências, zero registros previamente existentes para PRs #655, #659, #662, #668, #672, #674 e #677. Foram conferidos individualmente GitHub merged=true, base=main, títulos e respectivos merge_commit_sha.
+- **Gravação:** transação administrativa atômica com guardas de baseline, pertencimento da frente e inexistência de IDs duplicados, na tabela append-only public.nucleo_development_evidence. Foram inseridas **7** provas source=github, kind=pull_request, observed_state=verificado, com URLs canônicas, SHAs de merge, instante de conferência e limite explícito de que PR mergeada não comprova deploy nem E2E.
+- **Pós-verificação independente:** consulta confirmou **49 evidências totais**, **7 evidências NUC-M5**, sete chaves e SHAs correspondentes ao GitHub, zero duplicações para os sete IDs; **13 eventos** históricos, **3 referências** Drive, **0 documentos** importados e estado NUC-M5=em_validacao inalterado.
+- **Patrimônio preservado:** sem alterações de RLS/grants, migrations, páginas, Drive, estados, eventos ou documentos; nenhuma conclusão automática. A tabela de evidências é append-only; não regravar os mesmos IDs por nova consulta.
+
+**O-06 permanece parcialmente aberto** para conciliar notas de aceite e critérios de outras frentes e registrar a decisão humana final. **O-05 permanece aberto** para homologação funcional apropriada em sessão autenticada e eventual E2E de revogação de conta de ensaio, nunca com a única concessão produtiva. As sete PRs têm prova de merge e atribuição na M5; não há nova declaração de publicação do frontend ou uso real.
+
+**Próxima ação única:** validar em navegador com sessão administrativa autorizada a visualização das sete novas provas na M5, Reavaliar, proveniência e comportamento de acesso permitido/negado; atualizar o checkpoint funcional somente com o que tiver observação direta. Não reexecutar a atribuição e não abrir importação documental.
