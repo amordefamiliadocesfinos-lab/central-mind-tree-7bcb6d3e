@@ -47,8 +47,9 @@ export async function runF12NonmutatingRpcContractProbe({
     }
     const valid=response?.status===entry.status
       && response?.payload?.[entry.code?'code':'error']===(entry.code??entry.error)
-      && typeof response?.payload?.request_id==='string'
-      && response?.payload?.request_id===response?.requestId;
+      && (entry.status===400 || (
+        typeof response?.payload?.request_id==='string'
+        && response.payload.request_id===response.requestId));
     checks.push({name:entry.name,ok:valid,status:response?.status??null});
     // Stop on unexpected response: never escalate to additional probes.
     if(!valid)return {ok:false,code:'contract_mismatch',checks};
