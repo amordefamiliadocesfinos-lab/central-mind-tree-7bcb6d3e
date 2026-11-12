@@ -42,10 +42,14 @@ function reconcile(manifest,existing) {
       manifest.repository !== ROOT || !Array.isArray(manifest.records)) throw new Error("Untrusted manifest contract");
   if (!Array.isArray(existing)) throw new Error("Existing evidence must be an array");
   const indexed = new Map();
+  const ownership = new Map();
   for (const row of existing) {
     if (!row || row.source !== "github" || !allowedKinds.has(row.kind) ||
         !allowedCodes.has(row.workstream_code || row.code) || !row.external_key) continue;
     const id = identity(row);
+    const globalId = [row.source,row.kind,String(row.external_key)].join("|");
+    if (!ownership.has(globalId)) ownership.set(globalId,new Set());
+    ownership.get(globalId).add(row.workstream_code || row.code);
     if (!indexed.has(id)) indexed.set(id, []);
     indexed.get(id).push(row);
   }
@@ -66,7 +70,11 @@ function reconcile(manifest,existing) {
     const rows=indexed.get(key)||[];
     const verified=sourceState(item) && item.verified_at_source === true;
     let classification,reason;
-    if (!verified) {
+    const otherOwner=(ownership.get([item.source,item.kind,String(item.external_key)].join("|"))||new Set());
+    const crossFront=Array.from(otherOwner).some(code=>code!==item.workstream_code);
+    if (crossFront) {
+      classification="blocked";reason="Referência já vinculada a outra frente; revisão humana obrigatória";
+    } else if (!verified) {
       classification="blocked";reason="Estado da fonte não aprovado: requer investigação, nunca gravar automaticamente";
     } else if (rows.length===0) {
       classification="new";reason="Referência nova; revisar vínculo com a frente e a evidência original";
