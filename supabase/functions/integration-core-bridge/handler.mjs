@@ -16,6 +16,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.adao_f12.acquire',
   'shopee.adao_f12.stage',
   'shopee.adao_f12.ack',
+  'shopee.adao_f12.resume',
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
   'shopee.oauth_connection.read',
@@ -97,7 +98,7 @@ function validateActionPayload(payload, nowMs) {
   if (payload.action.startsWith('shopee.adao_f12.')) {
     const adao = 'b4027369-5abf-4ac1-ab24-862334fae892';
     if (payload.channel_account_id !== adao) return false;
-    if (payload.action === 'shopee.adao_f12.acquire')
+    if (payload.action === 'shopee.adao_f12.acquire' || payload.action === 'shopee.adao_f12.resume')
       return hasExactKeys(payload,['action','channel_account_id']);
     if (payload.action === 'shopee.adao_f12.ack')
       return hasExactKeys(payload,['action','channel_account_id','lease_id','generation'])
