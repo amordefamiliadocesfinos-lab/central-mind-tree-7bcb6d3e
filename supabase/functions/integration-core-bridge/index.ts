@@ -432,7 +432,8 @@ async function executeAction(payload: Record<string, unknown>) {
     }
     if (['busy','staged_requires_ack','stale_lease',
         'stale_or_staged_requires_reconciliation','invalid_checkpoint',
-        'invalid_pages','account_refused'].includes(data.status)) {
+        'invalid_pages','account_refused','reconciliation_required',
+        'staged_pages_invalid'].includes(data.status)) {
       return { status: 409, body: { status: 'blocked', code: data.status } };
     }
     return { status: 503, body: { error: 'f12_checkpoint_unavailable' } };

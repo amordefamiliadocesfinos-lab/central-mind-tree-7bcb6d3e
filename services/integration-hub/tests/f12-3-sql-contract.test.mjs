@@ -13,6 +13,25 @@ const migrationUrl = new URL(
 // The contract tests run when checked out in the full GitHub workspace.
 const contractTest = existsSync(migrationUrl) ? test : test.skip;
 const migration = existsSync(migrationUrl) ? readFileSync(migrationUrl,'utf8') : '';
+const ackGateUrl = new URL(
+  '../../../supabase/migrations/20261112220000_shopee_adao_f12_ack_core_reconciliation.sql',
+  import.meta.url);
+const ackGateTest = existsSync(ackGateUrl) ? test : test.skip;
+const ackGateSql = existsSync(ackGateUrl) ? readFileSync(ackGateUrl,'utf8') : '';
+
+ackGateTest('F12.3 ACK must inspect exact canonical Adão orders before clearing staged pages', () => {
+  assert.match(ackGateSql, /channel_account_id=p_channel_account_id/);
+  assert.match(ackGateSql, /o\.channel='shopee'/);
+  assert.match(ackGateSql, /o\.sale_origin='shopee_open_platform'/);
+  assert.match(ackGateSql, /o\.deleted_at IS NULL/);
+  assert.match(ackGateSql, /count\(DISTINCT sn\)/);
+  assert.match(ackGateSql, /reconciled_count IS DISTINCT FROM v_staged_count/);
+  assert.match(ackGateSql, /'reconciliation_required'/);
+  assert.match(ackGateSql, /v\.lease_id IS DISTINCT FROM p_lease_id/);
+  assert.match(ackGateSql, /v\.generation IS DISTINCT FROM p_generation/);
+  assert.doesNotMatch(ackGateSql, /UPDATE\s+public\.(?:orders|order_items|stock_movements)/i);
+});
+
 const rpcFunctions = [
   'acquire_shopee_adao_f12_discovery',
   'stage_shopee_adao_f12_discovery',
