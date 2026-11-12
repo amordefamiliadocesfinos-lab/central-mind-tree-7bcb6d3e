@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
+import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
   const [level, setLevel] = useState<Level>("overview");
   const [actionSearch, setActionSearch] = useState("");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
+  const [knowledgeOpen,setKnowledgeOpen]=useState(false);
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
   // observadas e mantém entradas ainda não catalogadas como não verificadas.
   // Novos módulos M3 aparecem aqui sem alterações de código.
@@ -75,6 +77,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
     setLevel("module");
     setActionSearch("");
     setEvidenceFrontId(null);
+    setKnowledgeOpen(false);
   };
 
   return (
@@ -192,6 +195,13 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
           )}
+          {selectedRecord && <div className="space-y-2">
+            <Button type="button" variant="outline" size="sm" aria-expanded={knowledgeOpen}
+              onClick={()=>setKnowledgeOpen(open=>!open)}>
+              {knowledgeOpen?"Ocultar Ficha Viva":"Abrir Ficha Viva FM-01–FM-10"}
+            </Button>
+            {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id}/>}
+          </div>}
           {selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
