@@ -47,7 +47,7 @@ function scenario(name, setup, check) {
   checks++;
   console.log("PASS " + checks + " — " + name);
 }
-const kinds = result => result.findings.map(x=>x.kind);
+const kinds = result => Array.from(result.findings, x => x.kind);
 
 scenario("base limpa sem falsos alertas",{
   fronts:[front("NUC-M1"),front("NUC-M4")],
