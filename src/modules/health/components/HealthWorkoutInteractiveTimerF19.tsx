@@ -364,6 +364,30 @@ export function HealthWorkoutInteractiveTimerF19({
     );
   }, [activeExercise, orderedExercises, setsByExercise]);
 
+  const exercisePlanSummary = (exercise: WorkoutExercise | null) => {
+    if (!exercise) return "Sem outro exercício pendente.";
+
+    const reps =
+      exercise.planned_reps_min == null
+        ? "reps —"
+        : exercise.planned_reps_max != null &&
+            exercise.planned_reps_max !== exercise.planned_reps_min
+          ? `${exercise.planned_reps_min}–${exercise.planned_reps_max} reps`
+          : `${exercise.planned_reps_min} reps`;
+
+    const rir =
+      exercise.planned_rir_target == null
+        ? "RIR —"
+        : `RIR ${exercise.planned_rir_target}`;
+
+    const rest =
+      exercise.planned_rest_seconds == null
+        ? "descanso —"
+        : `descanso ${formatElapsed(exercise.planned_rest_seconds)}`;
+
+    return `${reps} · ${rir} · ${rest}`;
+  };
+
   const activeElapsed = timer.activeInterval
     ? intervalElapsed(timer.activeInterval, nowMs)
     : 0;
@@ -490,11 +514,6 @@ export function HealthWorkoutInteractiveTimerF19({
 
   const minSets = activeExercise ? plannedMin(activeExercise) : 0;
   const maxSets = activeExercise ? plannedMax(activeExercise) : 0;
-
-  const canDoOptionalExtra =
-    activeExercise != null &&
-    completedOnActive >= minSets &&
-    completedOnActive < maxSets;
 
   const saveRestResult = async () => {
     if (!activeRest?.workout_set_id) return;
@@ -1132,52 +1151,100 @@ export function HealthWorkoutInteractiveTimerF19({
                       </p>
                     </div>
 
-                    {completedOnActive < minSets ? (
-                      <Button
-                        className="min-h-12 w-full text-base"
-                        disabled={disabled || !resultSaved}
-                        onClick={() =>
-                          void run(
-                            "Próxima série iniciada.",
-                            () =>
-                              finishRestAfterSaved({
-                                startNextWork: true,
-                                nextWorkoutExerciseId: activeExercise.id,
-                              }),
-                          )
-                        }
-                      >
-                        <Play className="mr-2 h-5 w-5" />
-                        Iniciar próxima série
-                      </Button>
-                    ) : canDoOptionalExtra ? (
+                    <div className="space-y-3 rounded-xl border bg-muted/15 p-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Próxima ação
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Escolha durante o descanso. O cronômetro da próxima série
+                          só começa quando você tocar em uma opção.
+                        </p>
+                      </div>
+
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <Button
-                          className="min-h-12"
-                          disabled={disabled || !resultSaved}
-                          onClick={() =>
-                            void run(
-                              "Série extra iniciada.",
-                              () =>
-                                finishRestAfterSaved({
-                                  startNextWork: true,
-                                  nextWorkoutExerciseId: activeExercise.id,
-                                }),
-                            )
-                          }
-                        >
-                          <Play className="mr-2 h-5 w-5" />
-                          Fazer série extra
-                        </Button>
+                        {activeExercise &&
+                        completedOnActive < maxSets ? (
+                          <div className="rounded-lg border bg-background p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Continuar neste aparelho
+                            </p>
+                            <p className="mt-1 text-sm font-semibold">
+                              {exerciseNameById.get(activeExercise.exercise_id) ??
+                                "Exercício atual"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Próxima série {completedOnActive + 1} ·{" "}
+                              {exercisePlanSummary(activeExercise)}
+                            </p>
+                          </div>
+                        ) : null}
 
                         {nextDifferentExercise ? (
+                          <div className="rounded-lg border bg-background p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Próximo da grade
+                            </p>
+                            <p className="mt-1 text-sm font-semibold">
+                              {exerciseNameById.get(
+                                nextDifferentExercise.exercise_id,
+                              ) ?? "Próximo exercício"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Exercício {nextDifferentExercise.sequence_order} ·{" "}
+                              {exercisePlanSummary(nextDifferentExercise)}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div
+                        className={
+                          activeExercise &&
+                          completedOnActive < maxSets &&
+                          nextDifferentExercise
+                            ? "grid gap-2 sm:grid-cols-2"
+                            : "grid gap-2"
+                        }
+                      >
+                        {activeExercise &&
+                        completedOnActive < maxSets ? (
                           <Button
-                            variant="secondary"
                             className="min-h-12"
                             disabled={disabled || !resultSaved}
                             onClick={() =>
                               void run(
-                                "Próximo exercício iniciado.",
+                                completedOnActive < minSets
+                                  ? "Próxima série do mesmo exercício iniciada."
+                                  : "Série adicional do mesmo exercício iniciada.",
+                                () =>
+                                  finishRestAfterSaved({
+                                    startNextWork: true,
+                                    nextWorkoutExerciseId: activeExercise.id,
+                                  }),
+                              )
+                            }
+                          >
+                            <Play className="mr-2 h-5 w-5" />
+                            Continuar neste exercício
+                          </Button>
+                        ) : null}
+
+                        {nextDifferentExercise ? (
+                          <Button
+                            variant={
+                              activeExercise &&
+                              completedOnActive < maxSets
+                                ? "secondary"
+                                : "default"
+                            }
+                            className="min-h-12"
+                            disabled={disabled || !resultSaved}
+                            onClick={() =>
+                              void run(
+                                `Exercício ${exerciseNameById.get(
+                                  nextDifferentExercise.exercise_id,
+                                ) ?? "selecionado"} iniciado.`,
                                 () =>
                                   finishRestAfterSaved({
                                     startNextWork: true,
@@ -1188,11 +1255,14 @@ export function HealthWorkoutInteractiveTimerF19({
                             }
                           >
                             <Dumbbell className="mr-2 h-5 w-5" />
-                            Próximo exercício
+                            Ir para{" "}
+                            {exerciseNameById.get(
+                              nextDifferentExercise.exercise_id,
+                            ) ?? "próximo exercício"}
                           </Button>
-                        ) : (
+                        ) : activeExercise &&
+                          completedOnActive >= maxSets ? (
                           <Button
-                            variant="secondary"
                             className="min-h-12"
                             disabled={disabled || !resultSaved}
                             onClick={() =>
@@ -1202,44 +1272,20 @@ export function HealthWorkoutInteractiveTimerF19({
                               )
                             }
                           >
+                            <CheckCircle2 className="mr-2 h-5 w-5" />
                             Encerrar descanso
                           </Button>
-                        )}
+                        ) : null}
                       </div>
-                    ) : nextDifferentExercise ? (
-                      <Button
-                        className="min-h-12 w-full text-base"
-                        disabled={disabled || !resultSaved}
-                        onClick={() =>
-                          void run(
-                            "Próximo exercício iniciado.",
-                            () =>
-                              finishRestAfterSaved({
-                                startNextWork: true,
-                                nextWorkoutExerciseId:
-                                  nextDifferentExercise.id,
-                              }),
-                          )
-                        }
-                      >
-                        <Dumbbell className="mr-2 h-5 w-5" />
-                        Próximo exercício
-                      </Button>
-                    ) : (
-                      <Button
-                        className="min-h-12 w-full text-base"
-                        disabled={disabled || !resultSaved}
-                        onClick={() =>
-                          void run(
-                            "Descanso encerrado.",
-                            () => finishRestAfterSaved(),
-                          )
-                        }
-                      >
-                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                        Encerrar descanso
-                      </Button>
-                    )}
+
+                      {nextDifferentExercise ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          Quer outro exercício da grade? Use as setas acima para
+                          visualizar e escolher qualquer exercício disponível antes
+                          de iniciar.
+                        </p>
+                      ) : null}
+                    </div>
                   </>
                 ) : (
                   <>
