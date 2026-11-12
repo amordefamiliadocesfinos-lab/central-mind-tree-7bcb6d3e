@@ -8,6 +8,7 @@ import type {
   NucleoDevelopmentDatabase, DevelopmentDependency, DevelopmentWorkstream, TechnicalEvidence,
 } from "@/lib/nucleo/development.types";
 import { inspectNucleoSupervision } from "@/lib/nucleo/supervision";
+import { buildM5DemoSnapshot, DEMO_M5_CASES, type M5DemoKey } from "@/lib/nucleo/supervision-demo";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
@@ -19,6 +20,9 @@ export default function NucleoSupervisionPanel({
   dependencies: DevelopmentDependency[];
 }) {
   const [evidence, setEvidence] = useState<TechnicalEvidence[]>([]);
+  const [showDemo, setShowDemo] = useState(false);
+  const [demoCase, setDemoCase] = useState<M5DemoKey>("divergencia");
+  const demo = useMemo(() => showDemo ? buildM5DemoSnapshot(demoCase) : null, [showDemo, demoCase]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -126,6 +130,65 @@ export default function NucleoSupervisionPanel({
           </p>
         </>
       )}
+      <div className="border-t pt-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 className="text-xs font-semibold">Laboratório visual de alertas — demonstração</h4>
+            <p className="text-[11px] text-muted-foreground">
+              Cenários totalmente fictícios, executados apenas na memória desta página.
+            </p>
+          </div>
+          <Button type="button" size="sm" variant="outline"
+            aria-expanded={showDemo}
+            onClick={() => setShowDemo(current => !current)}>
+            {showDemo ? "Fechar demonstração" : "Abrir demonstração"}
+          </Button>
+        </div>
+        {showDemo && demo && (
+          <section aria-label="Demonstração sintética M5" className="rounded-md border border-dashed p-3 space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400" role="status">
+                SIMULAÇÃO — DADOS FICTÍCIOS — NÃO É ALERTA REAL
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Não utiliza nem substitui os dados da M3/M4. Não grava no Core e não modifica estados.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2" aria-label="Selecionar cenário sintético">
+              {DEMO_M5_CASES.map(scenario => (
+                <Button key={scenario.key} type="button" size="sm"
+                  variant={demoCase === scenario.key ? "default" : "outline"}
+                  aria-pressed={demoCase === scenario.key}
+                  onClick={() => setDemoCase(scenario.key)}>
+                  {scenario.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {DEMO_M5_CASES.find(item => item.key === demoCase)?.description}
+            </p>
+            <p className="text-xs font-medium">{demo.findings.length} alerta(s) sintético(s)</p>
+            {demo.findings.map(finding => (
+              <div key={finding.id} className="rounded-md border p-3 space-y-1">
+                <p className="flex items-center gap-2 text-xs font-semibold">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                  {finding.workstreamCode} — {finding.title}
+                </p>
+                <p className="text-xs text-muted-foreground">{finding.explanation}</p>
+                <p className="text-xs"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
+                {finding.evidenceIds.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    IDs fictícios: {finding.evidenceIds.join(", ")}
+                  </p>
+                )}
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground">
+              A demonstração é local e não representa diagnóstico do Painel Central.
+            </p>
+          </section>
+        )}
+      </div>
     </Card>
   );
 }
