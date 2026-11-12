@@ -396,6 +396,48 @@ async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
 
+
+  // F12.3: durable read-only discovery staging, not an order/ship writer.
+  // The RPCs enforce exact account, service role, generation and lease.
+  if (payload.action === 'shopee.adao_f12.acquire'
+      || payload.action === 'shopee.adao_f12.stage'
+      || payload.action === 'shopee.adao_f12.ack') {
+    const acquiring = payload.action === 'shopee.adao_f12.acquire';
+    const staging = payload.action === 'shopee.adao_f12.stage';
+    const rpc = acquiring ? 'acquire_shopee_adao_f12_discovery'
+      : staging ? 'stage_shopee_adao_f12_discovery'
+      : 'ack_shopee_adao_f12_discovery';
+    const params = {
+      p_channel_account_id: String(payload.channel_account_id),
+      ...(!acquiring ? {
+        p_lease_id: String(payload.lease_id),
+        p_generation: Number(payload.generation),
+      } : {}),
+      ...(staging ? {
+        p_checkpoint: payload.checkpoint,
+        p_pages: payload.pages,
+        p_completed: payload.completed,
+      } : {}),
+    };
+    const { data, error } = await core.rpc(rpc, params);
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return { status: 503, body: { error: 'f12_checkpoint_unavailable' } };
+    }
+    if ((acquiring && data.status === 'acquired'
+          && typeof data.lease_id === 'string' && Number.isSafeInteger(data.generation))
+        || (staging && data.status === 'staged'
+          && Number.isSafeInteger(data.generation))
+        || (!acquiring && !staging && data.status === 'acknowledged')) {
+      return { status: 200, body: { ...data, action: payload.action } };
+    }
+    if (['busy','staged_requires_ack','stale_lease',
+        'stale_or_staged_requires_reconciliation','invalid_checkpoint',
+        'invalid_pages','account_refused'].includes(data.status)) {
+      return { status: 409, body: { status: 'blocked', code: data.status } };
+    }
+    return { status: 503, body: { error: 'f12_checkpoint_unavailable' } };
+  }
+
   if (payload.action === 'shopee.cycle.acquire' || payload.action === 'shopee.cycle.finish') {
     return executeCycleAction(core, payload);
   }
