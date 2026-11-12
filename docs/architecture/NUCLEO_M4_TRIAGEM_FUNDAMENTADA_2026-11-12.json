@@ -1,0 +1,219 @@
+{
+  "schema_version": "nucleo-m4-triage-proposals-v1",
+  "date": "2026-11-12",
+  "repository": "amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e",
+  "read_only": true,
+  "automatic_core_write": false,
+  "requires_human_review": true,
+  "discovery_artifact_id": 13953406943,
+  "discovery_scope": {
+    "total": 600,
+    "known": 11,
+    "unassigned": 589,
+    "page_limit": 3,
+    "complete_history": false
+  },
+  "proposal_count": 18,
+  "proposals": [
+    {
+      "kind": "pull_request",
+      "external_key": "601",
+      "recommended_workstream": "NUC-M0",
+      "technical_basis": "Backup local integrado; snapshot específico, não conclusão global M0",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/601"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "610",
+      "recommended_workstream": "NUC-M1",
+      "technical_basis": "Pré-validador integrado; M1 não concluída integralmente",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/610"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "612",
+      "recommended_workstream": "NUC-M2",
+      "technical_basis": "Registro da catalogação Drive e RLS",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/612"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "615",
+      "recommended_workstream": "NUC-M3",
+      "technical_basis": "Macrofrentes, identidade elegível e concessão individual documentada",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/615"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "616",
+      "recommended_workstream": "NUC-M3",
+      "technical_basis": "Macrofrentes, identidade elegível e concessão individual documentada",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/616"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "617",
+      "recommended_workstream": "NUC-M3",
+      "technical_basis": "Macrofrentes, identidade elegível e concessão individual documentada",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/617"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "621",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/621"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "632",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/632"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "633",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/633"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "634",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/634"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "635",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/635"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "636",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Evidências técnicas, reconciliador, disparo read-only, proteção cruzada, auditoria e descoberta",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/636"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43237750950",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Primeira descoberta dinâmica real: 600 itens; 589 sem atribuição",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43237750950"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43237455679",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "CI da descoberta dinâmica PR #636",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43237455679"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43235270389",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Refresh real das 11 fontes",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43235270389"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43235861062",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Teste de vínculo cruzado da PR #634",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43235861062"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43234161489",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Testes do reconciliador PR #632",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43234161489"
+    },
+    {
+      "kind": "workflow_run",
+      "external_key": "43238665693",
+      "recommended_workstream": "NUC-M4",
+      "technical_basis": "Testes da atribuição manual PR #637",
+      "classification": "proposal_for_review",
+      "requires_approval": true,
+      "reference_url": "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43238665693"
+    }
+  ],
+  "excluded_or_hold": [
+    {
+      "kind": "pull_request",
+      "external_key": "591",
+      "status": "closed_without_merge",
+      "reason": "Substituída; não tratar como entrega integrada"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "598",
+      "status": "closed_without_merge",
+      "reason": "Substituída pela #601"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "594",
+      "status": "closed_without_merge",
+      "reason": "Contrato bloqueado, sem migration"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "606",
+      "status": "closed_without_merge",
+      "reason": "Proposta encerrada; outras entregas M1 foram integradas"
+    },
+    {
+      "kind": "pull_request",
+      "external_key": "604",
+      "status": "open",
+      "reason": "Auditoria M0 permanece aberta; não declarar concluída"
+    }
+  ],
+  "caveats": [
+    "Classificação fundamentada em PR/CI oficiais, não constitui autorização de importação.",
+    "Nenhum dos 589 candidatos foi automaticamente atribuído ou gravado no Core.",
+    "Os outros candidatos não analisados individualmente permanecem sem classificação.",
+    "Uma evidência vinculada não altera status M0-M5."
+  ]
+}
