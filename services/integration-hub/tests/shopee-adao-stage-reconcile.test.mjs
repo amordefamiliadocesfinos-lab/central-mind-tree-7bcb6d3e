@@ -71,3 +71,23 @@ test('F12.3: returned metrics never leak staged IDs, leases or checkpoint',async
   assert.ok(!report.includes(one.payload.lease_id));
   assert.ok(!report.includes('26111200000001'));
 });
+
+test('F12.3: two independent reconcilers compete for one staged lease; only one ACKs',async()=>{
+  let leaseOutstanding=false,acquisitions=0,acks=0;
+  const resume=async()=>{
+    if(leaseOutstanding) return {ok:false,status:409,payload:{status:'blocked',code:'busy'}};
+    leaseOutstanding=true;acquisitions++;
+    return one;
+  };
+  const acknowledge=async()=>{
+    acks++;
+    return {ok:true,payload:{status:'acknowledged'}};
+  };
+  const first=createAdaoF12StageReconciler({resume,acknowledge});
+  const second=createAdaoF12StageReconciler({resume,acknowledge});
+  const results=await Promise.all([first(),second()]);
+  assert.equal(results.filter(x=>x.ok).length,1);
+  assert.equal(results.filter(x=>!x.ok&&x.code==='stage_blocked').length,1);
+  assert.equal(acquisitions,1);
+  assert.equal(acks,1);
+});
