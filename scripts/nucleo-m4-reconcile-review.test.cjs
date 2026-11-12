@@ -48,10 +48,16 @@ assert.throws(()=>reconcile(manifest([{...prNew,workstream_code:"CRM"}]),base),/
 assert.throws(()=>reconcile(manifest([{...prNew,reference_url:"https://evil.example/"}]),base),/Invalid official URL/);
 assert.throws(()=>reconcile(manifest([{...prNew,reference_url:prNew.reference_url+"?redirect=x"}]),base),/Invalid official URL/);
 
+// Mesmo ID externo sob outra frente é bloqueado e jamais incluído como "new".
+const crossed=reconcile(manifest([{...prNew,workstream_code:"NUC-M2"}]),
+  [...base,{...prNew,observed_state:"verificado",snapshot:{merged:true,merge_commit_sha:"c".repeat(40)}}]);
+assert.equal(crossed.counters.blocked,1);
+assert.equal(crossed.requires_stop,true);
+
 // Manifesto não confiável.
 assert.throws(()=>reconcile({...manifest([pr]),read_only:false},base),/Untrusted manifest contract/);
 
 // Ausência do estado atual não é evidência de duplicata.
 assert.equal(reconcile(manifest([pr]),[]).counters.new,1);
 
-console.log("M4 reconcile: 10 cenários sintéticos PASS; nenhuma escrita no Core.");
+console.log("M4 reconcile: 11 cenários sintéticos PASS; nenhuma escrita no Core.");
