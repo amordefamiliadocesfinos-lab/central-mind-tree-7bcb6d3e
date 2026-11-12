@@ -88,10 +88,14 @@ BEGIN
       OR jsonb_typeof(p_checkpoint->'visited') IS DISTINCT FROM 'array'
       OR jsonb_typeof(p_checkpoint->'cursor') IS DISTINCT FROM 'string'
       OR COALESCE(length(p_checkpoint->>'cursor') BETWEEN 1 AND 2048,false)=false
-      OR jsonb_array_length(p_checkpoint->'visited') IS DISTINCT FROM (p_checkpoint->>'pages')::integer
+      OR CASE WHEN jsonb_typeof(p_checkpoint->'visited')='array' THEN
+        jsonb_array_length(p_checkpoint->'visited') IS DISTINCT FROM (p_checkpoint->>'pages')::integer
+        ELSE true END
       OR (p_checkpoint->'visited'->>-1) IS DISTINCT FROM p_checkpoint->>'cursor'
-      OR (SELECT count(*) FROM jsonb_array_elements_text(p_checkpoint->'visited')) IS DISTINCT FROM
-         (SELECT count(DISTINCT value) FROM jsonb_array_elements_text(p_checkpoint->'visited'))
+      OR CASE WHEN jsonb_typeof(p_checkpoint->'visited')='array' THEN
+        (SELECT count(*) FROM jsonb_array_elements_text(p_checkpoint->'visited')) IS DISTINCT FROM
+        (SELECT count(DISTINCT value) FROM jsonb_array_elements_text(p_checkpoint->'visited') AS v(value))
+        ELSE true END
     ))) THEN RETURN jsonb_build_object('status','invalid_checkpoint'); END IF;
   IF p_pages IS NULL OR jsonb_typeof(p_pages) IS DISTINCT FROM 'array'
      OR jsonb_array_length(p_pages) NOT BETWEEN 1 AND 2 THEN
@@ -106,7 +110,7 @@ BEGIN
       total_count:=total_count+1;
     END LOOP;
   END LOOP;
-  SELECT count(DISTINCT value) INTO distinct_count
+  SELECT count(DISTINCT item.value) INTO distinct_count
   FROM jsonb_array_elements(p_pages) AS page(value)
        CROSS JOIN LATERAL jsonb_array_elements_text(page.value) AS item(value);
   IF distinct_count IS DISTINCT FROM total_count THEN
