@@ -9,6 +9,8 @@ on:
       - "scripts/nucleo-m4-github-refresh.test.cjs"
       - "scripts/nucleo-m4-reconcile-review.cjs"
       - "scripts/nucleo-m4-reconcile-review.test.cjs"
+      - "scripts/nucleo-m4-discover-github.cjs"
+      - "scripts/nucleo-m4-discover-github.test.cjs"
       - ".github/workflows/nucleo-m4-github-refresh.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/lib/nucleo/development.types.ts"
@@ -66,4 +68,5 @@ jobs:
       - run: npm ci
       - run: node scripts/nucleo-m4-github-refresh.test.cjs
       - run: node scripts/nucleo-m4-reconcile-review.test.cjs
+      - run: node scripts/nucleo-m4-discover-github.test.cjs
       - run: npm run build
