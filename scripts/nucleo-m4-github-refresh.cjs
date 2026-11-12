@@ -98,4 +98,4 @@ async function main() {
 if (require.main === module) {
   main().catch(error => { console.error("M4 refresh failed:", error.message); process.exitCode = 1; });
 }
-module.exports = { buildManifest };
+module.exports = { buildManifest, BASELINE };
