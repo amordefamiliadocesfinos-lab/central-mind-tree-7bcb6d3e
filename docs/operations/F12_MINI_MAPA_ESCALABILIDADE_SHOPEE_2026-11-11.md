@@ -1,7 +1,7 @@
 # F12 — MINI MAPA: ESCALABILIDADE OPERACIONAL SHOPEE
 **Projeto:** Painel Central — Amor de Família
 **Data:** 11/11/2026
-**Situação:** execução paralela à F11, sem substituir seu critério de homologação da impressão
+**Situação:** **MAPA/ESCOPO CONGELADO EM 12/11/2026 — F12 ABERTA E EM DESENVOLVIMENTO**, paralela à F11, sem substituir seu critério de homologação da impressão
 **Fonte soberana:** docs/operations/MAPA_MESTRE_INTEGRACAO_SHOPEE_PAINEL_CENTRAL_V2.md
 
 ## Objetivo
@@ -41,7 +41,10 @@ Transformar o fluxo já comprovado da conta Shopee Adão — pedido → separaç
 ## Aceite macro
 Receber pedidos, organizar envios e recuperar etiquetas automaticamente em uma janela compatível com a operação, sem fila acumulada, sem duplicação e sem depender do Seller Center para operações elegíveis; o Seller Center continua contingência em caso real de falha externa.
 
-## Estado de execução
-- Mapa F12: estabelecido.
-- F12.1: em implantação no GitHub, homologação de produção pendente.
-- F12.2–F12.4: programadas; não concluídas.
+## Estado de execução — checkpoint ativo em 12/11/2026
+- **Mapa F12: CONGELADO; frente F12: ABERTA e em desenvolvimento.** Ver arquivo de controle `docs/operations/F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md`.
+- F12.1: Hub Adão 3+3 publicado; dois envios no mesmo ciclo comprovados e seis PDFs no Core; 3+3 máximo ainda não homologado.
+- F12.2: PRs #623 e #625 mergeadas; publicação da última F12.2 no Cloud Run não comprovada; prioridade global entre páginas pendente.
+- F12.3: pendente (100 pedidos/dia não homologados).
+- F12.4: pendente, condicionada às provas anteriores.
+- A interpretação de encerramento da PR #638 foi expressamente **retificada**, sem apagar histórico. A PR #639 da Central de Separação não altera a prioridade da F12.
