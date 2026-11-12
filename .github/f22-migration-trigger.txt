@@ -1,1 +1,0 @@
-generate health_f22_adaptive_training_maturity
