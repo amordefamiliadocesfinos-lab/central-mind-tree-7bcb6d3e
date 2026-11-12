@@ -8,6 +8,7 @@ on:
       - "scripts/nucleo-m4-github-refresh.cjs"
       - "scripts/nucleo-m4-reconcile-review.cjs"
       - "scripts/nucleo-m4-discover-github.cjs"
+      - "scripts/nucleo-m4-prioritize-review.cjs"
   schedule:
     - cron: "17 11 * * *"
 permissions:
@@ -32,6 +33,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           M4_DISCOVERY_OUTPUT: artifacts/nucleo-m4-discovery-unassigned.json
         run: node scripts/nucleo-m4-discover-github.cjs
+      - name: Prioritize discovery without assigning a workstream or connecting to Core
+        run: |
+          printf '[]\n' > artifacts/core-metadata-empty.json
+          node scripts/nucleo-m4-prioritize-review.cjs artifacts/nucleo-m4-discovery-unassigned.json artifacts/core-metadata-empty.json artifacts/nucleo-m4-prioritized-review.json
+          rm artifacts/core-metadata-empty.json
       - name: Read official GitHub references and build review manifest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,4 +49,5 @@ jobs:
           path: |
             artifacts/nucleo-m4-gh-refresh-manifest.json
             artifacts/nucleo-m4-discovery-unassigned.json
+            artifacts/nucleo-m4-prioritized-review.json
           retention-days: 7
