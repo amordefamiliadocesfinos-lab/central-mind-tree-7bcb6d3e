@@ -21,7 +21,7 @@ Cada alerta inclui frente, motivo, sugestão de próxima verificação e, quando
 ## Limites e falhas seguras
 
 - O componente só é montado dentro da Central M3 após verificação de `nucleo_manage` existente.
-- Se a consulta de evidências falhar, **não** transforma coleção vazia em diagnóstico; exibe erro e suspende inferências.
+- Se a consulta de evidências falhar **ou** a sessão deixar de conseguir reler as mesmas frentes M3 sob RLS (por exemplo, após revogação), **não** transforma coleção vazia em diagnóstico; exibe erro e suspende inferências.
 - Se a consulta atingir 500 registros (limite paginado), desabilita o relatório para evitar conclusões sobre resultados parciais.
 - O botão **Reavaliar** executa novo SELECT sob RLS; não busca GitHub em tempo real nem envia conteúdo a LLMs.
 - Não há INSERT/UPDATE/DELETE, edge function, webhook, cron, nova tabela, migration, grant ou uso do construtor Lovable.
