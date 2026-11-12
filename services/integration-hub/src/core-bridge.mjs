@@ -16,6 +16,9 @@ const MAX_INTAKE_RESPONSE_BYTES = 1024 * 1024;
 export const CORE_BRIDGE_ACTIONS = Object.freeze({
   CYCLE_ACQUIRE: 'shopee.cycle.acquire',
   CYCLE_FINISH: 'shopee.cycle.finish',
+  F12_ADAO_ACQUIRE: 'shopee.adao_f12.acquire',
+  F12_ADAO_STAGE: 'shopee.adao_f12.stage',
+  F12_ADAO_ACK: 'shopee.adao_f12.ack',
   HEALTH: 'health',
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
@@ -127,7 +130,8 @@ export async function callCoreBridgeAction({
     status = response.status;
     payload = await readJsonResponse(
       response,
-      [CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ, CORE_BRIDGE_ACTIONS.CYCLE_ACQUIRE].includes(action)
+      [CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ, CORE_BRIDGE_ACTIONS.CYCLE_ACQUIRE,
+        CORE_BRIDGE_ACTIONS.F12_ADAO_ACQUIRE].includes(action)
         ? MAX_INTAKE_RESPONSE_BYTES
         : MAX_RESPONSE_BYTES,
     );
@@ -284,3 +288,13 @@ export function readShopeeLogisticsTombstones(data, options = {}) {
   return callCoreBridgeAction({ ...options,
     action: CORE_BRIDGE_ACTIONS.SHOPEE_LOGISTICS_TOMBSTONES_READ, data });
 }
+
+
+// F12.3 staged discovery contract. Not wired to the production auto-intake
+// endpoint until durable reconciliation and deployment are separately verified.
+export const acquireAdaoF12Discovery = (data, options={}) =>
+  callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_ACQUIRE,data });
+export const stageAdaoF12Discovery = (data, options={}) =>
+  callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_STAGE,data });
+export const acknowledgeAdaoF12Discovery = (data, options={}) =>
+  callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_ACK,data });
