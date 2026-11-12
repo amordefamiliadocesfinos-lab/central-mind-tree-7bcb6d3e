@@ -58,7 +58,8 @@ async function main(){
  test("nova revogação não preserva evidência anterior",published===null);
  const component=fs.readFileSync("src/components/nucleo/NucleoSupervisionPanel.tsx","utf8");
  test("componente utiliza gate real",component.includes("createM5RequestGuard")&&component.includes("requestGuard.current.issue()"));
- test("cada etapa assíncrona verifica token", (component.match(/!requestGuard.current.isCurrent\(requestToken\)/g)||[]).length>=4);
+ test("cada etapa assíncrona verifica token", (component.match(/!requestGuard.current.isCurrent\(requestToken\)/g)||[]).length>=3);
+ test("falha tardia também exige token atual",()=>assert.ok(component.includes("!cancelled && requestGuard.current.isCurrent(requestToken)")));
  test("eventos de sessão e visibilidade invalidam token", (component.match(/requestGuard.current.invalidate\(\)/g)||[]).length>=3);
  test("RLS e grant seguem exigidos",component.includes("client.auth.getUser()")&&component.includes("app_admin_capabilities")&&component.includes('"nucleo_manage"'));
  test("não há mutação de dados da aplicação",!(/\.insert\(|\.update\(|\.delete\(|\.upsert\(/.test(component)));
