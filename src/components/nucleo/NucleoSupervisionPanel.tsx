@@ -8,6 +8,7 @@ import type {
   NucleoDevelopmentDatabase, DevelopmentDependency, DevelopmentWorkstream, TechnicalEvidence,
 } from "@/lib/nucleo/development.types";
 import { inspectNucleoSupervision } from "@/lib/nucleo/supervision";
+import { findNucleoFindingSources } from "@/lib/nucleo/supervision-provenance";
 import { buildM5DemoSnapshot, DEMO_M5_CASES, type M5DemoKey } from "@/lib/nucleo/supervision-demo";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
@@ -20,6 +21,8 @@ export default function NucleoSupervisionPanel({
   dependencies: DevelopmentDependency[];
 }) {
   const [evidence, setEvidence] = useState<TechnicalEvidence[]>([]);
+  const [latestFronts, setLatestFronts] = useState<DevelopmentWorkstream[]>([]);
+  const [latestDependencies, setLatestDependencies] = useState<DevelopmentDependency[]>([]);
   const [showDemo, setShowDemo] = useState(false);
   const [demoCase, setDemoCase] = useState<M5DemoKey>("divergencia");
   const demo = useMemo(() => showDemo ? buildM5DemoSnapshot(demoCase) : null, [showDemo, demoCase]);
@@ -37,32 +40,84 @@ export default function NucleoSupervisionPanel({
     setLoaded(false);
     setPermissionConfirmed(false);
     setEvidence([]);
+    setLatestFronts([]);
+    setLatestDependencies([]);
     void (async () => {
-      // Usa RLS da identidade atual, sem função privilegiada e sem escrever.
-      const [result, frontCheck] = await Promise.all([
+      // Reconfirm a real authenticated identity and a currently active explicit grant.
+      // No secret, service role or privileged function; every SELECT obeys RLS.
+      const identity = await client.auth.getUser();
+      if (cancelled) return;
+      const uid = identity.data.user?.id;
+      if (identity.error || !uid) {
+        setLoadError(true); setLoading(false); return;
+      }
+      const grant = await client.from("app_admin_capabilities")
+        .select("auth_user_id").eq("auth_user_id", uid)
+        .eq("capability", "nucleo_manage").eq("active", true)
+        .is("revoked_at", null).limit(2);
+      if (cancelled) return;
+      if (grant.error || grant.data?.length !== 1 || grant.data[0]?.auth_user_id !== uid) {
+        setLoadError(true); setLoading(false); return;
+      }
+      const [frontCheck, result, depCheck] = await Promise.all([
+        client.from("nucleo_development_workstreams")
+          .select("*").order("code").limit(500),
         client.from("nucleo_development_evidence")
           .select("*").order("recorded_at", { ascending: false }).limit(MAX_EVIDENCE),
-        client.from("nucleo_development_workstreams").select("id").limit(500),
+        client.from("nucleo_development_dependencies")
+          .select("*").limit(500),
       ]);
       if (cancelled) return;
-      const granted = !frontCheck.error && workstreams.length > 0 &&
-        (frontCheck.data?.length ?? 0) >= workstreams.length &&
-        workstreams.every(w => frontCheck.data?.some(row => row.id === w.id));
-      const failed = !!result.error || !granted;
-      setLoadError(failed);
-      setPermissionConfirmed(granted);
-      setEvidence(failed ? [] : result.data ?? []);
-      setLoaded(!failed);
+      const fronts = frontCheck.data ?? [];
+      const allowed = !frontCheck.error && !result.error && !depCheck.error &&
+        fronts.length > 0 && fronts.length < 500 &&
+        (result.data?.length ?? MAX_EVIDENCE) < MAX_EVIDENCE &&
+        (depCheck.data?.length ?? 500) < 500;
+      if (!allowed) {
+        setLoadError(true); setEvidence([]); setLatestFronts([]);
+        setLatestDependencies([]); setLoading(false); return;
+      }
+      // A fresh complete M3/M4 snapshot, not stale parent data, is used for findings.
+      setLatestFronts(fronts);
+      setLatestDependencies(depCheck.data ?? []);
+      setEvidence(result.data ?? []);
+      setPermissionConfirmed(true);
+      setLoaded(true);
       setLoading(false);
-    })();
+    })().catch(() => {
+      if (!cancelled) {
+        setLoadError(true); setLoaded(false); setPermissionConfirmed(false);
+        setEvidence([]); setLatestFronts([]); setLoading(false);
+      }
+    });
     return () => { cancelled = true; };
-  }, [reloadKey, frontsVersion]);
+  }, [reloadKey]);
 
-  // Não produzir alertas de ausência com leitura parcial, erro ou ausência de frentes M3.
-  const complete = loaded && permissionConfirmed && !loadError && evidence.length < MAX_EVIDENCE && workstreams.length > 0;
+  useEffect(() => {
+    const { data: authListener } = client.auth.onAuthStateChange(() => {
+      // Revoke visible report immediately; new SELECT must revalidate active grant.
+      setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
+      setReloadKey(key => key + 1);
+    });
+    const revalidateVisible = () => {
+      if (document.visibilityState === "visible") {
+        setLoaded(false); setPermissionConfirmed(false); setEvidence([]);
+        setReloadKey(key => key + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", revalidateVisible);
+    return () => {
+      authListener.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", revalidateVisible);
+    };
+  }, []);
+
+  // Never infer missing evidence from a failed, partial or revoked RLS read.
+  const complete = loaded && permissionConfirmed && !loadError &&
+    evidence.length < MAX_EVIDENCE && latestFronts.length > 0;
   const snapshot = useMemo(
-    () => complete ? inspectNucleoSupervision(workstreams, evidence, dependencies) : null,
-    [complete, workstreams, evidence, dependencies],
+    () => complete ? inspectNucleoSupervision(latestFronts, evidence, latestDependencies) : null,
+    [complete, latestFronts, evidence, latestDependencies],
   );
   return (
     <Card className="p-4 space-y-3" aria-label="Supervisão assistida M5">
@@ -83,14 +138,14 @@ export default function NucleoSupervisionPanel({
       </div>
       {loading && <p className="text-xs text-muted-foreground" role="status">Consultando evidências autorizadas…</p>}
       {loadError && <p className="text-xs text-destructive" role="alert">
-        Não foi possível confirmar a leitura autorizada da M3/M4. Nenhum alerta foi inferido.
+        A sessão ou a concessão nucleo_manage não pôde ser validada, ou a leitura ficou incompleta. Nenhum alerta foi inferido.
       </p>}
       {!loading && !loadError && evidence.length >= MAX_EVIDENCE && (
         <p className="text-xs text-destructive" role="alert">
           Limite de {MAX_EVIDENCE} evidências atingido. Relatório suspenso para evitar conclusões sobre dados parciais.
         </p>
       )}
-      {!loading && !loadError && workstreams.length === 0 && (
+      {!loading && !loadError && latestFronts.length === 0 && (
         <p className="text-xs text-muted-foreground">Nenhuma frente M3 disponível para análise.</p>
       )}
       {snapshot && (
@@ -118,9 +173,19 @@ export default function NucleoSupervisionPanel({
                 <p className="text-xs"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
                 {finding.evidenceIds.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">
-                    {finding.evidenceIds.length} evidência(s) associada(s). Consulte a ficha da frente e suas fontes originais.
+                    {finding.evidenceIds.length} evidência(s) associada(s), com origem verificável:
                   </p>
                 )}
+                {findNucleoFindingSources(finding, evidence).map(source => (
+                  <div key={source.id} className="text-[11px] text-muted-foreground space-y-0.5">
+                    <p>{source.source}/{source.kind} · {source.externalKey} · {source.title}</p>
+                    <p>Registro: {source.recordedAt} · conferência: {source.checkedAt ?? "não informada"}</p>
+                    {source.referenceUrl && (
+                      <a className="underline" href={source.referenceUrl}
+                        target="_blank" rel="noopener noreferrer">Abrir fonte original</a>
+                    )}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
