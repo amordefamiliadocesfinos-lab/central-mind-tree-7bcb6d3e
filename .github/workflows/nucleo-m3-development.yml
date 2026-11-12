@@ -6,6 +6,8 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "src/lib/nucleo/operationalKnowledgeV12.ts"
       - "src/pages/Nucleo.tsx"
   workflow_dispatch:
 permissions:
