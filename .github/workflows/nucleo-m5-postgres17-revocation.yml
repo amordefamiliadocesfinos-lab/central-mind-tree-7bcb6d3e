@@ -1,0 +1,39 @@
+name: Nucleo M5 - PostgreSQL 17 revocation sandbox
+on:
+  pull_request:
+    paths:
+      - "scripts/nucleo-m5-revocation-postgres17.sql"
+      - ".github/workflows/nucleo-m5-postgres17-revocation.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-rls-revocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: nucleo_m5_sandbox
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nucleo_m5_sandbox"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: local-test-only
+      PGDATABASE: nucleo_m5_sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated database and six RLS transition stages
+        run: |
+          test "$PGDATABASE" = "nucleo_m5_sandbox"
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-m5-revocation-postgres17.sql
