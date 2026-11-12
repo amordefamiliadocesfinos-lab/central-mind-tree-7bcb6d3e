@@ -9,6 +9,8 @@ on:
       - "scripts/nucleo-m5-alertas-homologacao.test.cjs"
       - "scripts/nucleo-m5-demo-visual.test.cjs"
       - "src/lib/nucleo/supervision-demo.ts"
+      - "src/lib/nucleo/supervision-provenance.ts"
+      - "scripts/nucleo-m5-provenance-access.test.cjs"
       - ".github/workflows/nucleo-m5-supervision.yml"
   workflow_dispatch:
 permissions:
@@ -30,5 +32,7 @@ jobs:
         run: node scripts/nucleo-m5-alertas-homologacao.test.cjs
       - name: Test M5 isolated visual demonstrations
         run: node scripts/nucleo-m5-demo-visual.test.cjs
+      - name: Test provenance and session-access gates
+        run: node scripts/nucleo-m5-provenance-access.test.cjs
       - name: Build full Panel Central
         run: npm run build
