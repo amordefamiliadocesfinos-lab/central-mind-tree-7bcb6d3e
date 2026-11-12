@@ -1,7 +1,15 @@
 \set ON_ERROR_STOP on
 -- Nucleo FM V1.2: laboratorio isolado, sem tocar no Core de producao.
-INSERT INTO public.app_admin_capabilities(auth_user_id,capability)
-VALUES('11111111-1111-4111-8111-111111111111','nucleo_manage');
+-- O teste M3 anterior revogou esta concessao sintética; reativar somente no ambiente descartável.
+UPDATE public.app_admin_capabilities SET active=true,revoked_at=NULL
+WHERE auth_user_id='11111111-1111-4111-8111-111111111111' AND capability='nucleo_manage';
+DO $preflight$
+BEGIN
+ IF (SELECT count(*) FROM public.app_admin_capabilities
+ WHERE auth_user_id='11111111-1111-4111-8111-111111111111'
+ AND capability='nucleo_manage' AND active) <> 1
+ THEN RAISE EXCEPTION 'FM synthetic capability preflight missing'; END IF;
+END $preflight$;
 
 SET ROLE authenticated;
 SET request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
