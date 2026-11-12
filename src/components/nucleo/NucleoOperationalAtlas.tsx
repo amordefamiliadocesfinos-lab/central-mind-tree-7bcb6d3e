@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
+import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -192,6 +193,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
           )}
+          {selectedRecord && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id}/>} 
           {selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
