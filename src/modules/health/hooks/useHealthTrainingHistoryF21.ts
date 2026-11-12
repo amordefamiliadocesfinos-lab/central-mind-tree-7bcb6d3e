@@ -39,6 +39,7 @@ export type HistoryWorkoutSetF21 = {
   reps: number | null;
   rir: number | null;
   rest_seconds: number | null;
+  work_seconds: number | null;
   completed_at: string | null;
 };
 
@@ -173,8 +174,12 @@ export function useHealthTrainingHistoryF21(
       ),
     ];
 
-    const [templatesResult, workoutExercisesResult, workoutSetsResult] =
-      await Promise.all([
+    const [
+      templatesResult,
+      workoutExercisesResult,
+      workoutSetsResult,
+      workoutIntervalsResult,
+    ] = await Promise.all([
         templateIds.length
           ? db
               .from("health_session_templates")
@@ -198,12 +203,24 @@ export function useHealthTrainingHistoryF21(
               .eq("status", "completed")
               .order("set_number", { ascending: true })
           : Promise.resolve({ data: [], error: null } as LooseOperationResult),
+        workoutIds.length
+          ? db
+              .from("health_workout_timer_intervals")
+              .select(
+                "id,session_id,workout_set_id,interval_type,status,actual_seconds,started_at",
+              )
+              .in("session_id", workoutIds)
+              .eq("interval_type", "work")
+              .eq("status", "completed")
+              .order("started_at", { ascending: true })
+          : Promise.resolve({ data: [], error: null } as LooseOperationResult),
       ]);
 
     const childError =
       templatesResult.error ??
       workoutExercisesResult.error ??
-      workoutSetsResult.error;
+      workoutSetsResult.error ??
+      workoutIntervalsResult.error;
 
     if (childError) {
       setAvailable(false);
@@ -251,6 +268,17 @@ export function useHealthTrainingHistoryF21(
       ),
     );
 
+    const workSecondsBySet = new Map<string, number>();
+    for (const raw of (workoutIntervalsResult.data ?? []) as Array<
+      Record<string, unknown>
+    >) {
+      if (raw.workout_set_id == null || raw.actual_seconds == null) continue;
+      workSecondsBySet.set(
+        String(raw.workout_set_id),
+        Number(raw.actual_seconds),
+      );
+    }
+
     const setsByExercise = new Map<string, HistoryWorkoutSetF21[]>();
     for (const raw of (workoutSetsResult.data ?? []) as Array<
       Record<string, unknown>
@@ -269,6 +297,7 @@ export function useHealthTrainingHistoryF21(
         rir: raw.rir == null ? null : Number(raw.rir),
         rest_seconds:
           raw.rest_seconds == null ? null : Number(raw.rest_seconds),
+        work_seconds: workSecondsBySet.get(String(raw.id)) ?? null,
         completed_at:
           raw.completed_at == null ? null : String(raw.completed_at),
       });
