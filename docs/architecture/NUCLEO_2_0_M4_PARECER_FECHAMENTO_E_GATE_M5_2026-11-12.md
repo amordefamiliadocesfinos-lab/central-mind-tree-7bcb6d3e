@@ -72,3 +72,17 @@ M5 significa **supervisão e IA do desenvolvimento**, não um agente com autoriz
 **Parecer do especialista:** recomendar fechamento **da entrega técnica inicial M4** como implementada, com reserva explícita de limites. Manter o registro M4 **em validação**, sem declarar `concluido` até deliberação de encerramento do escopo. Autorizar desenho M5 de supervisão *read-only* e rastreável, sem automações de alteração de dados. Preservar as pendências próprias de M0–M3 sem torná-las bloqueio artificial para o desenho de M5.
 
 Este documento não altera o mapa, não autoriza importação, não concede privilégios e não inicia a IA M5.
+
+## 7. Atualização de parecer técnico restrito — Especialista 02 (12/11/2026)
+
+**Decisão do especialista: PARECER TÉCNICO FAVORÁVEL AO ESCOPO RESTRITO M4**, sem equipará-lo a encerramento formal do macroestado `NUC-M4`. Esta é uma atualização do parecer existente, não uma arquitetura nem documento de aceite paralelo.
+
+**Fonte efetivamente conferida:** Core oficial do Painel Central e GitHub oficial. A tabela `public.nucleo_development_evidence` contém **49 identidades técnicas únicas**: **20 vinculadas à M4 (13 pull requests, 7 execuções CI)** e 7 vinculadas à M5. A migration `20261111234500` está no histórico aplicado do Core. A proteção append-only e o trigger de autoria estavam presentes. Amostra dirigida de origem: PRs #621, #626, #637, #641 e #643 com `merged=true`; runs #43115167528, #43234161489 e #43238665693 com `conclusion=success`. Os outros registros preservam seu histórico de conferência anterior; o teste amostral atual não deve ser descrito como reverificação integral de todas as fontes.
+
+**Cobertura aceita do ponto de vista técnico:** integração aditiva de evidências verificadas ao mapa M3 existente; RLS por `nucleo_manage`; snapshots versionados e revisão de proveniência; descoberta read-only e limitada; triagem, atribuição humana e conciliação com proteção contra duplicações; histórico imutável. A captura do proprietário e a leitura do Núcleo publicado já demonstraram a disponibilização das evidências na Central Visual.
+
+**Limites expressos:** nenhuma sincronização bidirecional em tempo real; sem webhook, ingestão contínua ou cobertura exaustiva de GitHub; nenhuma escrita automática por Actions, conclusão automática de frentes, acesso documental privado novo ou alteração de concessões. A validação E2E de revogação da M5 foi adiada pelo proprietário e não bloqueia a avaliação técnica restrita da M4.
+
+**Registro operacional efetuado:** notas de evidência e próxima ação da ficha `NUC-M4` atualizadas por mecanismo administrativo auditável para registrar este parecer favorável; o trigger M3 gerou mais um evento. Readback: **21 eventos**, **49 evidências**, **20 M4**, **0 documentos**, **1 grant `nucleo_manage` ativo**. Estado `em_validacao` e `evidence_state=comprovada` preservados. Sem alteração de status, código funcional, migrations, RLS, backup legado, Drive ou conteúdo histórico.
+
+**Portão de encerramento formal:** apresentar o presente parecer à Camada Mestre para decisão de aceite de escopo e eventual promoção de estado, conforme mapa soberano. A autorização para prosseguir com a frente não dispensa esse portão, e CI/merge não encerram automaticamente o Kanban. A continuidade nas frentes M0–M3 e M5 não fica travada pela formalização.
