@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBridgeHandler } from '../../../supabase/functions/integration-core-bridge/handler.mjs';
 import { CORE_BRIDGE_URL } from '../src/core-bridge.mjs';
-import { runF12SafeBridgeProbe } from '../scripts/f12-3-core-bridge-safe-smoke.mjs';
+import { runF12SafeBridgeProbe } from '../src/f12-3-core-bridge-safe-smoke.mjs';
 
 const secret='synthetic-private-hmac-secret-test-only';
 
