@@ -51,14 +51,13 @@ test('F12.3 uses existing canonical intake in strict one-order commit mode, then
   });
   assert.deepEqual(await writer({commit:true}),{
     ok:true,code:'f12_slice_canonically_reconciled',
-    processed:2,written:1,already_registered:1,completed:false,
+    processed:2,written:1,already_registered:1,verified_filtered_by_core:0,completed:false,
   });
   assert.deepEqual(events,['resume','intake','intake','ack']);
 });
 
 test('F12.3 missing canonical identity or blocked mapping prevents ACK',async()=>{
   for(const response of [
-    {ok:false,code:'expected_order_unavailable'},
     {ok:true,selected:1,results:[{orderSn:'26111200000001',status:'blocked'}]},
     {ok:true,selected:1,results:[{orderSn:'OTHER12345',status:'written'}]},
     {ok:true,selected:0,results:[]},
@@ -133,4 +132,41 @@ test('F12.3 bounded time and no identifier leaks in report',async()=>{
   assert.equal(writes,1);assert.equal(acks,0);
   assert.equal(JSON.stringify(report).includes(lease),false);
   assert.equal(JSON.stringify(report).includes('26111200000001'),false);
+});
+
+test('F12.3 filtered-existing result is not trusted; requires independent Core ACK',async()=>{
+  let acks=0;
+  const run=createAdaoF12CanonicalSliceWriter({
+    enabled:true,now:()=>1000,resume:async()=>resumed(),
+    intake:async p=>p.expectedOrderSn.endsWith('01')
+      ? {ok:false,code:'expected_order_unavailable'}
+      : intakeResponse(p.expectedOrderSn,'written'),
+    acknowledge:async()=>{
+      acks++;
+      return {ok:true,payload:{status:'acknowledged',reconciled:2}};
+    },
+  });
+  assert.deepEqual(await run({commit:true}),{
+    ok:true,code:'f12_slice_canonically_reconciled',processed:2,
+    written:1,already_registered:0,verified_filtered_by_core:1,completed:false,
+  });
+  assert.equal(acks,1);
+});
+
+test('F12.3 filtered-but-missing order cannot be confirmed by fabricated writer status',async()=>{
+  let acks=0;
+  const run=createAdaoF12CanonicalSliceWriter({
+    enabled:true,now:()=>1000,resume:async()=>resumed(),
+    intake:async p=>p.expectedOrderSn.endsWith('01')
+      ? {ok:false,code:'expected_order_unavailable'}
+      : intakeResponse(p.expectedOrderSn,'written'),
+    acknowledge:async()=>{
+      acks++;
+      return {ok:false,status:409,payload:{status:'blocked',code:'reconciliation_required'}};
+    },
+  });
+  assert.deepEqual(await run({commit:true}),{
+    ok:false,code:'f12_core_reconciliation_blocked',processed:2,
+  });
+  assert.equal(acks,1);
 });
