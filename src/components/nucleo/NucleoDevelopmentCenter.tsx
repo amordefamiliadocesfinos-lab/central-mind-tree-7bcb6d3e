@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
+import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -290,6 +291,8 @@ export default function NucleoDevelopmentCenter() {
       </div>
 
       {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
+
+      <NucleoOperationalAtlas />
 
       <Card className="p-3 space-y-2">
         <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
