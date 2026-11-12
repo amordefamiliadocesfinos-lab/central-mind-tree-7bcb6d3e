@@ -1,0 +1,25 @@
+name: tmp-f22-supabase-migration-generator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/f22-migration-trigger.txt
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.1.0
+      - name: Generate F22 migration filename only
+        run: |
+          set -euo pipefail
+          supabase --version
+          supabase migration new health_f22_adaptive_training_maturity
+          find supabase/migrations -maxdepth 1 -type f -name '*health_f22_adaptive_training_maturity.sql' -printf 'MIGRATION_FILE=%f\n'
