@@ -194,7 +194,29 @@ export default function NucleoDevelopmentCenter() {
       await refresh();
       return;
     }
-    toast.success("Atualização auditada.");
+    // Só confirmar sucesso quando o Core devolver o registro salvo E a trilha de auditoria.
+    // Se houver erro/concorrência na leitura, não prometer um histórico que não vimos.
+    const [readback, audit] = await Promise.all([
+      client.from("nucleo_development_workstreams")
+        .select("*").eq("id", selected.id).maybeSingle(),
+      client.from("nucleo_development_events")
+        .select("event_type,before_state,after_state")
+        .eq("workstream_id", selected.id)
+        .order("recorded_at", { ascending: false })
+        .limit(1).maybeSingle(),
+    ]);
+    const saved = readback.data as DevelopmentWorkstream | null;
+    const after = audit.data?.after_state as Record<string, unknown> | null | undefined;
+    const persisted = !!saved && Object.entries(changes).every(([key, value]) =>
+      (saved as unknown as Record<string, unknown>)[key] === value);
+    const audited = audit.data?.event_type === "alterado" && !!after &&
+      Object.entries(changes).every(([key, value]) => after[key] === value);
+    if (readback.error || audit.error || !persisted || !audited) {
+      toast.warning("Alteração enviada, mas a gravação ou o histórico não pôde ser confirmado. Atualize e confira a ficha.");
+      await refresh();
+      return;
+    }
+    toast.success("Atualização salva e histórico confirmado.");
     await refresh();
   };
 
