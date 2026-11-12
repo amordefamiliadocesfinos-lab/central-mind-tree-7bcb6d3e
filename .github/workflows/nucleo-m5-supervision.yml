@@ -12,6 +12,8 @@ on:
       - "src/lib/nucleo/supervision-provenance.ts"
       - "scripts/nucleo-m5-provenance-access.test.cjs"
       - "scripts/nucleo-m5-refresh-evidence.test.cjs"
+      - "scripts/nucleo-m5-revocation-isolated.test.cjs"
+      - "src/lib/nucleo/supervision-request-guard.ts"
       - ".github/workflows/nucleo-m5-supervision.yml"
   workflow_dispatch:
 permissions:
@@ -37,5 +39,7 @@ jobs:
         run: node scripts/nucleo-m5-provenance-access.test.cjs
       - name: Test M5 refresh evidence visibility
         run: node scripts/nucleo-m5-refresh-evidence.test.cjs
+      - name: Test in-flight revocation and stale request invalidation
+        run: node scripts/nucleo-m5-revocation-isolated.test.cjs
       - name: Build full Panel Central
         run: npm run build
