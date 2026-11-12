@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {F12_3_SCOPE} from '../src/shopee-adao-resumable-discovery.mjs';
 
-const sql=readFileSync(new URL('../sql/f12-3-adao-raw-canonical-eligibility-readonly.sql',import.meta.url),'utf8');
-test('F12.3 raw/canonical audit is scoped to Adão and only read-only SELECT',()=>{
+const auditPath=new URL('../sql/f12-3-adao-raw-canonical-eligibility-readonly.sql',import.meta.url);
+// Docker runtime intentionally copies src and tests, not operator-only SQL.
+// The full repository CI tests the SQL content; runtime container marks it
+// explicitly unavailable rather than failing or changing production images.
+test('F12.3 raw/canonical audit is scoped to Adão and only read-only SELECT',t=>{
+  if(!existsSync(auditPath)){t.skip('operator-only SQL audit excluded from production Docker image');return;}
+  const sql=readFileSync(auditPath,'utf8');
   assert.match(sql,new RegExp(F12_3_SCOPE.account,'g'));
   assert.match(sql,/marketplace_raw_snapshots/);
   assert.match(sql,/public\.orders/);
