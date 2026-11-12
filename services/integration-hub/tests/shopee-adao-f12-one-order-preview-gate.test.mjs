@@ -6,7 +6,7 @@ import {F12_3_SCOPE} from '../src/shopee-adao-resumable-discovery.mjs';
 
 const NOW=1794506400000, SN='SYNTHETICF12ADAO1';
 const evidence=()=>({
-  livePage:{ok:true,shop_id:F12_3_SCOPE.shop,order_sns:[SN],more:false},
+  livePage:{ok:true,shop_id:F12_3_SCOPE.shop,order_sns:[SN],listed_count:1,detailed_count:1,more:false},
   readRequest:{timeRangeField:'update_time',onlyIntakeEligibleOrders:true,
     pageSize:F12_3_SCOPE.pageSize},
   account:F12_3_SCOPE.account,observedAt:NOW,allowPreview:true,
@@ -46,8 +46,8 @@ test('F12.3 refuses unsafe pages and wrong account before reading canonical prev
   for(const patch of [
     {account:'8a8ad166-0317-4597-8be6-e43fb46b4d1b'},
     {livePage:{...evidence().livePage,shop_id:531736366}},
-    {livePage:{...evidence().livePage,order_sns:[]}},
-    {livePage:{...evidence().livePage,order_sns:[SN,SN]}},
+    {livePage:{...evidence().livePage,order_sns:[],listed_count:0,detailed_count:0}},
+    {livePage:{...evidence().livePage,order_sns:[SN,SN],listed_count:2,detailed_count:2}},
     {livePage:{...evidence().livePage,order_sns:[SN],more:true}},
     {livePage:{...evidence().livePage,order_sns:['INVALID!']}},
     {readRequest:{...evidence().readRequest,onlyIntakeEligibleOrders:false}},
@@ -86,7 +86,7 @@ test('F12.3 never certifies preview when canonical pipeline rejects or misidenti
 const SECOND='SYNTHETICF12ADAO2';
 const THIRD='SYNTHETICF12ADAO3';
 const multiple=()=>({...evidence(),livePage:{
-  ...evidence().livePage,order_sns:[SN,SECOND,THIRD]}});
+  ...evidence().livePage,order_sns:[SN,SECOND,THIRD],listed_count:3,detailed_count:3}});
 
 test('F12.3 one ready among three LIVE IDs is selected only after all canonical previews',async()=>{
   const calls=[];
@@ -130,4 +130,39 @@ test('F12.3 any unknown or malformed result among other IDs blocks selecting a r
     });
     assert.equal((await gate(multiple())).code,'f12_canonical_preview_blocked');
   }
+});
+
+test('F12.3 requires confirmed LIVE detail counts and explicit pagination completion',async()=>{
+  let previewCalls=0;
+  const gate=createAdaoF12OneOrderPreviewGate({
+    now:()=>NOW,previewOrder:async p=>{previewCalls++;return ready(p);},
+  });
+  for(const patch of [
+    {listed_count:undefined},
+    {detailed_count:undefined},
+    {listed_count:2},
+    {detailed_count:2},
+    {listed_count:0,detailed_count:0},
+    {listed_count:'1'},
+    {detailed_count:'1'},
+    {more:undefined},
+    {more:null},
+    {more:'false'},
+  ]){
+    const r=await gate({...evidence(),livePage:{...evidence().livePage,...patch}});
+    assert.equal(r.code,'f12_live_page_unverified');
+  }
+  assert.equal(previewCalls,0);
+});
+
+test('F12.3 allows filtered LIVE statuses with a larger complete detail response',async()=>{
+  const calls=[];
+  const gate=createAdaoF12OneOrderPreviewGate({
+    now:()=>NOW,previewOrder:async p=>{calls.push(p);return ready(p);},
+  });
+  const r=await gate({...evidence(),
+    livePage:{...evidence().livePage,listed_count:5,detailed_count:5}});
+  assert.equal(r.code,'f12_one_live_candidate_previewed');
+  assert.equal(r.commitAuthorized,false);
+  assert.equal(calls.length,1);
 });
