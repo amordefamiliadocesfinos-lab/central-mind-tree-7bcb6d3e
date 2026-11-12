@@ -53,3 +53,11 @@ Somente após as quatro frentes terem seus critérios de aceite provados, com es
 
 ## F12.3 — Validação preventiva do checkpoint (PR #651, 12/11/2026)
 Auditoria independente do contrato de persistência identificou necessidade de reforçar a validação dos campos do checkpoint, progressão monotônica, cursores, identidade/limites, unicidade entre páginas e privilégio mínimo de acesso. A PR #651 corrige o SQL **antes de qualquer aplicação**. Estado do Core consultado: `shopee_adao_f12_discovery_state` e `acquire_shopee_adao_f12_discovery` ainda ausentes. O conector Supabase não autorizou a ação de gestão da instância: **não reivindicar migration aplicada nem bypass de permissão**. As operações atuais do Hub Adão permanecem na F12.2, sem alteração. Próximo marco: revisão/teste SQL sob credencial autorizada, aplicação registrada e prova de RPC sem escrita logística; depois integrar consumidor com reconciliação.
+
+
+## F12.3 — Guard de implantação e permissão (PR #656, 12/11/2026)
+- Corrigido o contrato de verificação de papel dos três RPCs para `auth.jwt()->>'role'` e preservados os `GRANT EXECUTE` exclusivos ao `service_role`, com RLS e sem grants diretos na tabela.
+- Incluídos testes estáticos de guardrails da migração quando a árvore SQL está disponível; o contêiner enxuto do Hub não empacota migrações e pula explicitamente os testes estáticos nesse ambiente, evitando falso bloqueio. Essa validação não substitui o ensaio PostgreSQL real.
+- CI GitHub: Hub/contêiner e Core/Postgres aprovados; o erro global de TypeScript permanece em `src/modules/health/hooks/useHealthMealPlanF18.ts:591`, não ligado à frente Shopee.
+- **Permissão de implantação:** ação de migração pelo conector Supabase não autorizada. Não aplicar por caminho alternativo sem governança/migração registrada. `shopee_adao_f12_discovery_state` ainda não confirmado como criado.
+- **Gate para ativação:** aplicação autorizada da migration exata, teste de RLS/RPC/lease em PostgreSQL e verificação de ausência de mudanças nos writers existentes. Não chamar ACK antes de reconciliação durável; não ativar rota nova nem fazer rollout 100/dia nesta etapa.

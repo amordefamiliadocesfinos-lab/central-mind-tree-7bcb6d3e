@@ -1,4 +1,6 @@
 -- F12.3 ADÃO ONLY. Staging contract; no production runner enabled.
+-- Uses verified PostgREST JWT role via auth.jwt(), and REVOKE/GRANT RPC allowlist.
+-- Do not replace this with session_user/current_user inside SECURITY DEFINER.
 -- Isolated read-only discovery staging; no order, shipping, label or stock writes.
 CREATE TABLE IF NOT EXISTS public.shopee_adao_f12_discovery_state (
   channel_account_id uuid PRIMARY KEY
@@ -30,7 +32,7 @@ SET search_path = public, pg_temp AS $$
 DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
 BEGIN
   IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-     OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
+     OR coalesce(auth.jwt()->>'role', '') IS DISTINCT FROM 'service_role' THEN
     RETURN jsonb_build_object('status','account_refused');
   END IF;
   INSERT INTO public.shopee_adao_f12_discovery_state(channel_account_id)
@@ -62,7 +64,7 @@ DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
         distinct_count integer:=0;
 BEGIN
   IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-     OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
+     OR coalesce(auth.jwt()->>'role', '') IS DISTINCT FROM 'service_role' THEN
     RETURN jsonb_build_object('status','account_refused');
   END IF;
   SELECT * INTO v FROM public.shopee_adao_f12_discovery_state
@@ -152,7 +154,7 @@ SET search_path = public, pg_temp AS $$
 DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
 BEGIN
  IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-   OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
+   OR coalesce(auth.jwt()->>'role', '') IS DISTINCT FROM 'service_role' THEN
   RETURN jsonb_build_object('status','account_refused'); END IF;
  SELECT * INTO v FROM public.shopee_adao_f12_discovery_state
    WHERE channel_account_id=p_channel_account_id FOR UPDATE;
