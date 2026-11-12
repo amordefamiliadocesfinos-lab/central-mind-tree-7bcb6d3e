@@ -52,12 +52,21 @@ BEGIN
  EXCEPTION WHEN unique_violation THEN NULL; END;
  BEGIN
   UPDATE public.nucleo_module_knowledge_revisions SET body='Alteracao proibida';
-  RAISE EXCEPTION 'FM allowed history rewrite';
+  RAISE EXCEPTION 'FM client update permitted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $authorized$;
+RESET ROLE;
+
+-- Administrador técnico também não pode sobrescrever a revisão: trigger imutável.
+DO $immutable$
+BEGIN
+ BEGIN
+  UPDATE public.nucleo_module_knowledge_revisions SET body='Alteracao proibida';
+  RAISE EXCEPTION 'FM history rewrite permitted';
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM <> 'Núcleo revision snapshots are immutable' THEN RAISE; END IF;
  END;
-END $authorized$;
-RESET ROLE;
+END $immutable$;
 
 SET ROLE authenticated;
 SET request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
