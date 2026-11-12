@@ -54,13 +54,13 @@ export function createAdaoF12CanonicalSliceWriter({
 
     const d=recovered.payload;
     const ids=d.staged_pages.flat();
-    let written=0,alreadyRegistered=0;
+    let written=0,alreadyRegistered=0,filteredPendingCore=0;
     for(const sn of ids){
       // No automatic retry: uncertain writer response quarantines this stage
       // until a later explicit reconciliation path is reviewed.
       const sampledNow=now();
       if (!Number.isFinite(sampledNow) || sampledNow-began>=MAX_WORK_MS)
-        return {ok:false,code:'f12_writer_budget_exhausted',processed:written+alreadyRegistered};
+        return {ok:false,code:'f12_writer_budget_exhausted',processed:written+alreadyRegistered+filteredPendingCore};
       let result;
       try {
         result=await intake({
@@ -68,12 +68,21 @@ export function createAdaoF12CanonicalSliceWriter({
           expectedOrderSn:sn,limit:1,mode:'commit',verifyExisting:true,
         });
       } catch { return {ok:false,code:'f12_writer_uncertain',processed:written+alreadyRegistered}; }
+      // Canonical Core batch-read can exclude an already registered order.
+      // This status does NOT prove an existing order; it is a pending evidence
+      // marker only. The Core ACK must independently verify this exact SN
+      // against Adão's canonical orders before any checkpoint can advance.
+      if (result?.ok===false && result.code==='expected_order_unavailable') {
+        filteredPendingCore++;
+        continue;
+      }
       const entry=result?.results?.[0];
       if (result?.ok!==true || result.roundStopped===true
         || result.selected!==1 || result.results?.length!==1
         || entry?.orderSn!==sn
         || !['written','already_registered'].includes(entry.status))
-        return {ok:false,code:'f12_writer_requires_review',processed:written+alreadyRegistered};
+        return {ok:false,code:'f12_writer_requires_review',
+          processed:written+alreadyRegistered+filteredPendingCore};
       if(entry.status==='written')written++;
       else alreadyRegistered++;
     }
@@ -93,6 +102,6 @@ export function createAdaoF12CanonicalSliceWriter({
       return {ok:false,code:'f12_core_reconciliation_blocked',processed:ids.length};
     return {ok:true,code:'f12_slice_canonically_reconciled',
       processed:ids.length,written,already_registered:alreadyRegistered,
-      completed:d.completed};
+      verified_filtered_by_core:filteredPendingCore,completed:d.completed};
   };
 }
