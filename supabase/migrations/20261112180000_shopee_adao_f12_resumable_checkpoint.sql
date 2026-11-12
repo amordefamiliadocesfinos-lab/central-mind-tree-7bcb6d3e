@@ -1,4 +1,4 @@
--- F12.3 ADÃO ONLY. MIGRATION PREPARED, NOT YET APPLIED.
+-- F12.3 ADÃO ONLY. Staging contract; no production runner enabled.
 -- Isolated read-only discovery staging; no order, shipping, label or stock writes.
 CREATE TABLE IF NOT EXISTS public.shopee_adao_f12_discovery_state (
   channel_account_id uuid PRIMARY KEY
@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS public.shopee_adao_f12_discovery_state (
 );
 ALTER TABLE public.shopee_adao_f12_discovery_state ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.shopee_adao_f12_discovery_state FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.shopee_adao_f12_discovery_state TO service_role;
+-- All changes must go through the fenced RPC contract (including service_role).
+REVOKE ALL ON public.shopee_adao_f12_discovery_state FROM service_role;
 
 -- Acquire a lease under row lock. Staged work NEVER automatically expires into
 -- another worker: manual reconciliation is required before any later phase.
@@ -29,7 +30,7 @@ SET search_path = public, pg_temp AS $$
 DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
 BEGIN
   IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-     OR auth.role() IS DISTINCT FROM 'service_role' THEN
+     OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
     RETURN jsonb_build_object('status','account_refused');
   END IF;
   INSERT INTO public.shopee_adao_f12_discovery_state(channel_account_id)
@@ -58,9 +59,10 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp AS $$
 DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
         page_item jsonb; sn text; total_count integer:=0;
+        distinct_count integer:=0;
 BEGIN
   IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-     OR auth.role() IS DISTINCT FROM 'service_role' THEN
+     OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
     RETURN jsonb_build_object('status','account_refused');
   END IF;
   SELECT * INTO v FROM public.shopee_adao_f12_discovery_state
@@ -68,23 +70,35 @@ BEGIN
   IF NOT FOUND OR v.phase<>'reading' OR v.lease_id IS DISTINCT FROM p_lease_id
     OR v.generation IS DISTINCT FROM p_generation OR v.lease_expires_at<=clock_timestamp()
     THEN RETURN jsonb_build_object('status','stale_lease'); END IF;
+  -- Checkpoint must be the monotonic successor of the last ACKed state.
+  -- Fail closed on SQL NULL / missing JSON keys and forged metadata.
   IF p_completed IS NULL OR (p_completed AND p_checkpoint IS NOT NULL)
     OR (NOT p_completed AND (
-      p_checkpoint IS NULL OR jsonb_typeof(p_checkpoint)<>'object'
+      p_checkpoint IS NULL
+      OR jsonb_typeof(p_checkpoint) IS DISTINCT FROM 'object'
       OR (p_checkpoint->>'account') IS DISTINCT FROM p_channel_account_id::text
       OR (p_checkpoint->>'shop') IS DISTINCT FROM '1156446003'
       OR (p_checkpoint->>'version') IS DISTINCT FROM '1'
-      OR (p_checkpoint->>'pages') !~ '^[0-9]{1,2}$'
-      OR (p_checkpoint->>'orders') !~ '^[0-9]{1,3}$'
-      OR (p_checkpoint->>'pages')::integer > 10
-      OR (p_checkpoint->>'orders')::integer > 100
+      OR COALESCE((p_checkpoint->>'timeFrom') ~ '^[0-9]{1,12}$',false)=false
+      OR COALESCE((p_checkpoint->>'timeTo') ~ '^[0-9]{1,12}$',false)=false
+      OR COALESCE((p_checkpoint->>'pages') ~ '^[0-9]{1,2}$',false)=false
+      OR COALESCE((p_checkpoint->>'orders') ~ '^[0-9]{1,3}$',false)=false
+      OR COALESCE((p_checkpoint->>'pages')::integer BETWEEN 1 AND 9,false)=false
+      OR COALESCE((p_checkpoint->>'orders')::integer BETWEEN 0 AND 100,false)=false
       OR jsonb_typeof(p_checkpoint->'visited') IS DISTINCT FROM 'array'
+      OR jsonb_typeof(p_checkpoint->'cursor') IS DISTINCT FROM 'string'
+      OR COALESCE(length(p_checkpoint->>'cursor') BETWEEN 1 AND 2048,false)=false
+      OR jsonb_array_length(p_checkpoint->'visited') IS DISTINCT FROM (p_checkpoint->>'pages')::integer
+      OR (p_checkpoint->'visited'->>-1) IS DISTINCT FROM p_checkpoint->>'cursor'
+      OR (SELECT count(*) FROM jsonb_array_elements_text(p_checkpoint->'visited')) IS DISTINCT FROM
+         (SELECT count(DISTINCT value) FROM jsonb_array_elements_text(p_checkpoint->'visited'))
     ))) THEN RETURN jsonb_build_object('status','invalid_checkpoint'); END IF;
-  IF p_pages IS NULL OR jsonb_typeof(p_pages)<>'array'
-    OR jsonb_array_length(p_pages) NOT BETWEEN 1 AND 2
-    THEN RETURN jsonb_build_object('status','invalid_pages'); END IF;
+  IF p_pages IS NULL OR jsonb_typeof(p_pages) IS DISTINCT FROM 'array'
+     OR jsonb_array_length(p_pages) NOT BETWEEN 1 AND 2 THEN
+    RETURN jsonb_build_object('status','invalid_pages'); END IF;
   FOR page_item IN SELECT value FROM jsonb_array_elements(p_pages) LOOP
-    IF jsonb_typeof(page_item)<>'array' OR jsonb_array_length(page_item)>10 THEN
+    IF jsonb_typeof(page_item) IS DISTINCT FROM 'array'
+       OR jsonb_array_length(page_item)>10 THEN
       RETURN jsonb_build_object('status','invalid_pages'); END IF;
     FOR sn IN SELECT value FROM jsonb_array_elements_text(page_item) LOOP
       IF coalesce(sn,'') !~ '^[A-Za-z0-9]{8,100}$' THEN
@@ -92,6 +106,31 @@ BEGIN
       total_count:=total_count+1;
     END LOOP;
   END LOOP;
+  SELECT count(DISTINCT value) INTO distinct_count
+  FROM jsonb_array_elements(p_pages) AS page(value)
+       CROSS JOIN LATERAL jsonb_array_elements_text(page.value) AS item(value);
+  IF distinct_count IS DISTINCT FROM total_count THEN
+    RETURN jsonb_build_object('status','invalid_pages'); END IF;
+  IF p_completed=false AND (
+    (v.checkpoint IS NULL AND (
+      (p_checkpoint->>'pages')::integer IS DISTINCT FROM jsonb_array_length(p_pages)
+      OR (p_checkpoint->>'orders')::integer IS DISTINCT FROM total_count))
+    OR (v.checkpoint IS NOT NULL AND (
+      (p_checkpoint->>'timeFrom') IS DISTINCT FROM v.checkpoint->>'timeFrom'
+      OR (p_checkpoint->>'timeTo') IS DISTINCT FROM v.checkpoint->>'timeTo'
+      OR (p_checkpoint->>'pages')::integer IS DISTINCT FROM
+        (v.checkpoint->>'pages')::integer+jsonb_array_length(p_pages)
+      OR (p_checkpoint->>'orders')::integer IS DISTINCT FROM
+        (v.checkpoint->>'orders')::integer+total_count
+      OR (p_checkpoint->'visited'->0) IS DISTINCT FROM (v.checkpoint->'visited'->0)
+      OR (p_checkpoint->'visited') @> (v.checkpoint->'visited') IS NOT TRUE))
+    ) THEN RETURN jsonb_build_object('status','checkpoint_not_monotonic'); END IF;
+  IF p_completed=false AND (
+    (p_checkpoint->>'timeTo')::bigint-(p_checkpoint->>'timeFrom')::bigint
+       IS DISTINCT FROM 172800
+    OR (p_checkpoint->>'timeTo')::bigint >
+       floor(extract(epoch from clock_timestamp()))::bigint
+    ) THEN RETURN jsonb_build_object('status','invalid_checkpoint'); END IF;
   UPDATE public.shopee_adao_f12_discovery_state
     SET phase='staged',checkpoint=p_checkpoint,staged_pages=p_pages,
       staged_complete=p_completed,updated_at=clock_timestamp()
@@ -109,7 +148,7 @@ SET search_path = public, pg_temp AS $$
 DECLARE v public.shopee_adao_f12_discovery_state%ROWTYPE;
 BEGIN
  IF p_channel_account_id IS DISTINCT FROM 'b4027369-5abf-4ac1-ab24-862334fae892'::uuid
-   OR auth.role() IS DISTINCT FROM 'service_role' THEN
+   OR current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
   RETURN jsonb_build_object('status','account_refused'); END IF;
  SELECT * INTO v FROM public.shopee_adao_f12_discovery_state
    WHERE channel_account_id=p_channel_account_id FOR UPDATE;
