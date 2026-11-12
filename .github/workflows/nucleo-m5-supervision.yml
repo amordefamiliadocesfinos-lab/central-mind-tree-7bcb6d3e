@@ -6,6 +6,7 @@ on:
       - "src/components/nucleo/NucleoSupervisionPanel.tsx"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "scripts/nucleo-m5-supervision.test.cjs"
+      - "scripts/nucleo-m5-alertas-homologacao.test.cjs"
       - ".github/workflows/nucleo-m5-supervision.yml"
   workflow_dispatch:
 permissions:
@@ -23,5 +24,7 @@ jobs:
       - run: npm ci
       - name: Test M5 deterministic supervisor
         run: node scripts/nucleo-m5-supervision.test.cjs
+      - name: Homologate M5 alerts using synthetic scenarios
+        run: node scripts/nucleo-m5-alertas-homologacao.test.cjs
       - name: Build full Panel Central
         run: npm run build
