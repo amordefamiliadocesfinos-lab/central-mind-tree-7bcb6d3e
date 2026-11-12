@@ -19,6 +19,7 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   F12_ADAO_ACQUIRE: 'shopee.adao_f12.acquire',
   F12_ADAO_STAGE: 'shopee.adao_f12.stage',
   F12_ADAO_ACK: 'shopee.adao_f12.ack',
+  F12_ADAO_RESUME: 'shopee.adao_f12.resume',
   HEALTH: 'health',
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
@@ -131,7 +132,8 @@ export async function callCoreBridgeAction({
     payload = await readJsonResponse(
       response,
       [CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ, CORE_BRIDGE_ACTIONS.CYCLE_ACQUIRE,
-        CORE_BRIDGE_ACTIONS.F12_ADAO_ACQUIRE].includes(action)
+        CORE_BRIDGE_ACTIONS.F12_ADAO_ACQUIRE,
+        CORE_BRIDGE_ACTIONS.F12_ADAO_RESUME].includes(action)
         ? MAX_INTAKE_RESPONSE_BYTES
         : MAX_RESPONSE_BYTES,
     );
@@ -298,3 +300,9 @@ export const stageAdaoF12Discovery = (data, options={}) =>
   callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_STAGE,data });
 export const acknowledgeAdaoF12Discovery = (data, options={}) =>
   callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_ACK,data });
+
+// Recover a staged F12.3 batch after its lease expires, without re-reading the
+// Shopee listing or acknowledging any order. Never emit the returned staged IDs
+// or lease token to logs.
+export const resumeAdaoF12Staged = (data, options={}) =>
+  callCoreBridgeAction({ ...options,action:CORE_BRIDGE_ACTIONS.F12_ADAO_RESUME,data });
