@@ -229,6 +229,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
+  const [plannedNextExerciseId, setPlannedNextExerciseId] = useState<string | null>(null);
   const alertedRestId = useRef<string | null>(null);
   const previousActiveExerciseId = useRef<string | null>(null);
 
@@ -363,6 +364,36 @@ export function HealthWorkoutInteractiveTimerF19({
       null
     );
   }, [activeExercise, orderedExercises, setsByExercise]);
+
+  const plannedNextExercise =
+    orderedExercises.find(
+      (item) =>
+        item.id === plannedNextExerciseId &&
+        isExecutable(item) &&
+        performedCount(item.id) < plannedMax(item),
+    ) ?? null;
+
+  useEffect(() => {
+    if (!activeRest) {
+      setPlannedNextExerciseId(null);
+      return;
+    }
+
+    if (plannedNextExercise) return;
+
+    if (activeExercise && performedCount(activeExercise.id) < plannedMax(activeExercise)) {
+      setPlannedNextExerciseId(activeExercise.id);
+      return;
+    }
+
+    setPlannedNextExerciseId(nextDifferentExercise?.id ?? null);
+  }, [
+    activeRest?.id,
+    activeExercise?.id,
+    nextDifferentExercise?.id,
+    plannedNextExercise?.id,
+    setsByExercise,
+  ]);
 
   const exercisePlanSummary = (exercise: WorkoutExercise | null) => {
     if (!exercise) return "Sem outro exercício pendente.";
@@ -574,17 +605,13 @@ export function HealthWorkoutInteractiveTimerF19({
   const canChooseViewedExercise =
     viewedExerciseSelectable &&
     (!timer.activeInterval ||
-      (timer.activeInterval.interval_type === "rest" && resultSaved));
+      timer.activeInterval.interval_type === "rest");
 
   const chooseViewedExercise = async () => {
     if (!viewedExercise || !viewedExerciseSelectable) return;
 
     if (activeRest) {
-      await finishRestAfterSaved({
-        startNextWork: true,
-        nextWorkoutExerciseId: viewedExercise.id,
-      });
-      setSelectedExerciseId(viewedExercise.id);
+      setPlannedNextExerciseId(viewedExercise.id);
       return;
     }
 
@@ -594,6 +621,17 @@ export function HealthWorkoutInteractiveTimerF19({
     setLoadUnit("kg");
     setReps("");
     setRir("");
+  };
+
+  const startPlannedExercise = async () => {
+    if (!plannedNextExercise) return;
+
+    await finishRestAfterSaved({
+      startNextWork: true,
+      nextWorkoutExerciseId: plannedNextExercise.id,
+    });
+    setSelectedExerciseId(plannedNextExercise.id);
+    setViewedExerciseId(plannedNextExercise.id);
   };
 
   if (timer.loading && !timer.sessionTiming) {
@@ -902,7 +940,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     onClick={() =>
                       void run(
                         activeRest
-                          ? "Descanso registrado. Exercício escolhido iniciado."
+                          ? "Exercício preparado para depois deste descanso."
                           : "Exercício selecionado.",
                         chooseViewedExercise,
                       )
@@ -910,9 +948,9 @@ export function HealthWorkoutInteractiveTimerF19({
                   >
                     <Dumbbell className="mr-2 h-5 w-5" />
                     {activeRest
-                      ? resultSaved
-                        ? "Fazer este exercício agora"
-                        : "Salve o resultado antes de trocar"
+                      ? plannedNextExerciseId === viewedExercise.id
+                        ? "Escolhido para depois"
+                        : "Escolher para depois"
                       : timer.activeInterval?.interval_type === "work"
                         ? "Conclua a série atual para trocar"
                         : "Fazer este exercício agora"}
@@ -1017,6 +1055,71 @@ export function HealthWorkoutInteractiveTimerF19({
 
                       <p className="shrink-0 font-mono text-2xl font-semibold">
                         {formatElapsed(activeElapsed)}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Depois deste descanso
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {plannedNextExercise
+                            ? exerciseNameById.get(plannedNextExercise.exercise_id) ??
+                              "Exercício escolhido"
+                            : "Escolha o próximo exercício"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {plannedNextExercise
+                            ? `Exercício ${plannedNextExercise.sequence_order} · ${exercisePlanSummary(plannedNextExercise)}`
+                            : "Nenhum exercício pendente."}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {activeExercise &&
+                        performedCount(activeExercise.id) < plannedMax(activeExercise) ? (
+                          <Button
+                            type="button"
+                            variant={
+                              plannedNextExerciseId === activeExercise.id
+                                ? "default"
+                                : "outline"
+                            }
+                            className="min-h-11"
+                            disabled={timer.saving}
+                            onClick={() => setPlannedNextExerciseId(activeExercise.id)}
+                          >
+                            <Play className="mr-2 h-4 w-4" />
+                            Continuar aqui
+                          </Button>
+                        ) : null}
+
+                        {nextDifferentExercise ? (
+                          <Button
+                            type="button"
+                            variant={
+                              plannedNextExerciseId === nextDifferentExercise.id
+                                ? "default"
+                                : "outline"
+                            }
+                            className="min-h-11"
+                            disabled={timer.saving}
+                            onClick={() =>
+                              setPlannedNextExerciseId(nextDifferentExercise.id)
+                            }
+                          >
+                            <Dumbbell className="mr-2 h-4 w-4" />
+                            Próximo da grade
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground">
+                        A escolha não inicia o cronômetro. Você pode decidir agora,
+                        continuar descansando e só iniciar quando estiver pronto.
+                        Para outro aparelho da grade, use as setas acima e toque em
+                        “Escolher para depois”.
                       </p>
                     </div>
 
@@ -1151,140 +1254,49 @@ export function HealthWorkoutInteractiveTimerF19({
                       </p>
                     </div>
 
-                    <div className="space-y-3 rounded-xl border bg-muted/15 p-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Próxima ação
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Escolha durante o descanso. O cronômetro da próxima série
-                          só começa quando você tocar em uma opção.
-                        </p>
-                      </div>
+                    <div className="space-y-2 rounded-xl border bg-muted/15 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Iniciar quando estiver pronto
+                      </p>
 
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {activeExercise &&
-                        completedOnActive < maxSets ? (
-                          <div className="rounded-lg border bg-background p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Continuar neste aparelho
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {exerciseNameById.get(activeExercise.exercise_id) ??
-                                "Exercício atual"}
-                            </p>
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Próxima série {completedOnActive + 1} ·{" "}
-                              {exercisePlanSummary(activeExercise)}
-                            </p>
-                          </div>
-                        ) : null}
+                      {plannedNextExercise ? (
+                        <Button
+                          className="min-h-12 w-full text-base"
+                          disabled={disabled || !resultSaved}
+                          onClick={() =>
+                            void run(
+                              `${exerciseNameById.get(
+                                plannedNextExercise.exercise_id,
+                              ) ?? "Exercício"} iniciado.`,
+                              startPlannedExercise,
+                            )
+                          }
+                        >
+                          <Play className="mr-2 h-5 w-5" />
+                          Iniciar{" "}
+                          {exerciseNameById.get(plannedNextExercise.exercise_id) ??
+                            "exercício escolhido"}
+                        </Button>
+                      ) : (
+                        <Button
+                          className="min-h-12 w-full"
+                          disabled={disabled || !resultSaved}
+                          onClick={() =>
+                            void run(
+                              "Descanso encerrado.",
+                              () => finishRestAfterSaved(),
+                            )
+                          }
+                        >
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                          Encerrar descanso
+                        </Button>
+                      )}
 
-                        {nextDifferentExercise ? (
-                          <div className="rounded-lg border bg-background p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Próximo da grade
-                            </p>
-                            <p className="mt-1 text-sm font-semibold">
-                              {exerciseNameById.get(
-                                nextDifferentExercise.exercise_id,
-                              ) ?? "Próximo exercício"}
-                            </p>
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Exercício {nextDifferentExercise.sequence_order} ·{" "}
-                              {exercisePlanSummary(nextDifferentExercise)}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div
-                        className={
-                          activeExercise &&
-                          completedOnActive < maxSets &&
-                          nextDifferentExercise
-                            ? "grid gap-2 sm:grid-cols-2"
-                            : "grid gap-2"
-                        }
-                      >
-                        {activeExercise &&
-                        completedOnActive < maxSets ? (
-                          <Button
-                            className="min-h-12"
-                            disabled={disabled || !resultSaved}
-                            onClick={() =>
-                              void run(
-                                completedOnActive < minSets
-                                  ? "Próxima série do mesmo exercício iniciada."
-                                  : "Série adicional do mesmo exercício iniciada.",
-                                () =>
-                                  finishRestAfterSaved({
-                                    startNextWork: true,
-                                    nextWorkoutExerciseId: activeExercise.id,
-                                  }),
-                              )
-                            }
-                          >
-                            <Play className="mr-2 h-5 w-5" />
-                            Continuar neste exercício
-                          </Button>
-                        ) : null}
-
-                        {nextDifferentExercise ? (
-                          <Button
-                            variant={
-                              activeExercise &&
-                              completedOnActive < maxSets
-                                ? "secondary"
-                                : "default"
-                            }
-                            className="min-h-12"
-                            disabled={disabled || !resultSaved}
-                            onClick={() =>
-                              void run(
-                                `Exercício ${exerciseNameById.get(
-                                  nextDifferentExercise.exercise_id,
-                                ) ?? "selecionado"} iniciado.`,
-                                () =>
-                                  finishRestAfterSaved({
-                                    startNextWork: true,
-                                    nextWorkoutExerciseId:
-                                      nextDifferentExercise.id,
-                                  }),
-                              )
-                            }
-                          >
-                            <Dumbbell className="mr-2 h-5 w-5" />
-                            Ir para{" "}
-                            {exerciseNameById.get(
-                              nextDifferentExercise.exercise_id,
-                            ) ?? "próximo exercício"}
-                          </Button>
-                        ) : activeExercise &&
-                          completedOnActive >= maxSets ? (
-                          <Button
-                            className="min-h-12"
-                            disabled={disabled || !resultSaved}
-                            onClick={() =>
-                              void run(
-                                "Descanso encerrado.",
-                                () => finishRestAfterSaved(),
-                              )
-                            }
-                          >
-                            <CheckCircle2 className="mr-2 h-5 w-5" />
-                            Encerrar descanso
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      {nextDifferentExercise ? (
-                        <p className="text-[11px] text-muted-foreground">
-                          Quer outro exercício da grade? Use as setas acima para
-                          visualizar e escolher qualquer exercício disponível antes
-                          de iniciar.
-                        </p>
-                      ) : null}
+                      <p className="text-[11px] text-muted-foreground">
+                        O cronômetro da próxima série começa somente neste botão.
+                        Até lá, você pode mudar sua escolha quantas vezes precisar.
+                      </p>
                     </div>
                   </>
                 ) : (
