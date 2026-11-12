@@ -14,16 +14,16 @@ END $preflight$;
 SET ROLE authenticated;
 SET request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 INSERT INTO public.nucleo_development_workstreams(id,code,kind,title)
-VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','CRM','modulo','CRM de Teste');
+VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','CRM','modulo','CRM de Teste');
 INSERT INTO public.nucleo_development_workstreams(id,code,kind,title,parent_id)
-VALUES('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','CRM-UX02','frente','UX02 Teste','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','CRM-UX02','frente','UX02 Teste','dddddddd-dddd-4ddd-8ddd-dddddddddddd');
 
 INSERT INTO public.nucleo_module_knowledge_revisions
 (module_id,section_code,version_no,title,body,source_reference)
-VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-01',1,'Identidade','Modulo CRM de teste sintentico','github:src/App.tsx');
+VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','FM-01',1,'Identidade','Modulo CRM de teste sintentico','github:src/App.tsx');
 INSERT INTO public.nucleo_module_knowledge_revisions
 (module_id,section_code,version_no,title,body,source_reference)
-VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-01',2,'Identidade v2','Modulo CRM de teste sintentico revisado','github:src/App.tsx');
+VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','FM-01',2,'Identidade v2','Modulo CRM de teste sintentico revisado','github:src/App.tsx');
 
 DO $authorized$
 BEGIN
@@ -33,21 +33,21 @@ BEGIN
  RAISE EXCEPTION 'FM authorship or draft classification wrong'; END IF;
  BEGIN
   INSERT INTO public.nucleo_module_knowledge_revisions(module_id,section_code,version_no,title,body)
-  VALUES('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','FM-02',1,'Invalido','Frente nao e modulo');
+  VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','FM-02',1,'Invalido','Frente nao e modulo');
   RAISE EXCEPTION 'FM accepted a front as module';
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM <> 'Ficha Viva requires an existing module record' THEN RAISE; END IF;
  END;
  BEGIN
   INSERT INTO public.nucleo_module_knowledge_revisions(module_id,section_code,version_no,title,body,authority_state,reviewed_by,evidence_level)
-  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-02',1,'Forjado','Conteudo de exemplo forjado','homologado','usuario ficticio','codigo_verificado');
+  VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','FM-02',1,'Forjado','Conteudo de exemplo forjado','homologado','usuario ficticio','codigo_verificado');
   RAISE EXCEPTION 'FM allowed forged approval';
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM <> 'Ficha Viva client may only submit unverified draft revisions' THEN RAISE; END IF;
  END;
  BEGIN
   INSERT INTO public.nucleo_module_knowledge_revisions(module_id,section_code,version_no,title,body)
-  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-01',2,'Duplicado','Revisao duplicada de versao');
+  VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','FM-01',2,'Duplicado','Revisao duplicada de versao');
   RAISE EXCEPTION 'FM allowed duplicate version';
  EXCEPTION WHEN unique_violation THEN NULL; END;
  BEGIN
@@ -67,7 +67,7 @@ BEGIN
  RAISE EXCEPTION 'FM RLS read leak'; END IF;
  BEGIN
   INSERT INTO public.nucleo_module_knowledge_revisions(module_id,section_code,version_no,title,body)
-  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-02',1,'Nao autorizado','Tentativa nao autorizada');
+  VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','FM-02',1,'Nao autorizado','Tentativa nao autorizada');
   RAISE EXCEPTION 'FM unauthorized insert';
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM <> 'Ficha Viva authorization required' THEN RAISE; END IF;
