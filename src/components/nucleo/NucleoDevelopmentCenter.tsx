@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
+import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -241,6 +242,8 @@ export default function NucleoDevelopmentCenter() {
         </div>
         <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
       </div>
+
+      <NucleoOperationalAtlas />
 
       {creating && (
         <Card className="p-4 space-y-3">

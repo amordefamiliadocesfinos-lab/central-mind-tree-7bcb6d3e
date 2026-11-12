@@ -1,0 +1,134 @@
+/**
+ * Núcleo V1.2 — levantamento inicial read-only baseado em rotas/componentes do GitHub.
+ * Não é cadastro de módulos no Core e não é um manual homologado em uso real.
+ * Origem: src/App.tsx e componentes CRM, conferidos em 12/11/2026.
+ */
+export type KnowledgeConfidence = "codigo_verificado" | "declarado" | "nao_verificado";
+export type KnowledgeModule = {
+  id: string;
+  name: string;
+  domain: string;
+  route: string | null;
+  purpose: string;
+  coverage: "piloto_parcial" | "inventario_de_rotas";
+  specialist: string | null;
+  specialistConfidence: KnowledgeConfidence;
+  source: string;
+};
+export type CrmAction = {
+  label: string;
+  screen: string;
+  prerequisite: string;
+  expectedEffect: string;
+  confirmation: string;
+  limit: string;
+  source: string;
+  confidence: KnowledgeConfidence;
+};
+const REPO = "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/";
+const ROUTE_SOURCE = REPO + "src/App.tsx";
+export const MODULES_V12: KnowledgeModule[] = [
+  {
+    id: "CRM", name: "CRM — Atendimento", domain: "Comercial",
+    route: "/contatos", purpose: "Organizar contatos, oportunidades e o acompanhamento de atendimentos.",
+    coverage: "piloto_parcial", specialist: "Especialista CRM (papel funcional declarado)",
+    specialistConfidence: "declarado", source: REPO + "src/pages/Contatos.tsx",
+  },
+  {
+    id: "FIN", name: "Financeiro", domain: "Financeiro",
+    route: "/financeiro", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "OPE", name: "Operações", domain: "Operações",
+    route: "/operacoes", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "CAP", name: "Captura Central", domain: "Captação",
+    route: "/captura", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "ROT", name: "Rotina", domain: "Organização",
+    route: "/rotina", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "SAU", name: "Saúde / CCH", domain: "Saúde",
+    route: "/saude", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "DIG", name: "Digital", domain: "Digital",
+    route: "/digital", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "ASS", name: "Assistente", domain: "IA",
+    route: "/assistente", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+  },
+  {
+    id: "SHO", name: "Shopee / Integração", domain: "Comercial",
+    route: null, purpose: "Módulo mencionado no mapa V1.2; rota própria não confirmada nesta investigação.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado",
+    source: "MAPA MESTRE NÚCLEO 2.0 V1.2 — seção de cobertura obrigatória",
+  },
+];
+
+export const CRM_SCREENS = [
+  { label: "Contatos / CRM", route: "/contatos", source: REPO + "src/pages/Contatos.tsx" },
+  { label: "Caixa de atendimentos", route: "/contatos/inbox", source: REPO + "src/pages/ContatosInbox.tsx" },
+  { label: "Tarefas de contatos", route: "/contatos/tarefas", source: ROUTE_SOURCE },
+];
+
+export const CRM_ACTIONS: CrmAction[] = [
+  {
+    label: "Preparar contato no WhatsApp", screen: "Fila de atendimento / foco",
+    prerequisite: "Contato selecionado com telefone disponível.",
+    expectedEffect: "Aciona o preparo/abertura do contato externo; não registra sozinho a conclusão do atendimento.",
+    confirmation: "A abertura externa não é confirmação de Resultado; registrar depois o que realmente ocorreu.",
+    limit: "Integração externa e entrega da mensagem não são comprovadas apenas pelo clique.",
+    source: REPO + "src/components/crm/CrmFocusQueue.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Registrar resultado", screen: "Fila de atendimento / formulário contextual",
+    prerequisite: "Atendimento selecionado. Operador verifica o fato e escolhe uma opção do catálogo de resultados.",
+    expectedEffect: "Abre seleção contextual; escolher opção não persiste resultado automaticamente.",
+    confirmation: "Somente o comando Confirmar resultado envia o registro, com retorno de sucesso do fluxo canônico.",
+    limit: "Não confirmar resultado hipotético. Algumas opções exigem data; falha mantém o formulário para correção.",
+    source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Confirmar resultado", screen: "Formulário Registrar resultado",
+    prerequisite: "Resultado selecionado; data fornecida quando obrigatória; contexto de contato/conversa válido.",
+    expectedEffect: "Solicita a persistência ao fluxo canônico do CRM para o contexto selecionado.",
+    confirmation: "O formulário só fecha após retorno confirmado de onOutcome e contexto ainda correspondente.",
+    limit: "O código comprova tratamento da confirmação; não prova o resultado de todas as situações reais.",
+    source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Adiar atendimento", screen: "Fila de atendimento / formulário contextual",
+    prerequisite: "Contato selecionado e motivo operacional para remarcar a análise.",
+    expectedEffect: "Abre o fluxo de adiamento em vez de registrar um resultado comercial fictício.",
+    confirmation: "Conferir nova data/posição da fila no CRM após retorno do fluxo de adiamento.",
+    limit: "O botão não é substituto de um Resultado já ocorrido; readback visual ainda requer homologação específica.",
+    source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
+  },
+];
+
+export const CRM_JOURNEY = [
+  "Abrir a Caixa de atendimentos ou a fila priorizada do CRM.",
+  "Selecionar a conversa e conferir histórico, contexto e próxima ação.",
+  "Quando necessário, usar o contato externo; isso não encerra o atendimento.",
+  "Escolher Registrar resultado, selecionar apenas o fato ocorrido e acionar Confirmar resultado.",
+  "Conferir no CRM a confirmação e o histórico; em caso de falha, não presumir sucesso.",
+];
+
+export const CRM_REFERENCE = {
+  checkpoint: "Levantamento inicial de código em 12/11/2026",
+  source: REPO + "src/components/crm/AttendanceActionBar.tsx",
+  method: "Método/ecossistema específico do especialista CRM: vínculo documental vigente ainda não verificado.",
+  limitation: "Pilotagem read-only: operação descrita a partir do código; uso real detalhado e autoridade do método exigem reconciliação própria.",
+};
