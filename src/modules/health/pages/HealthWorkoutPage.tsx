@@ -42,6 +42,7 @@ function EditablePerformedSetRow({
     rir: number | null;
     rest_seconds: number | null;
     work_seconds: number | null;
+    rest_in_progress: boolean;
   };
   saving: boolean;
   locked: boolean;
@@ -81,7 +82,10 @@ function EditablePerformedSetRow({
           <p className="mt-1 text-[11px] text-muted-foreground">
             Execução {formatSetClock(set.work_seconds)}
             {" · "}
-            Descanso após {formatSetClock(set.rest_seconds)}
+            Descanso após{" "}
+            {set.rest_in_progress
+              ? "em andamento"
+              : formatSetClock(set.rest_seconds)}
           </p>
         </div>
         <Button
@@ -191,6 +195,7 @@ function WorkoutExerciseCard({
     rir: number | null;
     rest_seconds: number | null;
     work_seconds: number | null;
+    rest_in_progress: boolean;
   }>;
   saving: boolean;
   exerciseOptions: Array<{ id: string; name: string }>;
@@ -492,6 +497,13 @@ export function HealthWorkoutPage() {
                         interval.status === "completed",
                     )
                     .slice(-1)[0]?.actual_seconds ?? null,
+                rest_in_progress: timer.intervals.some(
+                  (interval) =>
+                    interval.workout_set_id === set.id &&
+                    interval.interval_type === "rest" &&
+                    (interval.status === "running" ||
+                      interval.status === "paused"),
+                ),
               }))}
               saving={workout.saving || timer.saving}
               manualActionsDisabled={
