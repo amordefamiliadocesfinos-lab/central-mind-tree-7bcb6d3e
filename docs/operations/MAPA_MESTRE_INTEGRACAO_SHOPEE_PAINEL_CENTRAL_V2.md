@@ -805,3 +805,12 @@ Por solicitação do operador, os pedidos Shopee que permaneciam em Separação 
 **Estado observado:** consulta do Core às 16h43 BRT encontrou ambos os PDFs oficiais ainda presentes para PED-00417 e PED-00418; não havia novos `ship_order` reivindicados na última hora. **Implantação comprovada, desempenho de três envios reais por ciclo ainda NÃO comprovado.** Não atribuir ausência de tentativas ao mau funcionamento; pode não haver novos pedidos elegíveis. Próxima verificação: revisar a configuração da revisão e medir `shipment_attempted`/`label_attempted`, duração e bloqueios em ciclos reais; só evoluir para F12.2/F12.3 a partir dessas evidências.
 
 **F11:** prévia `Etiqueta Shopee + Composição Interna` aberta e apresentada para ambos os pedidos, com composição abaixo da etiqueta na mesma prévia. A inspeção não comprova impressão física/PDF final nem observação real de comprador não demonstrada; essas ressalvas permanecem complementares, sem bloquear F12.
+
+
+---
+
+## 23. RETIFICAÇÃO SOBERANA — F12 COM MAPA CONGELADO E DESENVOLVIMENTO ATIVO (12/11/2026)
+
+O proprietário esclareceu expressamente que a ordem anterior de "fechar a F12" significava **congelar o mapa e manter o escopo controlado**, **sem encerrar a frente** e sem transferir a continuidade à F6-O. Fica revogada **a interpretação de encerramento e transferência de foco** registrada no documento histórico introduzido pela PR #638. O histórico técnico permanece preservado. A PR #639 da interface de Operações constitui mudança independente e não desloca a execução F12.
+
+**Estado soberano:** F12 ABERTA / MAPA CONGELADO, subfrentes F12.1, F12.2, F12.3 e F12.4 mantidas na mesma ordem, conforme `docs/operations/F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md`. F12.1 teve prova de 2 envios e documentos oficiais reais, mas não prova de capacidade máxima 3+3; F12.2 está incorporada até PR #625 (`ship_by_date`), porém a publicação em Cloud Run não foi comprovada; F12.3 e F12.4 permanecem pendentes. Próxima missão: retomar F12.2 no Hub e depois desenvolver F12.3. Não declarar escala 100/dia nem multicontas homologadas sem ensaios e provas.

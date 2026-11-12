@@ -1,3 +1,6 @@
+> **RETIFICAÇÃO SOBERANA — 12/11/2026. ESTE DOCUMENTO É UM REGISTRO HISTÓRICO SUPERADO, NÃO UMA ORDEM DE ENCERRAMENTO.**
+> O proprietário esclareceu que "fechar a F12" significava **CONGELAR SEU MAPA E ESCOPO, MANTENDO A FRENTE ABERTA E EM DESENVOLVIMENTO**. Fica expressamente sem efeito a decisão registrada abaixo de encerrar a rodada, pausar a F12 e transferir o foco à F6-O. O conteúdo técnico e as evidências do registro são preservados apenas como histórico. A referência vigente é `F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md`, em conjunto com o Mapa Mestre V2 e o Mini Mapa F12.
+
 # F12 — ENCERRAMENTO ADMINISTRATIVO DA RODADA E REPASSE DE PENDÊNCIAS
 **Projeto:** Painel Central — Integração Shopee
 **Data:** 12/11/2026
