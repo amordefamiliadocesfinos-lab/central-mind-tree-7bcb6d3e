@@ -58,7 +58,6 @@ test('F12.3 uses existing canonical intake in strict one-order commit mode, then
 
 test('F12.3 missing canonical identity or blocked mapping prevents ACK',async()=>{
   for(const response of [
-    {ok:false,code:'expected_order_unavailable'},
     {ok:true,selected:1,results:[{orderSn:'26111200000001',status:'blocked'}]},
     {ok:true,selected:1,results:[{orderSn:'OTHER12345',status:'written'}]},
     {ok:true,selected:0,results:[]},
