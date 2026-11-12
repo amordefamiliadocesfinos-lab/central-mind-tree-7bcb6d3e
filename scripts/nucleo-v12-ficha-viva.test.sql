@@ -69,7 +69,9 @@ BEGIN
   INSERT INTO public.nucleo_module_knowledge_revisions(module_id,section_code,version_no,title,body)
   VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','FM-02',1,'Nao autorizado','Tentativa nao autorizada');
   RAISE EXCEPTION 'FM unauthorized insert';
- EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'Ficha Viva authorization required' THEN RAISE; END IF;
+ END;
 END $unauthorized$;
 RESET ROLE;
 SET ROLE anon;
