@@ -13,6 +13,9 @@ const encoder = new TextEncoder();
 const LIVE_ACTIONS = new Set([
   'shopee.cycle.acquire',
   'shopee.cycle.finish',
+  'shopee.adao_f12.acquire',
+  'shopee.adao_f12.stage',
+  'shopee.adao_f12.ack',
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
   'shopee.oauth_connection.read',
@@ -88,6 +91,42 @@ function validateActionPayload(payload, nowMs) {
   }
 
   if (!LIVE_ACTIONS.has(payload.action)) return false;
+
+
+  // F12.3 is restricted to Adão even before hitting the SQL account check.
+  if (payload.action.startsWith('shopee.adao_f12.')) {
+    const adao = 'b4027369-5abf-4ac1-ab24-862334fae892';
+    if (payload.channel_account_id !== adao) return false;
+    if (payload.action === 'shopee.adao_f12.acquire')
+      return hasExactKeys(payload,['action','channel_account_id']);
+    if (payload.action === 'shopee.adao_f12.ack')
+      return hasExactKeys(payload,['action','channel_account_id','lease_id','generation'])
+        && UUID.test(payload.lease_id)
+        && Number.isSafeInteger(payload.generation) && payload.generation > 0;
+    if (payload.action === 'shopee.adao_f12.stage') {
+      return hasExactKeys(payload,['action','channel_account_id','lease_id',
+        'generation','checkpoint','pages','completed'])
+        && UUID.test(payload.lease_id)
+        && Number.isSafeInteger(payload.generation) && payload.generation > 0
+        && typeof payload.completed === 'boolean'
+        && Array.isArray(payload.pages) && payload.pages.length>=1 && payload.pages.length<=2
+        && payload.pages.every(page=>Array.isArray(page) && page.length<=10
+          && new Set(page).size===page.length && page.every(sn=>
+            typeof sn==='string' && /^[A-Za-z0-9]{8,100}$/.test(sn)))
+        && (payload.completed ? payload.checkpoint === null :
+          isObject(payload.checkpoint)
+          && payload.checkpoint.account===adao
+          && payload.checkpoint.shop===1156446003
+          && payload.checkpoint.version===1
+          && Number.isSafeInteger(payload.checkpoint.pages)
+          && payload.checkpoint.pages>=1 && payload.checkpoint.pages<=10
+          && Number.isSafeInteger(payload.checkpoint.orders)
+          && payload.checkpoint.orders>=0 && payload.checkpoint.orders<=100
+          && Array.isArray(payload.checkpoint.visited)
+          && payload.checkpoint.visited.length===payload.checkpoint.pages);
+    }
+    return false;
+  }
 
   if (payload.action === 'shopee.cycle.acquire') {
     return hasExactKeys(payload, ['action', 'channel_account_id']) && UUID.test(payload.channel_account_id);
