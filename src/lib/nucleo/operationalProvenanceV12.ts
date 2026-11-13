@@ -25,6 +25,22 @@ export const SOURCE_AUTHORITY_LABELS: Record<SourceAuthority,string> = {
 };
 
 export const MODULE_PROVENANCE: Partial<Record<string, ModuleProvenance>> = {
+  DIG: {
+    methodSummary: "O código da área Digital contém ideias, campanhas, plataformas, calendário e métricas; não confirma método de publicação nem fluxo homologado.",
+    ownerBoundary: "O Núcleo ainda não possui mandato do especialista Digital verificado. Não publicar campanhas ou executar ações apenas com essa referência.",
+    sources: [
+      {label:"Digital — página do módulo",path:map("src/pages/Digital.tsx"),authority:"codigo_verificado",
+       note:"Superfícies de código, sem evidência de aceite funcional ou governança do especialista."},
+    ],
+  },
+  ASS: {
+    methodSummary: "O código de Assistente reúne propostas, políticas, ações, aprovações e histórico; isso não concede autonomia nem comprova execução.",
+    ownerBoundary: "Mandato do especialista Assistente e contratos de autorização não reconciliados. A supervisão Núcleo M5 permanece somente leitura.",
+    sources: [
+      {label:"Assistente — página do módulo",path:map("src/pages/Assistente.tsx"),authority:"codigo_verificado",
+       note:"Fluxos presentes em código; autorização e operação não verificadas pelo Núcleo."},
+    ],
+  },
   OPE: {
     methodSummary: "A página de Operações comprova áreas e componentes de código. O contrato ET1 de embalagem P100/EA documenta uma implementação PARCIAL na PR #355, não sua ativação ou homologação atual.",
     ownerBoundary: "Especialista e método soberano de Operações ainda não reconciliados. Não ativar migration ET1 isolada, converter estoque legado ou mover produção/pedidos.",
