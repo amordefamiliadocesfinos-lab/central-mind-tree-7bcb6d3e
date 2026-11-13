@@ -83,3 +83,53 @@ export const KNOWLEDGE_ARCHIVE_SOURCES: readonly KnowledgeArchiveSource[] = [
     currentAuthorityBoundary:"A referência aponta para MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO, não localizado neste ZIP pelo nome; deve ser conferido na fonte própria antes de declarar vigência.",
   },
 ];
+
+/**
+ * Registro soberano dos Estados em 03/10/2026, encontrado no mesmo ZIP.
+ * Este mapa governa QUAL arquivo exerce a função de Estado Vigente naquela
+ * fotografia histórica. Não certifica a autoridade nominal atual.
+ */
+export const HISTORICAL_STATE_REGISTRY = {
+  archiveInnerPath: "BASE_FINAL/04_PAINEL_CENTRAL/00_GOVERNANCA/PCL-MAP-REGISTRO-ESTADOS-V1.1.txt",
+  documentCode: "PCL-MAP-REGISTRO-ESTADOS-V1.1",
+  sha256: "cf995559d8b57c72ba1790f1e10d9b6f5c6b728dcd836f9ebb3c0e3aa5c231cd",
+  documentDate: "2026-10-03",
+  operationCanonicalReference: "MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO",
+  sourceScope: "Define documentos de Estado Vigente por módulo para o checkpoint de 03/10/2026",
+  currentAuthorityBoundary: "Documentos posteriores podem atualizar a leitura sem apagar o Estado de outubro",
+} as const;
+
+/**
+ * Proveniência posterior precisa ser verificada domínio a domínio.
+ * Estes vínculos documentam precedência, NÃO declaram que decisões antigas
+ * ou atuais foram automaticamente migradas ou homologadas no Core.
+ */
+export const SOURCE_RECONCILIATION_BOUNDARIES = [
+  {
+    moduleCode: "CRM", octSource: "PCL-MST-ESTADO-CRM-V1.0",
+    laterSource: "docs/crm/CRM_UX_02_MAPA_EXECUCAO_A31_B31A.md",
+    laterDate: "2026-10-16",
+    classification: "checkpoint tecnico posterior, sem comprovação de mandato atual",
+  },
+  {
+    moduleCode: "SHO", octSource: "PCL-MST-ESTADO-SHOPEE-V1.0",
+    laterSource: "docs/operations/F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md",
+    laterDate: "2026-11-12",
+    classification: "decisão F12 específica posterior: aberta e sob escopo congelado",
+  },
+  {
+    moduleCode: "SAU", octSource: null,
+    laterSource: "docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md",
+    laterDate: "2026-11-12",
+    classification: "mapa que se declara vigente; ausência de Estado de outubro nesta seção não significa ausência global",
+  },
+  {
+    moduleCode: "OPE", octSource: "REFERENCIA_ESTADO_VIGENTE_OPERACOES",
+    laterSource: null, laterDate: null,
+    classification: "o nome do Mapa Norteador é referenciado, mas o original não foi localizado nos ZIPs inspecionados, GitHub main ou pesquisa Drive",
+  },
+  {
+    moduleCode: "ASS", octSource: null, laterSource: null, laterDate: null,
+    classification: "sem Estado Vigente equivalente localizado nos ZIPs inspecionados, GitHub main ou pesquisa Drive",
+  },
+] as const;
