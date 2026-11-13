@@ -524,6 +524,14 @@ export function HealthWorkoutInteractiveTimerF19({
     }
   };
 
+  const chooseNextExercise = (exercise: WorkoutExercise) => {
+    setPlannedNextExerciseId(exercise.id);
+    toast({
+      title: "Próxima ação escolhida",
+      description: `${exerciseNameById.get(exercise.exercise_id) ?? "Exercício"} foi preparado. O cronômetro ainda não iniciou.`,
+    });
+  };
+
   const sessionPaused = timer.sessionTiming?.status === "paused";
   const disabled = timer.saving || sessionPaused;
 
@@ -1049,7 +1057,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Depois deste descanso
+                          Escolha o que fará depois
                         </p>
 
                         {plannedNextExercise ? (
@@ -1095,16 +1103,12 @@ export function HealthWorkoutInteractiveTimerF19({
                             className="min-h-11"
                             disabled={timer.saving}
                             aria-pressed={plannedNextExerciseId === activeExercise.id}
-                            onClick={() => setPlannedNextExerciseId(activeExercise.id)}
+                            onClick={() => chooseNextExercise(activeExercise)}
                           >
-                            {plannedNextExerciseId === activeExercise.id ? (
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                            ) : (
-                              <Play className="mr-2 h-4 w-4" />
-                            )}
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
                             {plannedNextExerciseId === activeExercise.id
-                              ? "Continuar aqui escolhido"
-                              : "Continuar aqui"}
+                              ? "Selecionado: continuar aqui"
+                              : "Escolher continuar aqui"}
                           </Button>
                         ) : null}
 
@@ -1122,7 +1126,7 @@ export function HealthWorkoutInteractiveTimerF19({
                               plannedNextExerciseId === nextDifferentExercise.id
                             }
                             onClick={() =>
-                              setPlannedNextExerciseId(nextDifferentExercise.id)
+                              chooseNextExercise(nextDifferentExercise)
                             }
                           >
                             {plannedNextExerciseId === nextDifferentExercise.id ? (
@@ -1131,16 +1135,17 @@ export function HealthWorkoutInteractiveTimerF19({
                               <Dumbbell className="mr-2 h-4 w-4" />
                             )}
                             {plannedNextExerciseId === nextDifferentExercise.id
-                              ? "Próximo da grade escolhido"
-                              : "Próximo da grade"}
+                              ? "Selecionado: próximo da grade"
+                              : "Escolher próximo da grade"}
                           </Button>
                         ) : null}
                       </div>
 
                       <p className="text-[11px] text-muted-foreground">
-                        Primeiro escolha. Isso não inicia o cronômetro. Depois de salvar
-                        o resultado da série, use o botão “Iniciar” mais abaixo.
-                        Para outro aparelho, use as setas acima e escolha para depois.
+                        Estes botões apenas escolhem o destino e nunca iniciam a série.
+                        Ao tocar, a escolha fica marcada e você recebe uma confirmação.
+                        Depois salve o resultado abaixo; o único botão que inicia o
+                        cronômetro é “Iniciar”. Para outro aparelho, use as setas acima.
                       </p>
                     </div>
 
@@ -1148,7 +1153,7 @@ export function HealthWorkoutInteractiveTimerF19({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                            Resultado da série
+                            2. Resultado da série
                           </p>
                           <p className="mt-1 text-sm font-semibold">
                             Série {activeRest.set_number ?? completedOnActive} concluída
@@ -1277,7 +1282,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
                     <div className="space-y-2 rounded-xl border bg-muted/15 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Iniciar quando estiver pronto
+                        3. Iniciar quando estiver pronto
                       </p>
 
                       {plannedNextExercise ? (
