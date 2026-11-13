@@ -345,35 +345,70 @@ export default function NucleoDevelopmentCenter() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(350px,400px)] gap-4 items-start">
-        <div className="min-w-0 overflow-x-auto pb-2">
-          <div className="grid grid-cols-5 gap-3 min-w-[1100px] items-start">
-          {states.map(state => (
-            <Card className="p-3 space-y-2" key={state.key}>
-              <h3 className="font-semibold text-sm">{state.label}</h3>
-              {visible.filter(item => item.status === state.key).map(item => (
-                <button type="button" key={item.id} onClick={() => choose(item.id)}
-                  className={`text-left w-full p-3 rounded-lg border hover:bg-accent/50 ${selectedId===item.id?"border-primary":"border-border"}`}>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-xs font-mono">{item.code}</span>
-                    <Badge variant="outline" className="text-[10px]">{priorityNames[item.priority]}</Badge>
-                  </div>
-                  <p className="text-sm font-medium mt-1">{item.title}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{item.kind} · {item.specialist || "Sem especialista"}</p>
-                  {item.parent_id && <p className="text-[11px] text-muted-foreground mt-1">
-                    Pai: {byId.get(item.parent_id)?.code || "não identificado"}
-                  </p>}
-                  {item.next_action && <p className="text-[11px] mt-2">Próxima ação: {item.next_action}</p>}
-                  <p className="text-[11px] text-muted-foreground mt-1">{evidenceNames[item.evidence_state]}</p>
-                </button>
-              ))}
-              {!loading && visible.every(item => item.status !== state.key) &&
-                <p className="text-xs text-muted-foreground">Sem registros</p>}
-            </Card>
-          ))}
+      <section className="space-y-3 min-w-0" aria-label="Quadro de estados das frentes">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold">Quadro de acompanhamento</h3>
+            <p className="text-sm text-muted-foreground">
+              Leia o estado e a próxima ação; selecione uma frente para consultar o conteúdo completo abaixo.
+            </p>
           </div>
+          <Badge variant="outline">{visible.length} ficha(s) no filtro</Badge>
         </div>
-        <Card id="nucleo-m3-workstream-detail" className="p-4 space-y-3 min-w-0 scroll-mt-28">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 items-start">
+          {states.map(state => {
+            const stateItems = visible.filter(item => item.status === state.key);
+            const stateStyle: Record<DevelopmentStatus, string> = {
+              planejado: "border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/20",
+              em_andamento: "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20",
+              bloqueado: "border-rose-200 bg-rose-50/50 dark:border-rose-900 dark:bg-rose-950/20",
+              em_validacao: "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20",
+              concluido: "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20",
+            };
+            return (
+              <Card className={`p-3 md:p-4 min-w-0 space-y-3 ${stateStyle[state.key]}`} key={state.key}>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">{state.label}</h3>
+                  <Badge variant="secondary" className="tabular-nums">{stateItems.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {stateItems.map(item => (
+                    <button type="button" key={item.id} onClick={() => choose(item.id)}
+                      aria-pressed={selectedId === item.id}
+                      className={`text-left w-full min-w-0 p-3 rounded-lg border bg-background shadow-sm hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${selectedId===item.id?"border-primary ring-1 ring-primary/40":"border-border"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono font-semibold truncate">{item.code}</span>
+                        <Badge variant="outline" className="text-[11px] shrink-0">{priorityNames[item.priority]}</Badge>
+                      </div>
+                      <p className="text-sm font-semibold leading-snug mt-2 line-clamp-2" title={item.title}>{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 truncate" title={item.specialist || undefined}>
+                        {item.kind} · {item.specialist || "Especialista não informado"}
+                      </p>
+                      {item.parent_id && <p className="text-xs text-muted-foreground mt-1">
+                        Pai: {byId.get(item.parent_id)?.code || "não identificado"}
+                      </p>}
+                      <div className="mt-3 border-t pt-2 space-y-1">
+                        <p className="text-xs font-medium text-foreground">Próxima ação</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground line-clamp-3"
+                          title={item.next_action || "Não registrada"}>
+                          {item.next_action || "Não registrada"}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Evidência: {evidenceNames[item.evidence_state]}
+                      </p>
+                      <p className="text-xs font-semibold text-primary mt-2">Abrir ficha completa</p>
+                    </button>
+                  ))}
+                  {!loading && stateItems.length === 0 &&
+                    <p className="text-sm text-muted-foreground py-4 text-center">Sem registros neste estado</p>}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+        <Card id="nucleo-m3-workstream-detail" className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
@@ -461,7 +496,6 @@ export default function NucleoDevelopmentCenter() {
             </>
           )}
         </Card>
-      </div>
     </div>
   );
 }
