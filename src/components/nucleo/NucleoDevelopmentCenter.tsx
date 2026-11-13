@@ -373,7 +373,12 @@ export default function NucleoDevelopmentCenter() {
                 </div>
                 <div className="space-y-2">
                   {stateItems.map(item => (
-                    <button type="button" key={item.id} onClick={() => choose(item.id)}
+                    <button type="button" key={item.id}
+                      onClick={() => {
+                        choose(item.id);
+                        document.getElementById("nucleo-m3-workstream-detail")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
                       aria-pressed={selectedId === item.id}
                       className={`text-left w-full min-w-0 p-3 rounded-lg border bg-background shadow-sm hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${selectedId===item.id?"border-primary ring-1 ring-primary/40":"border-border"}`}>
                       <div className="flex items-center justify-between gap-2">
