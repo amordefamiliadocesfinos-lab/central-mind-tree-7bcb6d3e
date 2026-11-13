@@ -8,6 +8,7 @@ export function CapturaCentralFAB() {
 
   return (
     <Link
+      data-captura-fab="true"
       to="/captura"
       aria-label="Abrir Captura Central"
       title="Captura Central"
