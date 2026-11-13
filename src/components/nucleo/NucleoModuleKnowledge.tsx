@@ -61,6 +61,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
         if(result.error) setError("Ficha Viva indisponível: confirme migration e autorização no Core.");
         else setRevisions(result.data ?? []);
         setLoading(false);
+      }).catch(()=>{
+        if(!current)return;
+        setError("Consulta interrompida. Atualize a ficha e confirme o acesso antes de registrar.");
+        setLoading(false);
       });
     return()=>{current=false};
   },[moduleId,reload]);
@@ -111,24 +115,36 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
       setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
     }
     setSaving(true);setError(null);setValidationError(null);
-    // Concorrência de dois autores resolve por chave única; nunca sobrescreve histórico.
+    // Snapshot imutável para impedir que edições ocorridas durante o envio
+    // sejam confundidas com a revisão confirmada pelo Core.
     const version=(latest?.version_no??0)+1;
-    const result=await client.from("nucleo_module_knowledge_revisions").insert({
-      module_id:moduleId,section_code:section,version_no:version,title:cleanTitle,body:cleanBody,
-      source_reference:cleanSource,authority_state:"rascunho",evidence_level:"declarado",
-    }).select("*").maybeSingle();
-    if(result.error||!result.data) {
-      setError("Não foi possível registrar a revisão. Se outra pessoa salvou uma versão, atualize e confira antes de tentar novamente.");
-      setSaving(false);return;
+    try {
+      const result=await client.from("nucleo_module_knowledge_revisions").insert({
+        module_id:moduleId,section_code:section,version_no:version,title:cleanTitle,body:cleanBody,
+        source_reference:cleanSource,authority_state:"rascunho",evidence_level:"declarado",
+      }).select("*").maybeSingle();
+      if(result.error||!result.data) {
+        setError("Gravação não confirmada. Atualize o histórico antes de tentar novamente; outra revisão pode ter sido registrada.");
+        return;
+      }
+      // Leitura independente por ID: não afirmar sucesso apenas pelo retorno do INSERT.
+      const check=await client.from("nucleo_module_knowledge_revisions")
+        .select("*").eq("id",result.data.id).maybeSingle();
+      if(check.error||!check.data||check.data.module_id!==moduleId||
+         check.data.section_code!==section||check.data.title!==cleanTitle||
+         check.data.body!==cleanBody||check.data.source_reference!==cleanSource||
+         check.data.version_no!==version||check.data.authority_state!=="rascunho"){
+        setError("Envio efetuado, mas a revisão não foi integralmente confirmada. Recarregue o histórico antes de outra tentativa.");
+        return;
+      }
+      setTitle("");setBody("");setSource("");
+      setReload(n=>n+1);
+    } catch {
+      // Erro de transporte é ambíguo: não repetir a escrita sem conferir a origem.
+      setError("Conexão interrompida durante o registro ou a conferência. Recarregue o histórico antes de tentar novamente.");
+    } finally {
+      setSaving(false);
     }
-    // Readback separado: confirmar que a mesma revisão persiste no Core antes de afirmar sucesso.
-    const check=await client.from("nucleo_module_knowledge_revisions").select("*").eq("id",result.data.id).maybeSingle();
-    if(check.error||!check.data||check.data.body!==cleanBody||check.data.version_no!==version||
-       check.data.authority_state!=="rascunho"){
-      setError("Envio efetuado, mas a leitura da revisão não foi confirmada. Recarregue antes de criar outra.");
-      setSaving(false);return;
-    }
-    setTitle("");setBody("");setSource("");setSaving(false);setReload(n=>n+1);
   };
   return (
     <Card className="p-3 md:p-4 space-y-3" aria-label="Ficha Viva do módulo">
@@ -148,6 +164,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
           {coverage.map(entry => (
             <button type="button" key={entry.code}
               aria-pressed={section === entry.code}
+              disabled={saving}
               onClick={() => changeSection(entry.code)}
               className={`rounded-md border p-2 text-left text-xs space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
@@ -193,18 +210,18 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
                   Proposta fundamentada em fontes de código/documento, para leitura e ajustes pelo responsável.
                   Não é homologação, teste de uso real ou confirmação da vigência do especialista.
                 </p>
-                <Button type="button" size="sm" variant="outline" disabled={saving}
+                <Button type="button" size="sm" variant="outline" disabled={saving||loading}
                   onClick={prepareReference}>Preparar rascunho com fontes</Button>
               </div>
             )}
             <label className="block text-xs space-y-1">Título
-              <Input value={title} onChange={e=>{setTitle(e.target.value);setValidationError(null);}} maxLength={180} placeholder={sections[section]}/>
+              <Input disabled={saving} value={title} onChange={e=>{setTitle(e.target.value);setValidationError(null);}} maxLength={180} placeholder={sections[section]}/>
             </label>
             <label className="block text-xs space-y-1">Descrição operacional
-              <Textarea value={body} onChange={e=>{setBody(e.target.value);setValidationError(null);}} rows={5} maxLength={12000} placeholder="Registre somente fatos e limites verificáveis. Não inclua dados pessoais ou credenciais."/>
+              <Textarea disabled={saving} value={body} onChange={e=>{setBody(e.target.value);setValidationError(null);}} rows={5} maxLength={12000} placeholder="Registre somente fatos e limites verificáveis. Não inclua dados pessoais ou credenciais."/>
             </label>
             <label className="block text-xs space-y-1">Fonte / documento original (referência, não cópia)
-              <Input value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
+              <Input disabled={saving} value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
             </label>
             <p className="text-xs text-muted-foreground">A nova revisão recebe v{(latest?.version_no??0)+1}; a versão anterior permanece imutável. A aprovação normativa requer procedimento humano separado.</p>
             <Button type="button" size="sm" disabled={saving||loading} onClick={()=>void save()}>
