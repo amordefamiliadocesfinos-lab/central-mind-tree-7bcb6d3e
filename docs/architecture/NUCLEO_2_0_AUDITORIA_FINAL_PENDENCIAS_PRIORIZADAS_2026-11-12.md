@@ -396,3 +396,15 @@ A PR associada a este checkpoint adiciona `src/lib/nucleo/operationalKnowledgeV1
 **Hierarquia e acessibilidade:** governança continua separada do catálogo de módulos; seção violeta de baixo contraste, cores complementares com suporte a modo escuro, padding esquerdo adicional no botão para evitar colisão com controle flutuante observado na captura, base da página com `pb-32 md:pb-28`, e destino de navegação da ficha com `scroll-mt-28`. Layout responsive, sem redesenhar o sistema e sem editar a barra flutuante de outro domínio.
 
 **Prova e limite:** build de frontend e testes PostgreSQL M3 são pré-requisito ao merge. Os números dependem exclusivamente da sessão autorizada e não equivalem a aceite integral da Entrega A+, homologação de todos os botões, avanço global, feed de CI GitHub nem finalização documental. Conferência visual pós-publicação desktop/mobile permanece pendente; M3 Salvar e M5 revogação E2E continuam adiados. Nenhuma migration ou importação da Entrega B foi realizada.
+
+## 28. V1.2 — eliminação de sobreposição entre FAB Captura e dock global (13/11/2026)
+
+**Evidência da interface publicada:** a captura após a PR #713 mostrou a governança com seis indicadores reais e botão `Abrir ficha de governança`; o FAB global `Captura Central` continuava flutuando na lateral esquerda, próximo aos comandos do Núcleo, enquanto a barra inferior continha outro atalho **Captura**. O dock fixo também exige uma distância segura ao rolar para ações próximas ao fim da tela.
+
+**Causa verificada no código compartilhado:** `AuthenticatedShell` monta simultaneamente `GlobalFooterBar` e `CapturaCentralFAB`; não havia coordenação da visibilidade. A barra possui entrada `/captura` na navegação principal e mostra um dock quando expandida, mas o FAB permanecia sempre ativo.
+
+**Correção global aditiva:** `GlobalFooterBar.tsx` marca o dock somente no estado realmente expandido com `data-global-footer-dock="true"`; `CapturaCentralFAB.tsx` marca o launcher com `data-captura-fab="true"`; `src/index.css` oculta o FAB enquanto o dock expandido já oferece Captura e restaura automaticamente o FAB nos estados oculto/recolhido. A mesma regra de presença do dock aplica `scroll-padding-bottom` responsivo para evitar alinhar alvos da rolagem por trás da barra. Não é adicionada margem específica ao Núcleo e não são tocadas páginas de negócio.
+
+**Limites da prova:** a regra elimina a duplicação visual **se o navegador suportar o seletor CSS `:has`** (Chrome moderno da captura suporta), sem fazer afirmações de teste manual pós-publicação. Com a barra aberta, o dock continua fixo e pode ocupar a faixa inferior da viewport; os controles de ocultar/recolher continuam disponíveis. Validar no uso real desktop e móvel o acesso a Captura e a distância ao rolar; não tratar observação estática como clique homologado.
+
+**Integridade e governança:** zero migrations, zero escrita em frentes/CRM, nenhuma modificação de RLS ou permissões, zero importação da Entrega B. Aceite técnico restrito A e postergações M3 Salvar/M5 E2E permanecem intactos.
