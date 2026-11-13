@@ -373,3 +373,22 @@ All colors MUST be HSL.
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * Acesso global à Captura: o dock já oferece essa rota quando expandido.
+ * Não renderizar simultaneamente um FAB sobre conteúdos e botões de páginas.
+ * Quando o dock é oculto ou recolhido, o FAB continua disponível.
+ */
+body:has([data-global-footer-dock="true"]) [data-captura-fab="true"] {
+  display: none;
+}
+
+/* Scroll/foco não devem posicionar o alvo atrás do dock global fixo. */
+html:has([data-global-footer-dock="true"]) {
+  scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  html:has([data-global-footer-dock="true"]) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
