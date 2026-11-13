@@ -96,6 +96,25 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
   const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
   const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.parent_id === front.id));
+  // Resumo apenas dos registros descendentes existentes no Core M3.
+  // Não equivale a progresso percentual, evidência de deploy ou homologação.
+  const moduleWork = [...selectedFronts, ...selectedSubfronts];
+  const modulePending = moduleWork.filter(item => item.status !== "concluido");
+  const moduleBlocked = modulePending.filter(item => item.status === "bloqueado");
+  const moduleAwaitingAction = modulePending.filter(item => !item.next_action.trim());
+  const moduleStatusCounts = {
+    andamento: moduleWork.filter(item => item.status === "em_andamento").length,
+    validacao: moduleWork.filter(item => item.status === "em_validacao").length,
+    bloqueadas: moduleBlocked.length,
+    concluidasComProvaDeclarada: moduleWork.filter(item =>
+      item.status === "concluido" && item.evidence_state === "comprovada").length,
+  };
+  const priorityRank = { critica: 0, alta: 1, normal: 2, baixa: 3 };
+  const attentionItems = [...modulePending]
+    .sort((a,b) => Number(b.status === "bloqueado") - Number(a.status === "bloqueado") ||
+      priorityRank[a.priority] - priorityRank[b.priority] ||
+      a.code.localeCompare(b.code, "pt-BR"))
+    .slice(0, 8);
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||
@@ -364,6 +383,65 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                   </Button>
                 </div>
                 {evidenceFrontId === selectedRecord.id && <NucleoTechnicalEvidence workstreamId={selectedRecord.id} />}
+                <section className="rounded-md border p-3 space-y-3" aria-label="Pendências e evolução declarada do módulo">
+                  <div>
+                    <h5 className="text-sm font-semibold">Pendências e evolução registrada</h5>
+                    <p className="text-xs text-muted-foreground">
+                      Leitura dos estados M3 das frentes e subfrentes vinculadas.
+                      Contagens não medem percentual executado nem homologação.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="rounded border p-2">
+                      <p className="text-xs text-muted-foreground">Em andamento</p>
+                      <p className="text-lg font-semibold tabular-nums">{moduleStatusCounts.andamento}</p>
+                    </div>
+                    <div className="rounded border p-2">
+                      <p className="text-xs text-muted-foreground">Em validação</p>
+                      <p className="text-lg font-semibold tabular-nums">{moduleStatusCounts.validacao}</p>
+                    </div>
+                    <div className="rounded border p-2">
+                      <p className="text-xs text-muted-foreground">Bloqueadas</p>
+                      <p className="text-lg font-semibold tabular-nums">{moduleStatusCounts.bloqueadas}</p>
+                    </div>
+                    <div className="rounded border p-2">
+                      <p className="text-xs text-muted-foreground">Concluídas com prova declarada</p>
+                      <p className="text-lg font-semibold tabular-nums">{moduleStatusCounts.concluidasComProvaDeclarada}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {modulePending.length} pendência(s) cadastrada(s) · {moduleAwaitingAction.length} sem próxima ação informada.
+                    O estado de prova é o valor declarado no cadastro, não verificação externa.
+                  </p>
+                  {attentionItems.length > 0 ? (
+                    <div className="space-y-2">
+                      <h6 className="text-xs font-semibold">Prioridades para acompanhamento ({attentionItems.length} de {modulePending.length})</h6>
+                      {attentionItems.map(item => (
+                        <div key={item.id} className="rounded border p-2 flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-sm font-medium">{item.code} · {item.title}</p>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant="outline">{item.status.replaceAll("_", " ")}</Badge>
+                              <Badge variant="secondary">Prioridade: {item.priority}</Badge>
+                              <Badge variant="outline">{item.evidence_state.replaceAll("_", " ")}</Badge>
+                            </div>
+                            {item.blocker && <p className="text-xs text-muted-foreground">Bloqueio declarado: {item.blocker}</p>}
+                            <p className="text-xs">Próxima ação: {item.next_action.trim() || "Não informada"}</p>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => onSelectWorkstream(item.id)}>
+                            Abrir ficha M3
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {moduleWork.length === 0
+                        ? "Nenhuma frente ou subfrente cadastrada neste módulo."
+                        : "Nenhuma pendência aberta nos registros atuais. Isso não confirma homologação."}
+                    </p>
+                  )}
+                </section>
                 {selectedSubfronts.length > 0 && (
                   <div className="rounded-md border p-3 space-y-2">
                     <p className="font-medium text-sm">Subfrentes existentes — acompanhamento documental</p>
