@@ -13,13 +13,13 @@ vm.runInNewContext(compiled, scope, {timeout:1000});
 const {inspectNucleoSupervision} = scope.exports;
 assert.equal(typeof inspectNucleoSupervision, "function");
 function front(code, status="em_validacao", next_action="Revisar") {
- return {id:code,code,title:code,kind:"frente",status,next_action,blocker:"",evidence_state:"comprovada"};
+ return {id:code,code,title:code,kind:"frente",status,next_action,blocker:"",evidence_state:"sem_evidencia"};
 }
 function evidence(id,code,state="verificado") {
  return {id,workstream_id:code,observed_state:state};
 }
 const now=new Date("2026-11-12T10:00:00Z");
-const fronts=[front("NUC-M1"),front("NUC-M4")];
+const fronts=[{...front("NUC-M1"),evidence_state:"comprovada"}, {...front("NUC-M4"),evidence_state:"comprovada"}];
 let result=inspectNucleoSupervision(fronts,[evidence("a","NUC-M1"),evidence("b","NUC-M4")],[],now);
 assert.equal(result.findings.length,0);
 assert.equal(result.declaredDependencies,0);
@@ -30,6 +30,17 @@ result=inspectNucleoSupervision([front("NUC-M4")],[evidence("a","NUC-M4","diverg
 assert.equal(result.findings.length,1);
 assert.equal(result.findings[0].kind,"divergencia");
 assert.equal(result.findings[0].evidenceIds[0],"a");
+// Verificação cruzada nova: M3 declara prova, mas snapshot M4 não contém
+// evidência verificada. Provas externas podem existir: alerta é informativo.
+result=inspectNucleoSupervision([{...front("NUC-M4"),evidence_state:"comprovada"}],[],[],now);
+assert.equal(result.findings.length,1);
+assert.equal(result.findings[0].kind,"prova_declarada");
+assert.equal(result.findings[0].severity,"informativo");
+result=inspectNucleoSupervision([{...front("NUC-M4"),evidence_state:"comprovada"}],[evidence("x","NUC-M4","observado")],[],now);
+assert.equal(result.findings.filter(f=>f.kind==="prova_declarada").length,1);
+result=inspectNucleoSupervision([{...front("NUC-M4","concluido"),evidence_state:"comprovada"}],[],[],now);
+assert.equal(result.findings.filter(f=>f.kind==="evidencia_ausente").length,1);
+assert.equal(result.findings.filter(f=>f.kind==="prova_declarada").length,0);
 result=inspectNucleoSupervision([front("NUC-M1","concluido")],[],[],now);
 assert.equal(result.findings[0].kind,"evidencia_ausente");
 result=inspectNucleoSupervision([front("NUC-M1","bloqueado")],[],[],now);
@@ -49,4 +60,4 @@ result=inspectNucleoSupervision(fronts,[],[{workstream_id:"NUC-M4",depends_on_id
 assert.equal(result.declaredDependencies,0);
 result=inspectNucleoSupervision([{...front("NUC"),kind:"modulo"}],[],[],now);
 assert.equal(result.findings.length,0);
-console.log("M5 supervision: 11 checks PASS; deterministic, no mutations or external API.");
+console.log("M5 supervision: baseline and cross-evidence checks PASS; deterministic, no mutations or external API.");

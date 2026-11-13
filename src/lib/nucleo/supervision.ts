@@ -5,7 +5,7 @@ export type SupervisionFinding = {
   id: string;
   workstreamCode: string;
   workstreamTitle: string;
-  kind: "divergencia" | "evidencia_ausente" | "revisao_fonte" | "bloqueio" | "proxima_acao";
+  kind: "divergencia" | "evidencia_ausente" | "prova_declarada" | "revisao_fonte" | "bloqueio" | "proxima_acao";
   severity: "atencao" | "informativo";
   title: string;
   explanation: string;
@@ -62,10 +62,18 @@ export function inspectNucleoSupervision(
         `${diverging.length} evidência(s) arquivada(s) marcada(s) como divergente(s).`,
         "Abrir as fontes e investigar antes de aceitar o marco.", diverging.map(r => r.id));
     }
-    if (front.status === "concluido" && !records.some(r => r.observed_state === "verificado")) {
+    const hasVerifiedTechnicalRecord = records.some(r => r.observed_state === "verificado");
+    if (front.status === "concluido" && !hasVerifiedTechnicalRecord) {
       add(front, "evidencia_ausente", "Conclusão declarada sem prova técnica vinculada",
         "A frente foi declarada concluída, mas a consulta não retornou evidência técnica verificada.",
         "Conferir o histórico e os critérios originais; não alterar o status automaticamente.");
+    } else if (front.evidence_state === "comprovada" && !hasVerifiedTechnicalRecord) {
+      // Evidência declarada em M3 pode existir fora de M4. Apontar somente a
+      // lacuna de conciliação neste snapshot, sem invalidar a prova nem o método.
+      add(front, "prova_declarada", "Prova declarada sem correspondência técnica M4",
+        "A ficha M3 marca a evidência como comprovada, mas nenhum registro M4 desta frente está marcado como verificado na consulta autorizada.",
+        "Conciliar a origem da prova com o responsável; registrar M4 pelo procedimento autorizado, se pertinente. Não mudar o estado M3 automaticamente.",
+        records.map(r => r.id), "informativo");
     }
     if (front.status === "bloqueado" && front.blocker.trim()) {
       add(front, "bloqueio", "Bloqueio declarado",

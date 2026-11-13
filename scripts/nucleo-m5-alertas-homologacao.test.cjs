@@ -22,7 +22,7 @@ const TODAY = new Date("2026-11-12T18:00:00.000Z");
 const front = (id, extra = {}) => ({
   id, code:id, title:"Frente sintética " + id, kind:"frente",
   status:"em_validacao", blocker:"", next_action:"Revisar evidências",
-  evidence_state:"comprovada", ...extra,
+  evidence_state:"sem_evidencia", ...extra,
 });
 const proof = (id, workstream_id, observed_state="verificado") => ({
   id, workstream_id, observed_state,
@@ -123,6 +123,20 @@ scenario("fontes observada e não verificada são agrupadas",{
   assert.equal(r.findings.length,1);
   assert.equal(r.findings[0].evidenceIds.join(","),"P1,P2");
 });
+
+scenario("prova declarada na M3 sem M4 verificada exige conciliação",{
+  fronts:[front("NUC-M4",{evidence_state:"comprovada"})],
+  evidence:[proof("P1","NUC-M4","observado")],
+},r=>{
+  assert.deepEqual(kinds(r),["prova_declarada","revisao_fonte"]);
+  assert.equal(r.findings[0].severity,"informativo");
+  assert.match(r.findings[0].suggestedAction,/conciliar/i);
+});
+
+scenario("prova M3 com M4 verificada não gera alerta de conciliação",{
+  fronts:[front("NUC-M4",{evidence_state:"comprovada"})],
+  evidence:[proof("P1","NUC-M4","verificado")],
+},r=>assert.deepEqual(kinds(r),[]));
 
 scenario("frente concluída sem prova verificada sinaliza atenção",{
   fronts:[front("NUC-M0",{status:"concluido"})],
