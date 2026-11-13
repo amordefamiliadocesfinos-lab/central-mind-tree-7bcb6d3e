@@ -14,6 +14,10 @@ import {
 } from "@/lib/nucleo/operationalKnowledgeV12";
 
 type Level = "overview" | "module" | "operation";
+const specialistConfidence = (value: string | null | undefined): "declarado" | "nao_verificado" =>
+  value && !/não verificado|não verificados|a conciliar|a reconciliar|vigência a conferir|vigência não/i.test(value)
+    ? "declarado" : "nao_verificado";
+
 const confidenceLabels = {
   codigo_verificado: "Verificado no código",
   declarado: "Declarado, a conciliar",
@@ -68,13 +72,13 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
       byCode.set(record.code, source ? {
         ...source, name: record.title, purpose: record.description || source.purpose,
         specialist: record.specialist || source.specialist,
-        specialistConfidence: record.specialist ? "declarado" : source.specialistConfidence,
+        specialistConfidence: record.specialist ? specialistConfidence(record.specialist) : source.specialistConfidence,
       } : {
         id: record.code, name: record.title,
         domain: "Domínio ainda não classificado", route: null,
         purpose: record.description || "Finalidade detalhada não verificada.",
         coverage: "inventario_de_rotas", specialist: record.specialist || null,
-        specialistConfidence: record.specialist ? "declarado" : "nao_verificado",
+        specialistConfidence: specialistConfidence(record.specialist),
         source: "Ficha do módulo no Core M3 — estado declarado, sem prova externa de rota",
       });
     }

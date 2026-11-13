@@ -41,18 +41,18 @@ export const MODULES_V12: KnowledgeModule[] = [
   },
   {
     id: "OPE", name: "Operações", domain: "Operações",
-    route: "/operacoes", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/operacoes", purpose: "Código verificado: pedidos, produtos, produção, estoques e separação; o inventário documental e a homologação dos fluxos continuam pendentes.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/Operacoes.tsx",
   },
   {
     id: "CAP", name: "Captura Central", domain: "Captação",
-    route: "/captura", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/captura", purpose: "Código verificado: entrada de texto, áudio, vídeo, foto e anexos; classificação e vínculo ainda exigem revisão do método vigente.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/CapturaCentral.tsx",
   },
   {
     id: "ROT", name: "Rotina", domain: "Organização",
-    route: "/rotina", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/rotina", purpose: "Código verificado: visões de dia, semana e mês, blocos e alarmes; ainda sem método documental reconciliado ou jornada homologada.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/Rotina.tsx",
   },
   {
     id: "SAU", name: "Saúde / CCH", domain: "Saúde",
@@ -71,9 +71,9 @@ export const MODULES_V12: KnowledgeModule[] = [
   },
   {
     id: "SHO", name: "Shopee / Integração", domain: "Comercial",
-    route: null, purpose: "Módulo mencionado no mapa V1.2; rota própria não confirmada nesta investigação.",
+    route: null, purpose: "Integração acompanhada por documentos de governança; F12 segue aberta sob escopo congelado. Não há rota própria verificada nem homologação de escala/deploy implícita.",
     coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado",
-    source: "MAPA MESTRE NÚCLEO 2.0 V1.2 — seção de cobertura obrigatória",
+    source: REPO + "docs/operations/F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md",
   },
 ];
 
