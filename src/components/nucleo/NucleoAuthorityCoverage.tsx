@@ -3,7 +3,7 @@ import { BookOpen, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
-import { KNOWLEDGE_ARCHIVES, KNOWLEDGE_ARCHIVE_SOURCES } from "@/lib/nucleo/knowledgeArchiveSourcesV12";
+import { KNOWLEDGE_ARCHIVES, KNOWLEDGE_ARCHIVE_SOURCES, OPERACOES_ORIGINAL_RECOVERED } from "@/lib/nucleo/knowledgeArchiveSourcesV12";
 
 /**
  * Matriz M5 de proveniência, sem gravar ou consultar documentos.
@@ -75,6 +75,22 @@ export default function NucleoAuthorityCoverage({ modules }: { modules: Developm
               O campo textual de especialista não contém identificador, autoridade e vigência auditados.
             </p>
             {provenance?.ownerBoundary && <p className="text-sm">{provenance.ownerBoundary}</p>}
+            {module.code === "OPE" && (
+              <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 p-3 space-y-1">
+                <p className="text-xs font-semibold">Mapa Norteador ORIGINAL localizado na Biblioteca</p>
+                <p className="text-xs text-muted-foreground">
+                  {OPERACOES_ORIGINAL_RECOVERED.documentCode} — congelado em 18/09/2026.
+                  Recuperado em fonte externa ao ZIP; seu backlog não foi reclassificado como situação atual.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Localizador: Biblioteca do projeto (arquivo original, versão {OPERACOES_ORIGINAL_RECOVERED.sourceVersion}).
+                </p>
+                <p className="text-xs font-mono break-all">SHA-256: {OPERACOES_ORIGINAL_RECOVERED.sha256}</p>
+                <p className="text-xs text-muted-foreground">
+                  Mandato ainda não certificado. Conteúdo preservado apenas na fonte original; não importado ao Core.
+                </p>
+              </div>
+            )}
             {archiveSources.length>0&&(
               <div className="border-t pt-2 space-y-2">
                 <p className="text-xs font-semibold">Fonte de continuidade no acervo anexado (03/10/2026)</p>
