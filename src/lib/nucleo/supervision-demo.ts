@@ -6,6 +6,7 @@ export const DEMO_M5_CASES = [
   { key: "bloqueio", label: "Bloqueio", description: "A frente fictícia contém um impedimento registrado." },
   { key: "proxima_acao", label: "Próxima ação", description: "A frente fictícia não possui próxima ação." },
   { key: "revisao_fonte", label: "Fonte pendente", description: "Uma evidência fictícia ainda depende de conferência." },
+  { key: "prova_declarada", label: "Prova declarada", description: "A ficha M3 fictícia declara prova sem evidência M4 verificada." },
   { key: "combinado", label: "Simulação combinada", description: "Quatro alertas simultâneos, apenas com dados fictícios." },
 ] as const;
 export type M5DemoKey = (typeof DEMO_M5_CASES)[number]["key"];
@@ -33,6 +34,7 @@ export function buildM5DemoSnapshot(key: M5DemoKey): SupervisionSnapshot {
     source_observed_at: null, checked_at: null, evidence_note: "DADOS FICTÍCIOS",
     snapshot: {}, recorded_at: "2026-01-01T00:00:00Z", recorded_by_auth_uid: null,
   });
+  if (key === "prova_declarada") front.evidence_state = "comprovada";
   const proofs: TechnicalEvidence[] = [];
   if (key === "divergencia" || key === "combinado") proofs.push(evidence("DEMO-DIVERGENCIA", "divergente"));
   if (key === "revisao_fonte" || key === "combinado") proofs.push(evidence("DEMO-PENDENTE", "observado"));
