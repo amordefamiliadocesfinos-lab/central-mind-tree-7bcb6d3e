@@ -80,7 +80,7 @@ export const KNOWLEDGE_ARCHIVE_SOURCES: readonly KnowledgeArchiveSource[] = [
     sha256:"7b84e1ee1914cd29e16f350cb5309000adba5a8f2b4b60a1bfb7da359f200ab3",
     documentDate:"2026-10-03",declaredDocumentFunction:"referencia_a_estado_externo",
     continuityScope:"Não produzir Estado Vigente duplicado: o Mapa Norteador de Operações já exerce essa função.",
-    currentAuthorityBoundary:"A referência aponta para MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO, não localizado neste ZIP pelo nome; deve ser conferido na fonte própria antes de declarar vigência.",
+    currentAuthorityBoundary:"O original foi RECUPERADO na Biblioteca pessoal de arquivos, com hash e data; não está neste ZIP. Seu status de 18/09/2026 não comprova o estado atual de cada frente ou o mandato nominal.",
   },
 ];
 
@@ -126,10 +126,28 @@ export const SOURCE_RECONCILIATION_BOUNDARIES = [
   {
     moduleCode: "OPE", octSource: "REFERENCIA_ESTADO_VIGENTE_OPERACOES",
     laterSource: null, laterDate: null,
-    classification: "o nome do Mapa Norteador é referenciado, mas o original não foi localizado nos ZIPs inspecionados, GitHub main ou pesquisa Drive",
+    classification: "Mapa Norteador V1.0 ORIGINAL recuperado na Biblioteca, congelado em 18/09/2026; operações atuais requerem confronto posterior e mandato continua não certificado",
   },
   {
     moduleCode: "ASS", octSource: null, laterSource: null, laterDate: null,
     classification: "sem Estado Vigente equivalente localizado nos ZIPs inspecionados, GitHub main ou pesquisa Drive",
   },
 ] as const;
+
+/**
+ * Recuperação de fonte externa à base ZIP, sem copiar conteúdo para o GitHub
+ * ou para nucleo_documents. ID de Biblioteca não é uma URL pública.
+ * A verificação de 13/11/2026 foi feita sobre os bytes da versão 1.
+ */
+export const OPERACOES_ORIGINAL_RECOVERED = {
+  documentCode: "MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO",
+  filename: "MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO.txt",
+  sourceKind: "biblioteca_chatgpt_pessoal",
+  libraryFileId: "libfile_e9cf913c12d081919007231eb532b682",
+  sourceVersion: "1",
+  frozenAt: "2026-09-18",
+  sizeBytes: 22682,
+  sha256: "69a7e90f1a68b360abdff4432a93933f841e5062539f09a46819bffcd5274f08",
+  authorityAtOrigin: "CONGELADO COMO NORTE VIGENTE DE CONTINUIDADE",
+  note: "Documento original de 18 seções recuperado; não foi importado ou republicado. O status e backlog são históricos da data de congelamento e precisam de confronto com mudanças posteriores. Nenhum mandato de especialista foi certificado.",
+} as const;
