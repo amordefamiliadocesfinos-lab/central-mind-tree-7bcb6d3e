@@ -14,6 +14,7 @@ import { buildM5DemoSnapshot, DEMO_M5_CASES, type M5DemoKey } from "@/lib/nucleo
 import NucleoKnowledgeCoverage from "@/components/nucleo/NucleoKnowledgeCoverage";
 import NucleoAuthorityCoverage from "@/components/nucleo/NucleoAuthorityCoverage";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
+import NucleoMandateProposal from "@/components/nucleo/NucleoMandateProposal";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
@@ -38,6 +39,7 @@ export default function NucleoSupervisionPanel({
   const requestGuard = useRef(createM5RequestGuard());
   const [lastSuccessfulRead, setLastSuccessfulRead] = useState<string | null>(null);
   const [authorizedReadCount, setAuthorizedReadCount] = useState(0);
+  const [mandateVersion, setMandateVersion] = useState(0);
   const frontsVersion = workstreams.map(w => `${w.id}:${w.updated_at}`).join("|");
 
   useEffect(() => {
@@ -180,7 +182,8 @@ export default function NucleoSupervisionPanel({
           </p>
           <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
           <NucleoAuthorityCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
-          <NucleoMandateRegistry modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoMandateRegistry key={mandateVersion} modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoMandateProposal modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} onCreated={() => setMandateVersion(v=>v+1)} />
           {snapshot.declaredDependencies === 0 && (
             <p className="text-xs text-muted-foreground">
               Não há dependências explícitas cadastradas. O mapa arquitetural não foi convertido em vínculos por inferência.
