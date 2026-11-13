@@ -607,7 +607,7 @@ export function HealthWorkoutInteractiveTimerF19({
     if (!viewedExercise || !viewedExerciseSelectable) return;
 
     if (activeRest) {
-      setPlannedNextExerciseId(viewedExercise.id);
+      chooseNextExercise(viewedExercise);
       return;
     }
 
@@ -1057,7 +1057,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Escolha o que fará depois
+                          1. Escolha o que fará depois
                         </p>
 
                         {plannedNextExercise ? (
