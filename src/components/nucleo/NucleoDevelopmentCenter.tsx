@@ -66,6 +66,7 @@ export default function NucleoDevelopmentCenter() {
   const [history, setHistory] = useState<DevelopmentEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [filter, setFilter] = useState("");
+  const [displayMode, setDisplayMode] = useState<"lista" | "quadro">("lista");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
   const [dependencyTarget, setDependencyTarget] = useState("");
@@ -130,6 +131,19 @@ export default function NucleoDevelopmentCenter() {
       .some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [items, filter]);
   const selectedHistory = useMemo(() => history.filter(event => event.workstream_id === selectedId), [history, selectedId]);
+  // A raiz NUC integra o total M3, mas não é uma frente operacional.
+  const governanceRootCount = visible.filter(item => item.code === "NUC").length;
+  const operationalVisible = visible.filter(item => item.code !== "NUC");
+  const sortedOperational = useMemo(() => {
+    const priorityRank: Record<Priority,number> = {critica:0,alta:1,normal:2,baixa:3};
+    const stateRank: Record<DevelopmentStatus,number> = {
+      bloqueado:0,em_andamento:1,em_validacao:2,planejado:3,concluido:4,
+    };
+    return [...operationalVisible].sort((a,b)=>
+      stateRank[a.status] - stateRank[b.status] ||
+      priorityRank[a.priority] - priorityRank[b.priority] ||
+      a.code.localeCompare(b.code, "pt-BR"));
+  }, [visible]);
 
   const choose = (id: string) => {
     setSelectedId(id);
@@ -336,16 +350,107 @@ export default function NucleoDevelopmentCenter() {
         {!loading && !items.length && <p className="text-xs text-muted-foreground">Nenhuma frente cadastrada.</p>}
       </Card>
 
-      <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
-        {states.map(state => (
-          <div className="border rounded-lg p-3" key={state.key}>
-            <p className="text-xs text-muted-foreground">{state.label}</p>
-            <p className="font-bold text-xl">{visible.filter(item => item.status===state.key).length}</p>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold">Acompanhamento das frentes</h3>
+            <p className="text-sm text-muted-foreground">
+              {operationalVisible.length} frente(s)/registro(s) operacional(is)
+              {governanceRootCount > 0 ? ` + ${governanceRootCount} raiz de governança NUC` : ""}.
+              A raiz é exibida separadamente para evitar contagens contraditórias.
+            </p>
           </div>
-        ))}
+          <div className="inline-flex flex-wrap gap-1 rounded-lg border p-1" aria-label="Modo de visualização">
+            <Button type="button" size="sm" variant={displayMode === "lista" ? "default" : "ghost"}
+              aria-pressed={displayMode === "lista"} onClick={() => setDisplayMode("lista")}>
+              Lista compacta
+            </Button>
+            <Button type="button" size="sm" variant={displayMode === "quadro" ? "default" : "ghost"}
+              aria-pressed={displayMode === "quadro"} onClick={() => setDisplayMode("quadro")}>
+              Quadro por estado
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
+          {states.map(state => (
+            <div className="border rounded-lg p-3" key={state.key}>
+              <p className="text-xs text-muted-foreground">{state.label}</p>
+              <p className="font-bold text-xl tabular-nums">
+                {operationalVisible.filter(item => item.status === state.key).length}
+              </p>
+            </div>
+          ))}
+        </div>
+        {governanceRootCount > 0 && (
+          <Button type="button" size="sm" variant="outline" onClick={() => {
+            const root = visible.find(item => item.code === "NUC");
+            if (root) {
+              choose(root.id);
+              document.getElementById("nucleo-m3-workstream-detail")
+                ?.scrollIntoView({behavior:"smooth",block:"start"});
+            }
+          }}>
+            Abrir raiz de governança NUC
+          </Button>
+        )}
       </div>
 
-      <section className="space-y-3 min-w-0" aria-label="Quadro de estados das frentes">
+      {displayMode === "lista" && (
+        <section aria-label="Lista compacta de frentes" className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Frentes organizadas por situação e prioridade. Acesse a ficha para ler a próxima ação integral e as evidências.
+          </p>
+          <div className="space-y-2">
+            {sortedOperational.map(item => {
+              const tone: Record<DevelopmentStatus,string> = {
+                planejado:"border-l-slate-400",
+                em_andamento:"border-l-blue-500",
+                bloqueado:"border-l-rose-500",
+                em_validacao:"border-l-amber-500",
+                concluido:"border-l-emerald-500",
+              };
+              return (
+                <button type="button" key={item.id}
+                  aria-pressed={selectedId === item.id}
+                  onClick={() => {
+                    choose(item.id);
+                    document.getElementById("nucleo-m3-workstream-detail")
+                      ?.scrollIntoView({ behavior:"smooth", block:"start" });
+                  }}
+                  className={`w-full text-left border border-l-4 rounded-lg p-3 md:p-4 bg-background hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${tone[item.status]} ${selectedId === item.id ? "ring-1 ring-primary/40" : ""}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.8fr)_auto] gap-2 md:gap-4 items-center">
+                    <div className="min-w-0">
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className="font-mono text-xs font-semibold">{item.code}</span>
+                        <Badge variant="outline">{states.find(state => state.key === item.status)?.label}</Badge>
+                        <Badge variant="secondary">{priorityNames[item.priority]}</Badge>
+                      </div>
+                      <p className="font-semibold text-sm mt-1">{item.title}</p>
+                      <p className="text-xs text-muted-foreground truncate" title={item.specialist}>
+                        {item.kind} · {item.specialist || "Especialista não informado"}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium">Próxima ação</p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {item.next_action || "Não registrada"}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-primary md:text-right">Ver ficha completa</span>
+                  </div>
+                </button>
+              );
+            })}
+            {!loading && sortedOperational.length === 0 && (
+              <p className="border rounded-lg p-5 text-sm text-muted-foreground">
+                Nenhuma frente corresponde ao filtro.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {displayMode === "quadro" && <section className="space-y-3 min-w-0" aria-label="Quadro de estados das frentes">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-semibold">Quadro de acompanhamento</h3>
@@ -353,11 +458,11 @@ export default function NucleoDevelopmentCenter() {
               Leia o estado e a próxima ação; selecione uma frente para consultar o conteúdo completo abaixo.
             </p>
           </div>
-          <Badge variant="outline">{visible.length} ficha(s) no filtro</Badge>
+          <Badge variant="outline">{operationalVisible.length} frente(s) no filtro</Badge>
         </div>
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 items-start">
           {states.map(state => {
-            const stateItems = visible.filter(item => item.status === state.key);
+            const stateItems = operationalVisible.filter(item => item.status === state.key);
             const stateStyle: Record<DevelopmentStatus, string> = {
               planejado: "border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/20",
               em_andamento: "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20",
@@ -412,7 +517,7 @@ export default function NucleoDevelopmentCenter() {
             );
           })}
         </div>
-      </section>
+      </section>}
         <Card id="nucleo-m3-workstream-detail" className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
           {!selected ? (
             <div>
