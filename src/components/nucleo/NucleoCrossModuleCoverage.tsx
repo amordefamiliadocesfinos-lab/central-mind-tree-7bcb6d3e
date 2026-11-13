@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { MODULE_PROVENANCE } from "@/lib/nucleo/operationalProvenanceV12";
+import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
 
 type Filter = "todos" | "sem_frente" | "com_frente";
 
@@ -28,7 +29,8 @@ export default function NucleoCrossModuleCoverage({
     const subfronts=workstreams.filter(item =>
       item.kind==="subfrente" && item.parent_id!==null && frontIds.has(item.parent_id));
     const provenance=MODULE_PROVENANCE[module.id];
-    return {module,record,fronts,subfronts,provenance};
+    const candidates=MODULE_RECONCILIATION_V12[module.id] ?? [];
+    return {module,record,fronts,subfronts,provenance,candidates};
   });
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
   const linked=rows.filter(row=>row.fronts.length>0).length;
@@ -56,7 +58,7 @@ export default function NucleoCrossModuleCoverage({
           aria-pressed={filter==="com_frente"} onClick={()=>setFilter("com_frente")}>Com frente vinculada</Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {visible.map(({module,record,fronts,subfronts,provenance})=>(
+        {visible.map(({module,record,fronts,subfronts,provenance,candidates})=>(
           <article key={module.id} className="rounded-lg border p-4 space-y-2 min-w-0">
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <span className="font-mono text-xs text-muted-foreground">{module.id}</span>
@@ -86,6 +88,27 @@ export default function NucleoCrossModuleCoverage({
             <p className="text-xs text-muted-foreground">
               Método: {provenance?"fontes indicadas; conferir autoridade na ficha":"proveniência ainda não catalogada"}
             </p>
+            {fronts.length===0 && candidates.length>0 && (
+              <details className="rounded-md border p-2 space-y-2">
+                <summary className="text-xs font-medium cursor-pointer">
+                  {candidates.length} superfície(s) documentada(s) para reconciliação — não cadastradas como frentes
+                </summary>
+                <div className="mt-2 space-y-3">
+                  {candidates.map(item=>(
+                    <div key={item.reference+item.label} className="space-y-1 border-t pt-2">
+                      <p className="text-xs font-semibold">{item.label}</p>
+                      <p className="text-xs text-muted-foreground">{item.observed}</p>
+                      <p className="text-xs">Pendência: {item.nextGate}</p>
+                      <a href={item.reference} target="_blank" rel="noopener noreferrer"
+                        className="text-xs underline underline-offset-2">Conferir fonte no GitHub</a>
+                      <p className="text-xs text-muted-foreground">
+                        {item.evidenceKind==="codigo_presente"?"Código presente — sem aceite de uso real":"Declaração do mapa — sem aceite automático"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
             <p className="text-xs line-clamp-3" title={record?.next_action||undefined}>
               Próxima ação declarada: {record?.next_action.trim() || "não informada"}
             </p>

@@ -212,7 +212,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
               <h3 className="font-semibold text-base">Módulos do Painel Central</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{catalog.length} módulo(s) identificado(s) no catálogo · {registeredModules.length} cadastrado(s) no Core. O Núcleo de governança não entra nesta contagem.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{catalog.length} módulo(s) identificado(s) no catálogo · {registeredModules.length} cadastrado(s) no Core. O Núcleo de governança não entra nesta contagem. Para módulos sem frentes vinculadas, o inventário de fontes é apenas diagnóstico para reconciliação humana; não cadastra nem homologa frentes.</p>
             </div>
             <Badge variant="secondary">Não representa progresso global</Badge>
           </div>
