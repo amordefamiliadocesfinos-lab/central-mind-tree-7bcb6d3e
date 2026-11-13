@@ -12,6 +12,9 @@ on:
       - "supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql"
       - "scripts/nucleo-v12-ficha-viva.test.sql"
       - "src/pages/Nucleo.tsx"
+      - "src/components/CapturaCentralFAB.tsx"
+      - "src/components/GlobalFooterBar.tsx"
+      - "src/index.css"
   workflow_dispatch:
 permissions:
   contents: read
