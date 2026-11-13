@@ -13,6 +13,7 @@ import { createM5RequestGuard } from "@/lib/nucleo/supervision-request-guard";
 import { buildM5DemoSnapshot, DEMO_M5_CASES, type M5DemoKey } from "@/lib/nucleo/supervision-demo";
 import NucleoKnowledgeCoverage from "@/components/nucleo/NucleoKnowledgeCoverage";
 import NucleoAuthorityCoverage from "@/components/nucleo/NucleoAuthorityCoverage";
+import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
@@ -179,6 +180,7 @@ export default function NucleoSupervisionPanel({
           </p>
           <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
           <NucleoAuthorityCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoMandateRegistry modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
           {snapshot.declaredDependencies === 0 && (
             <p className="text-xs text-muted-foreground">
               Não há dependências explícitas cadastradas. O mapa arquitetural não foi convertido em vínculos por inferência.
