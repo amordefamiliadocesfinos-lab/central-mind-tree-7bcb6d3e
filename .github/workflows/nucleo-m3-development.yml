@@ -8,6 +8,7 @@ on:
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
       - "src/lib/nucleo/operationalKnowledgeV12.ts"
+      - "src/lib/nucleo/operationalDraftsV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
       - "supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql"
       - "scripts/nucleo-v12-ficha-viva.test.sql"

@@ -36,8 +36,8 @@ export const MODULES_V12: KnowledgeModule[] = [
   },
   {
     id: "FIN", name: "Financeiro", domain: "Financeiro",
-    route: "/financeiro", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/financeiro", purpose: "Código inspecionado: painel financeiro, lançamentos, contas, categorias e importação de extratos; experiência mobile própria. Uso real e procedimentos ainda não homologados.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/Financeiro.tsx",
   },
   {
     id: "OPE", name: "Operações", domain: "Operações",
