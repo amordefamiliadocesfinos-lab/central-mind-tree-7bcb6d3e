@@ -222,3 +222,68 @@ export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: ROT_PAGE,
   },
 };
+
+/**
+ * Entrega A+ V1.2 — mapas de consulta de Digital e Assistente/IA.
+ * Fontes de CÓDIGO somente: não conferem mandato, ato de aprovação,
+ * publicação em redes sociais, nem autorização para executar autopilot.
+ */
+const DIGITAL_CODE = "src/pages/Digital.tsx";
+const ASSISTENTE_CODE = "src/pages/Assistente.tsx";
+const ASSISTENTE_HOOK = "src/hooks/useAICEO.ts";
+
+export const DIGITAL_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Digital — identidade e objetivo no código (rascunho)",
+    body: "A página Digital organiza ideias e variações de conteúdo e apresenta áreas de calendário, mídia, métricas, plataformas/canais, tendências, engajamento, FAQ, atendimento e campanhas. Essas áreas são superfícies identificadas no código, não um método comercial homologado nem prova de publicação efetiva. O Núcleo acompanha a documentação e não publica material em canais externos.",
+    source: DIGITAL_CODE,
+  },
+  "FM-03": {
+    title: "Digital — fronteiras e decisões humanas (rascunho)",
+    body: "Criar uma ideia, planejar campanha, associar produto/canal e publicar são eventos diferentes. A identificação de ações de criação, filtros e plataformas em Digital.tsx não autoriza publicação, alteração de mídia, comunicação com clientes ou integração de CRM a partir do Núcleo. Critérios editoriais, direitos de uso de mídia, aprovação de campanhas e método vigente do especialista precisam de confirmação independente.",
+    source: DIGITAL_CODE,
+  },
+  "FM-04": {
+    title: "Digital — mapa técnico de telas (rascunho)",
+    body: "A página Digital.tsx declara abas ideias, calendario, midia, metricas, plataformas, tendencias, engajamento, faq, atendimento e campanhas. A visão de ideias oferece modos lista, kanban e planilha, além de busca e filtros de status, canal, variação, tipo, produto e período. A presença do controle na main não comprova operação da tela autenticada, acesso ou persistência dos dados.",
+    source: DIGITAL_CODE,
+  },
+  "FM-07": {
+    title: "Digital — evidência e lacunas verificáveis (rascunho)",
+    body: "A evidência desta proposta é a leitura da página src/pages/Digital.tsx no GitHub. Ainda não existe, nesta proposta, prova de um método soberano atual, mandato nominal homologado, publicação real de campanha ou resultado de métricas. Para promover procedimentos, o especialista deve apresentar mapa vigente e evidências específicas, separando código, deploy, uso real e aprovação.",
+    source: DIGITAL_CODE,
+  },
+  "FM-08": {
+    title: "Digital — governança do especialista (rascunho)",
+    body: "O registro de especialista no cadastro de módulos é uma declaração de responsabilidade, não um mandato certificado. O Núcleo não deve inferir identidade, autoridade de publicação ou método a partir do texto da ficha. A Camada Mestre e o responsável competente devem reconciliar o método e seus limites antes de qualquer homologação.",
+    source: DIGITAL_CODE,
+  },
+};
+
+export const ASSISTENTE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Assistente/IA — identidade técnica observada (rascunho)",
+    body: "A página Assistente.tsx apresenta a experiência CEO IA, com conversa, insights, políticas e registro de ações. O hook useAICEO fornece contratos de leitura e atualização utilizados pela tela. Trata-se de inventário de superfícies implementadas, não de reconhecimento de um método soberano próprio do Assistente e não de autorização para executar ações automaticamente.",
+    source: ASSISTENTE_CODE+"; "+ASSISTENTE_HOOK,
+  },
+  "FM-03": {
+    title: "Assistente/IA — fronteiras de autonomia (rascunho)",
+    body: "A interface contém controles de autopilot, limite de risco e propostas/ações, mas sua existência não comprova quais políticas estão ativas, quem pode alterá-las nem quais ações foram realizadas. O Núcleo M5 mantém supervisão somente leitura; esta ficha não modifica políticas, aprova insights, executa ações ou aciona provedores externos. Toda autorização depende dos contratos e permissões próprias do Assistente e da Camada Mestre.",
+    source: ASSISTENTE_CODE+"; "+ASSISTENTE_HOOK,
+  },
+  "FM-04": {
+    title: "Assistente/IA — mapa de interface (rascunho)",
+    body: "No código, a página CEO IA separa as abas chat, insights, policies e log. Há cartões de insights, filtros por status/área, cartões de políticas com autopilot e ajuste de risco, além de itens de histórico de ações. Esse mapa auxilia a descoberta humana, mas não descreve execução real nem comprova o resultado de qualquer insight, diálogo ou ação.",
+    source: ASSISTENTE_CODE,
+  },
+  "FM-07": {
+    title: "Assistente/IA — estado da evidência (rascunho)",
+    body: "Fonte primária verificada nesta proposta: src/pages/Assistente.tsx e o contrato referenciado src/hooks/useAICEO.ts. A auditoria do Núcleo em 13/11/2026 não localizou Estado Vigente ou método soberano próprio nas fontes examinadas; isso não prova inexistência fora do universo pesquisado. Não criar conteúdo normativo substituto nem afirmar homologação do comportamento da IA.",
+    source: ASSISTENTE_CODE+"; "+ASSISTENTE_HOOK+"; docs/architecture/NUCLEO_2_0_AUDITORIA_FINAL_PENDENCIAS_PRIORIZADAS_2026-11-12.md",
+  },
+  "FM-08": {
+    title: "Assistente/IA — mandato e autoridade pendentes (rascunho)",
+    body: "O método soberano do Assistente, a identidade atual do especialista, a cadeia de aprovação e as condições para executar ações permanecem sem reconciliação formal no Núcleo. Registros textuais ou componentes no GitHub não atribuem mandato. Cabe à autoridade competente fornecer a referência original e aprovar o vínculo; até lá, manter somente leitura e linguagem não homologada.",
+    source: ASSISTENTE_CODE+"; docs/architecture/NUCLEO_2_0_AUDITORIA_FINAL_PENDENCIAS_PRIORIZADAS_2026-11-12.md",
+  },
+};
