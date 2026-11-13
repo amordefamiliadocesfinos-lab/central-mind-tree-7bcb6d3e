@@ -44,6 +44,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
+  const [validationError,setValidationError]=useState<string|null>(null);
   const [reload,setReload]=useState(0);
   const [title,setTitle]=useState("");
   const [body,setBody]=useState("");
@@ -64,7 +65,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     return()=>{current=false};
   },[moduleId,reload]);
 
-  useEffect(()=>{setTitle("");setBody("");setSource("");},[moduleId,section]);
+  useEffect(()=>{setTitle("");setBody("");setSource("");setValidationError(null);},[moduleId,section]);
   const history=useMemo(()=>revisions
     .filter(r=>r.section_code===section).sort((a,b)=>b.version_no-a.version_no),[revisions,section]);
   const latest=history[0];
@@ -85,6 +86,13 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   }));
   const templateCount = coverage.filter(entry => entry.hasTemplate).length;
   const persistedCount = coverage.filter(entry => entry.revisionCount > 0).length;
+  const changeSection = (next: FMSection) => {
+    if (next === section || saving) return;
+    // Troca de seção não pode descartar conteúdo digitado sem decisão humana.
+    if ((title.trim() || body.trim() || source.trim()) &&
+      !window.confirm("Há um rascunho não salvo nesta seção. Descartá-lo e abrir outra seção?")) return;
+    setSection(next);
+  };
   const prepareReference = () => {
     if (!referenceDraft || loading || saving || error) return;
     // Ação local explícita: pré-preenche apenas o formulário.
@@ -100,9 +108,9 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     const cleanTitle=title.trim(), cleanBody=body.trim(), cleanSource=source.trim();
     if(loading||error||saving) return;
     if(cleanTitle.length<3||cleanTitle.length>180||cleanBody.length<10||cleanBody.length>12000||cleanSource.length>1500){
-      setError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
+      setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
     }
-    setSaving(true);setError(null);
+    setSaving(true);setError(null);setValidationError(null);
     // Concorrência de dois autores resolve por chave única; nunca sobrescreve histórico.
     const version=(latest?.version_no??0)+1;
     const result=await client.from("nucleo_module_knowledge_revisions").insert({
@@ -140,7 +148,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
           {coverage.map(entry => (
             <button type="button" key={entry.code}
               aria-pressed={section === entry.code}
-              onClick={() => setSection(entry.code)}
+              onClick={() => changeSection(entry.code)}
               className={`rounded-md border p-2 text-left text-xs space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
               <span className="block text-muted-foreground">
@@ -153,6 +161,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
       </section>
       {loading&&<p role="status" className="text-xs text-muted-foreground">Consultando revisões autorizadas…</p>}
       {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
+      {validationError&&<p role="alert" className="text-xs text-destructive">{validationError}</p>}
       <Button type="button" size="sm" variant="outline" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
       {!loading&&!error&&(
         <>
@@ -189,13 +198,13 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
               </div>
             )}
             <label className="block text-xs space-y-1">Título
-              <Input value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} placeholder={sections[section]}/>
+              <Input value={title} onChange={e=>{setTitle(e.target.value);setValidationError(null);}} maxLength={180} placeholder={sections[section]}/>
             </label>
             <label className="block text-xs space-y-1">Descrição operacional
-              <Textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} maxLength={12000} placeholder="Registre somente fatos e limites verificáveis. Não inclua dados pessoais ou credenciais."/>
+              <Textarea value={body} onChange={e=>{setBody(e.target.value);setValidationError(null);}} rows={5} maxLength={12000} placeholder="Registre somente fatos e limites verificáveis. Não inclua dados pessoais ou credenciais."/>
             </label>
             <label className="block text-xs space-y-1">Fonte / documento original (referência, não cópia)
-              <Input value={source} onChange={e=>setSource(e.target.value)} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
+              <Input value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
             </label>
             <p className="text-xs text-muted-foreground">A nova revisão recebe v{(latest?.version_no??0)+1}; a versão anterior permanece imutável. A aprovação normativa requer procedimento humano separado.</p>
             <Button type="button" size="sm" disabled={saving||loading} onClick={()=>void save()}>
