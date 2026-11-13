@@ -9,6 +9,7 @@ on:
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
       - "src/lib/nucleo/operationalKnowledgeV12.ts"
       - "src/lib/nucleo/operationalDraftsV12.ts"
+      - "src/lib/nucleo/operationalProvenanceV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
       - "src/components/nucleo/NucleoKnowledgeCoverage.tsx"
       - "src/components/nucleo/NucleoSupervisionPanel.tsx"
