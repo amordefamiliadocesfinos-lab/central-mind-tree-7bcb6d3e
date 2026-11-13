@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
-import { BookOpen, ExternalLink, Layers, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,13 +36,15 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
   // observadas e mantém entradas ainda não catalogadas como não verificadas.
   // Novos módulos M3 aparecem aqui sem alterações de código.
+  const governanceRoot = workstreams.find(item => item.kind === "modulo" && item.code === "NUC");
+  const governanceFronts = governanceRoot ? workstreams.filter(item => item.parent_id === governanceRoot.id) : [];
   const registeredModules = useMemo(
     () => workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC"),
     [workstreams],
   );
   const catalog = useMemo<KnowledgeModule[]>(() => {
     const byCode = new Map(MODULES_V12.map(module => [module.id, module]));
-    for (const record of workstreams.filter(item => item.kind === "modulo")) {
+    for (const record of workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC")) {
       const source = byCode.get(record.code);
       byCode.set(record.code, source ? {
         ...source, name: record.title, purpose: record.description || source.purpose,
@@ -89,30 +91,51 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
               <Layers className="h-4 w-4" aria-hidden="true" />
               <h2 className="text-base font-semibold">Painel Central — módulos e operação</h2>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Primeiro inventário navegável V1.2. Cada ficha separa código verificado, declaração e lacunas.
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              Acompanhe módulos, frentes e procedimentos. O Núcleo governa essas informações, mas não entra na contagem dos módulos acompanhados.
             </p>
           </div>
           <Badge variant="outline">Piloto — cobertura parcial</Badge>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="Níveis de navegação">
+        <div className="flex flex-wrap items-center gap-2" aria-label="Níveis de navegação">
           <Button size="sm" variant={level==="overview"?"default":"outline"} onClick={() => { setLevel("overview"); setSelectedId(null); }}>1. Visão geral</Button>
           <Button size="sm" variant={level==="module"?"default":"outline"} disabled={!selected} onClick={() => setLevel("module")}>2. Módulo</Button>
           <Button size="sm" variant={level==="operation"?"default":"outline"} disabled={!selected || selected.id!=="CRM"} onClick={() => setLevel("operation")}>3. Operação / prova</Button>
         </div>
-        <div className="rounded-md border p-2.5 text-xs text-muted-foreground">
+        <div className="rounded-md border p-3 text-sm leading-relaxed text-muted-foreground">
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-          Catálogo inicial de rotas, ainda sem inventário global homologado. O Core registra {registeredModules.length} módulo(s) externo(s) ao Núcleo;
-          as demais entradas permanecem apenas como levantamento de rotas. Conhecer um procedimento não autoriza a IA a executá-lo.
+          {registeredModules.length} módulo(s) acompanhado(s) cadastrado(s) no Core; os demais cartões representam rotas ou fontes em investigação.
+          As informações ainda não equivalem a um inventário global homologado nem autorizam a IA a executar operações.
         </div>
       </Card>
 
       {level==="overview" && (
-        <Card className="p-4 space-y-3">
+        <Card className="p-4 md:p-5 space-y-3" aria-label="Núcleo — ambiente de governança">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-muted p-2"><FolderTree className="h-5 w-5" aria-hidden="true" /></div>
+              <div>
+                <h3 className="text-base font-semibold">Núcleo — ambiente de governança</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Supervisiona a arquitetura, os especialistas e a evolução dos módulos. Não é um módulo operacional do catálogo abaixo.</p>
+              </div>
+            </div>
+            <Badge variant="outline">Estrutura separada</Badge>
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <span className="inline-flex items-center gap-1.5"><GitBranch className="h-4 w-4" aria-hidden="true" /> {governanceFronts.length} frentes do Núcleo no Core</span>
+            <span className="text-muted-foreground">Navegue pela árvore e pela ficha de governança abaixo, sem duplicar seus registros.</span>
+          </div>
+          {governanceRoot && <Button type="button" variant="outline" size="sm"
+            onClick={() => onSelectWorkstream(governanceRoot.id)}>Abrir ficha de governança</Button>}
+        </Card>
+      )}
+
+      {level==="overview" && (
+        <Card className="p-4 md:p-5 space-y-4" aria-label="Módulos operacionais acompanhados">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
-              <h3 className="font-semibold text-sm">Visão geral — módulos identificados</h3>
-              <p className="text-xs text-muted-foreground">{catalog.length} entradas exibidas (Core + fontes de rotas) · {registeredModules.length} módulo(s) externo(s) cadastrado(s) no Core. Não representa cobertura global.</p>
+              <h3 className="font-semibold text-base">Módulos do Painel Central</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{catalog.length} módulo(s) identificado(s) no catálogo · {registeredModules.length} cadastrado(s) no Core. O Núcleo de governança não entra nesta contagem.</p>
             </div>
             <Badge variant="secondary">Não representa progresso global</Badge>
           </div>
@@ -121,20 +144,20 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
             <Input aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {modules.map(item=>(
               <button key={item.id} type="button" onClick={()=>choose(item)}
-                className="rounded-lg border p-3 text-left space-y-2 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="rounded-lg border p-4 min-h-[148px] text-left space-y-2.5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="flex justify-between items-center gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{item.id}</span>
+                  <span className="font-mono text-sm text-muted-foreground">{item.id}</span>
                   <Badge variant={item.coverage==="piloto_parcial"?"secondary":"outline"}>
                     {item.coverage==="piloto_parcial"?"Piloto parcial":"Levantamento inicial"}
                   </Badge>
                 </div>
-                <p className="font-semibold text-sm">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{item.domain} · {item.route ?? "Rota não verificada"}</p>
-                <p className="text-xs text-muted-foreground">{workstreams.some(front => front.code === item.id && front.kind === "modulo") ? "Cadastro no Core confirmado" : "Somente inventário inicial · cadastro não verificado"}</p>
-                <p className="text-xs">Ver ficha e fontes</p>
+                <p className="font-semibold text-base leading-snug">{item.name}</p>
+                <p className="text-sm text-muted-foreground">{item.domain} · {item.route ?? "Rota não verificada"}</p>
+                <p className="text-sm text-muted-foreground">{workstreams.some(front => front.code === item.id && front.kind === "modulo") ? "Cadastro no Core confirmado" : "Cadastro no Core ainda não verificado"}</p>
+                <p className="text-sm font-medium underline underline-offset-2">Ver ficha e fontes</p>
               </button>
             ))}
           </div>
@@ -148,7 +171,7 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
             <div>
               <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
               <h3 className="font-semibold text-lg">{selected.name}</h3>
-              <p className="text-sm mt-1">{selected.purpose}</p>
+              <p className="text-sm leading-relaxed mt-1">{selected.purpose}</p>
             </div>
             <Badge variant={selected.coverage==="piloto_parcial"?"secondary":"outline"}>
               {selected.coverage==="piloto_parcial"?"Ficha parcial":"Cobertura não verificada"}
@@ -157,14 +180,14 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
           <div className="grid gap-3 md:grid-cols-2">
             <div className="border rounded-lg p-3 space-y-2">
               <h4 className="font-medium text-sm">Acesso e responsabilidade</h4>
-              <p className="text-xs">Rota: <code>{selected.route??"não verificada"}</code></p>
-              <p className="text-xs">Especialista: {selected.specialist??"Vínculo não verificado"}</p>
-              <p className="text-xs text-muted-foreground">{confidenceLabels[selected.specialistConfidence]}</p>
+              <p className="text-sm">Rota: <code>{selected.route??"não verificada"}</code></p>
+              <p className="text-sm">Especialista: {selected.specialist??"Vínculo não verificado"}</p>
+              <p className="text-sm text-muted-foreground">{confidenceLabels[selected.specialistConfidence]}</p>
               {selected.route && <Button size="sm" asChild variant="outline"><Link to={selected.route}>Abrir módulo</Link></Button>}
             </div>
             <div className="border rounded-lg p-3 space-y-2">
               <h4 className="font-medium text-sm">Fonte e método</h4>
-              <p className="text-xs">{selected.id==="CRM"?CRM_REFERENCE.method:"Método, escopo e checkpoint ainda precisam de fontes vigentes."}</p>
+              <p className="text-sm leading-relaxed">{selected.id==="CRM"?CRM_REFERENCE.method:"Método, escopo e checkpoint ainda precisam de fontes vigentes."}</p>
               {selected.source.startsWith("https://") ?
                 <a href={selected.source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs underline">
                   Conferir código de origem <ExternalLink className="h-3 w-3" aria-hidden="true"/>
