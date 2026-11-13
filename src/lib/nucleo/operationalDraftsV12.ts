@@ -55,3 +55,34 @@ export const CRM_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: UX,
   },
 };
+
+
+/**
+ * Propostas de metadados para o mapa CCH v5.4 de 12/11/2026.
+ * A Ficha Viva permanece vazia até revisão e gravação HUMANA autenticada.
+ * Não são prescrições, dados de pacientes, nem autorização clínica/operacional.
+ */
+const CCH_MAP = "docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md";
+const CCH_ROUTES = "src/modules/health/HealthModule.tsx";
+export const CCH_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Saúde/CCH — identidade do módulo (rascunho)",
+    body: "O módulo Saúde/CCH integra a rota /saude/* no Painel Central. Seu Mapa Soberano v5.4, datado de 12/11/2026, declara-se VIGENTE e FROZEN e substitui a v5.3. A fonte registra M0–M9 como fundação, F10–F22 como implementadas, F22 operacional no Lovable Cloud e F23 não aberta. Esses estados pertencem ao documento do CCH e não representam uma homologação adicional do Núcleo. Não inserir dados pessoais, prescrições ou histórico de praticantes nesta Ficha Viva.",
+    source: CCH_MAP+"; "+CCH_ROUTES,
+  },
+  "FM-03": {
+    title: "Saúde/CCH — fronteiras da calibração (rascunho)",
+    body: "O Mapa Soberano v5.4 distingue nível do praticante (beginner, intermediate, advanced), confiança do CCH nos dados (unknown, low, medium, high) e fase real do treinamento. Esses são conceitos diferentes. A confiança pode variar por exercício e confiança baixa não deve reduzir automaticamente volume, intensidade, frequência ou complexidade. A publicação exige prescrição completa para cada exercício obrigatório. Não atribuir estado aprovado à jornada inteira apenas porque existe código.",
+    source: CCH_MAP,
+  },
+  "FM-04": {
+    title: "Saúde/CCH — mapa de rotas técnicas (rascunho)",
+    body: "As rotas do HealthModule incluem /saude/hoje, /saude/treino, /saude/treino/atividades, /saude/treino/historico, /saude/treino/programa, /saude/alimentacao, /saude/evolucao, /saude/recuperacao, /saude/exames, /saude/revisao, /saude/replanejamento, /saude/relatorios, /saude/rotina, /saude/analytics, /saude/perfil e /saude/biblioteca. Identificação de rotas no código não demonstra publicação, acesso permitido a todos os usuários ou validação visual.",
+    source: CCH_ROUTES,
+  },
+  "FM-08": {
+    title: "Saúde/CCH — autoridade e especialista (rascunho)",
+    body: "A fonte documental CCH v5.4 declara-se soberana e congelada em 12/11/2026. O especialista técnico atual, seu mandato, versão de método e eventual sucessão ainda precisam ser vinculados à governança do Núcleo por evidência própria; não deduzir identidade nominal a partir do conteúdo do mapa. Preservar as fronteiras de autorização do módulo Saúde e não tratar a supervisão M5 read-only como executor de treinos ou intervenções.",
+    source: CCH_MAP,
+  },
+};
