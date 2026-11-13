@@ -94,6 +94,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
   const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
+  const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.parent_id === front.id));
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||
@@ -318,6 +319,27 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
                 <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real.</p>
+                {selectedSubfronts.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="font-medium text-sm">Subfrentes existentes — acompanhamento documental</p>
+                    <p className="text-xs text-muted-foreground">Estados e provas pertencem às fichas M3. Não indicam deploy ou homologação automática.</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {selectedSubfronts.map(subfront => (
+                        <div key={subfront.id} className="rounded-lg border p-3 space-y-2 min-w-0">
+                          <div className="flex flex-wrap justify-between items-center gap-2">
+                            <p className="font-semibold text-sm">{subfront.code}</p>
+                            <Badge variant="outline">{subfront.status.replaceAll("_"," ")}</Badge>
+                          </div>
+                          <p className="text-sm">{subfront.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-3">{subfront.next_action || "Sem próxima ação declarada"}</p>
+                          <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(subfront.id)}>
+                            Consultar ficha e evidências
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {selectedFronts.length ? selectedFronts.map(front => (
                   <div key={front.id} className="rounded-md border p-3 flex flex-wrap justify-between items-start gap-3">
                     <div className="space-y-1 min-w-0 flex-1">
