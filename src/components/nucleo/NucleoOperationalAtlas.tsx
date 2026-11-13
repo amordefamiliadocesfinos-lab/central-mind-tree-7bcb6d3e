@@ -318,7 +318,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
           {selectedRecord && (
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
-                <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real.</p>
+                <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real. Provas M4 são registros históricos consultados sob permissão; não são verificação GitHub ao vivo.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{selectedFronts.length} frente(s) direta(s)</Badge>
+                  <Badge variant="outline">{selectedSubfronts.length} subfrente(s) vinculada(s)</Badge>
+                  <Button type="button" size="sm" variant="outline"
+                    aria-expanded={evidenceFrontId === selectedRecord.id}
+                    onClick={() => setEvidenceFrontId(current => current === selectedRecord.id ? null : selectedRecord.id)}>
+                    {evidenceFrontId === selectedRecord.id ? "Ocultar evidências do módulo" : "Ver evidências do módulo"}
+                  </Button>
+                </div>
+                {evidenceFrontId === selectedRecord.id && <NucleoTechnicalEvidence workstreamId={selectedRecord.id} />}
                 {selectedSubfronts.length > 0 && (
                   <div className="rounded-md border p-3 space-y-2">
                     <p className="font-medium text-sm">Subfrentes existentes — acompanhamento documental</p>
@@ -331,10 +341,20 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                             <Badge variant="outline">{subfront.status.replaceAll("_"," ")}</Badge>
                           </div>
                           <p className="text-sm">{subfront.title}</p>
+                          <p className="text-xs text-muted-foreground">Frente pai: {workstreamsById.get(subfront.parent_id ?? "")?.code ?? "Vínculo não encontrado"}</p>
+                          <p className="text-xs text-muted-foreground">{subfront.evidence_state.replaceAll("_", " ")} · {subfront.specialist || "Especialista não informado"}</p>
                           <p className="text-xs text-muted-foreground line-clamp-3">{subfront.next_action || "Sem próxima ação declarada"}</p>
-                          <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(subfront.id)}>
-                            Consultar ficha e evidências
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(subfront.id)}>
+                              Abrir ficha na Central
+                            </Button>
+                            <Button type="button" size="sm" variant="outline"
+                              aria-expanded={evidenceFrontId === subfront.id}
+                              onClick={() => setEvidenceFrontId(current => current === subfront.id ? null : subfront.id)}>
+                              {evidenceFrontId === subfront.id ? "Ocultar provas" : "Ver provas M4"}
+                            </Button>
+                          </div>
+                          {evidenceFrontId === subfront.id && <NucleoTechnicalEvidence workstreamId={subfront.id} />}
                         </div>
                       ))}
                     </div>
