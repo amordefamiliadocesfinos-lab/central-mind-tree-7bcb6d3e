@@ -56,18 +56,18 @@ export const MODULES_V12: KnowledgeModule[] = [
   },
   {
     id: "SAU", name: "Saúde / CCH", domain: "Saúde",
-    route: "/saude", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/saude", purpose: "Rota /saude/* e subrotas verificadas no código; mapa CCH v5.4 FROZEN vigente em 12/11/2026, com F10–F22 implementadas e F23 não aberta. Implementação, publicação e uso real são estados distintos.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md",
   },
   {
     id: "DIG", name: "Digital", domain: "Digital",
-    route: "/digital", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/digital", purpose: "Código verificado: gestão de ideias, variações, campanhas, calendário, mídias, métricas e plataformas; autoridade documental e uso real ainda não reconciliados.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/Digital.tsx",
   },
   {
     id: "ASS", name: "Assistente", domain: "IA",
-    route: "/assistente", purpose: "Finalidade detalhada ainda não inventariada nesta ficha.",
-    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: ROUTE_SOURCE,
+    route: "/assistente", purpose: "Código verificado: insights, propostas, aprovações, políticas e histórico do Assistente; presença de ações na interface NÃO comprova autorização, autonomia nem execução. M5 do Núcleo permanece read-only.",
+    coverage: "inventario_de_rotas", specialist: null, specialistConfidence: "nao_verificado", source: REPO + "src/pages/Assistente.tsx",
   },
   {
     id: "SHO", name: "Shopee / Integração", domain: "Comercial",
