@@ -14,6 +14,8 @@ on:
       - "src/components/nucleo/NucleoKnowledgeCoverage.tsx"
       - "src/components/nucleo/NucleoSupervisionPanel.tsx"
       - "src/components/nucleo/NucleoAuthorityCoverage.tsx"
+      - "src/components/nucleo/NucleoMandateRegistry.tsx"
+      - "supabase/migrations/20261113210000_nucleo_v12_mandatos_auditaveis.sql"
       - "supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql"
       - "scripts/nucleo-v12-ficha-viva.test.sql"
       - "src/pages/Nucleo.tsx"
