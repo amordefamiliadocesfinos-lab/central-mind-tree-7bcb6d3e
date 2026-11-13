@@ -159,13 +159,23 @@ export const OPERACOES_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
   },
   "FM-07": {
     title: "Operações — referência ET1 e seus limites (rascunho)",
-    body: "O contrato técnico ET1 de Embalagem para Trufa, P100 lacrado / EA avulso, documenta implantação PARCIAL na PR #355 e proíbe aplicar migration antes de integrar os acoplamentos necessários. Define que 100 × P100 + EA é conservado na conversão física por variante/local; não converter estoque histórico automaticamente nem deduzir pacotes de unidades antigas. A abertura de pacote e os consumos precisam ser atômicos e idempotentes. O checkpoint é histórico e não comprova o estado atual da implementação nem autoriza execução. Para avaliar vigência, consultar especialista e testes sem alterar produção.",
+    body: "O contrato técnico ET1 de Embalagem para Trufa, P100 lacrado / EA avulso, é histórico. A PR #355 foi mergeada em 23/10/2026 como acoplamento em validação; isso não demonstra a aplicação de migration, ativação física nem homologação. Define que 100 × P100 + EA é conservado na conversão física por variante/local; não converter estoque histórico automaticamente nem deduzir pacotes de unidades antigas. A abertura de pacote e os consumos precisam ser atômicos e idempotentes. O checkpoint é histórico e não comprova o estado atual da implementação nem autoriza execução. Para avaliar vigência, consultar especialista e testes sem alterar produção.",
     source: ET1_DOC+"; "+OP_PAGE,
   },
   "FM-08": {
     title: "Operações — autoridade do método (rascunho)",
     body: "O responsável técnico vigente do módulo Operações e a hierarquia dos métodos devem ser conferidos na documentação soberana e pela Camada Mestre. O ET1 é contrato de escopo específico e não substitui método geral. Código, testes em transação reversível, deploy, operação real e homologação são níveis distintos de prova. Sem autoridade confirmada, manter o estado como proposta e não iniciar integração entre módulos.",
     source: OP_PAGE+"; "+ET1_DOC,
+  },
+  "FM-02": {
+    title: "Operações — consulta inicial de uma necessidade (rascunho)",
+    body: "Na rota /operacoes, identifique primeiro se a consulta é de Pedido, Produto, Estoque, Produção, Compras ou MRP. Verifique a origem, o contexto e os documentos da necessidade antes de interpretar sua situação. No contrato histórico recuperado de 18/09/2026, Pedido não movimenta estoque por si, MRP representa planejamento e entrada/saída física exige evento próprio. Para acompanhamento no Núcleo, consultar evidências da frente e remeter qualquer operação ao módulo e especialista autorizado; esta ficha não abre pedidos nem confirma movimentações.",
+    source: "src/pages/Operacoes.tsx; src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx; MAPA_NORTEADOR_CONTINUIDADE_MODULO_OPERACOES_V1_0_CONGELADO.txt (Biblioteca, 18/09/2026)",
+  },
+  "FM-05": {
+    title: "Operações — catálogo de ações e efeitos a verificar (rascunho)",
+    body: "A página Operacoes.tsx contém ações de criação e consulta de pedidos, navegação entre áreas operacionais e componentes de produção/estoque. MRPTab.tsx abre contexto assistido para Compras; PurchasesTab.tsx permite tratar condições financeiras por fluxo específico. Distinguir abrir/filtrar um registro de criar, faturar, receber, produzir ou movimentar fisicamente. Para cada comando, o responsável precisa confirmar permissões, evento persistido e eventual efeito em outro módulo. Não deduzir criação automática de compra, baixa de estoque ou quitação a partir da existência de botão ou RPC.",
+    source: "src/pages/Operacoes.tsx; src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx; src/lib/purchases/confirmPurchaseFinancial.ts",
   },
 };
 
@@ -185,6 +195,16 @@ export const FINANCEIRO_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "A identidade funcional e a vigência do método do especialista Financeiro ainda exigem confirmação em mapa soberano ou transferência formal. Não transformar nomes de componentes em regras fiscais ou contábeis. Conciliar datas de compra, vencimento, liquidação e movimento bancário somente com o contrato financeiro vigente e provas de uso real, sem presumir regra a partir deste rascunho.",
     source: FIN_PAGE,
   },
+  "FM-02": {
+    title: "Financeiro — consulta inicial e distinção de fatos (rascunho)",
+    body: "Acesse /financeiro e escolha a área conforme a pergunta: dashboard, receber, pagar, contas, contatos, categorias, valores, notas ou motor Shopee; as opções correspondem a abas observadas no código. Consulte competência, vencimento, data de compra, pagamento e movimentação como conceitos distintos; a regra exata depende do contrato financeiro vigente. Navegar e consultar não significa criar, baixar ou conciliar um lançamento. Confrontar o resultado do dashboard com o fato financeiro persistido antes de assumir que determinada liquidação está representada.",
+    source: "src/pages/Financeiro.tsx; src/hooks/useFinancial.ts",
+  },
+  "FM-05": {
+    title: "Financeiro — ações técnicas e limites de prova (rascunho)",
+    body: "O componente Financeiro.tsx integra listas de recebimentos/pagamentos, gestão de contas, categorias e contatos, notas, precificação e motor Shopee. O uso de useFinancial oferece ações de consulta e alteração que precisam ser analisadas por fluxo específico. A existência de componentes de importação ou conciliação não comprova suas regras de competência, liquidação, idempotência, arredondamento ou efeitos em compras. Não executar importação de extratos, confirmação de pagamento, estorno nem fechamento financeiro pelo Núcleo.",
+    source: "src/pages/Financeiro.tsx; src/hooks/useFinancial.ts",
+  },
 };
 
 export const CAPTURA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
@@ -203,6 +223,16 @@ export const CAPTURA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "Mapear o especialista atual e seu método de triagem, classificação, destino e retenção antes de homologar a Ficha Viva. O código atual comprova superfícies técnicas, mas não a vigência do processo humano. Preservar o conteúdo original, anexos e rastros de decisões; não importar dados pessoais de capturas no Núcleo.",
     source: CAP_PAGE,
   },
+  "FM-02": {
+    title: "Captura Central — leitura e destinação proposta (rascunho)",
+    body: "Em /captura, identifique o registro e seus anexos; confira texto, mídia e histórico antes de escolher uma interpretação. O código permite abrir decisão de fazer ou planejar, resolver como referência/arquivada e criar tarefa a partir de captura, mas essas escolhas são fluxos operacionais distintos. A existência de uma captura não equivale a tarefa aprovada ou executada. A ficha do Núcleo serve para consulta, sem escrever ou mover registros.",
+    source: "src/pages/CapturaCentral.tsx",
+  },
+  "FM-05": {
+    title: "Captura Central — ações de triagem observadas (rascunho)",
+    body: "O código de CapturaCentral.tsx implementa funções de envio e upload de anexos, gravação de áudio, edição, exclusão com confirmação, abertura de decisão, resolução como referência/arquivada e criação de tarefa. Essas rotas exigem autorização, confirmação dos vínculos e preservação dos anexos e da trilha de origem. A ficha não confirma que a classificação por IA ou a execução de tarefas está homologada; não disparar nenhuma dessas ações a partir do Núcleo.",
+    source: "src/pages/CapturaCentral.tsx",
+  },
 };
 
 export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
@@ -220,6 +250,16 @@ export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     title: "Rotina — método e especialista (rascunho)",
     body: "Identificar mapa soberano, especialista atual e distinção de rotinas pessoais/empresariais antes de promover instruções. Fluxos de alarmes, priorização, replanejamento e conclusão precisam de prova funcional e limites de autoridade. Enquanto a documentação não estiver reconciliada, a ficha permanece proposta de referência.",
     source: ROT_PAGE,
+  },
+  "FM-02": {
+    title: "Rotina — consulta por período e escopo (rascunho)",
+    body: "Na rota /rotina, selecione o escopo disponível (pessoal ou empresa) e a visualização dia, semana ou mês. Consulte primeiro os blocos e sua situação antes de alterar ordem, horário ou recorrência. O código usa useRoutine e componentes específicos para cada período, mas não demonstra que alarmes foram entregues ou que replanejamento automático obteve resultado correto. Este modelo não dispara blocos, notificações nem tarefas.",
+    source: "src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-05": {
+    title: "Rotina — ações previstas no hook (rascunho)",
+    body: "O contrato de useRoutine contém iniciar, completar, pular, adicionar, atualizar, excluir, pausar e reordenar blocos, além de planejamento de dia/semana. A página Rotina.tsx utiliza diálogos de edição e conclusão e controles de alarmes. Cada ação pode mudar o estado real da rotina e deve ser exercida pelo operador autorizado, com conferência do resultado; a mera presença do hook não prova persistência, notificações recebidas ou cumprimento dos blocos. O Núcleo documenta e supervisiona, não executa.",
+    source: "src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
   },
 };
 
