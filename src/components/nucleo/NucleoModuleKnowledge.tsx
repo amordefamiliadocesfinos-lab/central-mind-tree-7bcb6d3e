@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { CRM_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
+import { CRM_DRAFTS, CCH_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -68,7 +68,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const history=useMemo(()=>revisions
     .filter(r=>r.section_code===section).sort((a,b)=>b.version_no-a.version_no),[revisions,section]);
   const latest=history[0];
-  const referenceDraft = moduleCode === "CRM" ? CRM_DRAFTS[section] : undefined;
+  const referenceDraft = moduleCode === "CRM" ? CRM_DRAFTS[section] : moduleCode === "SAU" ? CCH_DRAFTS[section] : undefined;
   const prepareReference = () => {
     if (!referenceDraft || loading || saving || error) return;
     // Ação local explícita: pré-preenche apenas o formulário.
@@ -147,10 +147,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             <h5 className="font-medium text-sm">Registrar nova revisão — rascunho não homologado</h5>
             {referenceDraft && (
               <div className="rounded-lg border border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20 p-3 space-y-2">
-                <p className="text-sm font-semibold">Modelo de referência CRM — {section}</p>
+                <p className="text-sm font-semibold">Modelo de referência {moduleCode === "CRM" ? "CRM" : "CCH"} — {section}</p>
                 <p className="text-sm text-muted-foreground">
-                  Elaborado a partir de código e checkpoint histórico; exige leitura e ajustes por responsável.
-                  Não é método vigente, teste de uso real ou documento homologado.
+                  Proposta fundamentada em fontes de código/documento, para leitura e ajustes pelo responsável.
+                  Não é homologação, teste de uso real ou confirmação da vigência do especialista.
                 </p>
                 <Button type="button" size="sm" variant="outline" disabled={saving}
                   onClick={prepareReference}>Preparar rascunho com fontes</Button>
