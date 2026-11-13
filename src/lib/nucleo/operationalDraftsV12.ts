@@ -86,3 +86,39 @@ export const CCH_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: CCH_MAP,
   },
 };
+
+
+/**
+ * Acompanhamento F12: propostas documentais, não instruções para executar API,
+ * pedidos, ship_order, etiquetas, Scheduler ou reconciliação automaticamente.
+ * Preserva o escopo e as fases da frente operacional original.
+ */
+const F12_MAP = "docs/operations/F12_MAPA_CONGELADO_ESCOPO_CONTROLADO_ATIVO_2026-11-12.md";
+const SHP_MASTER = "docs/operations/MAPA_MESTRE_INTEGRACAO_SHOPEE_PAINEL_CENTRAL_V2.md";
+export const SHOPEE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Shopee / Integração — identidade e escopo (rascunho)",
+    body: "O Núcleo acompanha a integração Shopee / Integration Hub por metadados e evidências verificadas. A autoridade declarada é o Mapa Mestre Integração Shopee V2 e a F12, que está ABERTA, em desenvolvimento sob escopo congelado em 12/11/2026. A frente operacional pertence ao especialista Integração Shopee e não é executada pelo Núcleo. As subfrentes existentes são F12.1 lote inicial 3+3, F12.2 fila justa, F12.3 retomada / meta de 100 pedidos por dia, e F12.4 multicontas. Congelamento não equivale a encerramento ou homologação.",
+    source: F12_MAP+"; "+SHP_MASTER,
+  },
+  "FM-03": {
+    title: "Shopee / Integração — limites e autorizações (rascunho)",
+    body: "A fonte F12 exige preservar escritores, pré-verificações LIVE, controle de claims duráveis, tombstones, separação conta+pedido+pacote, orçamento 3+3 e reconciliação antes de retries. A F12 não autoriza, por mero recebimento/etiqueta, iniciar OP, produção, estoque, Financeiro, CRM, impressão ou postagem. Código mergeado, deployment, teste sintético, operação real e homologação são provas distintas. O Núcleo M5 permanece somente leitura; esta Ficha Viva não habilita worker, Scheduler, pedidos, etiquetas, importação ou mudança multicontas.",
+    source: F12_MAP,
+  },
+  "FM-06": {
+    title: "Shopee / Integração — jornada de acompanhamento humano (rascunho)",
+    body: "1. Identificar a frente F12 no Núcleo e abrir sua ficha documental. 2. Comparar F12.1–F12.4 com o Mapa Mestre e com a versão vigente, sem supor progresso a partir de código isolado. 3. Conferir evidências distintas de PR GitHub, implantação e operação real disponibilizadas pelo especialista competente; se ausentes, registrar lacuna. 4. Manter F12.1 com prova incompleta do máximo 3+3; F12.2 aguardando confirmação de deploy/ciclos; F12.3 com teste de concorrência real e piloto legítimo ainda pendentes; F12.4 não iniciada. 5. Solicitar ao especialista a confirmação de qualquer nova prova e à autoridade competente a decisão de homologação; nunca disparar ações Shopee pelo Núcleo. Esta é uma jornada de acompanhamento documental proposta, não procedimento operacional para processar pedidos.",
+    source: F12_MAP+"; "+SHP_MASTER,
+  },
+  "FM-07": {
+    title: "Shopee / Integração — evidências e gates F12 (rascunho)",
+    body: "F12.1: código na main, dois envios no mesmo ciclo e PDFs no Core registrados na fonte, sem prova do teto 3 por tipo nem métricas completas. F12.2: PRs #623 e #625 integradas, mas o mapa não comprova publicação da última alteração no ambiente Adão isolado. F12.3: checkpoint durável aplicado ao Core e ensaios sintéticos realizados; o mapa declara pendentes a prova concorrente de duas sessões reais, autorização de piloto legítimo e throughput de 100/dia. F12.4: não iniciada. Toda nova afirmação exige data, origem e prova própria; este modelo não faz consulta LIVE e não certifica operação atual.",
+    source: F12_MAP,
+  },
+  "FM-08": {
+    title: "Shopee / Integração — método e responsabilidade (rascunho)",
+    body: "O método da F12 exige desenvolvimento pela frente especialista de Integração Shopee, GitHub como fonte de código e Lovable Cloud/Core como verdade operacional, com implantação isolada e autorização explícita. O mapa descreve a ordem F12.1 → F12.2 → F12.3 → F12.4 e proíbe criar frente paralela. A identidade nominal vigente do especialista e a eventual sucessão ainda precisam ser reconciliadas pela autoridade competente. O Núcleo só espelha registros existentes para acompanhamento humano; decisões de deploy, migrations, pedidos e escala são externas à Ficha Viva.",
+    source: F12_MAP+"; "+SHP_MASTER,
+  },
+};
