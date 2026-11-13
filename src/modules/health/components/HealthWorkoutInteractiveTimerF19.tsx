@@ -427,30 +427,15 @@ export function HealthWorkoutInteractiveTimerF19({
         performedCount(item.id) < plannedMax(item),
     ) ?? null;
 
+  const recommendedNextExercise =
+    activeExercise &&
+    performedCount(activeExercise.id) < plannedMax(activeExercise)
+      ? activeExercise
+      : nextDifferentExercise;
+
   useEffect(() => {
-    if (!activeRest) {
-      setPlannedNextExerciseId(null);
-      return;
-    }
-
-    if (plannedNextExercise) return;
-
-    if (
-      activeExercise &&
-      performedCount(activeExercise.id) < plannedMax(activeExercise)
-    ) {
-      setPlannedNextExerciseId(activeExercise.id);
-      return;
-    }
-
-    setPlannedNextExerciseId(nextDifferentExercise?.id ?? null);
-  }, [
-    activeRest?.id,
-    activeExercise?.id,
-    nextDifferentExercise?.id,
-    plannedNextExercise?.id,
-    setsByExercise,
-  ]);
+    setPlannedNextExerciseId(null);
+  }, [activeRest?.id]);
 
   const activeSets = activeExercise
     ? setsByExercise.get(activeExercise.id) ?? []
@@ -1066,17 +1051,35 @@ export function HealthWorkoutInteractiveTimerF19({
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Depois deste descanso
                         </p>
-                        <p className="mt-1 text-sm font-semibold">
-                          {plannedNextExercise
-                            ? exerciseNameById.get(plannedNextExercise.exercise_id) ??
-                              "Exercício escolhido"
-                            : "Escolha o próximo exercício"}
-                        </p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {plannedNextExercise
-                            ? `Exercício ${plannedNextExercise.sequence_order} · ${exercisePlanSummary(plannedNextExercise)}`
-                            : "Nenhum exercício pendente."}
-                        </p>
+
+                        {plannedNextExercise ? (
+                          <>
+                            <p className="mt-1 text-sm font-semibold text-primary">
+                              Escolhido:{" "}
+                              {exerciseNameById.get(plannedNextExercise.exercise_id) ??
+                                "Exercício"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Exercício {plannedNextExercise.sequence_order} ·{" "}
+                              {exercisePlanSummary(plannedNextExercise)}
+                            </p>
+                          </>
+                        ) : recommendedNextExercise ? (
+                          <>
+                            <p className="mt-1 text-sm font-semibold">
+                              Sugestão:{" "}
+                              {exerciseNameById.get(recommendedNextExercise.exercise_id) ??
+                                "Exercício"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              A sugestão não está escolhida ainda. Toque em uma opção abaixo.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-sm font-semibold">
+                            Nenhum exercício pendente
+                          </p>
+                        )}
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1091,10 +1094,17 @@ export function HealthWorkoutInteractiveTimerF19({
                             }
                             className="min-h-11"
                             disabled={timer.saving}
+                            aria-pressed={plannedNextExerciseId === activeExercise.id}
                             onClick={() => setPlannedNextExerciseId(activeExercise.id)}
                           >
-                            <Play className="mr-2 h-4 w-4" />
-                            Continuar aqui
+                            {plannedNextExerciseId === activeExercise.id ? (
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                            ) : (
+                              <Play className="mr-2 h-4 w-4" />
+                            )}
+                            {plannedNextExerciseId === activeExercise.id
+                              ? "Continuar aqui escolhido"
+                              : "Continuar aqui"}
                           </Button>
                         ) : null}
 
@@ -1108,21 +1118,29 @@ export function HealthWorkoutInteractiveTimerF19({
                             }
                             className="min-h-11"
                             disabled={timer.saving}
+                            aria-pressed={
+                              plannedNextExerciseId === nextDifferentExercise.id
+                            }
                             onClick={() =>
                               setPlannedNextExerciseId(nextDifferentExercise.id)
                             }
                           >
-                            <Dumbbell className="mr-2 h-4 w-4" />
-                            Próximo da grade
+                            {plannedNextExerciseId === nextDifferentExercise.id ? (
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                            ) : (
+                              <Dumbbell className="mr-2 h-4 w-4" />
+                            )}
+                            {plannedNextExerciseId === nextDifferentExercise.id
+                              ? "Próximo da grade escolhido"
+                              : "Próximo da grade"}
                           </Button>
                         ) : null}
                       </div>
 
                       <p className="text-[11px] text-muted-foreground">
-                        A escolha não inicia o cronômetro. Você pode decidir agora,
-                        continuar descansando e só iniciar quando estiver pronto.
-                        Para outro aparelho da grade, use as setas acima e toque em
-                        “Escolher para depois”.
+                        Primeiro escolha. Isso não inicia o cronômetro. Depois de salvar
+                        o resultado da série, use o botão “Iniciar” mais abaixo.
+                        Para outro aparelho, use as setas acima e escolha para depois.
                       </p>
                     </div>
 
@@ -1279,6 +1297,13 @@ export function HealthWorkoutInteractiveTimerF19({
                           Iniciar{" "}
                           {exerciseNameById.get(plannedNextExercise.exercise_id) ??
                             "exercício escolhido"}
+                        </Button>
+                      ) : recommendedNextExercise ? (
+                        <Button
+                          className="min-h-12 w-full"
+                          disabled
+                        >
+                          Escolha acima como deseja continuar
                         </Button>
                       ) : (
                         <Button
