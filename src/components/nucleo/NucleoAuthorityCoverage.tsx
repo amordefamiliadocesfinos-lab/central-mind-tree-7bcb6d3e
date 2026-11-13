@@ -3,6 +3,7 @@ import { BookOpen, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
+import { KNOWLEDGE_ARCHIVES, KNOWLEDGE_ARCHIVE_SOURCES } from "@/lib/nucleo/knowledgeArchiveSourcesV12";
 
 /**
  * Matriz M5 de proveniência, sem gravar ou consultar documentos.
@@ -22,7 +23,8 @@ export default function NucleoAuthorityCoverage({ modules }: { modules: Developm
       const tier = declaredCurrent.length > 0 ? "documento_vigente_declarado"
         : historical.length > 0 ? "checkpoint_historico"
         : codeOnly.length > 0 ? "codigo" : "sem_fonte";
-      return {module,provenance,sources,declaredCurrent,historical,codeOnly,tier};
+      const archiveSources = KNOWLEDGE_ARCHIVE_SOURCES.filter(src => src.moduleCode === module.code);
+      return {module,provenance,sources,declaredCurrent,historical,codeOnly,tier,archiveSources};
     }),[modules]);
 
   const declaredCount = entries.filter(item=>item.tier==="documento_vigente_declarado").length;
@@ -39,6 +41,7 @@ export default function NucleoAuthorityCoverage({ modules }: { modules: Developm
         <p className="text-sm text-muted-foreground">
           Leitura dos módulos cadastrados na sessão M5 autorizada e do catálogo versionado no GitHub.
           Ter uma fonte não confirma o titular atual, o mandato do especialista ou o método homologado.
+          O catálogo de ZIPs anexados é uma referência de localização e integridade, não certificação de vigência.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -55,7 +58,7 @@ export default function NucleoAuthorityCoverage({ modules }: { modules: Developm
         ))}
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {entries.map(({module,provenance,sources,tier}) => (
+        {entries.map(({module,provenance,sources,tier,archiveSources}) => (
           <article key={module.id} className="border rounded-lg p-3 space-y-2 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-semibold">{module.code} — {module.title}</p>
@@ -72,6 +75,23 @@ export default function NucleoAuthorityCoverage({ modules }: { modules: Developm
               O campo textual de especialista não contém identificador, autoridade e vigência auditados.
             </p>
             {provenance?.ownerBoundary && <p className="text-sm">{provenance.ownerBoundary}</p>}
+            {archiveSources.length>0&&(
+              <div className="border-t pt-2 space-y-2">
+                <p className="text-xs font-semibold">Fonte de continuidade no acervo anexado (03/10/2026)</p>
+                {archiveSources.map(source=>(
+                  <div key={source.sha256} className="text-xs space-y-1">
+                    <p className="font-semibold">{source.documentCode}</p>
+                    <p className="text-muted-foreground">{source.continuityScope}</p>
+                    <p className="text-muted-foreground">{source.currentAuthorityBoundary}</p>
+                    <p className="break-all font-mono text-[10px]">{source.archiveInnerPath}</p>
+                    <p className="text-muted-foreground">SHA-256: <span className="font-mono break-all">{source.sha256}</span></p>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Mesmo arquivo em {KNOWLEDGE_ARCHIVES.join(" e ")}. Não representa duas versões distintas nem conteúdo importado.
+                </p>
+              </div>
+            )}
             <div className="border-t pt-2 space-y-1">
               <p className="flex gap-1.5 items-center text-xs font-semibold">
                 <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
