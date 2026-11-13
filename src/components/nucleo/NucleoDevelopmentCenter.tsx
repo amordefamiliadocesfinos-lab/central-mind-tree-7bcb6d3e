@@ -251,6 +251,7 @@ export default function NucleoDevelopmentCenter() {
 
       <NucleoOperationalAtlas
         workstreams={items}
+        events={history}
         onSelectWorkstream={id => {
           choose(id);
           document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -372,7 +373,7 @@ export default function NucleoDevelopmentCenter() {
           ))}
           </div>
         </div>
-        <Card id="nucleo-m3-workstream-detail" className="p-4 space-y-3 min-w-0">
+        <Card id="nucleo-m3-workstream-detail" className="p-4 space-y-3 min-w-0 scroll-mt-28">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
