@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
+import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -68,7 +68,12 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const history=useMemo(()=>revisions
     .filter(r=>r.section_code===section).sort((a,b)=>b.version_no-a.version_no),[revisions,section]);
   const latest=history[0];
-  const referenceDraft = moduleCode === "CRM" ? CRM_DRAFTS[section] : moduleCode === "SAU" ? CCH_DRAFTS[section] : moduleCode === "SHO" ? SHOPEE_DRAFTS[section] : undefined;
+  const templates = {
+    CRM: CRM_DRAFTS, SAU: CCH_DRAFTS, SHO: SHOPEE_DRAFTS,
+    OPE: OPERACOES_DRAFTS, FIN: FINANCEIRO_DRAFTS,
+    CAP: CAPTURA_DRAFTS, ROT: ROTINA_DRAFTS,
+  } as const;
+  const referenceDraft = templates[moduleCode as keyof typeof templates]?.[section];
   const prepareReference = () => {
     if (!referenceDraft || loading || saving || error) return;
     // Ação local explícita: pré-preenche apenas o formulário.
@@ -147,7 +152,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             <h5 className="font-medium text-sm">Registrar nova revisão — rascunho não homologado</h5>
             {referenceDraft && (
               <div className="rounded-lg border border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20 p-3 space-y-2">
-                <p className="text-sm font-semibold">Modelo de referência {moduleCode === "CRM" ? "CRM" : moduleCode === "SAU" ? "CCH" : "Shopee/F12"} — {section}</p>
+                <p className="text-sm font-semibold">Modelo de referência {moduleCode} — {section}</p>
                 <p className="text-sm text-muted-foreground">
                   Proposta fundamentada em fontes de código/documento, para leitura e ajustes pelo responsável.
                   Não é homologação, teste de uso real ou confirmação da vigência do especialista.
