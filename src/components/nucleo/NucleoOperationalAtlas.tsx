@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
+import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -293,6 +294,40 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
           </div>
+          {selectedRecord && (
+            <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold">Especialista, método e frentes vinculadas</h4>
+                <p className="text-xs text-muted-foreground">
+                  A responsabilidade textual do M3, a proveniência do método e o mandato
+                  registrado no Core são evidências diferentes. Nenhuma é promovida automaticamente.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="border rounded-md p-3 space-y-1">
+                  <p className="text-xs font-semibold">Responsável declarado no M3</p>
+                  <p className="text-sm">{selectedRecord.specialist || "Não informado"}</p>
+                  <Badge variant="outline">Declaração textual — não certifica</Badge>
+                </div>
+                <div className="border rounded-md p-3 space-y-1">
+                  <p className="text-xs font-semibold">Método e fontes identificadas</p>
+                  <p className="text-sm">
+                    {selectedProvenance
+                      ? `${selectedProvenance.sources.length} fonte(s) no catálogo versionado`
+                      : "Sem proveniência catalogada"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedProvenance?.ownerBoundary ?? "Método e autoridade ainda não reconciliados."}
+                  </p>
+                </div>
+              </div>
+              <NucleoMandateRegistry modules={[selectedRecord]} />
+              <p className="text-xs text-muted-foreground">
+                Frentes e subfrentes deste módulo estão listadas abaixo pelo vínculo M3.
+                A consulta de mandato não atribui automaticamente a um especialista todas as ações dessas frentes.
+              </p>
+            </section>
+          )}
           {selectedProvenance && (
             <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Fontes e autoridade documental">
               <div>
