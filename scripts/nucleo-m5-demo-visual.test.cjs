@@ -18,12 +18,13 @@ const sandbox={exports:{},require:requested=>{
 }};
 vm.runInNewContext(transpile("src/lib/nucleo/supervision-demo.ts"),sandbox,{timeout:1000});
 const {DEMO_M5_CASES,buildM5DemoSnapshot}=sandbox.exports;
-assert.equal(DEMO_M5_CASES.length,5);
+assert.equal(DEMO_M5_CASES.length,6);
 const expected={
  divergencia:["divergencia"],
  bloqueio:["bloqueio"],
  proxima_acao:["proxima_acao"],
  revisao_fonte:["revisao_fonte"],
+ prova_declarada:["prova_declarada"],
  combinado:["divergencia","bloqueio","proxima_acao","revisao_fonte"],
 };
 let pass=0;
@@ -40,6 +41,7 @@ for(const scenario of DEMO_M5_CASES) {
 assert.equal(buildM5DemoSnapshot("combinado").evidenceCount,2);
 assert.equal(buildM5DemoSnapshot("divergencia").evidenceCount,1);
 assert.equal(buildM5DemoSnapshot("bloqueio").evidenceCount,0);
+assert.equal(buildM5DemoSnapshot("prova_declarada").findings[0].severity,"informativo");
 assert.throws(()=>buildM5DemoSnapshot("UNKNOWN"),/Cenário desconhecido/);
 const component=fs.readFileSync("src/components/nucleo/NucleoSupervisionPanel.tsx","utf8");
 assert.ok(component.includes("SIMULAÇÃO — DADOS FICTÍCIOS — NÃO É ALERTA REAL"));
