@@ -408,3 +408,13 @@ A PR associada a este checkpoint adiciona `src/lib/nucleo/operationalKnowledgeV1
 **Limites da prova:** a regra elimina a duplicação visual **se o navegador suportar o seletor CSS `:has`** (Chrome moderno da captura suporta), sem fazer afirmações de teste manual pós-publicação. Com a barra aberta, o dock continua fixo e pode ocupar a faixa inferior da viewport; os controles de ocultar/recolher continuam disponíveis. Validar no uso real desktop e móvel o acesso a Captura e a distância ao rolar; não tratar observação estática como clique homologado.
 
 **Integridade e governança:** zero migrations, zero escrita em frentes/CRM, nenhuma modificação de RLS ou permissões, zero importação da Entrega B. Aceite técnico restrito A e postergações M3 Salvar/M5 E2E permanecem intactos.
+
+## 29. V1.2 M3 — quadro de desenvolvimento responsivo e cartões concisos (13/11/2026)
+
+**Achado de uso real:** a captura após o ajuste do dock global mostrou M4/M5 visíveis próximo ao fim da página, mas **um quadro de status muito estreito no centro**, com cartões cortados por quebras de linha e espaços horizontais enormes. O problema era de layout, não de dado.
+
+**Causa confirmada no componente:** `src/components/nucleo/NucleoDevelopmentCenter.tsx` utilizava `grid-cols-5 min-w-[1100px]` dentro de `overflow-x-auto`; até larguras de 1.400 px, a ficha detalhada era movida para baixo, mas o quadro retinha cinco colunas fixas, deixando apenas uma coluna visível na janela de rolagem. Textos longos de `next_action` apareciam integralmente em fonte `11px`.
+
+**Correção V1.2 / M3:** quadro substituído por **grid responsivo de 1/2/3/5 colunas** conforme viewport (base/`sm`/`xl`/`2xl`), sem largura mínima fixa nem rolagem horizontal forçada. Os cinco estados recebem superfícies sutis com cores semânticas em claro/escuro e contagens **derivadas do filtro M3 real**, sem inventar progresso. Cartões com código, prioridade, título resumido (2 linhas), especialista, vínculo pai, próxima ação resumida (3 linhas), classificação da evidência e ação `Abrir ficha completa`. Acessibilidade: `aria-pressed`, foco destacado, título original como dica e rolagem até a ficha selecionada. **O conteúdo completo de título, escopo, próxima ação, critérios de aceite, justificativas, histórico, dependências e evidências permanece disponível na ficha M3 original abaixo do quadro**; não houve alteração semântica de status ou dados.
+
+**Portões preservados:** build de frontend e teste PostgreSQL M3 obrigatórios. A captura demonstra defeito anterior, não homologa automaticamente a interface pós-merge. Sem mudanças SQL, grants, conteúdo documental ou migração B. As homologações M3 Salvar e M5 revogação E2E seguem postergadas; A+ ainda não aceita integralmente.
