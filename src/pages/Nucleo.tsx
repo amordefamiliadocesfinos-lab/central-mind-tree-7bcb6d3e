@@ -4095,7 +4095,7 @@ export default function Nucleo() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-32 md:pb-28">
       {/* Header */}
       <header
         className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border"
