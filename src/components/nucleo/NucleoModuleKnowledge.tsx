@@ -39,6 +39,48 @@ type FMDatabase = Omit<Database,"public"> & {public: Omit<Database["public"],"Ta
 }};
 const client=supabase as unknown as SupabaseClient<FMDatabase>;
 
+const GITHUB_BLOB_BASE =
+  "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/";
+const GITHUB_SOURCE_PATH = /^(?:src|docs|supabase|scripts)\/[a-zA-Z0-9_./-]+\.(?:tsx?|jsx?|md|sql|json|txt|ya?ml)$/;
+
+type SourcePointer = { label: string; githubUrl: string | null };
+/**
+ * Referências são metadados declarados, NÃO prova de vigência nem importação B.
+ * Somente caminhos relativos reconhecidos no repositório oficial ganham link;
+ * referências de Biblioteca, versões históricas e texto livre ficam como texto.
+ * O link indica localização provável na main, não existência/validação atual.
+ */
+function sourcePointers(reference: string): SourcePointer[] {
+  return reference.split(";").map(raw => raw.trim()).filter(Boolean).map(label => {
+    const githubUrl = GITHUB_SOURCE_PATH.test(label) &&
+      !label.split("/").includes("..") && !label.split("/").includes(".")
+      ? GITHUB_BLOB_BASE + label : null;
+    return { label, githubUrl };
+  });
+}
+
+function SourceReferences({reference}:{reference:string}) {
+  const pointers = sourcePointers(reference);
+  if (!pointers.length) return <p className="text-xs text-muted-foreground">Fonte não informada.</p>;
+  return (
+    <div className="space-y-1">
+      {pointers.map((pointer,index) => (
+        <div className="text-xs break-words" key={index}>
+          {pointer.githubUrl ? (
+            <a className="underline underline-offset-2" href={pointer.githubUrl}
+              target="_blank" rel="noopener noreferrer">
+              {pointer.label} (localizar na main)
+            </a>
+          ) : (
+            <span>{pointer.label} — referência textual; consultar a origem</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:string;moduleCode:string}) {
   const [section,setSection]=useState<FMSection>("FM-01");
   const [revisions,setRevisions]=useState<Revision[]>([]);
@@ -189,7 +231,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             </div>
             <p className="whitespace-pre-wrap break-words">{latest.body}</p>
             <p className="text-xs text-muted-foreground">Prova: {latest.evidence_level} · Registrada: {new Date(latest.recorded_at).toLocaleString("pt-BR")}</p>
-            <p className="text-xs break-all">Fonte declarada: {latest.source_reference||"Não informada"}</p>
+            <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
           </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
           {history.length>1&&<details className="border rounded-md p-3 text-xs">
             <summary className="cursor-pointer">Histórico preservado ({history.length-1} revisão(ões) anterior(es))</summary>
@@ -197,7 +239,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
               {history.slice(1).map(r=><div key={r.id} className="border-t pt-2">
                 <p className="font-medium">v{r.version_no} · {r.title} · {r.authority_state}</p>
                 <p className="whitespace-pre-wrap break-words mt-1">{r.body}</p>
-                <p>Fonte: {r.source_reference||"Não informada"}</p>
+                <p className="font-medium">Fontes declaradas da revisão</p><SourceReferences reference={r.source_reference}/>
               </div>)}
             </div>
           </details>}
@@ -210,6 +252,8 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
                   Proposta fundamentada em fontes de código/documento, para leitura e ajustes pelo responsável.
                   Não é homologação, teste de uso real ou confirmação da vigência do especialista.
                 </p>
+                <p className="text-xs font-medium">Referências deste modelo local — conferir na origem</p>
+                <SourceReferences reference={referenceDraft.source}/>
                 <Button type="button" size="sm" variant="outline" disabled={saving||loading}
                   onClick={prepareReference}>Preparar rascunho com fontes</Button>
               </div>
