@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
+import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS, DIGITAL_DRAFTS, ASSISTENTE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -72,6 +72,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     CRM: CRM_DRAFTS, SAU: CCH_DRAFTS, SHO: SHOPEE_DRAFTS,
     OPE: OPERACOES_DRAFTS, FIN: FINANCEIRO_DRAFTS,
     CAP: CAPTURA_DRAFTS, ROT: ROTINA_DRAFTS,
+    DIG: DIGITAL_DRAFTS, ASS: ASSISTENTE_DRAFTS,
   } as const;
   const referenceDraft = templates[moduleCode as keyof typeof templates]?.[section];
   const prepareReference = () => {
