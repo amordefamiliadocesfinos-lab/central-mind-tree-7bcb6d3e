@@ -122,3 +122,93 @@ export const SHOPEE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: F12_MAP+"; "+SHP_MASTER,
   },
 };
+
+
+/**
+ * Os quatro inventários abaixo são propostas de conhecimento baseadas em
+ * superfícies de código. Não estabelecem que os procedimentos estejam
+ * homologados, nem atribuem o especialista vigente.
+ * O contrato ET1 é referência HISTÓRICA de implantação parcial, não gate aberto.
+ */
+const OP_PAGE = "src/pages/Operacoes.tsx";
+const ET1_DOC = "docs/operacoes/ET1_EMBALAGEM_TRUFA_P100_EA_CONTRATO_TESTES.md";
+const FIN_PAGE = "src/pages/Financeiro.tsx";
+const CAP_PAGE = "src/pages/CapturaCentral.tsx";
+const ROT_PAGE = "src/pages/Rotina.tsx";
+
+export const OPERACOES_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Operações — identidade e fronteira (rascunho)",
+    body: "O módulo Operações do Painel Central é acessível pela rota /operacoes. O código da página referencia pedidos, produtos, produção, estoque por localização, histórico de movimentos e logística. Essas superfícies se relacionam com CRM, Financeiro e Integração Shopee, mas o Núcleo não deve iniciar produção, movimentar estoque ou reconciliar pedidos. A identificação atual do especialista Operações, seu mapa e método vigente continuam pendentes de confirmação.",
+    source: OP_PAGE+"; src/App.tsx",
+  },
+  "FM-04": {
+    title: "Operações — mapa inicial de funções (rascunho)",
+    body: "Código inspecionado: src/pages/Operacoes.tsx compõe áreas e componentes de pedidos, produtos, estoque, produção, galeria, BOM, histórico de movimentos, separação e navegação operacional. Presença desses controles no repositório não equivale à homologação de entradas, saldos, expedição ou uso real. Registrar o caminho e efeito exato de cada ação somente após reconciliação com o especialista responsável.",
+    source: OP_PAGE,
+  },
+  "FM-07": {
+    title: "Operações — referência ET1 e seus limites (rascunho)",
+    body: "O contrato técnico ET1 de Embalagem para Trufa, P100 lacrado / EA avulso, documenta implantação PARCIAL na PR #355 e proíbe aplicar migration antes de integrar os acoplamentos necessários. Define que 100 × P100 + EA é conservado na conversão física por variante/local; não converter estoque histórico automaticamente nem deduzir pacotes de unidades antigas. A abertura de pacote e os consumos precisam ser atômicos e idempotentes. O checkpoint é histórico e não comprova o estado atual da implementação nem autoriza execução. Para avaliar vigência, consultar especialista e testes sem alterar produção.",
+    source: ET1_DOC+"; "+OP_PAGE,
+  },
+  "FM-08": {
+    title: "Operações — autoridade do método (rascunho)",
+    body: "O responsável técnico vigente do módulo Operações e a hierarquia dos métodos devem ser conferidos na documentação soberana e pela Camada Mestre. O ET1 é contrato de escopo específico e não substitui método geral. Código, testes em transação reversível, deploy, operação real e homologação são níveis distintos de prova. Sem autoridade confirmada, manter o estado como proposta e não iniciar integração entre módulos.",
+    source: OP_PAGE+"; "+ET1_DOC,
+  },
+};
+
+export const FINANCEIRO_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Financeiro — identidade e finalidade (rascunho)",
+    body: "A rota /financeiro oferece uma área financeira do Painel Central. A página reúne dashboard, lançamentos, contas, categorias, contatos, precificação, documentos fiscais, extratos, importação e componentes de conciliação. Este catálogo se refere à presença de código, não ao funcionamento ou fechamento financeiro. A autoridade do método e o responsável atual ainda não foram reconciliados no Núcleo.",
+    source: FIN_PAGE+"; src/App.tsx",
+  },
+  "FM-04": {
+    title: "Financeiro — mapa técnico das telas (rascunho)",
+    body: "O arquivo src/pages/Financeiro.tsx importa FinancialDashboard, FinancialEntriesList, AccountsManager, CategoriesManager, ContactsManager, PricingManagerV2, InvoicesManager, StatementImporter, FinancialIntegrityDialog e MarketplaceSettlementDialog. A página também inclui visão móvel MobileFinancialView. Importar extrato, registrar pagamento ou conciliar lançamento são ações com potencial de escrita e devem permanecer sob a operação financeira autorizada; não executar a partir desta Ficha Viva.",
+    source: FIN_PAGE,
+  },
+  "FM-08": {
+    title: "Financeiro — especialista e método (rascunho)",
+    body: "A identidade funcional e a vigência do método do especialista Financeiro ainda exigem confirmação em mapa soberano ou transferência formal. Não transformar nomes de componentes em regras fiscais ou contábeis. Conciliar datas de compra, vencimento, liquidação e movimento bancário somente com o contrato financeiro vigente e provas de uso real, sem presumir regra a partir deste rascunho.",
+    source: FIN_PAGE,
+  },
+};
+
+export const CAPTURA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Captura Central — identidade e fronteiras (rascunho)",
+    body: "A Captura Central é acessível por /captura e recebe registros em texto e mídia para organização posterior. O código distingue estado de captura, anexos, decisões, vínculos a tarefas e áreas de referência. Capturar não significa aprovar, classificar automaticamente ou executar tarefa. O método vigente do especialista de Captura Central ainda precisa ser confirmado.",
+    source: CAP_PAGE+"; src/App.tsx",
+  },
+  "FM-04": {
+    title: "Captura Central — controles observáveis (rascunho)",
+    body: "A página src/pages/CapturaCentral.tsx apresenta registros de texto, áudio, foto e vídeo, anexos, histórico de decisões e opções de associação a tarefas ou referências. A existência de funções de editar, excluir, arquivar ou planejar exige conferir permissões e confirmação antes de qualquer procedimento normativo. Esta Ficha Viva não gera capturas nem move tarefas.",
+    source: CAP_PAGE,
+  },
+  "FM-08": {
+    title: "Captura Central — autoridade e vigência (rascunho)",
+    body: "Mapear o especialista atual e seu método de triagem, classificação, destino e retenção antes de homologar a Ficha Viva. O código atual comprova superfícies técnicas, mas não a vigência do processo humano. Preservar o conteúdo original, anexos e rastros de decisões; não importar dados pessoais de capturas no Núcleo.",
+    source: CAP_PAGE,
+  },
+};
+
+export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
+  "FM-01": {
+    title: "Rotina — identidade e fronteiras (rascunho)",
+    body: "O módulo Rotina, rota /rotina, organiza blocos em visualizações de dia, semana e mês. O código diferencia escopos pessoais e da empresa, datas, alarmes, templates e estados de bloco. A Ficha Viva apenas documenta as interfaces e não dispara cronogramas, altera blocos ou notifica usuários.",
+    source: ROT_PAGE+"; src/App.tsx",
+  },
+  "FM-04": {
+    title: "Rotina — mapa técnico de ações (rascunho)",
+    body: "A página src/pages/Rotina.tsx utiliza useRoutine e componentes RoutineDayView, RoutineWeekView, RoutineMonthView, CustomAlarmsPanel, BlockEditDialog, MTPickerDialog e RoutineCompletionDialog. O hook expõe iniciar, completar, pular, adicionar, atualizar, excluir, pausar e reordenar blocos; também contém planejamento automático do dia/semana. Isso comprova a existência do contrato no código, não seus efeitos persistidos, permissões ou uso real. Não executar essas ações pelo Núcleo.",
+    source: ROT_PAGE+"; src/hooks/useRoutine.ts",
+  },
+  "FM-08": {
+    title: "Rotina — método e especialista (rascunho)",
+    body: "Identificar mapa soberano, especialista atual e distinção de rotinas pessoais/empresariais antes de promover instruções. Fluxos de alarmes, priorização, replanejamento e conclusão precisam de prova funcional e limites de autoridade. Enquanto a documentação não estiver reconciliada, a ficha permanece proposta de referência.",
+    source: ROT_PAGE,
+  },
+};
