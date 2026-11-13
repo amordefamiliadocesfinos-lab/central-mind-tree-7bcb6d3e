@@ -4,6 +4,7 @@ import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/devel
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
+import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -220,23 +221,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             <Input aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {modules.map(item=>(
-              <button key={item.id} type="button" onClick={()=>choose(item)}
-                className="rounded-lg border p-4 min-h-[148px] text-left space-y-2.5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="font-mono text-sm text-muted-foreground">{item.id}</span>
-                  <Badge variant={item.coverage==="piloto_parcial"?"secondary":"outline"}>
-                    {item.coverage==="piloto_parcial"?"Piloto parcial":"Levantamento inicial"}
-                  </Badge>
-                </div>
-                <p className="font-semibold text-base leading-snug">{item.name}</p>
-                <p className="text-sm text-muted-foreground">{item.domain} · {item.route ?? "Rota não verificada"}</p>
-                <p className="text-sm text-muted-foreground">{workstreams.some(front => front.code === item.id && front.kind === "modulo") ? "Cadastro no Core confirmado" : "Cadastro no Core ainda não verificado"}</p>
-                <p className="text-sm font-medium underline underline-offset-2">Ver ficha e fontes</p>
-              </button>
-            ))}
-          </div>
+          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} />
           {modules.length===0 && <p role="status" className="text-sm text-muted-foreground">Nenhum módulo encontrado com esse filtro.</p>}
         </Card>
       )}
