@@ -13,6 +13,7 @@ on:
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
       - "src/components/nucleo/NucleoKnowledgeCoverage.tsx"
       - "src/components/nucleo/NucleoSupervisionPanel.tsx"
+      - "src/components/nucleo/NucleoAuthorityCoverage.tsx"
       - "supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql"
       - "scripts/nucleo-v12-ficha-viva.test.sql"
       - "src/pages/Nucleo.tsx"
