@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
+import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
-import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree } from "lucide-react";
+import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,11 @@ const confidenceLabels = {
 /** V1.2: descoberta orientada, sem escrita em outras frentes ou cópia documental. */
 interface Props {
   workstreams: DevelopmentWorkstream[];
+  events: DevelopmentEvent[];
   onSelectWorkstream: (id: string) => void;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, onSelectWorkstream }: Props) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
@@ -42,6 +43,24 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
     () => workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC"),
     [workstreams],
   );
+  // Contagem apenas dos registros do Core — não porcentagem de implementação.
+  // Exclui a ficha raiz NUC para não contabilizar governança duas vezes.
+  const monitored = workstreams.filter(item => item.code !== "NUC");
+  const summary = {
+    modules: registeredModules.length,
+    governanceFronts: governanceFronts.length,
+    active: monitored.filter(item => item.status === "em_andamento").length,
+    validating: monitored.filter(item => item.status === "em_validacao").length,
+    completed: monitored.filter(item =>
+      item.status === "concluido" && item.evidence_state === "comprovada").length,
+    blocked: monitored.filter(item => item.status === "bloqueado").length,
+  };
+  // A Central carrega até 200 eventos M3; não representa um feed global do GitHub.
+  const recentEvents = useMemo(() => [...events]
+    .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+    .slice(0, 5), [events]);
+  const workstreamsById = useMemo(() =>
+    new Map(workstreams.map(item => [item.id, item])), [workstreams]);
   const catalog = useMemo<KnowledgeModule[]>(() => {
     const byCode = new Map(MODULES_V12.map(module => [module.id, module]));
     for (const record of workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC")) {
@@ -110,7 +129,31 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
       </Card>
 
       {level==="overview" && (
-        <Card className="p-4 md:p-5 space-y-3" aria-label="Núcleo — ambiente de governança">
+        <section aria-label="Indicadores do acompanhamento" className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold">Leitura rápida do gestor</h3>
+            <p className="text-xs text-muted-foreground">Contagem das fichas M3 autorizadas, sem porcentagem inferida</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+            {[
+              { label:"Módulos no Core", value:summary.modules, style:"border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100" },
+              { label:"Frentes NUC", value:summary.governanceFronts, style:"border-violet-200 bg-violet-50 text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100" },
+              { label:"Em andamento", value:summary.active, style:"border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100" },
+              { label:"Em validação", value:summary.validating, style:"border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100" },
+              { label:"Concluídas com prova", value:summary.completed, style:"border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100" },
+              { label:"Bloqueadas", value:summary.blocked, style:"border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100" },
+            ].map(item => (
+              <div key={item.label} className={`rounded-xl border p-3 md:p-4 shadow-sm ${item.style}`}>
+                <p className="text-sm font-medium leading-snug">{item.label}</p>
+                <p className="mt-2 text-3xl font-bold tabular-nums">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {level==="overview" && (
+        <Card className="p-4 md:p-5 space-y-4 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/20" aria-label="Núcleo — ambiente de governança">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="rounded-md bg-muted p-2"><FolderTree className="h-5 w-5" aria-hidden="true" /></div>
@@ -125,8 +168,14 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
             <span className="inline-flex items-center gap-1.5"><GitBranch className="h-4 w-4" aria-hidden="true" /> {governanceFronts.length} frentes do Núcleo no Core</span>
             <span className="text-muted-foreground">Navegue pela árvore e pela ficha de governança abaixo, sem duplicar seus registros.</span>
           </div>
-          {governanceRoot && <Button type="button" variant="outline" size="sm"
-            onClick={() => onSelectWorkstream(governanceRoot.id)}>Abrir ficha de governança</Button>}
+          {governanceRoot && (
+            <div className="pl-12 sm:pl-0 pt-2 pb-4">
+              <Button type="button" variant="outline" size="sm" className="min-h-11 px-5"
+                onClick={() => onSelectWorkstream(governanceRoot.id)}>
+                Abrir ficha de governança
+              </Button>
+            </div>
+          )}
         </Card>
       )}
 
@@ -162,6 +211,48 @@ export default function NucleoOperationalAtlas({ workstreams, onSelectWorkstream
             ))}
           </div>
           {modules.length===0 && <p role="status" className="text-sm text-muted-foreground">Nenhum módulo encontrado com esse filtro.</p>}
+        </Card>
+      )}
+
+      {level==="overview" && (
+        <Card className="p-4 md:p-5 space-y-4" aria-label="Atividade recente registrada no Core">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold inline-flex items-center gap-2">
+                <Activity className="h-4 w-4 text-sky-700 dark:text-sky-300" aria-hidden="true"/>
+                Atividade recente
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Últimas alterações carregadas da trilha de auditoria M3, não de um feed geral do GitHub.
+              </p>
+            </div>
+            <Badge variant="outline">Histórico do Core</Badge>
+          </div>
+          {recentEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground" role="status">Nenhuma atividade disponível nesta consulta.</p>
+          ) : (
+            <ol className="space-y-2">
+              {recentEvents.map(event => {
+                const front = workstreamsById.get(event.workstream_id);
+                return (
+                  <li key={event.id} className="rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-sm font-semibold">{front?.title ?? "Registro histórico"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {event.event_type === "criado" ? "Ficha criada" : "Ficha atualizada"}
+                      </p>
+                      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock3 className="h-3.5 w-3.5" aria-hidden="true"/>
+                        {new Date(event.recorded_at).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                    {front && <Button type="button" variant="outline" size="sm"
+                      onClick={() => onSelectWorkstream(front.id)}>Abrir ficha</Button>}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </Card>
       )}
 
