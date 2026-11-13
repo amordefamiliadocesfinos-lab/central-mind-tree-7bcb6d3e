@@ -314,7 +314,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               onClick={()=>setKnowledgeOpen(open=>!open)}>
               {knowledgeOpen?"Ocultar Ficha Viva":"Abrir Ficha Viva FM-01–FM-10"}
             </Button>
-            {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id}/>}
+            {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
           </div>}
           {selected.id==="CRM" ? (
             <>
