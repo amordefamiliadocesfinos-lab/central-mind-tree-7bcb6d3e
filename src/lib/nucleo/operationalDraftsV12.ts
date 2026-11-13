@@ -53,7 +53,17 @@ export const CRM_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     title: "CRM — governança do especialista (rascunho)",
     body: "O mapa CRM UX 02 registra CRM 7 como responsável técnico no checkpoint de 16/10/2026 e decisões congeladas de A3.1/B3.1-A. Isso comprova um registro histórico de especialidade, NÃO a identidade atual de um especialista persistente ou o método vigente. Antes de homologar este campo, verificar mandato, métodos atuais, versões, ecossistema, documentos soberanos, histórico de transferência entre chats e autoridade da Camada Mestre. Não atribuir nome pessoal nem promover documento provisório.",
     source: UX,
+  },,
+  "FM-09": {
+    title: "CRM — evolução técnica e pendências (rascunho)",
+    body: "O mapa CRM UX 02 registra A3.1 (filtros e indicadores da Inbox) e B3.1-A (ficha do contato na terceira coluna). No checkpoint final de 16/10/2026, os oito incrementos A-01, A-02 e B-01 a B-06 estavam integrados, com CI técnica aprovada. As PRs #283, #284, #286, #287, #290, #291, #296 e #297 são referências de integração naquele marco; os trabalhos #292, #293 e #294 foram substituídos e não devem ser confundidos com entregas atuais. O próprio mapa exige UAT autenticada em desktop, largura intermediária e celular; conferir filtro, edição fiscal/endereço/financeiro, próxima ação, opt-out, navegação com rascunho pendente, conversa e ações críticas. A existência de código e merge não prova deploy atual nem aceite funcional. O registro CRM-UX02 do Núcleo acompanha o checkpoint, não deve encerrar a frente por inferência.",
+    source: UX+"; src/components/crm/AttendanceActionBar.tsx; src/components/crm/CrmFocusQueue.tsx",
   },
+  "FM-10": {
+    title: "CRM — aprendizados reutilizáveis e limites (rascunho)",
+    body: "Aprendizado do mapa UX 02: centralizar a escrita canônica de Próxima Ação, sem usar atualização genérica de contatos para os campos operacionais; preservar opt-out, histórico e autorizações ao editar apenas campos alterados. Para evitar perda de dados em telas concorrentes, manter estados Pendente → Salvando → Salvo/Erro e proteger troca de contato, aba, seção ou rota enquanto houver edição pendente. Outra decisão importante é preservar editores e ações antigas até comprovar cobertura real do substituto; não eliminar caminhos funcionais apenas porque a nova UI foi integrada. Essas são regras documentadas no checkpoint técnico, NÃO validação atual de todos os cenários. Aprendizado de uso real, causas de falha e medidas de desempenho ainda exigem evidência específica do operador e especialista; não inventar métricas nem resultados.",
+    source: UX,
+  }
 };
 
 
