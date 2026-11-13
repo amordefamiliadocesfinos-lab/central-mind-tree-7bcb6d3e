@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
+import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +91,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
       [item.name, item.domain, item.id, item.specialist ?? ""].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [catalog, search]);
   const selected = catalog.find(item => item.id === selectedId) ?? null;
+  const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
   const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
   const actions = useMemo(() => {
@@ -282,7 +284,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             </div>
             <div className="border rounded-lg p-3 space-y-2">
               <h4 className="font-medium text-sm">Fonte e método</h4>
-              <p className="text-sm leading-relaxed">{selected.id==="CRM"?CRM_REFERENCE.method:"Método, escopo e checkpoint ainda precisam de fontes vigentes."}</p>
+              <p className="text-sm leading-relaxed">{selectedProvenance?.methodSummary ?? (selected.id==="CRM"?CRM_REFERENCE.method:"Método, escopo e checkpoint ainda precisam de fontes vigentes.")}</p>
               {selected.source.startsWith("https://") ?
                 <a href={selected.source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs underline">
                   Conferir código de origem <ExternalLink className="h-3 w-3" aria-hidden="true"/>
@@ -290,6 +292,28 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
           </div>
+          {selectedProvenance && (
+            <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Fontes e autoridade documental">
+              <div>
+                <h4 className="font-semibold text-sm">Fontes documentais e autoridade</h4>
+                <p className="text-sm text-muted-foreground mt-1">{selectedProvenance.ownerBoundary}</p>
+                <p className="text-xs text-muted-foreground mt-1">Metadados de referência presentes no GitHub; sem importação para o Núcleo ou atualização automática.</p>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {selectedProvenance.sources.map(source => (
+                  <div key={source.path} className="rounded-lg border p-3 space-y-2 min-w-0">
+                    <p className="text-sm font-medium">{source.label}</p>
+                    <p className="text-xs text-muted-foreground">{SOURCE_AUTHORITY_LABELS[source.authority]}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{source.note}</p>
+                    <a href={source.path} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1 text-sm underline underline-offset-2">
+                      Abrir fonte original <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
           {selectedRecord && (
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
