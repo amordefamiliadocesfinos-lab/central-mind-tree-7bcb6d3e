@@ -74,7 +74,17 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     CAP: CAPTURA_DRAFTS, ROT: ROTINA_DRAFTS,
     DIG: DIGITAL_DRAFTS, ASS: ASSISTENTE_DRAFTS,
   } as const;
-  const referenceDraft = templates[moduleCode as keyof typeof templates]?.[section];
+  const moduleTemplates = templates[moduleCode as keyof typeof templates];
+  const referenceDraft = moduleTemplates?.[section];
+  // A cobertura descreve somente modelos disponíveis no código e revisões
+  // efetivamente lidas do Core. Não é indicador de homologação/implantação.
+  const coverage = (Object.keys(sections) as FMSection[]).map(code => ({
+    code,
+    hasTemplate: Boolean(moduleTemplates?.[code]),
+    revisionCount: revisions.filter(revision => revision.section_code === code).length,
+  }));
+  const templateCount = coverage.filter(entry => entry.hasTemplate).length;
+  const persistedCount = coverage.filter(entry => entry.revisionCount > 0).length;
   const prepareReference = () => {
     if (!referenceDraft || loading || saving || error) return;
     // Ação local explícita: pré-preenche apenas o formulário.
@@ -118,13 +128,29 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
         <h4 className="text-sm font-semibold">Ficha Viva — seções FM-01 a FM-10</h4>
         <p className="text-xs text-muted-foreground">Histórico por versão. O formulário cria apenas rascunhos declarados, nunca manuais homologados automaticamente.</p>
       </div>
-      <label className="block text-xs space-y-1">Seção
-        <select className="block w-full rounded-md border bg-background p-2" value={section}
-          onChange={e=>setSection(e.target.value as FMSection)}>
-          {(Object.entries(sections) as Array<[FMSection,string]>).map(([key,label])=>
-            <option key={key} value={key}>{key} — {label}</option>)}
-        </select>
-      </label>
+      <section aria-label="Cobertura documental por seção" className="rounded-md border p-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="secondary">{templateCount}/10 modelos locais</Badge>
+          <Badge variant="outline">{loading ? "Consultando registros…" : `${persistedCount}/10 seções com registro no Core`}</Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Modelo local é proposta de consulta; registro no Core é uma revisão com autoria. Nenhum dos dois equivale a homologação.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {coverage.map(entry => (
+            <button type="button" key={entry.code}
+              aria-pressed={section === entry.code}
+              onClick={() => setSection(entry.code)}
+              className={`rounded-md border p-2 text-left text-xs space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
+              <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
+              <span className="block text-muted-foreground">
+                {loading ? "Registro: consultando" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro"}
+              </span>
+              <span className="block text-muted-foreground">{entry.hasTemplate ? "Modelo disponível" : "Modelo pendente"}</span>
+            </button>
+          ))}
+        </div>
+      </section>
       {loading&&<p role="status" className="text-xs text-muted-foreground">Consultando revisões autorizadas…</p>}
       {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
       <Button type="button" size="sm" variant="outline" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
