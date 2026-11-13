@@ -25,6 +25,36 @@ export const SOURCE_AUTHORITY_LABELS: Record<SourceAuthority,string> = {
 };
 
 export const MODULE_PROVENANCE: Partial<Record<string, ModuleProvenance>> = {
+  OPE: {
+    methodSummary: "A página de Operações comprova áreas e componentes de código. O contrato ET1 de embalagem P100/EA documenta uma implementação PARCIAL na PR #355, não sua ativação ou homologação atual.",
+    ownerBoundary: "Especialista e método soberano de Operações ainda não reconciliados. Não ativar migration ET1 isolada, converter estoque legado ou mover produção/pedidos.",
+    sources: [
+      {label:"Operações — código da página",path:map("src/pages/Operacoes.tsx"),authority:"codigo_verificado",
+       note:"Controles de pedidos, produtos, produção, estoque e logística; sem teste operacional nesta investigação."},
+      {label:"ET1 — contrato de embalagem P100/EA",path:map("docs/operacoes/ET1_EMBALAGEM_TRUFA_P100_EA_CONTRATO_TESTES.md"),authority:"historica",
+       note:"Implementação parcial PR #355; migration proibida antes dos acoplamentos. Vigência/estado corrente não verificados."},
+      {label:"CB3 — nota de engenharia Chocolate Base",path:map("docs/operacoes/chocolate-cb3-notas-implementacao-20261021.md"),authority:"historica",
+       note:"Rascunho de engenharia, não documento canônico; não autoriza publicação isolada."},
+    ],
+  },
+  FIN: {
+    methodSummary: "Dashboard, lançamentos, importador e conciliação são superfícies de código verificadas. Falta conferir contrato financeiro vigente e evidências de uso real.",
+    ownerBoundary: "Especialista, responsável e regras de conciliação financeira ainda não verificados; nenhuma ação deve ser executada pelo Núcleo.",
+    sources: [{label:"Financeiro — página e funções",path:map("src/pages/Financeiro.tsx"),authority:"codigo_verificado",
+      note:"Presença de componentes de lançamentos, pagamentos, extratos e importações; não prova resultados persistidos."}],
+  },
+  CAP: {
+    methodSummary: "Entrada e classificação de conteúdos em texto e mídia, com ações de referência e decisões, identificadas na página.",
+    ownerBoundary: "O método responsável pela triagem e autorização das ações ainda não foi reconciliado.",
+    sources: [{label:"Captura Central — página e funções",path:map("src/pages/CapturaCentral.tsx"),authority:"codigo_verificado",
+      note:"Superfície de captura e estado; não representa prova de homologação de classificação ou tarefas."}],
+  },
+  ROT: {
+    methodSummary: "Rotina oferece escopos pessoal/empresa, blocos, visões de calendário e alarmes, verificados no código.",
+    ownerBoundary: "Especialista e método de priorização/replanejamento não reconciliados; não disparar blocos nem alertas via Núcleo.",
+    sources: [{label:"Rotina — página e funções",path:map("src/pages/Rotina.tsx"),authority:"codigo_verificado",
+      note:"Presença de estados e ações no código, sem prova independente de funcionamento."}],
+  },
   CRM: {
     methodSummary: "Checkpoint CRM UX 02 de 16/10/2026: oito incrementos técnicos integrados; não comprova método atual ou UAT. O conhecimento do CRM permanece piloto parcial.",
     ownerBoundary: "CRM 7 consta como responsabilidade técnica histórica. A identidade e a autoridade atual do especialista exigem confirmação.",
