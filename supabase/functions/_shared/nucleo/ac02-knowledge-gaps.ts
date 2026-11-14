@@ -81,3 +81,87 @@ export function inventoryAc02KnowledgeGaps(
   caveat:"lacunas_do_recorte_nao_ausencia_global",
  });
 }
+
+
+/**
+ * Visão de prontidão DOCUMENTAL, não "pronto para operar".
+ * Cada contagem é resultado dos oito itens catalogados na leitura do recorte.
+ * IDs estáveis evitam reabrir o texto livre do checkpoint.
+ */
+export type Ac02DocumentaryReadiness=Readonly<{
+ kind:"nucleo_ac02_visao_prontidao_documental_consultiva";
+ status:"nao_homologado_sem_autorizacao_de_execucao";
+ moduleCode:string;
+ coverage:Readonly<{
+  referencias_presentes_para_consulta:number;
+  referencias_ausentes_no_recorte:number;
+  recortes_indeterminados:number;
+  comprovacoes_externas_pendentes:number;
+  fases_adiadas:number;
+ }>;
+ categories:readonly Readonly<{
+  category:Ac02KnowledgeGap["category"];
+  entries:readonly Readonly<{id:Ac02KnowledgeGapId;state:Ac02KnowledgeGap["state"]}>[];
+ }>[];
+ reviewOrder:readonly Ac02KnowledgeGapId[];
+ readyForOperationalAssumption:false;
+ disclaimer:"referencia_documental_nao_equivale_a_prontidao_operacional";
+}>;
+export function summarizeAc02DocumentaryReadiness(
+ inventory:Ac02KnowledgeGapInventory,
+):Ac02DocumentaryReadiness{
+ if(inventory.kind!=="nucleo_ac02_inventario_lacunas_consultivo"||
+    inventory.status!=="lacunas_para_consulta_nao_homologadas"||
+    !code.test(inventory.moduleCode))throw new Error("AC02: invalid gap inventory");
+ const ids=new Set<Ac02KnowledgeGapId>();
+ const allowed=new Set<Ac02KnowledgeGap["state"]>([
+  "referencia_presente_consulta_pendente","referencia_inexistente_no_recorte",
+  "recorte_indeterminado","comprovacao_externa_pendente","fase_adiada",
+ ]);
+ const categories=["documental","operacional","governanca","implantacao"] as const;
+ const grouped=categories.map(category=>({
+  category,entries:[] as {id:Ac02KnowledgeGapId;state:Ac02KnowledgeGap["state"]}[],
+ }));
+ const counts={
+  referencias_presentes_para_consulta:0,
+  referencias_ausentes_no_recorte:0,
+  recortes_indeterminados:0,
+  comprovacoes_externas_pendentes:0,
+  fases_adiadas:0,
+ };
+ const keys:Record<Ac02KnowledgeGap["state"],keyof typeof counts>={
+  referencia_presente_consulta_pendente:"referencias_presentes_para_consulta",
+  referencia_inexistente_no_recorte:"referencias_ausentes_no_recorte",
+  recorte_indeterminado:"recortes_indeterminados",
+  comprovacao_externa_pendente:"comprovacoes_externas_pendentes",
+  fase_adiada:"fases_adiadas",
+ };
+ for(const item of inventory.gaps){
+  if(ids.has(item.id)||!allowed.has(item.state))throw new Error("AC02: duplicate/invalid gap");
+  const target=grouped.find(group=>group.category===item.category);
+  if(!target)throw new Error("AC02: category unknown");
+  ids.add(item.id);
+  counts[keys[item.state]]++;
+  target.entries.push(Object.freeze({id:item.id,state:item.state}));
+ }
+ const expected:Ac02KnowledgeGapId[]=[
+  "G01_ESCOPO","G02_METODO_ECOSSISTEMA","G03_CHECKPOINT","G04_M3_M4",
+  "G05_FONTES","G06_MANDATO_ACESSO","G07_HOMOLOGACAO","G08_SEGURANCA_IMPLANTACAO",
+ ];
+ if(ids.size!==expected.length||expected.some(id=>!ids.has(id)))throw new Error("AC02: incomplete gap registry");
+ return Object.freeze({
+  kind:"nucleo_ac02_visao_prontidao_documental_consultiva",
+  status:"nao_homologado_sem_autorizacao_de_execucao",
+  moduleCode:inventory.moduleCode,
+  coverage:Object.freeze(counts),
+  categories:Object.freeze(grouped.map(g=>Object.freeze({
+   category:g.category,entries:Object.freeze(g.entries),
+  }))),
+  reviewOrder:Object.freeze(expected.filter(id=>{
+   const state=inventory.gaps.find(g=>g.id===id)?.state;
+   return state!=="fase_adiada";
+  })),
+  readyForOperationalAssumption:false,
+  disclaimer:"referencia_documental_nao_equivale_a_prontidao_operacional",
+ });
+}

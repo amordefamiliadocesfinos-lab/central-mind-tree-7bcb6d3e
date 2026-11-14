@@ -6,7 +6,7 @@
  */
 import { summarizeAc02Continuity } from "./ac02-continuity-summary.ts";
 import { buildAc02AssumptionGuide } from "./ac02-assumption-guide.ts";
-import { inventoryAc02KnowledgeGaps } from "./ac02-knowledge-gaps.ts";
+import { inventoryAc02KnowledgeGaps, summarizeAc02DocumentaryReadiness } from "./ac02-knowledge-gaps.ts";
 import { describeAc02DocumentaryCoverage, type Ac02DocumentaryRevision } from "./ac02-documentary-coverage.ts";
 import {
  AC02_GLOBAL_ITEMS, AC02_GLOBAL_IDENTITY,
@@ -150,6 +150,19 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  ];
 
  const gaps=inventoryAc02KnowledgeGaps(code,coverage,continuity,guide);
+ const readiness=summarizeAc02DocumentaryReadiness(gaps);
+ const readinessLines=[
+  "- Escopo: prontidão de REFERÊNCIAS PARA CONSULTA; não é pontuação, certificação ou autorização.",
+  "- Referências disponíveis para consulta: "+readiness.coverage.referencias_presentes_para_consulta,
+  "- Referências não localizadas no recorte: "+readiness.coverage.referencias_ausentes_no_recorte,
+  "- Leituras indeterminadas: "+readiness.coverage.recortes_indeterminados,
+  "- Comprovações externas pendentes: "+readiness.coverage.comprovacoes_externas_pendentes,
+  "- Fases formalmente adiadas: "+readiness.coverage.fases_adiadas,
+  ...readiness.categories.flatMap(group=>group.entries.map(entry=>
+   "- "+group.category+" / "+entry.id+" / "+entry.state)),
+  "- Pronto para assunção operacional: NÃO COMPROVADO. Conferir documentos, mandato, fontes e checkpoint original.",
+  "- Ordem de conferência (sem itens adiados e sem autorização de execução): "+readiness.reviewOrder.join(", "),
+ ];
  const gapLines=[
   "- Lacunas identificadas neste recorte; não significam ausência no projeto inteiro.",
   "- Documentais: "+gaps.summary.documental+" | Operacionais: "+gaps.summary.operacional+
@@ -216,7 +229,10 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "## 10. Inventário de lacunas de conhecimento (consultivo)",
   ...gapLines,
   "",
-  "## 11. Condições de continuidade",
+  "## 11. Visão de prontidão documental — somente leitura",
+  ...readinessLines,
+  "",
+  "## 12. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",
