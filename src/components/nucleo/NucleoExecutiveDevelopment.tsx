@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
+import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
 import type { DevelopmentDependency, DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 
 type Scope="todos"|"bloqueadas"|"prioritarias"|"sem_acao"|"sem_prova";
@@ -26,12 +27,23 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
   const [scope,setScope]=useState<Scope>("todos");
   const [search,setSearch]=useState("");
   const [expanded,setExpanded]=useState<string|null>(null);
+  const [checkpointOpen,setCheckpointOpen]=useState<string|null>(null);
   const byId=useMemo(()=>new Map(workstreams.map(item=>[item.id,item])),[workstreams]);
   const entries=useMemo(()=>workstreams.filter(item=>item.kind!=="modulo"&&(
     !moduleId||item.parent_id===moduleId||(
       item.parent_id!==null&&byId.get(item.parent_id)?.parent_id===moduleId
     )
   )),[workstreams,moduleId,byId]);
+  const eventsByFront=useMemo(()=>{
+    const index=new Map<string,DevelopmentEvent[]>();
+    for(const event of events){
+      const list=index.get(event.workstream_id)??[];
+      list.push(event);
+      index.set(event.workstream_id,list);
+    }
+    for(const list of index.values())list.sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
+    return index;
+  },[events]);
   const latestByFront=useMemo(()=>{
     const m=new Map<string,DevelopmentEvent>();
     for(const event of events){
@@ -45,7 +57,7 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
     const module=item.kind==="frente"?parent:byId.get(parent?.parent_id??"");
     const ownDeps=dependencies.filter(d=>d.workstream_id===item.id);
     const linked=ownDeps.map(d=>({edge:d,target:byId.get(d.depends_on_id)}));
-    return {item,module,linked,latest:latestByFront.get(item.id)};
+    return {item,module,linked,latest:latestByFront.get(item.id),checkpoints:(eventsByFront.get(item.id)??[]).slice(0,3)};
   });
   const counts={
     blocked:mapped.filter(({item})=>item.status==="bloqueado").length,
@@ -105,7 +117,7 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
       Nenhum registro corresponde ao filtro na leitura atual. Isso não comprova inexistência de frentes em outras fontes.
     </p>}
     <div className="space-y-2">
-      {visible.map(({item,module,linked,latest})=><article key={item.id} className="rounded-md border p-3 space-y-3">
+      {visible.map(({item,module,linked,latest,checkpoints})=><article key={item.id} className="rounded-md border p-3 space-y-3">
         <div className="flex flex-wrap justify-between items-start gap-2">
           <div className="space-y-1 min-w-0 flex-1">
             <p className="font-semibold text-sm">{item.code} · {item.title}</p>
@@ -135,11 +147,54 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
         </details>}
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={()=>onOpenWorkstream(item.id)}>Abrir ficha M3</Button>
+          <Button type="button" size="sm" variant="outline"
+            aria-expanded={checkpointOpen===item.id}
+            onClick={()=>setCheckpointOpen(prev=>prev===item.id?null:item.id)}>
+            {checkpointOpen===item.id?"Ocultar checkpoints":"Ver checkpoints M3"}
+          </Button>
           <Button type="button" size="sm" variant="outline" aria-expanded={expanded===item.id}
             onClick={()=>setExpanded(prev=>prev===item.id?null:item.id)}>
             {expanded===item.id?"Ocultar provas M4":"Ver provas M4"}
           </Button>
         </div>
+        {checkpointOpen===item.id&&<section className="border-t pt-3 space-y-3" aria-label={"Checkpoints registrados de "+item.code}>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">Checkpoints administrativos — M3</p>
+            <p className="text-xs text-muted-foreground">
+              Eventos de criação e alteração da janela global carregada. Não são decisões
+              aprovadas, normas vigentes, provas técnicas ou homologação humana.
+            </p>
+          </div>
+          {checkpoints.length===0&&<p className="text-xs text-muted-foreground">
+            Nenhum evento encontrado na janela global de 200 registros. Histórico anterior pode existir.
+          </p>}
+          {checkpoints.map(event=>{
+            const summary=summarizeDevelopmentCheckpoint(event);
+            return <div key={event.id} className="rounded-md border p-3 space-y-2 text-xs">
+              <div className="flex flex-wrap justify-between gap-2">
+                <p className="font-semibold">{summary.label}</p>
+                <span className="text-muted-foreground">{when(event.recorded_at)}</span>
+              </div>
+              <p className="text-muted-foreground">
+                Autoria registrada: {event.actor_auth_uid
+                  ? "ID autenticado "+event.actor_auth_uid.slice(0,8)+"…"
+                  : "não identificada no evento"}
+              </p>
+              {summary.changes.length>0?<dl className="grid gap-2">
+                {summary.changes.map(change=><div key={change.field} className="rounded bg-muted/30 p-2">
+                  <dt className="font-medium">{change.field}</dt>
+                  {event.event_type==="alterado"&&<dd className="text-muted-foreground break-words">Antes: {change.before}</dd>}
+                  <dd className="break-words">Depois: {change.after}</dd>
+                </div>)}
+              </dl>:<p className="text-muted-foreground">
+                Sem campos comparáveis neste recorte; não interpretar como ausência de alterações.
+              </p>}
+              <p className="text-muted-foreground">
+                Aprovação humana: não comprovada por este evento. Consultar ato formal e evidências separadamente.
+              </p>
+            </div>;
+          })}
+        </section>}
         {expanded===item.id&&<div className="border-t pt-3">
           <NucleoTechnicalEvidence workstreamId={item.id}/>
         </div>}
