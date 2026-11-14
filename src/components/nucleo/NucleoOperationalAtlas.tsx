@@ -383,7 +383,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 </a> :
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
-          </div>
+          </div>}
           {moduleSection==="especialista" && selectedRecord && (
             <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
               <div className="space-y-1">
