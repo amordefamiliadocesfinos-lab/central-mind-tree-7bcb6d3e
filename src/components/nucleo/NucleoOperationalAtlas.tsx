@@ -626,8 +626,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             </p>
           </div>
           <Button size="sm" variant="outline" asChild><Link to="/contatos/inbox">Abrir caixa de atendimentos</Link></Button>
-        </Card>
             </>
+          )}
+        </Card>
       )}
     </section>
   );
