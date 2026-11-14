@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
+      - "scripts/nucleo-ux-a5-readable-states.test.cjs"
       - "scripts/nucleo-ux-a3a-ac01-journey.test.cjs"
       - "src/components/nucleo/NucleoContributionDesk.tsx"
       - "src/components/nucleo/NucleoAC01ReviewTrail.tsx"
@@ -116,6 +117,8 @@ jobs:
       - run: npm ci
       - run: node scripts/nucleo-ac01-readonly-desk.test.cjs
       - run: node scripts/nucleo-ux-a3a-ac01-journey.test.cjs
+      - name: Verify UX-A5 truthful state presentation
+        run: node scripts/nucleo-ux-a5-readable-states.test.cjs
       - run: node scripts/nucleo-ac01-document-governance.test.cjs
       - run: node scripts/nucleo-ac02-registry.test.cjs
       - run: node scripts/nucleo-ac02-authenticated-read.test.cjs
