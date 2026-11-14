@@ -11,6 +11,8 @@ on:
       - "src/lib/nucleo/ac01DocumentGovernance.ts"
       - "src/lib/nucleo/ac02RegistryContract.ts"
       - "scripts/nucleo-ac02-registry.test.cjs"
+      - "supabase/functions/nucleo-knowledge-read/index.ts"
+      - "scripts/nucleo-ac02-authenticated-read.test.cjs"
       - "scripts/nucleo-ac01-document-governance.test.cjs"
       - "src/lib/nucleo/ac01ReadOnlyDesk.ts"
       - "scripts/nucleo-ac01-readonly-desk.test.cjs"
@@ -113,4 +115,5 @@ jobs:
       - run: node scripts/nucleo-ac01-readonly-desk.test.cjs
       - run: node scripts/nucleo-ac01-document-governance.test.cjs
       - run: node scripts/nucleo-ac02-registry.test.cjs
+      - run: node scripts/nucleo-ac02-authenticated-read.test.cjs
       - run: npm run build
