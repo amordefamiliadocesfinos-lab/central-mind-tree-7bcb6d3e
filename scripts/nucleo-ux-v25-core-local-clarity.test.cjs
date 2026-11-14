@@ -14,7 +14,7 @@ for(const [src,fragment,why] of [
 [page,'handleExportLegacy',"Local backup preserved"],
 [governance,'{key:"vigente",title:"Vigência e comprovação"}',"Truthful UI only"],
 [governance,'tab==="vigente"',"Stable internal query key"],
-[governance,'Publicações internas AC-01 — sem atualização automática da fonte canônica',"Internal != canonical"],
+[governance,'publicações internas AC-01 — sem atualização automática da fonte canônica',"Internal != canonical"],
 [governance,'Vigente canônico exige fonte original + ato competente + sincronização comprovada.',"Canonical proof warning"],
 [governance,'role="alert"',"Error announced"],
 [governance,'role="status"',"Loading announced"],
