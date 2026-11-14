@@ -477,9 +477,9 @@ const ac01Atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.ts
 assert.match(ac01Atlas,/Conhecimento e Evolução do especialista/);
 // UX-A3B moved the access into a shared navigation function that also
 // preserves the module context and keeps Ficha Viva mounted after first visit.
-assert.match(ac01Atlas,/onClick=\\{\\(\\) => selectModuleArea\\("conhecimento"\\)\\}/);
-assert.match(ac01Atlas,/if \\(area === "conhecimento"\\) \\{/);
-assert.match(ac01Atlas,/setKnowledgeOpen\\(true\\)/);
+assert.ok(ac01Atlas.includes('onClick={() => selectModuleArea("conhecimento")}'));
+assert.ok(ac01Atlas.includes('if (area === "conhecimento") {'));
+assert.ok(ac01Atlas.includes('setKnowledgeOpen(true)'));
 console.log("Núcleo V1.3 AC-01: comparação local, refinamento como rascunho e acesso pelo especialista PASS (sem homologação).");
 
 
@@ -519,8 +519,8 @@ assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
 // AC-01: contribuição inicial requer proposta; revisão vinculada requer
 // em_evolucao. O teste antigo checava apenas o literal da proposta e rejeitava
 // indevidamente o readback condicional já contratado na main.
-assert.match(ac01UI,/check\\.data\\.authority_state!==\\(parent\\?"em_evolucao":"proposta"\\)/);
-assert.doesNotMatch(ac01UI,/check\\.data\\.authority_state!=="proposta"/);
+assert.ok(ac01UI.includes('check.data.authority_state!==(parent?"em_evolucao":"proposta")'));
+assert.ok(!ac01UI.includes('check.data.authority_state!=="proposta"'));
 assert.match(ac01Sql,/NEW\\.authority_state:='proposta'/);
 assert.match(ac01Sql,/NEW\\.authority_state:='em_evolucao'/);
 assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
