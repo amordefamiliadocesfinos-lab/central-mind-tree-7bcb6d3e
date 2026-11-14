@@ -18,6 +18,9 @@ on:
       - "scripts/nucleo-ac02-authenticated-read.test.cjs"
       - "supabase/functions/_shared/nucleo/ac02-assumption-export.ts"
       - "scripts/nucleo-ac02-handoff-evidence.test.cjs"
+      - "supabase/functions/_shared/nucleo/ac02-continuity-summary.ts"
+      - "src/lib/nucleo/ac02ContinuitySummary.ts"
+      - "scripts/nucleo-ac02-continuity-summary.test.cjs"
       - "supabase/functions/_shared/nucleo/ac02-controlled-distribution.ts"
       - "src/lib/nucleo/ac02ControlledDistribution.ts"
       - "scripts/nucleo-ac02-controlled-distribution.test.cjs"
@@ -148,6 +151,7 @@ jobs:
       - run: node scripts/nucleo-ac02-registry.test.cjs
       - run: node scripts/nucleo-ac02-authenticated-read.test.cjs
       - run: node scripts/nucleo-ac02-handoff-evidence.test.cjs
+      - run: node scripts/nucleo-ac02-continuity-summary.test.cjs
       - run: node scripts/nucleo-ac02-controlled-distribution.test.cjs
       - run: node scripts/nucleo-ac02-handoff-ledger-contract.test.cjs
       - run: node scripts/nucleo-ac02-package-manifest.test.cjs

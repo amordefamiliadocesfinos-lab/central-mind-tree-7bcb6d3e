@@ -4,6 +4,7 @@
  * nucleo-knowledge-read. NÃO consulta banco, assina documento, concede
  * acesso, publica fontes ou transmite para outro chat.
  */
+import { summarizeAc02Continuity } from "./ac02-continuity-summary.ts";
 import {
  AC02_GLOBAL_ITEMS, AC02_GLOBAL_IDENTITY,
  type Ac02Projection, type Ac02SpecialistContext,
@@ -102,6 +103,23 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  if(frontList.length===0)unresolved.push("Frentes M3: nenhuma referência estruturada recuperada");
  if(evidenceList.length===0)unresolved.push("Provas M4: nenhuma referência estruturada autorizada recuperada");
 
+ const continuity=technical?summarizeAc02Continuity(technical.fronts.slice(0,50),technical.evidence.slice(0,80),technical.fronts.length>50||technical.evidence.length>80?"indeterminada":technical.evidenceRead):null;
+ if(continuity?.completeness==="recorte_incompleto")
+  unresolved.push("Resumo de continuidade M3/M4: recorte incompleto");
+ const summaryText=continuity?[
+  "- Fonte: estados M3/M4 declarados no Core; não equivale a mandato, homologação ou próximo passo aprovado.",
+  "- Planejadas: "+continuity.counts.planejado+
+    " | Em andamento: "+continuity.counts.em_andamento+
+    " | Bloqueadas: "+continuity.counts.bloqueado+
+    " | Em validação: "+continuity.counts.em_validacao+
+    " | Concluídas (declaradas): "+continuity.counts.concluido,
+  "- Frentes com referência M4 no recorte: "+continuity.frontsWithEvidence+
+    " | Sem referência M4 no recorte: "+continuity.frontsWithoutEvidence,
+  "- Próximas frentes para CONFERÊNCIA, não ordens de execução:",
+  ...continuity.nextCandidates.map(item=>"- "+item.code+" / "+item.status+" — "+item.reason),
+  ...continuity.warnings.map(w=>"- Ressalva: "+w),
+ ]:["- Sem inventário suficiente para gerar síntese operacional."];
+
  // Deliberately don't include arbitrary strings from moduleTitle,
  // specialistRole, sourceRefs, evidence, warnings or external document bodies.
  const title="Módulo "+code;
@@ -141,14 +159,17 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   ...(evidenceList.length?evidenceList:["- Sem provas M4 no recorte"]),
   "- Estados M3/M4 declarados no Core; não demonstram CI/deploy/homologação atual.",
   "",
-  "## 5. Estado de verificação",
+  "## 5. Síntese operacional da continuidade (consultiva)",
+  ...summaryText,
+  "",
+  "## 6. Estado de verificação",
   "- Identidade global: aprovada como diretriz; não equivale a deploy/CI atual.",
   "- Evidências técnicas mutáveis: NÃO transmitidas neste pacote; conferir GitHub, Core e provedores antes de executar.",
   "",
-  "## 6. Pendências obrigatórias antes da assunção operacional",
+  "## 7. Pendências obrigatórias antes da assunção operacional",
   ...unresolved.map(item=>"- "+item),
   "",
-  "## 7. Condições de continuidade",
+  "## 8. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",

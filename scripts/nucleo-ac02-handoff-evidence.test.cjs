@@ -8,7 +8,9 @@ const compile=(path,req)=>{
  return ctx.exports;
 };
 const registry=compile("supabase/functions/_shared/nucleo/ac02-registry-contract.ts",()=>{throw Error("No dependencies")});
+const summary=compile("supabase/functions/_shared/nucleo/ac02-continuity-summary.ts",()=>{throw Error("No dependencies")});
 const exp=compile("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",name=>{
+ if(name==="./ac02-continuity-summary.ts")return summary;
  assert.equal(name,"./ac02-registry-contract.ts");
  return registry;
 });
