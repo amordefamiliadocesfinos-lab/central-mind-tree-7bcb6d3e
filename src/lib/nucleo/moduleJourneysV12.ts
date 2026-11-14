@@ -47,7 +47,7 @@ export const MODULE_JOURNEYS_V12:Readonly<Record<string,ReadonlyArray<ModuleJour
       {screenId:"decisao",task:"Encontrar Caixa de decisão",inspect:"Abrir Captura Central e localizar a visão das entradas aguardando decisão.",verify:"Conferir o filtro selecionado e a lista sem abrir dados fora do próprio acesso.",limit:"A presença de entradas não autoriza executá-las."},
       {screenId:"decisao",controlLabel:"Fazer",task:"Reconhecer o caminho Fazer",inspect:"Identificar o controle condicionado a workflowReady; no código ele chama openDecision(entry, fazer).",verify:"Somente identificar a ação e sua pré-condição; não criar tarefa.",limit:"O clique prepara um fluxo e não comprova tarefa salva."},
       {screenId:"decisao",controlLabel:"Planejar",task:"Distinguir Planejar de Fazer",inspect:"Localizar o botão Planejar que chama openDecision(entry, planejar).",verify:"Conferir a distinção do controle no código e na interface futura.",limit:"Planejar não comprova agenda ou vínculo persistido."},
-      {screenId:"arquivadas",controlLabel:"Guardar / Arquivar",task:"Reconhecer saídas sem tarefa",inspect:"Verificar o caminho de Guardar e Arquivar, sem acioná-lo em entradas reais.",verify:"Confrontar o estado apenas em teste autorizado posterior.",limit:"Guardar/Arquivar escrevem dados; a jornada não executa essas ações."},
+      {screenId:"decisao",controlLabel:"Guardar / Arquivar",task:"Reconhecer saídas sem tarefa",inspect:"Verificar o caminho de Guardar e Arquivar, sem acioná-lo em entradas reais.",verify:"Confrontar o estado apenas em teste autorizado posterior.",limit:"Guardar/Arquivar escrevem dados; a jornada não executa essas ações."},
     ]
   }],
   DIG:[{
