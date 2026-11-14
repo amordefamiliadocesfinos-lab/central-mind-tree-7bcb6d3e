@@ -113,7 +113,7 @@ export function buildAc02Registry(
   if(!row.id||seen.has(row.id)){conflicts.push("ID de evidência ausente ou repetido");continue;}
   seen.add(row.id);
   if(row.visibility!=="publico_nao_secreto"||hasAc02Secret(row.value)||
-    hasAc02Secret(row.source)||!validDate(row.observedAt)||!row.source.trim()||!row.sourceVersion.trim()){
+    hasAc02Secret(row.source)||hasAc02Secret(row.sourceVersion)||hasAc02Secret(row.id)||!validDate(row.observedAt)||!row.source.trim()||!row.sourceVersion.trim()){
    conflicts.push("Observação inválida ou sensível bloqueada: "+row.id);continue;
   }
   const age=Date.parse(nowIso)-Date.parse(row.observedAt);
@@ -121,6 +121,7 @@ export function buildAc02Registry(
    missingChecks.push("Verificação vencida/futura: "+row.recordId+" ("+row.id+")");
    continue;
   }
+  if(row.status!=="observado")missingChecks.push("Verificação não concluída: "+row.recordId+" ("+row.id+")");
   // Observação NÃO substitui decisão estável, mesmo quando divergente.
   const base=known.get(row.recordId)!;
   if(row.status==="observado"&&
