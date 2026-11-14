@@ -258,3 +258,49 @@ assert.match(centerSource,/const prepareModule = \(module:KnowledgeModule\)/);
 assert.match(centerSource,/setDraft\(\{\.\.\.emptyDraft,code:cleanCode\(module.id\),title:module.name,kind:"modulo"\}\)/);
 assert.match(centerSource,/if \(readError \|\| loading\)/);
 console.log("Núcleo A+ CA01/02/11/19/22: reconciliação M3 e falha fechada PASS (contratos estáticos).");
+
+
+// A+ V1.2 CA-14/22 — módulos além do CRM: somente achados no código e fontes.
+const moduleControlSource=fs.readFileSync("src/lib/nucleo/moduleControlDiscoveriesV12.ts","utf8");
+const moduleControlJs=ts.transpileModule(moduleControlSource,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((moduleControlJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const moduleControlScope={exports:{}};
+vm.runInNewContext(moduleControlJs.outputText,moduleControlScope,{timeout:1000});
+const moduleControls=moduleControlScope.exports.MODULE_CONTROLS_V12;
+for(const mod of ["FIN","OPE","ROT","CAP"]){
+  assert.ok(moduleControls[mod]?.length>0,"Sem achados para "+mod);
+  for(const action of moduleControls[mod]){
+    assert.ok(action.label&&action.screen&&action.prerequisite&&action.observed&&action.confirmation&&action.limitation);
+    assert.match(action.source,/^https:\/\/github\.com\/amordefamiliadocesfinos-lab\/central-mind-tree-7bcb6d3e\/blob\/main\/src\//);
+  }
+}
+const knownControls=[
+  ["FIN","Revisar importados","src/pages/Financeiro.tsx","setReviewImportedOpen(true)"],
+  ["FIN","Importar Extrato","src/pages/Financeiro.tsx","setImporterOpen(true)"],
+  ["OPE","Nova compra","src/components/operations/PurchasesTab.tsx","openEditor"],
+  ["OPE","Central de Fornecedores","src/components/operations/PurchasesTab.tsx","setPurchaseSection('suppliers')"],
+  ["ROT","Encerrar dia","src/pages/Rotina.tsx","handleCloseDay"],
+  ["CAP","Fazer","src/pages/CapturaCentral.tsx",'openDecision(entry, "fazer")'],
+  ["CAP","Planejar","src/pages/CapturaCentral.tsx",'openDecision(entry, "planejar")'],
+];
+for(const [mod,label,path,symbol] of knownControls){
+  const entry=moduleControls[mod].find(action=>action.label===label);
+  assert.ok(entry,"Controle ausente: "+mod+"/"+label);
+  assert.ok(entry.source.endsWith(path),"Fonte diferente: "+label);
+  assert.ok(fs.readFileSync(path,"utf8").includes(symbol),"Controle não encontrado no código: "+label);
+}
+const discoverySource=fs.readFileSync("src/components/nucleo/NucleoModuleDiscovery.tsx","utf8");
+const discoveryCompiled=ts.transpileModule(discoverySource,{compilerOptions:{
+  jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((discoveryCompiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(discoverySource,/MODULE_RECONCILIATION_V12/);
+assert.match(discoverySource,/MODULE_CONTROLS_V12/);
+assert.match(discoverySource,/O que ainda não comprova/);
+assert.match(discoverySource,/mode==="funcoes"/);
+assert.match(discoverySource,/mode==="conhecimento"/);
+assert.match(atlasVisual,/import NucleoModuleDiscovery/);
+assert.match(atlasVisual,/selected\.id!=="CRM" && <NucleoModuleDiscovery/);
+console.log("Núcleo A+ CA14/22: controles fora do CRM rastreados ao código e fontes PASS (não UAT).");
