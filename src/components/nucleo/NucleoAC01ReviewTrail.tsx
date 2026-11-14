@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import NucleoAC01DecisionIntake from "@/components/nucleo/NucleoAC01DecisionIntake";
 
 type ReviewKind="comentario"|"solicitar_refinamento"|"minuta_consolidacao"|"encaminhar_decisao";
 type ReviewRow={
@@ -112,6 +113,7 @@ export default function NucleoAC01ReviewTrail({
       <p className="text-muted-foreground">Autoria autenticada: {row.actor_auth_uid.slice(0,8)}… · {new Date(row.recorded_at).toLocaleString("pt-BR")}</p>
     </div>)}
   </div>}
+  {!loading&&!error&&<NucleoAC01DecisionIntake key={contributionId} moduleId={moduleId} contributionId={contributionId} referrals={rows.filter(r=>r.event_kind==="encaminhar_decisao").map(r=>({id:r.id,recorded_at:r.recorded_at}))}/>}
   <div className="space-y-2 rounded-md bg-muted/30 p-2">
    <label className="block text-xs">Tipo de evento
     <select value={kind} onChange={e=>setKind(e.target.value as ReviewKind)}
