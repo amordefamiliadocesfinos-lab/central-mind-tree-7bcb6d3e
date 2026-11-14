@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import NucleoAC01DecisionStatus from "@/components/nucleo/NucleoAC01DecisionStatus";
 
 type DecisionRequest={
  id:string;contribution_id:string;module_id:string;review_event_id:string;
@@ -88,6 +89,7 @@ export default function NucleoAC01DecisionIntake({
   finally{setSaving(false);}
  };
  return <section className="space-y-3 rounded border p-3" aria-label="Solicitação governada de decisão AC-01">
+  <NucleoAC01DecisionStatus contributionId={contributionId}/>
   <h6 className="text-sm font-semibold">Solicitações para decisão competente — não homologadas</h6>
   <p className="text-xs text-muted-foreground">O gestor pode instruir a solicitação, mas acesso ao Núcleo não confere poder de homologação. A autoridade decisora e o ato formal serão verificados por contrato separado. Nenhum documento será promovido aqui.</p>
   <Button size="sm" type="button" variant="outline" disabled={reading||saving} onClick={()=>setTick(n=>n+1)}>Reconsultar solicitações</Button>
