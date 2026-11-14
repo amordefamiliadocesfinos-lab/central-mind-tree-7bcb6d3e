@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
+import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
@@ -572,6 +573,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             </Button>
             {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
           </div>}
+          {moduleSection==="conhecimento" && selected.id!=="CRM" && <NucleoModuleDiscovery
+            key={selected.id+"-conhecimento"} module={selected} mode="conhecimento" isRegistered={Boolean(selectedRecord)}/>}
           {moduleSection==="conhecimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
             Módulo identificado em fontes, mas não cadastrado no Core M3 nesta leitura; Ficha Viva ainda não comprovada.
           </p>}
@@ -581,6 +584,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
           {moduleSection==="desenvolvimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
             Não há cadastro M3 visível nesta leitura; isso não equivale a ausência de desenvolvimento nas fontes.
           </p>}
+          {moduleSection==="funcoes" && selected.id!=="CRM" && <NucleoModuleDiscovery
+            key={selected.id+"-funcoes"} module={selected} mode="funcoes" isRegistered={Boolean(selectedRecord)}/>}
           {moduleSection==="funcoes" && (selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
@@ -608,12 +613,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               </div>
               <Button size="sm" onClick={()=>setLevel("operation")}><BookOpen className="h-4 w-4 mr-1.5" /> Ver como operar e comprovar</Button>
             </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Esta é uma entrada de inventário de rota. Funções, especialista, método e estados operacionais ainda não foram homologados;
-              não há manual de operação para este módulo neste piloto.
-            </p>
-          ))}
+          ) : null)}
           </div>
         </Card>
       )}
