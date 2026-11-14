@@ -67,7 +67,7 @@ export default function NucleoAC01DocumentGovernance({
   const ids=contributions.map(x=>x.id);
   void (async()=>{
     // A ausência de contribuições não equivale à ausência de Fichas Vivas ou mandatos.
-    const [requests,acts,pubs,mandateRows,authority,revocationRows,knowledge]=await Promise.all([
+    const [requests,acts,pubs,mandateRows,authority,knowledge]=await Promise.all([
      db.from("nucleo_ac01_decision_requests").select("*").eq("module_id",moduleId).limit(CAP),
      ids.length?db.from("nucleo_ac01_decision_acts").select("*").in("contribution_id",ids).limit(CAP)
        :Promise.resolve({data:[] as Ac01Decision[],error:null}),
@@ -75,11 +75,17 @@ export default function NucleoAC01DocumentGovernance({
        :Promise.resolve({data:[] as Ac01Publication[],error:null}),
      db.from("nucleo_specialist_mandate_records").select("*").eq("module_id",moduleId).limit(CAP),
      db.from("nucleo_ac01_authority_grants").select("*").eq("module_id",moduleId).limit(CAP),
-     db.from("nucleo_ac01_authority_revocations").select("*").limit(CAP),
      db.from("nucleo_module_knowledge_revisions")
        .select("id,module_id,section_code,version_no,title,authority_state,source_reference,recorded_at")
        .eq("module_id",moduleId).limit(CAP),
     ]);
+    if(!mounted)return;
+    // Reunir revogações somente das delegações efetivamente visíveis deste módulo.
+    const grantIds=(authority.data??[]).map(g=>g.id);
+    const revocationRows=grantIds.length
+      ?await db.from("nucleo_ac01_authority_revocations").select("*")
+        .in("authority_grant_id",grantIds).limit(CAP)
+      :{data:[] as Ac01Revocation[],error:null};
     if(!mounted)return;
     const responses=[requests,acts,pubs,mandateRows,authority,revocationRows,knowledge];
     if(responses.some(x=>x.error||!x.data||x.data.length>=CAP)){
