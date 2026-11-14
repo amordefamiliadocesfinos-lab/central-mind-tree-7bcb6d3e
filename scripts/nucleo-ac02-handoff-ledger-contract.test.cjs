@@ -22,7 +22,7 @@ assert.equal(full.stages[4].assertedBy,"destinatario_humano");
 const fraud=fn([p1,p2,p3,{...p4,actor_auth_uid:"admin"}]);
 assert.equal(fraud.status,"cadeia_inconsistente");
 assert.equal(fraud.latest,null);
-const fork=fn([p1,p2,p3,{...p4,id:"x",event_kind:"falha",actor_auth_uid:"admin",evidence_class:"declaracao_gestor"}]);
+const fork=fn([p1,p2,p3,p4,{...p4,id:"x",event_kind:"falha",actor_auth_uid:"admin",evidence_class:"declaracao_gestor"}]);
 assert.equal(fork.status,"cadeia_inconsistente");
 assert.equal(fn([]).status,"sem_eventos");
 console.log("PASS AC02 timeline: separação de declarações, confirmação humana, cadeia e divergência");
