@@ -85,7 +85,10 @@ function SourceReferences({reference}:{reference:string}) {
 }
 
 
-export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:string;moduleCode:string}) {
+type DraftState={dirty:boolean;busy:boolean};
+export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange}:{
+  moduleId:string;moduleCode:string;onDraftStateChange?:(value:DraftState)=>void;
+}) {
   const [section,setSection]=useState<FMSection>("FM-01");
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [loading,setLoading]=useState(true);
@@ -98,6 +101,17 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const [saving,setSaving]=useState(false);
   const [compareOlderId,setCompareOlderId]=useState("");
   const [compareNewerId,setCompareNewerId]=useState("");
+  const draftDirty=Boolean(title.trim()||body.trim()||source.trim());
+  useEffect(()=>{
+    onDraftStateChange?.({dirty:draftDirty,busy:saving});
+    return ()=>onDraftStateChange?.({dirty:false,busy:false});
+  },[draftDirty,saving,onDraftStateChange]);
+  useEffect(()=>{
+    if(!draftDirty&&!saving)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+    window.addEventListener("beforeunload",warn);
+    return ()=>window.removeEventListener("beforeunload",warn);
+  },[draftDirty,saving]);
 
   useEffect(()=>{
     let current=true;

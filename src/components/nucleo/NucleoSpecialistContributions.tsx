@@ -24,14 +24,15 @@ type ACDB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
 const db=supabase as unknown as SupabaseClient<ACDB>;
 const LIMIT=200;
 const kinds=["metodo","ecossistema","manual","procedimento","aprendizado","mapa","checkpoint","arquivo","outro"];
-type Props={moduleId:string; moduleName:string; declaredRole:string};
+type DraftState={dirty:boolean;busy:boolean};
+type Props={moduleId:string; moduleName:string; declaredRole:string; onDraftStateChange?:(value:DraftState)=>void};
 type ExperienceArea = "contribuicoes" | "fila" | "ciclo";
 const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
  {id:"contribuicoes",title:"Contribuições e origem",hint:"Referências, versões e registro"},
  {id:"fila",title:"Fila e revisões",hint:"Pendências, refinamento e continuidade"},
  {id:"ciclo",title:"Ciclo documental AC-01",hint:"Estados, competências, decisões e histórico"},
 ];
-export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole}:Props){
+export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange}:Props){
  const [area,setArea]=useState<ExperienceArea>("contribuicoes");
  const areaId=useId();
  const [rows,setRows]=useState<RecordRow[]>([]);
@@ -51,6 +52,19 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [feedback,setFeedback]=useState("");
  const requestRef=useRef<string|null>(null);
  const uncertainRef=useRef(false);
+ const draftDirty=Boolean(title.trim()||locator.trim()||note.trim()||checksum.trim()||
+   role!==(declaredRole||"")||parentId||kind!=="metodo"||sourceKind!=="referencia_privada");
+ const draftBusy=saving||uncertainRef.current;
+ useEffect(()=>{
+   onDraftStateChange?.({dirty:draftDirty,busy:draftBusy});
+   return ()=>onDraftStateChange?.({dirty:false,busy:false});
+ },[draftDirty,draftBusy,feedback,onDraftStateChange]);
+ useEffect(()=>{
+   if(!draftDirty&&!draftBusy)return;
+   const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+   window.addEventListener("beforeunload",warn);
+   return ()=>window.removeEventListener("beforeunload",warn);
+ },[draftDirty,draftBusy]);
  useEffect(()=>{setArea("contribuicoes");setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
