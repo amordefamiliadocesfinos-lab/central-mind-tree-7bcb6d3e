@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
 import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
 import { MODULE_SCREENS_V12 } from "@/lib/nucleo/moduleScreenDiscoveriesV12";
+import NucleoGuidedJourneys from "@/components/nucleo/NucleoGuidedJourneys";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 
 type Props={module:KnowledgeModule;mode:"funcoes"|"conhecimento";isRegistered:boolean};
@@ -58,6 +59,7 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         placeholder="Buscar botão, fluxo ou fonte…" value={search} onChange={e=>setSearch(e.target.value)}/>
     </label>}
     {mode==="funcoes"&&<>
+      <NucleoGuidedJourneys key={module.id} module={module}/>
       <div className="space-y-2" aria-label="Mapa visual de telas do módulo">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <h5 className="text-sm font-semibold">Mapa de telas identificadas ({visibleScreens.length}/{screens.length})</h5>
