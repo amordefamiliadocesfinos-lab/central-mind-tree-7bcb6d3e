@@ -133,3 +133,27 @@ for(const [label,sourceToken,limit] of requiredCrm){
 }
 assert.equal(new Set(actions.map(action=>action.label)).size,actions.length);
 console.log("Núcleo A+ CA-14: cinco controles Inbox e seus limites documentados PASS (código, não UAT).");
+
+
+// A+ CA13/CA17 — fontes CRM originais, estados separados e sem mandato automático.
+const authoritySource=fs.readFileSync("src/lib/nucleo/crmAuthoritySourcesV12.ts","utf8");
+const authorityJs=ts.transpileModule(authoritySource,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+}}).outputText;
+const authorityScope={exports:{}};
+vm.runInNewContext(authorityJs,authorityScope,{timeout:1000});
+const sources=authorityScope.exports.CRM_AUTHORITY_SOURCES_V12;
+const role=authorityScope.exports.CRM_SPECIALIST_CA17;
+assert.equal(sources.length,9);
+assert.equal(new Set(sources.map(s=>s.id)).size,9);
+assert.ok(sources.every(s=>s.archive.endsWith(".zip")&&s.originalFile.endsWith(".txt")));
+assert.match(sources.find(s=>s.id==="CRM-ESTADO").sourceStatus,/03\/10/);
+assert.match(sources.find(s=>s.id==="CRM-09.02").sourceStatus,/PRONTA PARA HOMOLOGAÇÃO/);
+assert.match(sources.find(s=>s.id==="CRM-09.03").sourceStatus,/PRONTA PARA HOMOLOGAÇÃO/);
+assert.match(sources.find(s=>s.id==="CRM-09.04").sourceStatus,/HOMOLOGADA/);
+assert.equal(role.activeMandate,"não certificado no Core");
+const fmSource=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8");
+assert.match(fmSource,/moduleCode==="CRM"/);
+assert.match(fmSource,/CRM_AUTHORITY_SOURCES_V12\.map/);
+assert.match(fmSource,/não certifica método ou especialista/);
+console.log("Núcleo A+ CA13/17: fontes CRM e estados documentais sem homologação inferida PASS.");

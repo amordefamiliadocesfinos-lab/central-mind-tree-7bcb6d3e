@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS, DIGITAL_DRAFTS, ASSISTENTE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
+import { CRM_AUTHORITY_SOURCES_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -218,6 +219,36 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
           ))}
         </div>
       </section>
+      {moduleCode==="CRM" && (section==="FM-01"||section==="FM-03"||section==="FM-07"||section==="FM-08") && (
+        <details className="rounded-md border p-3 space-y-2" aria-label="Referências originais e autoridade documental CRM">
+          <summary className="cursor-pointer text-sm font-semibold">
+            CRM — fontes originais classificadas ({CRM_AUTHORITY_SOURCES_V12.length} grupos) e mandato CA-17
+          </summary>
+          <p className="text-xs text-muted-foreground mt-2">
+            Índice de metadados consultados nos ZIPs originais. Não importa arquivos, não cria
+            revisão FM e não certifica método ou especialista. Os estados são os que aparecem
+            nos próprios documentos e podem exigir decisão de atualização.
+          </p>
+          <div className="space-y-2 mt-3">
+            {CRM_AUTHORITY_SOURCES_V12.map(item=>(
+              <div key={item.id} className="rounded border p-2 text-xs space-y-1">
+                <p className="font-semibold">{item.id} · {item.title} ({item.version})</p>
+                <p>Estado do arquivo-fonte: {item.sourceStatus}</p>
+                <p className="text-muted-foreground">Autoridade documental: {item.authorityScope}</p>
+                <p className="text-muted-foreground">Limite: {item.reconciliation}</p>
+                <p className="break-all text-muted-foreground">Localizador original: {item.archive} / {item.originalFile}</p>
+              </div>
+            ))}
+          </div>
+          <div className="rounded border p-2 text-xs space-y-1">
+            <p className="font-semibold">Especialista — CA-17</p>
+            <p>{CRM_SPECIALIST_CA17.functionalRole}</p>
+            <p>Referência técnica histórica: {CRM_SPECIALIST_CA17.historicalTechnicalRole}</p>
+            <p>Mandato atual: {CRM_SPECIALIST_CA17.activeMandate}</p>
+            <p className="text-muted-foreground">Próximo gate: {CRM_SPECIALIST_CA17.nextGate}</p>
+          </div>
+        </details>
+      )}
       {loading&&<p role="status" className="text-xs text-muted-foreground">Consultando revisões autorizadas…</p>}
       {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
       {validationError&&<p role="alert" className="text-xs text-destructive">{validationError}</p>}
