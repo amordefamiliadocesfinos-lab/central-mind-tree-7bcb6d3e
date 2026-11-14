@@ -635,3 +635,27 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 **Assistente/IA — investigação ampliada:** `src/pages/Assistente.tsx` é código existente. Buscas dirigidas no catálogo de arquivos da Biblioteca, no Drive conectado e na árvore da `main` não localizaram Estado Vigente próprio ou método soberano desse especialista. Inspeção dirigida de nomes dos documentos sob `BASE_FINAL/04_PAINEL_CENTRAL` nos arquivos ZIP confirma uma menção ao Assistente no `PCL-MST-ESTADO-CRM-V1.0.txt`, mas ela discute melhoria de contexto/performance **sem ampliar autonomia**; não constitui mapa canônico próprio do Assistente. Assim, a lacuna persiste **somente no universo examinado**, sem presumir inexistência de outras fontes.
 
 **Resultado para o Núcleo:** `src/lib/nucleo/operationalProvenanceV12.ts` passou a mostrar as fontes técnicas e seus limites para Operações, sem atualizar estados do módulo, confirmar mandatos ou criar novas frentes. Método original de 18/09 permanece preservado na Biblioteca. A governança posterior, a Camada Mestre e evidências do Core continuam exigidas para qualquer aceite formal. **Não houve alteração de dados de produção, importação documental B, migration ou teste visual.** O Núcleo continua com registro de nove módulos externos, sem homologação dos nove mandatos.
+
+
+## 45. Núcleo 2.0 V1.3 — AC-01: checkpoint de continuidade técnica (14/11/2026)
+
+**Autoridade:** `MAPA_MESTRE_NUCLEO_2_0_V1_3_AC01_CONHECIMENTO_ESPECIALISTAS_CONGELADO_2026-11-14.txt` (fonte original recebida da Camada Mestre). Herda integralmente a V1.2, CA-01–CA-22 e congela CA-23–CA-29 literais; este checkpoint NÃO altera mapa nem concede autoridade normativa.
+
+**P0 — reconciliação factual:** `main` previamente em PR #763, SHA `3f983cfcbcd197c4088ebecbc40d79e0c3435b6b`. No Core oficial: 22 workstreams, 3 referências Drive metadata-only, 0 documentos M1, 0 revisões documentais M1, 0 revisões FM, 0 mandatos formais; números da leitura de 14/11 não são progresso inferido. O Lovable project reportou como último commit `df93640e54bdde54a172e628778cedd5399631eb` após o merge da PR #765 e estado publicado; não equivale a ensaio autenticado das telas.
+
+**P1 — separação mínima de papéis e autoridade:**
+- **Autor/proponente:** pessoa autenticada que apresenta conteúdo/fonte e registra rascunho. Campo `recorded_by_auth_uid` nas revisões FM; papel funcional do especialista é informação distinta de pessoa certificada.
+- **Revisor:** examina origem, conteúdo e diferenças; `reviewed_by` hoje é declaração textual, NÃO assinatura soberana.
+- **Decisor/homologador:** exige ato humano competente, escopo e rastreabilidade próprios. Nem `nucleo_manage`, nem existência de documento, nem CI/merge são essa decisão.
+- **Executor da publicação:** só após decisão competente verificada, com readback e preservação do anterior; nenhuma ação de promulgação está implementada neste checkpoint.
+- **Origem/estado:** `source_reference` FM é localizador declarado; documento original permanece Drive/Git/anexo com suas permissões. Registros FM novos continuam `rascunho` e `declarado`; não usar para certificar método vigente.
+
+**P2 — piloto selecionado:** papel funcional **Especialista Núcleo 2.0 (NUC)**, cujo escopo deriva do comando oficial V1.3 recebido. A fonte canônica é o mapa V1.3 anexo sob autoridade Camada Mestre; não foi copiada ao repositório nem importada ao Core. Não há duas versões FM reais no Core, nem prova de ato específico de homologação documental. Nenhum dado de produção foi escrito pela ferramenta de auditoria para simular o piloto.
+
+**Delta técnico implementado, preservando a Ficha Viva e a console existentes:**
+- [PR #764](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/764), merge `77895a36127533d5bcb03e2e683298572cd03ee7`: acesso `Módulo → Especialista → Conhecimento e Evolução`; diff textual local de versões FM (linhas inseridas/removidas, limite explícito), preparo de refinamento como rascunho. Não cria aprovação ou novo acervo.
+- [PR #765](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/765), merge `df93640e54bdde54a172e628778cedd5399631eb`: fila visual por estado FM na console já existente, incluindo NUC. Pendência não é decisão, e estado presente não certifica vigência. CI M5/build de ambas PASS; conferência dos arquivos na `main` realizada.
+
+**Estado por critérios:** CA-24/25/28 tiveram aumento de cobertura técnica parcial (histórico FM, comparação textual e fila filtrável); CA-23/26/27/29 ainda dependem de contrato robusto de contribuição, fonte/identidade, decisões, consolidação e sucessão. Nenhum CA-23–CA-29 está homologado integralmente. CA-15/20 e testes de autorização/uso real ainda são gates; Entrega B continua não autorizada.
+
+**Próxima ação:** sem repetir investigação M0 nem criar segunda Biblioteca, especificar e implementar vínculo mínimo de uma contribuição AC-01 com identidade imutável de especialista/módulo/fonte/tipo, versões e eventos auditáveis, analisando necessidade de extensão M1; registrar rascunho de **fonte real elegível** mediante operador autenticado e readback; verificar recusa a acesso não autorizado; depois comparação, refinamento, consolidação não-promulgatória, decisão competente e publicação controlada. O registro material e a homologação requerem suas provas separadas. Manter proteção dos originais privados e ausência de writes automáticos por IA.
