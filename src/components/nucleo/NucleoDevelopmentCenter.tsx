@@ -70,6 +70,8 @@ export default function NucleoDevelopmentCenter() {
   const [selectedId, setSelectedId] = useState("");
   const [filter, setFilter] = useState("");
   const [displayMode, setDisplayMode] = useState<"lista" | "quadro">("lista");
+  // UX-A1: alternar entre contextos sem desmontar controles e seleções.
+  const [workspaceView, setWorkspaceView] = useState<"geral" | "frentes">("geral");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
   const [dependencyTarget, setDependencyTarget] = useState("");
@@ -280,13 +282,15 @@ export default function NucleoDevelopmentCenter() {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
       toast.info("Este módulo já está cadastrado no Core M3.");
+      setWorkspaceView("frentes");
       choose(registered.id);
-      document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
+      requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
       return;
     }
     // Preenche somente identidade presente no inventário. Nunca inventa
     // método, especialista, escopo, estado, frente ou certificação.
     setDraft({...emptyDraft,code:cleanCode(module.id),title:module.name,kind:"modulo"});
+    setWorkspaceView("frentes");
     setCreating(true);
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
@@ -300,24 +304,51 @@ export default function NucleoDevelopmentCenter() {
             Estados declarados, histórico auditável, evidências técnicas M4 e supervisão assistida M5 em modo de leitura.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
+        <Button size="sm" onClick={() => {
+          if (workspaceView === "frentes" && creating) {
+            setCreating(false);
+          } else {
+            setWorkspaceView("frentes");
+            setCreating(true);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }
+        }}>{workspaceView === "frentes" && creating ? "Fechar cadastro" : "+ Nova frente"}</Button>
       </div>
 
-      <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
-        events={history} onOpenWorkstream={id=>{
-          choose(id);
-          document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
-        }}/>
-      <NucleoOperationalAtlas
-        workstreams={items}
-        dependencies={dependencies}
-        events={history}
-        onPrepareModule={prepareModule}
-        onSelectWorkstream={id => {
-          choose(id);
-          document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-      />
+      <nav aria-label="Áreas da Central Visual" className="flex flex-wrap gap-2 rounded-lg border p-2">
+        <Button type="button" size="sm" variant={workspaceView === "geral" ? "default" : "outline"}
+          aria-pressed={workspaceView === "geral"} onClick={() => setWorkspaceView("geral")}>
+          Visão Geral e módulos
+        </Button>
+        <Button type="button" size="sm" variant={workspaceView === "frentes" ? "default" : "outline"}
+          aria-pressed={workspaceView === "frentes"} onClick={() => setWorkspaceView("frentes")}>
+          Frentes e acompanhamento
+        </Button>
+      </nav>
+
+      {/* Visões montadas para preservar seleção e minutas ao alternar. */}
+      <div className={workspaceView === "geral" ? "space-y-4" : "hidden"}
+        aria-hidden={workspaceView !== "geral"}>
+        <NucleoOperationalAtlas
+          workstreams={items}
+          dependencies={dependencies}
+          events={history}
+          onPrepareModule={prepareModule}
+          onSelectWorkstream={id => {
+            setWorkspaceView("frentes");
+            choose(id);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+          }}
+        />
+      </div>
+
+      <div className={workspaceView === "frentes" ? "space-y-4" : "hidden"}
+        aria-hidden={workspaceView !== "frentes"}>
+        <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
+          events={history} onOpenWorkstream={id=>{
+            choose(id);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }}/>
 
       {creating && (
         <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
@@ -654,6 +685,7 @@ export default function NucleoDevelopmentCenter() {
             </>
           )}
         </Card>
+      </div>
     </div>
   );
 }
