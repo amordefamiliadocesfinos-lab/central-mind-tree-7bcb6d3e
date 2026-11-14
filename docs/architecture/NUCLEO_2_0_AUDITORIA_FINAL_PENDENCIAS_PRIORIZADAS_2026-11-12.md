@@ -910,3 +910,26 @@ Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, muda
 **Testes e limites:** `scripts/nucleo-ac02-registry.test.cjs` ampliado para falha e proteção de metadados sensíveis; `scripts/nucleo-ac02-authenticated-read.test.cjs` confere contrato de entrada, ordem de JWT/capability/RLS anterior à projeção e ausência de mutações. Integração ao CI já existente `.github/workflows/nucleo-ac01-validation.yml`, com PostgreSQL descartável e build. Esses testes de contrato **não equivalem** a E2E com usuário real ou a deploy da Edge Function. Executar ensaio autenticado autorizado, confirmar estado publicado do código e verificar rede/ACL antes de declarar acesso em produção.
 
 **Ponto de decisão futuro:** caso seja necessária leitura global AC-02 sem módulo, uma rota/consulta específica exigirá nova deliberação sobre escopo/ACL; nesta etapa o AC-02 fica acoplado à consulta de módulo autenticada existente. O contexto para novo chat permanece **rascunho de assunção**, não transmissão automática nem acesso concedido. A interface permanece responsabilidade do Especialista UX.
+
+
+## 59. AC-02 — continuação após deploy: assunção exportável e testes reais diferidos (14/11/2026)
+
+**Ordem do proprietário:** não bloquear progresso por testes pendentes; avançar dentro da Entrega A+ e manter toda a validação real como pendência rastreável. Mapa soberano V1.3, autoridade CA-01–29, método GitHub direto e separação UX permanecem. Autorização excepcional anterior de construtor Lovable referiu-se somente ao deploy da Edge Function existente, não ao trabalho atual.
+
+**Evidência de deploy anterior:** Lovable Cloud oficial informou deploy isolado de `nucleo-knowledge-read`; rota antes 404 e depois 401 (sem JWT). Isso prova endpoint alcançável e defesa inicial, **não** prova 200 com `include_ac02`, sessão administrativa, segregação de papéis ou continuidade real. A implantação gerou alteração incidental de tipos em `src/integrations/supabase/types.ts` (commit `286a4172495685d9d751cfb558094463d025ea75`), fora da missão, que merece reconciliação específica e não deve ser revertida sem exame de dependências.
+
+**Evolução de contrato P4:** `supabase/functions/_shared/nucleo/ac02-assumption-export.ts` é um formatador puro de texto, utilizável exclusivamente após projeção AC-02 autenticada. Recebe o objeto `Ac02Projection` vigente e `Ac02SpecialistContext`, verifica a identidade global contra o catálogo canônico, permite módulo com identidade técnica válida, aceita somente marcadores de revisões FM-03/FM-08/FM-09 no padrão previsto e retorna `nucleo_ac02_pacote_oficial_assuncao_rascunho` com status `rascunho_nao_homologado` e lista de pendências. O texto não inclui nomes de atores fornecidos livremente, body de Ficha Viva, URL de fonte privada, observações arbitrárias, tokens, credenciais, documentos ou conteúdo do Drive. Método/ecossistema compartilhando FM-08 permanecem explicitamente NÃO COMPROVADOS como documentos distintos. A identidade global continua oriunda de aprovação da Camada Mestre, não do último estado de deploy.
+
+**Reuso de consulta:** mesma função `nucleo-knowledge-read`, sem endpoint adicional, amplia o contrato de entrada com `include_assumption_export?:boolean`, permitido somente quando `include_ac02=true`. A execução permanece atrás dos controles existentes JWT, `nucleo_manage`, RLS e leitura de módulo. `ac02_assumption_export` é retornado apenas quando solicitado explicitamente; formato anterior preservado quando opção ausente. `src/lib/nucleo/ac02AssumptionExport.ts` é apenas reexportação para o Especialista UX, não uma segunda fonte, nem UI.
+
+**Contrato UX futuro, sem implementação pelo especialista técnico:** oferecer ação de *preparar/inspecionar/copiar* o rascunho sob autorização, avisar origem e status não homologado, destacar pendências e confirmar conscientemente antes de copiar/distribuir. Jamais inferir que cópia de texto transfere sessão, ferramenta, mandato ou dados externos. A existência do contrato não equivale a função visual operacional.
+
+**TESTES E HOMOLOGAÇÃO DEFERIDOS POR ORDEM DO PROPRIETÁRIO:**
+- 200 autenticado com conta `nucleo_manage` vigente e conteúdo `include_ac02=true`.
+- 401 de token inválido, 403 de usuário válido sem capacidade e sessão revogada.
+- Retorno do pacote com `include_assumption_export=true`, ausência de conteúdo privado e tratamento de dados faltantes.
+- Verificação da nova revisão da Edge Function no Cloud oficial após integrar o código, sem presumir deploy automático pelo merge.
+- Testes de fonte GitHub offline, conflito, expiração, impressão/cópia e continuidade real em novo chat.
+- Homologação do Especialista UX e revisão humana da Camada Mestre antes de considerar pacote oficial distribuível.
+
+**Sem alterações** a mandatos, grants, RLS, tabelas, schema, original documental, serviço de segredos, UX e Entrega B. CI de PR pode executar verificações automatizadas normais, mas não substitui os testes reais diferidos.
