@@ -89,6 +89,15 @@
   background: #f6f9ff;
   box-shadow: 0 5px 16px -14px #174ea6;
 }
+/* Os estados do M3 têm precedência sobre as bordas neutras do tema.
+ * É a situação real do registro, e não a cor decorativa, que define o tom. */
+.nucleo-v22 .nucleo-v22-card-hover.border-l-4 { border-left-width: 4px; }
+.nucleo-v22 .nucleo-v22-card-hover.border-l-slate-400 { border-left-color: #94a3b8; }
+.nucleo-v22 .nucleo-v22-card-hover.border-l-blue-500 { border-left-color: #1a73e8; }
+.nucleo-v22 .nucleo-v22-card-hover.border-l-rose-500 { border-left-color: #ea4335; }
+.nucleo-v22 .nucleo-v22-card-hover.border-l-amber-500 { border-left-color: #fbbc04; }
+.nucleo-v22 .nucleo-v22-card-hover.border-l-emerald-500 { border-left-color: #34a853; }
+.nucleo-v22 .nucleo-v22-surface.border-l-4 { border-left: 4px solid #1a73e8; }
 .nucleo-v22 .nucleo-v22-card-hover[aria-pressed="true"],
 .nucleo-v22 .nucleo-v22-area-card[aria-pressed="true"] {
   border-color: #1a73e8;
@@ -152,7 +161,7 @@
 .dark .nucleo-v22 :is(.nucleo-v22-soft-surface,.nucleo-v22-toolbar,.nucleo-v22-tabs) { background: #14243c; border-color: #38516f; }
 .dark .nucleo-v22 .nucleo-v22-card-hover:hover { background: #1b3554; }
 .dark .nucleo-v22 .nucleo-v22-pill[aria-pressed="false"] { background: #172d49; color: #bad6ff; }
-.dark .nucleo-v22 .nucleo-v22-status-tile { background: #1d2b40; border-color: #38516f; }
+.dark .nucleo-v22 .nucleo-v22-status-tile { background: #1d2b40; border-color: #38516f; border-left-width: 4px; }
 .dark .nucleo-v22 .nucleo-v22-status-tile[data-state="bloqueado"] { border-left-color: #ea4335; }
 .dark .nucleo-v22 .nucleo-v22-status-tile[data-state="em_validacao"] { border-left-color: #fbbc04; }
 .dark .nucleo-v22 .nucleo-v22-status-tile[data-state="concluido"] { border-left-color: #34a853; }
