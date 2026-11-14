@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import NucleoContributionDesk from "@/components/nucleo/NucleoContributionDesk";
+import NucleoAC01DocumentGovernance from "@/components/nucleo/NucleoAC01DocumentGovernance";
 
 type RecordRow={
  id:string;module_id:string;workstream_id:string|null;specialist_role:string;contribution_kind:string;
@@ -125,6 +126,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>
    <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
    {readError&&<p role="alert" className="text-xs text-destructive">{readError}</p>}
+   {!reading&&!readError&&readAt&&<NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole} contributions={rows} readAt={readAt}/>}
    {!reading&&!readError&&readAt&&<NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt}/>}
    <Button type="button" variant="outline" size="sm" disabled={saving||reading}
       onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
