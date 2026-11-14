@@ -933,3 +933,16 @@ Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, muda
 - Homologação do Especialista UX e revisão humana da Camada Mestre antes de considerar pacote oficial distribuível.
 
 **Sem alterações** a mandatos, grants, RLS, tabelas, schema, original documental, serviço de segredos, UX e Entrega B. CI de PR pode executar verificações automatizadas normais, mas não substitui os testes reais diferidos.
+
+
+## 60. AC-02 — herança de frentes M3 e referências M4 sem redistribuir conteúdo (14/11/2026)
+
+**Diretriz de continuidade:** proprietário mandou avançar e manter **ensaios autenticados, testes humanos e homologação visual** como pendências; testes de compilação/contrato em CI continuam como higiene de código, não prova de funcionamento produtivo. Não iniciar Entrega B, não reabrir M0–M5 e não invadir a frente UX.
+
+**Reuso sem duplicação:** o contrato `supabase/functions/_shared/nucleo/ac02-assumption-export.ts` recebe uma projeção opcional `Ac02HandoffTechnicalContext` com frentes `id/code/status` M3 e provas `id/workstreamId/kind/observedState` M4; não transporta fontes, URLs, external_key, next_action, payloads, descrições livres, corpos de Ficha Viva, nomes de pessoas ou credenciais. A allowlist de identificadores e estados impede que textos de fontes externas sejam introduzidos por engano na exportação. Evidências só entram quando pertencem a uma frente recebida para o módulo; limite por recorte e ausência de evidência geram ressalvas, não declaração de completude global. Estado `verificado` do M4 representa o que o registro declara, não comprovação de runtime/aceite atual.
+
+**Consulta autenticada existente:** `nucleo-knowledge-read` já resolve o módulo sob JWT + capability `nucleo_manage` + RLS e filtra frentes pela árvore de parentesco M3; ao pedir `include_ac02=true, include_assumption_export=true`, lê metadados M4 apenas para as frentes identificadas, com a mesma sessão e RLS. Erro/limite torna leitura `indeterminada`, sem inferir dados ausentes. Não há endpoint público novo nem acesso direto pelos especialistas receptores. O gestor autorizado é responsável por selecionar, revisar e copiar/transmitir o rascunho. A identidade e o contexto global permanecem centralizados no AC-02 aprovado pela Camada Mestre.
+
+**Limites atuais:** FM-08 continua podendo representar apenas uma referência comum de método/ecossistema; não provar documentos distintos. Nenhum mandato/titular foi certificado por esta mudança. O contrato ainda não confirma a fonte real do checkpoint FM-09 quando não há revisão no Core; nesses casos marcar NÃO COMPROVADO. UX deve receber apenas o contrato de apresentação, não regras de autorização nem novas implementações de banco.
+
+**Dependências preservadas para rodada posterior:** deploy da revisão mais recente da função no Lovable Cloud oficial; testes reais de JWT/capability/RLS, prova de falha de provedor, dados vazios e concorrência; validação da cópia em novo chat, aceitação humana e UX; análise independente do commit Lovable incidental `286a4172495685d9d751cfb558094463d025ea75`. Não declarar homologação.
