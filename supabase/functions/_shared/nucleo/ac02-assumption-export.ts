@@ -88,7 +88,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   }
   for(const e of technical.evidence.slice(0,80)){
    if(isUuid(e.id)&&frontIds.has(e.workstreamId)&&
-      ["pull_request","commit","ci_run","migration","deployment","manual","outro"].includes(e.kind)&&
+      ["pull_request","commit","workflow_run","ci_run","migration","deployment","manual","outro"].includes(e.kind)&&
       ["verificado","relatado","nao_verificado","indeterminado"].includes(e.observedState)){
       evidenceList.push("- M4 "+e.id+" / frente "+e.workstreamId+
        " / tipo "+e.kind+" / estado M4 declarado "+e.observedState);
