@@ -17,8 +17,8 @@ const row=(id,version,state="proposta",lineage="L")=>({
  lineage_id:lineage,version_no:version,parent_revision_id:version>1?"v1":null,
 });
 const data=[row("v1",1),row("v2",2,"em_evolucao"),row("other",1,"proposta","OTHER")];
-assert.deepEqual(latestContributions(data).map(x=>x.id).sort(),["other","v2"]);
-assert.deepEqual(deskFilter(latestContributions(data),"em_evolucao","DOCU").map(x=>x.id),["v2"]);
+assert.equal(latestContributions(data).map(x=>x.id).sort().join(","),"other,v2");
+assert.equal(deskFilter(latestContributions(data),"em_evolucao","DOCU").map(x=>x.id).join(","),"v2");
 assert.equal(deskFilter(latestContributions(data),"proposta","not-found").length,0);
 const ctx=continuityContext("Núcleo","NUC",data,"2026-11-14T16:00:00Z");
 assert.equal(ctx.pending.length,2);
