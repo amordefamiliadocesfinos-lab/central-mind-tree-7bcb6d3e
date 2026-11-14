@@ -963,3 +963,30 @@ Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, muda
 **Fluxo UX a executar posteriormente:** consulta protegida → rascunho consultivo → escolher destinatário/módulo → visualizar exatamente o documento → confirmar cinco gates → preparar cópia/arquivo para transferência humana consciente → indicar que não houve envio automático → registrar entrega somente após mecanismo próprio homologado. Não colocar botão de envio automático, habilitar `nucleo_manage` para destinatário nem inventar consentimento/recebimento.
 
 **Pendências expressas:** revisão do projeto Lovable Cloud e sua Edge Function mais recente; UAT de 200/401/403 com usuário verdadeiro; verificação da identidade de quem seleciona; homologação do destinatário; comprovante persistente de envio/aceite apenas se aprovado pela Camada Mestre; UX; prova de assunção bem-sucedida por especialista sucessor. CI automatizada da PR cobre somente forma e regressão de código, não resultados produtivos.
+
+
+## 62. AC-02 — contrato de ledger de repasses append-only, proposta NÃO aplicada (14/11/2026)
+
+**Decisão da Camada Mestre:** continuidade autorizada dentro do Mapa V1.3 e Entrega A+. Preservar PRs #806, #807, #813, #814, #815, sem novos mandatos, permissões, construtor Lovable, teste produtivo ou Entrega B.
+
+### Reconciliação das estruturas
+A consulta somente leitura ao Core oficial identificou: `nucleo_development_events` descreve alterações M3; `nucleo_development_evidence` vincula provas técnicas M4; `nucleo_specialist_mandate_records` regula atos funcionais; `nucleo_ac01_review_events`, `nucleo_ac01_decision_acts` e `nucleo_ac01_publication_events` preservam o fluxo documental. Nenhuma tem semântica de prova de entrega/recebimento/aceite de um pacote. Criar eventos nesses registros seria misturar autoridades. Não foram observadas tabelas específicas de handoff. A extensão mínima tecnicamente justificada é **um ledger no mesmo Core**, não outro Núcleo.
+
+### Proposta de extensão mínima
+Arquivo SQL **deliberadamente fora de `supabase/migrations/`**, no caminho `docs/architecture/proposals/NUCLEO_AC02_HANDOFF_APPENDONLY_PROPOSTA_NAO_APLICAR.sql`. A CI usa o SQL apenas contra PostgreSQL 17 descartável. **Não aplicar no Lovable Cloud sem autorização de implantação distinta.**
+
+Uma única tabela proposta `nucleo_ac02_handoff_events` com eventos imutáveis, `package_id`, `package_version`, SHA-256 de 64 caracteres, `module_id`, papel funcional, ator autenticado, tipo e identidade do destinatário, `event_kind`, antecessor, vencimento, classe e referência restrita de evidência, origem, idempotência `request_id` e data registrada no servidor. Não armazena corpo do pacote, URL privada, token ou dados de sessão. Hash identifica bytes de um pacote; **o banco não prova que o conteúdo foi revisado ou entregue sem evidência adicional**.
+
+Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `falha` e `expirado` são eventos explícitos, não inferidos; `retificado` aponta ao registro anterior e encerra aquela versão, sendo uma nova versão tratada sob outro `package_id`. Nunca transformar emissão de um JSON ou cópia em recebido/aceito.
+
+**Autoria:** eventos declarativos pelo gestor com `nucleo_manage` já existente; `recebido` e `aceito` exclusivamente pelo destinatário humano autenticado explicitamente registrado. Para `novo_chat_ia`, não há usuário `auth.uid()` nem aceite automático: permanece pendente de mecanismo próprio de prova/atestação. O trigger usa `auth.uid()` do runtime, não campos de identidade fornecidos pelo cliente. Não cria `SECURITY DEFINER`. RLS mantém leitura por administrador ou destinatário, escrita limitada pela função de trigger e políticas, nenhuma atualização ou deleção, inclusive por grants herdados. Estado técnico externo pode ser referenciado, nunca promovido automaticamente a decisão.
+
+**Integridade:** um evento inicial por pacote, um sucessor por evento, serialização concorrente por pacote, identidade de pacote (hash, módulo, destinatário e versão) imutável na cadeia, proibição de estados saltados, bloqueio de aceite pelo gestor e expiração explícita no momento permitido. O campo `evidence_class` distingue declaração, confirmação do destinatário e referência externa; o valor registrado como referência externa **não certifica a própria prova**.
+
+### UX / integração
+`supabase/functions/_shared/nucleo/ac02-handoff-ledger-contract.ts`, reexportado em `src/lib/nucleo/ac02HandoffLedger.ts`, é contrato apenas de apresentação consultiva. A projeção exige cadeia íntegra e expõe o último evento registrado, autoria e classificação como **declaração** ou **confirmação humana**, sem simular remessa em curso. Ao Especialista UX caberá criar uma linha do tempo legível, diferenças de estados, proveniência, hash resumido e aviso de documento não homologado. Esse especialista não deverá criar permissões, escrever diretamente no ledger ou converter registro de envio em recebimento.
+
+### Evidências e próximos portões
+`scripts/nucleo-ac02-handoff-ledger-contract.test.cjs` e `scripts/nucleo-ac02-handoff-ledger-disposable.test.sql` são executados em CI; aprovam apenas viabilidade técnica em isolamento. Implantação produtiva requer revisão de DDL/RLS, evidência de regressão de privilégios, verificação das operações humanas, assinatura/comprovação da origem do pacote, modelo de eventos para chat de IA, autorização expressa de deployment e homologação funcional. Manter pendentes testes 200/401/403, UX e sucessão real.
+
+**Nenhuma mudança produtiva** ao Core, Edge Function, dados, ACL, mandatos ou front-end nesta PR.

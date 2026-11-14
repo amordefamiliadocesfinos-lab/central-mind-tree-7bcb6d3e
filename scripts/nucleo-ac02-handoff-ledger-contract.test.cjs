@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),ts=require("typescript"),vm=require("node:vm"),fs=require("node:fs");
+const p="supabase/functions/_shared/nucleo/ac02-handoff-ledger-contract.ts";
+const js=ts.transpileModule(fs.readFileSync(p,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const ctx={exports:{},Map,Set,Array};
+vm.runInNewContext(js,ctx,{timeout:1500});
+const fn=ctx.exports.projectAc02HandoffHistory;
+const base={package_id:"p",package_sha256:"a".repeat(64),package_version:"1.0",module_id:"mod",specialist_role_code:"especialista_crm",recipient_kind:"sucessor_humano",recipient_auth_uid:"dest",source_ref:"ac02:p",expires_at:"2026-11-15T12:00:00Z",recorded_at:"2026-11-14T12:00:00Z",request_id:"q",actor_auth_uid:"admin",evidence_ref:null,evidence_class:"declaracao_gestor"};
+const row=(id,kind,prev,actor="admin",proof="declaracao_gestor")=>({...base,id,event_kind:kind,previous_event_id:prev,actor_auth_uid:actor,evidence_class:proof});
+const p1=row("a","preparado",null),p2=row("b","disponibilizado","a"),p3=row("c","entregue","b");
+const p4=row("d","recebido","c","dest","confirmacao_destinatario"),p5=row("e","aceito","d","dest","confirmacao_destinatario");
+const partial=fn([p1,p2,p3]);
+assert.equal(partial.status,"cadeia_consistente");
+assert.equal(partial.latest,"entregue");
+assert.equal(partial.stages.some(x=>x.classification==="confirmacao_humana"),false);
+const full=fn([p5,p2,p4,p1,p3]);
+assert.equal(full.status,"cadeia_consistente");
+assert.equal(full.latest,"aceito");
+assert.equal(full.stages.length,5);
+assert.equal(full.stages[4].assertedBy,"destinatario_humano");
+const fraud=fn([p1,p2,p3,{...p4,actor_auth_uid:"admin"}]);
+assert.equal(fraud.status,"cadeia_inconsistente");
+assert.equal(fraud.latest,null);
+const fork=fn([p1,p2,p3,p4,{...p4,id:"x",event_kind:"falha",actor_auth_uid:"admin",evidence_class:"declaracao_gestor"}]);
+assert.equal(fork.status,"cadeia_inconsistente");
+assert.equal(fn([]).status,"sem_eventos");
+console.log("PASS AC02 timeline: separação de declarações, confirmação humana, cadeia e divergência");
