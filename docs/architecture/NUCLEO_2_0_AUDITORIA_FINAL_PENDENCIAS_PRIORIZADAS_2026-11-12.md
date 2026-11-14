@@ -1016,3 +1016,14 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **UX:** apresentar divergência como estado impeditivo de promoção visual; não transformar lista parcial ou incorreta em uma linha do tempo homologada. Exibir fonte/versão, ressalvas, distinção entre `entregue` declarado e `recebido/aceito` confirmados sob identidade humana. Sem criar componentes pelo Especialista Núcleo; o responsável UX recebe o contrato compartilhado atualizado.
 
 **Pendências mantidas:** implantação do ledger sob autoridade específica; testes reais de sessão, RLS e recepção por destinatário; emissão e persistência do manifesto autorizado; interface e homologação humana. O mapa V1.3, a Entrega A+ e as demais frentes permanecem preservados.
+
+
+## 65. AC-02 — reconciliação de sessão/autoria e evidência antes de implantação (14/11/2026)
+
+**Autorização:** evoluir frentes sem bloqueio; sem aplicar migrations no Lovable Cloud. Documentação específica: `docs/architecture/AC02_RECONCILIACAO_AUTH_E_EVIDENCIA_PRE_DEPLOY_2026-11-14.md`.
+
+**Comprovado por consulta somente leitura no Cloud oficial:** `auth.sessions` existe e a role `authenticated` não tem SELECT; `app_admin_capabilities` mantém capacidade `nucleo_manage` com `active/revoked_at`; `nucleo_ac02_handoff_events` continua inexistente. Portanto `auth.uid()` no trigger da proposta #817 garante identificação proveniente do JWT no contexto, mas **não é prova suficiente da vigência da sessão após revogação**. Um escritor com verificação estrita de sessão e proteção contra escrita direta é gate obrigatório de implantação, ainda não desenvolvido e sem autorização para criá-lo produtivamente. Não conceder SELECT público em `auth.sessions`; não abrir `service_role` nem `SECURITY DEFINER` genérico.
+
+**Melhoria da proposta SQL (não aplicada):** eventos `entregue`, `falha` e `retificado` passam a exigir `evidence_ref` controlado, sem transportar corpo, URLs privadas ou credenciais. O valor é referência declarada, não prova externa verificada. Testes adicionais em PostgreSQL descartável asseguram rejeição de entrega/falha/retificação sem evidência e de tentativa de preparação por destinatário não administrativo.
+
+**Portões remanescentes:** AC02-SESSION-01 (sessão ativa/revogação e único escritor autorizado), AC02-PROOF-01 (proveniência e validação dos identificadores de evidência), AC02-PACKAGE-01 (manifesto SHA-256 vinculado ao pacote realmente revisado, origem certificada), ensaios reais JWT/RLS, UX e aceite de sucessão. Sem novos grants, mandatos, endpoints, SQL produtivo ou Entrega B. Contrato do Especialista UX segue separado da aplicação das políticas.
