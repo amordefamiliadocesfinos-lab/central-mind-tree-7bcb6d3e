@@ -124,29 +124,29 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      uncertainRef.current=true;setFeedback("Transporte interrompido: estado indeterminado. Não repetir sem reconciliação.");
    }finally{setSaving(false);}
  };
- return <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Contribuições documentais do especialista AC-01">
+ return <section className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Contribuições documentais do especialista AC-01">
    <div>
-     <h4 className="font-semibold text-sm">Conhecimento e Evolução — contribuições do especialista</h4>
+     <h4 className="nucleo-v22-title text-lg">Conhecimento e Evolução — contribuições do especialista</h4>
      <p className="text-xs text-muted-foreground mt-1">
        Piloto transversal por referência. Registra metadados do documento original, não carrega arquivo nem certifica especialista.
        O papel informado não equivale a mandato vigente e nenhum conteúdo é enviado à IA.
      </p>
    </div>
    <div className="flex flex-wrap items-center gap-2">
-     <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
+     <Badge variant="outline" className="nucleo-v22-ac01-count">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
      <Badge variant="outline">Papel declarado; mandato não inferido</Badge>
    </div>
-   <p className="rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+   <p className="nucleo-v22-guard text-xs">
      Proposta ou revisão registrada não é decisão homologada. Publicação interna AC-01 não comprova atualização canônica da Ficha Viva, Drive ou GitHub.
    </p>
    {reading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando contribuições autorizadas do Core…</p>}
    {readError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{readError}</p>}
    <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={saving||reading}
      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
-   <nav className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Jornada documental do especialista">
+   <nav className="nucleo-v22-tabs grid grid-cols-1 sm:grid-cols-3" aria-label="Jornada documental do especialista">
      {AREAS.map(item=><Button key={item.id} type="button"
        variant={area===item.id?"default":"outline"}
-       className="h-auto min-h-14 justify-start px-3 py-2 text-left"
+       className="nucleo-v22-pill h-auto min-h-14 justify-start px-3 py-2 text-left"
        aria-pressed={area===item.id} aria-controls={areaId+"-"+item.id}
        onClick={()=>setArea(item.id)}>
        <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal">
@@ -171,7 +171,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      {rows.length===0&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
      </p>}
-     {rows.map(item=><details key={item.id} className="rounded-md border p-3 text-xs">
+     {rows.map(item=><details key={item.id} className="nucleo-v22-card-hover p-3 text-xs">
        <summary className="cursor-pointer font-semibold">
          {item.title} · {item.contribution_kind} · v{item.version_no}
        </summary>
@@ -187,7 +187,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        </div>
      </details>)}
    </div>}
-   <div className="space-y-3 rounded-md bg-muted/30 p-3">
+   <div className="nucleo-v22-soft-surface space-y-3 p-3">
      <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
      <label className="block space-y-1 text-sm">Histórico / versão de origem
        <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
