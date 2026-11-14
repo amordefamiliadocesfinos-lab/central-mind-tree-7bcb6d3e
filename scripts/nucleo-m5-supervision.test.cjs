@@ -416,3 +416,35 @@ const atlasExec=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.ts
 assert.match(atlasExec,/moduleId=\{selectedRecord\.id\}/);
 assert.match(atlasExec,/NucleoExecutiveDevelopment/);
 console.log("Núcleo A+ CA04/10/19/22: visão executiva M3-M4 sem writer PASS (não UAT).");
+
+
+// A+ CA-07/08/10/21 — alterações M3 não equivalem a decisão ou aceite.
+const checkpointSource=fs.readFileSync("src/lib/nucleo/developmentCheckpointV12.ts","utf8");
+const checkpointJs=ts.transpileModule(checkpointSource,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((checkpointJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const checkScope={exports:{}};
+vm.runInNewContext(checkpointJs.outputText,checkScope,{timeout:1000});
+const summarize=checkScope.exports.summarizeDevelopmentCheckpoint;
+const changed=summarize({event_type:"alterado",
+  before_state:{status:"planejado",next_action:"Consultar",specialist:"Anterior",irrelevant:"x"},
+  after_state:{status:"em_andamento",next_action:"Consultar",specialist:"Novo",irrelevant:"y"}});
+assert.equal(changed.changes.length,2);
+assert.ok(changed.changes.some(c=>c.field==="Situação"&&c.before==="planejado"&&c.after==="em_andamento"));
+assert.ok(changed.changes.some(c=>c.field==="Responsável declarado"&&c.after==="Novo"));
+assert.ok(!changed.changes.some(c=>c.field==="Próxima ação"));
+assert.ok(!changed.changes.some(c=>c.field==="irrelevant"));
+const incomplete=summarize({event_type:"alterado",before_state:null,after_state:{status:"concluido"}});
+assert.equal(incomplete.hasComparableBefore,false);
+assert.equal(incomplete.changes.length,0);
+const created=summarize({event_type:"criado",before_state:null,after_state:{title:"Teste",status:"planejado"}});
+assert.equal(created.label,"Criação registrada no M3");
+const checkpointView=fs.readFileSync("src/components/nucleo/NucleoExecutiveDevelopment.tsx","utf8");
+assert.match(checkpointView,/summarizeDevelopmentCheckpoint/);
+assert.match(checkpointView,/Ver checkpoints M3/);
+assert.match(checkpointView,/Aprovação humana: não comprovada por este evento/);
+assert.match(checkpointView,/janela global de 200 registros/);
+assert.match(checkpointView,/actor_auth_uid\.slice\(0,8\)/);
+assert.match(checkpointView,/NucleoTechnicalEvidence workstreamId=\{item\.id\}/);
+console.log("Núcleo A+ CA07/08/10/21: alterações, checkpoints e limites de aprovação PASS.");
