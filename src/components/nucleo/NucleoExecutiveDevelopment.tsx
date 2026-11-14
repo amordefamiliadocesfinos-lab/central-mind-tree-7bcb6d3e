@@ -27,11 +27,6 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
   const [search,setSearch]=useState("");
   const [expanded,setExpanded]=useState<string|null>(null);
   const byId=useMemo(()=>new Map(workstreams.map(item=>[item.id,item])),[workstreams]);
-  const ancestors=(item:DevelopmentWorkstream)=>{
-    const parent=item.parent_id?byId.get(item.parent_id):undefined;
-    const grandparent=parent?.parent_id?byId.get(parent.parent_id):undefined;
-    return {parent,module:item.kind==="modulo"?item:parent?.kind==="modulo"?parent:grandparent?.kind==="modulo"?grandparent:undefined};
-  };
   const entries=useMemo(()=>workstreams.filter(item=>item.kind!=="modulo"&&(
     !moduleId||item.parent_id===moduleId||(
       item.parent_id!==null&&byId.get(item.parent_id)?.parent_id===moduleId
