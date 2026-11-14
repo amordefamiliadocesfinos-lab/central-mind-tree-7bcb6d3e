@@ -1,0 +1,160 @@
+/* Núcleo Visual V2.2 — estilo de apresentação exclusivamente.
+ * Paleta inspirada na referência do proprietário. Dados, estados e autoridades
+ * continuam definidos pelos componentes/contratos existentes, não por este CSS.
+ * Não aplicar fora da Central Visual de Desenvolvimento.
+ */
+.nucleo-v22 {
+  --nucleo-blue: #1a73e8;
+  --nucleo-blue-dark: #174ea6;
+  --nucleo-blue-wash: #e8f0fe;
+  --nucleo-line: #dce5f1;
+  --nucleo-text: #202124;
+  --nucleo-muted: #5f6368;
+  color: var(--nucleo-text);
+  font-size: 14px;
+}
+.nucleo-v22 .nucleo-v22-banner {
+  border: 1px solid #d2e3fc;
+  border-radius: 22px;
+  background: linear-gradient(115deg, #e8f0fe 0%, #f7faff 58%, #ffffff 100%);
+  padding: 16px 18px;
+}
+.nucleo-v22 .nucleo-v22-title { color: #202124; font-weight: 700; letter-spacing: -.012em; }
+.nucleo-v22 .nucleo-v22-muted { color: #5f6368; line-height: 1.5; }
+.nucleo-v22 .nucleo-v22-surface {
+  background: #ffffff;
+  border: 1px solid #dce5f1;
+  border-radius: 18px;
+  box-shadow: 0 9px 24px -20px rgba(46, 76, 124, .28);
+}
+.nucleo-v22 .nucleo-v22-soft-surface {
+  background: #f5f9ff;
+  border: 1px solid #d2e3fc;
+  border-radius: 15px;
+}
+.nucleo-v22 .nucleo-v22-toolbar {
+  border: 1px solid #e1e7ef;
+  border-radius: 16px;
+  background: #f6f9ff;
+  padding: 12px;
+}
+.nucleo-v22 .nucleo-v22-primary-button {
+  border-radius: 999px;
+  min-height: 44px;
+  border: 1px solid #1a73e8;
+  background: #1a73e8;
+  color: #fff;
+  font-weight: 650;
+}
+.nucleo-v22 .nucleo-v22-primary-button:hover { background: #185abc; color: #fff; }
+.nucleo-v22 .nucleo-v22-search {
+  border-color: #d2e3fc;
+  background: #fff;
+  border-radius: 999px;
+  min-height: 42px;
+}
+.nucleo-v22 .nucleo-v22-tabs {
+  border: 1px solid #dce5f1;
+  border-radius: 16px;
+  background: #f5f9ff;
+  padding: 6px;
+  gap: 6px;
+}
+.nucleo-v22 .nucleo-v22-pill {
+  min-height: 40px;
+  border-radius: 999px;
+  white-space: normal;
+  line-height: 1.25;
+  padding: 8px 14px;
+}
+.nucleo-v22 .nucleo-v22-pill[aria-pressed="true"] {
+  border-color: #1a73e8;
+  background: #1a73e8;
+  color: #fff;
+}
+.nucleo-v22 .nucleo-v22-pill[aria-pressed="false"] {
+  border: 1px solid #d2e3fc;
+  background: #fff;
+  color: #174ea6;
+}
+.nucleo-v22 .nucleo-v22-pill:hover { filter: brightness(.97); }
+.nucleo-v22 .nucleo-v22-card-hover {
+  border: 1px solid #dce5f1;
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.nucleo-v22 .nucleo-v22-card-hover:hover {
+  border-color: #8ab4f8;
+  background: #f6f9ff;
+  box-shadow: 0 5px 16px -14px #174ea6;
+}
+.nucleo-v22 .nucleo-v22-card-hover[aria-pressed="true"],
+.nucleo-v22 .nucleo-v22-area-card[aria-pressed="true"] {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+  box-shadow: inset 0 0 0 1px #8ab4f8;
+}
+.nucleo-v22 .nucleo-v22-area-card {
+  border: 1px solid #dce5f1;
+  border-radius: 14px;
+  background: #fff;
+}
+.nucleo-v22 .nucleo-v22-area-card:hover { background: #f6f9ff; }
+.nucleo-v22 .nucleo-v22-status-tile {
+  min-width: 0;
+  border: 1px solid #dce5f1;
+  border-left: 4px solid #8ab4f8;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fbff;
+}
+.nucleo-v22 .nucleo-v22-status-tile[data-state="bloqueado"] { border-left-color: #ea4335; background: #fff5f4; }
+.nucleo-v22 .nucleo-v22-status-tile[data-state="em_validacao"] { border-left-color: #fbbc04; background: #fff9e9; }
+.nucleo-v22 .nucleo-v22-status-tile[data-state="concluido"] { border-left-color: #34a853; background: #f1f9f2; }
+.nucleo-v22 .nucleo-v22-status-tile[data-state="em_andamento"] { border-left-color: #1a73e8; background: #eff5ff; }
+.nucleo-v22 .nucleo-v22-board-column {
+  border-radius: 16px;
+  box-shadow: none;
+}
+.nucleo-v22 .nucleo-v22-selected { border-color: #8ab4f8; background: #e8f0fe; }
+.nucleo-v22 .nucleo-v22-ac01-count {
+  border-color: #d2e3fc;
+  border-radius: 999px;
+  background: #f4f8ff;
+  color: #174ea6;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.nucleo-v22 .nucleo-v22-guard {
+  border: 1px solid #f5d88e;
+  border-left: 4px solid #fbbc04;
+  border-radius: 14px;
+  background: #fffaf0;
+  color: #654100;
+  padding: 12px;
+}
+.nucleo-v22 :is(button,a,input,textarea,select,summary):focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 2px;
+}
+.nucleo-v22 :is(input,textarea,select) { border-radius: 11px; }
+@media (max-width: 640px) {
+  .nucleo-v22 .nucleo-v22-banner { padding: 14px; border-radius: 18px; }
+  .nucleo-v22 .nucleo-v22-toolbar { padding: 9px; }
+  .nucleo-v22 .nucleo-v22-status-tile { padding: 10px; }
+}
+.dark .nucleo-v22 { color: #e9eef7; --nucleo-text: #e9eef7; --nucleo-muted: #bac5d7; }
+.dark .nucleo-v22 .nucleo-v22-banner { background: linear-gradient(115deg, #102a53, #172135); border-color: #294975; }
+.dark .nucleo-v22 :is(.nucleo-v22-title) { color: #eff6ff; }
+.dark .nucleo-v22 .nucleo-v22-muted { color: #bac5d7; }
+.dark .nucleo-v22 :is(.nucleo-v22-surface,.nucleo-v22-card-hover,.nucleo-v22-area-card) { background: #18263b; border-color: #38516f; }
+.dark .nucleo-v22 :is(.nucleo-v22-soft-surface,.nucleo-v22-toolbar,.nucleo-v22-tabs) { background: #14243c; border-color: #38516f; }
+.dark .nucleo-v22 .nucleo-v22-card-hover:hover { background: #1b3554; }
+.dark .nucleo-v22 .nucleo-v22-pill[aria-pressed="false"] { background: #172d49; color: #bad6ff; }
+.dark .nucleo-v22 .nucleo-v22-status-tile { background: #1d2b40; border-color: #38516f; }
+.dark .nucleo-v22 .nucleo-v22-status-tile[data-state="bloqueado"] { border-left-color: #ea4335; }
+.dark .nucleo-v22 .nucleo-v22-status-tile[data-state="em_validacao"] { border-left-color: #fbbc04; }
+.dark .nucleo-v22 .nucleo-v22-status-tile[data-state="concluido"] { border-left-color: #34a853; }
+.dark .nucleo-v22 :is(.nucleo-v22-card-hover,.nucleo-v22-area-card)[aria-pressed="true"] { background: #173966; }
+.dark .nucleo-v22 .nucleo-v22-guard { background: #493614; color: #ffecbc; border-color: #91712b; }
