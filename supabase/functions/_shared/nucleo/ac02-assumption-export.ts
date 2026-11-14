@@ -45,7 +45,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   projection.stable.some((v,i)=>v.id!==AC02_GLOBAL_ITEMS[i].id||v.value!==AC02_GLOBAL_ITEMS[i].value))
    throw new Error("AC02: inconsistent source projection — export blocked");
  if(!Number.isFinite(Date.parse(input.preparedAt))||
-  !/^\\d{4}-\\d{2}-\\d{2}T/.test(input.preparedAt))
+  !/^\d{4}-\d{2}-\d{2}T/.test(input.preparedAt))
    throw new Error("AC02: invalid preparation timestamp");
  const code=safeCode(specialist.moduleCode);
  if(!code||!/^[-a-f0-9]{36}$/i.test(specialist.moduleId))
