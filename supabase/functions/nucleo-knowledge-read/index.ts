@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildAc02Registry, prepareAc02AssumptionDraft, type Ac02DynamicEvidence } from "../_shared/nucleo/ac02-registry-contract.ts";
+import { composeAc02AssumptionExport } from "../_shared/nucleo/ac02-assumption-export.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isRequestedModuleCode, reviewImpact, validPrNumber, type PrImpact } from "../_shared/nucleo/knowledge-contract.ts";
 
@@ -116,9 +117,11 @@ Deno.serve(async request=>{
   }catch{return json({error:"JSON inválido"},400);}
   if(!input||typeof input!=="object"||Array.isArray(input))return json({error:"Corpo inválido"},400);
   const body=input as Record<string,unknown>;
-  if(!isRequestedModuleCode(body.module_code)||Object.keys(body).some(k=>!["module_code","include_review","include_ac02"].includes(k))||
+  if(!isRequestedModuleCode(body.module_code)||Object.keys(body).some(k=>!["module_code","include_review","include_ac02","include_assumption_export"].includes(k))||
     (body.include_review!==undefined&&typeof body.include_review!=="boolean")||
-    (body.include_ac02!==undefined&&typeof body.include_ac02!=="boolean")){
+    (body.include_ac02!==undefined&&typeof body.include_ac02!=="boolean")||
+    (body.include_assumption_export!==undefined&&typeof body.include_assumption_export!=="boolean")||
+    (body.include_assumption_export===true&&body.include_ac02!==true)){
     return json({error:"Informe module_code válido e opções booleanas include_review/include_ac02"},400);
   }
   const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY");
@@ -199,6 +202,7 @@ Deno.serve(async request=>{
       }
     }
     let ac02:ReturnType<typeof prepareAc02AssumptionDraft>|null=null;
+    let ac02_assumption_export:ReturnType<typeof composeAc02AssumptionExport>|null=null;
     if(body.include_ac02===true){
       const readAt=new Date().toISOString();
       const observations=await ac02GithubObservation(readAt);
@@ -207,6 +211,12 @@ Deno.serve(async request=>{
       // Only metadata already returned under the same module RLS snapshot.
       // No source body, private Drive metadata, credentials, or mandate assertion.
       ac02=prepareAc02AssumptionDraft(projection,ac02ModuleContext(module,sections));
+      if(body.include_assumption_export===true){
+        ac02_assumption_export=composeAc02AssumptionExport({
+          projection:ac02.global,specialist:ac02.specialist,
+          moduleTitle:module.title,preparedAt:readAt,
+        });
+      }
     }
     // Resposta sem métodos de escrita e sem dados pessoais de outras tabelas.
     return json({
@@ -215,6 +225,7 @@ Deno.serve(async request=>{
       sections,fronts:fronts.map(f=>({code:f.code,title:f.title,status:"declarado:"+f.status,next_action:f.next_action})),
       technical_evidence_count:evidenceCount,review,
       ...(body.include_ac02===true?{ac02}:{}),
+      ...(body.include_assumption_export===true?{ac02_assumption_export}:{}),
       restrictions:["consulta sob JWT e RLS","não executa comandos","não certifica método","não comprova homologação ou deploy"],
       read_at:new Date().toISOString(),
     });
