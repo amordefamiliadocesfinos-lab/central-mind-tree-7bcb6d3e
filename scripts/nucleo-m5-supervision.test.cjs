@@ -512,7 +512,13 @@ assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR UPDATE/);
 assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR DELETE/);
 assert.match(ac01UI,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
-assert.match(ac01UI,/authority_state!=="proposta"/);
+// AC-01: contribuição inicial requer proposta; revisão vinculada requer
+// em_evolucao. O teste antigo checava apenas o literal da proposta e rejeitava
+// indevidamente o readback condicional já contratado na main.
+assert.match(ac01UI,/check\\.data\\.authority_state!==\\(parent\\?"em_evolucao":"proposta"\\)/);
+assert.doesNotMatch(ac01UI,/check\\.data\\.authority_state!=="proposta"/);
+assert.match(ac01Sql,/NEW\\.authority_state:='proposta'/);
+assert.match(ac01Sql,/NEW\\.authority_state:='em_evolucao'/);
 assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
 const ac01MainAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 assert.match(ac01MainAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
