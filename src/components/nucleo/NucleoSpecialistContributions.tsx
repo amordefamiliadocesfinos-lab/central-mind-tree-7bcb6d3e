@@ -48,7 +48,19 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
       if(!mounted)return;
       if(result.error||!result.data||result.data.length>=LIMIT){
         setReadError("Consulta indisponível ou parcial. Não assumir que a fila esteja vazia nem enviar nova proposta.");
-      }else{setRows(result.data);uncertainRef.current=false;}
+      }else{
+        setRows(result.data);
+        if(uncertainRef.current&&requestRef.current){
+          const prior=result.data.find(item=>item.request_id===requestRef.current);
+          if(prior){
+            setFeedback("Proposta previamente enviada localizada no Core (v"+prior.version_no+"). Readback de reconciliação confirmado; não reenviar.");
+            uncertainRef.current=false;requestRef.current=null;
+            setTitle("");setLocator("");setNote("");setChecksum("");
+          }else{
+            setFeedback("A proposta anterior não foi localizada neste recorte. Estado permanece indeterminado; não criar outra com novo identificador.");
+          }
+        }
+      }
       setReading(false);
     }).catch(()=>{
       if(mounted){setReadError("Leitura interrompida. Reconsulte o Core antes de registrar.");setReading(false);}
@@ -101,7 +113,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
    {readError&&<p role="alert" className="text-xs text-destructive">{readError}</p>}
    <Button type="button" variant="outline" size="sm" disabled={saving||reading}
-      onClick={()=>{requestRef.current=null;uncertainRef.current=false;setRefresh(n=>n+1);}}>Reconsultar registros</Button>
+      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
    {!reading&&!readError&&<div className="space-y-2">
      {rows.length===0&&<p className="rounded-md border p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
