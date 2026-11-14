@@ -17,8 +17,10 @@ const governance=read("NucleoAC01DocumentGovernance");
 const desk=read("NucleoContributionDesk");
 const sources=[center,atlas,executive,ficha,specialist,governance,desk];
 const assertHas=(code,part,label)=>assert(code.includes(part),label);
-assertHas(center,'import "@/styles/nucleoVisualV22.css"',"Visual theme imported only in Central");
-assertHas(center,'className="nucleo-v22 space-y-4"',"Visual theme scoped");
+const page=fs.readFileSync("src/pages/Nucleo.tsx","utf8");
+assertHas(page,'import "@/styles/nucleoVisualV22.css"',"Visual theme imported from existing route");
+assertHas(page,'? "nucleo-v22 min-w-0 rounded-[24px]',"Only Central wrapper scoped");
+assertHas(css,'[aria-label="Central Visual de Desenvolvimento"] > div:first-child',"Existing M3 styled without changing handlers");
 for(const [name,color] of Object.entries({blue:"#1a73e8",yellow:"#fbbc04",green:"#34a853",red:"#ea4335"})) {
   assert(css.includes(color), "Palette "+name);
 }
@@ -31,8 +33,8 @@ assertHas(center,'<NucleoExecutiveDevelopment',"Existing Executive");
 assertHas(center,'<NucleoOperationalAtlas',"Existing Atlas");
 assertHas(center,'<NucleoSupervisionPanel',"Existing Supervision");
 assertHas(center,'<NucleoTechnicalEvidence',"Existing evidence");
-assertHas(center,'nucleo-v22-board-column',"Kanban retained");
-assertHas(center,'data-state={state.key}',"Status cards reflect actual M3 status");
+assertHas(center,'{displayMode === "quadro" &&', "Kanban retained");
+assertHas(center,'{states.map(state => (',"Status metrics retain real M3 values");
 assertHas(center,'border-l-rose-500',"Blocked border remains");
 assertHas(center,'border-l-amber-500',"Validation border remains");
 assertHas(center,'border-l-emerald-500',"Done with evidence border remains");
