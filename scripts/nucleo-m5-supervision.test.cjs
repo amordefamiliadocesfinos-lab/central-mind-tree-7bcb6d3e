@@ -173,3 +173,25 @@ assert.match(fmCheckpointSource,/CRM_CONTINUITY_CHECKPOINTS_V12\.map/);
 assert.match(fmCheckpointSource,/CRM_SPECIALIST_CA17\.successionRecord/);
 assert.doesNotMatch(authoritySource,/activeMandate:"certificado"/);
 console.log("Núcleo A+ CA13/17: sucessão documental e estado V1.2 preparado preservados PASS.");
+
+
+// Núcleo A+ CA13/17 — preparo decisório sem homologação ou mandato automático.
+const draftsText=fs.readFileSync("src/lib/nucleo/operationalDraftsV12.ts","utf8");
+const draftsJs=ts.transpileModule(draftsText,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+}}).outputText;
+const draftsScope={exports:{}};
+vm.runInNewContext(draftsJs,draftsScope,{timeout:1000});
+const crmDrafts=draftsScope.exports.CRM_DRAFTS;
+assert.ok(crmDrafts["FM-05"].body.includes("Sem fato novo"));
+assert.ok(crmDrafts["FM-05"].body.includes("Concluir"));
+assert.ok(crmDrafts["FM-08"].body.includes("CRM 7 → CRM 8"));
+assert.ok(crmDrafts["FM-08"].body.includes("NÃO VIGENTE"));
+assert.ok(crmDrafts["FM-09"].body.includes("PR #411"));
+assert.ok(crmDrafts["FM-09"].body.includes("PR #412"));
+const proposalComponent=fs.readFileSync("src/components/nucleo/NucleoMandateProposal.tsx","utf8");
+assert.match(proposalComponent,/Preparar proposta CRM sem certificação/);
+assert.ok(proposalComponent.includes('setMethod("");'));
+
+assert.match(proposalComponent,/registra exclusivamente uma proposta/);
+console.log("Núcleo CA13/17: FM05/FM08/FM09 e proposta de autoridade com limites PASS.");
