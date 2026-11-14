@@ -33,8 +33,6 @@ export type Ac02WritePreflight=Readonly<{
  packageOriginVerified:false;
  writesPerformed:false;
 }>;
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// UUID v4/other accepted by DB; must be 8-4-4-4-12, not the shortened pattern above.
 const uuidExact=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ref=/^[a-zA-Z0-9][a-zA-Z0-9_./:-]{2,179}$/;
 const timestamp=(v:string)=>Number.isFinite(Date.parse(v))&&/^\d{4}-\d\d-\d\dT/.test(v);
