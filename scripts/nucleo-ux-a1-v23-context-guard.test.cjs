@@ -16,6 +16,9 @@ has('if (hasPendingChanges && !window.confirm(',"Explicit discard confirmation")
 has('if (saving) {',"No selection switch during writes");
 has('event.preventDefault()',"Browser unload warning");
 has('setEdit(item ? {',"Preserve M3 edit form");
+has('setWorkspaceView("frentes")',"Direct selection opens workstreams context");
+has('onOpenWorkstream={id=>',"Executive link to same selection");
+has('onSelectWorkstream={id => {',"Atlas link to same selection");
 has('changedEditableFields(selected, edit)',"Compare dirty against source");
 has('nucleo-m3-workstream-detail',"Evidence detail kept");
 has('NucleoSupervisionPanel',"Supervisor kept");
