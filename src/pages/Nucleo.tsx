@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import "@/styles/nucleoVisualV22.css";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -4221,7 +4222,7 @@ export default function Nucleo() {
         {(developmentMode || developmentVisited) && (
           <section hidden={!developmentMode} aria-hidden={!developmentMode}
             className={developmentMode
-              ? "min-w-0 rounded-[24px] border border-[#d2e3fc] border-t-4 border-t-[#1a73e8] bg-gradient-to-br from-white via-white to-[#f7faff] p-3 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-5"
+              ? "nucleo-v22 min-w-0 rounded-[24px] border border-[#d2e3fc] border-t-4 border-t-[#1a73e8] bg-gradient-to-br from-white via-white to-[#f7faff] p-3 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-5"
               : "hidden"}
             aria-label="Central Visual de Desenvolvimento">
             <NucleoDevelopmentCenter />
