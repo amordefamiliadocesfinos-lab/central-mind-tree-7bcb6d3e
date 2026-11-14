@@ -304,3 +304,47 @@ assert.match(discoverySource,/mode==="conhecimento"/);
 assert.match(atlasVisual,/import NucleoModuleDiscovery/);
 assert.match(atlasVisual,/selected\.id!=="CRM" && <NucleoModuleDiscovery/);
 console.log("Núcleo A+ CA14/22: controles fora do CRM rastreados ao código e fontes PASS (não UAT).");
+
+
+// A+ CA-14/22: mapa de telas verificadas, com deep link somente quando suportado.
+const moduleScreenSource=fs.readFileSync("src/lib/nucleo/moduleScreenDiscoveriesV12.ts","utf8");
+const screenJs=ts.transpileModule(moduleScreenSource,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((screenJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const screenScope={exports:{}};
+vm.runInNewContext(screenJs.outputText,screenScope,{timeout:1000});
+const screenCatalog=screenScope.exports.MODULE_SCREENS_V12;
+for(const code of ["FIN","OPE","ROT","CAP","DIG","ASS"]){
+  const entries=screenCatalog[code];
+  assert.ok(entries.length>=3,"Sem mapa de telas para "+code);
+  assert.equal(new Set(entries.map(e=>e.id)).size,entries.length);
+  for(const entry of entries){
+    assert.ok(entry.name&&entry.description&&entry.check&&entry.limitation);
+    assert.match(entry.source,/^https:\/\/github\.com\/amordefamiliadocesfinos-lab\/central-mind-tree-7bcb6d3e\/blob\/main\/src\//);
+    assert.ok(fs.existsSync(entry.source.split("/blob/main/")[1]));
+    if(entry.navigation==="rota_verificada"){
+      assert.ok(entry.route,"Deep link sem rota: "+entry.name);
+      if(code==="OPE"){
+        assert.match(entry.route,/^\/operacoes\?tab=/);
+        assert.ok(fs.readFileSync("src/pages/Operacoes.tsx","utf8").includes("'"+entry.id+"'"));
+      }else if(code==="DIG"){
+        assert.match(entry.route,/^\/digital\?tab=/);
+        const digital=fs.readFileSync("src/pages/Digital.tsx","utf8");
+        assert.ok(digital.includes("'"+entry.id+"'"),"Aba Digital não declarada");
+        const recognized=digital.split("if (tabParam && ")[1]?.split("includes(tabParam)")[0]??"";
+        assert.ok(recognized.includes("'"+entry.id+"'"),"Deep link Digital não reconhecido: "+entry.id);
+      }else assert.fail("Rota profunda não auditada: "+code);
+    }else assert.equal(entry.route,null,"Rota não verificada deve ficar nula");
+  }
+}
+assert.ok(screenCatalog.DIG.some(x=>x.id==="campanhas"&&x.route===null));
+const mapView=fs.readFileSync("src/components/nucleo/NucleoModuleDiscovery.tsx","utf8");
+assert.match(mapView,/MODULE_SCREENS_V12/);
+assert.match(mapView,/Mapa de telas identificadas/);
+assert.match(mapView,/item.navigation==="rota_verificada"/);
+assert.match(mapView,/item.route\s*\? <Button/);
+assert.match(mapView,/item.check/);
+assert.match(mapView,/item.limitation/);
+assert.match(mapView,/visibleScreens=useMemo/);
+console.log("Núcleo A+ CA14/22: mapas e rotas profundas auditadas, sem UAT automática PASS.");
