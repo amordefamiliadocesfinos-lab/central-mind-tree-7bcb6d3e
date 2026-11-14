@@ -35,9 +35,9 @@ export const CRM_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: ROUTES+"; "+UX,
   },
   "FM-05": {
-    title: "CRM — catálogo de ações relevantes (rascunho)",
-    body: "Registrar resultado (AttendanceActionBar): abre formulário contextual, solicita opção de resultado e, quando necessário, data; Confirmar resultado aciona o fluxo de gravação; o formulário só fecha após retorno confirmado, mas isso não substitui readback de produção. Adiar: oferece Amanhã, 3 dias, 7 dias ou data, com confirmação específica, sem fabricar resultado. Preparar contato no WhatsApp (CrmFocusQueue): inicia contato externo; não comprova mensagem entregue nem encerra atendimento. O checkpoint UX 02 cita também Concluir atendimento, Registrar venda e Tirar/Voltar para fila como ações críticas, mas esta proposta NÃO descreve seus efeitos sem revisão funcional específica.",
-    source: BAR+"; src/components/crm/CrmFocusQueue.tsx; "+UX,
+    title: "CRM — catálogo de controles e limites (proposta revisada)",
+    body: "Catálogo comprovado no código: Preparar contato externo não confirma entrega; Registrar resultado abre seleção, Confirmar resultado persiste pelo fluxo canônico e exige retorno confirmado; Adiar planeja reavaliação sem criar fato comercial. Na Inbox, Concluir encerra conversa (não Resultado nem tarefa oficial); Reabrir reativa conversa sem apagar Resultado histórico; Tirar da fila modifica a visibilidade por etiqueta (não arquiva); Próximo atendimento avança após verificar obrigações; Sem fato novo — retirar da prioridade registra revisão humana em histórico, sem criar Resultado. Cada comando mantém pré-condição, efeito, confirmação e limite no catálogo CA-14; verificar na fonte e no runtime antes de ampliar o status de prova.",
+    source: BAR+"; src/components/crm/CrmFocusQueue.tsx; src/pages/ContatosInbox.tsx; docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA14_CONTROLES_INBOX_2026-11-14.md"
   },
   "FM-06": {
     title: "CRM — jornada de triagem e registro (rascunho)",
@@ -50,14 +50,14 @@ export const CRM_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     source: ROUTES+"; "+BAR+"; "+UX,
   },
   "FM-08": {
-    title: "CRM — governança do especialista (rascunho)",
-    body: "O mapa CRM UX 02 registra CRM 7 como responsável técnico no checkpoint de 16/10/2026 e decisões congeladas de A3.1/B3.1-A. Isso comprova um registro histórico de especialidade, NÃO a identidade atual de um especialista persistente ou o método vigente. Antes de homologar este campo, verificar mandato, métodos atuais, versões, ecossistema, documentos soberanos, histórico de transferência entre chats e autoridade da Camada Mestre. Não atribuir nome pessoal nem promover documento provisório.",
-    source: UX,
+    title: "CRM — método, sucessão e mandato (proposta revisada)",
+    body: "O Documento Mestre do Processo Comercial, Bibliotecas 01–08 e documentos 09.01–09.05 constituem referências de autoridade comercial em suas respectivas situações documentais; os cabeçalhos 09.02/09.03 exigem conciliação formal. O Estado CRM V1.2 (14/10) está PREPARADO/NÃO VIGENTE segundo a própria fonte, e diz que V1.1 é anterior até substituição controlada; não presumir publicação. CRM 7 foi responsável técnico histórico do UX02 de 16/10. O adendo de 04/11 registra repasse CRM 7 → CRM 8, também PREPARADO/NÃO PUBLICADO. Não há mandato certificado no Core; o método e o titular atuais dependem de fonte de decisão e validação da Camada Mestre. Não preencher credencial, titular nominal ou data de vigência por inferência.",
+    source: UX+"; docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA13_CA17_RECONCILIACAO_FONTES_2026-11-14.md; docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA13_CA17_SUCESSAO_2026-11-14.md"
   },
   "FM-09": {
-    title: "CRM — evolução técnica e pendências (rascunho)",
-    body: "O mapa CRM UX 02 registra A3.1 (filtros e indicadores da Inbox) e B3.1-A (ficha do contato na terceira coluna). No checkpoint final de 16/10/2026, os oito incrementos A-01, A-02 e B-01 a B-06 estavam integrados, com CI técnica aprovada. As PRs #283, #284, #286, #287, #290, #291, #296 e #297 são referências de integração naquele marco; os trabalhos #292, #293 e #294 foram substituídos e não devem ser confundidos com entregas atuais. O próprio mapa exige UAT autenticada em desktop, largura intermediária e celular; conferir filtro, edição fiscal/endereço/financeiro, próxima ação, opt-out, navegação com rascunho pendente, conversa e ações críticas. A existência de código e merge não prova deploy atual nem aceite funcional. O registro CRM-UX02 do Núcleo acompanha o checkpoint, não deve encerrar a frente por inferência.",
-    source: UX+"; src/components/crm/AttendanceActionBar.tsx; src/components/crm/CrmFocusQueue.tsx",
+    title: "CRM — evolução, checkpoints e gates (proposta revisada)",
+    body: "Histórico preservado: CRM UX02 em 16/10 integra A-01/A-02 e B-01–B-06, com PRs #283/#284/#286/#287/#290/#291/#296/#297 e CI; UAT autenticado permanece pendente. Estado CRM V1.2 de 14/10 não foi publicado pelo simples fato de estar na Biblioteca. Adendo de 04/11 descreve sucessão CRM7→CRM8 e correção preventiva da PR #411 contra eventos Meta antigos, duplicados e reações; PR #412 só reverte mudança incidental de plano. GitHub comprova merges; deploy foi relatado no adendo, sem reconfirmação independente. Seis casos históricos e ensaio com novos eventos legítimos são pendências do especialista CRM, sem autorização de ação pelo Núcleo. Frentes CA-13/17 não são encerradas por essa proposta; registrar decisões de autoridade e testes reais apenas com prova.",
+    source: UX+"; docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA13_CA17_SUCESSAO_2026-11-14.md; docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA14_CONTROLES_INBOX_2026-11-14.md"
   },
   "FM-10": {
     title: "CRM — aprendizados reutilizáveis e limites (rascunho)",
