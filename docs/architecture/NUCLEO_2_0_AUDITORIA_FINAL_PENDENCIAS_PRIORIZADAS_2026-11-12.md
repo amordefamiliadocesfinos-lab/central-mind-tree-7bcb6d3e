@@ -865,7 +865,7 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 
 ### P2 — Contrato técnico mínimo / nenhuma tabela nova
 
-Arquivo puro `src/lib/nucleo/ac02RegistryContract.ts`:
+Arquivo puro originalmente apresentado em `src/lib/nucleo/ac02RegistryContract.ts` e, após a preparação da leitura autenticada, mantido como fonte única em `_shared/nucleo/ac02-registry-contract.ts`, com reexportação no caminho anterior:
 - `AC02_GLOBAL_IDENTITY` e `AC02_GLOBAL_ITEMS`: identidade, repositório principal `amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e` / `main`, projeto Lovable `1720a410-34cd-4410-995c-8c92c7edf16b`, Supabase Cloud integrado `xkskyutmtlhivvpfxkjg`, ambientes declarados, políticas de método/segurança e fontes de autoridade. **Origem = deliberação da Camada Mestre**, não validação temporal do deploy.
 - `Ac02Item`: chave, domínio, rótulo, valor não secreto, autoridade, natureza e versão da evidência, status, fonte, data de verificação, visibilidade, ressalva.
 - `Ac02DynamicEvidence`: estado técnico **datado e separado**, fonte/versão do sistema observado, classe de visibilidade; `buildAc02Registry` compara identidade oficial e fatos observados, mantém divergências e expirados como pendências, sem alterar o valor soberano.
@@ -892,3 +892,21 @@ Contrato de pacote em ordem: A) projeto e identidade global, B) ambientes e resp
 Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, mudança divergente de branch observada, vencimento de observações, bloqueio de valores/URLs com segredos, fonte restrita, filtro de fontes ao compor assunção sem acesso e negativa de inferir autoridade. Integrado ao workflow de CI do Núcleo existente.
 
 **Portões futuros:** reconciliar tipo de ambiente (produção, preview e CI) diretamente nos provedores; ler dados técnicos atuais sob autorização; atribuir atualização dinâmica a fonte com prova e cadência; instituir ACL da consulta por humano/IA autorizada antes de expor eventual endpoint; contrato final do Pacote Oficial de Assunção pela Camada Mestre; homologação humana/visual posterior. Não criar registro de configuração persistente paralelo nem duplicar a Biblioteca.
+
+
+## 58. AC-02 — consulta estruturada autenticada por contrato existente (14/11/2026)
+
+**Escopo autorizado:** continuação técnica AC-02 P2/P4/P5, sem telas (UX transferido), schema, migrations, concessões, homologação, Entrega B ou novo endpoint paralelo. Base: aprovação do AC-02 pela Camada Mestre + contrato da PR #806, vigente na `main`. Sem reabertura de M0–M5.
+
+**Reuso técnico:** `supabase/functions/nucleo-knowledge-read/index.ts` recebe `include_ac02?:boolean` (padrão ausente/false), preservando `module_code`, `include_review` e o formato anterior quando AC-02 não solicitado. A função continua `verify_jwt=true` conforme `supabase/config.toml`, usa Supabase anon/publishable key **com JWT do chamador**, `auth.getUser(token)`, capability ativa `nucleo_manage` e leitura de módulo/Fichas Vivas sob RLS antes de construir o contexto. Nunca fornece `service_role` nem escreve dados. Não cria novo endpoint ou tabela.
+
+**Projeção:** o contrato canônico TypeScript reside em `supabase/functions/_shared/nucleo/ac02-registry-contract.ts`, importado pela Edge Function e reexportado ao frontend por `src/lib/nucleo/ac02RegistryContract.ts`, sem redefinir identidades. `include_ac02=true` gera dados consultivos estruturados com: 
+- Identidade global decidida pela Camada Mestre (GitHub, Lovable, Cloud e diretrizes).
+- Observações temporais do repositório e branch via GET de URL GitHub fixa, com timeout e status indeterminado caso indisponível. Não confirmar deployment/CI pelo branch.
+- Conferência restrita do ref Supabase **somente** pelo hostname da variável de runtime, sem divulgar URL, header, token ou segredo. Host fora do formato esperado equivale a verificação indeterminada, **não** prova de banco independente.
+- Contexto específico do módulo com referências de revisão FM-08 (método/ecossistema), FM-03 (escopo) e FM-09 (checkpoint) quando encontradas nas seções já lidas sob RLS, com estado e versão declarados; não ler/replicar body ou referência privada da origem para o pacote AC-02. Não afirmar mandato vigente. `sourceRefs=[]` e `access=nao_verificado` enquanto ACL das fontes externas não foi comprovada.
+- Conflitos de identidade, informações vencidas e verificações com status falha/indeterminado são explícitos e não promovem fonte observada à autoridade superior.
+
+**Testes e limites:** `scripts/nucleo-ac02-registry.test.cjs` ampliado para falha e proteção de metadados sensíveis; `scripts/nucleo-ac02-authenticated-read.test.cjs` confere contrato de entrada, ordem de JWT/capability/RLS anterior à projeção e ausência de mutações. Integração ao CI já existente `.github/workflows/nucleo-ac01-validation.yml`, com PostgreSQL descartável e build. Esses testes de contrato **não equivalem** a E2E com usuário real ou a deploy da Edge Function. Executar ensaio autenticado autorizado, confirmar estado publicado do código e verificar rede/ACL antes de declarar acesso em produção.
+
+**Ponto de decisão futuro:** caso seja necessária leitura global AC-02 sem módulo, uma rota/consulta específica exigirá nova deliberação sobre escopo/ACL; nesta etapa o AC-02 fica acoplado à consulta de módulo autenticada existente. O contexto para novo chat permanece **rascunho de assunção**, não transmissão automática nem acesso concedido. A interface permanece responsabilidade do Especialista UX.

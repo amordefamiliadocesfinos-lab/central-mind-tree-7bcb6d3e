@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+"use strict";
+const fs=require("node:fs");
+const assert=require("node:assert/strict");
+const ts=require("typescript");
+const p="supabase/functions/nucleo-knowledge-read/index.ts";
+const code=fs.readFileSync(p,"utf8");
+const compiled=ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(compiled.diagnostics?.filter(x=>x.category===ts.DiagnosticCategory.Error).length??0,0);
+const authAt=code.indexOf("const identity=await db.auth.getUser(token)");
+const grantAt=code.indexOf('const grant=await db.from("app_admin_capabilities")');
+const moduleAt=code.indexOf('const moduleResult=await db.from("nucleo_development_workstreams")');
+const projectionAt=code.indexOf("if(body.include_ac02===true){");
+assert.ok(authAt>0&&grantAt>authAt&&moduleAt>grantAt&&projectionAt>moduleAt,"AC02 must be after JWT, capability and RLS");
+assert.ok(code.includes("include_ac02")&&code.includes('typeof body.include_ac02!=="boolean"'));
+assert.ok(code.includes("buildAc02Registry(observations,readAt,24)"));
+assert.ok(code.includes("prepareAc02AssumptionDraft(projection,ac02ModuleContext(module,sections))"));
+assert.ok(code.includes('access:"nao_verificado" as const'));
+assert.ok(code.includes('sourceRefs:[] as string[]'));
+assert.ok(code.includes('source:"supabase/runtime/project-ref"'));
+assert.ok(!code.includes('service_role')||code.includes("NUNCA service role"));
+assert.ok(!/\.insert\(|\.update\(|\.delete\(|\.upsert\(|\.rpc\(/.test(code),"read endpoint may not mutate");
+assert.ok(code.includes('...(body.include_ac02===true?{ac02}:{})'));
+assert.ok(code.includes('from "../_shared/nucleo/ac02-registry-contract.ts"'));
+console.log("PASS AC02 read path: strict input, JWT/capability/RLS order, no private source transfer, no writes");

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { buildAc02Registry, prepareAc02AssumptionDraft, type Ac02DynamicEvidence } from "../_shared/nucleo/ac02-registry-contract.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isRequestedModuleCode, reviewImpact, validPrNumber, type PrImpact } from "../_shared/nucleo/knowledge-contract.ts";
 
@@ -51,6 +52,55 @@ async function fetchPR(pr:PRRecord):Promise<{record:PrImpact|null;complete:boole
     return {record:null,complete:false};
   }
 }
+/**
+ * AC-02: optional, always after JWT + active nucleo_manage + module RLS.
+ * Provider checks are bounded, fixed-URL and return only public metadata.
+ * Failure never becomes a verified identity or a deployment claim.
+ */
+async function ac02GithubObservation(readAt:string):Promise<Ac02DynamicEvidence[]>{
+ const source="https://api.github.com/repos/"+REPO;
+ const out:Ac02DynamicEvidence[]=[];
+ const observation=(id:string,recordId:string,value:string,version:string,status:"observado"|"indeterminado"):Ac02DynamicEvidence=>({
+  id,recordId,value,observedAt:readAt,source,sourceVersion:version,status,
+  visibility:"publico_nao_secreto",
+ });
+ try{
+  const response=await fetch(source,{headers:githubHeaders(),signal:AbortSignal.timeout(6000)});
+  if(!response.ok)throw new Error("GitHub response unavailable");
+  const data=await response.json() as {full_name?:unknown;default_branch?:unknown};
+  if(typeof data.full_name!=="string"||typeof data.default_branch!=="string")throw new Error("Invalid response");
+  out.push(observation("ac02.live.github","ac02.github",data.full_name,"github/repository", "observado"));
+  out.push(observation("ac02.live.branch","ac02.github.branch",data.default_branch,"github/repository", "observado"));
+ }catch{
+  out.push(observation("ac02.live.github","ac02.github","não verificado","github/unavailable","indeterminado"));
+  out.push(observation("ac02.live.branch","ac02.github.branch","não verificado","github/unavailable","indeterminado"));
+ }
+ return out;
+}
+function ac02CoreObservation(readAt:string,envUrl:string):Ac02DynamicEvidence {
+ // Do not expose URLs, tokens or network topology. Compare only an allowlisted project ref.
+ let ref="não verificado";
+ let status:"observado"|"indeterminado"="indeterminado";
+ try{
+  const host=new URL(envUrl).hostname.toLowerCase();
+  const m=/^([a-z0-9]{20})\.supabase\.co$/.exec(host);
+  if(m){ref=m[1];status="observado";}
+ }catch{ /* infrastructure not confirmed */ }
+ return {id:"ac02.live.core",recordId:"ac02.supabase",value:ref,
+  observedAt:readAt,source:"supabase/runtime/project-ref",sourceVersion:"host-only",
+  status,visibility:"publico_nao_secreto"};
+}
+function ac02ModuleContext(module:{id:string;code:string;title:string},sections:Array<{section_code:string;revision:{id:string;version_no:number;authority_state:string}|null}>){
+ const fm=new Map(sections.map(x=>[x.section_code,x.revision]));
+ const ref=(code:string)=>{const item=fm.get(code);return item?code+" / Core revision "+item.id+" v"+item.version_no+" ("+item.authority_state+")":null};
+ return {
+  moduleId:module.id,moduleCode:module.code,
+  specialistRole:"Especialidade funcional vinculada ao módulo "+module.code+"; titular e mandato não certificados pelo AC-02",
+  methodRef:ref("FM-08"),ecosystemRef:ref("FM-08"),scopeRef:ref("FM-03"),
+  checkpointRef:ref("FM-09"),sourceRefs:[] as string[],checkedAt:null,
+  access:"nao_verificado" as const,
+ };
+}
 Deno.serve(async request=>{
   if(request.method==="OPTIONS")return new Response("ok",{headers:corsHeaders});
   if(request.method!=="POST")return json({error:"Método não permitido"},405);
@@ -66,9 +116,10 @@ Deno.serve(async request=>{
   }catch{return json({error:"JSON inválido"},400);}
   if(!input||typeof input!=="object"||Array.isArray(input))return json({error:"Corpo inválido"},400);
   const body=input as Record<string,unknown>;
-  if(!isRequestedModuleCode(body.module_code)||Object.keys(body).some(k=>!["module_code","include_review"].includes(k))||
-    (body.include_review!==undefined&&typeof body.include_review!=="boolean")){
-    return json({error:"Informe module_code de três letras; include_review opcional"},400);
+  if(!isRequestedModuleCode(body.module_code)||Object.keys(body).some(k=>!["module_code","include_review","include_ac02"].includes(k))||
+    (body.include_review!==undefined&&typeof body.include_review!=="boolean")||
+    (body.include_ac02!==undefined&&typeof body.include_ac02!=="boolean")){
+    return json({error:"Informe module_code válido e opções booleanas include_review/include_ac02"},400);
   }
   const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY");
   if(!url||!anon)return json({error:"Serviço de autenticação não configurado"},503);
@@ -147,12 +198,23 @@ Deno.serve(async request=>{
         }
       }
     }
+    let ac02:ReturnType<typeof prepareAc02AssumptionDraft>|null=null;
+    if(body.include_ac02===true){
+      const readAt=new Date().toISOString();
+      const observations=await ac02GithubObservation(readAt);
+      observations.push(ac02CoreObservation(readAt,url));
+      const projection=buildAc02Registry(observations,readAt,24);
+      // Only metadata already returned under the same module RLS snapshot.
+      // No source body, private Drive metadata, credentials, or mandate assertion.
+      ac02=prepareAc02AssumptionDraft(projection,ac02ModuleContext(module,sections));
+    }
     // Resposta sem métodos de escrita e sem dados pessoais de outras tabelas.
     return json({
       contract:"nucleo_a_plus_ca16_ca18_v1",
       module:{id:module.id,code:module.code,title:module.title,description:module.description},
       sections,fronts:fronts.map(f=>({code:f.code,title:f.title,status:"declarado:"+f.status,next_action:f.next_action})),
       technical_evidence_count:evidenceCount,review,
+      ...(body.include_ac02===true?{ac02}:{}),
       restrictions:["consulta sob JWT e RLS","não executa comandos","não certifica método","não comprova homologação ou deploy"],
       read_at:new Date().toISOString(),
     });
