@@ -146,3 +146,21 @@ A revisão acima **não altera nem aprova os critérios CA-01–CA-29**. As caut
 - **UX-A6:** reconciliação documental executada neste mesmo mapa, sem segundo mapa ou base paralela, sem código funcional.
 - **UX A2–A5:** integradas e cobertas por CI declarada acima; **UX-A1** segue pendente; **UX A+ integral** e critérios CA não homologados.
 - **Próxima ação:** tratar P1 pela frente Núcleo técnica; após seu aceite e nova CI, revisar a UX-A1 e consolidar as evidências finais; manter UAT humano adiado até decisão expressa.
+
+## 10. Atualização de evidências UX-A1 e V2.3–V2.5 — 14/11/2026
+
+**Natureza:** adendo factual à seção 9, sem alterar a arquitetura UX congelada, o Mapa Mestre V1.3 nem CA-01–CA-29. O estado descrito em 9.3/9.4 corresponde ao corte histórico ANTERIOR às PRs abaixo; este adendo registra sua evolução posterior.
+
+| Entrega | Prova de integração na main | Limites e efeito real |
+|---|---|---|
+| **M5/AC-01 — reconciliação do teste** | [PR #829](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/829), merge `49e2600254ef466e24707050787af4d2679c6874`, workflow M5 `SUCCESS` | Ajuste somente de asserções estáticas para readback condicional `proposta` (inicial) / `em_evolucao` (revisão) e navegação UX-A3B existente. Nenhum writer, RLS, mandato ou portão alterado; [issue #804](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/804) encerrada |
+| **UX-A1 — entrada progressiva V2.3** | [PR #830](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/830), merge `1419ef5b32a9ed5ebe0f70b116d0d597b519c631`; M3, M3 no-op/layout, M4, M5 `SUCCESS` | Visão Geral/Atlas e Frentes/Acompanhamento em vistas montadas, com proteção de edições M3 ao trocar de frente, aviso ao descarregar e bloqueio durante gravação. A [PR #802](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/802) foi encerrada **sem merge** por substituição, não eliminada da história |
+| **UX V2.4 — rascunhos documentais** | [PR #831](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/831), merge `3918198e9ca7b3641f000c95e6aa97079be14e3b`; M3 e AC-01 `SUCCESS` | Ficha Viva e contribuições do especialista informam edições/pendências; troca de módulo confirma descarte ou é bloqueada por gravação/resultado indeterminado AC-01. Proteção no fechamento da aba. Não é armazenamento automático de rascunhos entre sessões |
+| **UX V2.5 — contextos e vigência** | [PR #833](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/833), merge `8b09ccdadebfb2742079b0baca0534c92a75db50`; M0, M2, M3, M3 no-op e AC-01 `SUCCESS` | Menu diferencia Biblioteca **local do navegador** e Central/ **Core** sem criar segunda base. Aba AC-01 agora indica “Vigência e comprovação”; separa fonte FM declarada de publicação INTERNA, sem inferir atualização externa canônica |
+
+### 10.1 Situação após a execução
+
+- **UX-A1 a UX-A6:** microfrentes técnicas previstas no mapa executadas/integradas, com evidências acima e na seção 9. Isso **não equivale** a homologação visual humana, aceite CA-01–CA-29 nem conclusão de todas as funções do Núcleo 2.0.
+- **UX V2.3–V2.5:** refinamentos autorizados de apresentação e proteção de estado, sem reconstrução de Núcleo, Ficha Viva, Biblioteca, integração com GitHub/Supabase ou permissões.
+- **Pendências ainda legítimas:** homologação autenticada desktop/mobile e acessibilidade integral, ações de navegação SPA externas não cobertas por avisos de `beforeunload`, rascunhos entre sessões/recarregamentos, dependência AC-02 condicionada à Camada Mestre, publicação canônica externa e portões INSERT/RPC fechados. Não criar por padrão novas frentes de aparência sem evidência de uso real.
+- **Prova de CI:** verificações técnicas em GitHub Actions; não confirma por si só disponibilidade do deployment final, qualidade visual percebida ou conformidade WCAG 2.2 AA.
