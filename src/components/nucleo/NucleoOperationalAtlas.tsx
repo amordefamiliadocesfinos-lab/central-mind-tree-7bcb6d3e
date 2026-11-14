@@ -101,6 +101,22 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
     return catalog.filter(item => !term ||
       [item.name, item.domain, item.id, item.specialist ?? ""].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [catalog, search]);
+  // Prioridades de CONSULTA: cartões ordenados por lacunas verificáveis M3.
+  // Não representa prioridade comercial calculada, progresso ou homologação.
+  const portfolioAttention = catalog.map(module => {
+    const record = workstreams.find(item=>item.kind==="modulo"&&item.code===module.id);
+    const fronts = record ? workstreams.filter(item=>item.kind==="frente"&&item.parent_id===record.id) : [];
+    const critical = fronts.filter(front=>front.status==="bloqueado"||front.priority==="critica");
+    return {module,record,fronts,critical,
+      reason:critical.length>0
+        ? `${critical.length} frente(s) com bloqueio ou prioridade crítica declarada(s)`
+        : record && fronts.length===0
+          ? "Módulo no Core ainda sem frente M3 vinculada"
+          : !record
+            ? "Módulo no catálogo sem cadastro M3 confirmado"
+            : "Acompanhar o estado e as próximas ações das frentes",
+      rank:critical.length>0?0:record&&fronts.length===0?1:!record?2:3};
+  }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
@@ -189,6 +205,33 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 <p className="text-sm font-medium leading-snug">{item.label}</p>
                 <p className="mt-2 text-3xl font-bold tabular-nums">{item.value}</p>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {level==="overview" && (
+        <section className="space-y-3" aria-label="Por onde começar — atenção do gestor">
+          <div className="flex flex-wrap justify-between items-start gap-2">
+            <div>
+              <h3 className="text-base font-semibold">Por onde começar</h3>
+              <p className="text-xs text-muted-foreground">Atalhos de consulta organizados por lacunas e prioridades declaradas no M3. Não são decisões nem alertas automáticos.</p>
+            </div>
+            <Badge variant="outline">Leitura do catálogo e do Core</Badge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {portfolioAttention.map(({module,record,fronts,reason})=>(
+              <button type="button" key={module.id} onClick={()=>choose(module)}
+                className="rounded-xl border p-4 text-left min-w-0 hover:border-primary/60 hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="outline">{module.id}</Badge>
+                  <span className="text-xs text-muted-foreground">{fronts.length} frente(s) M3</span>
+                </div>
+                <p className="font-semibold text-sm mt-3">{module.name}</p>
+                <p className="text-xs text-muted-foreground mt-1 min-h-12 leading-relaxed">{reason}</p>
+                <p className="text-xs mt-2 line-clamp-2">Próxima ação: {record?.next_action.trim()||"não cadastrada neste módulo"}</p>
+                <span className="block text-sm font-medium text-primary mt-3">Explorar módulo</span>
+              </button>
             ))}
           </div>
         </section>
