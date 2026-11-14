@@ -47,13 +47,14 @@ function ancestorModule(front:DevelopmentWorkstream,byId:Map<string,DevelopmentW
 export default function NucleoKnowledgeReviewConsole({
   workstreams,evidence,
 }:{workstreams:DevelopmentWorkstream[];evidence:TechnicalEvidence[]}) {
-  const modules=useMemo(()=>workstreams.filter(w=>w.kind==="modulo"&&w.code!=="NUC")
+  const modules=useMemo(()=>workstreams.filter(w=>w.kind==="modulo")
     .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR")),[workstreams]);
   const [moduleId,setModuleId]=useState<string>("");
   const [rows,setRows]=useState<FM[]>([]);
   const [readState,setReadState]=useState<"carregando"|"completo"|"indeterminado">("carregando");
   const [refresh,setRefresh]=useState(0);
   const [copyState,setCopyState]=useState("");
+  const [queueState,setQueueState]=useState<"todos"|"pendentes"|"homologados"|"historico">("pendentes");
   const [originReview,setOriginReview]=useState<LiveReview|null>(null);
   const [originReviewState,setOriginReviewState]=useState<"ocioso"|"consultando"|"completo"|"indeterminado">("ocioso");
   const reviewRequest=useRef(0);
@@ -104,6 +105,14 @@ export default function NucleoKnowledgeReviewConsole({
     const source=MODULE_PROVENANCE[selected.code];
     return {latest,descendants,linkedEvidence,prEvidence,pending,insufficientDates,source};
   },[selected,readState,rows,workstreams,evidence]);
+  const queueRows=details?Array.from(details.latest.values()).filter(revision=>
+    queueState==="todos"||
+    (queueState==="pendentes"&&["rascunho","proposta"].includes(revision.authority_state))||
+    (queueState==="homologados"&&revision.authority_state==="homologado")||
+    (queueState==="historico"&&revision.authority_state==="historico")
+  ).sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at)):[];
+  const queueCount=details?Array.from(details.latest.values()).filter(r=>
+    ["rascunho","proposta"].includes(r.authority_state)).length:0;
   const checkSourceReview=async()=>{
     if(!selected||readState!=="completo"||originReviewState==="consultando")return;
     const request=++reviewRequest.current;
@@ -176,7 +185,47 @@ export default function NucleoKnowledgeReviewConsole({
         <Badge variant="outline">{details.descendants.length} frente(s)/subfrente(s) vinculada(s)</Badge>
         <Badge variant="outline">{details.linkedEvidence.length} evidência(s) M4 vinculada(s)</Badge>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <section className="rounded-md border p-3 space-y-3" aria-label="Fila de revisões do gestor AC-01">
+         <h5 className="font-semibold text-sm">Conhecimento e Evolução — fila de revisões</h5>
+         <p className="text-xs text-muted-foreground">
+           Visão das últimas revisões por seção FM deste módulo registradas no Core.
+           Não é fila de todo o Drive/GitHub, nem atribui autoridade a um especialista.
+           Sem decisão ou homologação automática.
+         </p>
+         <div className="flex flex-wrap gap-2">
+           {([
+             ["pendentes",`Propostas/rascunhos (${queueCount})`],
+             ["homologados","Homologados registrados"],
+             ["historico","Histórico classificado"],
+             ["todos","Todos"],
+           ] as Array<[typeof queueState,string]>).map(([state,label])=>
+             <Button type="button" size="sm" key={state}
+               aria-pressed={queueState===state} variant={queueState===state?"default":"outline"}
+               onClick={()=>setQueueState(state)}>{label}</Button>)}
+         </div>
+         {queueRows.length===0&&<p role="status" className="text-xs text-muted-foreground">
+           Nenhuma revisão corresponde ao filtro nesta leitura. Isso não comprova ausência na fonte documental.
+         </p>}
+         <div className="grid gap-2 md:grid-cols-2">
+           {queueRows.map(revision=><article key={revision.id} className="rounded-md border p-3 space-y-2">
+             <div className="flex flex-wrap gap-2">
+               <Badge variant="outline">{revision.section_code} · v{revision.version_no}</Badge>
+               <Badge variant="secondary">{revision.authority_state.replaceAll("_"," ")}</Badge>
+             </div>
+             <p className="font-semibold text-sm">{revision.title}</p>
+             <p className="text-xs text-muted-foreground">Registro: {new Date(revision.recorded_at).toLocaleString("pt-BR")}</p>
+             <p className="text-xs text-muted-foreground break-words">Fonte declarada: {revision.source_reference||"não informada"}</p>
+             <details className="border rounded p-2 text-xs">
+               <summary className="cursor-pointer">Consultar versão</summary>
+               <p className="whitespace-pre-wrap break-words mt-2">{revision.body}</p>
+             </details>
+             <p className="text-xs text-muted-foreground">
+               Revisar e comparar na Ficha Viva. Este cartão não aprova, publica ou altera documentos.
+             </p>
+           </article>)}
+         </div>
+       </section>
+       <div className="grid gap-2 sm:grid-cols-2">
         {FM_CODES.map(code=>{
           const rev=details.latest.get(code);
           return <div key={code} className="rounded border p-3 space-y-1 text-xs">
