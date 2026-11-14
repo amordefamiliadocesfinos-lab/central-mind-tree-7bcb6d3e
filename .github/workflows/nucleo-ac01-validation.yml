@@ -6,12 +6,15 @@ on:
       - "src/components/nucleo/NucleoContributionDesk.tsx"
       - "src/components/nucleo/NucleoAC01ReviewTrail.tsx"
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
+      - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/lib/nucleo/ac01ReadOnlyDesk.ts"
       - "scripts/nucleo-ac01-readonly-desk.test.cjs"
       - "supabase/migrations/20261114183000_nucleo_ac01_contributions.sql"
       - "supabase/migrations/20261114183100_nucleo_ac01_revoke_inherited_write_grants.sql"
       - "supabase/migrations/20261114183200_nucleo_ac01_review_events.sql"
       - "supabase/migrations/20261114183300_nucleo_ac01_decision_requests.sql"
+      - "supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql"
+      - "scripts/nucleo-ac01-decision-publication-gates.test.sql"
       - "scripts/nucleo-ac01-decision-requests.test.sql"
       - "scripts/nucleo-ac01-review-events.test.sql"
       - "scripts/nucleo-ac01-schema.test.sql"
@@ -54,6 +57,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193601_nucleo_m1_harden_service_role.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111210000_nucleo_m2_source_references.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111222000_nucleo_m3_development_center.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113210000_nucleo_v12_mandatos_auditaveis.sql
       - name: Apply AC-01 only to disposable PostgreSQL
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183000_nucleo_ac01_contributions.sql
       - name: Simulate permissive default privilege drift of the Cloud Core
@@ -72,6 +76,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183300_nucleo_ac01_decision_requests.sql
       - name: Exercise decision-request authorization, no promotion, negative cases
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-requests.test.sql
+      - name: Install closed decision/publication gates on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql
+      - name: Validate no implicit delegation, approval or publication
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-publication-gates.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
