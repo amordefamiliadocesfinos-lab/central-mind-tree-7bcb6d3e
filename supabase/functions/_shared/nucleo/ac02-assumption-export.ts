@@ -5,6 +5,7 @@
  * acesso, publica fontes ou transmite para outro chat.
  */
 import { summarizeAc02Continuity } from "./ac02-continuity-summary.ts";
+import { describeAc02DocumentaryCoverage, type Ac02DocumentaryRevision } from "./ac02-documentary-coverage.ts";
 import {
  AC02_GLOBAL_ITEMS, AC02_GLOBAL_IDENTITY,
  type Ac02Projection, type Ac02SpecialistContext,
@@ -22,6 +23,8 @@ export type Ac02AssumptionInput=Readonly<{
  moduleTitle:string;
  preparedAt:string;
  technical?:Ac02HandoffTechnicalContext;
+ documentary?:readonly Ac02DocumentaryRevision[];
+ documentaryReadComplete?:boolean;
 }>;
 export type Ac02AssumptionExport=Readonly<{
  kind:"nucleo_ac02_pacote_oficial_assuncao_rascunho";
@@ -120,6 +123,22 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   ...continuity.warnings.map(w=>"- Ressalva: "+w),
  ]:["- Sem inventário suficiente para gerar síntese operacional."];
 
+ const coverage=input.documentary?describeAc02DocumentaryCoverage(input.documentary,input.documentaryReadComplete===true):null;
+ if(!coverage)unresolved.push("Cobertura de FM-03/FM-08/FM-09: metadados de revisão não disponibilizados");
+ else if(coverage.warnings.length)unresolved.push("Cobertura documental: revisar ressalvas, origem e último checkpoint operacional");
+ const coverageLines=coverage?[
+  "- Fonte: metadados de revisão do Core; documentos e referências privadas não incluídos.",
+  ...coverage.entries.map(e=>"- "+e.sectionCode+": "+e.status+
+   " / versão "+(e.versionNo??"NÃO COMPROVADA")+
+   " / id "+(e.revisionId??"NÃO COMPROVADO")+
+   " / autoridade declarada "+(e.authorityState??"NÃO COMPROVADA")+
+   " / registro "+(e.recordedAt??"NÃO COMPROVADO")+
+   " / referência de fonte "+e.sourceReference),
+  ...coverage.warnings.map(w=>"- Ressalva: "+w),
+  "- Último checkpoint operacional comprovado: NÃO. FM-09 é referência documental, não prova de conclusão real.",
+  "- Método e ecossistema distintos comprovados: NÃO. FM-08 é uma seção compartilhada.",
+ ]:["- Cobertura documental não recuperada; não inferir fonte, versão ou checkpoint."];
+
  // Deliberately don't include arbitrary strings from moduleTitle,
  // specialistRole, sourceRefs, evidence, warnings or external document bodies.
  const title="Módulo "+code;
@@ -162,14 +181,17 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "## 5. Síntese operacional da continuidade (consultiva)",
   ...summaryText,
   "",
-  "## 6. Estado de verificação",
+  "## 6. Cobertura documental e checkpoint",
+  ...coverageLines,
+  "",
+  "## 7. Estado de verificação",
   "- Identidade global: aprovada como diretriz; não equivale a deploy/CI atual.",
   "- Evidências técnicas mutáveis: NÃO transmitidas neste pacote; conferir GitHub, Core e provedores antes de executar.",
   "",
-  "## 7. Pendências obrigatórias antes da assunção operacional",
+  "## 8. Pendências obrigatórias antes da assunção operacional",
   ...unresolved.map(item=>"- "+item),
   "",
-  "## 8. Condições de continuidade",
+  "## 9. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",

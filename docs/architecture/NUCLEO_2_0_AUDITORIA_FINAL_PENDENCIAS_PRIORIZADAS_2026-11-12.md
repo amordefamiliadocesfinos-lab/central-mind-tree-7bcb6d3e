@@ -1053,3 +1053,14 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Validação diferida:** o resumo NÃO valida o estado técnico no GitHub, não checa a vigência da Ficha Viva, não executa frentes, não concede acesso, não altera banco/Edge Function/UX e não homologa sucessão. As frentes AC02-SESSION-01, AC02-PROOF-01 e AC02-PACKAGE-01 permanecem checkpoints de implantação posterior; propostas SQL #817/#821/#822 permanecem fora das migrations produtivas.
 
 **Próxima continuidade sem bloqueio:** melhorar a legibilidade e a cobertura do checkpoint e das fontes autorizadas, com base em metadados comprováveis, sem tentar decidir método/ecossistema por inferência ou antecipar Entrega B.
+
+
+## 68. AC-02 — cobertura documental FM-03/FM-08/FM-09 e checkpoint não presumido (14/11/2026)
+
+**Decisão do proprietário:** desenvolver somente frentes sem bloqueio; sessão/autorização, ledger, fonte de evidência, deploy, UX e homologações reais permanecem PENDENTES. Nenhuma autorização anterior de segurança foi ampliada.
+
+**Evolução:** `supabase/functions/_shared/nucleo/ac02-documentary-coverage.ts` cria uma projeção de metadados de revisões de `nucleo_module_knowledge_revisions` para FM-03 (escopo), FM-08 (seção compartilhada método/ecossistema) e FM-09 (checkpoint documental). Informa apenas código, UUID de revisão, versão, estado de autoridade **declarado**, data de registro e presença/ausência de referência de fonte. Não copia `source_reference`, `body`, `title`, URLs ou notas livres. Identidades e versões inválidas são omitidas com ressalvas, sem corrigir conteúdo documental de modo arbitrário.
+
+**Integração:** a função de leitura `nucleo-knowledge-read` já recupera as revisões sob JWT, `nucleo_manage` e RLS, sem consulta adicional. O pacote de assunção inclui uma seção específica de cobertura documental e informa explicitamente: **FM-09 existente ≠ último checkpoint operacional comprovado**; **FM-08 único ≠ método e ecossistema distintos homologados**. O campo `sourcePresent` só declara preenchimento do `source_reference`; não prova existência/atualidade/acesso ao documento. Reexport `src/lib/nucleo/ac02DocumentaryCoverage.ts` disponível ao Especialista UX sem implementação de interface.
+
+**Continuidades:** os valores textuais reais de método, ecossistema, escopo e checkpoint ainda dependem da abertura autorizada dos documentos originais e da avaliação de mandato; o registro de revisão não substitui essa investigação. Fonte privada permanece fora da exportação. CI de contrato cobre FM sem registro, leitura indeterminada, duplicidade, ausência de fonte e restrição de conteúdo. O Mapa V1.3, CA-01–29, M0–M5 e Entrega A+ permanecem soberanos; Entrega B não iniciada.
