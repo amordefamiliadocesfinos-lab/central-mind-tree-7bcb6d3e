@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
- AC01_DOCUMENT_CATEGORIES, AC01_FUNCTIONS, buildAc01DocumentView, declaredAuthorityCoverage,
+ AC01_DOCUMENT_CATEGORIES, AC01_FUNCTIONS, AC01_AUTHORITY_PROCEDURE, buildAc01DocumentView, declaredAuthorityCoverage,
  type Ac01Record, type Ac01Request, type Ac01Decision, type Ac01Publication,
  type Ac01Mandate, type Ac01Grant, type Ac01FM,
 } from "@/lib/nucleo/ac01DocumentGovernance";
@@ -209,6 +209,14 @@ export default function NucleoAC01DocumentGovernance({
     <p className="text-xs">Escopo selecionado: {declaredRole||"papel ainda não confirmado"} · {category==="todas"?"todas as categorias (sem delegação coletiva)":category}.</p>
     {category!=="todas"&&<p className="text-xs">Delegações declaradas com mandato válido neste recorte: {scopedGrants.length}. Isto não comprova permissão técnica para decidir ou publicar.</p>}
     <p className="text-xs text-muted-foreground">Certificar, delegar, revogar e substituir responsáveis dependem do ato documentado da Camada Mestre, e da trilha formal; nenhuma escrita está habilitada.</p>
+    <details className="rounded border p-3 text-xs">
+     <summary className="cursor-pointer font-semibold">Procedimento de certificação, substituição e publicação (preparação sem execução)</summary>
+     <div className="mt-2 space-y-2">
+      {AC01_AUTHORITY_PROCEDURE.map(p=><div className="border-l-2 pl-2" key={p.code}>
+        <strong>{p.code} · {p.step}</strong><p>{p.detail}</p>
+      </div>)}
+     </div>
+    </details>
    </div>}
    {selected&&<div className="rounded border p-3 space-y-1 text-xs">
     <strong>Referência selecionada: {selected.title} · v{selected.version_no}</strong>
