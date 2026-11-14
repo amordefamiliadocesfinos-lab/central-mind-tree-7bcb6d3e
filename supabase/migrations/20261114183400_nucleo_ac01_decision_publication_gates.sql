@@ -130,6 +130,7 @@ BEGIN
  THEN RAISE EXCEPTION 'AC01: executor mandate not current'; END IF;
  -- Não atualizar referência vigente em tabela legada: publicar primeiro
  -- um evento append-only de vigência interna AC-01, com origem preservada.
+ PERFORM pg_advisory_xact_lock(hashtextextended(c.module_id::text||':'||c.specialist_role||':'||c.contribution_kind,0));
  SELECT p.id INTO last_p FROM public.nucleo_ac01_publication_events p
  JOIN public.nucleo_specialist_contributions prior ON prior.id=p.contribution_id
  WHERE prior.module_id=c.module_id AND prior.specialist_role=c.specialist_role
@@ -142,6 +143,14 @@ BEGIN
 END $f$;
 CREATE TRIGGER nucleo_ac01_publication_guard BEFORE INSERT ON public.nucleo_ac01_publication_events
 FOR EACH ROW EXECUTE FUNCTION public.nucleo_ac01_publication_guard();
+
+-- Escritas privilegiadas também preservam imutabilidade.
+CREATE TRIGGER nucleo_ac01_authority_immutable BEFORE UPDATE OR DELETE
+ON public.nucleo_ac01_authority_grants FOR EACH ROW EXECUTE FUNCTION public.nucleo_revisions_immutable_guard();
+CREATE TRIGGER nucleo_ac01_decision_immutable BEFORE UPDATE OR DELETE
+ON public.nucleo_ac01_decision_acts FOR EACH ROW EXECUTE FUNCTION public.nucleo_revisions_immutable_guard();
+CREATE TRIGGER nucleo_ac01_publication_immutable BEFORE UPDATE OR DELETE
+ON public.nucleo_ac01_publication_events FOR EACH ROW EXECUTE FUNCTION public.nucleo_revisions_immutable_guard();
 
 -- Todas as tabelas de atos e delegações ficam fechadas para escritas via Data API
 -- até haver um fluxo autenticado de decisão e executor avaliado pela Camada Mestre.
