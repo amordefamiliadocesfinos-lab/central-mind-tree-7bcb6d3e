@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS, DIGITAL_DRAFTS, ASSISTENTE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
 import { CRM_AUTHORITY_SOURCES_V12, CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
+import { compareDocumentVersionsV13 } from "@/lib/nucleo/documentDiffV13";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -94,6 +95,8 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const [body,setBody]=useState("");
   const [source,setSource]=useState("");
   const [saving,setSaving]=useState(false);
+  const [compareOlderId,setCompareOlderId]=useState("");
+  const [compareNewerId,setCompareNewerId]=useState("");
 
   useEffect(()=>{
     let current=true;
@@ -126,6 +129,20 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const history=useMemo(()=>revisions
     .filter(r=>r.section_code===section).sort((a,b)=>b.version_no-a.version_no),[revisions,section]);
   const latest=history[0];
+  const older=history.find(r=>r.id===compareOlderId)??history[1];
+  const newer=history.find(r=>r.id===compareNewerId)??history[0];
+  const comparison=older&&newer&&older.id!==newer.id
+    ?compareDocumentVersionsV13(older.body,newer.body):null;
+  const refine=(revision:Revision)=>{
+    if(loading||error||saving)return;
+    if((title.trim()||body.trim()||source.trim())&&!window.confirm(
+      "Existe um rascunho não salvo. Substituí-lo pelo conteúdo da revisão selecionada?"
+    ))return;
+    setTitle(revision.title);
+    setBody(revision.body);
+    setSource(revision.source_reference);
+    setValidationError(null);
+  };
   const templates = {
     CRM: CRM_DRAFTS, SAU: CCH_DRAFTS, SHO: SHOPEE_DRAFTS,
     OPE: OPERACOES_DRAFTS, FIN: FINANCEIRO_DRAFTS,
@@ -295,7 +312,40 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             </p>
             <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
           </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
-          {history.length>1&&<details className="border rounded-md p-3 text-xs">
+          {history.length>1&&<section className="border rounded-md p-3 space-y-3" aria-label="Comparação de versões AC-01">
+             <h5 className="font-semibold text-sm">Conhecimento e Evolução — comparar versões</h5>
+             <p className="text-xs text-muted-foreground">Comparação local dos textos FM persistidos, sem transmissão a terceiros. Não comprova aprovação, vigência nem conflitos de autoridade.</p>
+             <div className="grid gap-2 md:grid-cols-2">
+               <label className="text-xs space-y-1">Versão de origem
+                 <select aria-label="Versão de origem" className="flex h-10 w-full rounded-md border bg-background px-3"
+                   value={older?.id??""} onChange={e=>setCompareOlderId(e.target.value)}>
+                   {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
+                 </select>
+               </label>
+               <label className="text-xs space-y-1">Versão para comparação
+                 <select aria-label="Versão para comparação" className="flex h-10 w-full rounded-md border bg-background px-3"
+                   value={newer?.id??""} onChange={e=>setCompareNewerId(e.target.value)}>
+                   {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
+                 </select>
+               </label>
+             </div>
+             {!comparison&&<p role="status" className="text-xs text-muted-foreground">Selecione duas versões diferentes.</p>}
+             {comparison&&<>
+               <p role="status" className="text-xs">{comparison.state==="completo"
+                 ?`${comparison.included} linha(s) incluída(s) e ${comparison.removed} removida(s).`:comparison.reason}</p>
+               {comparison.state==="completo"&&<div className="max-h-80 overflow-auto rounded border p-2 text-xs font-mono" aria-label="Diferenças textuais das revisões">
+                 {comparison.lines.map((line,index)=><p key={index} className={`whitespace-pre-wrap break-all px-2 py-0.5 ${line.kind==="incluido"?"bg-emerald-100 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100":line.kind==="removido"?"bg-rose-100 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100":""}`}>
+                   <span className="sr-only">{line.kind==="incluido"?"Incluído":line.kind==="removido"?"Removido":"Igual"}: </span>
+                   <span aria-hidden="true">{line.kind==="incluido"?"+ ":line.kind==="removido"?"− ":"  "}</span>{line.value||" "}
+                 </p>)}
+               </div>}
+               <p className="text-xs text-muted-foreground">{comparison.reason}</p>
+               <Button type="button" size="sm" variant="outline" disabled={saving} onClick={()=>newer&&refine(newer)}>Preparar refinamento da versão selecionada</Button>
+             </>}
+           </section>}
+           {latest&&<Button type="button" size="sm" variant="outline" disabled={saving}
+             onClick={()=>refine(latest)}>Refinar a última versão em novo rascunho</Button>}
+           {history.length>1&&<details className="border rounded-md p-3 text-xs">
             <summary className="cursor-pointer">Histórico preservado ({history.length-1} revisão(ões) anterior(es))</summary>
             <div className="space-y-3 mt-2">
               {history.slice(1).map(r=><div key={r.id} className="border-t pt-2">
