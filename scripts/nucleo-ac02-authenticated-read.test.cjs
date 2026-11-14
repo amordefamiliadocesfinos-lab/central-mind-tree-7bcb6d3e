@@ -21,5 +21,5 @@ assert.ok(code.includes('source:"supabase/runtime/project-ref"'));
 assert.ok(!code.includes('service_role')||code.includes("NUNCA service role"));
 assert.ok(!/\.insert\(|\.update\(|\.delete\(|\.upsert\(|\.rpc\(/.test(code),"read endpoint may not mutate");
 assert.ok(code.includes('...(body.include_ac02===true?{ac02}:{})'));
-assert.ok(code.includes('from "../../../src/lib/nucleo/ac02RegistryContract.ts"'));
+assert.ok(code.includes('from "../_shared/nucleo/ac02-registry-contract.ts"'));
 console.log("PASS AC02 read path: strict input, JWT/capability/RLS order, no private source transfer, no writes");
