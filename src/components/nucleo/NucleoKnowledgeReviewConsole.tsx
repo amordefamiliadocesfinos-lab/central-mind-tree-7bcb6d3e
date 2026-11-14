@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -18,6 +18,11 @@ type FMDB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
 }};
 const client=supabase as unknown as SupabaseClient<FMDB>;
 const LIMIT=300;
+type LiveReview={
+  state:string;limitations?:string[];observed_pr_count?:number;inspected_pr_count?:number;
+  suggestions?:Array<{revision_id:string;section_code:string;version_no:number;pr_numbers:number[];matched_paths:string[]}>;
+};
+
 const FM_CODES=["FM-01","FM-02","FM-03","FM-04","FM-05","FM-06","FM-07","FM-08","FM-09","FM-10"] as const;
 const LABELS:Record<string,string>={
   "FM-01":"Identidade","FM-02":"Visão rápida","FM-03":"Fronteiras",
@@ -49,10 +54,15 @@ export default function NucleoKnowledgeReviewConsole({
   const [readState,setReadState]=useState<"carregando"|"completo"|"indeterminado">("carregando");
   const [refresh,setRefresh]=useState(0);
   const [copyState,setCopyState]=useState("");
+  const [originReview,setOriginReview]=useState<LiveReview|null>(null);
+  const [originReviewState,setOriginReviewState]=useState<"ocioso"|"consultando"|"completo"|"indeterminado">("ocioso");
+  const reviewRequest=useRef(0);
   const selected=modules.find(m=>m.id===moduleId)??modules[0];
   useEffect(()=>{
     if(!selected){setReadState("indeterminado");return;}
-    let current=true;setReadState("carregando");setRows([]);setCopyState("");
+    let current=true;reviewRequest.current+=1;
+    setOriginReview(null);setOriginReviewState("ocioso");
+    setReadState("carregando");setRows([]);setCopyState("");
     void client.from("nucleo_module_knowledge_revisions")
       .select("id,module_id,section_code,version_no,title,body,source_reference,authority_state,evidence_level,recorded_at")
       .eq("module_id",selected.id).order("recorded_at",{ascending:false}).limit(LIMIT)
@@ -94,6 +104,25 @@ export default function NucleoKnowledgeReviewConsole({
     const source=MODULE_PROVENANCE[selected.code];
     return {latest,descendants,linkedEvidence,prEvidence,pending,insufficientDates,source};
   },[selected,readState,rows,workstreams,evidence]);
+  const checkSourceReview=async()=>{
+    if(!selected||readState!=="completo"||originReviewState==="consultando")return;
+    const request=++reviewRequest.current;
+    const code=selected.code;
+    setOriginReview(null);setOriginReviewState("consultando");
+    try{
+      const result=await supabase.functions.invoke("nucleo-knowledge-read",{
+        body:{module_code:code,include_review:true},
+      });
+      if(request!==reviewRequest.current)return;
+      const response=result.data as {module?:{code?:string};review?:LiveReview}|null;
+      if(result.error||response?.module?.code!==code||!response?.review||typeof response.review.state!=="string"){
+        setOriginReviewState("indeterminado");return;
+      }
+      setOriginReview(response.review);setOriginReviewState("completo");
+    }catch{
+      if(request===reviewRequest.current)setOriginReviewState("indeterminado");
+    }
+  };
   const exportBundle=()=>{
     if(!selected||!details||readState!=="completo")return;
     const packet={
@@ -164,25 +193,41 @@ export default function NucleoKnowledgeReviewConsole({
       <div className="rounded border p-3 space-y-2">
         <h5 className="text-sm font-semibold">Revisão documental candidata — CA-18</h5>
         <p className="text-xs text-muted-foreground">
-          Compara data de revisão FM somente com PR vinculada e verificada cujo snapshot
-          informe explicitamente a data de merge. A comparação não demonstra que a PR alterou este manual.
+          A função autenticada consulta a origem das PRs M4 no GitHub (data real de merge
+          e arquivos alterados) e cruza somente caminhos explícitos de cada revisão FM.
+          Coincidência de caminho gera uma sugestão, nunca uma mudança automática de manual.
         </p>
-        {details.pending.length>0?details.pending.map(({revision,prCount})=><p key={revision.id} className="text-xs">
-          {revision.section_code} v{revision.version_no}: {prCount} PR(s) com merge posterior na origem;
-          revisão humana sugerida, sem alterar a revisão vigente.
-        </p>):<p className="text-xs">
-          Nenhuma diferença temporal comprovável nas seções consultadas. Não significa que o manual esteja atualizado.
+        <Button type="button" size="sm" variant="outline"
+          disabled={originReviewState==="consultando"||readState!=="completo"}
+          onClick={()=>void checkSourceReview()}>
+          {originReviewState==="consultando"?"Conferindo a origem…":"Conferir PRs na origem autorizada"}
+        </Button>
+        {originReviewState==="indeterminado"&&<p role="alert" className="text-xs text-destructive">
+          Não foi possível confirmar a consulta na origem. A função pode não estar implantada,
+          o token ter sido revogado ou o GitHub estar indisponível. Nenhum estado foi atualizado.
         </p>}
-        {details.insufficientDates>0&&<p className="text-xs text-muted-foreground">
-          {details.insufficientDates} PR(s) M4 sem data de merge verificável no snapshot:
-          situação indeterminada, não presumir revisão concluída.
-        </p>}
+        {originReviewState==="completo"&&originReview&&<div className="space-y-2 text-xs" role="status">
+          <p>Resultado: {originReview.state.replaceAll("_"," ")}.
+            PRs registradas: {originReview.observed_pr_count??"não informado"} ·
+            verificadas na origem: {originReview.inspected_pr_count??"não informado"}.</p>
+          {originReview.suggestions?.map(suggestion=><div key={suggestion.revision_id} className="border rounded p-2">
+            <p className="font-semibold">{suggestion.section_code} v{suggestion.version_no} — revisão humana sugerida</p>
+            <p>PRs: {suggestion.pr_numbers.join(", ")}</p>
+            <p className="break-words">Fontes coincidentes: {suggestion.matched_paths.join(", ")}</p>
+            <p>Não há comprovação de alteração semântica ou de necessidade de reescrever o manual.</p>
+          </div>)}
+          {originReview.limitations?.map((message,i)=><p key={i} className="text-muted-foreground">{message}</p>)}
+          {originReview.state==="sem_correspondencia_comprovada"&&
+            <p>Não há correspondência de arquivo-fonte nos registros examinados. Isso não certifica o manual.</p>}
+        </div>}
         {details.latest.size===0&&<p className="text-xs text-muted-foreground">
-          Não existem revisões FM registradas para este módulo; não há manual vigente no Core a alterar.
+          Nenhuma revisão FM foi cadastrada neste módulo. Sem manual no Core não é possível
+          apontar mudança posterior à sua versão; preservar a origem documental externa.
         </p>}
       </div>
       <div className="rounded border p-3 space-y-2">
         <h5 className="text-sm font-semibold">Pacote estruturado de consulta — CA-16</h5>
+        <p className="text-xs text-muted-foreground">Contrato de API: nucleo-knowledge-read (POST, module_code, JWT + concessão nucleo_manage + RLS). O serviço só estará disponível após implantação controlada da função no ambiente autorizado.</p>
         <p className="text-xs">
           Exporta apenas o módulo selecionado, suas revisões FM consultadas, referências de origem
           e resumos de frentes/provas. Não inclui credenciais, dados de atendimento ou conteúdo de outras tabelas.
