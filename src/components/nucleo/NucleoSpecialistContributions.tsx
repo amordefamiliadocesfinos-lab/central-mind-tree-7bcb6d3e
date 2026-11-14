@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -25,7 +25,15 @@ const db=supabase as unknown as SupabaseClient<ACDB>;
 const LIMIT=200;
 const kinds=["metodo","ecossistema","manual","procedimento","aprendizado","mapa","checkpoint","arquivo","outro"];
 type Props={moduleId:string; moduleName:string; declaredRole:string};
+type ExperienceArea = "contribuicoes" | "fila" | "ciclo";
+const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
+ {id:"contribuicoes",title:"Contribuições e origem",hint:"Referências, versões e registro"},
+ {id:"fila",title:"Fila e revisões",hint:"Pendências, refinamento e continuidade"},
+ {id:"ciclo",title:"Ciclo documental AC-01",hint:"Estados, competências, decisões e histórico"},
+];
 export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole}:Props){
+ const [area,setArea]=useState<ExperienceArea>("contribuicoes");
+ const areaId=useId();
  const [rows,setRows]=useState<RecordRow[]>([]);
  const [reading,setReading]=useState(true);
  const [readError,setReadError]=useState("");
@@ -43,7 +51,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [feedback,setFeedback]=useState("");
  const requestRef=useRef<string|null>(null);
  const uncertainRef=useRef(false);
- useEffect(()=>{setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setArea("contribuicoes");setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void db.from("nucleo_specialist_contributions").select("*")
@@ -124,12 +132,40 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        O papel informado não equivale a mandato vigente e nenhum conteúdo é enviado à IA.
      </p>
    </div>
-   <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
+   <div className="flex flex-wrap items-center gap-2">
+     <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
+     <Badge variant="outline">Papel declarado; mandato não inferido</Badge>
+   </div>
+   <p className="rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+     Proposta ou revisão registrada não é decisão homologada. Publicação interna AC-01 não comprova atualização canônica da Ficha Viva, Drive ou GitHub.
+   </p>
    {readError&&<p role="alert" className="text-xs text-destructive">{readError}</p>}
-   {!reading&&!readError&&readAt&&<NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole} contributions={rows} readAt={readAt}/>}
-   {!reading&&!readError&&readAt&&<NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt}/>}
    <Button type="button" variant="outline" size="sm" disabled={saving||reading}
-      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
+     onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
+   <nav className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Jornada documental do especialista">
+     {AREAS.map(item=><Button key={item.id} type="button"
+       variant={area===item.id?"default":"outline"}
+       className="h-auto min-h-14 justify-start px-3 py-2 text-left"
+       aria-pressed={area===item.id} aria-controls={areaId+"-"+item.id}
+       onClick={()=>setArea(item.id)}>
+       <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal">
+         <span className="text-sm font-semibold">{item.title}</span>
+         <span className={area===item.id?"text-xs text-primary-foreground/80":"text-xs text-muted-foreground"}>{item.hint}</span>
+       </span>
+     </Button>)}
+   </nav>
+   {/* Alternância só visual: minutas e filtros locais permanecem montados. */}
+   <div id={areaId+"-fila"} hidden={area!=="fila"} className="space-y-3">
+     {!reading&&!readError&&readAt
+       ? <NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt}/>
+       : <p className="rounded-md border p-3 text-sm text-muted-foreground">Fila consultiva disponível após leitura completa do Core. Consulta indisponível não significa ausência de propostas.</p>}
+   </div>
+   <div id={areaId+"-ciclo"} hidden={area!=="ciclo"} className="space-y-3">
+     {!reading&&!readError&&readAt
+       ? <NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole} contributions={rows} readAt={readAt}/>
+       : <p className="rounded-md border p-3 text-sm text-muted-foreground">Estados, decisões e competências requerem leitura confirmada. Nenhum ato decisório ou publicação está habilitado nesta interface.</p>}
+   </div>
+   <div id={areaId+"-contribuicoes"} hidden={area!=="contribuicoes"} className="space-y-3">
    {!reading&&!readError&&<div className="space-y-2">
      {rows.length===0&&<p className="rounded-md border p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
@@ -194,6 +230,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
      {feedback&&<p role="status" className="text-xs">{feedback}</p>}
+   </div>
    </div>
  </section>;
 }
