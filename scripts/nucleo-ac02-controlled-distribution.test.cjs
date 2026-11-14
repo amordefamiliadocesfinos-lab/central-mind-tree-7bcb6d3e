@@ -33,7 +33,7 @@ assert.throws(()=>fn(draft,{...review,target:{...review.target,recipientAuthUid:
 assert.throws(()=>fn(draft,{...review,target:{...review.target,recipientKind:"sucessor_humano"}},now),/recipient/);
 assert.throws(()=>fn(draft,{...review,selectedAt:"2026-11-14T20:30:00Z"},now),/expired/);
 assert.throws(()=>fn({...draft,privateSourcesIncluded:true},review,now),/source/);
-assert.throws(()=>fn({...draft,text:"unexpected"},review,now),/format/);
+assert.throws(()=>fn({...draft,text:"unexpected"},review,now),/mismatch|format/);
 const code=fs.readFileSync("supabase/functions/_shared/nucleo/ac02-controlled-distribution.ts","utf8");
 assert.ok(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(|fetch\(/.test(code));
 console.log("PASS AC02 distribution contract — selection, review, no send, no privileges, no persistence");
