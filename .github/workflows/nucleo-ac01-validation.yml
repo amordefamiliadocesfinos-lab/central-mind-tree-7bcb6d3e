@@ -12,6 +12,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/pages/Nucleo.tsx"
+      - "scripts/nucleo-ux-v25-core-local-clarity.test.cjs"
       - "src/lib/nucleo/ac01DocumentGovernance.ts"
       - "src/lib/nucleo/ac02RegistryContract.ts"
       - "supabase/functions/_shared/nucleo/ac02-registry-contract.ts"
@@ -172,4 +174,6 @@ jobs:
       - run: node scripts/nucleo-ac02-write-preflight.test.cjs
       - name: Verify Núcleo V2.2 visual semantics in AC-01
         run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
+      - name: Verify UX V2.5 Core/local and documentary clarity
+        run: node scripts/nucleo-ux-v25-core-local-clarity.test.cjs
       - run: npm run build
