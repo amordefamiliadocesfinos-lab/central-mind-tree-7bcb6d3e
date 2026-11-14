@@ -39,6 +39,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
   const [actionSearch, setActionSearch] = useState("");
+  const [crmJourneyMode, setCrmJourneyMode] = useState<"gestor"|"operador">("operador");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
   const [knowledgeOpen,setKnowledgeOpen]=useState(false);
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
@@ -125,6 +126,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
     setSelectedId(item.id);
     setLevel("module");
     setActionSearch("");
+    setCrmJourneyMode("operador");
     setEvidenceFrontId(null);
     setKnowledgeOpen(false);
   };
@@ -522,11 +524,69 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
 
       {selected?.id==="CRM" && level==="operation" && (
         <Card className="p-4 md:p-5 space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground">CRM · Piloto de conhecimento operacional · Verificado no código, não no uso real integral</p>
-            <h3 className="font-semibold text-lg">Como tratar um atendimento</h3>
-            <p className="text-sm text-muted-foreground mt-1">Jornada demonstrativa. A persistência de cada atendimento deve ser conferida no CRM pelo operador autorizado.</p>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">CRM · Piloto A+ V1.2 · Código e M3, não homologação de uso real</p>
+            <h3 className="font-semibold text-lg">Jornadas de gestor e operador</h3>
+            <p className="text-sm text-muted-foreground">
+              O gestor acompanha frente, prova e conhecimento. O operador consulta controles e confirma o efeito no CRM.
+              Nenhuma etapa constitui aceite automático.
+            </p>
+            <div className="flex flex-wrap gap-2" aria-label="Selecionar jornada CRM">
+              <Button type="button" size="sm" variant={crmJourneyMode==="gestor"?"default":"outline"}
+                aria-pressed={crmJourneyMode==="gestor"} onClick={()=>setCrmJourneyMode("gestor")}>
+                Gestor — acompanhar desenvolvimento
+              </Button>
+              <Button type="button" size="sm" variant={crmJourneyMode==="operador"?"default":"outline"}
+                aria-pressed={crmJourneyMode==="operador"} onClick={()=>setCrmJourneyMode("operador")}>
+                Operador — tratar atendimento
+              </Button>
+            </div>
           </div>
+          {crmJourneyMode==="gestor" && (
+            <section className="space-y-3" aria-label="Jornada do gestor CRM">
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="text-sm font-semibold">1. Selecionar a frente e ler seu estado declarado</h4>
+                <p className="text-xs text-muted-foreground">
+                  Frentes vinculadas ao módulo CRM no Core M3. Titularidade e status são declarativos.
+                </p>
+                {selectedFronts.length===0 && <p className="text-xs">
+                  Nenhuma frente CRM vinculada nesta consulta; não inferir progresso.
+                </p>}
+                {selectedFronts.map(front=><div key={front.id} className="rounded border p-3 space-y-2">
+                  <p className="text-sm font-medium">{front.code} · {front.title}</p>
+                  <p className="text-xs">Estado: {front.status.replaceAll("_"," ")} · Próxima ação: {front.next_action||"não informada"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(front.id)}>
+                      Abrir ficha e histórico M3
+                    </Button>
+                    <Button type="button" size="sm" variant="outline"
+                      aria-expanded={evidenceFrontId===front.id}
+                      onClick={()=>setEvidenceFrontId(id=>id===front.id?null:front.id)}>
+                      {evidenceFrontId===front.id?"Ocultar evidências":"Conferir evidências M4"}
+                    </Button>
+                  </div>
+                  {evidenceFrontId===front.id && <NucleoTechnicalEvidence workstreamId={front.id}/>}
+                </div>)}
+              </div>
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="text-sm font-semibold">2. Confrontar fontes, método e Ficha Viva</h4>
+                <p className="text-xs">A Ficha Viva FM-01–FM-10 e a proveniência são consultadas na ficha do módulo.
+                  Modelos locais e documentos históricos não são homologações.</p>
+                <Button type="button" size="sm" variant="outline" onClick={()=>{
+                  setKnowledgeOpen(true);setLevel("module");
+                }}>Abrir Ficha Viva CRM e fontes</Button>
+              </div>
+              <div className="rounded-lg border p-3 space-y-1">
+                <h4 className="text-sm font-semibold">3. Conferir critérios de aceite</h4>
+                <p className="text-xs text-muted-foreground">
+                  Diferenciar PR mergeada, CI, deploy, teste real e decisão humana.
+                  O checkpoint CRM UX02 não homologa a jornada autenticada do gestor.
+                </p>
+              </div>
+            </section>
+          )}
+          {crmJourneyMode==="operador" && (
+            <>
           <div>
             <h4 className="font-semibold text-sm mb-2">Passos da tarefa</h4>
             <ol className="list-decimal pl-6 space-y-2 text-sm">
@@ -557,8 +617,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             <p>{CRM_REFERENCE.checkpoint}</p><p>{CRM_REFERENCE.limitation}</p>
             <a href={CRM_REFERENCE.source} target="_blank" rel="noopener noreferrer" className="underline">Consultar origem técnica</a>
           </div>
+          <div className="rounded-lg border p-3 space-y-1">
+            <h4 className="text-sm font-semibold">Conferência do operador — ensaio real pendente</h4>
+            <p className="text-xs text-muted-foreground">
+              Resultado é um fato ocorrido; Adiar não fabrica resultado; abrir WhatsApp não comprova entrega.
+              Conferir histórico e próxima ação no CRM após retorno confirmado; em falha ambígua,
+              verificar antes de repetir.
+            </p>
+          </div>
           <Button size="sm" variant="outline" asChild><Link to="/contatos/inbox">Abrir caixa de atendimentos</Link></Button>
         </Card>
+            </>
       )}
     </section>
   );
