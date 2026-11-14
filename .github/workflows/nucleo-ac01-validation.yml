@@ -15,6 +15,7 @@ on:
       - "supabase/migrations/20261114183300_nucleo_ac01_decision_requests.sql"
       - "supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql"
       - "scripts/nucleo-ac01-decision-publication-gates.test.sql"
+      - "scripts/nucleo-ac01-decision-positive-disposable.test.sql"
       - "scripts/nucleo-ac01-decision-requests.test.sql"
       - "scripts/nucleo-ac01-review-events.test.sql"
       - "scripts/nucleo-ac01-schema.test.sql"
@@ -80,6 +81,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql
       - name: Validate no implicit delegation, approval or publication
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-publication-gates.test.sql
+      - name: Exercise separate authorized decision and publication ONLY in disposable CI
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-positive-disposable.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
