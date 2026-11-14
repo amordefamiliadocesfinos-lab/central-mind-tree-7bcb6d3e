@@ -132,20 +132,20 @@ export default function NucleoAC01DocumentGovernance({
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
   onClick={()=>setSelectedId(c.id)}
   aria-pressed={selectedId===c.id}
-  className={"text-left rounded-md border p-3 text-sm hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring "+(selectedId===c.id?"border-primary":"")}>
+  className={"nucleo-v22-card-hover text-left rounded-md border p-3 text-sm hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring "+(selectedId===c.id?"nucleo-v22-selected":"")}>
    <div className="flex flex-wrap items-center gap-2"><strong>{c.title}</strong><Badge variant="outline">v{c.version_no}</Badge></div>
    <p className="text-xs mt-1">{c.specialist_role} · {c.contribution_kind} · {c.source_kind}</p>
    <p className="text-xs text-muted-foreground">Origem preservada; estado declarado: {c.authority_state}</p>
   </button>;
- return <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Ciclo documental governado AC-01">
+ return <section className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Ciclo documental governado AC-01">
   <div className="flex flex-wrap items-start justify-between gap-2">
-   <div><h4 className="font-semibold text-sm">Ciclo documental · {moduleName}</h4>
+   <div><h4 className="nucleo-v22-title text-lg">Ciclo documental · {moduleName}</h4>
     <p className="text-xs text-muted-foreground">Consulta do Core e da Ficha Viva, sem ativar delegações, decisões nem publicação. Dados lidos em {snapshotAt?new Date(snapshotAt).toLocaleString("pt-BR"):"consulta pendente"}.</p></div>
    <Button size="sm" type="button" variant="outline" disabled={loading}
     onClick={()=>setRefresh(x=>x+1)}>Reconsultar</Button>
   </div>
-  <div className="flex flex-wrap gap-2" role="group" aria-label="Estados documentais">
-   {TABS.map(t=><Button key={t.key} size="sm" type="button" variant={tab===t.key?"default":"outline"}
+  <div className="nucleo-v22-tabs flex flex-wrap" role="group" aria-label="Estados documentais">
+   {TABS.map(t=><Button key={t.key} size="sm" type="button" className="nucleo-v22-pill" variant={tab===t.key?"default":"outline"}
      aria-pressed={tab===t.key} onClick={()=>{setTab(t.key);setSelectedId("");}}>{t.title}</Button>)}
   </div>
   {loading&&<p className="text-sm">Consultando fontes governadas…</p>}
@@ -164,13 +164,13 @@ export default function NucleoAC01DocumentGovernance({
     </label>
    </div>
    <div className="flex flex-wrap gap-2">
-    <Badge variant="outline">{visibleProposals.length} propostas</Badge>
-    <Badge variant="outline">{visibleEvolving.length} em evolução</Badge>
-    <Badge variant="outline">{pending.length} pedidos aguardando decisão</Badge>
-    <Badge variant="outline">{published.length} publicações AC-01 no recorte</Badge>
+    <Badge variant="outline" className="nucleo-v22-ac01-count">{visibleProposals.length} propostas</Badge>
+    <Badge variant="outline" className="nucleo-v22-ac01-count">{visibleEvolving.length} em evolução</Badge>
+    <Badge variant="outline" className="nucleo-v22-ac01-count">{pending.length} pedidos aguardando decisão</Badge>
+    <Badge variant="outline" className="nucleo-v22-ac01-count">{published.length} publicações AC-01 no recorte</Badge>
    </div>
    {tab==="vigente"&&<div className="space-y-2">
-    <p className="text-xs text-muted-foreground">Vigente canônico exige fonte original + ato competente + sincronização comprovada. Publicação interna AC-01 não comprova a vigência em Drive/GitHub/Ficha Viva.</p>
+    <p className="nucleo-v22-guard text-xs">Vigente canônico exige fonte original + ato competente + sincronização comprovada. Publicação interna AC-01 não comprova a vigência em Drive/GitHub/Ficha Viva.</p>
     {activeFM.length>0?<div className="space-y-2"><strong className="text-xs">Fichas Vivas com estado de autoridade declarado</strong>
      {activeFM.map(x=><div key={x.id} className="rounded border p-3 text-xs">
       <strong>{x.section_code} · {x.title} · v{x.version_no}</strong>
@@ -237,7 +237,7 @@ export default function NucleoAC01DocumentGovernance({
     <p>Autor autenticado: {selected.recorded_by_auth_uid.slice(0,8)}… · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
     <p className="break-all">Original preservado em: {selected.source_kind} · {selected.source_locator}</p>
     <p className="text-muted-foreground">Qualquer comparação de conteúdo requer acesso válido à fonte original. Sem diffs fictícios nem aprovação implícita.</p>
-    <div className="space-y-2 border-t pt-2"><strong>Prévia de reconciliação canônica — bloqueada</strong>
+    <div className="nucleo-v22-guard space-y-2 border-t pt-2"><strong>Prévia de reconciliação canônica — bloqueada</strong>
      <label className="block">Alvo de Ficha Viva para análise (sem alteração)
        <select className="w-full rounded border bg-background p-2" value={targetId} onChange={e=>setTargetId(e.target.value)}>
         <option value="">Não selecionado</option>

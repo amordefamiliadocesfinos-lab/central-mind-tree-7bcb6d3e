@@ -79,10 +79,10 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
   }).sort((a,b)=>statusOrder[a.item.status]-statusOrder[b.item.status]
     ||priorityOrder[a.item.priority]-priorityOrder[b.item.priority]
     ||a.item.code.localeCompare(b.item.code,"pt-BR"));
-  return <section className="rounded-lg border p-3 md:p-4 space-y-4" aria-label={moduleId?"Visão executiva do módulo":"Visão executiva transversal do desenvolvimento"}>
+  return <section className="nucleo-v22-surface p-3 md:p-4 space-y-4" aria-label={moduleId?"Visão executiva do módulo":"Visão executiva transversal do desenvolvimento"}>
     <div className="flex flex-wrap justify-between items-start gap-2">
       <div className="space-y-1">
-        <h3 className="font-semibold text-base">Frentes que precisam de atenção</h3>
+        <h3 className="nucleo-v22-title text-lg">Frentes que precisam de atenção</h3>
         <p className="text-xs text-muted-foreground">
           Prioridades, bloqueios e responsáveis declarados no M3; dependências e eventos reais carregados nesta sessão.
           Sem pontuação artificial de progresso ou conclusão automática.
@@ -97,27 +97,27 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
         ["Sem próxima ação",counts.noAction],
         ["Prova não comprovada",counts.noProof],
         ["Dependências cadastradas",counts.links],
-      ].map(([name,count])=><div key={name} className="rounded-md bg-muted/30 border p-3">
+      ].map(([name,count])=><div key={name} className="nucleo-v22-status-tile" data-state={name==="Bloqueadas"?"bloqueado":name==="Alta/crítica abertas"?"em_validacao":name==="Prova não comprovada"?"planejado":"em_andamento"}>
         <p className="text-xs text-muted-foreground">{name}</p>
         <p className="text-xl font-bold tabular-nums">{count}</p>
       </div>)}
     </div>
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="nucleo-v22-tabs flex flex-wrap items-center">
       {([
         ["todos","Todas"],["bloqueadas","Bloqueadas"],["prioritarias","Prioridade alta/crítica"],
         ["sem_acao","Sem próxima ação"],["sem_prova","Sem prova comprovada"],
       ] as Array<[Scope,string]>).map(([id,label])=>
-        <Button type="button" key={id} size="sm" variant={scope===id?"default":"outline"}
+        <Button type="button" key={id} size="sm" className="nucleo-v22-pill" variant={scope===id?"default":"outline"}
           aria-pressed={scope===id} onClick={()=>setScope(id)}>{label}</Button>)}
       <Input aria-label="Buscar frente, especialista ou próxima ação" placeholder="Buscar frente, responsável ou ação…"
-        className="w-full sm:max-w-xs" value={search} onChange={event=>setSearch(event.target.value)}/>
+        className="nucleo-v22-search w-full sm:max-w-xs" value={search} onChange={event=>setSearch(event.target.value)}/>
     </div>
     <p className="text-xs text-muted-foreground" role="status">{visible.length} de {mapped.length} frentes/subfrentes neste recorte.</p>
     {visible.length===0&&<p className="text-sm text-muted-foreground border rounded-md p-3">
       Nenhum registro corresponde ao filtro na leitura atual. Isso não comprova inexistência de frentes em outras fontes.
     </p>}
     <div className="space-y-2">
-      {visible.map(({item,module,linked,latest,checkpoints})=><article key={item.id} className="rounded-md border p-3 space-y-3">
+      {visible.map(({item,module,linked,latest,checkpoints})=><article key={item.id} className="nucleo-v22-card-hover p-3 space-y-3">
         <div className="flex flex-wrap justify-between items-start gap-2">
           <div className="space-y-1 min-w-0 flex-1">
             <p className="font-semibold text-sm">{item.code} · {item.title}</p>

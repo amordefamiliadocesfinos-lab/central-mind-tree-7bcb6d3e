@@ -184,12 +184,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
 
   return (
     <section className="space-y-3" aria-label="Atlas operacional do Painel Central — piloto V1.2">
-      <Card className="p-4 md:p-5 space-y-3">
+      <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4" aria-hidden="true" />
-              <h2 className="text-base font-semibold">Painel Central — módulos e operação</h2>
+              <h2 className="nucleo-v22-title text-lg">Painel Central — módulos e operação</h2>
             </div>
             <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
               Acompanhe módulos, frentes e procedimentos. O Núcleo governa essas informações, mas não entra na contagem dos módulos acompanhados.
@@ -197,16 +197,16 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <Badge variant="outline">Piloto — cobertura parcial</Badge>
         </div>
-        <nav className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
-          <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" variant={level==="overview"?"default":"outline"}
+        <nav className="nucleo-v22-tabs grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
+          <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full whitespace-normal sm:w-auto" variant={level==="overview"?"default":"outline"}
             aria-pressed={level==="overview"} onClick={() => setLevel("overview")}>Painel Geral</Button>
-          <Button type="button" size="sm" className="min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words text-left sm:w-auto"
+          <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words text-left sm:w-auto"
             variant={level==="module"?"default":"outline"} disabled={!selected}
             aria-label={selected ? "Retomar ficha do módulo " + selected.name : "Nenhum módulo selecionado"}
             aria-pressed={level==="module"} onClick={() => setLevel("module")}>
             {selected ? "Módulo · "+selected.name : "Selecionar módulo"}
           </Button>
-          {selected?.id==="CRM" && <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto"
+          {selected?.id==="CRM" && <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full whitespace-normal sm:w-auto"
             variant={level==="operation"?"default":"outline"}
             aria-pressed={level==="operation"} onClick={() => setLevel("operation")}>Jornada prática CRM</Button>}
         </nav>
@@ -232,7 +232,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               { label:"Concluídas com prova", value:summary.completed, style:"border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100" },
               { label:"Bloqueadas", value:summary.blocked, style:"border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100" },
             ].map(item => (
-              <div key={item.label} className={`rounded-xl border p-3 md:p-4 shadow-sm ${item.style}`}>
+              <div key={item.label} className={`nucleo-v22-board-column rounded-xl border p-3 md:p-4 shadow-sm ${item.style}`}>
                 <p className="text-sm font-medium leading-snug">{item.label}</p>
                 <p className="mt-2 text-3xl font-bold tabular-nums">{item.value}</p>
               </div>
@@ -253,7 +253,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {portfolioAttention.map(({module,record,fronts,reason})=>(
               <button type="button" key={module.id} onClick={()=>choose(module)}
-                className="rounded-xl border p-4 text-left min-w-0 hover:border-primary/60 hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="nucleo-v22-card-hover rounded-xl border p-4 text-left min-w-0 hover:border-primary/60 hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="outline">{module.id}</Badge>
                   <span className="text-xs text-muted-foreground">{fronts.length} frente(s) M3</span>
@@ -269,7 +269,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       )}
 
       {level==="overview" && (
-        <Card className="p-4 md:p-5 space-y-4 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/20" aria-label="Núcleo — ambiente de governança">
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4 border-l-4 border-l-[#1a73e8]" aria-label="Núcleo — ambiente de governança">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="rounded-md bg-muted p-2"><FolderTree className="h-5 w-5" aria-hidden="true" /></div>
@@ -296,7 +296,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       )}
 
       {level==="overview" && (
-        <Card className="p-4 md:p-5 space-y-4" aria-label="Módulos operacionais acompanhados">
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4" aria-label="Módulos operacionais acompanhados">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div>
               <h3 className="font-semibold text-base">Módulos do Painel Central</h3>
@@ -321,7 +321,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       )}
 
       {level==="overview" && (
-        <Card className="p-4 md:p-5 space-y-4" aria-label="Atividade recente registrada no Core">
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4" aria-label="Atividade recente registrada no Core">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold inline-flex items-center gap-2">
@@ -364,7 +364,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
 
       {/* A ficha permanece montada no panorama e na jornada CRM; a seleção persiste. */}
       {selected && (
-        <Card className={"p-4 md:p-5 space-y-4 " + (level === "module" ? "" : "hidden")}
+        <Card className={"nucleo-v22-surface p-4 md:p-5 space-y-4 " + (level === "module" ? "" : "hidden")}
           aria-hidden={level !== "module"}>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
             <div className="min-w-0">
@@ -396,7 +396,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <p className="text-xs text-muted-foreground mt-1">{metric.note}</p>
             </div>)}
           </div>
-          <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
+          <div className="nucleo-v22-soft-surface p-2 space-y-2">
             <p className="px-1 text-xs text-muted-foreground">
               Escolha uma área para consultar as informações existentes deste módulo.
             </p>
@@ -406,7 +406,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 <button key={item.id} type="button" onClick={() => selectModuleArea(item.id)}
                   aria-pressed={moduleSection===item.id}
                   aria-controls="nucleo-module-section-content"
-                  className={`min-w-0 rounded-md border px-3 py-3 text-left min-h-[70px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-primary/5 shadow-sm":"border-border bg-background hover:bg-muted/60"}`}>
+                  className={`nucleo-v22-area-card min-w-0 rounded-md border px-3 py-3 text-left min-h-[70px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-primary/5 shadow-sm":"border-border bg-background hover:bg-muted/60"}`}>
                   <span className="block text-sm font-semibold leading-snug">{item.label}</span>
                   <span className="mt-1 block text-sm leading-snug text-muted-foreground">{item.hint}</span>
                 </button>

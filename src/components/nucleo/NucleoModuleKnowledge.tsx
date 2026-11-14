@@ -220,12 +220,12 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     }
   };
   return (
-    <Card className="p-3 md:p-4 space-y-3" aria-label="Ficha Viva do módulo">
+    <Card className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Ficha Viva do módulo">
       <div>
-        <h4 className="text-sm font-semibold">Ficha Viva — seções FM-01 a FM-10</h4>
+        <h4 className="nucleo-v22-title text-lg">Ficha Viva — seções FM-01 a FM-10</h4>
         <p className="text-xs text-muted-foreground">Histórico por versão. O formulário cria apenas rascunhos declarados, nunca manuais homologados automaticamente.</p>
       </div>
-      <section aria-label="Cobertura documental por seção" className="rounded-md border p-3 space-y-3">
+      <section aria-label="Cobertura documental por seção" className="nucleo-v22-soft-surface p-3 space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="secondary">{templateCount}/10 modelos locais</Badge>
           <Badge variant="outline">{loading ? "Consultando registros…" : error ? "Cobertura indeterminada — erro de leitura" : `${persistedCount}/10 seções com registro no Core`}</Badge>
@@ -239,7 +239,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
               aria-pressed={section === entry.code}
               disabled={saving}
               onClick={() => changeSection(entry.code)}
-              className={`min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
+              className={`nucleo-v22-area-card min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
               <span className="block text-muted-foreground">
                 {loading ? "Core: consultando" : error ? "Core: leitura indisponível" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro neste recorte"}
@@ -302,7 +302,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
       <Button type="button" size="sm" variant="outline" className="min-h-11" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
       {!loading&&!error&&(
         <>
-          {latest?<div className="border rounded-md p-3 text-sm space-y-2">
+          {latest?<div className="nucleo-v22-soft-surface p-3 text-sm space-y-2">
             <div className="flex flex-wrap gap-2 items-center">
               <strong>{latest.title}</strong><Badge variant="secondary">v{latest.version_no}</Badge>
               <Badge variant="outline">{latest.authority_state}</Badge>
@@ -315,9 +315,9 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             </p>
             <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
           </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
-          {history.length>1&&<section className="rounded-lg border p-3 md:p-4 space-y-4" aria-label="Comparação de versões AC-01">
+          {history.length>1&&<section className="nucleo-v22-surface p-3 md:p-4 space-y-4" aria-label="Comparação de versões AC-01">
             <div className="space-y-1">
-              <h5 className="text-sm font-semibold">Conhecimento e Evolução — comparar versões</h5>
+              <h5 className="nucleo-v22-title text-base">Conhecimento e Evolução — comparar versões</h5>
               <p className="text-sm text-muted-foreground">Comparação local dos corpos textuais FM registrados no Core, sem acesso automático a arquivos originais. Diferenças textuais não comprovam conflitos semânticos, aprovação ou vigência.</p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
