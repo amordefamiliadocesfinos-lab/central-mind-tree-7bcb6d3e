@@ -62,7 +62,7 @@ result=inspectNucleoSupervision([{...front("NUC"),kind:"modulo"}],[],[],now);
 assert.equal(result.findings.length,0);
 console.log("M5 supervision: baseline and cross-evidence checks PASS; deterministic, no mutations or external API.");
 
-\n// A+ CA16/CA18 — testes determinísticos do contrato compartilhado pela Edge Function.
+// A+ CA16/CA18 — testes determinísticos do contrato compartilhado pela Edge Function.
 const contractSource=fs.readFileSync("supabase/functions/_shared/nucleo/knowledge-contract.ts","utf8");
 const contractJs=ts.transpileModule(contractSource,{compilerOptions:{
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
