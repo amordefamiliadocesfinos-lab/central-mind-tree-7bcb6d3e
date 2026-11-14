@@ -29,6 +29,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [readError,setReadError]=useState("");
  const [refresh,setRefresh]=useState(0);
  const [kind,setKind]=useState("metodo");
+ const [parentId,setParentId]=useState("");
  const [title,setTitle]=useState("");
  const [role,setRole]=useState(declaredRole||"");
  const [sourceKind,setSourceKind]=useState("referencia_privada");
@@ -39,7 +40,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [feedback,setFeedback]=useState("");
  const requestRef=useRef<string|null>(null);
  const uncertainRef=useRef(false);
- useEffect(()=>{setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);
    void db.from("nucleo_specialist_contributions").select("*")
@@ -55,7 +56,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
           if(prior){
             setFeedback("Proposta previamente enviada localizada no Core (v"+prior.version_no+"). Readback de reconciliação confirmado; não reenviar.");
             uncertainRef.current=false;requestRef.current=null;
-            setTitle("");setLocator("");setNote("");setChecksum("");
+            setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
           }else{
             setFeedback("A proposta anterior não foi localizada neste recorte. Estado permanece indeterminado; não criar outra com novo identificador.");
           }
@@ -67,6 +68,11 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
     });
    return()=>{mounted=false};
  },[moduleId,refresh]);
+ const parent=rows.find(item=>item.id===parentId);
+ const latestByLineage=new Map<string,RecordRow>();
+ for(const item of rows){const latest=latestByLineage.get(item.lineage_id);if(!latest||item.version_no>latest.version_no)latestByLineage.set(item.lineage_id,item);}
+ const latestRows=[...latestByLineage.values()].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
+ const compareFields:[string,keyof RecordRow][]=[["Título","title"],["Localizador","source_locator"],["Origem","source_kind"],["SHA-256","source_checksum_sha256"],["Observação","note"]];
  const submit=async()=>{
    if(saving||reading||readError||uncertainRef.current)return;
    const cleanRole=role.trim(),cleanTitle=title.trim(),cleanSource=locator.trim(),cleanNote=note.trim();
@@ -76,7 +82,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setFeedback("Confira papel (3–180), título (3–180), localizador (8–1.500), nota (até 2.000) e SHA-256 opcional.");
      return;
    }
-   if(!window.confirm("Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
+   if(parentId && (!parent || latestByLineage.get(parent.lineage_id)?.id!==parent.id || parent.specialist_role!==cleanRole || parent.contribution_kind!==kind)){
+     setFeedback("A versão anterior precisa pertencer ao mesmo especialista e tipo. Reconsulte e selecione novamente.");return;
+   }
+   if(!window.confirm(parent ? "Registrar NOVA revisão append-only da contribuição? A referência anterior permanece preservada e nenhuma versão será homologada." : "Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
    setSaving(true);setFeedback("");
    const requestId=requestRef.current??crypto.randomUUID();
    requestRef.current=requestId;
@@ -84,19 +93,21 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      const result=await db.from("nucleo_specialist_contributions").insert({
        module_id:moduleId,specialist_role:cleanRole,contribution_kind:kind,title:cleanTitle,
        source_kind:sourceKind,source_locator:cleanSource,source_checksum_sha256:checksum.trim()||null,
-       note:cleanNote,request_id:requestId,
+       note:cleanNote,request_id:requestId,parent_revision_id:parent?.id??null,
      }).select("*").maybeSingle();
      if(result.error||!result.data){uncertainRef.current=true;
        setFeedback("Gravação não confirmada: não repita a proposta. Reconsulte e confira o request_id antes de qualquer nova ação.");return;}
      const check=await db.from("nucleo_specialist_contributions").select("*").eq("id",result.data.id).maybeSingle();
      if(check.error||!check.data||check.data.request_id!==requestId||
         check.data.module_id!==moduleId||check.data.specialist_role!==cleanRole||
-        check.data.source_locator!==cleanSource||check.data.authority_state!=="proposta"||
-        check.data.version_no!==1){
+        check.data.source_locator!==cleanSource||
+        check.data.version_no!==(parent?parent.version_no+1:1)||
+        check.data.parent_revision_id!==(parent?.id??null)||
+        check.data.authority_state!==(parent?"em_evolucao":"proposta")){
        uncertainRef.current=true;setFeedback("Inserção retornou, mas readback não confirmou todos os dados. Confira a origem antes de repetir.");return;
      }
-     requestRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");
-     setFeedback("Proposta confirmada no Core por readback. Não homologada; original preservado na origem.");
+     requestRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+     setFeedback("Contribuição confirmada no Core por readback. Não homologada; versões anteriores preservadas na origem.");
      setRefresh(n=>n+1);
    }catch{
      uncertainRef.current=true;setFeedback("Transporte interrompido: estado indeterminado. Não repetir sem reconciliação.");
@@ -130,11 +141,18 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
          <p>Registrada: {new Date(item.recorded_at).toLocaleString("pt-BR")} · autoria autenticada: {item.recorded_by_auth_uid?.slice(0,8)||"indeterminada"}…</p>
          <p className="break-words">{item.note}</p>
          <p>Versão anterior: {item.parent_revision_id||"Contribuição inicial"}</p>
+         {item.parent_revision_id&&(()=>{const previous=rows.find(r=>r.id===item.parent_revision_id);return previous ? <div className="mt-2 rounded border p-2 space-y-1"><strong>Comparação de metadados com v{previous.version_no}</strong>{compareFields.filter(([,key])=>item[key]!==previous[key]).map(([label,key])=><div key={key} className="break-words"><span className="font-medium">{label}</span><p className="text-destructive">Anterior: {String(previous[key]??"não informado")}</p><p>Nova revisão: {String(item[key]??"não informado")}</p></div>)}{compareFields.every(([,key])=>item[key]===previous[key])&&<p>Metadados iguais; conteúdo da fonte não foi comparado.</p>}<p className="text-muted-foreground">Comparação limitada a metadados declarados, não é diff do conteúdo privado nem certificação da fonte.</p></div>:<p className="text-muted-foreground">Versão anterior fora do recorte; comparação indisponível.</p>})()}
        </div>
      </details>)}
    </div>}
    <div className="space-y-3 rounded-md bg-muted/30 p-3">
-     <h5 className="text-sm font-semibold">Vincular nova contribuição — proposta não homologada</h5>
+     <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
+     <label className="block text-xs space-y-1">Histórico / versão de origem
+       <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="w-full h-10 border rounded-md bg-background px-2">
+         <option value="">Nova contribuição — v1</option>
+         {latestRows.map(item=><option key={item.id} value={item.id}>{item.title} · {item.specialist_role} · v{item.version_no}</option>)}
+       </select>
+     </label>
      <div className="grid gap-2 sm:grid-cols-2">
        <label className="text-xs space-y-1">Papel funcional do especialista (declarado)
          <Input value={role} onChange={e=>setRole(e.target.value)} maxLength={180} disabled={saving}/>
@@ -166,7 +184,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      <label className="block text-xs space-y-1">Contexto e cuidados de origem
        <Textarea value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving}/>
      </label>
-     <p className="text-xs text-muted-foreground">Registro inicial sempre v1/proposta. Autoria é atribuída pelo Core. Revisão, homologação e alteração de vigência exigem processos separados.</p>
+     <p className="text-xs text-muted-foreground">Nova contribuição: v1/proposta. Revisão: versão incrementada pelo Core, em evolução e append-only. A comparação exibe somente metadados; homologação e alteração de vigência exigem processos separados.</p>
      <Button type="button" size="sm" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
