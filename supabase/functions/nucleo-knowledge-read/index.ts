@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildAc02Registry, prepareAc02AssumptionDraft, type Ac02DynamicEvidence } from "../../../src/lib/nucleo/ac02RegistryContract.ts";
+import { buildAc02Registry, prepareAc02AssumptionDraft, type Ac02DynamicEvidence } from "../_shared/nucleo/ac02-registry-contract.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isRequestedModuleCode, reviewImpact, validPrNumber, type PrImpact } from "../_shared/nucleo/knowledge-contract.ts";
 
