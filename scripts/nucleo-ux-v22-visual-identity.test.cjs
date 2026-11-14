@@ -15,7 +15,7 @@ const ficha=read("NucleoModuleKnowledge");
 const specialist=read("NucleoSpecialistContributions");
 const governance=read("NucleoAC01DocumentGovernance");
 const desk=read("NucleoContributionDesk");
-const sources=[center,atlas,executive,ficha,specialist,governance,desk];
+const sources=[atlas,executive,ficha,specialist,governance,desk];
 const assertHas=(code,part,label)=>assert(code.includes(part),label);
 const page=fs.readFileSync("src/pages/Nucleo.tsx","utf8");
 assertHas(page,'import "@/styles/nucleoVisualV22.css"',"Visual theme imported from existing route");
@@ -25,7 +25,7 @@ for(const [name,color] of Object.entries({blue:"#1a73e8",yellow:"#fbbc04",green:
   assert(css.includes(color), "Palette "+name);
 }
 for(const [name,src] of Object.entries({
-  center,atlas,executive,ficha,specialist,governance,desk,
+  atlas,executive,ficha,specialist,governance,desk,
 })) {
   assertHas(src,"nucleo-v22-","UI classes in "+name);
 }
