@@ -113,3 +113,35 @@ export const AC01_AUTHORITY_PROCEDURE = [
  {code:"07",step:"Substituição",detail:"Revogar competência anterior e certificar substituto com prova e prazo, checar sobreposição; nenhum sucessor herda automaticamente grants, credenciais, sessões ou atos. Conservar originais e histórico."},
  {code:"08",step:"Homologação posterior",detail:"Ensaios autorizados com pessoa real: positivo, negativo, revogado, duplicado, concorrência, rollback/readback, origem externa, desktop/mobile. Não tratar CI isolado como UAT."},
 ] as const;
+
+/** Prévia somente leitura: NÃO publica nem substitui a Ficha Viva. */
+export function canonicalReadinessPreview(
+ contribution:Ac01Record,target:Ac01FM|null,
+ decisions:readonly Ac01Decision[], publications:readonly Ac01Publication[],
+) {
+ const approved=decisions.filter(d=>d.contribution_id===contribution.id&&d.outcome==="aprovada");
+ const published=publications.filter(p=>p.contribution_id===contribution.id&&approved.some(d=>d.id===p.decision_act_id));
+ const blockers:string[]=[];
+ if(!target)blockers.push("Destino canônico não selecionado");
+ if(target&&target.module_id!==contribution.module_id)blockers.push("Destino pertence a outro módulo");
+ if(target&&!target.source_reference.trim())blockers.push("Localizador de origem da Ficha Viva não declarado");
+ if(!contribution.source_locator.trim())blockers.push("Localizador da contribuição ausente");
+ if(!approved.length)blockers.push("Decisão humana aprovada inexistente no recorte");
+ if(!published.length)blockers.push("Publicação interna AC-01 inexistente no recorte");
+ blockers.push("Acesso à fonte externa e hash atual não verificados");
+ blockers.push("Escrita canônica, CAS e readback ainda não autorizados");
+ return {
+  action:"BLOQUEADA" as const,sourceId:contribution.id,sourceVersion:contribution.version_no,
+  targetId:target?.id??null,targetSection:target?.section_code??null,
+  targetVersion:target?.version_no??null,targetLocator:target?.source_reference??null,
+  blockers,
+  steps:[
+    "Validar competência decisória e executor humano distintos",
+    "Selecionar alvo canônico e conferir versão/hash atuais autorizados",
+    "Conferir original, diferenças e conflito com versão vigente",
+    "Aplicar CAS transacional apenas após autorização específica",
+    "Reconsultar destino, preservar anterior e registrar evidência",
+    "Em falha: conciliar estado indeterminado, não repetir nem reverter automaticamente",
+  ],
+ };
+}
