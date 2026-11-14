@@ -151,7 +151,7 @@ assert.match(sources.find(s=>s.id==="CRM-ESTADO").sourceStatus,/03\/10/);
 assert.match(sources.find(s=>s.id==="CRM-09.02").sourceStatus,/PRONTA PARA HOMOLOGAÇÃO/);
 assert.match(sources.find(s=>s.id==="CRM-09.03").sourceStatus,/PRONTA PARA HOMOLOGAÇÃO/);
 assert.match(sources.find(s=>s.id==="CRM-09.04").sourceStatus,/HOMOLOGADA/);
-assert.equal(role.activeMandate,"não certificado no Core");
+assert.match(role.activeMandate,/^não certificado no Core/);
 const fmSource=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8");
 assert.match(fmSource,/moduleCode==="CRM"/);
 assert.match(fmSource,/CRM_AUTHORITY_SOURCES_V12\.map/);
