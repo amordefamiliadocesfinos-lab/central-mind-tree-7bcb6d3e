@@ -16,6 +16,7 @@ import NucleoAuthorityCoverage from "@/components/nucleo/NucleoAuthorityCoverage
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoMandateProposal from "@/components/nucleo/NucleoMandateProposal";
 import NucleoM2M4Reconciliation from "@/components/nucleo/NucleoM2M4Reconciliation";
+import NucleoKnowledgeReviewConsole from "@/components/nucleo/NucleoKnowledgeReviewConsole";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
@@ -182,6 +183,7 @@ export default function NucleoSupervisionPanel({
             {snapshot.declaredDependencies} dependências explícitas · {snapshot.findings.length} alertas.
           </p>
           <NucleoM2M4Reconciliation workstreams={latestFronts} evidence={evidence} />
+          <NucleoKnowledgeReviewConsole workstreams={latestFronts} evidence={evidence} />
           <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
           <NucleoAuthorityCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
           <NucleoMandateRegistry key={mandateVersion} modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
