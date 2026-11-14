@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { shopeeAdaoEasterCommitBlocker, ADAO_CHANNEL_ACCOUNT_ID, ADAO_APPROVED_EASTER_INTAKE_PAIRS } from '../src/shopee-adao-easter-commit-guard.mjs';
+import { shopeeAdaoEasterCommitBlocker, ADAO_CHANNEL_ACCOUNT_ID, ADAO_APPROVED_EASTER_INTAKE_PAIRS, ADAO_V36_RETIRED_EASTER_PAIRS } from '../src/shopee-adao-easter-commit-guard.mjs';
 
 const order = (items, channelAccountId=ADAO_CHANNEL_ACCOUNT_ID) => ({channelAccountId,orders:[{items}]});
 const regular='1:2';
@@ -46,9 +46,9 @@ test('mixed orders, wrong account and malformed identities are guarded',()=>{
 });
 
 
-test('Páscoa Adão approved 37-pair intake exact authorization includes valid 65g x100',()=>{
- assert.equal(ADAO_APPROVED_EASTER_INTAKE_PAIRS.length,37);
- assert.equal(new Set(ADAO_APPROVED_EASTER_INTAKE_PAIRS).size,37);
+test('Páscoa Adão active 30-pair allowlist excludes V36 retired models and includes valid 65g x100',()=>{
+ assert.equal(ADAO_APPROVED_EASTER_INTAKE_PAIRS.length,30);
+ assert.equal(new Set(ADAO_APPROVED_EASTER_INTAKE_PAIRS).size,30);
  assert.ok(ADAO_APPROVED_EASTER_INTAKE_PAIRS.includes('22298331606:199618170213'));
  assert.equal(new Set(ADAO_APPROVED_EASTER_INTAKE_PAIRS.map(pair=>pair.split(':')[0])).size,15);
  const models=ADAO_APPROVED_EASTER_INTAKE_PAIRS.map(pair=>{
@@ -72,4 +72,16 @@ test('Páscoa Adão approved 37-pair intake exact authorization includes valid 6
    if(original===undefined)delete process.env.SHOPEE_ADAO_APPROVED_EASTER_MODEL_PAIRS;
    else process.env.SHOPEE_ADAO_APPROVED_EASTER_MODEL_PAIRS=original;
  }
+});
+
+
+test('V36 retired Adão Páscoa identities stay blocked even in stale runtime allowlists',()=>{
+  assert.equal(ADAO_V36_RETIRED_EASTER_PAIRS.length,7);
+  for (const pair of ADAO_V36_RETIRED_EASTER_PAIRS) {
+    assert.equal(ADAO_APPROVED_EASTER_INTAKE_PAIRS.includes(pair),false);
+    const [itemId,modelId] = pair.split(':');
+    assert.equal(shopeeAdaoEasterCommitBlocker(order([{itemId,modelId}]),{
+      approvedPairs:pair,approvedEasterPairs:pair
+    }),'adao_pascoa_offer_not_approved_for_intake');
+  }
 });
