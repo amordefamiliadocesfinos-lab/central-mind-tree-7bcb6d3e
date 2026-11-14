@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 const assert=require("node:assert/strict");
+// Os resultados das funções transpíladas vêm de outro contexto vm.
+const assertPairs=(actual,expected)=>assert.equal(JSON.stringify(actual),JSON.stringify(expected));
 const fs=require("node:fs"),vm=require("node:vm"),ts=require("typescript");
 function load(path){
   const output=ts.transpileModule(fs.readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
@@ -12,11 +14,11 @@ const {numberDocumentDiffLinesV13}=load("src/lib/nucleo/documentDiffPresentation
 const diff=compareDocumentVersionsV13("cabeçalho\nantigo\nrodapé","cabeçalho\nnovo\nrodapé");
 assert.equal(diff.state,"completo");assert.equal(diff.included,1);assert.equal(diff.removed,1);
 const numbered=numberDocumentDiffLinesV13(diff.lines);
-assert.deepEqual(numbered.filter(x=>x.kind==="igual").map(x=>[x.beforeLine,x.afterLine]),[[1,1],[3,3]]);
-assert.deepEqual(numbered.filter(x=>x.kind==="removido").map(x=>[x.beforeLine,x.afterLine,x.value]),[[2,null,"antigo"]]);
-assert.deepEqual(numbered.filter(x=>x.kind==="incluido").map(x=>[x.beforeLine,x.afterLine,x.value]),[[null,2,"novo"]]);
+assertPairs(numbered.filter(x=>x.kind==="igual").map(x=>[x.beforeLine,x.afterLine]),[[1,1],[3,3]]);
+assertPairs(numbered.filter(x=>x.kind==="removido").map(x=>[x.beforeLine,x.afterLine,x.value]),[[2,null,"antigo"]]);
+assertPairs(numbered.filter(x=>x.kind==="incluido").map(x=>[x.beforeLine,x.afterLine,x.value]),[[null,2,"novo"]]);
 assert.equal(diff.lines[0].beforeLine,undefined,"Motor original sem mutação");
-assert.deepEqual(numberDocumentDiffLinesV13(compareDocumentVersionsV13("x\ny","x\ny").lines).map(x=>[x.beforeLine,x.afterLine]),[[1,1],[2,2]]);
+assertPairs(numberDocumentDiffLinesV13(compareDocumentVersionsV13("x\ny","x\ny").lines).map(x=>[x.beforeLine,x.afterLine]),[[1,1],[2,2]]);
 for (const huge of ["x".repeat(12001),"linha\n".repeat(181)]){
   const rejected=compareDocumentVersionsV13(huge,"texto");
   assert.equal(rejected.state,"indisponivel");assert.equal(rejected.lines.length,0);
