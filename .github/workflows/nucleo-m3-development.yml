@@ -11,6 +11,7 @@ on:
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "scripts/nucleo-ux-v24-document-drafts.test.cjs"
       - "scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs"
       - "scripts/nucleo-ux-a2-navigation.test.cjs"
       - "src/lib/nucleo/operationalKnowledgeV12.ts"
@@ -102,4 +103,6 @@ jobs:
         run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
       - name: Verify UX-A1 navigation and unsaved edits
         run: node scripts/nucleo-ux-a1-v23-context-guard.test.cjs
+      - name: Verify UX V2.4 document drafts
+        run: node scripts/nucleo-ux-v24-document-drafts.test.cjs
       - run: npm run build
