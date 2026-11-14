@@ -10,6 +10,7 @@ on:
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
       - "src/lib/nucleo/ac01DocumentGovernance.ts"
       - "src/lib/nucleo/ac02RegistryContract.ts"
+      - "supabase/functions/_shared/nucleo/ac02-registry-contract.ts"
       - "scripts/nucleo-ac02-registry.test.cjs"
       - "supabase/functions/nucleo-knowledge-read/index.ts"
       - "scripts/nucleo-ac02-authenticated-read.test.cjs"
