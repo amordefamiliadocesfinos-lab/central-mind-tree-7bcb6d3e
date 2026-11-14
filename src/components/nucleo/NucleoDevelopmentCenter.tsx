@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import "@/styles/nucleoVisualV22.css";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -293,15 +292,15 @@ export default function NucleoDevelopmentCenter() {
   };
 
   return (
-    <div className="nucleo-v22 space-y-4" aria-label="Central Visual de Desenvolvimento">
-      <div className="nucleo-v22-banner flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4" aria-label="Central Visual de Desenvolvimento">
+      <div className="flex flex-wrap items-center gap-3 justify-between">
         <div>
-          <h2 className="nucleo-v22-title text-xl">Central Visual de Desenvolvimento</h2>
+          <h2 className="font-semibold text-lg">Central Visual de Desenvolvimento</h2>
           <p className="text-xs text-muted-foreground">
             Estados declarados, histórico auditável, evidências técnicas M4 e supervisão assistida M5 em modo de leitura.
           </p>
         </div>
-        <Button size="sm" className="nucleo-v22-primary-button" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
+        <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
       </div>
 
       <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
@@ -321,7 +320,7 @@ export default function NucleoDevelopmentCenter() {
       />
 
       {creating && (
-        <Card id="nucleo-m3-create-module" className="nucleo-v22-surface p-4 space-y-3 scroll-mt-24">
+        <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
           <h3 className="font-semibold text-sm">Cadastrar módulo, frente ou subfrente</h3>
           <p className="text-xs text-muted-foreground">Pré-preenchimento vindo do inventário não é certificação nem cadastro. Revise código, escopo e fonte original antes de clicar em Salvar. Não cria frentes ou responsáveis automaticamente.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -362,21 +361,21 @@ export default function NucleoDevelopmentCenter() {
         </Card>
       )}
 
-      <div className="nucleo-v22-toolbar flex flex-wrap items-center gap-2">
-        <Input className="nucleo-v22-search max-w-md min-w-0 flex-1" aria-label="Filtrar frentes por código, especialista ou próxima ação" value={filter} onChange={e => setFilter(e.target.value)}
+      <div className="flex items-center gap-2">
+        <Input className="max-w-md" value={filter} onChange={e => setFilter(e.target.value)}
           placeholder="Filtrar código, especialista, frente ou próxima ação"/>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Atualizar</Button>
       </div>
 
       {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
 
-      <Card className="nucleo-v22-surface p-3 md:p-4 space-y-2">
-        <h3 className="nucleo-v22-title text-base">Árvore de módulos e frentes</h3>
+      <Card className="p-3 space-y-2">
+        <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
         <p className="text-xs text-muted-foreground">
           Identidade numerada e relações pai–filho preservadas. Selecione qualquer item para abrir a ficha.
         </p>
         {items.filter(i => i.kind === "modulo").map(mod => (
-          <div key={mod.id} className="nucleo-v22-card-hover px-3 py-2 space-y-1">
+          <div key={mod.id} className="rounded-md border px-3 py-2 space-y-1">
             <button type="button" className="text-sm font-medium hover:underline" onClick={() => choose(mod.id)}>
               {mod.code} — {mod.title}
             </button>
@@ -409,12 +408,12 @@ export default function NucleoDevelopmentCenter() {
               A raiz é exibida separadamente para evitar contagens contraditórias.
             </p>
           </div>
-          <div className="nucleo-v22-tabs inline-flex flex-wrap" aria-label="Modo de visualização">
-            <Button type="button" size="sm" className="nucleo-v22-pill" variant={displayMode === "lista" ? "default" : "ghost"}
+          <div className="inline-flex flex-wrap gap-1 rounded-lg border p-1" aria-label="Modo de visualização">
+            <Button type="button" size="sm" variant={displayMode === "lista" ? "default" : "ghost"}
               aria-pressed={displayMode === "lista"} onClick={() => setDisplayMode("lista")}>
               Lista compacta
             </Button>
-            <Button type="button" size="sm" className="nucleo-v22-pill" variant={displayMode === "quadro" ? "default" : "ghost"}
+            <Button type="button" size="sm" variant={displayMode === "quadro" ? "default" : "ghost"}
               aria-pressed={displayMode === "quadro"} onClick={() => setDisplayMode("quadro")}>
               Quadro por estado
             </Button>
@@ -422,7 +421,7 @@ export default function NucleoDevelopmentCenter() {
         </div>
         <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
           {states.map(state => (
-            <div className="nucleo-v22-status-tile" data-state={state.key} key={state.key}>
+            <div className="border rounded-lg p-3" key={state.key}>
               <p className="text-xs text-muted-foreground">{state.label}</p>
               <p className="font-bold text-xl tabular-nums">
                 {operationalVisible.filter(item => item.status === state.key).length}
@@ -466,7 +465,7 @@ export default function NucleoDevelopmentCenter() {
                     document.getElementById("nucleo-m3-workstream-detail")
                       ?.scrollIntoView({ behavior:"smooth", block:"start" });
                   }}
-                  className={`nucleo-v22-card-hover w-full text-left border border-l-4 rounded-lg p-3 md:p-4 bg-background hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${tone[item.status]} ${selectedId === item.id ? "ring-1 ring-primary/40" : ""}`}>
+                  className={`w-full text-left border border-l-4 rounded-lg p-3 md:p-4 bg-background hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${tone[item.status]} ${selectedId === item.id ? "ring-1 ring-primary/40" : ""}`}>
                   <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.8fr)_auto] gap-2 md:gap-4 items-center">
                     <div className="min-w-0">
                       <div className="flex items-center flex-wrap gap-2">
@@ -520,7 +519,7 @@ export default function NucleoDevelopmentCenter() {
               concluido: "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20",
             };
             return (
-              <Card className={`nucleo-v22-board-column p-3 md:p-4 min-w-0 space-y-3 ${stateStyle[state.key]}`} key={state.key}>
+              <Card className={`p-3 md:p-4 min-w-0 space-y-3 ${stateStyle[state.key]}`} key={state.key}>
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="font-semibold text-sm">{state.label}</h3>
                   <Badge variant="secondary" className="tabular-nums">{stateItems.length}</Badge>
@@ -567,7 +566,7 @@ export default function NucleoDevelopmentCenter() {
           })}
         </div>
       </section>}
-        <Card id="nucleo-m3-workstream-detail" className="nucleo-v22-surface p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
+        <Card id="nucleo-m3-workstream-detail" className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
@@ -622,7 +621,7 @@ export default function NucleoDevelopmentCenter() {
               <label className="block text-xs space-y-1">Evidência / justificativa
                 <Textarea value={edit.evidence_note||""} onChange={e=>setEdit(v=>({...v,evidence_note:e.target.value}))}/>
               </label>
-              <Button size="sm" className="nucleo-v22-primary-button" disabled={saving || !hasPendingChanges} onClick={saveItem}>
+              <Button size="sm" disabled={saving || !hasPendingChanges} onClick={saveItem}>
                 {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
               </Button>
               <NucleoTechnicalEvidence workstreamId={selected.id} />
