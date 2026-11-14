@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS, DIGITAL_DRAFTS, ASSISTENTE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
 import { CRM_AUTHORITY_SOURCES_V12, CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
 import { compareDocumentVersionsV13 } from "@/lib/nucleo/documentDiffV13";
+import { numberDocumentDiffLinesV13 } from "@/lib/nucleo/documentDiffPresentationV13";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -133,6 +134,8 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
   const newer=history.find(r=>r.id===compareNewerId)??history[0];
   const comparison=older&&newer&&older.id!==newer.id
     ?compareDocumentVersionsV13(older.body,newer.body):null;
+  const numberedComparisonLines=comparison?.state==="completo"
+    ?numberDocumentDiffLinesV13(comparison.lines):[];
   const refine=(revision:Revision)=>{
     if(loading||error||saving)return;
     if((title.trim()||body.trim()||source.trim())&&!window.confirm(
@@ -312,37 +315,83 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             </p>
             <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
           </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
-          {history.length>1&&<section className="border rounded-md p-3 space-y-3" aria-label="Comparação de versões AC-01">
-             <h5 className="font-semibold text-sm">Conhecimento e Evolução — comparar versões</h5>
-             <p className="text-xs text-muted-foreground">Comparação local dos textos FM persistidos, sem transmissão a terceiros. Não comprova aprovação, vigência nem conflitos de autoridade.</p>
-             <div className="grid gap-2 md:grid-cols-2">
-               <label className="text-xs space-y-1">Versão de origem
-                 <select aria-label="Versão de origem" className="flex h-10 w-full rounded-md border bg-background px-3"
-                   value={older?.id??""} onChange={e=>setCompareOlderId(e.target.value)}>
-                   {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
-                 </select>
-               </label>
-               <label className="text-xs space-y-1">Versão para comparação
-                 <select aria-label="Versão para comparação" className="flex h-10 w-full rounded-md border bg-background px-3"
-                   value={newer?.id??""} onChange={e=>setCompareNewerId(e.target.value)}>
-                   {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
-                 </select>
-               </label>
-             </div>
-             {!comparison&&<p role="status" className="text-xs text-muted-foreground">Selecione duas versões diferentes.</p>}
-             {comparison&&<>
-               <p role="status" className="text-xs">{comparison.state==="completo"
-                 ?`${comparison.included} linha(s) incluída(s) e ${comparison.removed} removida(s).`:comparison.reason}</p>
-               {comparison.state==="completo"&&<div className="max-h-80 overflow-auto rounded border p-2 text-xs font-mono" aria-label="Diferenças textuais das revisões">
-                 {comparison.lines.map((line,index)=><p key={index} className={`whitespace-pre-wrap break-all px-2 py-0.5 ${line.kind==="incluido"?"bg-emerald-100 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100":line.kind==="removido"?"bg-rose-100 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100":""}`}>
-                   <span className="sr-only">{line.kind==="incluido"?"Incluído":line.kind==="removido"?"Removido":"Igual"}: </span>
-                   <span aria-hidden="true">{line.kind==="incluido"?"+ ":line.kind==="removido"?"− ":"  "}</span>{line.value||" "}
-                 </p>)}
-               </div>}
-               <p className="text-xs text-muted-foreground">{comparison.reason}</p>
-               <Button type="button" size="sm" variant="outline" disabled={saving} onClick={()=>newer&&refine(newer)}>Preparar refinamento da versão selecionada</Button>
-             </>}
-           </section>}
+          {history.length>1&&<section className="rounded-lg border p-3 md:p-4 space-y-4" aria-label="Comparação de versões AC-01">
+            <div className="space-y-1">
+              <h5 className="text-sm font-semibold">Conhecimento e Evolução — comparar versões</h5>
+              <p className="text-sm text-muted-foreground">Comparação local dos corpos textuais FM registrados no Core, sem acesso automático a arquivos originais. Diferenças textuais não comprovam conflitos semânticos, aprovação ou vigência.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block space-y-1 text-xs font-semibold">Versão A — origem
+                <select aria-label="Versão de origem" className="flex h-10 w-full rounded-md border bg-background px-3 text-sm font-normal"
+                  value={older?.id??""} onChange={e=>setCompareOlderId(e.target.value)}>
+                  {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1 text-xs font-semibold">Versão B — destino da comparação
+                <select aria-label="Versão para comparação" className="flex h-10 w-full rounded-md border bg-background px-3 text-sm font-normal"
+                  value={newer?.id??""} onChange={e=>setCompareNewerId(e.target.value)}>
+                  {history.map(r=><option value={r.id} key={r.id}>v{r.version_no} · {r.title} ({r.authority_state})</option>)}
+                </select>
+              </label>
+            </div>
+            {older&&newer&&older.id!==newer.id&&(
+              <div className="grid gap-3 md:grid-cols-2" aria-label="Identificação e fontes das versões comparadas">
+                <article className="min-w-0 rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+                  <div className="flex flex-wrap items-center gap-2"><strong>Versão A · origem</strong><Badge variant="outline">v{older.version_no}</Badge></div>
+                  <p className="break-words font-semibold">{older.title}</p>
+                  <p className="text-xs">Estado declarado: {older.authority_state} · Evidência: {older.evidence_level}</p>
+                  <p className="text-xs text-muted-foreground">Registrada: {new Date(older.recorded_at).toLocaleString("pt-BR")} · Autoria: {older.recorded_by_auth_uid?older.recorded_by_auth_uid.slice(0,8)+"…":"não identificada"}</p>
+                  <div className="border-t pt-2"><p className="mb-1 text-xs font-medium">Fontes declaradas da versão A — consultar origem</p><SourceReferences reference={older.source_reference}/></div>
+                </article>
+                <article className="min-w-0 rounded-md border border-sky-300 bg-sky-50/50 p-3 text-sm space-y-2 dark:border-sky-800 dark:bg-sky-950/20">
+                  <div className="flex flex-wrap items-center gap-2"><strong>Versão B · destino</strong><Badge variant="outline">v{newer.version_no}</Badge></div>
+                  <p className="break-words font-semibold">{newer.title}</p>
+                  <p className="text-xs">Estado declarado: {newer.authority_state} · Evidência: {newer.evidence_level}</p>
+                  <p className="text-xs text-muted-foreground">Registrada: {new Date(newer.recorded_at).toLocaleString("pt-BR")} · Autoria: {newer.recorded_by_auth_uid?newer.recorded_by_auth_uid.slice(0,8)+"…":"não identificada"}</p>
+                  <div className="border-t pt-2"><p className="mb-1 text-xs font-medium">Fontes declaradas da versão B — consultar origem</p><SourceReferences reference={newer.source_reference}/></div>
+                </article>
+              </div>
+            )}
+            {!comparison&&<p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">Selecione duas versões diferentes. Nenhuma diferença será inferida de uma versão isolada.</p>}
+            {comparison&&<div className="space-y-3">
+              {comparison.state==="indisponivel"?(
+                <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+                  Comparação integral indisponível: {comparison.reason} Consulte as versões e fontes acima; nenhum diff parcial é exibido como integral.
+                </p>
+              ):(
+                <>
+                  <div className="flex flex-wrap items-center gap-2" role="status" aria-label="Resumo das diferenças textuais">
+                    <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100">+ {comparison.included} incluída(s) na B</Badge>
+                    <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100">− {comparison.removed} removida(s) da A</Badge>
+                    <Badge variant="outline">{numberedComparisonLines.filter(row=>row.kind==="igual").length} mantida(s)</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">A e B indicam números de linha. Incluída: existe na B. Removida: consta na A. Uma edição pode aparecer como remoção seguida de inclusão.</p>
+                  {comparison.included===0&&comparison.removed===0&&<p className="rounded-md border p-3 text-sm">Corpos textuais idênticos nesta comparação integral; fontes e estados declarados permanecem distintos e devem ser conferidos.</p>}
+                  <div role="region" tabIndex={0} className="max-h-[26rem] overflow-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Diferenças textuais das revisões — numeração das versões A e B">
+                    <div className="sticky top-0 z-10 hidden grid-cols-[3.25rem_3.25rem_6rem_minmax(0,1fr)] gap-2 border-b bg-muted px-2 py-2 text-xs font-semibold sm:grid">
+                      <span className="text-right">Linha A</span><span className="text-right">Linha B</span><span>Tipo</span><span>Texto da linha</span>
+                    </div>
+                    {numberedComparisonLines.map((row,index)=>(
+                      <div key={index} className={"grid min-w-0 grid-cols-1 gap-1 border-b px-2 py-1.5 last:border-b-0 sm:grid-cols-[3.25rem_3.25rem_6rem_minmax(0,1fr)] sm:gap-2 "+
+                        (row.kind==="incluido"?"bg-emerald-50/80 dark:bg-emerald-950/30":row.kind==="removido"?"bg-rose-50/80 dark:bg-rose-950/30":"bg-background")}>
+                        <span className="text-xs font-medium text-muted-foreground sm:hidden">Linha A: {row.beforeLine??"—"} · Linha B: {row.afterLine??"—"}</span>
+                        <span className="hidden text-right text-xs tabular-nums text-muted-foreground sm:block">{row.beforeLine??"—"}</span>
+                        <span className="hidden text-right text-xs tabular-nums text-muted-foreground sm:block">{row.afterLine??"—"}</span>
+                        <span className={"text-xs font-semibold "+(row.kind==="incluido"?"text-emerald-800 dark:text-emerald-200":row.kind==="removido"?"text-rose-800 dark:text-rose-200":"text-muted-foreground")}>
+                          {row.kind==="incluido"?"Incluída":row.kind==="removido"?"Removida":"Mantida"}
+                        </span>
+                        <code className="min-w-0 whitespace-pre-wrap break-words font-mono text-xs">{row.value||" "}</code>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{comparison.reason}</p>
+                </>
+              )}
+              <Button type="button" size="sm" variant="outline" disabled={saving}
+                onClick={()=>newer&&refine(newer)}>Preparar refinamento da versão selecionada</Button>
+            </div>}
+          </section>}
            {latest&&<Button type="button" size="sm" variant="outline" disabled={saving}
              onClick={()=>refine(latest)}>Refinar a última versão em novo rascunho</Button>}
            {history.length>1&&<details className="border rounded-md p-3 text-xs">
