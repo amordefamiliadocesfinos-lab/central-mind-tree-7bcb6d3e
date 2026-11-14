@@ -232,3 +232,29 @@ assert.match(atlasVisual,/Nenhuma frente vinculada ao módulo no Core/);
 assert.match(atlasVisual,/não foram comprovados no Core|ainda não foram comprovados no Core/);
 assert.match(atlasVisual,/não homologações|não homologado|não homologações/);
 console.log("Núcleo A+ CA19/22: navegação por áreas e atalhos de consulta M3 PASS (verificação estática).");
+
+
+// A+ CA-01/02/11/19/22 — cobertura real vs catálogo, sem inventar cadastro.
+// Verificações estáticas da UI e contrato de falha fechada; não substituem UAT.
+const coverageSource=fs.readFileSync("src/components/nucleo/NucleoCrossModuleCoverage.tsx","utf8");
+const centerSource=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+for(const file of [coverageSource,centerSource]){
+  const check=ts.transpileModule(file,{compilerOptions:{
+    jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+  },reportDiagnostics:true});
+  assert.equal((check.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+}
+assert.match(coverageSource,/filter==="precisa_reconciliar"/);
+assert.match(coverageSource,/filter==="somente_catalogo"/);
+assert.match(coverageSource,/const notRegistered=rows\.filter\(row=>!row\.record\)/);
+assert.match(coverageSource,/!record && <Button/);
+assert.match(coverageSource,/onPrepareModule\(module\)/);
+assert.match(atlasVisual,/onPrepareModule=\{onPrepareModule\}/);
+assert.match(centerSource,/setReadError\(true\)/);
+assert.match(centerSource,/setReadError\(false\)/);
+assert.match(centerSource,/if \(readError\) return \(/);
+assert.match(centerSource,/cobertura, as contagens e os vínculos estão indeterminados/);
+assert.match(centerSource,/const prepareModule = \(module:KnowledgeModule\)/);
+assert.match(centerSource,/setDraft\(\{\.\.\.emptyDraft,code:cleanCode\(module.id\),title:module.name,kind:"modulo"\}\)/);
+assert.match(centerSource,/if \(readError \|\| loading\)/);
+console.log("Núcleo A+ CA01/02/11/19/22: reconciliação M3 e falha fechada PASS (contratos estáticos).");
