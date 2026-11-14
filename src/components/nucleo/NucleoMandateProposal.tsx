@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
+import { CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
 
 type ProposalRow = {
   id:string; module_id:string; record_kind:string; specialist_role:string;
@@ -122,6 +123,44 @@ export default function NucleoMandateProposal({modules,onCreated}:{
         <button type="button" className="ml-2 text-xs underline" disabled={busy}
           onClick={()=>setSource(s.path)}>Usar referência</button>
       </div>)}
+      {selected.code==="CRM"&&(
+        <div className="rounded border p-3 space-y-2" aria-label="Dossiê para decisão de mandato CRM">
+          <p className="text-sm font-semibold">CA-17 — elementos para decisão formal da Camada Mestre</p>
+          <p className="text-xs text-muted-foreground">
+            O repasse CRM 7 → CRM 8 é um checkpoint preparado, não uma certificação.
+            O Estado CRM V1.2 também está preparado e não vigente. O Núcleo não decide
+            quem é o especialista atual nem publica uma versão por inferência.
+          </p>
+          <p className="text-xs font-medium">Referência funcional: {CRM_SPECIALIST_CA17.functionalRole}</p>
+          <p className="text-xs">Sucessão documental: {CRM_SPECIALIST_CA17.successionRecord}</p>
+          <p className="text-xs">Mandato: {CRM_SPECIALIST_CA17.activeMandate}</p>
+          <div className="space-y-1 text-xs">
+            {CRM_CONTINUITY_CHECKPOINTS_V12.map(entry=>(
+              <p key={entry.id}><strong>{entry.date} · {entry.title}:</strong> {entry.state}</p>
+            ))}
+          </div>
+          <p className="text-xs font-medium">Decisão ainda necessária:</p>
+          <p className="text-xs text-muted-foreground">
+            Confirmar, por fonte formal da Camada Mestre: titular autorizado,
+            método e versão aplicáveis, data de vigência, substituição do mandato anterior,
+            fonte de decisão e condições de revogação. Se não comprovado, manter
+            não certificado. Registrar proposta abaixo não concede mandato.
+          </p>
+          <Button type="button" size="sm" variant="outline" disabled={busy}
+            onClick={()=>{
+              setRole(CRM_SPECIALIST_CA17.functionalRole);
+              setMethod("");
+              setVersion("");
+              setSource(REPO+"/blob/main/docs/architecture/NUCLEO_V12_A_PLUS_CRM_CA13_CA17_SUCESSAO_2026-11-14.md");
+              setNote("Proposta para reconciliação, SEM mandato: repasse CRM 7 → CRM 8 de 04/11 preparado/não publicado; Estado CRM V1.2 não vigente. Confirmar titular, método, versão e decisão com Camada Mestre antes de certificação.");
+              setError("");setSuccess("");
+            }}>Preparar proposta CRM sem certificação</Button>
+          <p className="text-xs text-muted-foreground">
+            O botão preenche somente campos locais do formulário; a gravação, se desejada,
+            exige confirmação humana separada e registra exclusivamente uma proposta.
+          </p>
+        </div>
+      )}
       <a href={REPO} target="_blank" rel="noopener noreferrer" className="text-xs underline">Consultar repositório oficial</a>
     </div>}
     <div className="grid gap-3 md:grid-cols-2">
