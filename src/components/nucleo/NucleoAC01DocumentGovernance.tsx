@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
- AC01_DOCUMENT_CATEGORIES, AC01_FUNCTIONS, AC01_AUTHORITY_PROCEDURE, buildAc01DocumentView, declaredAuthorityCoverage,
+ AC01_DOCUMENT_CATEGORIES, AC01_FUNCTIONS, AC01_AUTHORITY_PROCEDURE, buildAc01DocumentView, declaredAuthorityCoverage, canonicalReadinessPreview,
  type Ac01Record, type Ac01Request, type Ac01Decision, type Ac01Publication,
- type Ac01Mandate, type Ac01Grant, type Ac01FM,
+ type Ac01Mandate, type Ac01Grant, type Ac01Revocation, type Ac01FM,
 } from "@/lib/nucleo/ac01DocumentGovernance";
 
 type Tables={
@@ -16,6 +16,7 @@ type Tables={
  nucleo_ac01_decision_acts:{Row:Ac01Decision;Insert:never;Update:never;Relationships:[]};
  nucleo_ac01_publication_events:{Row:Ac01Publication;Insert:never;Update:never;Relationships:[]};
  nucleo_ac01_authority_grants:{Row:Ac01Grant;Insert:never;Update:never;Relationships:[]};
+ nucleo_ac01_authority_revocations:{Row:Ac01Revocation;Insert:never;Update:never;Relationships:[]};
  nucleo_specialist_mandate_records:{Row:Ac01Mandate;Insert:never;Update:never;Relationships:[]};
  nucleo_module_knowledge_revisions:{Row:Ac01FM;Insert:never;Update:never;Relationships:[]};
 };
@@ -51,12 +52,14 @@ export default function NucleoAC01DocumentGovernance({
  const [publications,setPublications]=useState<Ac01Publication[]>([]);
  const [mandates,setMandates]=useState<Ac01Mandate[]>([]);
  const [grants,setGrants]=useState<Ac01Grant[]>([]);
+ const [revocations,setRevocations]=useState<Ac01Revocation[]>([]);
+ const [targetId,setTargetId]=useState("");
  const [fm,setFm]=useState<Ac01FM[]>([]);
  const [selectedId,setSelectedId]=useState("");
  useEffect(()=>{
   let mounted=true;
   setLoading(true);setError("");setSnapshotAt("");
-  setReqs([]);setDecisions([]);setPublications([]);setMandates([]);setGrants([]);setFm([]);
+  setReqs([]);setDecisions([]);setPublications([]);setMandates([]);setGrants([]);setRevocations([]);setFm([]);
   if(contributions.length>=CAP) {
    setError("Recorte AC-01 incompleto; não inferir qual referência é vigente ou quais decisões estão abertas.");
    setLoading(false);return()=>{mounted=false};
@@ -64,7 +67,7 @@ export default function NucleoAC01DocumentGovernance({
   const ids=contributions.map(x=>x.id);
   void (async()=>{
     // A ausência de contribuições não equivale à ausência de Fichas Vivas ou mandatos.
-    const [requests,acts,pubs,mandateRows,authority,knowledge]=await Promise.all([
+    const [requests,acts,pubs,mandateRows,authority,revocationRows,knowledge]=await Promise.all([
      db.from("nucleo_ac01_decision_requests").select("*").eq("module_id",moduleId).limit(CAP),
      ids.length?db.from("nucleo_ac01_decision_acts").select("*").in("contribution_id",ids).limit(CAP)
        :Promise.resolve({data:[] as Ac01Decision[],error:null}),
@@ -72,12 +75,13 @@ export default function NucleoAC01DocumentGovernance({
        :Promise.resolve({data:[] as Ac01Publication[],error:null}),
      db.from("nucleo_specialist_mandate_records").select("*").eq("module_id",moduleId).limit(CAP),
      db.from("nucleo_ac01_authority_grants").select("*").eq("module_id",moduleId).limit(CAP),
+     db.from("nucleo_ac01_authority_revocations").select("*").limit(CAP),
      db.from("nucleo_module_knowledge_revisions")
        .select("id,module_id,section_code,version_no,title,authority_state,source_reference,recorded_at")
        .eq("module_id",moduleId).limit(CAP),
     ]);
     if(!mounted)return;
-    const responses=[requests,acts,pubs,mandateRows,authority,knowledge];
+    const responses=[requests,acts,pubs,mandateRows,authority,revocationRows,knowledge];
     if(responses.some(x=>x.error||!x.data||x.data.length>=CAP)){
      setError("Uma das fontes governadas falhou ou ultrapassou o limite do recorte. Estado consolidado indisponível.");
     }else{
@@ -86,6 +90,7 @@ export default function NucleoAC01DocumentGovernance({
      setPublications(pubs.data as Ac01Publication[]);
      setMandates(mandateRows.data as Ac01Mandate[]);
      setGrants(authority.data as Ac01Grant[]);
+     setRevocations(revocationRows.data as Ac01Revocation[]);
      setFm(knowledge.data as Ac01FM[]);
      setSnapshotAt(new Date().toISOString());
     }
@@ -115,7 +120,8 @@ export default function NucleoAC01DocumentGovernance({
  }
  const selected=contributions.find(c=>c.id===selectedId);
  const now=snapshotAt||readAt;
- const scopedGrants=declaredAuthorityCoverage(moduleId,declaredRole,category==="todas"?"metodo":category,grants,mandates,now);
+ const scopedGrants=declaredAuthorityCoverage(moduleId,declaredRole,category==="todas"?"metodo":category,grants,mandates,now,revocations);
+ const preview=selected?canonicalReadinessPreview(selected,fm.find(x=>x.id===targetId)??null,decisions,publications):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
   onClick={()=>setSelectedId(c.id)}
@@ -207,7 +213,8 @@ export default function NucleoAC01DocumentGovernance({
      <p className="text-muted-foreground">Condição: {x.prerequisite}</p>
     </article>)}</div>
     <p className="text-xs">Escopo selecionado: {declaredRole||"papel ainda não confirmado"} · {category==="todas"?"todas as categorias (sem delegação coletiva)":category}.</p>
-    {category!=="todas"&&<p className="text-xs">Delegações declaradas com mandato válido neste recorte: {scopedGrants.length}. Isto não comprova permissão técnica para decidir ou publicar.</p>}
+    {category!=="todas"&&<p className="text-xs">Delegações declaradas com mandato não revogado neste recorte: {scopedGrants.length}. Isto não comprova permissão técnica para decidir ou publicar.</p>}
+    <div className="space-y-2"><strong className="text-xs">Ciclo das delegações (consulta)</strong>{grants.filter(g=>!declaredRole||g.specialist_role===declaredRole).map(g=><p key={g.id} className="text-xs border-l-2 pl-2">{g.authority_kind} · {g.contribution_kind} · {g.delegate_auth_uid.slice(0,8)}… · {revocations.some(r=>r.authority_grant_id===g.id)?"REVOGADA / SUSPENSA":"Sem revogação registrada no recorte"}{g.supersedes_grant_id?" · substitui "+g.supersedes_grant_id.slice(0,8)+"…":""}</p>)}{grants.length===0&&<p className="text-xs text-muted-foreground">Nenhuma delegação existente no Core para este módulo.</p>}</div>
     <p className="text-xs text-muted-foreground">Certificar, delegar, revogar e substituir responsáveis dependem do ato documentado da Camada Mestre, e da trilha formal; nenhuma escrita está habilitada.</p>
     <details className="rounded border p-3 text-xs">
      <summary className="cursor-pointer font-semibold">Procedimento de certificação, substituição e publicação (preparação sem execução)</summary>
@@ -224,6 +231,20 @@ export default function NucleoAC01DocumentGovernance({
     <p>Autor autenticado: {selected.recorded_by_auth_uid.slice(0,8)}… · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
     <p className="break-all">Original preservado em: {selected.source_kind} · {selected.source_locator}</p>
     <p className="text-muted-foreground">Qualquer comparação de conteúdo requer acesso válido à fonte original. Sem diffs fictícios nem aprovação implícita.</p>
+    <div className="space-y-2 border-t pt-2"><strong>Prévia de reconciliação canônica — bloqueada</strong>
+     <label className="block">Alvo de Ficha Viva para análise (sem alteração)
+       <select className="w-full rounded border bg-background p-2" value={targetId} onChange={e=>setTargetId(e.target.value)}>
+        <option value="">Não selecionado</option>
+        {fm.map(x=><option key={x.id} value={x.id}>{x.section_code} · {x.title} · v{x.version_no}</option>)}
+       </select>
+     </label>
+     {preview&&<><Badge variant="outline">{preview.action}</Badge>
+       <p>Origem v{preview.sourceVersion} · destino v{preview.targetVersion??"não selecionado"}</p>
+       <ul className="list-disc pl-4">{preview.blockers.map(b=><li key={b}>{b}</li>)}</ul>
+       <details><summary className="cursor-pointer">Plano técnico preparado — não executável</summary>
+        <ol className="list-decimal pl-4">{preview.steps.map(t=><li key={t}>{t}</li>)}</ol>
+       </details></>}
+    </div>
    </div>}
   </>}
  </section>;
