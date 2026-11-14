@@ -195,3 +195,20 @@ assert.ok(proposalComponent.includes('setMethod("");'));
 
 assert.match(proposalComponent,/registra exclusivamente uma proposta/);
 console.log("Núcleo CA13/17: FM05/FM08/FM09 e proposta de autoridade com limites PASS.");
+
+
+// A+ CA-21: o limite da Ficha Viva não pode transformar leitura parcial
+// em histórico completo nem habilitar gravação baseada em versão truncada.
+const fichaSource=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8");
+const fichaCompiled=ts.transpileModule(fichaSource,{compilerOptions:{
+  jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((fichaCompiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(fichaSource,/const MAX_FM_HISTORY_ROWS = 300/);
+assert.match(fichaSource,/result\.data\.length>=MAX_FM_HISTORY_ROWS/);
+assert.match(fichaSource,/setRevisions\(\[\]\);\s*setError\("Histórico da Ficha Viva atingiu o limite/);
+assert.match(fichaSource,/if\(loading\|\|error\|\|saving\) return/);
+assert.match(fichaSource,/error \? "Cobertura indeterminada — erro de leitura"/);
+assert.match(fichaSource,/recorded_by_auth_uid\.slice\(0,8\)/);
+assert.match(fichaSource,/reviewed_by/);
+console.log("Núcleo A+ CA-21: fail-closed para 300 revisões e indicação de autoria PASS (teste de contrato estático).");
