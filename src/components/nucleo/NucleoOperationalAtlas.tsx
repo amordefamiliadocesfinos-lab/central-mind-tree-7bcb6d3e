@@ -22,10 +22,10 @@ import {
 type Level = "overview" | "module" | "operation";
 type ModuleSection = "funcoes" | "especialista" | "desenvolvimento" | "conhecimento";
 const MODULE_SECTIONS: Array<{id:ModuleSection;label:string;hint:string}> = [
-  {id:"funcoes",label:"Funcionalidades",hint:"Telas, botões e fluxos"},
-  {id:"especialista",label:"Especialista",hint:"Responsabilidade e fontes"},
+  {id:"funcoes",label:"Operação",hint:"Telas, funções e como utilizar"},
   {id:"desenvolvimento",label:"Desenvolvimento",hint:"Frentes, prioridades e evidências"},
-  {id:"conhecimento",label:"Conhecimento",hint:"Ficha Viva e versões"},
+  {id:"especialista",label:"Especialistas",hint:"Responsabilidades, fontes e mandatos"},
+  {id:"conhecimento",label:"Conhecimento e Evolução",hint:"Ficha Viva, versões e revisões"},
 ];
 const specialistConfidence = (value: string | null | undefined): "declarado" | "nao_verificado" =>
   value && !/não verificado|não verificados|a conciliar|a reconciliar|vigência a conferir|vigência não/i.test(value)
@@ -124,6 +124,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       rank:critical.length>0?0:record&&fronts.length===0?1:!record?2:3};
   }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
   const selected = catalog.find(item => item.id === selectedId) ?? null;
+  const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
   const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
@@ -153,13 +154,22 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       [action.label, action.screen, action.expectedEffect].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [actionSearch]);
   const choose = (item: KnowledgeModule) => {
+    // Retomar o mesmo módulo não descarta área, pesquisa e seleção.
+    if (item.id !== selectedId) {
+      setModuleSection("funcoes");
+      setActionSearch("");
+      setCrmJourneyMode("operador");
+      setEvidenceFrontId(null);
+      setKnowledgeOpen(false);
+    }
     setSelectedId(item.id);
     setLevel("module");
-    setModuleSection("funcoes");
-    setActionSearch("");
-    setCrmJourneyMode("operador");
+  };
+  const selectModuleArea = (area: ModuleSection) => {
+    setModuleSection(area);
+    if (area === "conhecimento") setKnowledgeOpen(true);
     setEvidenceFrontId(null);
-    setKnowledgeOpen(false);
+    requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
   };
 
   return (
@@ -179,9 +189,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         </div>
         <nav className="flex flex-wrap items-center gap-2" aria-label="Navegação do Núcleo">
           <Button size="sm" variant={level==="overview"?"default":"outline"} aria-current={level==="overview"?"page":undefined}
-            onClick={() => {setLevel("overview");setSelectedId(null);}}>Painel Geral</Button>
+            onClick={() => setLevel("overview")}>Painel Geral</Button>
           <Button size="sm" variant={level==="module"?"default":"outline"} disabled={!selected}
-            aria-current={level==="module"?"page":undefined} onClick={() => setLevel("module")}>Módulo{selected ? " · "+selected.name : ""}</Button>
+            aria-label={selected ? "Retomar ficha do módulo " + selected.name : "Nenhum módulo selecionado"}
+            aria-current={level==="module"?"page":undefined} onClick={() => setLevel("module")}>
+            {selected ? "Módulo · "+selected.name : "Selecionar módulo"}
+          </Button>
           {selected?.id==="CRM" && <Button size="sm" variant={level==="operation"?"default":"outline"}
             aria-current={level==="operation"?"page":undefined} onClick={() => setLevel("operation")}>Jornada prática CRM</Button>}
         </nav>
@@ -331,8 +344,18 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         </Card>
       )}
 
-      {selected && level==="module" && (
-        <Card className="p-4 md:p-5 space-y-4">
+      {/* A ficha permanece montada no panorama e na jornada CRM; a seleção persiste. */}
+      {selected && (
+        <Card className={"p-4 md:p-5 space-y-4 " + (level === "module" ? "" : "hidden")}
+          aria-hidden={level !== "module"}>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-muted-foreground">Ficha do módulo selecionado</p>
+              <p className="text-sm font-medium">{selected.id} · {selected.name}</p>
+            </div>
+            <Button type="button" variant="outline" size="sm"
+              onClick={() => setLevel("overview")}>Voltar ao Painel Geral</Button>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
@@ -355,23 +378,31 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <p className="text-xs text-muted-foreground mt-1">{metric.note}</p>
             </div>)}
           </div>
-          <div className="rounded-lg border bg-muted/20 p-2">
-            <nav className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={"Seções do módulo "+selected.name}>
+          <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
+            <p className="px-1 text-xs text-muted-foreground">
+              Escolha uma área para consultar as informações existentes deste módulo.
+            </p>
+            <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
+              aria-label={"Áreas da ficha do módulo "+selected.name}>
               {MODULE_SECTIONS.map(item=>(
-                <button key={item.id} type="button" onClick={()=>{
-                    setModuleSection(item.id);
-                    if(item.id==="conhecimento")setKnowledgeOpen(true);
-                    setEvidenceFrontId(null);
-                  }}
+                <button key={item.id} type="button" onClick={() => selectModuleArea(item.id)}
                   aria-pressed={moduleSection===item.id}
-                  className={`rounded-md border px-3 py-3 text-left min-h-16 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-background shadow-sm":"border-transparent hover:bg-background/80"}`}>
+                  aria-controls="nucleo-module-section-content"
+                  className={`min-w-0 rounded-md border px-3 py-3 text-left min-h-[70px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-primary/5 shadow-sm":"border-border bg-background hover:bg-muted/60"}`}>
                   <span className="block text-sm font-semibold">{item.label}</span>
                   <span className="block text-xs text-muted-foreground mt-1">{item.hint}</span>
                 </button>
               ))}
             </nav>
           </div>
-          <div role="region" aria-label={"Conteúdo de "+MODULE_SECTIONS.find(s=>s.id===moduleSection)?.label} className="space-y-3">
+          <div id="nucleo-module-section-content" role="region" tabIndex={-1}
+            aria-labelledby="nucleo-module-active-section-heading"
+            className="space-y-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div className="border-b pb-3">
+              <p className="text-xs font-medium text-muted-foreground">Área selecionada</p>
+              <h4 id="nucleo-module-active-section-heading" className="text-base font-semibold">{currentModuleArea.label}</h4>
+              <p className="text-sm text-muted-foreground">{currentModuleArea.hint}</p>
+            </div>
           {moduleSection==="funcoes" && <div className="grid gap-3 md:grid-cols-2">
             <div className="border rounded-lg p-3 space-y-2">
               <h4 className="font-medium text-sm">Acesso e responsabilidade</h4>
