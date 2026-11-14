@@ -171,14 +171,14 @@ export default function NucleoAC01DocumentGovernance({
    </div>
    {tab==="vigente"&&<div className="space-y-2">
     <p className="nucleo-v22-guard text-xs">Vigente canônico exige fonte original + ato competente + sincronização comprovada. Publicação interna AC-01 não comprova a vigência em Drive/GitHub/Ficha Viva.</p>
-    {activeFM.length>0?<div className="space-y-2"><strong className="text-sm">Ficha Viva — estado de autoridade declarado (não comprovado externamente)</strong>
+    {activeFM.length>0?<div className="space-y-2"><strong className="text-sm">Fichas Vivas — autoridade declarada, não comprovada externamente</strong>
      {activeFM.map(x=><div key={x.id} className="rounded border p-3 text-xs">
       <strong>{x.section_code} · {x.title} · v{x.version_no}</strong>
       <p>Estado declarado: {x.authority_state}</p>
       <p className="break-all">Fonte: {x.source_reference||"não informada"}</p>
      </div>)}<p className="text-xs text-muted-foreground">A declaração FM não é homologação AC-01 por inferência.</p></div>
     :<p className="text-xs">Nenhuma Ficha Viva com estado vigente/homologado foi retornada nesta consulta. Isto não certifica ausência de método válido nas fontes externas.</p>}
-    {currentByScope.size>0?<div className="space-y-2"><strong className="text-sm">Publicações internas AC-01 — sem atualização automática da fonte canônica</strong>
+    {currentByScope.size>0?<div className="space-y-2"><strong className="text-sm">Últimas publicações internas AC-01 — sem atualização automática da fonte canônica</strong>
      {[...currentByScope.values()].map(p=><div key={p.id} className="rounded border p-3 text-xs">
        <strong>{p.contribution?.title} · v{p.contribution?.version_no}</strong>
        <p>Publicação interna em {new Date(p.recorded_at).toLocaleString("pt-BR")}, não reconcilia automaticamente fontes externas.</p>
