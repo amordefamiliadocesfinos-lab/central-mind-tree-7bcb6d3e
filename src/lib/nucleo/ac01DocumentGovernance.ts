@@ -47,8 +47,9 @@ export type Ac01Mandate = {
 export type Ac01Grant = {
  id:string;module_id:string;specialist_role:string;contribution_kind:string;
  authority_kind:string;delegate_auth_uid:string;mandate_record_id:string;
- effective_from:string;effective_until:string|null;
+ effective_from:string;effective_until:string|null;supersedes_grant_id?:string|null;
 };
+export type Ac01Revocation={id:string;authority_grant_id:string;revocation_kind:'revogacao'|'suspensao';reason:string;revoked_by_auth_uid:string;recorded_at:string};
 export type Ac01FM = {
  id:string;module_id:string;section_code:string;version_no:number;
  title:string;authority_state:string;source_reference:string;recorded_at:string;
@@ -91,10 +92,11 @@ export function isActiveCertifiedMandate(
 export function declaredAuthorityCoverage(
  moduleId:string,specialist:string,category:string,
  grants:readonly Ac01Grant[],mandates:readonly Ac01Mandate[],now:string,
+ revocations:readonly Ac01Revocation[]=[],
 ) {
  const byId=new Map(mandates.map(m=>[m.id,m]));
  return grants.filter(g=>g.module_id===moduleId && g.specialist_role===specialist &&
-  g.contribution_kind===category && g.effective_from<=now &&
+  g.contribution_kind===category && !revocations.some(r=>r.authority_grant_id===g.id) && g.effective_from<=now &&
   (!g.effective_until || g.effective_until>now) &&
   !!byId.get(g.mandate_record_id) &&
   isActiveCertifiedMandate(byId.get(g.mandate_record_id)!,mandates,now));
