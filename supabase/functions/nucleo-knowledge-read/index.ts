@@ -228,6 +228,17 @@ Deno.serve(async request=>{
         ac02_assumption_export=composeAc02AssumptionExport({
           projection:ac02.global,specialist:ac02.specialist,
           moduleTitle:module.title,preparedAt:readAt,
+          documentaryReadComplete:true,
+          documentary:sections.filter(row=>["FM-03","FM-08","FM-09"].includes(row.section_code)&&row.revision!==null)
+           .map(row=>({
+             sectionCode:row.section_code as "FM-03"|"FM-08"|"FM-09",
+             id:row.revision!.id,
+             versionNo:row.revision!.version_no,
+             authorityState:row.revision!.authority_state,
+             evidenceLevel:row.revision!.evidence_level??null,
+             recordedAt:row.revision!.recorded_at,
+             sourcePresent:typeof row.revision!.source_reference==="string"&&row.revision!.source_reference.trim().length>0,
+           })),
           technical:{
             fronts:fronts.map(f=>({id:f.id,code:f.code,status:f.status})),
             evidence:scopedEvidence.map(e=>({
