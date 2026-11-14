@@ -448,3 +448,32 @@ assert.match(checkpointView,/janela global de 200 registros/);
 assert.match(checkpointView,/actor_auth_uid\.slice\(0,8\)/);
 assert.match(checkpointView,/NucleoTechnicalEvidence workstreamId=\{item\.id\}/);
 console.log("Núcleo A+ CA07/08/10/21: alterações, checkpoints e limites de aprovação PASS.");
+
+
+// AC-01 V1.3 CA-24/25/26 — diff textual local, seguro e sem promoção automática.
+const diffSourceV13=fs.readFileSync("src/lib/nucleo/documentDiffV13.ts","utf8");
+const diffCompiledV13=ts.transpileModule(diffSourceV13,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((diffCompiledV13.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const diffScopeV13={exports:{}};
+vm.runInNewContext(diffCompiledV13.outputText,diffScopeV13,{timeout:1000});
+const compareV13=diffScopeV13.exports.compareDocumentVersionsV13;
+const differenceV13=compareV13("linha um\nlinha velha","linha um\nlinha nova");
+assert.equal(differenceV13.state,"completo");
+assert.equal(differenceV13.included,1);
+assert.equal(differenceV13.removed,1);
+assert.equal(compareV13("idêntico","idêntico").included,0);
+assert.equal(compareV13("idêntico","idêntico").removed,0);
+assert.equal(compareV13("a".repeat(12001),"texto").state,"indisponivel");
+assert.equal(compareV13("x\n".repeat(181),"texto").state,"indisponivel");
+const ac01Knowledge=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8");
+assert.match(ac01Knowledge,/compareDocumentVersionsV13/);
+assert.match(ac01Knowledge,/Comparação de versões AC-01/);
+assert.match(ac01Knowledge,/Preparar refinamento da versão selecionada/);
+assert.match(ac01Knowledge,/authority_state:"rascunho"/);
+assert.match(ac01Knowledge,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
+const ac01Atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+assert.match(ac01Atlas,/Conhecimento e Evolução do especialista/);
+assert.match(ac01Atlas,/setModuleSection\("conhecimento"\);setKnowledgeOpen\(true\)/);
+console.log("Núcleo V1.3 AC-01: comparação local, refinamento como rascunho e acesso pelo especialista PASS (sem homologação).");

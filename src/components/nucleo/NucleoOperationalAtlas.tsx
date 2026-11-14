@@ -415,6 +415,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   </p>
                 </div>
               </div>
+              <div className="rounded-md border p-3 space-y-2" aria-label="Conhecimento e Evolução AC-01">
+                <p className="font-semibold text-sm">Conhecimento e Evolução do especialista</p>
+                <p className="text-xs text-muted-foreground">
+                  A Ficha Viva reúne fontes e revisões por módulo. A proposta é vinculada ao papel funcional
+                  declarado, sem atribuir mandato ao autor nem homologar documento. Comparação de versões
+                  e preparação de refinamento ficam no histórico FM existente.
+                </p>
+                <Button type="button" size="sm" variant="outline" onClick={()=>{
+                  setModuleSection("conhecimento");setKnowledgeOpen(true);
+                }}>Consultar versões e registrar rascunho</Button>
+              </div>
               <NucleoMandateRegistry modules={[selectedRecord]} />
               <p className="text-xs text-muted-foreground">
                 Frentes e subfrentes deste módulo estão listadas abaixo pelo vínculo M3.
