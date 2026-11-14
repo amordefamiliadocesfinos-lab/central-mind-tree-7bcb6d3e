@@ -70,6 +70,8 @@ export default function NucleoDevelopmentCenter() {
   const [selectedId, setSelectedId] = useState("");
   const [filter, setFilter] = useState("");
   const [displayMode, setDisplayMode] = useState<"lista" | "quadro">("lista");
+  // UX-A1: as duas visões permanecem montadas durante a sessão.
+  const [workspaceView, setWorkspaceView] = useState<"geral" | "frentes">("geral");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
   const [dependencyTarget, setDependencyTarget] = useState("");
@@ -130,6 +132,15 @@ export default function NucleoDevelopmentCenter() {
     [selected, edit],
   );
   const hasPendingChanges = Object.keys(pendingChanges).length > 0;
+  useEffect(() => {
+    if (!hasPendingChanges) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasPendingChanges]);
   const visible = useMemo(() => {
     const term = filter.toLocaleLowerCase("pt-BR").trim();
     return items.filter(item => !term || [item.code,item.title,item.specialist,item.next_action]
@@ -150,7 +161,15 @@ export default function NucleoDevelopmentCenter() {
       a.code.localeCompare(b.code, "pt-BR"));
   }, [visible]);
 
-  const choose = (id: string) => {
+  const choose = (id: string): boolean => {
+    if (id === selectedId) return true;
+    if (saving) {
+      toast.warning("Aguarde a conclusão do registro antes de trocar de frente.");
+      return false;
+    }
+    if (hasPendingChanges && !window.confirm(
+      "Há alterações não salvas nesta frente. Descartá-las e abrir outra frente?"
+    )) return false;
     setSelectedId(id);
     setDependencyTarget("");
     const item = byId.get(id);
@@ -160,6 +179,7 @@ export default function NucleoDevelopmentCenter() {
       blocker:item.blocker,acceptance_criteria:item.acceptance_criteria,
       evidence_state:item.evidence_state,evidence_note:item.evidence_note,
     } : {});
+    return true;
   };
 
   const addItem = async () => {
@@ -279,14 +299,16 @@ export default function NucleoDevelopmentCenter() {
   const prepareModule = (module:KnowledgeModule) => {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
+      if (!choose(registered.id)) return;
+      setWorkspaceView("frentes");
       toast.info("Este módulo já está cadastrado no Core M3.");
-      choose(registered.id);
-      document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
+      requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
       return;
     }
     // Preenche somente identidade presente no inventário. Nunca inventa
     // método, especialista, escopo, estado, frente ou certificação.
     setDraft({...emptyDraft,code:cleanCode(module.id),title:module.name,kind:"modulo"});
+    setWorkspaceView("frentes");
     setCreating(true);
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
@@ -300,24 +322,46 @@ export default function NucleoDevelopmentCenter() {
             Estados declarados, histórico auditável, evidências técnicas M4 e supervisão assistida M5 em modo de leitura.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
+        <Button type="button" size="sm" className="nucleo-v22-primary-button" onClick={() => {
+          if (workspaceView === "frentes" && creating) setCreating(false);
+          else {
+            setWorkspaceView("frentes");
+            setCreating(true);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }
+        }}>{workspaceView === "frentes" && creating ? "Fechar cadastro" : "+ Nova frente"}</Button>
       </div>
 
-      <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
-        events={history} onOpenWorkstream={id=>{
-          choose(id);
-          document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
-        }}/>
-      <NucleoOperationalAtlas
-        workstreams={items}
-        dependencies={dependencies}
-        events={history}
-        onPrepareModule={prepareModule}
-        onSelectWorkstream={id => {
-          choose(id);
-          document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
-      />
+      <nav className="nucleo-v22-tabs flex flex-wrap" aria-label="Áreas da Central Visual">
+        <Button type="button" size="sm" className="nucleo-v22-pill" variant={workspaceView === "geral" ? "default" : "outline"}
+          aria-pressed={workspaceView === "geral"} onClick={() => setWorkspaceView("geral")}>
+          Visão Geral e módulos
+        </Button>
+        <Button type="button" size="sm" className="nucleo-v22-pill" variant={workspaceView === "frentes" ? "default" : "outline"}
+          aria-pressed={workspaceView === "frentes"} onClick={() => setWorkspaceView("frentes")}>
+          Frentes e acompanhamento
+        </Button>
+      </nav>
+
+      {/* Ambos os ambientes permanecem montados: alternar não descarta filtros e minutas. */}
+      <div hidden={workspaceView !== "geral"} className={workspaceView === "geral" ? "space-y-4" : "hidden"}
+        aria-hidden={workspaceView !== "geral"}>
+        <NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
+          onPrepareModule={prepareModule}
+          onSelectWorkstream={id => {
+            if (!choose(id)) return;
+            setWorkspaceView("frentes");
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }}/>
+      </div>
+
+      <div hidden={workspaceView !== "frentes"} className={workspaceView === "frentes" ? "space-y-4" : "hidden"}
+        aria-hidden={workspaceView !== "frentes"}>
+        <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
+          events={history} onOpenWorkstream={id=>{
+            if (!choose(id)) return;
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }}/>
 
       {creating && (
         <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
@@ -570,6 +614,7 @@ export default function NucleoDevelopmentCenter() {
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
+              {hasPendingChanges && <p role="status" className="text-xs font-medium text-amber-800 dark:text-amber-200">Alterações não salvas — salve antes de selecionar outra frente.</p>}
               <p className="text-xs text-muted-foreground mt-2">
                 Selecione um cartão para editar acompanhamento e visualizar histórico.
                 Nenhuma porcentagem é calculada sem critérios verificáveis.
@@ -654,6 +699,7 @@ export default function NucleoDevelopmentCenter() {
             </>
           )}
         </Card>
+      </div>
     </div>
   );
 }
