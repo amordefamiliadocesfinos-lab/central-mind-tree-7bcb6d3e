@@ -477,3 +477,17 @@ const ac01Atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.ts
 assert.match(ac01Atlas,/Conhecimento e Evolução do especialista/);
 assert.match(ac01Atlas,/setModuleSection\("conhecimento"\);setKnowledgeOpen\(true\)/);
 console.log("Núcleo V1.3 AC-01: comparação local, refinamento como rascunho e acesso pelo especialista PASS (sem homologação).");
+
+
+// AC-01 V1.3 CA-28 — fila de revisão somente leitura sobre registros FM.
+const ac01Queue=fs.readFileSync("src/components/nucleo/NucleoKnowledgeReviewConsole.tsx","utf8");
+const ac01QueueCompiled=ts.transpileModule(ac01Queue,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal((ac01QueueCompiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(ac01Queue,/workstreams\.filter\(w=>w\.kind==="modulo"\)/);
+assert.match(ac01Queue,/Fila de revisões do gestor AC-01/);
+assert.match(ac01Queue,/queueState==="pendentes"/);
+assert.match(ac01Queue,/queueState==="homologados"/);
+assert.match(ac01Queue,/queueState==="historico"/);
+assert.match(ac01Queue,/readState!=="completo"/);
+assert.match(ac01Queue,/não aprova, publica ou altera documentos/);
+console.log("Núcleo V1.3 AC-01 CA28: fila por módulo com estados reais e falha fechada PASS.");
