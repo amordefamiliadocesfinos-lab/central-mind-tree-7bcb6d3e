@@ -517,3 +517,13 @@ assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
 const ac01MainAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 assert.match(ac01MainAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
 console.log("Núcleo V1.3 AC-01 CA23/24: metadados, autor autenticado, RLS, imutabilidade e readback PASS (estático).");
+
+
+// AC-01 V1.3 piloto NUC — ficha Núcleo acessível sem inflar contagem externa.
+const ac01PilotAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+assert.match(ac01PilotAtlas,/workstreams\.filter\(item => item\.kind === "modulo"\)\)/);
+assert.match(ac01PilotAtlas,/record\.code==="NUC"\?"Governança"/);
+assert.match(ac01PilotAtlas,/record\.code==="NUC"\?"\/nucleo"/);
+assert.match(ac01PilotAtlas,/registeredModules = useMemo\([\s\S]*?item\.code !== "NUC"/);
+assert.match(ac01PilotAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
+console.log("Núcleo V1.3 AC-01: ficha NUC acessível para piloto sem duplicar módulos externos PASS.");
