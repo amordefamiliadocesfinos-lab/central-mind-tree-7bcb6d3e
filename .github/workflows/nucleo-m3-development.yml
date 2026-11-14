@@ -7,6 +7,7 @@ on:
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs"
       - "scripts/nucleo-ux-a2-navigation.test.cjs"
       - "src/lib/nucleo/operationalKnowledgeV12.ts"
       - "src/lib/nucleo/operationalDraftsV12.ts"
@@ -81,4 +82,6 @@ jobs:
       - run: npm ci
       - name: Verify UX-A2 module-navigation contract
         run: node scripts/nucleo-ux-a2-navigation.test.cjs
+      - name: Verify UX-A3B specialist/Ficha Viva navigation
+        run: node scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs
       - run: npm run build
