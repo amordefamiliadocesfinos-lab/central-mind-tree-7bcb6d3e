@@ -1005,3 +1005,14 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Compatibilidade:** reexportado para futuro UX em `src/lib/nucleo/ac02PackageManifest.ts`. O Especialista UX deverá mostrar estado de integridade e distinção visual entre pacote preparado, evento persistido e aceite confirmado, sem tratar hash verificado como entrega concluída. O manifesto deve ser gerado somente a partir do rascunho preparado após leitura autorizada; cliente isolado não certifica auth. Contratos anteriores e endpoints existentes permanecem intactos.
 
 **Portões futuros:** vínculo entre hash e evento no ledger somente após autorização de migration, autenticação efetiva e prova de origem; seleção/identidade do destinatário e fluxo UX sob responsável próprio; testes produtivos em momento posterior. O arquivo da proposta SQL não é movido para `supabase/migrations/` nesta frente.
+
+
+## 64. AC-02 — fechamento conservador da projeção de histórico (14/11/2026)
+
+**Frente sem dependência produtiva:** o contrato de histórico para o Especialista UX passa a negar `cadeia_consistente` quando há `request_id` repetido/ausente, hash fora do padrão SHA-256, data de evento inválida, ordem cronológica invertida, declaração de expiração anterior à data limite, operação após vencimento ou evidência externa sem referência. Esses controles complementam encadeamento, integridade do pacote, estados e distinção entre declaração administrativa e confirmação de destinatário já previstos na #817.
+
+**Resultado:** `latest=null` e `cadeia_inconsistente` quando um dos sinais de integridade falha, evitando destacar `aceito` como etapa confiável a partir de dados incoerentes. A projeção é apenas leitura de metadados previamente autorizados; não efetua auditoria criptográfica de assinatura, não autentica usuário, não insere eventos, não desbloqueia o ledger em produção. A confirmação de recebimento/aceite em novo chat de IA permanece não definida.
+
+**UX:** apresentar divergência como estado impeditivo de promoção visual; não transformar lista parcial ou incorreta em uma linha do tempo homologada. Exibir fonte/versão, ressalvas, distinção entre `entregue` declarado e `recebido/aceito` confirmados sob identidade humana. Sem criar componentes pelo Especialista Núcleo; o responsável UX recebe o contrato compartilhado atualizado.
+
+**Pendências mantidas:** implantação do ledger sob autoridade específica; testes reais de sessão, RLS e recepção por destinatário; emissão e persistência do manifesto autorizado; interface e homologação humana. O mapa V1.3, a Entrega A+ e as demais frentes permanecem preservados.
