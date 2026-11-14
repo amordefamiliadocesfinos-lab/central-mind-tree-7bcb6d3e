@@ -580,7 +580,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
           {moduleSection==="desenvolvimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
             Não há cadastro M3 visível nesta leitura; isso não equivale a ausência de desenvolvimento nas fontes.
           </p>}
-          {moduleSection==="funcoes" && selected.id==="CRM" ? (
+          {moduleSection==="funcoes" && (selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
                 <p className="font-semibold">Checkpoint de especialista — referência histórica, não norma vigente</p>
@@ -612,7 +612,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               Esta é uma entrada de inventário de rota. Funções, especialista, método e estados operacionais ainda não foram homologados;
               não há manual de operação para este módulo neste piloto.
             </p>
-          ) : null}
+          ))}
           </div>
         </Card>
       )}
