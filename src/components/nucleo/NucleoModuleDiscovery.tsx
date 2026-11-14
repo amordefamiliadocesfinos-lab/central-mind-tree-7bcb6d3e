@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
 import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
+import { MODULE_SCREENS_V12 } from "@/lib/nucleo/moduleScreenDiscoveriesV12";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 
 type Props={module:KnowledgeModule;mode:"funcoes"|"conhecimento";isRegistered:boolean};
@@ -17,11 +18,14 @@ type Props={module:KnowledgeModule;mode:"funcoes"|"conhecimento";isRegistered:bo
 export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
   const [search,setSearch]=useState("");
   const controls=MODULE_CONTROLS_V12[module.id]??[];
+  const screens=MODULE_SCREENS_V12[module.id]??[];
   const sources=MODULE_RECONCILIATION_V12[module.id]??[];
   const query=search.trim().toLocaleLowerCase("pt-BR");
   const visibleControls=useMemo(()=>controls.filter(item=>!query||
     [item.label,item.screen,item.prerequisite,item.observed,item.limitation]
       .some(value=>value.toLocaleLowerCase("pt-BR").includes(query))),[controls,query]);
+  const visibleScreens=useMemo(()=>screens.filter(item=>!query||
+    [item.name,item.area,item.description].some(value=>value.toLocaleLowerCase("pt-BR").includes(query))),[screens,query]);
   const visibleSources=useMemo(()=>sources.filter(item=>!query||
     [item.label,item.observed,item.nextGate].some(value=>
       value.toLocaleLowerCase("pt-BR").includes(query))),[sources,query]);
@@ -48,12 +52,55 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         consulta, não realiza esses procedimentos.
       </p>
     </div>
-    {(controls.length>0||sources.length>0)&&<label className="relative block max-w-lg">
+    {(screens.length>0||controls.length>0||sources.length>0)&&<label className="relative block max-w-lg">
       <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" aria-hidden="true"/>
       <Input aria-label="Buscar funcionalidade ou referência do módulo" className="pl-9"
         placeholder="Buscar botão, fluxo ou fonte…" value={search} onChange={e=>setSearch(e.target.value)}/>
     </label>}
     {mode==="funcoes"&&<>
+      <div className="space-y-2" aria-label="Mapa visual de telas do módulo">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <h5 className="text-sm font-semibold">Mapa de telas identificadas ({visibleScreens.length}/{screens.length})</h5>
+          <Badge variant="outline">Código verificado · uso real não homologado</Badge>
+        </div>
+        {visibleScreens.length>0&&<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleScreens.map(item=><article key={item.id} className="rounded-lg border p-3 min-w-0 space-y-2">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
+              <p className="text-sm font-semibold">{item.name}</p>
+              <Badge variant="outline">{item.area}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">{item.description}</p>
+            <p className="text-xs text-muted-foreground">
+              {item.navigation==="rota_verificada"
+                ?"Rota de aba inspecionada no código"
+                :"Abrir módulo e selecionar a seção manualmente"}
+            </p>
+            <details className="rounded-md border p-2 text-xs">
+              <summary className="cursor-pointer font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Conferência e limites
+              </summary>
+              <p className="mt-2"><strong>Conferir:</strong> {item.check}</p>
+              <p className="mt-2 text-muted-foreground"><strong>Limite:</strong> {item.limitation}</p>
+            </details>
+            <div className="flex flex-wrap gap-2 items-center">
+              {item.route
+                ? <Button size="sm" variant="outline" asChild><Link to={item.route}>Abrir esta tela</Link></Button>
+                : module.route
+                  ? <Button size="sm" variant="outline" asChild><Link to={module.route}>Abrir módulo</Link></Button>
+                  : null}
+              <a href={item.source} target="_blank" rel="noopener noreferrer"
+                className="text-xs underline inline-flex items-center gap-1">
+                Fonte <ExternalLink className="h-3 w-3" aria-hidden="true"/>
+              </a>
+            </div>
+          </article>)}
+        </div>}
+        {screens.length===0&&<p className="text-sm text-muted-foreground">
+          Mapa de telas ainda não detalhado para este domínio. A ausência de registro aqui
+          não comprova que o módulo não possua telas.
+        </p>}
+      </div>
+      <h5 className="text-sm font-semibold">Controles e efeitos observados</h5>
       {visibleControls.length>0&&<div className="grid gap-3 lg:grid-cols-2">
         {visibleControls.map(item=><details key={item.label} className="rounded-md border p-3 min-w-0 group">
           <summary className="text-sm font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -104,7 +151,7 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         {controls.length} controle(s) com observações técnicas disponíveis na seção Funcionalidades.
         Essas observações não são instruções normativas nem revisões FM.
       </p>}
-    {visibleControls.length===0&&visibleSources.length===0&&
+    {visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0&&
       <p role="status" className="text-sm text-muted-foreground">
         {query?"Nenhum item corresponde à busca.":"Não há fonte funcional reconciliada neste catálogo. Cobertura não verificada."}
       </p>}
