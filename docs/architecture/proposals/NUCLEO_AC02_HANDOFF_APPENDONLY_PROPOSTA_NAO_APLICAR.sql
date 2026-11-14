@@ -40,7 +40,9 @@ CREATE TABLE public.nucleo_ac02_handoff_events (
   OR (event_kind NOT IN ('recebido','aceito')
     AND evidence_class IN ('declaracao_gestor','referencia_externa'))),
  CONSTRAINT ac02_external_proof_requires_ref CHECK (
-  evidence_class <> 'referencia_externa' OR evidence_ref IS NOT NULL)
+  evidence_class <> 'referencia_externa' OR evidence_ref IS NOT NULL),
+ CONSTRAINT ac02_material_events_require_reference CHECK (
+  event_kind NOT IN ('entregue','falha','retificado') OR evidence_ref IS NOT NULL)
 );
 CREATE UNIQUE INDEX nucleo_ac02_handoff_one_start
  ON public.nucleo_ac02_handoff_events(package_id) WHERE previous_event_id IS NULL;
@@ -60,6 +62,9 @@ DECLARE old_row public.nucleo_ac02_handoff_events%ROWTYPE;
         admin_ok boolean;
         previous_stage text;
 BEGIN
+ -- IMPORTANTE: a checagem auth.uid() não prova sessão ainda ativa após
+ -- revogação; Gate AC02-SESSION-01 exige escrita mediada com verificação
+ -- independente de auth.getUser e sessão efetiva antes do deploy.
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'AC02: authenticated identity required'; END IF;
  NEW.actor_auth_uid := auth.uid();
  NEW.recorded_at := now();
@@ -165,6 +170,11 @@ CREATE POLICY nucleo_ac02_handoff_insert ON public.nucleo_ac02_handoff_events
   )
  );
 -- A evidência externa é apenas referenciada e não certificada por este ledger.
+-- Evento entregue deve ter evidence_ref, mas continua sendo DECLARAÇÃO do gestor.
+-- Falha e retificação exigem referência para auditoria; não apagam o anterior.
+-- BLOQUEIO DE DEPLOY: INSERT direto por JWT não garante revogação imediata
+-- de auth.sessions. Antes de produção, desenhar/testar gateway autenticado
+-- de escrita que valida sessão atual, e bloquear INSERT direto se necessário.
 -- Um administrador pode declarar entrega, não confirmar recebimento/aceite alheio.
 -- Não há grants de UPDATE/DELETE nem função SECURITY DEFINER.
 COMMIT;
