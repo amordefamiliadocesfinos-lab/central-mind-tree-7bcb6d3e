@@ -59,6 +59,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   // quando o gestor alternar entre Especialistas e Conhecimento no mesmo módulo.
   const [specialistVisited,setSpecialistVisited]=useState(false);
   const [knowledgeVisited,setKnowledgeVisited]=useState(false);
+  const [fmDraftState,setFmDraftState]=useState({dirty:false,busy:false});
+  const [specialistDraftState,setSpecialistDraftState]=useState({dirty:false,busy:false});
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
   // observadas e mantém entradas ainda não catalogadas como não verificadas.
   // Novos módulos M3 aparecem aqui sem alterações de código.
@@ -160,6 +162,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const choose = (item: KnowledgeModule) => {
     // Retomar o mesmo módulo não descarta área, pesquisa e seleção.
     if (item.id !== selectedId) {
+      if (fmDraftState.busy || specialistDraftState.busy) {
+        window.alert("Gravação em andamento ou registro indeterminado. Reconcilie antes de mudar de módulo.");
+        return;
+      }
+      if ((fmDraftState.dirty || specialistDraftState.dirty) && !window.confirm(
+        "Existem rascunhos não salvos na Ficha Viva ou no especialista. Descartá-los e abrir outro módulo?"
+      )) return;
+      setFmDraftState({dirty:false,busy:false});
+      setSpecialistDraftState({dirty:false,busy:false});
       setModuleSection("funcoes");
       setActionSearch("");
       setCrmJourneyMode("operador");
@@ -480,7 +491,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               </div>
               <NucleoMandateRegistry modules={[selectedRecord]} />
               <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
-                moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}/>
+                moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}
+                onDraftStateChange={setSpecialistDraftState}/>
 
               <p className="text-xs text-muted-foreground">
                 Frentes e subfrentes deste módulo estão listadas abaixo pelo vínculo M3.
@@ -636,6 +648,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
           )}
+          {(fmDraftState.dirty || specialistDraftState.dirty) && (
+            <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
+              Rascunho não salvo neste módulo. Salve ou confirme o descarte antes de trocar de módulo.
+            </p>
+          )}
           {selectedRecord && (moduleSection==="conhecimento" || knowledgeVisited) && (
             <div hidden={moduleSection!=="conhecimento"} className="space-y-3">
               <p className="text-sm text-muted-foreground">As seções FM distinguem modelos locais de versões efetivamente gravadas no Core. Referências históricas não se tornam vigentes automaticamente.</p>
@@ -655,7 +672,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               </Button>
               {knowledgeVisited && (
                 <div hidden={!knowledgeOpen}>
-                  <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>
+                  <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
+                    onDraftStateChange={setFmDraftState}/>
                 </div>
               )}
             </div>
