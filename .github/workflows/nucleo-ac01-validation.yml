@@ -18,6 +18,8 @@ on:
       - "supabase/migrations/20261114183300_nucleo_ac01_decision_requests.sql"
       - "supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql"
       - "supabase/migrations/20261114183500_nucleo_ac01_authority_revocation_gates.sql"
+      - "supabase/migrations/20261114183600_nucleo_ac01_exclusive_grants_guard.sql"
+      - "scripts/nucleo-ac01-exclusive-delegations.test.sql"
       - "scripts/nucleo-ac01-revocation-succession.test.sql"
       - "scripts/nucleo-ac01-decision-publication-gates.test.sql"
       - "scripts/nucleo-ac01-decision-positive-disposable.test.sql"
@@ -92,6 +94,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183500_nucleo_ac01_authority_revocation_gates.sql
       - name: Verify revocation, replacement, denied acts and sealed privileges in CI
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-revocation-succession.test.sql
+      - name: Enforce one human authority per scope and role in disposable CI
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183600_nucleo_ac01_exclusive_grants_guard.sql
+      - name: Reject overlapping delegation and false grantor without opening rights
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-exclusive-delegations.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
