@@ -707,3 +707,14 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 **Estado governado:** implantação técnica das duas migrations **confirmada**, mas **não homologada funcionalmente**. Ainda faltam sessão real autorizada e não autorizada, INSERT de referência real, readback, revisão v2, teste de idempotência e ensaio visual. CA-23–CA-29 não são dados como integralmente homologados; entrega B e biblioteca compartilhada permanecem fora de escopo. Não criar registros fictícios nem promover qualquer referência por efeito da implantação.
 
 **Ressalva Builder:** inspeção de um commit/diff associado à execução excepcional mostrou alterações em `src/integrations/supabase/types.ts`, apesar de o texto do agente informar que não editou código. Autoria/efeito desse diff ainda não reconciliados; não alegar ausência absoluta de efeito no workspace nem reverter sem isolar outras frentes.
+
+
+## 49. AC-01 — ensaio isolado positivo/negativo e reconciliação types (14/11/2026)
+
+**Núcleo Core oficial:** `NUC` (`636768e6-e782-4c7d-8132-e7381621be12`) confirmado como módulo M3; uma concessão `nucleo_manage` ativa; `public.nucleo_specialist_contributions` permanece com **0 registros** no ponto de consulta. Não foram criados métodos sintéticos em produção nem adulteradas credenciais de usuário.
+
+**Testes CI:** PR #780, merge commit `55c2d571213ed0f63e847af36419e3dac8a5150d`, incorpora `scripts/nucleo-ac01-auth-pilot.test.sql` ao workflow de banco descartável. [GitHub Actions run #43610544603](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43610544603) com `postgres-ac01=success` e `ui-build=success`. Testa `SET ROLE authenticated` com identidade sintética autorizada, INSERT/readback v1, parent_revision_id e v2, preservação append-only, request_id duplicado, ausência de UPDATE/DELETE, acesso anônimo, negativa de usuário sem capability e revogação. Em ambiente sintético, a negativa do INSERT sem capability pode ser sinalizada pelo trigger `AC-01 requer módulo M3 válido` porque o módulo não é visível sob RLS, e esse resultado foi considerado de acesso negado (não sucesso da escrita).
+
+**Não confundir:** teste de role/JWT sintético em PostgreSQL descartável não é piloto humano autenticado em site publicado. Não se declara CA-23–CA-29 integralmente homologados. Testes reais de registro de fonte existente, v2 e revisão humana continuam pendentes, sem induzir importação das 82 páginas ou Delivery B.
+
+**Diferença de tipos em workspace:** comparação de conteúdo atual de `src/integrations/supabase/types.ts` entre Lovable Cloud e GitHub `main` mostrou igualdade integral após `trimEnd()`; diferença exclusiva de newline terminal. Não há delta funcional atual a corrigir/reverter neste arquivo. A discrepância transitória vista em diff anterior foi preservada na seção 48 como histórico, sem atribuição falsa.
