@@ -41,6 +41,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=public AS $check$
  WHERE r.authority_grant_id=p_grant_id)
 $check$;
 REVOKE ALL ON FUNCTION public.nucleo_ac01_grant_is_revoked(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.nucleo_ac01_grant_is_revoked(uuid) TO authenticated;
 -- Trigger grant anterior continua. Alterações abaixo apenas adicionam verificação.
 CREATE OR REPLACE FUNCTION public.nucleo_ac01_authority_grant_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $f$
