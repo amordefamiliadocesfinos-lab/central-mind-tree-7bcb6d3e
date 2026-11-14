@@ -39,9 +39,10 @@ interface Props {
   workstreams: DevelopmentWorkstream[];
   events: DevelopmentEvent[];
   onSelectWorkstream: (id: string) => void;
+  onPrepareModule: (module: KnowledgeModule) => void;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, events, onSelectWorkstream }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, onSelectWorkstream, onPrepareModule }: Props) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
@@ -278,7 +279,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
             <Input aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
-          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} />
+          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} />
           {modules.length===0 && <p role="status" className="text-sm text-muted-foreground">Nenhum módulo encontrado com esse filtro.</p>}
         </Card>
       )}
