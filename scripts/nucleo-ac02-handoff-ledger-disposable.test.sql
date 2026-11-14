@@ -32,13 +32,30 @@ SELECT 'aaaaaaaa-2222-4222-8222-222222222222',package_id,package_version,package
  source_ref,expires_at,'cccccccc-2222-4222-8222-222222222222',auth.uid()
 FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-1111-4111-8111-111111111111';
 
+-- Uma alegação de entrega sem prova/referência é rejeitada mesmo pelo gestor.
+DO $test$
+BEGIN
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  SELECT package_id,package_version,package_sha256,module_id,specialist_role_code,
+    recipient_kind,recipient_auth_uid,'entregue',id,'declaracao_gestor',
+    source_ref,expires_at,gen_random_uuid(),auth.uid()
+  FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-2222-4222-8222-222222222222';
+  RAISE EXCEPTION 'TEST FAIL: delivery without evidence ref';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: delivery without evidence ref' THEN RAISE; END IF;
+ END;
+END $test$;
 INSERT INTO public.nucleo_ac02_handoff_events
 (id,package_id,package_version,package_sha256,module_id,specialist_role_code,
  recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
- source_ref,expires_at,request_id,actor_auth_uid)
+ evidence_ref,source_ref,expires_at,request_id,actor_auth_uid)
 SELECT 'aaaaaaaa-3333-4333-8333-333333333333',package_id,package_version,package_sha256,module_id,
  specialist_role_code,recipient_kind,recipient_auth_uid,'entregue',id,'declaracao_gestor',
- source_ref,expires_at,'cccccccc-3333-4333-8333-333333333333',auth.uid()
+ 'ac02:evidencia:entrega_sintetica',source_ref,expires_at,'cccccccc-3333-4333-8333-333333333333',auth.uid()
 FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-2222-4222-8222-222222222222';
 
 DO $test$
