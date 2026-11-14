@@ -44,9 +44,9 @@ BEGIN
    AND prior.authority_kind=NEW.authority_kind
    AND tstzrange(prior.effective_from,
      CASE
-       WHEN prior.effective_until IS NULL THEN revoked.recorded_at
+       WHEN prior.effective_until IS NULL THEN GREATEST(prior.effective_from,revoked.recorded_at)
        WHEN revoked.recorded_at IS NULL THEN prior.effective_until
-       ELSE LEAST(prior.effective_until,revoked.recorded_at)
+       ELSE GREATEST(prior.effective_from,LEAST(prior.effective_until,revoked.recorded_at))
      END,'[)') &&
      tstzrange(NEW.effective_from,NEW.effective_until,'[)')
  ) THEN RAISE EXCEPTION 'AC01: overlapping authority grant in scope'; END IF;
@@ -78,6 +78,6 @@ BEGIN
  NEW.revoked_by_auth_uid:=auth.uid();
  NEW.recorded_at:=now();
  RETURN NEW;
-END $guard$
+END $guard$;
 -- Sem concessão de INSERT/RPC: decisão, publicação, revogação e grants
 -- seguem com suas políticas/ACL anteriores fechadas.
