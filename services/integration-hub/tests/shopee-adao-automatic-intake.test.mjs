@@ -887,3 +887,55 @@ test('F12: wall-clock budget stops new logistics actions without interrupting co
   assert.equal(r.work_budget_exhausted, true);
   assert.equal(r.label_attempted, 0);
 });
+
+
+test('F12.2: earlier official deadline on later page is observed without changing the shipping cap', async () => {
+  const first = 'LATEFIRSTPAGE1', second = 'URGENTPAGE002';
+  let reads = 0;
+  const shipped = [];
+  const cycle = await createAdaoAutomaticIntake({
+    getEnv: key => ({ SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true',
+      SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'false', SHOPEE_ADAO_SHIP_BATCH_SIZE: '1' })[key] ?? getEnv(key),
+    now,
+    readOrders: async () => {
+      reads++;
+      const order_sn = reads === 1 ? first : second;
+      return {
+        ...page([order_sn], { more: reads === 1, next_cursor: reads === 1 ? 'page2' : null }),
+        ready_to_ship_candidates: [{ order_sn, create_time: 1794410500,
+          ship_by_date: reads === 1 ? 1794500000 : 1794400000 }],
+      };
+    },
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    arrangeShipping: async sn => {
+      shipped.push(sn); return { ok: true, code: 'ship_order_api_acknowledged_not_collected' };
+    },
+    logDiagnostic: () => {},
+  })();
+  assert.equal(cycle.ok, true);
+  assert.deepEqual(shipped, [first]);
+  assert.equal(cycle.shipment_attempted, 1);
+  assert.equal(cycle.cross_page_deadline_inversions, 1);
+});
+
+test('F12.2: missing upstream deadlines do not generate false inversion evidence', async () => {
+  let reads = 0;
+  const cycle = await createAdaoAutomaticIntake({
+    getEnv: key => ({ SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true', SHOPEE_ADAO_SHIP_BATCH_SIZE: '1' })[key] ?? getEnv(key),
+    now,
+    readOrders: async () => {
+      reads++;
+      const order_sn = reads === 1 ? 'NODEADLINE001' : 'WITHDEADLINE2';
+      return {
+        ...page([order_sn], { more: reads === 1, next_cursor: reads === 1 ? 'p2' : null }),
+        ready_to_ship_candidates: [{ order_sn, create_time: 1794410500,
+          ...(reads === 2 ? { ship_by_date: 1794400000 } : {}) }],
+      };
+    },
+    intake: async ({ expectedOrderSn }) => result(expectedOrderSn, 'written'),
+    arrangeShipping: async () => ({ ok: true, code: 'ship_order_api_acknowledged_not_collected' }),
+    logDiagnostic: () => {},
+  })();
+  assert.equal(cycle.ok, true);
+  assert.equal(cycle.cross_page_deadline_inversions, 0);
+});
