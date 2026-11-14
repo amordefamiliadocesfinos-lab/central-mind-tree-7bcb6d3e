@@ -49,7 +49,7 @@ assert.equal(isActiveCertifiedMandate(mandate,[mandate,revoked],now),false);
 assert.equal(declaredAuthorityCoverage("NUC","Especialista NUC","metodo",[grant],[mandate,revoked],now).length,0);
 const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
 const integration=fs.readFileSync("src/components/nucleo/NucleoSpecialistContributions.tsx","utf8");
-assert.ok(ui.includes("Fichas Vivas")&&ui.includes("publicação interna"));
+assert.ok(ui.includes("Fichas Vivas")&&ui.includes("publicações internas"));
 assert.ok(ui.includes("AC01_AUTHORITY_PROCEDURE"));
 assert.ok(integration.includes("NucleoAC01DocumentGovernance"));
 assert.ok(!ui.includes(".insert(")&&!ui.includes(".update(")&&!ui.includes(".delete("));
