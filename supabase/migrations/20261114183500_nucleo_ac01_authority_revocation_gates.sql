@@ -98,6 +98,10 @@ BEGIN
  AND NOT EXISTS (SELECT 1 FROM public.nucleo_specialist_mandate_records rev
  WHERE rev.record_kind='revogacao' AND rev.supersedes_record_id=m.id))
  THEN RAISE EXCEPTION 'AC01: mandate not current for decision'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM public.app_admin_capabilities a
+ WHERE a.auth_user_id=auth.uid() AND a.capability='nucleo_manage'
+ AND a.active AND a.revoked_at IS NULL)
+ THEN RAISE EXCEPTION 'AC01: nucleo_manage required to inspect authority evidence'; END IF;
  IF public.nucleo_ac01_grant_is_revoked(g.id) THEN
   RAISE EXCEPTION 'AC01: delegated decision authority revoked or suspended';
  END IF;
