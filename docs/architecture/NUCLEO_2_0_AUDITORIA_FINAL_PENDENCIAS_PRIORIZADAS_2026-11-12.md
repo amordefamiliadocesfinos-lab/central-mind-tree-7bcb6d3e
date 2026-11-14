@@ -843,3 +843,52 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 7. Só declarar **vigente canônico confirmado** quando a origem oficial e a referência/Ficha Viva pertinente retornarem versão esperada e a evidência de readback for registrada. Evento interno AC-01 isolado não satisfaz CA-27.
 
 **Gates ainda pendentes:** identidade e competência superior do concedente formalmente verificadas; autorização explícita para abrir escrita de decisão/publicação; fluxo executável de integração canônica com reconciliação de falhas testado; prova humana positiva/negativa, revogação, concorrência, desktop/mobile. UX continua com o especialista designado. A homologação AC-01 CA-23–29 permanece pendente e a Entrega B não está autorizada.
+
+
+## 57. AC-02 — Registro Mestre do Ecossistema, P1/P2 aprovado (14/11/2026)
+
+**Autoridade:** deliberação explícita Camada Mestre — AUTORIZAÇÃO DE CONTINUIDADE AC-02 (14/11/2026). O achado foi aprovado como requisito transversal obrigatório da Entrega A+, **sem alterar o texto congelado V1.3, CA-01–29 ou histórico M0–M5**. UX é responsabilidade de outro especialista. Entrega B não autorizada.
+
+### P1 — Alocação sem fonte duplicada
+
+| Campo AC-02 | Fonte atual já existente | Uso previsto |
+|---|---|---|
+| Projeto, GitHub, Lovable, Cloud principal e método | Decisão da Camada Mestre 14/11 + README e integração GitHub/Lovable observados | Identidade global NÃO secreta, decisão separada do estado técnico |
+| Catálogo de módulos, papéis, frentes | `nucleo_development_workstreams` + `NucleoOperationalAtlas` | Herança por identidade funcional e módulo; não recadastrar |
+| Fichas de identidade, fronteiras, método e continuidade | `nucleo_module_knowledge_revisions` / FM-01,03,08,09,10 | Consumir fontes por referência, nunca duplicar documento integral |
+| Fontes externas, acesso e proveniência | M2 `nucleo_source_references`, `operationalProvenanceV12` | Referências com classificação e autorização, sem importar arquivos privados |
+| PR, build, CI, migrations, deploy e alterações | M4 `nucleo_development_evidence`, Github e Core consultados | Observações datadas e verificáveis; não afirmar deploy a partir de merge |
+| Mandato e versão de especialista | `nucleo_specialist_mandate_records` e AC-01 | Consultar autoridade; não promover proposta nem conceder acesso |
+| Contexto reutilizável | CA-29 / `ac01ReadOnlyDesk.continuityContext` | Acrescentar identidade global por composição, sem mudar o legado |
+
+**Conflito observado:** o `README.md` genérico ainda sugere edição pelo construtor Lovable; não tem autoridade para revogar a instrução de **desenvolvimento GitHub direto** da Camada Mestre. Manter conflito visível até reconciliação documental competente, sem reescrever historicamente o arquivo neste delta.
+
+### P2 — Contrato técnico mínimo / nenhuma tabela nova
+
+Arquivo puro `src/lib/nucleo/ac02RegistryContract.ts`:
+- `AC02_GLOBAL_IDENTITY` e `AC02_GLOBAL_ITEMS`: identidade, repositório principal `amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e` / `main`, projeto Lovable `1720a410-34cd-4410-995c-8c92c7edf16b`, Supabase Cloud integrado `xkskyutmtlhivvpfxkjg`, ambientes declarados, políticas de método/segurança e fontes de autoridade. **Origem = deliberação da Camada Mestre**, não validação temporal do deploy.
+- `Ac02Item`: chave, domínio, rótulo, valor não secreto, autoridade, natureza e versão da evidência, status, fonte, data de verificação, visibilidade, ressalva.
+- `Ac02DynamicEvidence`: estado técnico **datado e separado**, fonte/versão do sistema observado, classe de visibilidade; `buildAc02Registry` compara identidade oficial e fatos observados, mantém divergências e expirados como pendências, sem alterar o valor soberano.
+- `Ac02SpecialistContext` e `prepareAc02AssumptionDraft`: contrato CA-29 para combinar a identidade global única com **referências** de método/ecossistema/escopo/checkpoint do especialista, distinguindo autorização de leitura, ausência de conteúdo e continuidade não homologada. Não executa transferência, certificação ou conexão.
+- Sem importações de banco, `createClient`, rede, mutation, novo JWT, endpoint, segredo, GRANT, RLS, migração, registro de pessoa ou UI.
+
+### P3 — Repasse ao Especialista UX (sem implementar visual aqui)
+
+A UX deverá **consumir a projeção autorizada**, e não fazer nova listagem soberana. Responsabilidades esperadas:
+1. Exibir identidade global do projeto, GitHub oficial e Cloud vinculado como dados de autoridade separada da saúde/CI/deploy.
+2. Mostrar cinco estados independentes: diretriz aprovada, fonte observada, dado vencido, conflito aberto, acesso não verificado.
+3. Apresentar navegação à fonte original/versão e hora da última verificação, sem mostrar identificadores restritos ou segredos.
+4. Na ficha do especialista, herdar os dados globais por referência e agregar FM-01/03/08/09/10; botão futuro de gerar **rascunho** de assunção, nunca transmissão automática.
+5. Ocultar conteúdo privado quando ACL da especialidade não for comprovada; preservar skeleton/erro/estado indeterminado.
+
+**Portão UX:** interface e jornada ficam com o especialista UX. Não pedir que ele altere autoridade, valores soberanos, schema ou concessões.
+
+### P4 — Continuidade dos especialistas
+
+Contrato de pacote em ordem: A) projeto e identidade global, B) ambientes e respectivas limitações, C) diretrizes superiores, D) especialidade/módulo, E) FM método/ecossistema, F) fontes/ACL, G) checkpoint e frentes M3/M4, H) pendências e conflito, I) data e limites do recorte. O pacote é **rascunho consultivo**; sem acesso a um provedor, não representar que a consulta foi realizada. `continuityContext` do AC-01 fica intacta.
+
+### P5 — Provas técnicas e pendências de homologação
+
+Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, mudança divergente de branch observada, vencimento de observações, bloqueio de valores/URLs com segredos, fonte restrita, filtro de fontes ao compor assunção sem acesso e negativa de inferir autoridade. Integrado ao workflow de CI do Núcleo existente.
+
+**Portões futuros:** reconciliar tipo de ambiente (produção, preview e CI) diretamente nos provedores; ler dados técnicos atuais sob autorização; atribuir atualização dinâmica a fonte com prova e cadência; instituir ACL da consulta por humano/IA autorizada antes de expor eventual endpoint; contrato final do Pacote Oficial de Assunção pela Camada Mestre; homologação humana/visual posterior. Não criar registro de configuração persistente paralelo nem duplicar a Biblioteca.
