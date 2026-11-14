@@ -491,3 +491,29 @@ assert.match(ac01Queue,/queueState==="historico"/);
 assert.match(ac01Queue,/readState!=="completo"/);
 assert.match(ac01Queue,/não aprova, publica ou altera documentos/);
 console.log("Núcleo V1.3 AC-01 CA28: fila por módulo com estados reais e falha fechada PASS.");
+
+
+// AC-01 V1.3 CA-23/24 — ledger por referência, sem documento privado ou homologação.
+const ac01Sql=fs.readFileSync("supabase/migrations/20261114183000_nucleo_ac01_contributions.sql","utf8");
+const ac01UI=fs.readFileSync("src/components/nucleo/NucleoSpecialistContributions.tsx","utf8");
+const ac01Compiled=ts.transpileModule(ac01UI,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal((ac01Compiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(ac01Sql,/CREATE TABLE IF NOT EXISTS public\.nucleo_specialist_contributions/);
+assert.match(ac01Sql,/lineage_id uuid NOT NULL/);
+assert.match(ac01Sql,/UNIQUE \(lineage_id,version_no\)/);
+assert.match(ac01Sql,/request_id uuid NOT NULL UNIQUE/);
+assert.match(ac01Sql,/recorded_by_auth_uid := auth\.uid\(\)/);
+assert.match(ac01Sql,/NEW\.authority_state:='proposta'/);
+assert.match(ac01Sql,/NEW\.authority_state:='em_evolucao'/);
+assert.match(ac01Sql,/ENABLE ROW LEVEL SECURITY/);
+assert.match(ac01Sql,/GRANT SELECT, INSERT ON TABLE/);
+assert.doesNotMatch(ac01Sql,/GRANT[^;]*(UPDATE|DELETE)/);
+assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR UPDATE/);
+assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR DELETE/);
+assert.match(ac01UI,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
+assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
+assert.match(ac01UI,/authority_state!=="proposta"/);
+assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
+const ac01MainAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+assert.match(ac01MainAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
+console.log("Núcleo V1.3 AC-01 CA23/24: metadados, autor autenticado, RLS, imutabilidade e readback PASS (estático).");

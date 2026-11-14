@@ -4,6 +4,7 @@ import type { DevelopmentWorkstream, DevelopmentEvent, DevelopmentDependency } f
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
+import NucleoSpecialistContributions from "@/components/nucleo/NucleoSpecialistContributions";
 import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
@@ -427,6 +428,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 }}>Consultar versões e registrar rascunho</Button>
               </div>
               <NucleoMandateRegistry modules={[selectedRecord]} />
+              <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
+                moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}/>
+
               <p className="text-xs text-muted-foreground">
                 Frentes e subfrentes deste módulo estão listadas abaixo pelo vínculo M3.
                 A consulta de mandato não atribui automaticamente a um especialista todas as ações dessas frentes.
