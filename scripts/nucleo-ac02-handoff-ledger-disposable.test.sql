@@ -60,6 +60,33 @@ FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-2222-4222-8222-2222222
 
 DO $test$
 BEGIN
+ -- Referência de falha e retificação não é opcional.
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  SELECT package_id,package_version,package_sha256,module_id,specialist_role_code,
+    recipient_kind,recipient_auth_uid,'falha',id,'declaracao_gestor',
+    source_ref,expires_at,gen_random_uuid(),auth.uid()
+  FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-3333-4333-8333-333333333333';
+  RAISE EXCEPTION 'TEST FAIL: failure without evidence ref';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: failure without evidence ref' THEN RAISE; END IF;
+ END;
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  SELECT package_id,package_version,package_sha256,module_id,specialist_role_code,
+    recipient_kind,recipient_auth_uid,'retificado',id,'declaracao_gestor',
+    source_ref,expires_at,gen_random_uuid(),auth.uid()
+  FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-3333-4333-8333-333333333333';
+  RAISE EXCEPTION 'TEST FAIL: rectification without evidence ref';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: rectification without evidence ref' THEN RAISE; END IF;
+ END;
  -- Administrador não pode fingir recebimento pelo destinatário.
  BEGIN
   INSERT INTO public.nucleo_ac02_handoff_events
@@ -113,6 +140,23 @@ BEGIN
 END $test$;
 
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+-- Destinatário sem nucleo_manage NÃO pode criar uma preparação por conta própria.
+DO $test$
+BEGIN
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  VALUES (gen_random_uuid(),'1.0',repeat('b',64),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','especialista_crm',
+   'sucessor_humano',auth.uid(),'preparado',NULL,'declaracao_gestor',
+   'ac02:pacote:v1',now()+interval '1 day',gen_random_uuid(),auth.uid());
+  RAISE EXCEPTION 'TEST FAIL: recipient created preparation';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: recipient created preparation' THEN RAISE; END IF;
+ END;
+END $test$;
 INSERT INTO public.nucleo_ac02_handoff_events
 (id,package_id,package_version,package_sha256,module_id,specialist_role_code,
  recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
