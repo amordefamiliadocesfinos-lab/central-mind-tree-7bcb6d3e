@@ -103,7 +103,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  if(frontList.length===0)unresolved.push("Frentes M3: nenhuma referência estruturada recuperada");
  if(evidenceList.length===0)unresolved.push("Provas M4: nenhuma referência estruturada autorizada recuperada");
 
- const continuity=technical?summarizeAc02Continuity(technical.fronts,technical.evidence,technical.evidenceRead):null;
+ const continuity=technical?summarizeAc02Continuity(technical.fronts.slice(0,50),technical.evidence.slice(0,80),technical.fronts.length>50||technical.evidence.length>80?"indeterminada":technical.evidenceRead):null;
  if(continuity?.completeness==="recorte_incompleto")
   unresolved.push("Resumo de continuidade M3/M4: recorte incompleto");
  const summaryText=continuity?[
