@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
+      - "src/components/nucleo/NucleoContributionDesk.tsx"
+      - "src/lib/nucleo/ac01ReadOnlyDesk.ts"
+      - "scripts/nucleo-ac01-readonly-desk.test.cjs"
       - "supabase/migrations/20261114183000_nucleo_ac01_contributions.sql"
       - "supabase/migrations/20261114183100_nucleo_ac01_revoke_inherited_write_grants.sql"
       - "scripts/nucleo-ac01-schema.test.sql"
@@ -65,4 +68,5 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: node scripts/nucleo-ac01-readonly-desk.test.cjs
       - run: npm run build
