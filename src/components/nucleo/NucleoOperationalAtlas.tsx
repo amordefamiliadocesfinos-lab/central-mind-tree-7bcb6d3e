@@ -197,7 +197,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <Badge variant="outline">Piloto — cobertura parcial</Badge>
         </div>
-        <nav className="nucleo-v22-tabs grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
+        <nav className="nucleo-v22-tabs grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
           <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full whitespace-normal sm:w-auto" variant={level==="overview"?"default":"outline"}
             aria-pressed={level==="overview"} onClick={() => setLevel("overview")}>Painel Geral</Button>
           <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words text-left sm:w-auto"
