@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import NucleoAC01ReviewTrail from "@/components/nucleo/NucleoAC01ReviewTrail";
 import { continuityContext, deskFilter, latestContributions } from "@/lib/nucleo/ac01ReadOnlyDesk";
 import type { ContributionMetadata, DeskState } from "@/lib/nucleo/ac01ReadOnlyDesk";
 
@@ -77,11 +78,12 @@ export default function NucleoContributionDesk({moduleName,declaredRole,rows,rea
      <p className="text-xs">Versão {selected.version_no}; origem declarada: {selected.source_kind}. Conteúdo original não foi acessado.</p>
      <p className="text-xs break-all">Localizador: {selected.source_locator}</p>
      <p className="text-xs">Antecessor: {previous?"v"+previous.version_no:"indisponível neste recorte"} · Estado: {selected.authority_state}</p>
-     <p className="text-xs text-muted-foreground">Ações permitidas aqui: consultar e preparar minuta local. Solicitar revisão, decidir ou atualizar vigência exigem trilha governada específica; não são executadas por esta tela.</p>
+     <p className="text-xs text-muted-foreground">Ações governadas disponíveis: registrar comentário, solicitar refinamento, salvar minuta e encaminhar para avaliação. Nenhuma dessas ações constitui decisão homologatória ou alteração de vigência.</p>
      <Button size="sm" type="button" variant="outline" onClick={prepare}>Preparar minuta (sem salvar)</Button>
      {prepared&&<div className="space-y-2"><label className="text-xs">Minuta consultiva editável — permanece apenas nesta sessão
        <Textarea value={prepared} onChange={e=>setPrepared(e.target.value)} rows={10}/>
      </label><Button size="sm" variant="outline" type="button" onClick={()=>void copy(prepared)}>Copiar minuta</Button></div>}
+     <NucleoAC01ReviewTrail key={selected.id} moduleId={selected.module_id} contributionId={selected.id} initialDraft={prepared}/>
    </div>}
    <div className="space-y-2 border-t pt-3">
      <h6 className="text-sm font-semibold">Contexto de continuidade para destinatário autorizado</h6>
