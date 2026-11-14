@@ -25,7 +25,7 @@ const prepared={
  assert.equal(m.accepted,false);
  assert.equal(await verifyAc02PackageManifest(m,doc,webcrypto),true);
  assert.equal(await verifyAc02PackageManifest(m,doc+"alterado",webcrypto),false);
- assert.equal(await verifyAc02PackageManifest(m,doc.replace("Família","Familia"),webcrypto),false);
+ assert.equal(await verifyAc02PackageManifest(m,doc.replace("Módulo CRM","Módulo FIN"),webcrypto),false);
  assert.equal(await verifyAc02PackageManifest({...m,packageSha256:"f".repeat(64)},doc,webcrypto),false);
  assert.equal(await verifyAc02PackageManifest({...m,provenance:"authenticated"},doc,webcrypto),false);
  await assert.rejects(()=>createAc02PackageManifest({...prepared,receipt:{...prepared.receipt,delivered:true}},uuid,webcrypto));
