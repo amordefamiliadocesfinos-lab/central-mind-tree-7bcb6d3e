@@ -56,7 +56,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
           if(prior){
             setFeedback("Proposta previamente enviada localizada no Core (v"+prior.version_no+"). Readback de reconciliação confirmado; não reenviar.");
             uncertainRef.current=false;requestRef.current=null;
-            setTitle("");setLocator("");setNote("");setChecksum("");
+            setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
           }else{
             setFeedback("A proposta anterior não foi localizada neste recorte. Estado permanece indeterminado; não criar outra com novo identificador.");
           }
@@ -69,6 +69,9 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    return()=>{mounted=false};
  },[moduleId,refresh]);
  const parent=rows.find(item=>item.id===parentId);
+ const latestByLineage=new Map<string,RecordRow>();
+ for(const item of rows){const latest=latestByLineage.get(item.lineage_id);if(!latest||item.version_no>latest.version_no)latestByLineage.set(item.lineage_id,item);}
+ const latestRows=[...latestByLineage.values()].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
  const compareFields:[string,keyof RecordRow][]=[["Título","title"],["Localizador","source_locator"],["Origem","source_kind"],["SHA-256","source_checksum_sha256"],["Observação","note"]];
  const submit=async()=>{
    if(saving||reading||readError||uncertainRef.current)return;
@@ -79,7 +82,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setFeedback("Confira papel (3–180), título (3–180), localizador (8–1.500), nota (até 2.000) e SHA-256 opcional.");
      return;
    }
-   if(parentId && (!parent || parent.specialist_role!==cleanRole || parent.contribution_kind!==kind)){
+   if(parentId && (!parent || latestByLineage.get(parent.lineage_id)?.id!==parent.id || parent.specialist_role!==cleanRole || parent.contribution_kind!==kind)){
      setFeedback("A versão anterior precisa pertencer ao mesmo especialista e tipo. Reconsulte e selecione novamente.");return;
    }
    if(!window.confirm(parent ? "Registrar NOVA revisão append-only da contribuição? A referência anterior permanece preservada e nenhuma versão será homologada." : "Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
@@ -97,13 +100,14 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      const check=await db.from("nucleo_specialist_contributions").select("*").eq("id",result.data.id).maybeSingle();
      if(check.error||!check.data||check.data.request_id!==requestId||
         check.data.module_id!==moduleId||check.data.specialist_role!==cleanRole||
-        check.data.source_locator!==cleanSource||        check.data.version_no!==(parent?parent.version_no+1:1)||
+        check.data.source_locator!==cleanSource||
+        check.data.version_no!==(parent?parent.version_no+1:1)||
         check.data.parent_revision_id!==(parent?.id??null)||
         check.data.authority_state!==(parent?"em_evolucao":"proposta")){
        uncertainRef.current=true;setFeedback("Inserção retornou, mas readback não confirmou todos os dados. Confira a origem antes de repetir.");return;
      }
      requestRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
-     setFeedback("Proposta confirmada no Core por readback. Não homologada; original preservado na origem.");
+     setFeedback("Contribuição confirmada no Core por readback. Não homologada; versões anteriores preservadas na origem.");
      setRefresh(n=>n+1);
    }catch{
      uncertainRef.current=true;setFeedback("Transporte interrompido: estado indeterminado. Não repetir sem reconciliação.");
@@ -146,7 +150,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      <label className="block text-xs space-y-1">Histórico / versão de origem
        <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="w-full h-10 border rounded-md bg-background px-2">
          <option value="">Nova contribuição — v1</option>
-         {rows.map(item=><option key={item.id} value={item.id}>{item.title} · {item.specialist_role} · v{item.version_no}</option>)}
+         {latestRows.map(item=><option key={item.id} value={item.id}>{item.title} · {item.specialist_role} · v{item.version_no}</option>)}
        </select>
      </label>
      <div className="grid gap-2 sm:grid-cols-2">
