@@ -75,7 +75,10 @@ BEGIN
   'Proposta negada','github','https://example.invalid/denied',
   'ffffffff-ffff-4fff-8fff-ffffffffffff');
   RAISE EXCEPTION 'AC-01 INSERT sem capability permitido';
- EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ WHEN raise_exception THEN
+  IF SQLERRM <> 'AC-01 requer módulo M3 válido' THEN RAISE; END IF;
+ END;
 END $deny$;
 RESET ROLE;
 
