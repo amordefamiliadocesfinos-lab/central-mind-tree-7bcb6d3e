@@ -6,6 +6,9 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "src/components/nucleo/NucleoExecutiveDevelopment.tsx"
+      - "src/styles/nucleoVisualV22.css"
+      - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
       - "scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs"
       - "scripts/nucleo-ux-a2-navigation.test.cjs"
@@ -94,4 +97,6 @@ jobs:
         run: node scripts/nucleo-ux-a5-readable-states.test.cjs
       - name: Verify Nucleo UX V2.1 operational navigation
         run: node scripts/nucleo-ux-v21-operational-flow.test.cjs
+      - name: Verify Núcleo V2.2 visual identity and governance labels
+        run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
       - run: npm run build
