@@ -157,3 +157,19 @@ assert.match(fmSource,/moduleCode==="CRM"/);
 assert.match(fmSource,/CRM_AUTHORITY_SOURCES_V12\.map/);
 assert.match(fmSource,/não certifica método ou especialista/);
 console.log("Núcleo A+ CA13/17: fontes CRM e estados documentais sem homologação inferida PASS.");
+
+
+// Núcleo A+ CA13/CA17 — checkpoint posterior preparado NÃO altera vigência.
+const checkpoints=authorityScope.exports.CRM_CONTINUITY_CHECKPOINTS_V12;
+assert.equal(checkpoints.length,4);
+assert.equal(new Set(checkpoints.map(c=>c.id)).size,4);
+assert.match(checkpoints.find(c=>c.id==="CRM-ESTADO-V1.2").state,/NÃO VIGENTE/);
+assert.match(checkpoints.find(c=>c.id==="CRM-SUCESSAO-04-11").state,/NÃO CERTIFICA/);
+assert.match(checkpoints.find(c=>c.id==="CRM-411-OPERACIONAL").state,/NÃO RECONFIRMADO/);
+assert.match(authorityScope.exports.CRM_SPECIALIST_CA17.successionRecord,/CRM 7 → CRM 8/);
+assert.match(authorityScope.exports.CRM_SPECIALIST_CA17.activeMandate,/não certificado/);
+const fmCheckpointSource=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8");
+assert.match(fmCheckpointSource,/CRM_CONTINUITY_CHECKPOINTS_V12\.map/);
+assert.match(fmCheckpointSource,/CRM_SPECIALIST_CA17\.successionRecord/);
+assert.doesNotMatch(authoritySource,/activeMandate:"certificado"/);
+console.log("Núcleo A+ CA13/17: sucessão documental e estado V1.2 preparado preservados PASS.");
