@@ -718,3 +718,18 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 **Não confundir:** teste de role/JWT sintético em PostgreSQL descartável não é piloto humano autenticado em site publicado. Não se declara CA-23–CA-29 integralmente homologados. Testes reais de registro de fonte existente, v2 e revisão humana continuam pendentes, sem induzir importação das 82 páginas ou Delivery B.
 
 **Diferença de tipos em workspace:** comparação de conteúdo atual de `src/integrations/supabase/types.ts` entre Lovable Cloud e GitHub `main` mostrou igualdade integral após `trimEnd()`; diferença exclusiva de newline terminal. Não há delta funcional atual a corrigir/reverter neste arquivo. A discrepância transitória vista em diff anterior foi preservada na seção 48 como histórico, sem atribuição falsa.
+
+
+## 50. AC-01 — fila consultiva e continuidade sem antecipar validação (14/11/2026)
+
+**Decisão do proprietário:** manter **para fase posterior** o piloto humano autenticado, a homologação visual e os respectivos aceites CA-23–CA-29; prosseguir implementando deltas não destrutivos da Entrega A+ pelo GitHub, sem bloquear avanço técnico por tais testes adiados.
+
+**GitHub:** PR #782 mergeada em `04dccc663ca7ff71d742eed4b3ee07edad3f71d4`. CI [GitHub Actions #43611212061](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/43611212061) aprovou `postgres-ac01` e `ui-build` (teste puro de projeções, `npm run build` e regressões isoladas). Uma falha inicial de teste JS entre contextos VM foi corrigida antes do aceite CI; a implementação funcional não foi alterada por essa correção.
+
+**Delta realizado dentro da UI existente:** novo `NucleoContributionDesk` integrado à consulta autorizada de `NucleoSpecialistContributions`; fila derivada exclusivamente de metadados AC-01 realmente lidos, com contagem de linhagens, estados proposta/em evolução, busca, recorte e seleção de revisão. CA-28 é atendido **parcialmente** por essa fila: não existem ainda ações persistentes de solicitar revisão/decidir nem estados canônicos completos.
+
+**CA-26 (parcial):** preparação de minuta textual local e editável pelo gestor, sem gravação, sem conteúdo privado, sem envio à IA e sem homologação. **CA-29 (parcial):** pacote JSON consultivo de identidade de contribuições, versões e limites, copiado apenas por ação explícita; não afirma método/ecossistema vigente, mandato, documento aprovado ou acesso irrestrito à origem. CA-27 não foi acionado, e nenhuma referência canônica vigente foi alterada.
+
+**Provas e limites:** a tabela AC-01 tinha zero contribuições no checkpoint anterior; testes CI usam apenas fontes sintéticas em PostgreSQL descartável. `main` com código mergeado não equivale a deploy publicado, uso real, readback de proposta real ou homologação. Entrega B, M0–M5, 82 páginas locais, dados operacionais de módulos e grants permanecem preservados.
+
+**Próxima frente técnica sem reabrir aceite adiado:** evoluir trilha explícita e persistente de comentários/devolução, preparação de consolidação e submissão para decisão sem promoção automática, com autoria, RLS, idempotência e evidência de readback; somente ato humano competente poderá autorizar eventual atualização de referência vigente.
