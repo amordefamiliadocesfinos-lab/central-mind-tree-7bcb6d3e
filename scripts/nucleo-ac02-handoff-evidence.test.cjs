@@ -10,9 +10,11 @@ const compile=(path,req)=>{
 const registry=compile("supabase/functions/_shared/nucleo/ac02-registry-contract.ts",()=>{throw Error("No dependencies")});
 const summary=compile("supabase/functions/_shared/nucleo/ac02-continuity-summary.ts",()=>{throw Error("No dependencies")});
 const documents=compile("supabase/functions/_shared/nucleo/ac02-documentary-coverage.ts",()=>{throw Error("No dependencies")});
+const guide=compile("supabase/functions/_shared/nucleo/ac02-assumption-guide.ts",()=>{throw Error("no import")});
 const exp=compile("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",name=>{
  if(name==="./ac02-continuity-summary.ts")return summary;
  if(name==="./ac02-documentary-coverage.ts")return documents;
+ if(name==="./ac02-assumption-guide.ts")return guide;
  assert.equal(name,"./ac02-registry-contract.ts");
  return registry;
 });
