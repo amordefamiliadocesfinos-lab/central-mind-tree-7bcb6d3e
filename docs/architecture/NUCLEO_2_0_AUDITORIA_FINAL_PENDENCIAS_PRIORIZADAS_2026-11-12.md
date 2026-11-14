@@ -1075,3 +1075,16 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Reuso:** `ac02-assumption-export.ts` anexa seção `Roteiro de recuperação de contexto para o sucessor` ao Pacote Oficial de Assunção, sem incorporar fontes privadas, corpo das Fichas Vivas, nomes, URLs, credenciais ou ações arbitrárias. O reexport `src/lib/nucleo/ac02AssumptionGuide.ts` está disponível ao Especialista UX, sem atribuir ao Núcleo a implementação visual. A ordem 1–6 é ordem de consulta e conferência, não priorização soberana ou autorização de execução. Não é substituto do documento original ou da confirmação de identidade do sucessor.
 
 **Validação não produtiva:** `scripts/nucleo-ac02-assumption-guide.test.cjs` e a CI existente verificam seis etapas, ausência de referências, recorte incompleto, checkpoint não certificado e ausência de promoção automática. Provas reais de sucessão continuam pendentes. Nenhuma migration, RLS, grant, Edge Function implantada, interface ou Entrega B foi alterada.
+
+
+## 70. AC-02 — inventário consolidado de lacunas da assunção consultiva (14/11/2026)
+
+**Escopo liberado:** prosseguir apenas pelas frentes documentais e de transferência de contexto, com testes de contrato e CI isolada. Segurança, autenticação, gateways, ledger produtivo, migrations, implantação, testes reais e homologação permanecem PENDENTES, conforme decisão do proprietário. Entrega A+ / Mapa Núcleo 2.0 V1.3 preservados.
+
+**Entrega:** `supabase/functions/_shared/nucleo/ac02-knowledge-gaps.ts` compõe **oito lacunas estáveis** (G01 escopo FM-03, G02 método/ecossistema FM-08, G03 checkpoint FM-09, G04 M3/M4, G05 fontes, G06 mandato/acesso, G07 homologação, G08 implantação adiada) usando apenas as projeções já autorizadas de cobertura documental, continuidade e roteiro. As lacunas são classificadas por categoria e por `referencia_inexistente_no_recorte`, `referencia_presente_consulta_pendente`, `recorte_indeterminado`, `comprovacao_externa_pendente` ou `fase_adiada`. O estado **não certifica ausência global** de documento, trabalho, fonte ou mandato.
+
+**Integração:** `ac02-assumption-export.ts` expõe uma seção de inventário com IDs estáveis, resumo por categoria e ações **de consulta**, não de execução. Não copia entradas livres de pendências, `body`/títulos, `source_reference`, dados de pessoas, tokens, links privados, evidências M4 originais nem conteúdo do checkpoint. `src/lib/nucleo/ac02KnowledgeGaps.ts` reexporta o contrato para o Especialista UX, sem construir interface nesta especialidade.
+
+**Prova limitada:** `scripts/nucleo-ac02-knowledge-gaps.test.cjs` cobre oito lacunas, estados de recorte incompleto, referência presente sem verificação externa, fonte sem referência e rejeição de módulo divergente. A CI deve provar somente integridade de código; não valida o estado real das fontes, deploy ou continuidade humana. Nenhuma tabela, permissionamento, mandato, migração ou Entrega B foi criado.
+
+**Próxima frente documental candidata:** refinar a apresentação diferenciada entre lacunas por ausência de referência, lacunas por comprovação externa e dependências formalmente adiadas, sem reabrir os bloqueios.

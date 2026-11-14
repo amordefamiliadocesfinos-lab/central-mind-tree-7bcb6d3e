@@ -22,11 +22,13 @@ assert.equal(partial.completeness,"recorte_incompleto");
 const registry=load("supabase/functions/_shared/nucleo/ac02-registry-contract.ts",()=>{throw Error("unexpected registry import")});
 const documents=load("supabase/functions/_shared/nucleo/ac02-documentary-coverage.ts",()=>{throw Error("unexpected import")});
 const guide=load("supabase/functions/_shared/nucleo/ac02-assumption-guide.ts",()=>{throw Error("no import")});
+const gaps=load("supabase/functions/_shared/nucleo/ac02-knowledge-gaps.ts",()=>{throw Error("no imports")});
 const exporter=load("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",name=>{
  if(name==="./ac02-registry-contract.ts")return registry;
  if(name==="./ac02-continuity-summary.ts")return summary;
  if(name==="./ac02-documentary-coverage.ts")return documents;
  if(name==="./ac02-assumption-guide.ts")return guide;
+ if(name==="./ac02-knowledge-gaps.ts")return gaps;
  throw Error("unexpected import "+name);
 });
 const draft=exporter.composeAc02AssumptionExport({
