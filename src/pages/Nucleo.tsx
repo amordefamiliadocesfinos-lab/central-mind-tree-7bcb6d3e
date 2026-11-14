@@ -4173,7 +4173,7 @@ export default function Nucleo() {
               className={cn("min-h-10 rounded-full px-4",developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
               onClick={toggleDevelopmentMode}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
-              {developmentMode ? "Áreas do Núcleo" : "Central Visual"}
+              {developmentMode ? "Biblioteca local" : "Central Visual · Core"}
             </Button>
             <Button type="button" size="sm" variant="outline"
               className="min-h-10 rounded-full border-[#d5dce7] bg-white px-4 text-[#174ea6] hover:bg-[#e8f0fe]"
@@ -4189,6 +4189,25 @@ export default function Nucleo() {
       <main className="mx-auto grid max-w-[1580px] grid-cols-1 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[252px_minmax(0,1fr)] lg:gap-5">
         {/* Navegação lateral de áreas, como na referência; sem criar segunda Biblioteca. */}
         <aside className="space-y-3" aria-label="Navegação do Núcleo">
+          {developmentMode ? (
+            <div className="space-y-3 rounded-2xl border border-[#d2e3fc] bg-white p-4 shadow-sm" aria-label="Contexto da Central Visual">
+              <div className="rounded-xl bg-[#e8f0fe] p-3">
+                <h2 className="text-sm font-semibold text-[#174ea6]">Central Visual · Core</h2>
+                <p className="mt-1 text-xs leading-relaxed text-[#3c4043]">
+                  Consulte módulos, frentes, especialistas e registros autorizados do Core. A navegação deste ambiente fica no painel principal.
+                </p>
+              </div>
+              <p className="text-xs text-[#5f6368]">
+                As páginas criadas neste navegador pertencem à Biblioteca local e não representam Ficha Viva ou publicação canônica.
+              </p>
+              <Button type="button" variant="outline" onClick={() => setDevelopmentMode(false)}
+                className="min-h-11 w-full whitespace-normal rounded-full border-[#1a73e8] text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe]">
+                Abrir Biblioteca local
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3" aria-label="Áreas da Biblioteca local">
+
           <Button type="button" onClick={() => {setDevelopmentMode(false);createPage();}}
             className="min-h-12 w-full justify-start gap-3 rounded-2xl bg-[#1a73e8] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#185abc] sm:max-w-[240px]">
             <Plus className="h-5 w-5" /> Nova página
@@ -4217,7 +4236,10 @@ export default function Nucleo() {
             </div>
             <p className="mt-2 text-xs text-[#5f6368]">{areasWithLocalPages} de {AREAS.length} áreas têm páginas locais.</p>
           </div>
-        </aside>
+
+            </div>
+          )}
+                </aside>
 
         {(developmentMode || developmentVisited) && (
           <section hidden={!developmentMode} aria-hidden={!developmentMode}
