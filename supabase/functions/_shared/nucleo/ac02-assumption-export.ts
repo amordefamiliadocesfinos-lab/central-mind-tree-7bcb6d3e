@@ -9,11 +9,18 @@ import {
  type Ac02Projection, type Ac02SpecialistContext,
 } from "./ac02-registry-contract.ts";
 
+export type Ac02HandoffTechnicalContext=Readonly<{
+ fronts:readonly Readonly<{id:string;code:string;status:string}>[];
+ evidence:readonly Readonly<{id:string;workstreamId:string;kind:string;observedState:string}>[];
+ evidenceRead:"completa"|"indeterminada";
+}>;
+
 export type Ac02AssumptionInput=Readonly<{
  projection:Ac02Projection;
  specialist:Ac02SpecialistContext;
  moduleTitle:string;
  preparedAt:string;
+ technical?:Ac02HandoffTechnicalContext;
 }>;
 export type Ac02AssumptionExport=Readonly<{
  kind:"nucleo_ac02_pacote_oficial_assuncao_rascunho";
@@ -65,6 +72,36 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  unresolved.push("Validação humana do pacote e das fontes: pendente");
  if(projection.conflicts.length)unresolved.push("Conflitos na leitura técnica: reconciliação necessária");
  if(projection.missingChecks.length)unresolved.push("Observações técnicas não verificadas/expiradas");
+ const isUuid=(v:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+ const technical=input.technical;
+ const frontList:string[]=[];
+ const evidenceList:string[]=[];
+ if(technical){
+  const frontIds=new Set<string>();
+  for(const f of technical.fronts.slice(0,50)){
+   if(isUuid(f.id)&&/^[A-Z0-9_-]{3,50}$/.test(f.code)&&
+    ["planejado","em_andamento","bloqueado","em_validacao","concluido"].includes(f.status)&&
+    !frontIds.has(f.id)){
+     frontIds.add(f.id);
+     frontList.push("- "+f.code+" / "+f.id+" / status M3 declarado "+f.status);
+   }
+  }
+  for(const e of technical.evidence.slice(0,80)){
+   if(isUuid(e.id)&&frontIds.has(e.workstreamId)&&
+      ["pull_request","commit","ci_run","migration","deployment","manual","outro"].includes(e.kind)&&
+      ["verificado","relatado","nao_verificado","indeterminado"].includes(e.observedState)){
+      evidenceList.push("- M4 "+e.id+" / frente "+e.workstreamId+
+       " / tipo "+e.kind+" / estado M4 declarado "+e.observedState);
+   }
+  }
+  if(technical.fronts.length>50||technical.evidence.length>80)
+   unresolved.push("Inventário técnico excedeu o recorte máximo; continuidade parcial");
+  if(technical.evidenceRead!=="completa")
+   unresolved.push("Evidências M4: leitura não comprovadamente completa");
+ }else unresolved.push("Frentes e evidências M3/M4: não incluídas nesta leitura");
+ if(frontList.length===0)unresolved.push("Frentes M3: nenhuma referência estruturada recuperada");
+ if(evidenceList.length===0)unresolved.push("Provas M4: nenhuma referência estruturada autorizada recuperada");
+
  // Deliberately don't include arbitrary strings from moduleTitle,
  // specialistRole, sourceRefs, evidence, warnings or external document bodies.
  const title="Módulo "+code;
@@ -99,14 +136,19 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   section("Checkpoint (FM-09)",checkpoint),
   "- Fontes privadas: não incluídas neste pacote; consultar no Núcleo sob acesso autorizado.",
   "",
-  "## 4. Estado de verificação",
+  "## 4. Frentes e evidências técnicas (identificadores, não conteúdos)",
+  ...(frontList.length?frontList:["- Sem frentes M3 no recorte"]),
+  ...(evidenceList.length?evidenceList:["- Sem provas M4 no recorte"]),
+  "- Estados M3/M4 declarados no Core; não demonstram CI/deploy/homologação atual.",
+  "",
+  "## 5. Estado de verificação",
   "- Identidade global: aprovada como diretriz; não equivale a deploy/CI atual.",
   "- Evidências técnicas mutáveis: NÃO transmitidas neste pacote; conferir GitHub, Core e provedores antes de executar.",
   "",
-  "## 5. Pendências obrigatórias antes da assunção operacional",
+  "## 6. Pendências obrigatórias antes da assunção operacional",
   ...unresolved.map(item=>"- "+item),
   "",
-  "## 6. Condições de continuidade",
+  "## 7. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",
