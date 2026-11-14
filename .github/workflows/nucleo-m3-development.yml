@@ -26,6 +26,7 @@ on:
       - "supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql"
       - "scripts/nucleo-v12-ficha-viva.test.sql"
       - "src/pages/Nucleo.tsx"
+      - "scripts/nucleo-ux-v21-operational-flow.test.cjs"
       - "src/components/CapturaCentralFAB.tsx"
       - "src/components/GlobalFooterBar.tsx"
       - "src/index.css"
@@ -91,4 +92,6 @@ jobs:
         run: node scripts/nucleo-ux-a4-comparacao-documental.test.cjs
       - name: Verify UX-A5 responsive and accessible states
         run: node scripts/nucleo-ux-a5-readable-states.test.cjs
+      - name: Verify Nucleo UX V2.1 operational navigation
+        run: node scripts/nucleo-ux-v21-operational-flow.test.cjs
       - run: npm run build
