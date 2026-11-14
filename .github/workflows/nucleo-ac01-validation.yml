@@ -27,6 +27,10 @@ on:
       - "supabase/functions/_shared/nucleo/ac02-package-manifest.ts"
       - "src/lib/nucleo/ac02PackageManifest.ts"
       - "scripts/nucleo-ac02-package-manifest.test.cjs"
+      - "supabase/functions/_shared/nucleo/ac02-write-preflight.ts"
+      - "scripts/nucleo-ac02-write-preflight.test.cjs"
+      - "docs/architecture/proposals/NUCLEO_AC02_FECHAMENTO_WRITE_DIRECT_PROPOSTA_NAO_APLICAR.sql"
+      - "scripts/nucleo-ac02-direct-write-gate-disposable.test.sql"
       - "docs/architecture/proposals/NUCLEO_AC02_HANDOFF_APPENDONLY_PROPOSTA_NAO_APLICAR.sql"
       - "scripts/nucleo-ac02-handoff-ledger-disposable.test.sql"
       - "scripts/nucleo-ac01-document-governance.test.cjs"
@@ -122,6 +126,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_AC02_HANDOFF_APPENDONLY_PROPOSTA_NAO_APLICAR.sql
       - name: Exercise AC02 recipient and audit guards only in disposable PostgreSQL
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac02-handoff-ledger-disposable.test.sql
+      - name: Close AC02 direct JWT INSERT only in disposable CI
+        run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_AC02_FECHAMENTO_WRITE_DIRECT_PROPOSTA_NAO_APLICAR.sql
+      - name: Verify no direct write path remains for JWT or service role
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac02-direct-write-gate-disposable.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -143,4 +151,5 @@ jobs:
       - run: node scripts/nucleo-ac02-controlled-distribution.test.cjs
       - run: node scripts/nucleo-ac02-handoff-ledger-contract.test.cjs
       - run: node scripts/nucleo-ac02-package-manifest.test.cjs
+      - run: node scripts/nucleo-ac02-write-preflight.test.cjs
       - run: npm run build
