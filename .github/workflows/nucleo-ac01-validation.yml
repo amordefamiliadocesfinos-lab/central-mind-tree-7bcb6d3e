@@ -6,6 +6,7 @@ on:
       - "supabase/migrations/20261114183000_nucleo_ac01_contributions.sql"
       - "supabase/migrations/20261114183100_nucleo_ac01_revoke_inherited_write_grants.sql"
       - "scripts/nucleo-ac01-schema.test.sql"
+      - "scripts/nucleo-ac01-auth-pilot.test.sql"
       - ".github/workflows/nucleo-ac01-validation.yml"
   workflow_dispatch:
 permissions:
@@ -52,6 +53,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183100_nucleo_ac01_revoke_inherited_write_grants.sql
       - name: Verify append-only grants, RLS and schema
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-schema.test.sql
+      - name: Exercise authenticated pilot only on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-auth-pilot.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
