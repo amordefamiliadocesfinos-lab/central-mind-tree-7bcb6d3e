@@ -6,6 +6,7 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "scripts/nucleo-ux-a1-v23-context-guard.test.cjs"
       - "src/components/nucleo/NucleoExecutiveDevelopment.tsx"
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
@@ -99,4 +100,6 @@ jobs:
         run: node scripts/nucleo-ux-v21-operational-flow.test.cjs
       - name: Verify Núcleo V2.2 visual identity and governance labels
         run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
+      - name: Verify UX-A1 navigation and unsaved edits
+        run: node scripts/nucleo-ux-a1-v23-context-guard.test.cjs
       - run: npm run build
