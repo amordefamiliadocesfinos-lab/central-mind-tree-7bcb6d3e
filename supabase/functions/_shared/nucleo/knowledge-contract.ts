@@ -50,7 +50,7 @@ export function reviewImpact(
       });
     }
   }
-  const uncertain=!complete||prs.some(p=>!p.merged_at||!p.files)||
+  const uncertain=!complete||prs.length===0||revisions.length===0||prs.some(p=>!p.merged_at||!p.files)||
     revisions.some(r=>explicitSourcePaths(r.source_reference).length===0||!Number.isFinite(Date.parse(r.recorded_at)));
   return {
     state:suggestions.length?"candidatos":uncertain?"indeterminado":"sem_correspondencia_comprovada",
