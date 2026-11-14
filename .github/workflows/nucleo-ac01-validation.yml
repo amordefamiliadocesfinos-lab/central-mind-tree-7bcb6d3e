@@ -24,6 +24,9 @@ on:
       - "supabase/functions/_shared/nucleo/ac02-handoff-ledger-contract.ts"
       - "src/lib/nucleo/ac02HandoffLedger.ts"
       - "scripts/nucleo-ac02-handoff-ledger-contract.test.cjs"
+      - "supabase/functions/_shared/nucleo/ac02-package-manifest.ts"
+      - "src/lib/nucleo/ac02PackageManifest.ts"
+      - "scripts/nucleo-ac02-package-manifest.test.cjs"
       - "docs/architecture/proposals/NUCLEO_AC02_HANDOFF_APPENDONLY_PROPOSTA_NAO_APLICAR.sql"
       - "scripts/nucleo-ac02-handoff-ledger-disposable.test.sql"
       - "scripts/nucleo-ac01-document-governance.test.cjs"
@@ -139,4 +142,5 @@ jobs:
       - run: node scripts/nucleo-ac02-handoff-evidence.test.cjs
       - run: node scripts/nucleo-ac02-controlled-distribution.test.cjs
       - run: node scripts/nucleo-ac02-handoff-ledger-contract.test.cjs
+      - run: node scripts/nucleo-ac02-package-manifest.test.cjs
       - run: npm run build

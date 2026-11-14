@@ -990,3 +990,18 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 `scripts/nucleo-ac02-handoff-ledger-contract.test.cjs` e `scripts/nucleo-ac02-handoff-ledger-disposable.test.sql` são executados em CI; aprovam apenas viabilidade técnica em isolamento. Implantação produtiva requer revisão de DDL/RLS, evidência de regressão de privilégios, verificação das operações humanas, assinatura/comprovação da origem do pacote, modelo de eventos para chat de IA, autorização expressa de deployment e homologação funcional. Manter pendentes testes 200/401/403, UX e sucessão real.
 
 **Nenhuma mudança produtiva** ao Core, Edge Function, dados, ACL, mandatos ou front-end nesta PR.
+
+
+## 63. AC-02 — manifesto de integridade e handoff UX, sem implantação (14/11/2026)
+
+**Continuidade sem bloqueios:** preservar o Mapa V1.3 e Entrega A+, as implementações #806/#807/#813/#814/#815 e a proposta #817. O ledger append-only permanece **proposta não aplicada**; ensaios reais com JWT, implantação produtiva e homologação humana continuam diferidos.
+
+**Achado técnico:** o registro proposto na #817 exige `package_sha256`, mas o contrato anterior de distribuição preparava apenas o texto e um recibo transitório; não oferecia cálculo verificável do hash sobre os bytes exatos do pacote. Não preencher hash por constante, nome do arquivo ou hash de metadados. A identificação imutável da versão deve anteceder qualquer tentativa posterior de registrar eventos.
+
+**Contrato:** `supabase/functions/_shared/nucleo/ac02-package-manifest.ts` calcula SHA-256 sobre os **bytes UTF-8 exatos** do texto previamente preparado (sem normalizar espaços, quebras de linha ou caracteres). A função cria `Ac02PackageManifest` com packageId UUID informado pelo controlador, versão `1.0`, hash hexadecimal, tamanho em bytes, código de módulo, tipo/identidade do destinatário, preparador, instante e estado **local_computed_not_authenticated**. Inclui verificação de integridade por recálculo e detecta qualquer mudança no documento.
+
+**Separação de alegações:** hash prova apenas correspondência de bytes com o manifesto em mãos. O contrato **não prova autoria, integridade da origem antes da preparação, revisão administrativa, assinatura criptográfica, disponibilização, entrega, recebimento ou aceite**. Não gera INSERT, evento M4, mandato, sessão, assinatura ou concessão. `delivered=false` e `accepted=false` permanecem explícitos.
+
+**Compatibilidade:** reexportado para futuro UX em `src/lib/nucleo/ac02PackageManifest.ts`. O Especialista UX deverá mostrar estado de integridade e distinção visual entre pacote preparado, evento persistido e aceite confirmado, sem tratar hash verificado como entrega concluída. O manifesto deve ser gerado somente a partir do rascunho preparado após leitura autorizada; cliente isolado não certifica auth. Contratos anteriores e endpoints existentes permanecem intactos.
+
+**Portões futuros:** vínculo entre hash e evento no ledger somente após autorização de migration, autenticação efetiva e prova de origem; seleção/identidade do destinatário e fluxo UX sob responsável próprio; testes produtivos em momento posterior. O arquivo da proposta SQL não é movido para `supabase/migrations/` nesta frente.
