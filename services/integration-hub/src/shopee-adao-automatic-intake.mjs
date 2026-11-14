@@ -182,6 +182,8 @@ export function createAdaoAutomaticIntake({
       shipment_acknowledged: 0, shipment_pending: 0,
       shipment_candidates: 0,
       shipment_attempted: 0, label_attempted: 0, work_budget_exhausted: false,
+      // F12.2 diagnostic only: later-page official deadline earlier than an attempted shipment.
+      cross_page_deadline_inversions: 0,
       // No shipping arrangement, inventory or physical finalization.
       logistics_writes: 0, inventory_writes: 0,
     };
@@ -222,6 +224,8 @@ export function createAdaoAutomaticIntake({
     // end-only 48s logistics budget. Keep one global cap and no reattempts per
     // cycle, while the live preflight + Core claim remain the writer authority.
     const attemptedShipments = new Set();
+    const attemptedWithDeadline = [];
+    const priorityInversionsSeen = new Set();
     const attemptedLabels = new Set();
     const processPageLogistics = async () => {
         if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
@@ -231,6 +235,18 @@ export function createAdaoAutomaticIntake({
           // The Core claim checks the order remains operationally open.
           const eligible = [...shippingCandidates.keys()].sort()
             .filter(sn => acceptedForShipping.has(sn) && !attemptedShipments.has(sn));
+          // Diagnostic for an earlier official deadline discovered too late for ranking.
+          // Do not modify shipping, scheduler cadence, or retry semantics.
+          for (const sn of eligible) {
+            const deadline = shippingCandidates.get(sn)?.ship_by_date;
+            if (Number.isSafeInteger(deadline) && deadline >= 1_000_000_000
+                && deadline <= 4_102_444_800
+                && attemptedWithDeadline.some(previous => previous > deadline)
+                && !priorityInversionsSeen.has(sn)) {
+              priorityInversionsSeen.add(sn);
+              report.cross_page_deadline_inversions++;
+            }
+          }
           report.shipment_candidates = [...shippingCandidates.keys()]
             .filter(sn => acceptedForShipping.has(sn)).length;
           // F12: bounded sequential actions. Never send competing POSTs;
@@ -247,6 +263,9 @@ export function createAdaoAutomaticIntake({
               break;
             }
             attemptedShipments.add(target);
+            const attemptedDeadline = shippingCandidates.get(target)?.ship_by_date;
+            if (Number.isSafeInteger(attemptedDeadline) && attemptedDeadline >= 1_000_000_000
+                && attemptedDeadline <= 4_102_444_800) attemptedWithDeadline.push(attemptedDeadline);
             report.shipment_attempted++;
             try {
               const arranged = await arrangeShipping(target);
