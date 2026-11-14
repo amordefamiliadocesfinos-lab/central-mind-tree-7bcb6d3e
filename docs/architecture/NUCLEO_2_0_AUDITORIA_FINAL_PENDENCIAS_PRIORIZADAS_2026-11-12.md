@@ -865,7 +865,7 @@ Todos os seis primeiros declaram `ATIVO / VIGENTE` **na data de seu próprio est
 
 ### P2 — Contrato técnico mínimo / nenhuma tabela nova
 
-Arquivo puro `src/lib/nucleo/ac02RegistryContract.ts`:
+Arquivo puro originalmente apresentado em `src/lib/nucleo/ac02RegistryContract.ts` e, após a preparação da leitura autenticada, mantido como fonte única em `_shared/nucleo/ac02-registry-contract.ts`, com reexportação no caminho anterior:
 - `AC02_GLOBAL_IDENTITY` e `AC02_GLOBAL_ITEMS`: identidade, repositório principal `amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e` / `main`, projeto Lovable `1720a410-34cd-4410-995c-8c92c7edf16b`, Supabase Cloud integrado `xkskyutmtlhivvpfxkjg`, ambientes declarados, políticas de método/segurança e fontes de autoridade. **Origem = deliberação da Camada Mestre**, não validação temporal do deploy.
 - `Ac02Item`: chave, domínio, rótulo, valor não secreto, autoridade, natureza e versão da evidência, status, fonte, data de verificação, visibilidade, ressalva.
 - `Ac02DynamicEvidence`: estado técnico **datado e separado**, fonte/versão do sistema observado, classe de visibilidade; `buildAc02Registry` compara identidade oficial e fatos observados, mantém divergências e expirados como pendências, sem alterar o valor soberano.
@@ -900,7 +900,7 @@ Script `scripts/nucleo-ac02-registry.test.cjs` exercita identidade oficial, muda
 
 **Reuso técnico:** `supabase/functions/nucleo-knowledge-read/index.ts` recebe `include_ac02?:boolean` (padrão ausente/false), preservando `module_code`, `include_review` e o formato anterior quando AC-02 não solicitado. A função continua `verify_jwt=true` conforme `supabase/config.toml`, usa Supabase anon/publishable key **com JWT do chamador**, `auth.getUser(token)`, capability ativa `nucleo_manage` e leitura de módulo/Fichas Vivas sob RLS antes de construir o contexto. Nunca fornece `service_role` nem escreve dados. Não cria novo endpoint ou tabela.
 
-**Projeção:** a mesma fonte TypeScript `src/lib/nucleo/ac02RegistryContract.ts` é importada diretamente no lado servidor, sem redefinir identidades. `include_ac02=true` gera dados consultivos estruturados com: 
+**Projeção:** o contrato canônico TypeScript reside em `supabase/functions/_shared/nucleo/ac02-registry-contract.ts`, importado pela Edge Function e reexportado ao frontend por `src/lib/nucleo/ac02RegistryContract.ts`, sem redefinir identidades. `include_ac02=true` gera dados consultivos estruturados com: 
 - Identidade global decidida pela Camada Mestre (GitHub, Lovable, Cloud e diretrizes).
 - Observações temporais do repositório e branch via GET de URL GitHub fixa, com timeout e status indeterminado caso indisponível. Não confirmar deployment/CI pelo branch.
 - Conferência restrita do ref Supabase **somente** pelo hostname da variável de runtime, sem divulgar URL, header, token ou segredo. Host fora do formato esperado equivale a verificação indeterminada, **não** prova de banco independente.
