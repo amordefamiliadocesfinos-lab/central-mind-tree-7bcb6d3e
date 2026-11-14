@@ -17,6 +17,8 @@ on:
       - "supabase/migrations/20261114183200_nucleo_ac01_review_events.sql"
       - "supabase/migrations/20261114183300_nucleo_ac01_decision_requests.sql"
       - "supabase/migrations/20261114183400_nucleo_ac01_decision_publication_gates.sql"
+      - "supabase/migrations/20261114183500_nucleo_ac01_authority_revocation_gates.sql"
+      - "scripts/nucleo-ac01-revocation-succession.test.sql"
       - "scripts/nucleo-ac01-decision-publication-gates.test.sql"
       - "scripts/nucleo-ac01-decision-positive-disposable.test.sql"
       - "scripts/nucleo-ac01-decision-requests.test.sql"
@@ -86,6 +88,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-publication-gates.test.sql
       - name: Exercise separate authorized decision and publication ONLY in disposable CI
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-decision-positive-disposable.test.sql
+      - name: Install immutable grant revocations and hardened decision guards in disposable CI
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114183500_nucleo_ac01_authority_revocation_gates.sql
+      - name: Verify revocation, replacement, denied acts and sealed privileges in CI
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac01-revocation-succession.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15

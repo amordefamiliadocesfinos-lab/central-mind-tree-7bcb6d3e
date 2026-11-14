@@ -47,8 +47,9 @@ export type Ac01Mandate = {
 export type Ac01Grant = {
  id:string;module_id:string;specialist_role:string;contribution_kind:string;
  authority_kind:string;delegate_auth_uid:string;mandate_record_id:string;
- effective_from:string;effective_until:string|null;
+ effective_from:string;effective_until:string|null;supersedes_grant_id?:string|null;
 };
+export type Ac01Revocation={id:string;authority_grant_id:string;revocation_kind:'revogacao'|'suspensao';reason:string;revoked_by_auth_uid:string;recorded_at:string};
 export type Ac01FM = {
  id:string;module_id:string;section_code:string;version_no:number;
  title:string;authority_state:string;source_reference:string;recorded_at:string;
@@ -91,10 +92,11 @@ export function isActiveCertifiedMandate(
 export function declaredAuthorityCoverage(
  moduleId:string,specialist:string,category:string,
  grants:readonly Ac01Grant[],mandates:readonly Ac01Mandate[],now:string,
+ revocations:readonly Ac01Revocation[]=[],
 ) {
  const byId=new Map(mandates.map(m=>[m.id,m]));
  return grants.filter(g=>g.module_id===moduleId && g.specialist_role===specialist &&
-  g.contribution_kind===category && g.effective_from<=now &&
+  g.contribution_kind===category && !revocations.some(r=>r.authority_grant_id===g.id) && g.effective_from<=now &&
   (!g.effective_until || g.effective_until>now) &&
   !!byId.get(g.mandate_record_id) &&
   isActiveCertifiedMandate(byId.get(g.mandate_record_id)!,mandates,now));
@@ -111,3 +113,35 @@ export const AC01_AUTHORITY_PROCEDURE = [
  {code:"07",step:"Substituição",detail:"Revogar competência anterior e certificar substituto com prova e prazo, checar sobreposição; nenhum sucessor herda automaticamente grants, credenciais, sessões ou atos. Conservar originais e histórico."},
  {code:"08",step:"Homologação posterior",detail:"Ensaios autorizados com pessoa real: positivo, negativo, revogado, duplicado, concorrência, rollback/readback, origem externa, desktop/mobile. Não tratar CI isolado como UAT."},
 ] as const;
+
+/** Prévia somente leitura: NÃO publica nem substitui a Ficha Viva. */
+export function canonicalReadinessPreview(
+ contribution:Ac01Record,target:Ac01FM|null,
+ decisions:readonly Ac01Decision[], publications:readonly Ac01Publication[],
+) {
+ const approved=decisions.filter(d=>d.contribution_id===contribution.id&&d.outcome==="aprovada");
+ const published=publications.filter(p=>p.contribution_id===contribution.id&&approved.some(d=>d.id===p.decision_act_id));
+ const blockers:string[]=[];
+ if(!target)blockers.push("Destino canônico não selecionado");
+ if(target&&target.module_id!==contribution.module_id)blockers.push("Destino pertence a outro módulo");
+ if(target&&!target.source_reference.trim())blockers.push("Localizador de origem da Ficha Viva não declarado");
+ if(!contribution.source_locator.trim())blockers.push("Localizador da contribuição ausente");
+ if(!approved.length)blockers.push("Decisão humana aprovada inexistente no recorte");
+ if(!published.length)blockers.push("Publicação interna AC-01 inexistente no recorte");
+ blockers.push("Acesso à fonte externa e hash atual não verificados");
+ blockers.push("Escrita canônica, CAS e readback ainda não autorizados");
+ return {
+  action:"BLOQUEADA" as const,sourceId:contribution.id,sourceVersion:contribution.version_no,
+  targetId:target?.id??null,targetSection:target?.section_code??null,
+  targetVersion:target?.version_no??null,targetLocator:target?.source_reference??null,
+  blockers,
+  steps:[
+    "Validar competência decisória e executor humano distintos",
+    "Selecionar alvo canônico e conferir versão/hash atuais autorizados",
+    "Conferir original, diferenças e conflito com versão vigente",
+    "Aplicar CAS transacional apenas após autorização específica",
+    "Reconsultar destino, preservar anterior e registrar evidência",
+    "Em falha: conciliar estado indeterminado, não repetir nem reverter automaticamente",
+  ],
+ };
+}
