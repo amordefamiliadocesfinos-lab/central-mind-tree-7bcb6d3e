@@ -212,3 +212,23 @@ assert.match(fichaSource,/error \? "Cobertura indeterminada — erro de leitura"
 assert.match(fichaSource,/recorded_by_auth_uid\.slice\(0,8\)/);
 assert.match(fichaSource,/reviewed_by/);
 console.log("Núcleo A+ CA-21: fail-closed para 300 revisões e indicação de autoria PASS (teste de contrato estático).");
+
+
+// A+ CA-19 / CA-22 — navegação visual de módulo e atalhos com dados M3.
+// Teste de contrato estático: não substitui ensaio real por teclado/mobile.
+const atlasVisual=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+const atlasVisualJs=ts.transpileModule(atlasVisual,{compilerOptions:{
+  jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((atlasVisualJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+for(const item of ["funcoes","especialista","desenvolvimento","conhecimento"]){
+  assert.ok(atlasVisual.includes('id:"'+item+'"'),"Falta seção navegável: "+item);
+  assert.ok(atlasVisual.includes('moduleSection==="'+item+'"'),"Falta conteúdo selecionável: "+item);
+}
+assert.match(atlasVisual,/aria-pressed=\{moduleSection===item.id\}/);
+assert.match(atlasVisual,/portfolioAttention = catalog\.map\(module/);
+assert.match(atlasVisual,/onClick=\{\(\)=>choose\(module\)\}/);
+assert.match(atlasVisual,/Nenhuma frente vinculada ao módulo no Core/);
+assert.match(atlasVisual,/não foram comprovados no Core|ainda não foram comprovados no Core/);
+assert.match(atlasVisual,/não homologações|não homologado|não homologações/);
+console.log("Núcleo A+ CA19/22: navegação por áreas e atalhos de consulta M3 PASS (verificação estática).");
