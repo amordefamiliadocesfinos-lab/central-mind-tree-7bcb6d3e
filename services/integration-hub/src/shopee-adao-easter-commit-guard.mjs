@@ -7,7 +7,8 @@
 export const ADAO_CHANNEL_ACCOUNT_ID = 'b4027369-5abf-4ac1-ab24-862334fae892';
 
 // Exact Páscoa Adão intake authorization of 2026-11-09, reconciled with Core.
-// 37 active mappings / 15 item IDs. Includes the valid 65g x100 offer.
+// 30 still-authorized historical-checkpoint pairs / 15 item IDs after V36 exclusions.
+// This list is not a general authorization for newly published V36 Models; includes valid 65g x100.
 // Historical deleted V8 models are intentionally absent. No production or inventory release.
 export const ADAO_APPROVED_EASTER_INTAKE_PAIRS = Object.freeze([
   '19299649245:238801201787',
