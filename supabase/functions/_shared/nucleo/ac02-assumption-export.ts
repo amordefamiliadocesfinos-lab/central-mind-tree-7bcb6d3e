@@ -6,6 +6,7 @@
  */
 import { summarizeAc02Continuity } from "./ac02-continuity-summary.ts";
 import { buildAc02AssumptionGuide } from "./ac02-assumption-guide.ts";
+import { inventoryAc02KnowledgeGaps } from "./ac02-knowledge-gaps.ts";
 import { describeAc02DocumentaryCoverage, type Ac02DocumentaryRevision } from "./ac02-documentary-coverage.ts";
 import {
  AC02_GLOBAL_ITEMS, AC02_GLOBAL_IDENTITY,
@@ -148,6 +149,15 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   ...guide.caveats.map(c=>"- Limite: "+c),
  ];
 
+ const gaps=inventoryAc02KnowledgeGaps(code,coverage,continuity,guide);
+ const gapLines=[
+  "- Lacunas identificadas neste recorte; não significam ausência no projeto inteiro.",
+  "- Documentais: "+gaps.summary.documental+" | Operacionais: "+gaps.summary.operacional+
+    " | Governança: "+gaps.summary.governanca+" | Implantação adiada: "+gaps.summary.implantacao,
+  ...gaps.gaps.map(g=>"- "+g.id+" / "+g.state+" / "+g.evidence+": "+g.action),
+  "- As lacunas não são instruções de execução e não concedem autoridade ao sucessor.",
+ ];
+
  // Deliberately don't include arbitrary strings from moduleTitle,
  // specialistRole, sourceRefs, evidence, warnings or external document bodies.
  const title="Módulo "+code;
@@ -203,7 +213,10 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "## 9. Roteiro de recuperação de contexto para o sucessor",
   ...guideLines,
   "",
-  "## 10. Condições de continuidade",
+  "## 10. Inventário de lacunas de conhecimento (consultivo)",
+  ...gapLines,
+  "",
+  "## 11. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",
