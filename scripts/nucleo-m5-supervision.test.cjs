@@ -475,7 +475,11 @@ assert.match(ac01Knowledge,/authority_state:"rascunho"/);
 assert.match(ac01Knowledge,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 const ac01Atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 assert.match(ac01Atlas,/Conhecimento e Evolução do especialista/);
-assert.match(ac01Atlas,/setModuleSection\("conhecimento"\);setKnowledgeOpen\(true\)/);
+// UX-A3B moved the access into a shared navigation function that also
+// preserves the module context and keeps Ficha Viva mounted after first visit.
+assert.match(ac01Atlas,/onClick=\\{\\(\\) => selectModuleArea\\("conhecimento"\\)\\}/);
+assert.match(ac01Atlas,/if \\(area === "conhecimento"\\) \\{/);
+assert.match(ac01Atlas,/setKnowledgeOpen\\(true\\)/);
 console.log("Núcleo V1.3 AC-01: comparação local, refinamento como rascunho e acesso pelo especialista PASS (sem homologação).");
 
 
