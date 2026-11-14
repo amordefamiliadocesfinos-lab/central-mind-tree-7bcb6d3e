@@ -7,6 +7,9 @@ on:
       - "src/components/nucleo/NucleoAC01ReviewTrail.tsx"
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
+      - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01DocumentGovernance.ts"
+      - "scripts/nucleo-ac01-document-governance.test.cjs"
       - "src/lib/nucleo/ac01ReadOnlyDesk.ts"
       - "scripts/nucleo-ac01-readonly-desk.test.cjs"
       - "supabase/migrations/20261114183000_nucleo_ac01_contributions.sql"
@@ -94,4 +97,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/nucleo-ac01-readonly-desk.test.cjs
+      - run: node scripts/nucleo-ac01-document-governance.test.cjs
       - run: npm run build
