@@ -212,9 +212,29 @@ Deno.serve(async request=>{
       // No source body, private Drive metadata, credentials, or mandate assertion.
       ac02=prepareAc02AssumptionDraft(projection,ac02ModuleContext(module,sections));
       if(body.include_assumption_export===true){
+        // M3 already belongs to the requested module by authenticated ancestry.
+        // M4 is read by the same JWT and RLS; do not export free-form text,
+        // repositories, external keys, source URLs or content.
+        let scopedEvidence: Array<{id:string;kind:string;observed_state:string;workstream_id:string}>=[];
+        let evidenceRead:"completa"|"indeterminada"="completa";
+        if(frontIds.length){
+          const result=await db.from("nucleo_development_evidence")
+           .select("id,kind,observed_state,workstream_id")
+           .in("workstream_id",frontIds).limit(MAX_EVIDENCE);
+          if(result.error||!result.data||result.data.length>=MAX_EVIDENCE){
+            evidenceRead="indeterminada";
+          }else scopedEvidence=result.data;
+        }
         ac02_assumption_export=composeAc02AssumptionExport({
           projection:ac02.global,specialist:ac02.specialist,
           moduleTitle:module.title,preparedAt:readAt,
+          technical:{
+            fronts:fronts.map(f=>({id:f.id,code:f.code,status:f.status})),
+            evidence:scopedEvidence.map(e=>({
+              id:e.id,kind:e.kind,observedState:e.observed_state,workstreamId:e.workstream_id,
+            })),
+            evidenceRead,
+          },
         });
       }
     }
