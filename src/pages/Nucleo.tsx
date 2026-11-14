@@ -3989,6 +3989,19 @@ export default function Nucleo() {
     return m;
   }, [pages]);
 
+  const revealPageEditor = () => {
+    requestAnimationFrame(() => {
+      const editor = document.getElementById("nucleo-editor");
+      editor?.scrollIntoView({ behavior: "smooth", block: "start" });
+      editor?.focus({ preventScroll: true });
+    });
+  };
+
+  const openPage = (id: string) => {
+    setActivePageId(id);
+    revealPageEditor();
+  };
+
   const createPage = () => {
     const now = new Date().toISOString();
     const page: DocPage = {
@@ -4002,7 +4015,10 @@ export default function Nucleo() {
       versions: [],
     };
     setPages((prev) => [page, ...prev]);
+    // Uma busca anterior não pode ocultar a página que acaba de ser criada.
+    setSearch("");
     setActivePageId(page.id);
+    revealPageEditor();
     toast.success("Página criada");
   };
 
@@ -4074,6 +4090,13 @@ export default function Nucleo() {
   };
 
   const [developmentMode, setDevelopmentMode] = useState(false);
+  // Central M3 é montada sob demanda e permanece montada após a primeira abertura.
+  // Isso evita refetch inicial e preserva filtros e minutas ao alternar entre áreas.
+  const [developmentVisited, setDevelopmentVisited] = useState(false);
+  const toggleDevelopmentMode = () => {
+    if (!developmentMode) setDevelopmentVisited(true);
+    setDevelopmentMode(value => !value);
+  };
   const [backupInProgress, setBackupInProgress] = useState(false);
   const handleExportLegacy = async () => {
     if (backupInProgress) return;
@@ -4089,6 +4112,8 @@ export default function Nucleo() {
   };
 
   const selectArea = (id: AreaId) => {
+    // Retornar à mesma área não precisa descartar seleção ou pesquisa.
+    if (id === activeArea) return;
     setActiveArea(id);
     setActivePageId(null);
     setSearch("");
@@ -4124,25 +4149,28 @@ export default function Nucleo() {
             {developmentMode ? (
               <div className="flex min-h-11 items-center gap-2 rounded-full bg-[#e8f0fe] px-4 text-sm text-[#174ea6]">
                 <LayoutDashboard className="h-4 w-4 shrink-0" />
-                Central Visual de Desenvolvimento
+                Central Visual de Desenvolvimento · dados do Core
               </div>
             ) : (
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5f6368]" />
-                <Input
-                  aria-label="Pesquisar documentos na área selecionada"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Pesquise no Núcleo"
-                  className="h-12 rounded-full border-transparent bg-[#e8f0fe] pl-11 pr-4 text-sm text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#8ab4f8] focus-visible:bg-white focus-visible:ring-[#1a73e8]"
-                />
+              <div className="min-w-0">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5f6368]" />
+                  <Input
+                    aria-label={"Pesquisar páginas locais na área " + activeAreaMeta.title}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={"Pesquisar nesta área · " + activeAreaMeta.title}
+                    className="h-11 rounded-full border-transparent bg-[#e8f0fe] pl-11 pr-4 text-sm text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#8ab4f8] focus-visible:bg-white focus-visible:ring-[#1a73e8]"
+                  />
+                </div>
+                <p className="mt-1 px-4 text-xs text-[#5f6368]">Busca restrita à área {activeAreaMeta.title}; não pesquisa todo o Núcleo nem o Core.</p>
               </div>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant={developmentMode ? "default" : "outline"}
               className={cn("min-h-10 rounded-full px-4",developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
-              onClick={() => setDevelopmentMode(value => !value)}>
+              onClick={toggleDevelopmentMode}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
               {developmentMode ? "Áreas do Núcleo" : "Central Visual"}
             </Button>
@@ -4190,12 +4218,19 @@ export default function Nucleo() {
           </div>
         </aside>
 
-        {developmentMode ? (
-          <section className="min-w-0 rounded-[24px] border border-[#e1e6ee] bg-white p-2 shadow-sm sm:p-4" aria-label="Central Visual de Desenvolvimento">
+        {(developmentMode || developmentVisited) && (
+          <section hidden={!developmentMode} aria-hidden={!developmentMode}
+            className={developmentMode
+              ? "min-w-0 rounded-[24px] border border-[#d2e3fc] border-t-4 border-t-[#1a73e8] bg-gradient-to-br from-white via-white to-[#f7faff] p-3 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-5"
+              : "hidden"}
+            aria-label="Central Visual de Desenvolvimento">
             <NucleoDevelopmentCenter />
           </section>
-        ) : (
-          <section className="min-w-0 rounded-[24px] border border-[#e1e6ee] bg-white p-4 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-6">
+        )}
+        <section hidden={developmentMode} aria-hidden={developmentMode}
+          className={developmentMode
+            ? "hidden"
+            : "min-w-0 rounded-[24px] border border-[#e1e6ee] bg-white p-4 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-6"}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight text-[#202124] sm:text-3xl">{activeAreaMeta.title}</h2>
@@ -4212,11 +4247,11 @@ export default function Nucleo() {
             </div>
 
             {/* Distribuição calculada só com páginas locais. Não é indicador de maturidade ou vigência. */}
-            <section className="mt-5 rounded-2xl bg-[#edf4ff] p-4 sm:p-5" aria-label="Distribuição das páginas locais">
-              <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <section className="mt-4 rounded-2xl bg-[#edf4ff] px-4 py-3 sm:px-5" aria-label="Distribuição das páginas locais">
+              <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                 <div>
                   <p className="text-sm font-medium text-[#3c4043]">Páginas cadastradas neste navegador</p>
-                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#174ea6]">
+                  <p className="mt-0.5 text-xl font-semibold tabular-nums text-[#174ea6]">
                     {localPageCount} <span className="text-sm font-normal text-[#3c4043]">página(s) · {localVersionCount} versão(ões) salvas</span>
                   </p>
                 </div>
@@ -4224,7 +4259,7 @@ export default function Nucleo() {
                   {areasWithLocalPages}/{AREAS.length} áreas com páginas
                 </Badge>
               </div>
-              <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#d9dfe9]" role="img"
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#d9dfe9]" role="img"
                 aria-label={"Distribuição das " + localPageCount + " páginas locais por grupo. Consulte a legenda abaixo."}>
                 <div className="flex h-full">
                   {localPageGroups.map(group => (
@@ -4232,7 +4267,7 @@ export default function Nucleo() {
                   ))}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#3c4043]">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#3c4043]">
                 {localPageGroups.map(group => (
                   <span key={group.label} className="inline-flex items-center gap-2">
                     <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{backgroundColor:group.color}} />
@@ -4240,14 +4275,14 @@ export default function Nucleo() {
                   </span>
                 ))}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <Button type="button" onClick={createPage}
                   className="min-h-10 rounded-full bg-[#1a73e8] px-5 text-sm font-semibold text-white hover:bg-[#185abc]">
                   <Plus className="mr-2 h-4 w-4"/> Criar página
                 </Button>
                 <Button type="button" variant="outline" disabled={!activePage}
                   className="min-h-10 rounded-full border-[#1a73e8] bg-white px-5 text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe]"
-                  onClick={() => document.getElementById("nucleo-editor")?.scrollIntoView({behavior:"smooth",block:"start"})}>
+                  onClick={revealPageEditor}>
                   <FileText className="mr-2 h-4 w-4"/> Abrir página selecionada
                 </Button>
               </div>
@@ -4256,7 +4291,7 @@ export default function Nucleo() {
             {activeArea === "biblioteca" && <div className="mt-5"><NucleoDriveReferences /></div>}
 
             {/* Lista compacta no padrão da referência, com seleção por teclado. */}
-            <section className="mt-5 overflow-hidden rounded-2xl border border-[#dfe4ec]" aria-label="Páginas da área selecionada">
+            <section className="mt-3 overflow-hidden rounded-2xl border border-[#dfe4ec]" aria-label="Páginas da área selecionada">
               <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-3 border-b border-[#e6eaf0] bg-[#fafcff] px-4 py-3 text-sm font-semibold text-[#3c4043] sm:grid-cols-[minmax(0,1fr)_145px_95px]">
                 <span>Nome da página</span>
                 <span className="hidden sm:block">Modificada</span>
@@ -4271,7 +4306,7 @@ export default function Nucleo() {
                   const selected = page.id === activePageId;
                   return (
                     <button key={page.id} type="button" aria-pressed={selected}
-                      onClick={() => setActivePageId(page.id)}
+                      onClick={() => openPage(page.id)}
                       className={cn("grid min-h-14 w-full grid-cols-[minmax(0,1fr)_92px] items-center gap-3 border-b border-[#edf0f5] px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a73e8] sm:grid-cols-[minmax(0,1fr)_145px_95px]",
                         selected ? "bg-[#e8f0fe]" : "bg-white hover:bg-[#f5f8fe]")}>
                       <span className="flex min-w-0 items-center gap-3">
@@ -4291,7 +4326,7 @@ export default function Nucleo() {
             </section>
 
             {/* Editor original preservado (somente aparência refinada). */}
-            <section id="nucleo-editor" className="mt-5 scroll-mt-28 rounded-2xl border border-[#dfe4ec] bg-[#f8fbff] p-3 sm:p-4" aria-label="Editor da página selecionada">
+            <section id="nucleo-editor" tabIndex={-1} className="mt-3 scroll-mt-28 rounded-2xl border border-[#dfe4ec] bg-[#f8fbff] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] sm:p-4" aria-label="Editor da página selecionada">
               {!activePage ? (
                 <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 text-center">
                   <FileText className="h-8 w-8 text-[#8ab4f8]" />
@@ -4310,7 +4345,6 @@ export default function Nucleo() {
             </section>
             <p className="mt-4 text-xs text-[#5f6368]">Os indicadores acima resumem somente as páginas locais deste navegador. Não indicam vigência, aprovação, publicação ou cobertura canônica do Núcleo 2.0.</p>
           </section>
-        )}
       </main>
     </div>
   );
