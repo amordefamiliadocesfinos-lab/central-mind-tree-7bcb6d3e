@@ -258,11 +258,15 @@ export function createAdaoAutomaticIntake({
           const ranked = selectAdaoPendingShipments(
             eligible.map(sn => shippingCandidates.get(sn)), now(), shippingBatchLimit,
           );
-          // Preserve early shipment while reserving one of 2–3 slots after
-          // the first incomplete page for an earlier deadline from page 2.
-          // A single-page cycle and every subsequent page keep the full cap.
+          // F12.2 opt-in: start shipping on the first committed page, but
+          // reserve the final one of 2–3 slots while MORE pages are known.
+          // Release it only on the complete final page, where every
+          // discovered, not-yet-attempted candidate competes by the official
+          // deadline. This does NOT guarantee global fairness when discovery
+          // fails, truncates or expires before the terminal page.
+          // The default OFF, one-slot cap and labels remain unchanged.
           const pageShipCeiling = crossPageFairnessEnabled && hasMore
-            && report.pages === 1 && shippingBatchLimit > 1
+            && shippingBatchLimit > 1
             ? shippingBatchLimit - 1 : shippingBatchLimit;
           for (const target of ranked) {
             if (report.shipment_attempted >= pageShipCeiling) break;
