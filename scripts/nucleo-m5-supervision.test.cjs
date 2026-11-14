@@ -103,3 +103,33 @@ assert.doesNotMatch(edgeSource,/SUPABASE_SERVICE_ROLE_KEY|\.insert\(|\.update\(|
 const configSource=fs.readFileSync("supabase/config.toml","utf8");
 assert.match(configSource,/\[functions\.nucleo-knowledge-read\]\s*verify_jwt = true/);
 console.log("Núcleo A+ CA16/18: JWT, contrato, paths e revisão determinística PASS (testes sintéticos).");
+
+
+// A+ CA-14: catalogação crítica fundamentada no código, sem ações executáveis.
+const fsCrm=fs.readFileSync("src/pages/ContatosInbox.tsx","utf8");
+const catalog=fs.readFileSync("src/lib/nucleo/operationalKnowledgeV12.ts","utf8");
+const catalogJs=ts.transpileModule(catalog,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+}}).outputText;
+const catalogScope={exports:{}};
+vm.runInNewContext(catalogJs,catalogScope,{timeout:1000});
+const actions=catalogScope.exports.CRM_ACTIONS;
+assert.ok(Array.isArray(actions));
+const requiredCrm=[
+  ["Concluir","requestConcludeSelectedConversation","não cria Resultado comercial"],
+  ["Reabrir","Atendimento reaberto.","não desfaz automaticamente Resultado"],
+  ["Tirar da fila","toggleSelectedOutOfQueue","não arquiva nem conclui"],
+  ["Próximo atendimento","nextAttendance()","não registra Resultado"],
+  ["Sem fato novo — retirar da prioridade","acknowledgeNoNewFact","sem fato comercial novo"],
+];
+for(const [label,sourceToken,limit] of requiredCrm){
+  const action=actions.find(item=>item.label===label);
+  assert.ok(action,"Ação real ausente do catálogo: "+label);
+  assert.equal(action.confidence,"codigo_verificado");
+  assert.match(action.source,/src\/pages\/ContatosInbox\.tsx$/);
+  assert.ok(fsCrm.includes(sourceToken),"Controle não encontrado na origem: "+sourceToken);
+  const documentation=[action.prerequisite,action.expectedEffect,action.confirmation,action.limit].join(" ");
+  assert.ok(documentation.includes(limit),"Limite semântico ausente: "+label);
+}
+assert.equal(new Set(actions.map(action=>action.label)).size,actions.length);
+console.log("Núcleo A+ CA-14: cinco controles Inbox e seus limites documentados PASS (código, não UAT).");

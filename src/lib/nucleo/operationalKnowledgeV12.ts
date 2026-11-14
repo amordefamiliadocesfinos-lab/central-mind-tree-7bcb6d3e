@@ -116,6 +116,48 @@ export const CRM_ACTIONS: CrmAction[] = [
     limit: "O botão não é substituto de um Resultado já ocorrido; readback visual ainda requer homologação específica.",
     source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
   },
+
+  {
+    label: "Concluir", screen: "Caixa de atendimentos / comandos essenciais",
+    prerequisite: "Conversa em aberto. Confirmar eventual aviso sobre Resultado pendente, tarefa oficial ou retorno operacional.",
+    expectedEffect: "Solicita marcar a conversa como resolvida; não cria Resultado comercial nem conclui tarefas oficiais.",
+    confirmation: "Exigir confirmação da atualização de service_conversations e conferir mensagem Atendimento concluído e estado na Inbox.",
+    limit: "Concluir conversa é diferente de Registrar resultado. Se a gravação não for confirmada, não presumir que o contato saiu de todas as filas.",
+    source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Reabrir", screen: "Caixa de atendimentos / comandos essenciais",
+    prerequisite: "Conversa selecionada com status resolvido; comando habilitado apenas nesse estado.",
+    expectedEffect: "Solicita reabrir a conversa e restaurar estado de atendimento, com responsável da sessão.",
+    confirmation: "Verificar confirmação de atualização e estado da conversa reaberta após recarga.",
+    limit: "Reabrir conversa não desfaz automaticamente Resultado comercial anterior nem altera o histórico já registrado.",
+    source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Tirar da fila", screen: "Caixa de atendimentos / comandos essenciais",
+    prerequisite: "Contato selecionado visível na fila e escrita operacional disponível.",
+    expectedEffect: "Aplica etiqueta de exclusão da fila operacional; não arquiva nem conclui a conversa.",
+    confirmation: "Conferir mensagem de contato retirado da fila e recarregamento da classificação; opção Voltar à fila permite reverter.",
+    limit: "Ação sobre visibilidade na fila, não sobre Resultado ou conclusão do atendimento. Falha preserva estado indeterminado até readback.",
+    source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Próximo atendimento", screen: "Caixa de atendimentos / Fila Hoje",
+    prerequisite: "Fila Hoje em execução; contato selecionado; sem gravação pendente. Verificar aviso se ainda houver obrigação de responder ou registrar Resultado.",
+    expectedEffect: "Avança para o próximo contato elegível da lista de escopo atual, com recarga do estado da fila.",
+    confirmation: "Conferir qual contato ficou selecionado ou mensagem de fila concluída.",
+    limit: "Avançar não registra Resultado, não responde mensagem e não retira automaticamente uma obrigação pendente da fila.",
+    source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
+  },
+  {
+    label: "Sem fato novo — retirar da prioridade", screen: "Caixa de atendimentos / acompanhamento da prioridade",
+    prerequisite: "Aparece somente quando há Resultado anterior, espera pelo cliente, nenhuma resposta pendente, saída mais recente que entrada e próxima ação não vencida.",
+    expectedEffect: "Após nova conferência do contexto, registra no histórico uma revisão sem fato comercial novo e atualiza a fila.",
+    confirmation: "Conferir mensagem Revisão registrada. Nenhum Resultado foi criado e evento crm_attendance_no_new_fact no histórico autorizado.",
+    limit: "Não é alternativa para ocultar obrigação de Resultado, responder ao cliente ou criar resultado fictício. Mudança simultânea do atendimento impede a revisão.",
+    source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
+  },
+
 ];
 
 export const CRM_JOURNEY = [
