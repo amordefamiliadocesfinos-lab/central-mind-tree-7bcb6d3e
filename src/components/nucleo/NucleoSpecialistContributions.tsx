@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import NucleoContributionDesk from "@/components/nucleo/NucleoContributionDesk";
 
 type RecordRow={
  id:string;module_id:string;workstream_id:string|null;specialist_role:string;contribution_kind:string;
@@ -28,6 +29,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [reading,setReading]=useState(true);
  const [readError,setReadError]=useState("");
  const [refresh,setRefresh]=useState(0);
+ const [readAt,setReadAt]=useState("");
  const [kind,setKind]=useState("metodo");
  const [parentId,setParentId]=useState("");
  const [title,setTitle]=useState("");
@@ -42,7 +44,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const uncertainRef=useRef(false);
  useEffect(()=>{setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
-   let mounted=true;setReading(true);setReadError("");setRows([]);
+   let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void db.from("nucleo_specialist_contributions").select("*")
     .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(LIMIT)
     .then(result=>{
@@ -50,7 +52,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
       if(result.error||!result.data||result.data.length>=LIMIT){
         setReadError("Consulta indisponível ou parcial. Não assumir que a fila esteja vazia nem enviar nova proposta.");
       }else{
-        setRows(result.data);
+        setRows(result.data);setReadAt(new Date().toISOString());
         if(uncertainRef.current&&requestRef.current){
           const prior=result.data.find(item=>item.request_id===requestRef.current);
           if(prior){
@@ -123,6 +125,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>
    <Badge variant="outline">{moduleName} · {reading?"consultando":readError?"leitura indeterminada":rows.length+" contribuição(ões) no recorte"}</Badge>
    {readError&&<p role="alert" className="text-xs text-destructive">{readError}</p>}
+   {!reading&&!readError&&readAt&&<NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt}/>}
    <Button type="button" variant="outline" size="sm" disabled={saving||reading}
       onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
    {!reading&&!readError&&<div className="space-y-2">
