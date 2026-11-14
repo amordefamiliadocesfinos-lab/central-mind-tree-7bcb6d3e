@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { DevelopmentWorkstream, DevelopmentEvent } from "@/lib/nucleo/development.types";
+import type { DevelopmentWorkstream, DevelopmentEvent, DevelopmentDependency } from "@/lib/nucleo/development.types";
+import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
@@ -39,11 +40,12 @@ const confidenceLabels = {
 interface Props {
   workstreams: DevelopmentWorkstream[];
   events: DevelopmentEvent[];
+  dependencies: DevelopmentDependency[];
   onSelectWorkstream: (id: string) => void;
   onPrepareModule: (module: KnowledgeModule) => void;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, events, onSelectWorkstream, onPrepareModule }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule }: Props) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
@@ -442,6 +444,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               </div>
             </section>
           )}
+          {moduleSection==="desenvolvimento" && selectedRecord &&
+            <NucleoExecutiveDevelopment workstreams={workstreams} dependencies={dependencies}
+              events={events} moduleId={selectedRecord.id} onOpenWorkstream={onSelectWorkstream}/>}
           {moduleSection==="desenvolvimento" && selectedRecord && (
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
