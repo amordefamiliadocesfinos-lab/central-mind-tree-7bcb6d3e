@@ -32,3 +32,7 @@ verify_jwt = false
 # Private Hub-to-Core health: every request must pass HMAC-SHA256 v1 validation.
 [functions.integration-core-bridge]
 verify_jwt = false
+
+# Núcleo A+ consulta somente leitura; JWT válido + nucleo_manage + RLS.
+[functions.nucleo-knowledge-read]
+verify_jwt = true
