@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
+      - "src/styles/nucleoVisualV22.css"
+      - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "scripts/nucleo-ux-a5-readable-states.test.cjs"
       - "scripts/nucleo-ux-a3a-ac01-journey.test.cjs"
       - "src/components/nucleo/NucleoContributionDesk.tsx"
@@ -156,4 +158,6 @@ jobs:
       - run: node scripts/nucleo-ac02-handoff-ledger-contract.test.cjs
       - run: node scripts/nucleo-ac02-package-manifest.test.cjs
       - run: node scripts/nucleo-ac02-write-preflight.test.cjs
+      - name: Verify Núcleo V2.2 visual semantics in AC-01
+        run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
       - run: npm run build
