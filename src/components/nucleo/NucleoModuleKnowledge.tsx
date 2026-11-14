@@ -39,6 +39,7 @@ type FMDatabase = Omit<Database,"public"> & {public: Omit<Database["public"],"Ta
  Tables:Database["public"]["Tables"] & {nucleo_module_knowledge_revisions:RevisionTable}
 }};
 const client=supabase as unknown as SupabaseClient<FMDatabase>;
+const MAX_FM_HISTORY_ROWS = 300;
 
 const GITHUB_BLOB_BASE =
   "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/";
@@ -98,11 +99,20 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
     let current=true;
     setRevisions([]);setLoading(true);setError(null);
     void client.from("nucleo_module_knowledge_revisions").select("*")
-      .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(300)
+      .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(MAX_FM_HISTORY_ROWS)
       .then(result=>{
         if(!current)return;
-        if(result.error) setError("Ficha Viva indisponível: confirme migration e autorização no Core.");
-        else setRevisions(result.data ?? []);
+        // Limite atingido não prova exaustividade. Nunca calcular versão,
+        // cobertura ou oferecer nova escrita a partir de histórico parcial.
+        if(result.error||!result.data){
+          setRevisions([]);
+          setError("Ficha Viva indisponível: leitura negada ou incompleta. Confirme migration e autorização no Core.");
+        } else if(result.data.length>=MAX_FM_HISTORY_ROWS){
+          setRevisions([]);
+          setError("Histórico da Ficha Viva atingiu o limite de leitura. A cobertura e a próxima versão são indeterminadas; não registre outra revisão antes de reconciliar o histórico completo.");
+        } else {
+          setRevisions(result.data);
+        }
         setLoading(false);
       }).catch(()=>{
         if(!current)return;
@@ -198,7 +208,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
       <section aria-label="Cobertura documental por seção" className="rounded-md border p-3 space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="secondary">{templateCount}/10 modelos locais</Badge>
-          <Badge variant="outline">{loading ? "Consultando registros…" : `${persistedCount}/10 seções com registro no Core`}</Badge>
+          <Badge variant="outline">{loading ? "Consultando registros…" : error ? "Cobertura indeterminada — erro de leitura" : `${persistedCount}/10 seções com registro no Core`}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
           Modelo local é proposta de consulta; registro no Core é uma revisão com autoria. Nenhum dos dois equivale a homologação.
@@ -279,6 +289,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             </div>
             <p className="whitespace-pre-wrap break-words">{latest.body}</p>
             <p className="text-xs text-muted-foreground">Prova: {latest.evidence_level} · Registrada: {new Date(latest.recorded_at).toLocaleString("pt-BR")}</p>
+            <p className="text-xs text-muted-foreground">
+              Autoria do registro: {latest.recorded_by_auth_uid ? `identificador autenticado ${latest.recorded_by_auth_uid.slice(0,8)}…` : "não identificada no registro"}.
+              {latest.reviewed_by ? ` Revisão declarada por: ${latest.reviewed_by} (não certifica aprovação).` : " Sem revisor declarado."}
+            </p>
             <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
           </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
           {history.length>1&&<details className="border rounded-md p-3 text-xs">
@@ -286,6 +300,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
             <div className="space-y-3 mt-2">
               {history.slice(1).map(r=><div key={r.id} className="border-t pt-2">
                 <p className="font-medium">v{r.version_no} · {r.title} · {r.authority_state}</p>
+                <p className="text-muted-foreground">Registrada: {new Date(r.recorded_at).toLocaleString("pt-BR")} · Autoria: {r.recorded_by_auth_uid ? `ID ${r.recorded_by_auth_uid.slice(0,8)}…` : "não identificada"} · Revisão declarada: {r.reviewed_by || "não informada"}</p>
                 <p className="whitespace-pre-wrap break-words mt-1">{r.body}</p>
                 <p className="font-medium">Fontes declaradas da revisão</p><SourceReferences reference={r.source_reference}/>
               </div>)}
