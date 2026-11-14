@@ -20,9 +20,11 @@ assert.equal(s.completeness,"recorte_consultivo");
 const partial=summary.summarizeAc02Continuity(fronts,ev,"indeterminada");
 assert.equal(partial.completeness,"recorte_incompleto");
 const registry=load("supabase/functions/_shared/nucleo/ac02-registry-contract.ts",()=>{throw Error("unexpected registry import")});
+const documents=load("supabase/functions/_shared/nucleo/ac02-documentary-coverage.ts",()=>{throw Error("unexpected import")});
 const exporter=load("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",name=>{
  if(name==="./ac02-registry-contract.ts")return registry;
  if(name==="./ac02-continuity-summary.ts")return summary;
+ if(name==="./ac02-documentary-coverage.ts")return documents;
  throw Error("unexpected import "+name);
 });
 const draft=exporter.composeAc02AssumptionExport({
