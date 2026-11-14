@@ -4094,241 +4094,222 @@ export default function Nucleo() {
     setSearch("");
   };
 
+  // Somente registros da Biblioteca local deste navegador: não são indicadores
+  // de vigência, homologação ou cobertura canônica do Núcleo 2.0.
+  const localPageCount = pages.length;
+  const localVersionCount = pages.reduce((total, page) => total + page.versions.length, 0);
+  const areasWithLocalPages = countByArea.size;
+  const localPageGroups = [
+    { label: "Biblioteca", amount: countByArea.get("biblioteca") || 0, color: "#1a73e8" },
+    { label: "Arquitetura", amount: ["arquitetura", "principios", "atlas"].reduce((v, id) => v + (countByArea.get(id as AreaId) || 0), 0), color: "#fbbc04" },
+    { label: "Inteligência", amount: ["consciencia", "ia-orquestradora"].reduce((v, id) => v + (countByArea.get(id as AreaId) || 0), 0), color: "#ea4335" },
+    { label: "Evolução", amount: ["evolucao", "estado-atual"].reduce((v, id) => v + (countByArea.get(id as AreaId) || 0), 0), color: "#34a853" },
+  ];
+
   return (
-    <div className="min-h-screen bg-background pb-32 md:pb-28">
-      {/* Header */}
-      <header
-        className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-      >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Brain className="h-5 w-5 text-primary" />
+    <div className="min-h-screen bg-[#f6f9ff] pb-28 text-[#202124]">
+      {/* Cabeçalho integrado à navegação existente. */}
+      <header className="sticky top-0 z-30 border-b border-[#e4eaf3] bg-[#f6f9ff]/95 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className="mx-auto flex max-w-[1580px] flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:gap-6">
+          <div className="flex min-w-0 items-center gap-3 lg:w-[238px] lg:shrink-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f0fe] text-[#1a73e8]">
+              <Brain className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold text-[#202124]">Núcleo</h1>
+              <p className="truncate text-xs text-[#5f6368]">Painel Central · Entrega A+</p>
+            </div>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold truncate">
-                Núcleo do Painel Central
-              </h1>
-              <Badge variant="secondary" className="text-[10px]">
-                Área administrativa
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground truncate">
-              Base estratégica e documental do sistema
-            </p>
+            {developmentMode ? (
+              <div className="flex min-h-11 items-center gap-2 rounded-full bg-[#e8f0fe] px-4 text-sm text-[#174ea6]">
+                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                Central Visual de Desenvolvimento
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5f6368]" />
+                <Input
+                  aria-label="Pesquisar documentos na área selecionada"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Pesquise no Núcleo"
+                  className="h-12 rounded-full border-transparent bg-[#e8f0fe] pl-11 pr-4 text-sm text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#8ab4f8] focus-visible:bg-white focus-visible:ring-[#1a73e8]"
+                />
+              </div>
+            )}
           </div>
-          <Button type="button" size="sm" variant={developmentMode ? "default" : "outline"}
-            className="gap-1 shrink-0" onClick={() => setDevelopmentMode(v => !v)}
-            title="Alternar entre as oito áreas originais e a Central Visual de Desenvolvimento">
-            <LayoutDashboard className="h-4 w-4" />
-            <span className="hidden sm:inline">{developmentMode ? "Áreas do Núcleo" : "Desenvolvimento"}</span>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1 shrink-0"
-            disabled={backupInProgress}
-            onClick={handleExportLegacy}
-            title="Baixar cópia íntegra das páginas e marcadores locais deste navegador; nenhuma alteração no banco"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Backup local</span>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant={developmentMode ? "default" : "outline"}
+              className={cn("min-h-10 rounded-full px-4",developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
+              onClick={() => setDevelopmentMode(value => !value)}>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              {developmentMode ? "Áreas do Núcleo" : "Central Visual"}
+            </Button>
+            <Button type="button" size="sm" variant="outline"
+              className="min-h-10 rounded-full border-[#d5dce7] bg-white px-4 text-[#174ea6] hover:bg-[#e8f0fe]"
+              disabled={backupInProgress} onClick={handleExportLegacy}
+              title="Exportar cópia das páginas locais do navegador. Não modifica o Core.">
+              <Download className="mr-2 h-4 w-4" />
+              Backup local
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className={cn("mx-auto px-4 py-5 space-y-5", developmentMode ? "max-w-[1900px] w-full" : "max-w-7xl")}>
-        {developmentMode ? <NucleoDevelopmentCenter /> : (
-        <>
-        {/* Areas grid */}
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-          {AREAS.map((a) => {
-            const Icon = a.icon;
-            const isActive = a.id === activeArea;
-            const count = countByArea.get(a.id) || 0;
-            return (
-              <button
-                key={a.id}
-                onClick={() => selectArea(a.id)}
-                className={cn(
-                  "text-left rounded-xl border p-3 transition-all bg-card hover:border-primary/40 hover:shadow-sm",
-                  isActive
-                    ? "border-primary/60 shadow-sm ring-1 ring-primary/20"
-                    : "border-border"
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <div
-                    className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: a.color + "1F",
-                      color: a.color,
-                    }}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-semibold truncate">
-                        {a.title}
-                      </h3>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug mt-0.5">
-                      {a.description}
-                    </p>
-                    <div className="mt-2">
-                      <Badge variant="outline" className="text-[10px]">
-                        {count} {count === 1 ? "página" : "páginas"}
-                      </Badge>
-                    </div>
-                  </div>
+      <main className="mx-auto grid max-w-[1580px] grid-cols-1 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[252px_minmax(0,1fr)] lg:gap-5">
+        {/* Navegação lateral de áreas, como na referência; sem criar segunda Biblioteca. */}
+        <aside className="space-y-3" aria-label="Navegação do Núcleo">
+          <Button type="button" onClick={() => {setDevelopmentMode(false);createPage();}}
+            className="min-h-12 w-full justify-start gap-3 rounded-2xl bg-[#1a73e8] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#185abc] sm:max-w-[240px]">
+            <Plus className="h-5 w-5" /> Nova página
+          </Button>
+          <nav aria-label="Áreas documentais" className="rounded-2xl bg-white/50 p-1">
+            {AREAS.map((item) => {
+              const Icon = item.icon;
+              const active = !developmentMode && item.id === activeArea;
+              return (
+                <button key={item.id} type="button" aria-current={active ? "page" : undefined}
+                  onClick={() => {setDevelopmentMode(false);selectArea(item.id);}}
+                  className={cn("flex min-h-11 w-full items-center gap-3 rounded-full px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]",
+                    active ? "bg-[#d2e3fc] font-semibold text-[#174ea6]" : "font-medium text-[#3c4043] hover:bg-[#edf3fb]")}>
+                  <Icon className="h-4 w-4 shrink-0" style={{color: active ? "#174ea6": item.color}} />
+                  <span className="min-w-0 flex-1">{item.title}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs tabular-nums",active?"bg-white/80 text-[#174ea6]":"bg-[#edf1f6] text-[#5f6368]")}>{countByArea.get(item.id) || 0}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="rounded-2xl border border-[#e1e6ee] bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#5f6368]">Documentos locais</p>
+            <p className="mt-2 text-sm font-medium text-[#202124]">{localPageCount} página(s) neste navegador</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e4e9f0]" aria-hidden="true">
+              <div className="h-full rounded-full bg-[#1a73e8]" style={{width:(areasWithLocalPages/AREAS.length*100)+"%"}} />
+            </div>
+            <p className="mt-2 text-xs text-[#5f6368]">{areasWithLocalPages} de {AREAS.length} áreas têm páginas locais.</p>
+          </div>
+        </aside>
+
+        {developmentMode ? (
+          <section className="min-w-0 rounded-[24px] border border-[#e1e6ee] bg-white p-2 shadow-sm sm:p-4" aria-label="Central Visual de Desenvolvimento">
+            <NucleoDevelopmentCenter />
+          </section>
+        ) : (
+          <section className="min-w-0 rounded-[24px] border border-[#e1e6ee] bg-white p-4 shadow-[0_10px_28px_-20px_rgba(60,64,67,0.35)] sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-[#202124] sm:text-3xl">{activeAreaMeta.title}</h2>
+                <p className="mt-2 max-w-3xl text-sm text-[#5f6368]">{activeAreaMeta.description}</p>
+              </div>
+              <Badge variant="outline" className="rounded-full border-[#d2e3fc] bg-[#edf4ff] px-3 py-1.5 text-xs text-[#174ea6]">
+                Conteúdo local · sem homologação implícita
+              </Badge>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2" aria-label="Resumo do recorte">
+              <Badge variant="outline" className="rounded-lg border-[#d5dce7] bg-white px-3 py-2 text-xs font-medium text-[#3c4043]">Área selecionada: {activeAreaMeta.title}</Badge>
+              <Badge variant="outline" className="rounded-lg border-[#d5dce7] bg-white px-3 py-2 text-xs font-medium text-[#3c4043]">{areaPages.length} página(s) exibida(s)</Badge>
+              {search.trim() && <Badge variant="outline" className="rounded-lg border-[#d2e3fc] bg-[#e8f0fe] px-3 py-2 text-xs text-[#174ea6]">Busca filtrada</Badge>}
+            </div>
+
+            {/* Distribuição calculada só com páginas locais. Não é indicador de maturidade ou vigência. */}
+            <section className="mt-5 rounded-2xl bg-[#edf4ff] p-4 sm:p-5" aria-label="Distribuição das páginas locais">
+              <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <p className="text-sm font-medium text-[#3c4043]">Páginas cadastradas neste navegador</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[#174ea6]">
+                    {localPageCount} <span className="text-sm font-normal text-[#3c4043]">página(s) · {localVersionCount} versão(ões) salvas</span>
+                  </p>
                 </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {activeArea === "biblioteca" && <NucleoDriveReferences />}
-
-        {/* Workspace */}
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          {/* Pages list */}
-          <Card className="p-3 flex flex-col min-h-[420px]">
-            <div className="flex items-center gap-2 mb-3">
-              <div
-                className="h-8 w-8 rounded-md flex items-center justify-center shrink-0"
-                style={{
-                  backgroundColor: activeAreaMeta.color + "1F",
-                  color: activeAreaMeta.color,
-                }}
-              >
-                <activeAreaMeta.icon className="h-4 w-4" />
+                <Badge className="rounded-full border border-[#cce8d3] bg-[#dff5e6] px-3 py-1.5 text-xs font-semibold text-[#137333] hover:bg-[#dff5e6]">
+                  {areasWithLocalPages}/{AREAS.length} áreas com páginas
+                </Badge>
               </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold truncate">
-                  {activeAreaMeta.title}
-                </h2>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {areaPages.length} {areaPages.length === 1 ? "página" : "páginas"}
-                </p>
+              <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#d9dfe9]" role="img"
+                aria-label={"Distribuição das " + localPageCount + " páginas locais por grupo. Consulte a legenda abaixo."}>
+                <div className="flex h-full">
+                  {localPageGroups.map(group => (
+                    <span key={group.label} style={{width:(localPageCount ? (group.amount/localPageCount)*100 : 0)+"%",backgroundColor:group.color}} />
+                  ))}
+                </div>
               </div>
-              <Button size="sm" onClick={createPage} className="gap-1">
-                <Plus className="h-4 w-4" />
-                Nova
-              </Button>
-            </div>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#3c4043]">
+                {localPageGroups.map(group => (
+                  <span key={group.label} className="inline-flex items-center gap-2">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{backgroundColor:group.color}} />
+                    {group.label}: {group.amount}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" onClick={createPage}
+                  className="min-h-10 rounded-full bg-[#1a73e8] px-5 text-sm font-semibold text-white hover:bg-[#185abc]">
+                  <Plus className="mr-2 h-4 w-4"/> Criar página
+                </Button>
+                <Button type="button" variant="outline" disabled={!activePage}
+                  className="min-h-10 rounded-full border-[#1a73e8] bg-white px-5 text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe]"
+                  onClick={() => document.getElementById("nucleo-editor")?.scrollIntoView({behavior:"smooth",block:"start"})}>
+                  <FileText className="mr-2 h-4 w-4"/> Abrir página selecionada
+                </Button>
+              </div>
+            </section>
 
-            <div className="relative mb-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar..."
-                className="pl-8 h-8 text-sm"
-              />
-            </div>
+            {activeArea === "biblioteca" && <div className="mt-5"><NucleoDriveReferences /></div>}
 
-            <ScrollArea className="flex-1 -mx-1">
-              <div className="px-1 space-y-1">
-                {areaPages.length === 0 && (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs">Nenhuma página ainda</p>
-                    <p className="text-[11px] opacity-70">
-                      Clique em "Nova" para começar
-                    </p>
+            {/* Lista compacta no padrão da referência, com seleção por teclado. */}
+            <section className="mt-5 overflow-hidden rounded-2xl border border-[#dfe4ec]" aria-label="Páginas da área selecionada">
+              <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-3 border-b border-[#e6eaf0] bg-[#fafcff] px-4 py-3 text-sm font-semibold text-[#3c4043] sm:grid-cols-[minmax(0,1fr)_145px_95px]">
+                <span>Nome da página</span>
+                <span className="hidden sm:block">Modificada</span>
+                <span className="text-right">Versões</span>
+              </div>
+              <ScrollArea className="max-h-[30rem]">
+                {areaPages.length === 0 ? (
+                  <div role="status" className="px-5 py-10 text-center text-sm text-[#5f6368]">
+                    {search.trim() ? "Nenhuma página corresponde à pesquisa nesta área." : "Nenhuma página local cadastrada nesta área."}
                   </div>
-                )}
-                {areaPages.map((p) => {
-                  const isActive = p.id === activePageId;
+                ) : areaPages.map((page) => {
+                  const selected = page.id === activePageId;
                   return (
-                    <button
-                      key={p.id}
-                      onClick={() => setActivePageId(p.id)}
-                      className={cn(
-                        "w-full text-left rounded-lg border px-3 py-2 transition-colors group",
-                        isActive
-                          ? "border-primary/50 bg-accent"
-                          : "border-transparent hover:bg-accent/60"
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        <FileText className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {p.title || "Sem título"}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {formatDate(p.updatedAt)}
-                            {p.versions.length > 0 &&
-                              ` · v${p.versions.length}`}
-                            {p.tags.length > 0 &&
-                              ` · ${p.tags.slice(0, 2).join(", ")}`}
-                          </p>
-                        </div>
-                        <ChevronRight
-                          className={cn(
-                            "h-3.5 w-3.5 text-muted-foreground transition-opacity",
-                            isActive ? "opacity-100" : "opacity-0 group-hover:opacity-60"
-                          )}
-                        />
-                      </div>
+                    <button key={page.id} type="button" aria-pressed={selected}
+                      onClick={() => setActivePageId(page.id)}
+                      className={cn("grid min-h-14 w-full grid-cols-[minmax(0,1fr)_92px] items-center gap-3 border-b border-[#edf0f5] px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a73e8] sm:grid-cols-[minmax(0,1fr)_145px_95px]",
+                        selected ? "bg-[#e8f0fe]" : "bg-white hover:bg-[#f5f8fe]")}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e8f0fe] text-[#1a73e8]"><FileText className="h-4 w-4"/></span>
+                        <span className="min-w-0">
+                          <span className={cn("block truncate text-sm font-medium",selected?"text-[#174ea6]":"text-[#202124]")}>{page.title || "Sem título"}</span>
+                          <span className="block truncate text-xs text-[#5f6368] sm:hidden">{formatDate(page.updatedAt)}</span>
+                          {page.tags.length>0 && <span className="block truncate text-xs text-[#5f6368]">{page.tags.slice(0,2).join(", ")}</span>}
+                        </span>
+                      </span>
+                      <span className="hidden text-xs text-[#5f6368] sm:block">{formatDate(page.updatedAt)}</span>
+                      <span className="text-right text-sm tabular-nums text-[#3c4043]">{page.versions.length}</span>
                     </button>
                   );
                 })}
-              </div>
-            </ScrollArea>
-          </Card>
+              </ScrollArea>
+            </section>
 
-          {/* Editor */}
-          <Card className="p-4 min-h-[420px]">
-            {!activePage ? (
-              <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-center">
-                <div
-                  className="h-14 w-14 rounded-2xl flex items-center justify-center mb-3"
-                  style={{
-                    backgroundColor: activeAreaMeta.color + "1F",
-                    color: activeAreaMeta.color,
-                  }}
-                >
-                  <activeAreaMeta.icon className="h-7 w-7" />
+            {/* Editor original preservado (somente aparência refinada). */}
+            <section id="nucleo-editor" className="mt-5 scroll-mt-28 rounded-2xl border border-[#dfe4ec] bg-[#f8fbff] p-3 sm:p-4" aria-label="Editor da página selecionada">
+              {!activePage ? (
+                <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 text-center">
+                  <FileText className="h-8 w-8 text-[#8ab4f8]" />
+                  <p className="text-sm font-semibold text-[#3c4043]">Selecione uma página para visualizar ou editar</p>
+                  <p className="text-xs text-[#5f6368]">Se ainda não existe página, use o botão Criar página acima.</p>
                 </div>
-                <h3 className="text-base font-semibold">
-                  {activeAreaMeta.title}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mt-1">
-                  {activeAreaMeta.description}
-                </p>
-                <Button
-                  className="mt-4 gap-1.5"
-                  onClick={createPage}
-                >
-                  <Plus className="h-4 w-4" />
-                  Criar primeira página
-                </Button>
-              </div>
-            ) : (
-              <PageEditor
-                key={activePage.id}
-                page={activePage}
-                onChange={(patch) => updatePage(activePage.id, patch)}
-                onDelete={() => deletePage(activePage.id)}
-                onSaveVersion={(label) => saveVersion(activePage.id, label)}
-                onRestoreVersion={(vid) => restoreVersion(activePage.id, vid)}
-                onDeleteVersion={(vid) => deleteVersion(activePage.id, vid)}
-                areaColor={activeAreaMeta.color}
-              />
-            )}
-          </Card>
-        </div>
-
-        <p className="text-[11px] text-muted-foreground text-center pt-1">
-          Estrutura preparada para crescimento — sem integrações ativas com
-          outros módulos.
-        </p>
-        </>
+              ) : (
+                <PageEditor key={activePage.id} page={activePage}
+                  onChange={(patch) => updatePage(activePage.id, patch)}
+                  onDelete={() => deletePage(activePage.id)}
+                  onSaveVersion={(label) => saveVersion(activePage.id, label)}
+                  onRestoreVersion={(vid) => restoreVersion(activePage.id, vid)}
+                  onDeleteVersion={(vid) => deleteVersion(activePage.id, vid)}
+                  areaColor={activeAreaMeta.color}/>
+              )}
+            </section>
+            <p className="mt-4 text-xs text-[#5f6368]">Os indicadores acima resumem somente as páginas locais deste navegador. Não indicam vigência, aprovação, publicação ou cobertura canônica do Núcleo 2.0.</p>
+          </section>
         )}
       </main>
     </div>
@@ -4380,13 +4361,13 @@ function PageEditor({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[380px]">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex h-full min-h-[340px] flex-col">
+      <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[#dfe4ec] pb-3">
         <Input
           value={page.title}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder="Título da página"
-          className="text-base font-semibold border-0 shadow-none px-0 h-auto py-1 focus-visible:ring-0"
+          className="h-auto min-w-[180px] flex-1 border-0 bg-transparent px-0 py-2 text-lg font-semibold text-[#202124] shadow-none focus-visible:ring-0"
         />
 
         <Popover>
@@ -4539,14 +4520,14 @@ function PageEditor({
         value={page.content}
         onChange={(e) => onChange({ content: e.target.value })}
         placeholder="Escreva o conteúdo desta página..."
-        className="flex-1 min-h-[280px] resize-none text-sm leading-relaxed"
+        className="min-h-[240px] flex-1 resize-y rounded-xl border-[#dfe4ec] bg-white p-3 text-sm leading-relaxed text-[#202124] focus-visible:ring-[#1a73e8]"
       />
 
       <div className="flex items-center justify-between mt-3 text-[11px] text-muted-foreground">
         <span>{page.content.length} caracteres</span>
         <span className="flex items-center gap-1">
           <Save className="h-3 w-3" />
-          Salvamento automático
+          Salvamento automático neste navegador
         </span>
       </div>
     </div>
