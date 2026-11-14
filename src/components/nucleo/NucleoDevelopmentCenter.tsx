@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
+import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -61,6 +62,7 @@ export default function NucleoDevelopmentCenter() {
   const { session } = useAuth();
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
   const [items, setItems] = useState<DevelopmentWorkstream[]>([]);
   const [dependencies, setDependencies] = useState<DevelopmentDependency[]>([]);
   const [history, setHistory] = useState<DevelopmentEvent[]>([]);
@@ -81,6 +83,7 @@ export default function NucleoDevelopmentCenter() {
       client.from("nucleo_development_events").select("*").order("recorded_at", { ascending: false }).limit(200),
     ]);
     if (fronts.error || links.error || events.error) {
+      setReadError(true);
       // Não apresentar um snapshot anterior como se fosse leitura M3 atual.
       setItems([]);
       setDependencies([]);
@@ -89,6 +92,7 @@ export default function NucleoDevelopmentCenter() {
       setEdit({});
       toast.error("Leitura M3 indisponível. Nenhum estado anterior foi reutilizado.");
     } else {
+      setReadError(false);
       setItems(fronts.data ?? []);
       setDependencies(links.data ?? []);
       setHistory(events.data ?? []);
@@ -158,6 +162,7 @@ export default function NucleoDevelopmentCenter() {
   };
 
   const addItem = async () => {
+    if (readError || loading) { toast.error("Atualize a leitura M3 antes de registrar."); return; }
     if (saving) return;
     if (!draft.code || draft.title.trim().length < 3 || (draft.kind !== "modulo" && !draft.parent_id)) {
       toast.error("Informe código, título e frente pai quando necessário."); return;
@@ -251,6 +256,40 @@ export default function NucleoDevelopmentCenter() {
     </Card>
   );
 
+  if (loading) return (
+    <Card className="p-5" role="status" aria-live="polite">
+      <h2 className="font-semibold">Central Visual de Desenvolvimento</h2>
+      <p className="text-sm text-muted-foreground mt-2">Consultando módulos, frentes e histórico autorizados no Core M3…</p>
+    </Card>
+  );
+
+  if (readError) return (
+    <Card className="p-5 space-y-3" role="alert">
+      <h2 className="font-semibold">Leitura da Central indisponível</h2>
+      <p className="text-sm text-muted-foreground">
+        Os registros M3 ou seu histórico não puderam ser consultados nesta sessão.
+        A cobertura, as contagens e os vínculos estão indeterminados — não significa que
+        os módulos tenham sido apagados ou que não existam frentes.
+      </p>
+      <Button type="button" variant="outline" onClick={()=>void refresh()}>Tentar leitura novamente</Button>
+    </Card>
+  );
+
+  const prepareModule = (module:KnowledgeModule) => {
+    const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
+    if(registered){
+      toast.info("Este módulo já está cadastrado no Core M3.");
+      choose(registered.id);
+      document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
+      return;
+    }
+    // Preenche somente identidade presente no inventário. Nunca inventa
+    // método, especialista, escopo, estado, frente ou certificação.
+    setDraft({...emptyDraft,code:cleanCode(module.id),title:module.name,kind:"modulo"});
+    setCreating(true);
+    requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
+  };
+
   return (
     <div className="space-y-4" aria-label="Central Visual de Desenvolvimento">
       <div className="flex flex-wrap items-center gap-3 justify-between">
@@ -266,6 +305,7 @@ export default function NucleoDevelopmentCenter() {
       <NucleoOperationalAtlas
         workstreams={items}
         events={history}
+        onPrepareModule={prepareModule}
         onSelectWorkstream={id => {
           choose(id);
           document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -273,8 +313,9 @@ export default function NucleoDevelopmentCenter() {
       />
 
       {creating && (
-        <Card className="p-4 space-y-3">
+        <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
           <h3 className="font-semibold text-sm">Cadastrar módulo, frente ou subfrente</h3>
+          <p className="text-xs text-muted-foreground">Pré-preenchimento vindo do inventário não é certificação nem cadastro. Revise código, escopo e fonte original antes de clicar em Salvar. Não cria frentes ou responsáveis automaticamente.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="text-xs space-y-1">Código estável
               <Input value={draft.code} placeholder="NUC-M3-F1" onChange={e => setDraft(v => ({...v,code:cleanCode(e.target.value)}))}/>
