@@ -475,7 +475,11 @@ assert.match(ac01Knowledge,/authority_state:"rascunho"/);
 assert.match(ac01Knowledge,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 const ac01Atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 assert.match(ac01Atlas,/Conhecimento e Evolução do especialista/);
-assert.match(ac01Atlas,/setModuleSection\("conhecimento"\);setKnowledgeOpen\(true\)/);
+// UX-A3B moved the access into a shared navigation function that also
+// preserves the module context and keeps Ficha Viva mounted after first visit.
+assert.ok(ac01Atlas.includes('onClick={() => selectModuleArea("conhecimento")}'));
+assert.ok(ac01Atlas.includes('if (area === "conhecimento") {'));
+assert.ok(ac01Atlas.includes('setKnowledgeOpen(true)'));
 console.log("Núcleo V1.3 AC-01: comparação local, refinamento como rascunho e acesso pelo especialista PASS (sem homologação).");
 
 
@@ -512,7 +516,11 @@ assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR UPDATE/);
 assert.doesNotMatch(ac01Sql,/CREATE POLICY[^;]*FOR DELETE/);
 assert.match(ac01UI,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
-assert.match(ac01UI,/authority_state!=="proposta"/);
+// AC-01: contribuição inicial requer proposta; revisão vinculada requer
+// em_evolucao. O teste antigo checava apenas o literal da proposta e rejeitava
+// indevidamente o readback condicional já contratado na main.
+assert.ok(ac01UI.includes('check.data.authority_state!==(parent?"em_evolucao":"proposta")'));
+assert.ok(!ac01UI.includes('check.data.authority_state!=="proposta"'));
 assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
 const ac01MainAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 assert.match(ac01MainAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
