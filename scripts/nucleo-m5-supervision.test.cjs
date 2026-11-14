@@ -348,3 +348,43 @@ assert.match(mapView,/item.check/);
 assert.match(mapView,/item.limitation/);
 assert.match(mapView,/visibleScreens=useMemo/);
 console.log("Núcleo A+ CA14/22: mapas e rotas profundas auditadas, sem UAT automática PASS.");
+
+
+// A+ CA-14/15/22 — jornadas orientadas: apenas leitura, sem execução ou UAT falsa.
+const journeyText=fs.readFileSync("src/lib/nucleo/moduleJourneysV12.ts","utf8");
+const journeyJs=ts.transpileModule(journeyText,{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((journeyJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const journeyScope={exports:{}};
+vm.runInNewContext(journeyJs.outputText,journeyScope,{timeout:1000});
+const journeys=journeyScope.exports.MODULE_JOURNEYS_V12;
+for(const code of ["FIN","OPE","ROT","CAP","DIG","ASS"]){
+  assert.ok(journeys[code]?.length>0,"Jornada ausente: "+code);
+  assert.ok(screenCatalog[code]?.length>0,"Mapa de telas ausente: "+code);
+  for(const journey of journeys[code]){
+    assert.ok(journey.id&&journey.title&&journey.goal);
+    assert.ok(journey.steps.length>=2);
+    for(const step of journey.steps){
+      assert.ok(step.task&&step.inspect&&step.verify&&step.limit);
+      assert.ok(screenCatalog[code].some(item=>item.id===step.screenId),"Tela sem fonte: "+code+"/"+step.screenId);
+      if(step.controlLabel){
+        assert.ok(moduleControls[code]?.some(item=>item.label===step.controlLabel),"Controle sem fonte: "+code+"/"+step.controlLabel);
+      }
+    }
+  }
+}
+const guidedSource=fs.readFileSync("src/components/nucleo/NucleoGuidedJourneys.tsx","utf8");
+const guidedCompiled=ts.transpileModule(guidedSource,{compilerOptions:{
+  jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((guidedCompiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(guidedSource,/MODULE_JOURNEYS_V12/);
+assert.match(guidedSource,/MODULE_SCREENS_V12/);
+assert.match(guidedSource,/MODULE_CONTROLS_V12/);
+assert.match(guidedSource,/aria-pressed=\{selected\?\.id===item\.id\}/);
+assert.match(guidedSource,/Próxima etapa/);
+assert.match(guidedSource,/somente navegação, sem confirmação de execução/);
+assert.doesNotMatch(guidedSource,/supabase|\.insert\(|\.update\(|\.delete\(|\.invoke\(/);
+assert.match(fs.readFileSync("src/components/nucleo/NucleoModuleDiscovery.tsx","utf8"),/NucleoGuidedJourneys/);
+console.log("Núcleo A+ CA14/15/22: jornadas vinculadas a telas e controles, sem escrita PASS (não UAT).");
