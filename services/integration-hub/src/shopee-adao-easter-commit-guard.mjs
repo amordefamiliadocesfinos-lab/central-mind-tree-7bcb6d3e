@@ -11,33 +11,26 @@ export const ADAO_CHANNEL_ACCOUNT_ID = 'b4027369-5abf-4ac1-ab24-862334fae892';
 // Historical deleted V8 models are intentionally absent. No production or inventory release.
 export const ADAO_APPROVED_EASTER_INTAKE_PAIRS = Object.freeze([
   '19299649245:238801201787',
-  '19299649245:238801201788',
-  '19299649245:238801201790',
-  '20199663408:209185715206',
   '20199663408:209185715207',
   '20199663408:209185715209',
   '20998090100:189185718245',
   '20998090100:189185718246',
   '20998090100:189185718247',
   '20998090100:189185718248',
-  '22298331606:199618170212',
   '22298331606:199618170213',
   '22397349989:189618207849',
   '22397349989:189618207851',
   '22397349996:149790270245',
   '22397349996:149790270247',
   '22397350493:209185770212',
-  '22397350493:209185770213',
   '22397350493:209185770214',
   '23093820401:209185750007',
   '23098311905:149552230018',
   '23098311905:149552230019',
   '23098311905:149552230020',
   '23098311905:149552230021',
-  '23193820253:219185754959',
   '23193820253:219185754960',
   '23193820253:219185754962',
-  '23598316694:159790255821',
   '23598316694:159790255822',
   '23598316694:159790255824',
   '23893322483:179413652092',
@@ -48,6 +41,19 @@ export const ADAO_APPROVED_EASTER_INTAKE_PAIRS = Object.freeze([
   '58255187424:189618241489',
   '58255187424:189618241493',
 ]);
+// V36 (2026-11-14): historical Models remain stored for old orders but must
+// never be eligible for new Adão intake, including via a stale runtime allowlist.
+export const ADAO_V36_RETIRED_EASTER_PAIRS = Object.freeze([
+  '19299649245:238801201788',
+  '19299649245:238801201790',
+  '20199663408:209185715206',
+  '23598316694:159790255821',
+  '23193820253:219185754959',
+  '22397350493:209185770213',
+  '22298331606:199618170212',
+]);
+const ADAO_V36_RETIRED_EASTER_SET = new Set(ADAO_V36_RETIRED_EASTER_PAIRS);
+
 const ADAO_APPROVED_EASTER_INTAKE_CSV = ADAO_APPROVED_EASTER_INTAKE_PAIRS.join(',');
 
 const PAIRS = /^\d+:\d+(,\d+:\d+)*$/;
@@ -82,6 +88,9 @@ export function shopeeAdaoEasterCommitBlocker(normalized, {
   for (const item of items) {
     const itemId = String(item?.itemId ?? '');
     const modelId = String(item?.modelId ?? '');
+    if (ADAO_V36_RETIRED_EASTER_SET.has(`${itemId}:${modelId}`)) {
+      return 'adao_pascoa_offer_not_approved_for_intake';
+    }
     if (!/^\d+$/.test(itemId) || !/^\d+$/.test(modelId)
         || (!regular.has(`${itemId}:${modelId}`) && !easter.has(`${itemId}:${modelId}`))) {
       return 'adao_pascoa_offer_not_approved_for_intake';
