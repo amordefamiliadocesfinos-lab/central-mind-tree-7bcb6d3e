@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
+import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
@@ -302,8 +303,14 @@ export default function NucleoDevelopmentCenter() {
         <Button size="sm" onClick={() => setCreating(value => !value)}>{creating ? "Fechar" : "+ Nova frente"}</Button>
       </div>
 
+      <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
+        events={history} onOpenWorkstream={id=>{
+          choose(id);
+          document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"});
+        }}/>
       <NucleoOperationalAtlas
         workstreams={items}
+        dependencies={dependencies}
         events={history}
         onPrepareModule={prepareModule}
         onSelectWorkstream={id => {
