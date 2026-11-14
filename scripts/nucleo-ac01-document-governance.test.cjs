@@ -11,7 +11,7 @@ const code=ts.transpileModule(fs.readFileSync(path,"utf8"),{
 const ctx={exports:{}};
 vm.runInNewContext(code,ctx,{timeout:1000});
 const {AC01_DOCUMENT_CATEGORIES,AC01_FUNCTIONS,AC01_AUTHORITY_PROCEDURE,
- buildAc01DocumentView,isActiveCertifiedMandate,declaredAuthorityCoverage}=ctx.exports;
+ buildAc01DocumentView,isActiveCertifiedMandate,declaredAuthorityCoverage,canonicalReadinessPreview}=ctx.exports;
 assert.equal(AC01_DOCUMENT_CATEGORIES.length,9);
 assert.equal(AC01_FUNCTIONS.filter(x=>x.decide).length,1);
 assert.equal(AC01_FUNCTIONS.filter(x=>x.publish).length,1);
@@ -44,6 +44,17 @@ const mandate={id:"M1",module_id:"NUC",specialist_role:"Especialista NUC",record
 const now="2026-11-14T12:00:00Z";
 assert.equal(isActiveCertifiedMandate(mandate,[mandate],now),true);
 assert.equal(declaredAuthorityCoverage("NUC","Especialista NUC","metodo",[grant],[mandate],now).length,1);
+const revokedGrant={id:"R1",authority_grant_id:"G1",revocation_kind:"revogacao",
+ reason:"Authoritative revocation",revoked_by_auth_uid:"MASTER",recorded_at:now};
+assert.equal(declaredAuthorityCoverage("NUC","Especialista NUC","metodo",[grant],[mandate],now,[revokedGrant]).length,0);
+const readiness=canonicalReadinessPreview(doc[1],null,d,p);
+assert.equal(readiness.action,"BLOQUEADA");
+assert.ok(readiness.blockers.some(x=>x.includes("Destino canônico")));
+const external={id:"FM1",module_id:"NUC",section_code:"FM-01",version_no:1,
+ title:"Identidade",authority_state:"vigente",source_reference:"drive/ref",recorded_at:now};
+const preview=canonicalReadinessPreview(doc[1],external,d,p);
+assert.equal(preview.targetId,"FM1");
+assert.ok(preview.blockers.some(x=>x.includes("CAS")));
 const revoked={...mandate,id:"M2",record_kind:"revogacao",supersedes_record_id:"M1"};
 assert.equal(isActiveCertifiedMandate(mandate,[mandate,revoked],now),false);
 assert.equal(declaredAuthorityCoverage("NUC","Especialista NUC","metodo",[grant],[mandate,revoked],now).length,0);
@@ -51,6 +62,8 @@ const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx
 const integration=fs.readFileSync("src/components/nucleo/NucleoSpecialistContributions.tsx","utf8");
 assert.ok(ui.includes("Fichas Vivas")&&ui.includes("publicações internas"));
 assert.ok(ui.includes("AC01_AUTHORITY_PROCEDURE"));
+assert.ok(ui.includes("canonicalReadinessPreview"));
+assert.ok(ui.includes("revocationRows"));
 assert.ok(integration.includes("NucleoAC01DocumentGovernance"));
 assert.ok(!ui.includes(".insert(")&&!ui.includes(".update(")&&!ui.includes(".delete("));
 console.log("PASS AC01 matriz, revogação, estados e visualização somente leitura");
