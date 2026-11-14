@@ -53,7 +53,25 @@ export function projectAc02HandoffHistory(events:readonly Ac02HandoffEvent[]):Ac
  const byId=new Map(events.map(e=>[e.id,e]));
  if(byId.size!==events.length)warnings.push("Identificadores de eventos repetidos");
  const packageId=events[0].package_id;
+ const seenRequests=new Set<string>();
+ const expiry=Date.parse(events[0].expires_at);
+ if(!Number.isFinite(expiry))warnings.push("Data de validade inválida");
+ if(!/^[0-9a-f]{64}$/.test(events[0].package_sha256))
+  warnings.push("Hash do pacote fora do formato SHA-256");
  for(const e of events){
+  if(!e.request_id||seenRequests.has(e.request_id))
+   warnings.push("Identificador de solicitação ausente ou repetido");
+  seenRequests.add(e.request_id);
+  const observed=Date.parse(e.recorded_at);
+  if(!Number.isFinite(observed))warnings.push("Data de evento inválida");
+  else if(Number.isFinite(expiry)){
+   if(e.event_kind==="expirado"&&observed<expiry)
+    warnings.push("Expiração registrada antes do prazo");
+   if(!["falha","expirado","retificado"].includes(e.event_kind)&&observed>expiry)
+    warnings.push("Evento operacional registrado após vencimento");
+  }
+  if(e.evidence_class==="referencia_externa"&&!e.evidence_ref)
+   warnings.push("Evidência externa sem referência");
   if(e.package_id!==packageId||e.package_sha256!==events[0].package_sha256||
    e.package_version!==events[0].package_version||e.module_id!==events[0].module_id||
    e.recipient_kind!==events[0].recipient_kind||
@@ -79,6 +97,8 @@ export function projectAc02HandoffHistory(events:readonly Ac02HandoffEvent[]):Ac
   if(stages.length>0){
    const prev=stages[stages.length-1].kind;
    if(!transitions[prev].includes(current.event_kind))warnings.push("Transição inválida: "+prev+" → "+current.event_kind);
+   if(Date.parse(current.recorded_at)<Date.parse(stages[stages.length-1].recordedAt))
+    warnings.push("Cronologia da cadeia invertida");
   }
   stages.push({
    kind:current.event_kind,eventId:current.id,recordedAt:current.recorded_at,
