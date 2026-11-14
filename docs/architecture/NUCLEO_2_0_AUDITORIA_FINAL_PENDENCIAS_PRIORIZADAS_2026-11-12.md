@@ -1040,3 +1040,16 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Futuro escritor:** requer autenticação real, verificação de sessão ativa/revogação, `nucleo_manage` para atos do gestor, confirmação pessoal do destinatário humano, prova material com proveniência verificada, vínculo do texto exato a hash calculado por fonte confiável e único INSERT dentro da transição imutável. Nenhuma `service_role` será colocada no frontend, nenhum SELECT global será concedido a `auth.sessions`. Credencial mínima de escrita, fonte autoritativa do pacote e verificador de provas **ainda dependem de desenho final e autorização específica**.
 
 **Testes somente descartáveis:** `scripts/nucleo-ac02-direct-write-gate-disposable.test.sql`, `scripts/nucleo-ac02-write-preflight.test.cjs` e CI existente. Sem testes produtivos, homologação UX, concessão automática, migração efetiva ou Entrega B. Revisar e autorizar esses portões antes da implantação.
+
+
+## 67. AC-02 — resumo macro de continuidade M3/M4, sem ativar frentes bloqueadas (14/11/2026)
+
+**Decisão do proprietário:** deixar para fase posterior as frentes de segurança, bloqueios de implantação, permissões, sessão ativa, evidência, gateway de escrita e homologação. Não as excluir do mapa: permanecem **PENDENTES** e não podem ser implicitamente consideradas autorizadas. A Entrega A+ prossegue somente em atividades documentais e funcionais consultivas.
+
+**Entrega desbloqueada:** `supabase/functions/_shared/nucleo/ac02-continuity-summary.ts` cria resumo consultivo e determinístico usando apenas códigos/IDs/status M3 e vínculo técnico M4, sem importar next_action, blocker, nomes, links, notas ou corpos documentais. Exibe contagem por estado (planejado, em andamento, bloqueado, em validação, concluído declarado), presença de referência M4 **no recorte recuperado**, e uma lista de **frentes para CONFERÊNCIA**, não ordens de execução. A ordem fixa de exposição (bloqueado, em andamento, em validação, planejado) serve apenas à leitura do checkpoint; não constitui prioridade soberana, mandato ou autorização de enfrentar o bloqueio.
+
+**Reuso:** `ac02-assumption-export.ts` inclui seção específica de síntese operacional do pacote, sem mudar o texto de identidade, as referências FM-03/FM-08/FM-09, a consulta JWT/RLS e os contratos de distribuição existentes. Limites M3/M4 permanecem 50/80 linhas no pacote; recortes indeterminados são declarados como tal. Reexport `src/lib/nucleo/ac02ContinuitySummary.ts` para o Especialista UX. CI cobre contagens, fonte, ordem, omissão de conteúdo sensível e regressão.
+
+**Validação diferida:** o resumo NÃO valida o estado técnico no GitHub, não checa a vigência da Ficha Viva, não executa frentes, não concede acesso, não altera banco/Edge Function/UX e não homologa sucessão. As frentes AC02-SESSION-01, AC02-PROOF-01 e AC02-PACKAGE-01 permanecem checkpoints de implantação posterior; propostas SQL #817/#821/#822 permanecem fora das migrations produtivas.
+
+**Próxima continuidade sem bloqueio:** melhorar a legibilidade e a cobertura do checkpoint e das fontes autorizadas, com base em metadados comprováveis, sem tentar decidir método/ecossistema por inferência ou antecipar Entrega B.
