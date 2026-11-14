@@ -25,10 +25,12 @@ assert.equal(y.entries[2].status,"sem_registro");
 assert.ok(y.warnings.some(v=>v.includes("não comprovadamente completa")));
 const registry=load("supabase/functions/_shared/nucleo/ac02-registry-contract.ts",()=>{throw Error("no import")});
 const summary=load("supabase/functions/_shared/nucleo/ac02-continuity-summary.ts",()=>{throw Error("no import")});
+const guide=load("supabase/functions/_shared/nucleo/ac02-assumption-guide.ts",()=>{throw Error("no import")});
 const exp=load("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",name=>{
  if(name==="./ac02-registry-contract.ts")return registry;
  if(name==="./ac02-continuity-summary.ts")return summary;
  if(name==="./ac02-documentary-coverage.ts")return docs;
+ if(name==="./ac02-assumption-guide.ts")return guide;
  throw Error(name);
 });
 const packet=exp.composeAc02AssumptionExport({

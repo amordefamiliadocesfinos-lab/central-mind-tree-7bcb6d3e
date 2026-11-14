@@ -5,6 +5,7 @@
  * acesso, publica fontes ou transmite para outro chat.
  */
 import { summarizeAc02Continuity } from "./ac02-continuity-summary.ts";
+import { buildAc02AssumptionGuide } from "./ac02-assumption-guide.ts";
 import { describeAc02DocumentaryCoverage, type Ac02DocumentaryRevision } from "./ac02-documentary-coverage.ts";
 import {
  AC02_GLOBAL_ITEMS, AC02_GLOBAL_IDENTITY,
@@ -139,6 +140,14 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "- Método e ecossistema distintos comprovados: NÃO. FM-08 é uma seção compartilhada.",
  ]:["- Cobertura documental não recuperada; não inferir fonte, versão ou checkpoint."];
 
+ const guide=buildAc02AssumptionGuide(code,coverage,continuity,unresolved);
+ const guideLines=[
+  "- Ordem sugerida apenas para leitura/conferência, não para execução automática:",
+  ...guide.steps.map(step=>"- "+step.order+". "+step.subject+
+   " / "+step.state+" — "+step.action+" ["+step.evidence+"]"),
+  ...guide.caveats.map(c=>"- Limite: "+c),
+ ];
+
  // Deliberately don't include arbitrary strings from moduleTitle,
  // specialistRole, sourceRefs, evidence, warnings or external document bodies.
  const title="Módulo "+code;
@@ -191,7 +200,10 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "## 8. Pendências obrigatórias antes da assunção operacional",
   ...unresolved.map(item=>"- "+item),
   "",
-  "## 9. Condições de continuidade",
+  "## 9. Roteiro de recuperação de contexto para o sucessor",
+  ...guideLines,
+  "",
+  "## 10. Condições de continuidade",
   "- Abrir fontes originais somente sob permissões próprias; este texto não transfere acessos.",
   "- Conferir mapa soberano Núcleo 2.0 V1.3, mandatos, escopo e versões com a Camada Mestre.",
   "- Não utilizar construtor visual Lovable por padrão; exceções exigem autorização específica.",
