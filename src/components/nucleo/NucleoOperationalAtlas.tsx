@@ -17,6 +17,13 @@ import {
 } from "@/lib/nucleo/operationalKnowledgeV12";
 
 type Level = "overview" | "module" | "operation";
+type ModuleSection = "funcoes" | "especialista" | "desenvolvimento" | "conhecimento";
+const MODULE_SECTIONS: Array<{id:ModuleSection;label:string;hint:string}> = [
+  {id:"funcoes",label:"Funcionalidades",hint:"Telas, botões e fluxos"},
+  {id:"especialista",label:"Especialista",hint:"Responsabilidade e fontes"},
+  {id:"desenvolvimento",label:"Desenvolvimento",hint:"Frentes, prioridades e evidências"},
+  {id:"conhecimento",label:"Conhecimento",hint:"Ficha Viva e versões"},
+];
 const specialistConfidence = (value: string | null | undefined): "declarado" | "nao_verificado" =>
   value && !/não verificado|não verificados|a conciliar|a reconciliar|vigência a conferir|vigência não/i.test(value)
     ? "declarado" : "nao_verificado";
@@ -38,6 +45,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
+  const [moduleSection,setModuleSection] = useState<ModuleSection>("funcoes");
   const [actionSearch, setActionSearch] = useState("");
   const [crmJourneyMode, setCrmJourneyMode] = useState<"gestor"|"operador">("operador");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
@@ -125,6 +133,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
   const choose = (item: KnowledgeModule) => {
     setSelectedId(item.id);
     setLevel("module");
+    setModuleSection("funcoes");
     setActionSearch("");
     setCrmJourneyMode("operador");
     setEvidenceFrontId(null);
@@ -146,11 +155,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
           </div>
           <Badge variant="outline">Piloto — cobertura parcial</Badge>
         </div>
-        <div className="flex flex-wrap items-center gap-2" aria-label="Níveis de navegação">
-          <Button size="sm" variant={level==="overview"?"default":"outline"} onClick={() => { setLevel("overview"); setSelectedId(null); }}>1. Visão geral</Button>
-          <Button size="sm" variant={level==="module"?"default":"outline"} disabled={!selected} onClick={() => setLevel("module")}>2. Módulo</Button>
-          <Button size="sm" variant={level==="operation"?"default":"outline"} disabled={!selected || selected.id!=="CRM"} onClick={() => setLevel("operation")}>3. Operação / prova</Button>
-        </div>
+        <nav className="flex flex-wrap items-center gap-2" aria-label="Navegação do Núcleo">
+          <Button size="sm" variant={level==="overview"?"default":"outline"} aria-current={level==="overview"?"page":undefined}
+            onClick={() => {setLevel("overview");setSelectedId(null);}}>Painel Geral</Button>
+          <Button size="sm" variant={level==="module"?"default":"outline"} disabled={!selected}
+            aria-current={level==="module"?"page":undefined} onClick={() => setLevel("module")}>Módulo{selected ? " · "+selected.name : ""}</Button>
+          {selected?.id==="CRM" && <Button size="sm" variant={level==="operation"?"default":"outline"}
+            aria-current={level==="operation"?"page":undefined} onClick={() => setLevel("operation")}>Jornada prática CRM</Button>}
+        </nav>
         <div className="rounded-md border p-3 text-sm leading-relaxed text-muted-foreground">
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
           {registeredModules.length} módulo(s) acompanhado(s) cadastrado(s) no Core; os demais cartões representam rotas ou fontes em investigação.
@@ -282,7 +294,36 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               {selected.coverage==="piloto_parcial"?"Ficha parcial":"Cobertura não verificada"}
             </Badge>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4" aria-label="Resumo factual do módulo">
+            {[
+              {label:"Frentes vinculadas",value:selectedFronts.length,note:"Core M3"},
+              {label:"Pendências declaradas",value:modulePending.length,note:"Frentes e subfrentes"},
+              {label:"Sem próxima ação",value:moduleAwaitingAction.length,note:"Pendências M3"},
+              {label:"Fontes catalogadas",value:selectedProvenance?.sources.length ?? 0,note:"Referências; não homologações"},
+            ].map(metric=><div key={metric.label} className="rounded-lg border p-3 min-w-0">
+              <p className="text-xs text-muted-foreground">{metric.label}</p>
+              <p className="text-2xl font-bold tabular-nums mt-1">{metric.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{metric.note}</p>
+            </div>)}
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-2">
+            <nav className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={"Seções do módulo "+selected.name}>
+              {MODULE_SECTIONS.map(item=>(
+                <button key={item.id} type="button" onClick={()=>{
+                    setModuleSection(item.id);
+                    if(item.id==="conhecimento")setKnowledgeOpen(true);
+                    setEvidenceFrontId(null);
+                  }}
+                  aria-pressed={moduleSection===item.id}
+                  className={`rounded-md border px-3 py-3 text-left min-h-16 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-background shadow-sm":"border-transparent hover:bg-background/80"}`}>
+                  <span className="block text-sm font-semibold">{item.label}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">{item.hint}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div role="region" aria-label={"Conteúdo de "+MODULE_SECTIONS.find(s=>s.id===moduleSection)?.label} className="space-y-3">
+          {moduleSection==="funcoes" && <div className="grid gap-3 md:grid-cols-2">
             <div className="border rounded-lg p-3 space-y-2">
               <h4 className="font-medium text-sm">Acesso e responsabilidade</h4>
               <p className="text-sm">Rota: <code>{selected.route??"não verificada"}</code></p>
@@ -300,7 +341,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
           </div>
-          {selectedRecord && (
+          {moduleSection==="especialista" && selectedRecord && (
             <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
               <div className="space-y-1">
                 <h4 className="text-sm font-semibold">Especialista, método e frentes vinculadas</h4>
@@ -334,7 +375,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               </p>
             </section>
           )}
-          {selectedProvenance && (
+          {moduleSection==="especialista" && selectedProvenance && (
             <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Fontes e autoridade documental">
               <div>
                 <h4 className="font-semibold text-sm">Fontes documentais e autoridade</h4>
@@ -356,7 +397,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               </div>
             </section>
           )}
-          {selectedRecord && (
+          {moduleSection==="desenvolvimento" && selectedRecord && (
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
                 <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real. Provas M4 são registros históricos consultados sob permissão; não são verificação GitHub ao vivo.</p>
@@ -479,14 +520,24 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
           )}
-          {selectedRecord && <div className="space-y-2">
+          {moduleSection==="conhecimento" && selectedRecord && <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">As seções FM distinguem modelos locais de versões efetivamente gravadas no Core. Referências históricas não se tornam vigentes automaticamente.</p>
             <Button type="button" variant="outline" size="sm" aria-expanded={knowledgeOpen}
               onClick={()=>setKnowledgeOpen(open=>!open)}>
               {knowledgeOpen?"Ocultar Ficha Viva":"Abrir Ficha Viva FM-01–FM-10"}
             </Button>
             {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
           </div>}
-          {selected.id==="CRM" ? (
+          {moduleSection==="conhecimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
+            Módulo identificado em fontes, mas não cadastrado no Core M3 nesta leitura; Ficha Viva ainda não comprovada.
+          </p>}
+          {moduleSection==="especialista" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
+            Responsabilidade e mandato ainda não foram comprovados no Core para este módulo. Não inferir autoridade do nome do especialista.
+          </p>}
+          {moduleSection==="desenvolvimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
+            Não há cadastro M3 visível nesta leitura; isso não equivale a ausência de desenvolvimento nas fontes.
+          </p>}
+          {moduleSection==="funcoes" && selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
                 <p className="font-semibold">Checkpoint de especialista — referência histórica, não norma vigente</p>
@@ -518,13 +569,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, onSelectWo
               Esta é uma entrada de inventário de rota. Funções, especialista, método e estados operacionais ainda não foram homologados;
               não há manual de operação para este módulo neste piloto.
             </p>
-          )}
+          ) : null}
+          </div>
         </Card>
       )}
 
       {selected?.id==="CRM" && level==="operation" && (
         <Card className="p-4 md:p-5 space-y-4">
           <div className="space-y-2">
+            <Button type="button" variant="outline" size="sm" onClick={()=>{
+              setLevel("module");setModuleSection("funcoes");
+            }}>Voltar às funcionalidades do CRM</Button>
             <p className="text-xs text-muted-foreground">CRM · Piloto A+ V1.2 · Código e M3, não homologação de uso real</p>
             <h3 className="font-semibold text-lg">Jornadas de gestor e operador</h3>
             <p className="text-sm text-muted-foreground">
