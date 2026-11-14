@@ -14,6 +14,8 @@ on:
       - "src/lib/nucleo/operationalProvenanceV12.ts"
       - "src/lib/nucleo/knowledgeArchiveSourcesV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
+      - "src/lib/nucleo/documentDiffPresentationV13.ts"
+      - "scripts/nucleo-ux-a4-comparacao-documental.test.cjs"
       - "src/components/nucleo/NucleoKnowledgeCoverage.tsx"
       - "src/components/nucleo/NucleoSupervisionPanel.tsx"
       - "src/components/nucleo/NucleoAuthorityCoverage.tsx"
@@ -84,4 +86,6 @@ jobs:
         run: node scripts/nucleo-ux-a2-navigation.test.cjs
       - name: Verify UX-A3B specialist/Ficha Viva navigation
         run: node scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs
+      - name: Verify UX-A4 conservative version-comparison presentation
+        run: node scripts/nucleo-ux-a4-comparacao-documental.test.cjs
       - run: npm run build
