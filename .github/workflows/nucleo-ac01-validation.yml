@@ -16,6 +16,8 @@ on:
       - "scripts/nucleo-ac02-registry.test.cjs"
       - "supabase/functions/nucleo-knowledge-read/index.ts"
       - "scripts/nucleo-ac02-authenticated-read.test.cjs"
+      - "supabase/functions/_shared/nucleo/ac02-assumption-export.ts"
+      - "scripts/nucleo-ac02-handoff-evidence.test.cjs"
       - "scripts/nucleo-ac01-document-governance.test.cjs"
       - "src/lib/nucleo/ac01ReadOnlyDesk.ts"
       - "scripts/nucleo-ac01-readonly-desk.test.cjs"
@@ -122,4 +124,5 @@ jobs:
       - run: node scripts/nucleo-ac01-document-governance.test.cjs
       - run: node scripts/nucleo-ac02-registry.test.cjs
       - run: node scripts/nucleo-ac02-authenticated-read.test.cjs
+      - run: node scripts/nucleo-ac02-handoff-evidence.test.cjs
       - run: npm run build
