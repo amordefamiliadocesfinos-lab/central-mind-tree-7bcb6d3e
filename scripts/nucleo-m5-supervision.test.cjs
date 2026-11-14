@@ -388,3 +388,31 @@ assert.match(guidedSource,/somente navegação, sem confirmação de execução/
 assert.doesNotMatch(guidedSource,/supabase|\.insert\(|\.update\(|\.delete\(|\.invoke\(/);
 assert.match(fs.readFileSync("src/components/nucleo/NucleoModuleDiscovery.tsx","utf8"),/NucleoGuidedJourneys/);
 console.log("Núcleo A+ CA14/15/22: jornadas vinculadas a telas e controles, sem escrita PASS (não UAT).");
+
+
+// A+ CA-04/10/19/22 — painel executivo apoiado nas fontes M3 existentes.
+// Testes de integração estática não equivalem a homologação visual autenticada.
+const execView=fs.readFileSync("src/components/nucleo/NucleoExecutiveDevelopment.tsx","utf8");
+const execCompiled=ts.transpileModule(execView,{compilerOptions:{
+  jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,
+},reportDiagnostics:true});
+assert.equal((execCompiled.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(execView,/DevelopmentDependency, DevelopmentEvent, DevelopmentWorkstream/);
+assert.match(execView,/statusOrder\[a\.item\.status\]/);
+assert.match(execView,/priorityOrder\[a\.item\.priority\]/);
+assert.match(execView,/depends_on_id/);
+assert.match(execView,/latestByFront/);
+assert.match(execView,/Último evento carregado/);
+assert.match(execView,/Responsável declarado/);
+assert.match(execView,/Sem próxima ação/);
+assert.match(execView,/Ver provas M4/);
+assert.match(execView,/NucleoTechnicalEvidence workstreamId=\{item\.id\}/);
+assert.match(execView,/janela global dos últimos 200/);
+assert.doesNotMatch(execView,/\.insert\(|\.update\(|\.delete\(|\.upsert\(|\.invoke\(/);
+const centerExec=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+assert.match(centerExec,/<NucleoExecutiveDevelopment workstreams=\{items\} dependencies=\{dependencies\}/);
+assert.match(centerExec,/dependencies=\{dependencies\}\s*events=\{history\}/);
+const atlasExec=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+assert.match(atlasExec,/moduleId=\{selectedRecord\.id\}/);
+assert.match(atlasExec,/NucleoExecutiveDevelopment/);
+console.log("Núcleo A+ CA04/10/19/22: visão executiva M3-M4 sem writer PASS (não UAT).");
