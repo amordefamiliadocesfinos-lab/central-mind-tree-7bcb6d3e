@@ -191,6 +191,8 @@ export function createAdaoAutomaticIntake({
     const withinWorkBudget = () => now() - cycleStartedAt < ADAO_F12_WORK_BUDGET_MS;
     const shippingBatchLimit = adaoBatchLimit(getEnv('SHOPEE_ADAO_SHIP_BATCH_SIZE'));
     const labelBatchLimit = adaoBatchLimit(getEnv('SHOPEE_ADAO_LABEL_BATCH_SIZE'));
+    // F12.2 opt-in Adão-only. Production default is unchanged.
+    const crossPageFairnessEnabled = enabled(getEnv('SHOPEE_ADAO_F12_CROSS_PAGE_FAIRNESS_ENABLED'));
     if (!enabled(getEnv('SHOPEE_ADAO_AUTO_INTAKE_ENABLED'))) {
       return { ...report, code: 'adao_auto_intake_disabled' };
     }
@@ -227,7 +229,7 @@ export function createAdaoAutomaticIntake({
     const attemptedWithDeadline = [];
     const priorityInversionsSeen = new Set();
     const attemptedLabels = new Set();
-    const processPageLogistics = async () => {
+    const processPageLogistics = async ({ hasMore = false } = {}) => {
         if (enabled(getEnv('SHOPEE_ADAO_AUTO_SHIP_ENABLED'))) {
           // Continue helping when a new order was imported before the
           // Shopee transition to READY_TO_SHIP. Rotation avoids starving
@@ -256,8 +258,14 @@ export function createAdaoAutomaticIntake({
           const ranked = selectAdaoPendingShipments(
             eligible.map(sn => shippingCandidates.get(sn)), now(), shippingBatchLimit,
           );
+          // Preserve early shipment while reserving one of 2–3 slots after
+          // the first incomplete page for an earlier deadline from page 2.
+          // A single-page cycle and every subsequent page keep the full cap.
+          const pageShipCeiling = crossPageFairnessEnabled && hasMore
+            && report.pages === 1 && shippingBatchLimit > 1
+            ? shippingBatchLimit - 1 : shippingBatchLimit;
           for (const target of ranked) {
-            if (report.shipment_attempted >= shippingBatchLimit) break;
+            if (report.shipment_attempted >= pageShipCeiling) break;
             if (!withinWorkBudget()) {
               report.work_budget_exhausted = true;
               break;
@@ -446,7 +454,7 @@ export function createAdaoAutomaticIntake({
       }
       // Earlier pages may contain live READY_TO_SHIP candidates even when
       // later pages or Core ingestion consume the remainder of the time budget.
-      await processPageLogistics();
+      await processPageLogistics({ hasMore: listed.more === true });
       if (listed.more !== true) {
         return { ...report, ok: true, code: 'cycle_completed' };
       }

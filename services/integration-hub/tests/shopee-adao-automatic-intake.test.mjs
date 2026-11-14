@@ -939,3 +939,120 @@ test('F12.2: missing upstream deadlines do not generate false inversion evidence
   assert.equal(cycle.ok, true);
   assert.equal(cycle.cross_page_deadline_inversions, 0);
 });
+
+
+test('F12.2 opt-in reserve allows page-two urgent deadline while sending from page one first', async () => {
+  const first = ['FIRSTPAGEA01','FIRSTPAGEB02','FIRSTPAGEC03'], urgent = 'URGENTPAGE02';
+  let reads = 0, elapsed = 0;
+  const shipped = [], events = [];
+  const cycle = await createAdaoAutomaticIntake({
+    getEnv: key => ({ SHOPEE_ADAO_F12_CROSS_PAGE_FAIRNESS_ENABLED: 'true',
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED: 'true', SHOPEE_ADAO_LABEL_SYNC_ENABLED: 'false',
+      SHOPEE_ADAO_SHIP_BATCH_SIZE: '3' })[key] ?? getEnv(key),
+    now: () => Date.parse('2026-11-11T18:00:00Z') + elapsed,
+    readOrders: async () => {
+      reads++; elapsed += 9000;
+      return reads === 1 ? {
+        ...page(first,{more:true,next_cursor:'p2'}),
+        ready_to_ship_candidates: first.map(order_sn => ({order_sn,create_time:1794410500,ship_by_date:1794500000})),
+      } : {
+        ...page([urgent]),
+        ready_to_ship_candidates:[{order_sn:urgent,create_time:1794410500,ship_by_date:1794400000}],
+      };
+    },
+    intake: async ({expectedOrderSn}) => result(expectedOrderSn,'written'),
+    arrangeShipping: async sn => {
+      shipped.push(sn); events.push({sn,page:reads,elapsed}); elapsed += 1000;
+      return {ok:true,code:'ship_order_api_acknowledged_not_collected'};
+    },
+    logDiagnostic: () => {},
+  })();
+  assert.equal(cycle.ok,true);
+  assert.equal(cycle.shipment_attempted,3);
+  assert.equal(cycle.shipment_acknowledged,3);
+  assert.equal(events[0].page,1);
+  assert.ok(events[0].elapsed < 48000);
+  assert.equal(shipped[2],urgent);
+  assert.equal(new Set(shipped).size,3);
+  assert.equal(cycle.cross_page_deadline_inversions,1);
+});
+
+test('F12.2 fairness feature off by default preserves early first-page cap use', async () => {
+  let reads=0;
+  const shipped=[];
+  const first=['FIRSTPAGEA01','FIRSTPAGEB02','FIRSTPAGEC03'];
+  const cycle=await createAdaoAutomaticIntake({
+    getEnv:key=>({SHOPEE_ADAO_AUTO_SHIP_ENABLED:'true',SHOPEE_ADAO_SHIP_BATCH_SIZE:'3'})[key]??getEnv(key),
+    now,
+    readOrders:async()=>{
+      reads++;
+      return reads===1?{...page(first,{more:true,next_cursor:'p2'}),
+        ready_to_ship_candidates:first.map(order_sn=>({order_sn,create_time:1794410500,ship_by_date:1794500000}))}
+        :{...page(['URGENTPAGE02']),ready_to_ship_candidates:[{order_sn:'URGENTPAGE02',create_time:1794410500,ship_by_date:1794400000}]};
+    },
+    intake:async({expectedOrderSn})=>result(expectedOrderSn,'written'),
+    arrangeShipping:async sn=>{shipped.push(sn);return {ok:true,code:'ship_order_api_acknowledged_not_collected'};},
+    logDiagnostic:()=>{},
+  })();
+  assert.equal(cycle.ok,true);
+  assert.equal(cycle.shipment_attempted,3);
+  assert.equal(shipped.includes('URGENTPAGE02'),false);
+});
+
+test('F12.2 opt-in does not reserve slot on single complete page', async () => {
+  const sn=['SINGLEPAGEA01','SINGLEPAGEB02','SINGLEPAGEC03'];
+  const attempts=[];
+  const cycle=await createAdaoAutomaticIntake({
+    getEnv:key=>({SHOPEE_ADAO_F12_CROSS_PAGE_FAIRNESS_ENABLED:'true',
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED:'true',SHOPEE_ADAO_SHIP_BATCH_SIZE:'3'})[key]??getEnv(key),
+    now,readOrders:async()=>({...page(sn),ready_to_ship_candidates:sn.map(order_sn=>({order_sn,create_time:1794410500}))}),
+    intake:async({expectedOrderSn})=>result(expectedOrderSn,'written'),
+    arrangeShipping:async x=>{attempts.push(x);return {ok:true,code:'ship_order_api_acknowledged_not_collected'};},
+    logDiagnostic:()=>{},
+  })();
+  assert.equal(cycle.ok,true);
+  assert.equal(attempts.length,3);
+});
+
+test('F12.2 opt-in later page exception does not repeat uncertain initial shipment', async () => {
+  let reads=0, attempts=0;
+  const sn=['FAILPAGEONE1','FAILPAGEONE2','FAILPAGEONE3'];
+  const cycle=await createAdaoAutomaticIntake({
+    getEnv:key=>({SHOPEE_ADAO_F12_CROSS_PAGE_FAIRNESS_ENABLED:'true',
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED:'true',SHOPEE_ADAO_SHIP_BATCH_SIZE:'3'})[key]??getEnv(key),
+    now,
+    readOrders:async()=>{
+      reads++; if(reads>1)throw new Error('unavailable');
+      return {...page(sn,{more:true,next_cursor:'p2'}),
+        ready_to_ship_candidates:sn.map(order_sn=>({order_sn,create_time:1794410500}))};
+    },
+    intake:async({expectedOrderSn})=>result(expectedOrderSn,'written'),
+    arrangeShipping:async()=>{attempts++;return {ok:false,code:'ship_order_uncertain_requires_reconciliation'};},
+    logDiagnostic:()=>{},
+  })();
+  assert.equal(cycle.ok,false);
+  assert.equal(cycle.code,'shopee_discovery_exception');
+  assert.equal(attempts,2);
+  assert.equal(cycle.shipment_attempted,2);
+});
+
+test('F12.2 opt-in single shipment cap remains unchanged across pages', async () => {
+  let reads=0;
+  const calls=[];
+  const cycle=await createAdaoAutomaticIntake({
+    getEnv:key=>({SHOPEE_ADAO_F12_CROSS_PAGE_FAIRNESS_ENABLED:'true',
+      SHOPEE_ADAO_AUTO_SHIP_ENABLED:'true',SHOPEE_ADAO_SHIP_BATCH_SIZE:'1'})[key]??getEnv(key),
+    now,
+    readOrders:async()=>{
+      reads++;
+      const sn=reads===1?'ONECAPPAGE01':'ONECAPPAGE02';
+      return {...page([sn],{more:reads===1,next_cursor:reads===1?'p2':null}),
+        ready_to_ship_candidates:[{order_sn:sn,create_time:1794410500}]};
+    },
+    intake:async({expectedOrderSn})=>result(expectedOrderSn,'written'),
+    arrangeShipping:async sn=>{calls.push(sn);return {ok:true,code:'ship_order_api_acknowledged_not_collected'};},
+    logDiagnostic:()=>{},
+  })();
+  assert.equal(cycle.ok,true);
+  assert.deepEqual(calls,['ONECAPPAGE01']);
+});
