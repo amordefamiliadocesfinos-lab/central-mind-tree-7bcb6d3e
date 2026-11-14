@@ -84,7 +84,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     new Map(workstreams.map(item => [item.id, item])), [workstreams]);
   const catalog = useMemo<KnowledgeModule[]>(() => {
     const byCode = new Map(MODULES_V12.map(module => [module.id, module]));
-    for (const record of workstreams.filter(item => item.kind === "modulo" && item.code !== "NUC")) {
+    for (const record of workstreams.filter(item => item.kind === "modulo")) {
       const source = byCode.get(record.code);
       byCode.set(record.code, source ? {
         ...source, name: record.title, purpose: record.description || source.purpose,
@@ -92,11 +92,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         specialistConfidence: record.specialist ? specialistConfidence(record.specialist) : source.specialistConfidence,
       } : {
         id: record.code, name: record.title,
-        domain: "Domínio ainda não classificado", route: null,
+        domain: record.code==="NUC"?"Governança":"Domínio ainda não classificado",
+        route: record.code==="NUC"?"/nucleo":null,
         purpose: record.description || "Finalidade detalhada não verificada.",
         coverage: "inventario_de_rotas", specialist: record.specialist || null,
         specialistConfidence: specialistConfidence(record.specialist),
-        source: "Ficha do módulo no Core M3 — estado declarado, sem prova externa de rota",
+        source: record.code==="NUC"?"Rota /nucleo verificada em src/App.tsx e módulo no Core M3":"Ficha do módulo no Core M3 — estado declarado, sem prova externa de rota",
       });
     }
     return [...byCode.values()];
