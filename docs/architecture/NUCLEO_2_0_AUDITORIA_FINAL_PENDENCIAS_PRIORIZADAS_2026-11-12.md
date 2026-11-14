@@ -1088,3 +1088,16 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Prova limitada:** `scripts/nucleo-ac02-knowledge-gaps.test.cjs` cobre oito lacunas, estados de recorte incompleto, referência presente sem verificação externa, fonte sem referência e rejeição de módulo divergente. A CI deve provar somente integridade de código; não valida o estado real das fontes, deploy ou continuidade humana. Nenhuma tabela, permissionamento, mandato, migração ou Entrega B foi criado.
 
 **Próxima frente documental candidata:** refinar a apresentação diferenciada entre lacunas por ausência de referência, lacunas por comprovação externa e dependências formalmente adiadas, sem reabrir os bloqueios.
+
+
+## 71. AC-02 — visão de prontidão documental por especialidade (14/11/2026)
+
+**Decisão do proprietário:** manter segurança, autenticação, gateway, ledger produtivo, aplicação de migrations, testes funcionais reais e homologação como PENDÊNCIAS para fase posterior. Continuar apenas frentes documentais/consultivas da Entrega A+.
+
+**Implementação:** `summarizeAc02DocumentaryReadiness()`, anexada ao contrato compartilhado `ac02-knowledge-gaps.ts`, transforma exclusivamente os oito itens G01–G08 já emitidos no inventário em uma leitura organizada de referências disponíveis para consulta, ausências apenas no recorte, leituras indeterminadas, comprovações externas pendentes e fases adiadas. Agrupa também por `documental`, `operacional`, `governanca` e `implantacao`. Identificadores e estados são originados do próprio inventário, não de um relatório paralelo; duplicidade, conjunto incompleto ou módulo inválido são rejeitados.
+
+**Sem score nem homologação:** `readyForOperationalAssumption=false`, status `nao_homologado_sem_autorizacao_de_execucao` e `disclaimer` deixam explícito que referência presente **não significa conteúdo consultado, credencial transferida, mandato aprovado, checkpoint verificado ou prontidão operacional**. A ordem de conferência exclui G08 formalmente adiado e não executa ações automaticamente. A etapa de implantação permanece catalogada, não omitida.
+
+**Pacote:** `ac02-assumption-export.ts` acrescenta seção `Visão de prontidão documental — somente leitura` com contagens, estados de G01–G08 e ressalvas. Reusa o reexport `src/lib/nucleo/ac02KnowledgeGaps.ts`; não cria interface ou nova consulta ao banco. Provas técnicas continuam limitadas aos metadados previamente autorizados por JWT/RLS. Teste de contrato acrescentado a `scripts/nucleo-ac02-knowledge-gaps.test.cjs` cobre contagens, ausência de promoção, adiamentos, duplicidade e lacunas ausentes.
+
+**Limite:** essa visão não avalia conteúdo material das Fichas Vivas, não certifica qualidade ou vigência de fontes, e não produz decisão pela Camada Mestre. Mapa V1.3 e Entrega A+ preservados; Entrega B continua não iniciada.
