@@ -197,16 +197,18 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <Badge variant="outline">Piloto — cobertura parcial</Badge>
         </div>
-        <nav className="flex flex-wrap items-center gap-2" aria-label="Navegação do Núcleo">
-          <Button size="sm" variant={level==="overview"?"default":"outline"} aria-current={level==="overview"?"page":undefined}
-            onClick={() => setLevel("overview")}>Painel Geral</Button>
-          <Button size="sm" variant={level==="module"?"default":"outline"} disabled={!selected}
+        <nav className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
+          <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" variant={level==="overview"?"default":"outline"}
+            aria-pressed={level==="overview"} onClick={() => setLevel("overview")}>Painel Geral</Button>
+          <Button type="button" size="sm" className="min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words text-left sm:w-auto"
+            variant={level==="module"?"default":"outline"} disabled={!selected}
             aria-label={selected ? "Retomar ficha do módulo " + selected.name : "Nenhum módulo selecionado"}
-            aria-current={level==="module"?"page":undefined} onClick={() => setLevel("module")}>
+            aria-pressed={level==="module"} onClick={() => setLevel("module")}>
             {selected ? "Módulo · "+selected.name : "Selecionar módulo"}
           </Button>
-          {selected?.id==="CRM" && <Button size="sm" variant={level==="operation"?"default":"outline"}
-            aria-current={level==="operation"?"page":undefined} onClick={() => setLevel("operation")}>Jornada prática CRM</Button>}
+          {selected?.id==="CRM" && <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto"
+            variant={level==="operation"?"default":"outline"}
+            aria-pressed={level==="operation"} onClick={() => setLevel("operation")}>Jornada prática CRM</Button>}
         </nav>
         <div className="rounded-md border p-3 text-sm leading-relaxed text-muted-foreground">
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
@@ -308,7 +310,13 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
           <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} />
-          {modules.length===0 && <p role="status" className="text-sm text-muted-foreground">Nenhum módulo encontrado com esse filtro.</p>}
+          {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
+            {catalog.length===0
+              ? "Nenhum módulo identificado no catálogo deste recorte. Não comprova ausência de módulos na organização."
+              : search.trim()
+                ? "Nenhum módulo corresponde à busca atual. Altere ou limpe o termo para consultar os módulos identificados."
+                : "Nenhum módulo disponível no recorte consultado. Consulte as fontes antes de concluir ausência de cadastro."}
+          </p>}
         </Card>
       )}
 
@@ -399,8 +407,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   aria-pressed={moduleSection===item.id}
                   aria-controls="nucleo-module-section-content"
                   className={`min-w-0 rounded-md border px-3 py-3 text-left min-h-[70px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${moduleSection===item.id?"border-primary bg-primary/5 shadow-sm":"border-border bg-background hover:bg-muted/60"}`}>
-                  <span className="block text-sm font-semibold">{item.label}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">{item.hint}</span>
+                  <span className="block text-sm font-semibold leading-snug">{item.label}</span>
+                  <span className="mt-1 block text-sm leading-snug text-muted-foreground">{item.hint}</span>
                 </button>
               ))}
             </nav>

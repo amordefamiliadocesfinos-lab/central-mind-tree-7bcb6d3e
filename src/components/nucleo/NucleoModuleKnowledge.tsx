@@ -233,16 +233,16 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
         <p className="text-xs text-muted-foreground">
           Modelo local é proposta de consulta; registro no Core é uma revisão com autoria. Nenhum dos dois equivale a homologação.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {coverage.map(entry => (
             <button type="button" key={entry.code}
               aria-pressed={section === entry.code}
               disabled={saving}
               onClick={() => changeSection(entry.code)}
-              className={`rounded-md border p-2 text-left text-xs space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
+              className={`min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
               <span className="block text-muted-foreground">
-                {loading ? "Registro: consultando" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro"}
+                {loading ? "Core: consultando" : error ? "Core: leitura indisponível" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro neste recorte"}
               </span>
               <span className="block text-muted-foreground">{entry.hasTemplate ? "Modelo disponível" : "Modelo pendente"}</span>
             </button>
@@ -296,10 +296,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
           </div>
         </details>
       )}
-      {loading&&<p role="status" className="text-xs text-muted-foreground">Consultando revisões autorizadas…</p>}
-      {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
-      {validationError&&<p role="alert" className="text-xs text-destructive">{validationError}</p>}
-      <Button type="button" size="sm" variant="outline" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
+      {loading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando revisões autorizadas…</p>}
+      {error&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+      {validationError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{validationError}</p>}
+      <Button type="button" size="sm" variant="outline" className="min-h-11" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
       {!loading&&!error&&(
         <>
           {latest?<div className="border rounded-md p-3 text-sm space-y-2">
@@ -430,7 +430,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
               <Input disabled={saving} value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
             </label>
             <p className="text-xs text-muted-foreground">A nova revisão recebe v{(latest?.version_no??0)+1}; a versão anterior permanece imutável. A aprovação normativa requer procedimento humano separado.</p>
-            <Button type="button" size="sm" disabled={saving||loading} onClick={()=>void save()}>
+            <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)} onClick={()=>void save()}>
               {saving?"Registrando…":"Registrar revisão e conferir"}
             </Button>
           </div>

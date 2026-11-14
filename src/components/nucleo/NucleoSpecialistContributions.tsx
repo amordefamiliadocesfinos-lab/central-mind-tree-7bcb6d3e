@@ -139,8 +139,9 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    <p className="rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
      Proposta ou revisão registrada não é decisão homologada. Publicação interna AC-01 não comprova atualização canônica da Ficha Viva, Drive ou GitHub.
    </p>
-   {readError&&<p role="alert" className="text-xs text-destructive">{readError}</p>}
-   <Button type="button" variant="outline" size="sm" disabled={saving||reading}
+   {reading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando contribuições autorizadas do Core…</p>}
+   {readError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{readError}</p>}
+   <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={saving||reading}
      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
    <nav className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Jornada documental do especialista">
      {AREAS.map(item=><Button key={item.id} type="button"
@@ -167,7 +168,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>
    <div id={areaId+"-contribuicoes"} hidden={area!=="contribuicoes"} className="space-y-3">
    {!reading&&!readError&&<div className="space-y-2">
-     {rows.length===0&&<p className="rounded-md border p-3 text-sm text-muted-foreground">
+     {rows.length===0&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
      </p>}
      {rows.map(item=><details key={item.id} className="rounded-md border p-3 text-xs">
@@ -177,7 +178,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        <div className="space-y-1 mt-2">
          <Badge variant="outline">{item.authority_state} — não homologado</Badge>
          <p>Papel funcional declarado: {item.specialist_role}</p>
-         <p>Origem: {item.source_kind} · identificador/localizador: {item.source_locator}</p>
+         <p className="break-all">Origem: {item.source_kind} · identificador/localizador: {item.source_locator}</p>
          <p>SHA-256 declarado: {item.source_checksum_sha256||"Não fornecido"}</p>
          <p>Registrada: {new Date(item.recorded_at).toLocaleString("pt-BR")} · autoria autenticada: {item.recorded_by_auth_uid?.slice(0,8)||"indeterminada"}…</p>
          <p className="break-words">{item.note}</p>
@@ -188,48 +189,48 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>}
    <div className="space-y-3 rounded-md bg-muted/30 p-3">
      <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
-     <label className="block text-xs space-y-1">Histórico / versão de origem
-       <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="w-full h-10 border rounded-md bg-background px-2">
+     <label className="block space-y-1 text-sm">Histórico / versão de origem
+       <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
          <option value="">Nova contribuição — v1</option>
          {latestRows.map(item=><option key={item.id} value={item.id}>{item.title} · {item.specialist_role} · v{item.version_no}</option>)}
        </select>
      </label>
      <div className="grid gap-2 sm:grid-cols-2">
-       <label className="text-xs space-y-1">Papel funcional do especialista (declarado)
-         <Input value={role} onChange={e=>setRole(e.target.value)} maxLength={180} disabled={saving}/>
+       <label className="space-y-1 text-sm">Papel funcional do especialista (declarado)
+         <Input className="min-h-11 text-sm" value={role} onChange={e=>setRole(e.target.value)} maxLength={180} disabled={saving||reading||Boolean(readError)}/>
        </label>
-       <label className="text-xs space-y-1">Tipo documental
-         <select value={kind} onChange={e=>setKind(e.target.value)} className="w-full h-10 border rounded-md bg-background px-2">
+       <label className="space-y-1 text-sm">Tipo documental
+         <select value={kind} disabled={saving||reading||Boolean(readError)} onChange={e=>setKind(e.target.value)} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
            {kinds.map(k=><option key={k} value={k}>{k}</option>)}
          </select>
        </label>
      </div>
-     <label className="block text-xs space-y-1">Título de referência
-       <Input value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} disabled={saving}/>
+     <label className="block space-y-1 text-sm">Título de referência
+       <Input className="min-h-11 text-sm" value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} disabled={saving||reading||Boolean(readError)}/>
      </label>
      <div className="grid gap-2 sm:grid-cols-2">
-       <label className="text-xs space-y-1">Origem declarada
-         <select value={sourceKind} onChange={e=>setSourceKind(e.target.value)} className="w-full h-10 border rounded-md bg-background px-2">
+       <label className="space-y-1 text-sm">Origem declarada
+         <select value={sourceKind} disabled={saving||reading||Boolean(readError)} onChange={e=>setSourceKind(e.target.value)} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
            <option value="referencia_privada">Referência privada autorizada</option>
            <option value="google_drive">Google Drive</option>
            <option value="github">GitHub</option>
          </select>
        </label>
-       <label className="text-xs space-y-1">Hash SHA-256 (se confirmado na fonte)
-         <Input value={checksum} onChange={e=>setChecksum(e.target.value)} maxLength={64} disabled={saving}/>
+       <label className="space-y-1 text-sm">Hash SHA-256 (se confirmado na fonte)
+         <Input className="min-h-11 text-sm" value={checksum} onChange={e=>setChecksum(e.target.value)} maxLength={64} disabled={saving||reading||Boolean(readError)}/>
        </label>
      </div>
-     <label className="block text-xs space-y-1">Localizador do original (não inserir senha nem conteúdo privado)
-       <Input value={locator} onChange={e=>setLocator(e.target.value)} maxLength={1500} disabled={saving}/>
+     <label className="block space-y-1 text-sm">Localizador do original (não inserir senha nem conteúdo privado)
+       <Input className="min-h-11 text-sm" value={locator} onChange={e=>setLocator(e.target.value)} maxLength={1500} disabled={saving||reading||Boolean(readError)}/>
      </label>
-     <label className="block text-xs space-y-1">Contexto e cuidados de origem
-       <Textarea value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving}/>
+     <label className="block space-y-1 text-sm">Contexto e cuidados de origem
+       <Textarea className="text-sm" value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving||reading||Boolean(readError)}/>
      </label>
      <p className="text-xs text-muted-foreground">Nova contribuição: v1/proposta. Revisão: versão incrementada pelo Core, em evolução e append-only. A comparação exibe somente metadados; homologação e alteração de vigência exigem processos separados.</p>
-     <Button type="button" size="sm" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current}>
+     <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
-     {feedback&&<p role="status" className="text-xs">{feedback}</p>}
+     {feedback&&<p role="status" className="rounded-md border p-3 text-sm">{feedback}</p>}
    </div>
    </div>
  </section>;
