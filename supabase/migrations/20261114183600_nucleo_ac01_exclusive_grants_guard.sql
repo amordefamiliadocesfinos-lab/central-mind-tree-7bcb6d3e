@@ -44,8 +44,8 @@ BEGIN
    AND prior.authority_kind=NEW.authority_kind
    AND tstzrange(prior.effective_from,
      CASE
-       WHEN prior.effective_until IS NULL THEN GREATEST(prior.effective_from,revoked.recorded_at)
        WHEN revoked.recorded_at IS NULL THEN prior.effective_until
+       WHEN prior.effective_until IS NULL THEN GREATEST(prior.effective_from,revoked.recorded_at)
        ELSE GREATEST(prior.effective_from,LEAST(prior.effective_until,revoked.recorded_at))
      END,'[)') &&
      tstzrange(NEW.effective_from,NEW.effective_until,'[)')
