@@ -68,9 +68,14 @@ BEGIN
    WHERE c.auth_user_id=auth.uid() AND c.capability='nucleo_manage'
     AND c.active AND c.revoked_at IS NULL
  ) INTO admin_ok;
- SELECT w.kind INTO module_kind FROM public.nucleo_development_workstreams w WHERE w.id=NEW.module_id;
- IF module_kind IS DISTINCT FROM 'modulo' THEN
-  RAISE EXCEPTION 'AC02: module reference must be an existing module';
+ -- Identidade de módulo verificada somente na preparação pelo gestor.
+ -- O destinatário pode não ter RLS de leitura M3; a sequência herda módulo
+ -- imutável de um evento inicial já verificado.
+ IF NEW.previous_event_id IS NULL THEN
+  SELECT w.kind INTO module_kind FROM public.nucleo_development_workstreams w WHERE w.id=NEW.module_id;
+  IF module_kind IS DISTINCT FROM 'modulo' THEN
+   RAISE EXCEPTION 'AC02: module reference must be an existing module';
+  END IF;
  END IF;
  -- Serializa evolução por package_id, impedindo dois próximos estados simultâneos.
  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.package_id::text, 3202));
