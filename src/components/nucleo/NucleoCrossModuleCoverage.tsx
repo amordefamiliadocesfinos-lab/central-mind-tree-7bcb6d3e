@@ -6,7 +6,7 @@ import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { MODULE_PROVENANCE } from "@/lib/nucleo/operationalProvenanceV12";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
 
-type Filter = "todos" | "sem_frente" | "com_frente";
+type Filter = "todos" | "precisa_reconciliar" | "somente_catalogo" | "sem_frente" | "com_frente";
 
 /**
  * Cobertura transversal M3 V1.2. Somente vínculos pai–filho do Core
@@ -14,11 +14,12 @@ type Filter = "todos" | "sem_frente" | "com_frente";
  * ausência de cadastro significa ausência de trabalho no módulo.
  */
 export default function NucleoCrossModuleCoverage({
-  modules, workstreams, onOpenModule,
+  modules, workstreams, onOpenModule, onPrepareModule,
 }:{
   modules:KnowledgeModule[];
   workstreams:DevelopmentWorkstream[];
   onOpenModule:(module:KnowledgeModule)=>void;
+  onPrepareModule:(module:KnowledgeModule)=>void;
 }) {
   const [filter,setFilter]=useState<Filter>("todos");
   const rows=modules.map(module => {
@@ -33,8 +34,12 @@ export default function NucleoCrossModuleCoverage({
     return {module,record,fronts,subfronts,provenance,candidates};
   });
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
+  const notRegistered=rows.filter(row=>!row.record).length;
+  const reconcileCount=missing+notRegistered;
   const linked=rows.filter(row=>row.fronts.length>0).length;
   const visible=rows.filter(row=>filter==="todos" ||
+    (filter==="precisa_reconciliar" && (!row.record || row.fronts.length===0)) ||
+    (filter==="somente_catalogo" && !row.record) ||
     (filter==="sem_frente" && row.record && row.fronts.length===0) ||
     (filter==="com_frente" && row.fronts.length>0));
   return (
@@ -43,7 +48,12 @@ export default function NucleoCrossModuleCoverage({
         <Badge variant="outline">{rows.filter(row=>row.record).length} módulo(s) no Core</Badge>
         <Badge variant="secondary">{linked} com frente vinculada</Badge>
         <Badge variant="outline">{missing} sem frente vinculada</Badge>
+        <Badge variant="outline">{notRegistered} somente no catálogo</Badge>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Fila de reconciliação: {reconcileCount} módulo(s) exigem conferência de cadastro ou vínculo.
+        Nenhuma ficha é criada ou homologada automaticamente. A preparação abre somente um formulário.
+      </p>
       <p className="text-xs text-muted-foreground">
         Matriz baseada nas relações M3 carregadas nesta sessão. Uma frente sem vínculo
         não significa trabalho inexistente. Referências de código e método não são
@@ -52,6 +62,10 @@ export default function NucleoCrossModuleCoverage({
       <div className="flex flex-wrap gap-2" aria-label="Filtrar cobertura">
         <Button type="button" size="sm" variant={filter==="todos"?"default":"outline"}
           aria-pressed={filter==="todos"} onClick={()=>setFilter("todos")}>Todos</Button>
+        <Button type="button" size="sm" variant={filter==="precisa_reconciliar"?"default":"outline"}
+          aria-pressed={filter==="precisa_reconciliar"} onClick={()=>setFilter("precisa_reconciliar")}>Precisa reconciliar ({reconcileCount})</Button>
+        <Button type="button" size="sm" variant={filter==="somente_catalogo"?"default":"outline"}
+          aria-pressed={filter==="somente_catalogo"} onClick={()=>setFilter("somente_catalogo")}>Sem cadastro M3 ({notRegistered})</Button>
         <Button type="button" size="sm" variant={filter==="sem_frente"?"default":"outline"}
           aria-pressed={filter==="sem_frente"} onClick={()=>setFilter("sem_frente")}>Sem frente vinculada</Button>
         <Button type="button" size="sm" variant={filter==="com_frente"?"default":"outline"}
@@ -63,7 +77,7 @@ export default function NucleoCrossModuleCoverage({
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <span className="font-mono text-xs text-muted-foreground">{module.id}</span>
               <Badge variant={fronts.length>0?"secondary":"outline"}>
-                {record ? fronts.length>0?"Vínculo M3 existente":"Vínculo M3 pendente":"Cadastro M3 não encontrado"}
+                {record ? fronts.length>0?"Com frente vinculada":"Cadastro sem frente":"Somente no catálogo"}
               </Badge>
             </div>
             <h4 className="text-sm font-semibold">{module.name}</h4>
@@ -112,9 +126,14 @@ export default function NucleoCrossModuleCoverage({
             <p className="text-xs line-clamp-3" title={record?.next_action||undefined}>
               Próxima ação declarada: {record?.next_action.trim() || "não informada"}
             </p>
-            <Button type="button" variant="outline" size="sm" onClick={()=>onOpenModule(module)}>
-              Abrir módulo, frentes e fontes
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={()=>onOpenModule(module)}>
+                Abrir módulo e fontes
+              </Button>
+              {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
+                Preparar cadastro M3
+              </Button>}
+            </div>
           </article>
         ))}
       </div>
