@@ -57,6 +57,34 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM='TEST FAIL: admin impersonated recipient' THEN RAISE; END IF;
  END;
+ -- Expiração antecipada não pode ser registrada como fato.
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  SELECT package_id,package_version,package_sha256,module_id,specialist_role_code,
+    recipient_kind,recipient_auth_uid,'expirado',id,'declaracao_gestor',
+    source_ref,expires_at,gen_random_uuid(),auth.uid()
+  FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-3333-4333-8333-333333333333';
+  RAISE EXCEPTION 'TEST FAIL: premature expiry';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: premature expiry' THEN RAISE; END IF;
+ END;
+ -- Hash/versão devem permanecer imutáveis na cadeia.
+ BEGIN
+  INSERT INTO public.nucleo_ac02_handoff_events
+  (package_id,package_version,package_sha256,module_id,specialist_role_code,
+   recipient_kind,recipient_auth_uid,event_kind,previous_event_id,evidence_class,
+   source_ref,expires_at,request_id,actor_auth_uid)
+  SELECT package_id,package_version,repeat('b',64),module_id,specialist_role_code,
+    recipient_kind,recipient_auth_uid,'falha',id,'declaracao_gestor',
+    source_ref,expires_at,gen_random_uuid(),auth.uid()
+  FROM public.nucleo_ac02_handoff_events WHERE id='aaaaaaaa-3333-4333-8333-333333333333';
+  RAISE EXCEPTION 'TEST FAIL: hash mutation';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM='TEST FAIL: hash mutation' THEN RAISE; END IF;
+ END;
  -- Append-only: nem administrador pode reescrever o primeiro evento.
  BEGIN
   UPDATE public.nucleo_ac02_handoff_events SET event_kind='aceito'
