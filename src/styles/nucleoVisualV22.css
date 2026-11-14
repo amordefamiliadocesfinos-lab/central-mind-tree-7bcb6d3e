@@ -13,6 +13,65 @@
   color: var(--nucleo-text);
   font-size: 14px;
 }
+/* Componentes M3 anteriores à identidade visual: estilização via wrapper,
+ * para NÃO modificar handlers, testes ou governança do supervisor M5. */
+.nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child {
+  border: 1px solid #d2e3fc;
+  border-radius: 20px;
+  background: linear-gradient(115deg, #e8f0fe, #f7faff 64%, #fff);
+  padding: 16px;
+}
+.nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child h2 {
+  color: #202124;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child button {
+  border: 1px solid #1a73e8;
+  border-radius: 999px;
+  min-height: 44px;
+  background: #1a73e8;
+  color: #fff;
+}
+.nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child button:hover {
+  background: #185abc;
+}
+.nucleo-v22 #nucleo-m3-create-module,
+.nucleo-v22 #nucleo-m3-workstream-detail {
+  border: 1px solid #dce5f1;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 9px 24px -20px rgba(46,76,124,.28);
+}
+.nucleo-v22 [aria-label="Modo de visualização"] {
+  border: 1px solid #dce5f1;
+  border-radius: 999px;
+  background: #f5f9ff;
+  padding: 6px;
+}
+.nucleo-v22 [aria-label="Modo de visualização"] button {
+  min-height: 40px;
+  border-radius: 999px;
+}
+.nucleo-v22 [aria-label="Modo de visualização"] button[aria-pressed="true"] {
+  border-color: #1a73e8;
+  background: #1a73e8;
+  color: white;
+}
+.nucleo-v22 [aria-label="Lista compacta de frentes"] button[aria-pressed="true"] {
+  background: #e8f0fe;
+  box-shadow: inset 0 0 0 1px #8ab4f8;
+}
+.nucleo-v22 [aria-label="Lista compacta de frentes"] button[aria-pressed="false"] {
+  background: #fff;
+}
+.nucleo-v22 input[placeholder^="Filtrar código"] {
+  border: 1px solid #d2e3fc;
+  border-radius: 999px;
+  background: white;
+  min-height: 42px;
+}
+
 .nucleo-v22 .nucleo-v22-banner {
   border: 1px solid #d2e3fc;
   border-radius: 22px;
@@ -167,3 +226,15 @@
 .dark .nucleo-v22 .nucleo-v22-status-tile[data-state="concluido"] { border-left-color: #34a853; }
 .dark .nucleo-v22 :is(.nucleo-v22-card-hover,.nucleo-v22-area-card)[aria-pressed="true"] { background: #173966; }
 .dark .nucleo-v22 .nucleo-v22-guard { background: #493614; color: #ffecbc; border-color: #91712b; }
+
+.dark .nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child {
+  background: linear-gradient(110deg,#122c4e,#1b273b);
+  border-color: #38516f;
+}
+.dark .nucleo-v22 > [aria-label="Central Visual de Desenvolvimento"] > div:first-child h2 {
+  color: #eff6ff;
+}
+.dark .nucleo-v22 :is(#nucleo-m3-create-module,#nucleo-m3-workstream-detail) {
+  background: #18263b;
+  border-color: #38516f;
+}
