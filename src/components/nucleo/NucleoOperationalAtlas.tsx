@@ -55,6 +55,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const [crmJourneyMode, setCrmJourneyMode] = useState<"gestor"|"operador">("operador");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
   const [knowledgeOpen,setKnowledgeOpen]=useState(false);
+  // UX-A3B: montar painéis documentais somente após visita e preservá-los
+  // quando o gestor alternar entre Especialistas e Conhecimento no mesmo módulo.
+  const [specialistVisited,setSpecialistVisited]=useState(false);
+  const [knowledgeVisited,setKnowledgeVisited]=useState(false);
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
   // observadas e mantém entradas ainda não catalogadas como não verificadas.
   // Novos módulos M3 aparecem aqui sem alterações de código.
@@ -161,13 +165,19 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setCrmJourneyMode("operador");
       setEvidenceFrontId(null);
       setKnowledgeOpen(false);
+      setSpecialistVisited(false);
+      setKnowledgeVisited(false);
     }
     setSelectedId(item.id);
     setLevel("module");
   };
   const selectModuleArea = (area: ModuleSection) => {
     setModuleSection(area);
-    if (area === "conhecimento") setKnowledgeOpen(true);
+    if (area === "especialista") setSpecialistVisited(true);
+    if (area === "conhecimento") {
+      setKnowledgeVisited(true);
+      setKnowledgeOpen(true);
+    }
     setEvidenceFrontId(null);
     requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
   };
@@ -421,8 +431,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 <p className="text-xs text-muted-foreground">{selected.source}</p>}
             </div>
           </div>}
-          {moduleSection==="especialista" && selectedRecord && (
-            <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
+          {selectedRecord && (moduleSection==="especialista" || specialistVisited) && (
+            <section hidden={moduleSection!=="especialista"} className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
               <div className="space-y-1">
                 <h4 className="text-sm font-semibold">Especialista, método e frentes vinculadas</h4>
                 <p className="text-xs text-muted-foreground">
@@ -455,9 +465,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   declarado, sem atribuir mandato ao autor nem homologar documento. Comparação de versões
                   e preparação de refinamento ficam no histórico FM existente.
                 </p>
-                <Button type="button" size="sm" variant="outline" onClick={()=>{
-                  setModuleSection("conhecimento");setKnowledgeOpen(true);
-                }}>Consultar versões e registrar rascunho</Button>
+                <Button type="button" size="sm" variant="outline"
+                  onClick={() => selectModuleArea("conhecimento")}>
+                  Consultar versões e registrar rascunho
+                </Button>
               </div>
               <NucleoMandateRegistry modules={[selectedRecord]} />
               <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
@@ -617,14 +628,30 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 )) : <p className="text-xs text-muted-foreground">Nenhuma frente vinculada ao módulo no Core foi encontrada nesta sessão.</p>}
               </div>
           )}
-          {moduleSection==="conhecimento" && selectedRecord && <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">As seções FM distinguem modelos locais de versões efetivamente gravadas no Core. Referências históricas não se tornam vigentes automaticamente.</p>
-            <Button type="button" variant="outline" size="sm" aria-expanded={knowledgeOpen}
-              onClick={()=>setKnowledgeOpen(open=>!open)}>
-              {knowledgeOpen?"Ocultar Ficha Viva":"Abrir Ficha Viva FM-01–FM-10"}
-            </Button>
-            {knowledgeOpen && <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
-          </div>}
+          {selectedRecord && (moduleSection==="conhecimento" || knowledgeVisited) && (
+            <div hidden={moduleSection!=="conhecimento"} className="space-y-3">
+              <p className="text-sm text-muted-foreground">As seções FM distinguem modelos locais de versões efetivamente gravadas no Core. Referências históricas não se tornam vigentes automaticamente.</p>
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Contribuições e governança AC-01</p>
+                  <p className="text-xs text-muted-foreground">O especialista mantém propostas, revisões, solicitações e decisões em consulta separada da Ficha Viva. Nenhuma aprovação é inferida.</p>
+                </div>
+                <Button type="button" size="sm" variant="outline"
+                  onClick={() => selectModuleArea("especialista")}>
+                  Consultar ciclo AC-01 do especialista
+                </Button>
+              </div>
+              <Button type="button" variant="outline" size="sm" aria-expanded={knowledgeOpen}
+                onClick={()=>setKnowledgeOpen(open=>!open)}>
+                {knowledgeOpen?"Ocultar Ficha Viva":"Abrir Ficha Viva FM-01–FM-10"}
+              </Button>
+              {knowledgeVisited && (
+                <div hidden={!knowledgeOpen}>
+                  <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>
+                </div>
+              )}
+            </div>
+          )}
           {moduleSection==="conhecimento" && selected.id!=="CRM" && <NucleoModuleDiscovery
             key={selected.id+"-conhecimento"} module={selected} mode="conhecimento" isRegistered={Boolean(selectedRecord)}/>}
           {moduleSection==="conhecimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
