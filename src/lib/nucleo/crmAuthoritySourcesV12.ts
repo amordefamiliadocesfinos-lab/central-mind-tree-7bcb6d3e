@@ -60,9 +60,52 @@ export const CRM_AUTHORITY_SOURCES_V12:CrmAuthoritySource[]=[
     authorityScope:"Prioridade de atendimento, separada de Resultado, próxima ação, etapa e tarefa",
     reconciliation:"Confirmação de comportamento em uso real permanece independente."},
 ];
+/**
+ * Checkpoints posteriores com texto efetivamente consultado na Biblioteca e
+ * verificações de PR na main. Não substitui nem reclassifica os originais.
+ */
+export const CRM_CONTINUITY_CHECKPOINTS_V12=[
+  {
+    id:"CRM-ESTADO-V1.2",date:"14/10/2026",
+    title:"Estado CRM V1.2 — revisão de continuidade preparada",
+    originalFile:"PCL-MST-ESTADO-CRM-V1.2.txt",
+    sourceLocation:"Biblioteca pessoal — original, preservar metadados e versão",
+    state:"PREPARADO PARA PUBLICAÇÃO / NÃO VIGENTE ATÉ SUBSTITUIÇÃO CONTROLADA",
+    evidence:"O cabeçalho afirma que V1.2 substitui V1.1 somente quando publicada. Preserva 33 Resultados, 19 Próximas Ações e a separação entre Resultado, Etapa, Próxima Ação e Estado operacional.",
+    action:"Conferir a publicação autorizada e o exemplar V1.1 na origem antes de registrar qualquer substituição. A existência da V1.2 na Biblioteca não comprova vigência.",
+  },
+  {
+    id:"CRM-UX-02",date:"16/10/2026",
+    title:"Checkpoint CRM–UX02: A3.1 + B3.1-A",
+    originalFile:"docs/crm/CRM_UX_02_MAPA_EXECUCAO_A31_B31A.md",
+    sourceLocation:"GitHub main — checkpoint técnico",
+    state:"8/8 incrementos integrados segundo mapa; UAT autenticada pendente",
+    evidence:"PRs #296 e #297 integradas com CI. Edição protegida, escritor canônico e apresentação responsiva descritos no mapa; CI não prova operação real.",
+    action:"Conservar separação entre método CRM e execução UX; não encerrar piloto ou remover editores por mera aprovação técnica.",
+  },
+  {
+    id:"CRM-SUCESSAO-04-11",date:"04/11/2026",
+    title:"Adendo de sucessão CRM 7 → CRM 8",
+    originalFile:"PCL-MST-ESTADO-CRM-V1.2.txt — adendo 04/11/2026",
+    sourceLocation:"Biblioteca pessoal — adendo preparado, não publicado",
+    state:"CHECKPOINT DE SUCESSÃO PREPARADO; NÃO CERTIFICA MANDATO ATUAL",
+    evidence:"O texto registra CRM 7 como origem e CRM 8 como sucessor designado no repasse, com missão de continuidade da correção de reaberturas artificiais da fila P0. PR #411 merged em 04/11, SHA 5f178ac08ea5fa39f5870efd3dbe0f0e1c2846f0; PR #412 merged, SHA c5b86f4bcec8c2e4143690b49b0393120f11edee. Consulta de GitHub confirmou os merges.",
+    action:"Conferir com a Camada Mestre a assunção efetiva, mandato e versão de método; não tomar o repasse como certificação nem transformar relatos de deploy em inspeção de runtime.",
+  },
+  {
+    id:"CRM-411-OPERACIONAL",date:"04/11/2026",
+    title:"Correção preventiva de eventos Meta e filas CRM",
+    originalFile:"https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/411",
+    sourceLocation:"GitHub — PR conferida; adendo de sucessão como checkpoint",
+    state:"MERGE COMPROVADO; DEPLOY RELATADO NO ADENDO, NÃO RECONFIRMADO",
+    evidence:"Evita classificar reações, duplicatas e replays como novos inbounds operacionais; ordenação por timestamp e proteção de estados. A PR #412 reverte alteração incidental de plano, não a #411.",
+    action:"Pendentes segundo o adendo: reconciliação controlada dos seis casos históricos e observação de novos eventos legítimos; exigem especialista CRM e autorização própria, fora da escrita do Núcleo.",
+  },
+] as const;
 export const CRM_SPECIALIST_CA17 = {
   functionalRole:"Especialista CRM — papel funcional persistente",
-  historicalTechnicalRole:"CRM 7 — referência no checkpoint CRM UX02 de 16/10/2026",
-  activeMandate:"não certificado no Core",
-  nextGate:"Confrontar transferência e decisão formal do responsável com mapa e método contemporâneos. Não certificar pelo nome do chat.",
+  historicalTechnicalRole:"CRM 7 — responsável técnico do checkpoint CRM UX02, em 16/10/2026",
+  successionRecord:"CRM 7 → CRM 8 — repasse descrito em 04/11/2026, em adendo preparado e não publicado",
+  activeMandate:"não certificado no Core; sucessão documental não equivale a mandato efetivo",
+  nextGate:"Confirmar decisão/mandato atual com Camada Mestre e origem competente, mantendo histórico CRM 7, adendo V1.2 não vigente e evidências reais distintas de merge/CI.",
 };

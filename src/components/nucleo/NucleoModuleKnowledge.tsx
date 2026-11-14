@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRAFTS, CAPTURA_DRAFTS, ROTINA_DRAFTS, DIGITAL_DRAFTS, ASSISTENTE_DRAFTS } from "@/lib/nucleo/operationalDraftsV12";
-import { CRM_AUTHORITY_SOURCES_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
+import { CRM_AUTHORITY_SOURCES_V12, CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -240,10 +240,27 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode}:{moduleId:st
               </div>
             ))}
           </div>
+          <div className="rounded border p-3 text-xs space-y-2" aria-label="Checkpoints posteriores CRM">
+            <p className="font-semibold">Checkpoints posteriores — continuidade com estado documental explícito</p>
+            <p className="text-muted-foreground">
+              Fontes posteriores não substituem automaticamente os nove grupos originais.
+              V1.2 está preparada, não vigente; repasse CRM 7 → CRM 8 não é mandato certificado.
+            </p>
+            {CRM_CONTINUITY_CHECKPOINTS_V12.map(item=>(
+              <div key={item.id} className="rounded border p-2 space-y-1">
+                <p className="font-semibold">{item.date} · {item.title}</p>
+                <p>Estado: {item.state}</p>
+                <p className="text-muted-foreground">{item.evidence}</p>
+                <p className="text-muted-foreground">Próxima conciliação: {item.action}</p>
+                <p className="break-all text-muted-foreground">Origem: {item.sourceLocation} / {item.originalFile}</p>
+              </div>
+            ))}
+          </div>
           <div className="rounded border p-2 text-xs space-y-1">
             <p className="font-semibold">Especialista — CA-17</p>
             <p>{CRM_SPECIALIST_CA17.functionalRole}</p>
             <p>Referência técnica histórica: {CRM_SPECIALIST_CA17.historicalTechnicalRole}</p>
+            <p>Sucessão documentada: {CRM_SPECIALIST_CA17.successionRecord}</p>
             <p>Mandato atual: {CRM_SPECIALIST_CA17.activeMandate}</p>
             <p className="text-muted-foreground">Próximo gate: {CRM_SPECIALIST_CA17.nextGate}</p>
           </div>
