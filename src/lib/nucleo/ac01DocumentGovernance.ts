@@ -99,3 +99,15 @@ export function declaredAuthorityCoverage(
   !!byId.get(g.mandate_record_id) &&
   isActiveCertifiedMandate(byId.get(g.mandate_record_id)!,mandates,now));
 }
+
+/** Procedimento previsto, NÃO substitui autorização humana nem habilita escrita. */
+export const AC01_AUTHORITY_PROCEDURE = [
+ {code:"01",step:"Certificação",detail:"Camada Mestre confirma a pessoa, especialidade, categoria e fonte de autoridade; registra ato de certificação de mandato com prova verificável no contrato vigente."},
+ {code:"02",step:"Delegação",detail:"Ato próprio com autor concedente, delegado humano, escopo por módulo/papel/tipo, fonte, referência da decisão, início e fim; acesso ao Núcleo não confere competência substantiva."},
+ {code:"03",step:"Revisão independente",detail:"Autor e revisor registram originais, diferenças e justificativas; a solicitação de decisão aponta uma revisão específica e não equivale a aprovação."},
+ {code:"04",step:"Decisão competente",detail:"Decisor autenticado, distinto do proponente e solicitante, confere mandato/delegação vigentes; registra ato e prova sem atualizar referência automaticamente."},
+ {code:"05",step:"Publicação controlada",detail:"Executor humano distinto do autor e decisor confirma alvo canônico, versão anterior, permissões de origem, ato aprovado e CAS/transação; lê de volta o destino e mantém histórico."},
+ {code:"06",step:"Revogação / suspensão",detail:"Registrar revogação explícita, motivo, autor competente, data e escopo; cancelar acesso decisório antes da próxima execução. O ledger AC-01 atual NÃO possui evento autônomo de revogação de delegação: portão de ativação permanece fechado até contrato de revogação implementado/testado."},
+ {code:"07",step:"Substituição",detail:"Revogar competência anterior e certificar substituto com prova e prazo, checar sobreposição; nenhum sucessor herda automaticamente grants, credenciais, sessões ou atos. Conservar originais e histórico."},
+ {code:"08",step:"Homologação posterior",detail:"Ensaios autorizados com pessoa real: positivo, negativo, revogado, duplicado, concorrência, rollback/readback, origem externa, desktop/mobile. Não tratar CI isolado como UAT."},
+] as const;
