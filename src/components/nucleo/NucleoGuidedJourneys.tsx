@@ -9,11 +9,23 @@ import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 
 /** Navegador de conhecimento local. Nenhum checkbox de conclusão, writer ou telemetria. */
-export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule}){
+export type GuidedJourneyRequest={journeyId:string;controlLabel:string;requestId:number};
+export default function NucleoGuidedJourneys({module,request}: {
+ module:KnowledgeModule;request?:GuidedJourneyRequest|null;
+}){
   const journeys=MODULE_JOURNEYS_V12[module.id]??[];
   const [activeJourney,setActiveJourney]=useState<string|null>(null);
   const [activeIndex,setActiveIndex]=useState(0);
   useEffect(()=>{setActiveJourney(null);setActiveIndex(0);},[module.id]);
+  useEffect(()=>{
+    if(!request)return;
+    const found=journeys.find(item=>item.id===request.journeyId);
+    const index=found?.steps.findIndex(step=>step.controlLabel===request.controlLabel)??-1;
+    if(index<0)return;
+    setActiveJourney(found!.id);
+    setActiveIndex(index);
+  },[request,module.id]);
+
   if(journeys.length===0)return null;
   const selected=journeys.find(item=>item.id===activeJourney)??null;
   const step=selected?.steps[activeIndex];
