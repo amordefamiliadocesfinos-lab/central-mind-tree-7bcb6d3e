@@ -7,6 +7,8 @@ on:
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/components/nucleo/NucleoPanoramaDinV30.tsx"
+      - "src/lib/nucleo/progressMetricsV30.ts"
+      - "scripts/nucleo-ux-din03-metrics.test.cjs"
       - "scripts/nucleo-ux-din01-02.test.cjs"
       - "scripts/nucleo-ux-v26-resume.test.cjs"
       - "scripts/nucleo-ux-a1-v23-context-guard.test.cjs"
@@ -112,4 +114,6 @@ jobs:
         run: node scripts/nucleo-ux-v26-resume.test.cjs
       - name: Verify UX-DIN-01/02 dynamic panorama and focused filters
         run: node scripts/nucleo-ux-din01-02.test.cjs
+      - name: Verify UX-DIN-03 computed M3 coverage
+        run: node scripts/nucleo-ux-din03-metrics.test.cjs
       - run: npm run build
