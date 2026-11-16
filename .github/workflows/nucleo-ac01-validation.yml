@@ -15,6 +15,9 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/components/nucleo/NucleoAC01VerifiedDecisionLinks.tsx"
+      - "src/lib/nucleo/ac01VerifiedLinksV13.ts"
+      - "scripts/nucleo-ac01-verified-links.test.cjs"
       - "src/lib/nucleo/ac01PostReviewEvidenceV13.ts"
       - "scripts/nucleo-ac01-postreview-evidence.test.cjs"
       - "src/lib/nucleo/ac01PendingReviewGuidanceV13.ts"
@@ -223,4 +226,6 @@ jobs:
         run: node scripts/nucleo-ac01-pending-review-bridge.test.cjs
       - name: Verify AC01 post-review evidence is not proof of resolution
         run: node scripts/nucleo-ac01-postreview-evidence.test.cjs
+      - name: Verify AC01 actual decision ID links and pending resolution
+        run: node scripts/nucleo-ac01-verified-links.test.cjs
       - run: npm run build
