@@ -38,4 +38,8 @@ for(const [src,needle,why] of [
  [journeys,'CRM:[{',"Existing CRM operator tasks reused"]
 ])assert(src.includes(needle),why);
 assert(!a.includes('setKnowledgeOpen(true);setLevel("module");'),"Prevent regressed unreachable FM");
+// UX/UI 3: navegar entre etapas precisa transferir o foco ao conteúdo novo.
+assert(g.includes('const stepHeadingRef=useRef<HTMLHeadingElement|null>(null)'),"Step heading focus ref");
+assert(g.includes('stepHeadingRef.current?.focus()'),"Step navigation moves keyboard/screen reader focus");
+assert(g.includes('ref={stepHeadingRef} tabIndex={-1}'),"Step heading accepts programmatic focus");
 console.log("UX A+ CRM: module > screens > controls > procedure > specialist > knowledge > development > M4 PASS");
