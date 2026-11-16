@@ -13,6 +13,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
       - "src/pages/Nucleo.tsx"
+      - "src/components/nucleo/NucleoAc02ContinuityRead.tsx"
+      - "scripts/nucleo-ac02-continuity-ui.test.cjs"
       - "scripts/nucleo-ux-v25-core-local-clarity.test.cjs"
       - "src/lib/nucleo/ac01DocumentGovernance.ts"
       - "src/lib/nucleo/ac02RegistryContract.ts"
@@ -164,6 +166,7 @@ jobs:
       - run: node scripts/nucleo-ac01-document-governance.test.cjs
       - run: node scripts/nucleo-ac02-registry.test.cjs
       - run: node scripts/nucleo-ac02-authenticated-read.test.cjs
+      - run: node scripts/nucleo-ac02-continuity-ui.test.cjs
       - run: node scripts/nucleo-ac02-handoff-evidence.test.cjs
       - run: node scripts/nucleo-ac02-continuity-summary.test.cjs
       - run: node scripts/nucleo-ac02-documentary-coverage.test.cjs
