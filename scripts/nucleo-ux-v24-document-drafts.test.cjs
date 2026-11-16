@@ -51,7 +51,7 @@ for(const token of [
  'window.localStorage.setItem(key,witness?JSON.stringify(witness):"pending")',
  'const blocked=raw!==null',
  'window.localStorage.removeItem(key)',
- 'setState({ready:false,blocked:true})',
+ 'setState({ready:false,blocked:true,witness:null})',
  'if(!key||!state.ready||state.blocked)return false',
  'event==="SIGNED_OUT"',
 ])assert(fence.includes(token),"Trava persistente incompleta: "+token);
