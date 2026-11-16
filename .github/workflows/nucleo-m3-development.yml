@@ -6,6 +6,7 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "scripts/nucleo-ux-din05-execution.test.cjs"
       - "src/components/nucleo/NucleoPanoramaDinV30.tsx"
       - "src/components/nucleo/NucleoFocusPreviewV30.tsx"
       - "scripts/nucleo-ux-din04-preview.test.cjs"
@@ -120,4 +121,6 @@ jobs:
         run: node scripts/nucleo-ux-din03-metrics.test.cjs
       - name: Verify UX-DIN-04 contextual preview
         run: node scripts/nucleo-ux-din04-preview.test.cjs
+      - name: Verify UX-DIN-05 progressive execution
+        run: node scripts/nucleo-ux-din05-execution.test.cjs
       - run: npm run build
