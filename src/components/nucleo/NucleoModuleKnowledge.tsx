@@ -123,6 +123,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [source,setSource]=useState("");
   const [saving,setSaving]=useState(false);
   const [writeUncertain,setWriteUncertain]=useState(false);
+  const [reconciliationNotice,setReconciliationNotice]=useState("");
   const pendingAttemptRef=useRef<PendingFmAttempt|null>(null);
   const [m4FrontId,setM4FrontId]=useState<string|null>(null);
   const [compareOlderId,setCompareOlderId]=useState("");
@@ -164,7 +165,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               pendingAttemptRef.current=null;
               setWriteUncertain(false);
               setTitle("");setBody("");setSource("");setValidationError(null);
-              setError("Revisão anteriormente enviada localizada e integralmente conferida no histórico. Não reenviar.");
+              setReconciliationNotice("Revisão anteriormente enviada localizada e integralmente conferida no histórico. Não reenviar.");
             }else if(sameVersion.length>0){
               setError("A versão esperada foi localizada, mas os dados divergem da tentativa. Estado indeterminado; não reenviar.");
             }else{
@@ -254,7 +255,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     if(cleanTitle.length<3||cleanTitle.length>180||cleanBody.length<10||cleanBody.length>12000||cleanSource.length>1500){
       setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
     }
-    setSaving(true);setError(null);setValidationError(null);
+    setSaving(true);setError(null);setReconciliationNotice("");setValidationError(null);
     // Snapshot imutável para impedir que edições ocorridas durante o envio
     // sejam confundidas com a revisão confirmada pelo Core.
     const version=(latest?.version_no??0)+1;
@@ -485,6 +486,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           </div>
         </details>
       )}
+      {reconciliationNotice&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">{reconciliationNotice}</p>}
       {writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         Gravação anterior indeterminada. Atualize o histórico para conferir a versão; não repita o registro nem altere a seção antes da reconciliação.
       </p>}
