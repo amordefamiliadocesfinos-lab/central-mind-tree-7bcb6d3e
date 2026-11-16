@@ -8,6 +8,8 @@ import { MODULE_CONTROLS_V12 } from "./moduleControlDiscoveriesV12";
 import { MODULE_JOURNEYS_V12 } from "./moduleJourneysV12";
 import { MODULE_ORIGINAL_SOURCES_V12 } from "./moduleOriginalSourcesV12";
 import { MODULE_PROVENANCE } from "./operationalProvenanceV12";
+import { CRM_CONTINUITY_CHECKPOINTS_V12 } from "./crmAuthoritySourcesV12";
+import { CRM_DRAFTS } from "./operationalDraftsV12";
 
 export type FmEvidenceSection="FM-01"|"FM-02"|"FM-03"|"FM-04"|"FM-05"|"FM-06"|"FM-07"|"FM-08"|"FM-09"|"FM-10";
 export type FmEvidenceLink=Readonly<{
@@ -63,6 +65,21 @@ export function fmLinkedEvidence(moduleCode:string,section:FmEvidenceSection):re
     ...originals.map(item=>documented("authority:"+item.id,item.title,
       item.authorityScope+" · "+item.sourceStatus,item.archive+" / "+item.originalFile)),
   ];
+  case "FM-09":return moduleCode==="CRM"
+    ?CRM_CONTINUITY_CHECKPOINTS_V12.map(item=>documented(
+      "checkpoint:"+item.id,item.title,
+      item.date+" · Estado documental: "+item.state+" · "+item.evidence+
+       " · Conferir: "+item.action,
+      item.sourceLocation+" / "+item.originalFile,
+    ))
+    :[];
+  case "FM-10":return moduleCode==="CRM"&&CRM_DRAFTS["FM-10"]
+    ?[documented("learning:crm-local-proposal",
+      "Aprendizagem CRM — proposta local ainda não homologada",
+      "Fonte de aprendizagem proposta: "+CRM_DRAFTS["FM-10"].title+
+      ". A existência do modelo não comprova aprendizado registrado em operação.",
+      CRM_DRAFTS["FM-10"].source)]
+    :[];
   default:return [];
  }
 }
