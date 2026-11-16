@@ -35,4 +35,17 @@ assert(src.includes('onClick={() => selectModuleArea("conhecimento")}'),"Bidirec
 const continuation=fs.readFileSync("src/components/nucleo/NucleoAc02ContinuityRead.tsx","utf8");
 assert(continuation.includes('status:"rascunho_nao_homologado"'),"No automatic assumption acceptance");
 assert(continuation.includes('include_assumption_export:true'),"Use existing protected AC02 contract");
+for(const term of [
+ 'const specialistRole = selectedRecord?.specialist.trim() || ""',
+ 'moduleWork.filter(item => item.specialist.trim() === specialistRole)',
+ 'const specialistPending = specialistWork.filter(item => item.status !== "concluido")',
+ 'Pendências e evidências do papel declarado',
+ 'specialistPending.filter(item=>item.evidence_state!=="comprovada")',
+ 'events\n    .filter(event => specialistWork.some(item => item.id === event.workstream_id))',
+ 'não localizado nos 200 eventos globais carregados',
+ 'item.blocker.trim()||"Não registrado"',
+ 'item.next_action.trim()||"Não registrada"',
+ 'onClick={()=>onSelectWorkstream(item.id)}',
+ 'onClick={()=>selectModuleArea("desenvolvimento")}',
+])assert(src.includes(term),"Specialist M3 continuity contract missing: "+term);
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");
