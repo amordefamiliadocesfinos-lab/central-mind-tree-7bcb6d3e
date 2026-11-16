@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  CRM_ACTIONS, CRM_JOURNEY, CRM_REFERENCE, CRM_SCREENS, MODULES_V12,
+  CRM_ACTIONS, CRM_JOURNEY, CRM_REFERENCE, MODULES_V12,
   type KnowledgeModule,
 } from "@/lib/nucleo/operationalKnowledgeV12";
 
@@ -678,7 +678,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               )}
             </div>
           )}
-          {moduleSection==="conhecimento" && selected.id!=="CRM" && <NucleoModuleDiscovery
+          {moduleSection==="conhecimento" && <NucleoModuleDiscovery
             key={selected.id+"-conhecimento"} module={selected} mode="conhecimento" isRegistered={Boolean(selectedRecord)}/>}
           {moduleSection==="conhecimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
             Módulo identificado em fontes, mas não cadastrado no Core M3 nesta leitura; Ficha Viva ainda não comprovada.
@@ -689,8 +689,6 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           {moduleSection==="desenvolvimento" && !selectedRecord && <p className="rounded-md border p-3 text-sm text-muted-foreground">
             Não há cadastro M3 visível nesta leitura; isso não equivale a ausência de desenvolvimento nas fontes.
           </p>}
-          {moduleSection==="funcoes" && selected.id!=="CRM" && <NucleoModuleDiscovery
-            key={selected.id+"-funcoes"} module={selected} mode="funcoes" isRegistered={Boolean(selectedRecord)}/>}
           {moduleSection==="funcoes" && (selected.id==="CRM" ? (
             <>
               <div className="rounded-md border p-3 space-y-1 text-xs">
@@ -701,24 +699,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   Consultar fonte documental original
                 </a>
               </div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Mapa de telas comprovadas no repositório</h4>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {CRM_SCREENS.map(screen=>(
-                    <div key={screen.route} className="rounded-md border p-3 space-y-2 text-xs">
-                      <p className="font-medium">{screen.label}</p>
-                      <code className="text-muted-foreground">{screen.route}</code>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" asChild><Link to={screen.route}>Abrir tela</Link></Button>
-                        <a href={screen.source} target="_blank" rel="noopener noreferrer" className="underline self-center">Código</a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <NucleoModuleDiscovery key={selected.id+"-funcoes"}
+                module={selected} mode="funcoes" isRegistered={Boolean(selectedRecord)}/>
               <Button size="sm" onClick={()=>setLevel("operation")}><BookOpen className="h-4 w-4 mr-1.5" /> Ver como operar e comprovar</Button>
             </>
-          ) : null)}
+          ) : <NucleoModuleDiscovery key={selected.id+"-funcoes"}
+            module={selected} mode="funcoes" isRegistered={Boolean(selectedRecord)}/>)}
           </div>
         </Card>
       )}
