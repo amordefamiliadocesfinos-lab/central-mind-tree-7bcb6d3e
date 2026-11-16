@@ -16,6 +16,7 @@ import { projectFm09Continuity } from "@/lib/nucleo/fmContinuityV13";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import {usePendingWriteFence} from "@/lib/nucleo/pendingWriteFenceV1";
+import {makeWitness,witnessFieldsFm} from "@/lib/nucleo/writeRecoveryWitnessV1";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -126,6 +127,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [saving,setSaving]=useState(false);
   const [writeUncertain,setWriteUncertain]=useState(false);
   const [reconciliationNotice,setReconciliationNotice]=useState("");
+  const [recovering,setRecovering]=useState(false);
   const pendingAttemptRef=useRef<PendingFmAttempt|null>(null);
   const [m4FrontId,setM4FrontId]=useState<string|null>(null);
   const [compareOlderId,setCompareOlderId]=useState("");
@@ -257,18 +259,21 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     if(cleanTitle.length<3||cleanTitle.length>180||cleanBody.length<10||cleanBody.length>12000||cleanSource.length>1500){
       setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
     }
-    if(!fence.markStarted()){
-      setError("Não foi possível proteger a tentativa nesta sessão. Nenhum registro foi enviado.");
-      return;
-    }
     setSaving(true);setError(null);setReconciliationNotice("");setValidationError(null);
-    // Snapshot imutável para impedir que edições ocorridas durante o envio
-    // sejam confundidas com a revisão confirmada pelo Core.
+    // Snapshot imutável e testemunho salgado são preparados ANTES do INSERT.
     const version=(latest?.version_no??0)+1;
     const attempt:PendingFmAttempt={moduleId,sectionCode:section,versionNo:version,
       title:cleanTitle,body:cleanBody,sourceReference:cleanSource};
-    pendingAttemptRef.current=attempt;
     try {
+      const fields=witnessFieldsFm({module_id:moduleId,section_code:section,version_no:version,
+        title:cleanTitle,body:cleanBody,source_reference:cleanSource,
+        authority_state:"rascunho",evidence_level:"declarado"});
+      const witness=await makeWitness("fm",moduleId,fields,{section,version});
+      if(!fence.markStarted(witness)){
+        setError("Não foi possível proteger a tentativa nesta sessão. Nenhum registro foi enviado.");
+        return;
+      }
+      pendingAttemptRef.current=attempt;
       const result=await client.from("nucleo_module_knowledge_revisions").insert({
         module_id:moduleId,section_code:section,version_no:version,title:cleanTitle,body:cleanBody,
         source_reference:cleanSource,authority_state:"rascunho",evidence_level:"declarado",
@@ -301,6 +306,33 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     } finally {
       setSaving(false);
     }
+  };
+  const recoverPersistent=async()=>{
+    if(!fence.ready||!fence.blocked||!fence.witness||saving||loading||recovering)return;
+    const witness=fence.witness;
+    if(witness.kind!=="fm"||witness.moduleId!==moduleId)return;
+    setRecovering(true);setError(null);
+    try{
+      const result=await client.from("nucleo_module_knowledge_revisions").select("*")
+        .eq("module_id",moduleId).eq("section_code",witness.section as FMSection)
+        .eq("version_no",witness.version as number).limit(2);
+      if(result.error||!result.data||result.data.length!==1){
+        setError("Reconciliação FM inconclusiva: leitura falhou ou a versão não é única. Bloqueio preservado.");
+        return;
+      }
+      const row=result.data[0];
+      if(!await fence.verifyAndClear(witnessFieldsFm(row),
+        {section:row.section_code,version:row.version_no})){
+        setError("Registro localizado, mas sua impressão criptográfica não corresponde à tentativa. Bloqueio preservado.");
+        return;
+      }
+      setWriteUncertain(false);pendingAttemptRef.current=null;
+      setTitle("");setBody("");setSource("");setValidationError(null);
+      setReconciliationNotice("Revisão anterior conferida integralmente no Core. Trava local liberada; não reenviar a tentativa anterior.");
+      setReload(n=>n+1);
+    }catch{
+      setError("Falha na consulta de reconciliação FM. Bloqueio preservado.");
+    }finally{setRecovering(false);}
   };
   return (
     <Card className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Ficha Viva do módulo">
@@ -499,6 +531,13 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
       )}
       {reconciliationNotice&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">{reconciliationNotice}</p>}
       {fence.blocked&&!writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Tentativa pendente identificada nesta sessão ou após recarregamento. Sem o conteúdo original em memória, a liberação automática não é segura. Confira o Core com a governança antes de qualquer nova gravação.</p>}
+      {fence.blocked&&<div className="space-y-2">
+        <p className="text-xs text-muted-foreground">{fence.witness
+          ?"Existe uma prova técnica sem conteúdo da minuta para conferência no Core. A liberação exige correspondência integral."
+          :"Trava antiga sem testemunho técnico, ou sessão não verificada: não há evidência suficiente para liberação automática. Encaminhe à governança."}</p>
+        {fence.witness&&<Button type="button" size="sm" variant="outline" disabled={recovering||saving||loading}
+          onClick={()=>void recoverPersistent()}>{recovering?"Conferindo no Core…":"Reconciliar trava FM com o Core"}</Button>}
+      </div>}
       {writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         Gravação anterior indeterminada. Atualize o histórico para conferir a versão; não repita o registro nem altere a seção antes da reconciliação.
       </p>}
