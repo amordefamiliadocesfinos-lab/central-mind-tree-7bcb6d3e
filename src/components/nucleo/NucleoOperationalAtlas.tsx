@@ -75,6 +75,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const [specialistPanel,setSpecialistPanel]=useState<"papel"|"mandato"|"continuidade"|"documentos">("papel");
   const [specialistPanelVisited,setSpecialistPanelVisited]=useState<Array<"mandato"|"continuidade"|"documentos">>([]);
   const [ac01Request,setAc01Request]=useState<{stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico";seq:number}|null>(null);
+  const [fmSectionRequest,setFmSectionRequest]=useState<{section:"FM-09";seq:number}|null>(null);
   const openSpecialistPanel=(id:"papel"|"mandato"|"continuidade"|"documentos")=>{
     setSpecialistPanel(id);
     if(id!=="papel")setSpecialistPanelVisited(current=>current.includes(id)?current:[...current,id]);
@@ -217,6 +218,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setSpecialistPanel("papel");
       setSpecialistPanelVisited([]);
       setAc01Request(null);
+      setFmSectionRequest(null);
       setKnowledgeVisited(false);
     }
     setSelectedId(item.id);
@@ -238,6 +240,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
   };
 
+  const openFm09Continuity=()=>{
+    setFmSectionRequest(previous=>({section:"FM-09",seq:(previous?.seq??0)+1}));
+    selectModuleArea("conhecimento");
+  };
   const openAc01FromFm=(stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico")=>{
     if(fmDraftState.busy||specialistDraftState.busy){
       window.alert("Gravação em andamento ou estado indeterminado; reconcilie antes de navegar.");
@@ -703,6 +709,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               </div>
             </section>
           )}
+          {moduleSection==="desenvolvimento" && selectedRecord && <div className="rounded-md border p-3 flex flex-wrap gap-2 items-center justify-between">
+            <p className="text-xs text-muted-foreground">Confronte as frentes M3 com a evolução FM-09 registrada e seus limites documentais.</p>
+            <Button type="button" size="sm" variant="outline" onClick={openFm09Continuity}>
+              Consultar evolução e conhecimento FM-09
+            </Button>
+          </div>}
           {moduleSection==="desenvolvimento" && selectedRecord &&
             <NucleoExecutiveDevelopment workstreams={workstreams} dependencies={dependencies}
               events={events} moduleId={selectedRecord.id} onOpenWorkstream={onSelectWorkstream}/>}
@@ -856,6 +868,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
                     workstreams={workstreams} events={events}
                     onOpenAc01Stage={openAc01FromFm}
+                    onOpenWorkstream={onSelectWorkstream}
+                    requestedSection={fmSectionRequest}
                     onDraftStateChange={setFmDraftState}/>
                 </div>
               )}
