@@ -12,6 +12,7 @@ import {
 } from "@/lib/nucleo/ac01DocumentGovernance";
 import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01FmSourceMatchV13";
 import { buildAc01FmLineage } from "@/lib/nucleo/ac01FmLineageV13";
+import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS } from "@/lib/nucleo/ac01ConsolidationQueueV13";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -108,6 +109,8 @@ export default function NucleoAC01DocumentGovernance({
   })().catch(()=>{if(mounted){setError("Falha ao ler governança; nenhum estado anterior foi reutilizado.");setLoading(false);}});
   return()=>{mounted=false};
  },[moduleId,contributions,refresh]);
+ const queue=useMemo(()=>!loading&&!error?buildAc01ConsolidationQueue(contributions,reqs,decisions,publications,fm):[],
+  [loading,error,contributions,reqs,decisions,publications,fm]);
  const view=useMemo(()=>buildAc01DocumentView(contributions,reqs,decisions,publications),
   [contributions,reqs,decisions,publications]);
  const matches=(c:Ac01Record)=>(
@@ -201,6 +204,35 @@ export default function NucleoAC01DocumentGovernance({
     {visibleEvolving.map(c=>renderRecord(c))}
     {visibleEvolving.length===0&&<p className="text-xs text-muted-foreground">Sem revisões em evolução no filtro.</p>}
    </div>}
+   {tab==="decisao"&&<section className="rounded-md border p-3 space-y-2"
+      aria-label="Fila consultiva de consolidação documental CA-26 e CA-28">
+      <h5 className="text-sm font-semibold">Pendências para consolidação assistida</h5>
+      <p className="text-xs text-muted-foreground">
+        Visão derivada do mesmo recorte AC-01 e FM já consultado. Sem ato decisório,
+        publicação ou consolidação automática. Ausência de pendência neste recorte
+        não comprova homologação ou completude histórica.
+      </p>
+      <p className="text-xs">Cadeias documentais: {queue.length} · com pendências: {queue.filter(item=>item.issues.length>0).length}</p>
+      {queue.length===0&&<p role="status" className="text-xs text-muted-foreground">
+        Nenhuma contribuição registrada neste recorte. Documentos externos não foram inspecionados.
+      </p>}
+      {queue.filter(item=>category==="todas"||item.kind===category)
+        .filter(item=>!declaredRole||item.role===declaredRole)
+        .filter(item=>!query.trim()||[item.title,item.role,item.kind]
+          .some(value=>value.toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"))))
+        .map(item=><article key={item.lineageId} className="rounded border p-2 text-xs space-y-2">
+          <div className="flex flex-wrap justify-between gap-2">
+            <p className="font-semibold">{item.title} · v{item.version} · {item.kind}</p>
+            <Badge variant="outline">{item.status==="exige_conciliacao"?"Conciliação necessária":"Revisão humana necessária"}</Badge>
+          </div>
+          <p>{item.matchedFm} referência(s) FM com localizador textualmente idêntico, sem vínculo canônico.</p>
+          {item.issues.map(issue=><p key={issue} className="text-muted-foreground">Pendência: {AC01_QUEUE_ISSUE_LABELS[issue]}</p>)}
+          <Button size="sm" type="button" variant="outline"
+            onClick={()=>setSelectedId(item.contributionId)}>
+            Examinar linhagem no AC-01
+          </Button>
+        </article>)}
+    </section>}
    {tab==="decisao"&&<div className="space-y-2">
     {pending.map(r=><div key={r.id} className="rounded border p-3 text-xs">
      <strong>{r.contribution?.title} · pedido de {r.requested_outcome.replaceAll("_"," ")}</strong>
