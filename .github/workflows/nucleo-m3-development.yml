@@ -34,6 +34,8 @@ on:
       - "src/lib/nucleo/operationalProvenanceV12.ts"
       - "src/lib/nucleo/knowledgeArchiveSourcesV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
+      - "src/lib/nucleo/fmLinkedEvidenceV13.ts"
+      - "scripts/nucleo-fm-linked-evidence.test.cjs"
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
       - "scripts/nucleo-ux-a-plus-ac01-flow.test.cjs"
@@ -156,4 +158,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-cross-module.test.cjs
       - name: Verify UX A+ location and keyboard progress semantics
         run: node scripts/nucleo-ux-a-plus-final-a11y.test.cjs
+      - name: Verify FM linked evidence contract
+        run: node scripts/nucleo-fm-linked-evidence.test.cjs
       - run: npm run build
