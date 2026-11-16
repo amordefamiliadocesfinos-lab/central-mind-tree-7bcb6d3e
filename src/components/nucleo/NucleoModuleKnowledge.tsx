@@ -90,12 +90,17 @@ function SourceReferences({reference}:{reference:string}) {
 
 
 type DraftState={dirty:boolean;busy:boolean};
-export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events,onOpenAc01Stage}:{
+export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events,onOpenAc01Stage,onOpenWorkstream,requestedSection}:{
   moduleId:string;moduleCode:string;onDraftStateChange?:(value:DraftState)=>void;
   workstreams?:readonly DevelopmentWorkstream[];events?:readonly DevelopmentEvent[];
   onOpenAc01Stage?:(stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico")=>void;
+  onOpenWorkstream?:(id:string)=>void;
+  requestedSection?:{section:FMSection;seq:number}|null;
 }) {
   const [section,setSection]=useState<FMSection>("FM-01");
+  useEffect(()=>{
+    if(requestedSection?.section)setSection(requestedSection.section);
+  },[requestedSection?.seq,requestedSection?.section]);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -356,6 +361,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
                 <Badge variant="outline">Prova declarada: {front.evidenceState.replaceAll("_"," ")}</Badge>
               </div>
               <p className="text-xs text-muted-foreground">Próxima ação: {front.nextAction||"não declarada"}</p>
+              {onOpenWorkstream&&<Button type="button" size="sm" variant="outline"
+                onClick={()=>onOpenWorkstream(front.id)}>
+                Abrir ficha M3 desta frente
+              </Button>}
               <Button type="button" size="sm" variant="outline"
                 aria-expanded={m4FrontId===front.id}
                 onClick={()=>setM4FrontId(id=>id===front.id?null:front.id)}>
