@@ -16,6 +16,7 @@ import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS } from "@/lib/nucl
 import { prepareAc01AssistedComparison } from "@/lib/nucleo/ac01AssistedComparisonV13";
 import { deriveAc01ReviewCriteria } from "@/lib/nucleo/ac01ReviewCriteriaV13";
 import { prepareAc01HumanReviewBrief } from "@/lib/nucleo/ac01HumanReviewBriefV13";
+import NucleoAC01ReviewContinuityRead from "@/components/nucleo/NucleoAC01ReviewContinuityRead";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -64,6 +65,7 @@ export default function NucleoAC01DocumentGovernance({
  const [targetId,setTargetId]=useState("");
  const [fm,setFm]=useState<Ac01FM[]>([]);
  const [selectedId,setSelectedId]=useState("");
+ const [reviewHistoryOpen,setReviewHistoryOpen]=useState(false);
  useEffect(()=>{
   let mounted=true;
   setLoading(true);setError("");setSnapshotAt("");
@@ -147,7 +149,7 @@ export default function NucleoAC01DocumentGovernance({
  const lineage=selected?buildAc01FmLineage(selected,contributions,reqs,decisions,publications,fm):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
-  onClick={()=>setSelectedId(c.id)}
+  onClick={()=>{setSelectedId(c.id);setReviewHistoryOpen(false);}}
   aria-pressed={selectedId===c.id}
   className={"nucleo-v22-card-hover text-left rounded-md border p-3 text-sm hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring "+(selectedId===c.id?"nucleo-v22-selected":"")}>
    <div className="flex flex-wrap items-center gap-2"><strong>{c.title}</strong><Badge variant="outline">v{c.version_no}</Badge></div>
@@ -418,6 +420,22 @@ export default function NucleoAC01DocumentGovernance({
        </div>
        <p className="font-medium">Consolidação e publicação continuam bloqueadas: este painel não registra aceite nem executa escrita.</p>
      </section>}
+     <div className="rounded-md border p-3 space-y-2">
+       <div className="flex flex-wrap items-center justify-between gap-2">
+         <p className="text-sm font-semibold">Continuidade da revisão independente</p>
+         <Button type="button" size="sm" variant="outline"
+           aria-expanded={reviewHistoryOpen}
+           onClick={()=>setReviewHistoryOpen(open=>!open)}>
+           {reviewHistoryOpen?"Ocultar histórico de revisão":"Consultar trilha de revisão AC-01"}
+         </Button>
+       </div>
+       <p className="text-xs text-muted-foreground">
+         Consulte os eventos reais da contribuição selecionada. Nenhum comentário,
+         pedido de refinamento, minuta ou encaminhamento equivale a decisão ou publicação.
+       </p>
+       {reviewHistoryOpen&&<NucleoAC01ReviewContinuityRead
+         key={selected.id} moduleId={moduleId} contributionId={selected.id}/>}
+     </div>
      {reviewBrief&&<details className="rounded-md border p-3 space-y-3"
        aria-label="Preparação do repasse para revisão humana AC-01">
        <summary className="cursor-pointer font-semibold">
