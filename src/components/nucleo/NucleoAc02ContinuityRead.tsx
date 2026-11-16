@@ -110,3 +110,4 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode}:{
    </p>}
   </div>}
  </section>;
+}
