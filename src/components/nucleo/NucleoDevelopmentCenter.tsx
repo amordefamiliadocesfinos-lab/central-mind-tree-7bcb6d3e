@@ -66,6 +66,7 @@ export default function NucleoDevelopmentCenter() {
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState(false);
+  const [lastReadAt,setLastReadAt] = useState<string|null>(null);
   const [items, setItems] = useState<DevelopmentWorkstream[]>([]);
   const [dependencies, setDependencies] = useState<DevelopmentDependency[]>([]);
   const [history, setHistory] = useState<DevelopmentEvent[]>([]);
@@ -103,6 +104,7 @@ export default function NucleoDevelopmentCenter() {
     ]);
     if (fronts.error || links.error || events.error) {
       setReadError(true);
+      setLastReadAt(null);
       // Não apresentar um snapshot anterior como se fosse leitura M3 atual.
       setItems([]);
       setDependencies([]);
@@ -112,6 +114,7 @@ export default function NucleoDevelopmentCenter() {
       toast.error("Leitura M3 indisponível. Nenhum estado anterior foi reutilizado.");
     } else {
       setReadError(false);
+      setLastReadAt(new Date().toISOString());
       setItems(fronts.data ?? []);
       setDependencies(links.data ?? []);
       setHistory(events.data ?? []);
@@ -415,6 +418,9 @@ export default function NucleoDevelopmentCenter() {
             <p className="mt-1 text-sm text-[#3c4043] dark:text-slate-200">
               Resumo do Core M3 e da navegação deste navegador. Não indica homologação, vigência nem publicação.
             </p>
+            <p className="mt-2 text-xs text-[#5f6368] dark:text-slate-300">
+              Última leitura M3 nesta sessão: {lastReadAt ? new Date(lastReadAt).toLocaleString("pt-BR") : "não verificada"}.
+            </p>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
@@ -445,7 +451,7 @@ export default function NucleoDevelopmentCenter() {
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="Situação das frentes registradas no Core">
               <h4 className="text-sm font-semibold">O que precisa de atenção</h4>
               <p className="mt-1 text-sm text-muted-foreground">Frentes e subfrentes M3 carregadas, sem módulos-raiz. Não é inventário global.</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <button type="button" aria-label="Ver frentes: Bloqueadas"
                   onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-rose-200 bg-rose-50 p-3 text-center transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 dark:border-rose-800 dark:bg-rose-950/20">
@@ -626,12 +632,6 @@ export default function NucleoDevelopmentCenter() {
           </p>}
       </section>
 
-      {attentionStatus && (
-        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] px-3 py-2 text-sm text-[#174ea6] dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
-          <span>Filtro de situação: <strong>{states.find(item=>item.key===attentionStatus)?.label}</strong></span>
-          <Button type="button" size="sm" variant="outline" className="min-h-9 rounded-full" onClick={()=>setAttentionStatus(null)}>Mostrar todas as situações</Button>
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
         <div>
           <p className="text-sm font-semibold">Supervisão de dependências</p>
@@ -645,7 +645,11 @@ export default function NucleoDevelopmentCenter() {
         {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
       </div>
 
-      <Card className="p-3 space-y-2">
+      <details className="rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+        <summary className="min-h-10 cursor-pointer rounded-lg px-2 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">
+          Explorar árvore completa de módulos e frentes
+        </summary>
+        <Card className="mt-3 space-y-2 p-3">
         <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
         <p className="text-xs text-muted-foreground">
           Identidade numerada e relações pai–filho preservadas. Selecione qualquer item para abrir a ficha.
@@ -672,7 +676,8 @@ export default function NucleoDevelopmentCenter() {
           </div>
         ))}
         {!loading && !items.length && <p className="text-xs text-muted-foreground">Nenhuma frente cadastrada.</p>}
-      </Card>
+        </Card>
+      </details>
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -695,7 +700,7 @@ export default function NucleoDevelopmentCenter() {
             </Button>
           </div>
         </div>
-        <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {states.map(state => (
             <div className="border rounded-lg p-3" key={state.key}>
               <p className="text-xs text-muted-foreground">{state.label}</p>
