@@ -25,7 +25,7 @@ for(const [part,why] of [
 ['setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("bloqueado");setWorkspaceView("frentes")',"Blocked shortcut"],
 ['setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("em_validacao");setWorkspaceView("frentes")',"Validation shortcut"],
 ['setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("em_andamento");setWorkspaceView("frentes")',"Progress shortcut"],
-['onClick={()=>setAttentionStatus(null)}>Mostrar todas as situações',"Clear state"],
+['Limpar foco',"Clear state through unified focus controls"],
 ['allOperationalVisible.filter(item => item.status === state.key).length',"Unfiltered totals"],
 ['if (!choose(item.id)) return;',"List cancellation guard"],
 ['if (!choose(root.id)) return;',"Root guard"],
