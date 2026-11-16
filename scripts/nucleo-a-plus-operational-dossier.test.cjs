@@ -28,6 +28,8 @@ for(const id of ["CRM-ESTADO","CRM-05.03","CRM-PROCESSO","CRM-09.01","CRM-09.02"
  assert(authority.includes('id:"'+id+'"'),"Original authority index missing: "+id);
 // Never add an implicit writer, UAT approval, copied body or raw-document migration.
 assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(discovery),"Discovery must remain read-only");
+assert(original.includes("OPE:[{"),"Segundo módulo deve reutilizar o índice documental");
+assert(original.includes("OPERACOES_ORIGINAL_RECOVERED"),"Operações deve referenciar original inspecionado, não copiar método");
 assert(discovery.includes("não autorizam") && discovery.includes("sem cópia do original"),"Original authority must stay conservative");
 assert(journeys.includes("não executa")||journeys.includes("não envia comando"),"Guided journeys cannot perform writes");
 for(const key of ['FIN:[{','OPE:[{','ROT:[{','CAP:[{'])assert(journeys.includes(key),"Reuse already available for "+key);
