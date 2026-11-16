@@ -15,6 +15,8 @@ for(const [part,why] of [
 ["item.specialist.trim()===specialistFocus","Specialist recorte"],
 ["onChange={e=>setModuleFocusId(e.target.value)}","Module selector"],
 ["onChange={e=>setSpecialistFocus(e.target.value)}","Specialist selector"],
+["onChange={e=>setAttentionStatus(e.target.value?(e.target.value as DevelopmentStatus):null)}","Situation selector"],
+["const [supervisionVisited,setSupervisionVisited] = useState(false)","Supervision retained when collapsed"],
 ["Limpar foco","Focus has clear action"],
 ["role=\"status\"","Active focus announced"],
 ["setExecutiveVisited(true);setExecutiveExpanded(v=>!v);","Executive details progressive"],
