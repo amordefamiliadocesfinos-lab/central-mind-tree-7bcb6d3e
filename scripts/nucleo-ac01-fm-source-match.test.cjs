@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const ts=require("typescript");
+const path="src/lib/nucleo/ac01FmSourceMatchV13.ts";
+const source=fs.readFileSync(path,"utf8");
+const js=ts.transpileModule(source,{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(js.diagnostics?.filter(d=>d.category===ts.DiagnosticCategory.Error).length??0,0);
+const mod={exports:{}};
+new Function("module","exports",js.outputText)(mod,mod.exports);
+const {compareAc01FmSource,assessAc01FmCandidates}=mod.exports;
+const contribution={module_id:"crm",source_locator:"docs/crm/source.md"};
+const base={id:"fm1",module_id:"crm",section_code:"FM-08",version_no:1,source_reference:"docs/old.md; docs/crm/source.md",authority_state:"rascunho"};
+assert.equal(compareAc01FmSource(contribution,base),"localizador_identico");
+assert.equal(compareAc01FmSource(contribution,{...base,source_reference:"docs/crm/source.md-other"}),"localizador_divergente");
+assert.equal(compareAc01FmSource(contribution,{...base,source_reference:""}),"referencia_insuficiente");
+assert.equal(compareAc01FmSource({...contribution,source_locator:""},base),"referencia_insuficiente");
+assert.equal(compareAc01FmSource(contribution,{...base,module_id:"other"}),"localizador_divergente");
+assert.equal(compareAc01FmSource(contribution,{...base,source_reference:"DOCS/CRM/SOURCE.MD"}),"localizador_divergente");
+assert.deepEqual(assessAc01FmCandidates(contribution,[base,{...base,id:"other",module_id:"other"}]).map(x=>x.fm.id),["fm1"]);
+const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
+assert(ui.includes("assessAc01FmCandidates(selected,fm)"),"UI must filter by module");
+assert(ui.includes("compareAc01FmSource(selected,selectedFM)"),"Selected target must be reconciled");
+assert(ui.includes("vínculo NÃO comprovado"),"UI must not certify textual match");
+assert(ui.includes('preview.action'),"Read-only publication gate preserved");
+assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(source),"pure compare must never mutate");
+console.log("AC01↔FM: exact declared locator matching, no cross-module linkage, no authority elevation");
