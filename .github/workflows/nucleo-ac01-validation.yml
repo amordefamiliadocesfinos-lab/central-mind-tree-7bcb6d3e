@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01FmSourceMatchV13.ts"
+      - "scripts/nucleo-ac01-fm-source-match.test.cjs"
       - "src/pages/Nucleo.tsx"
       - "src/components/nucleo/NucleoAc02ContinuityRead.tsx"
       - "scripts/nucleo-ac02-continuity-ui.test.cjs"
@@ -186,4 +188,6 @@ jobs:
         run: node scripts/nucleo-ux-v25-core-local-clarity.test.cjs
       - name: Verify Ficha Viva to AC01 contextual workflow
         run: node scripts/nucleo-fm-ac01-navigation.test.cjs
+      - name: Verify AC01 to FM source-reconciliation contract
+        run: node scripts/nucleo-ac01-fm-source-match.test.cjs
       - run: npm run build
