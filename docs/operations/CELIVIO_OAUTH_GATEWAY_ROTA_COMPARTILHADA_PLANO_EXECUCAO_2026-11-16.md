@@ -71,9 +71,11 @@ Somente preparação e testes de código. Nenhuma API config nova, alteração n
 ### Evidência já comprovada pelo operador no Cloud Shell
 - Código oficial revisado `6d09394a77d6` (PR #896).
 - Imagem construída `southamerica-east1-docker.pkg.dev/painel-central-integration-hub/cloud-run-source-deploy/integration-hub:celivio-gateway-6d09394a77d6`; digest registrado na saída Cloud Build; usar digest verificado, não uma tag mutável, na operação futura.
-- Revisão candidata `integration-hub-00262-yvl`, tag `celivio-gateway-validacao`, 0% do tráfego principal; proxy autenticado testado: GET `/health` → HTTP 200; GET `/shopee/live/oauth/celivio/start` → HTTP 503 com flag OFF.
+- Revisão candidata `integration-hub-00262-vuy`, tag `celivio-gateway-validacao`, 0% do tráfego principal; proxy autenticado testado: GET `/health` → HTTP 200; GET `/shopee/live/oauth/celivio/start` → HTTP 503 com flag OFF.
 - Principal `integration-hub-00257-fus` com 100%; `shopee-adao-intake-v1` PAUSED. Gateway API config `oauth-f6q3b-6a1a4b33` permanece ACTIVE; proposta local `/tmp/celivio-gateway/celivio-proposta.yaml` gerada com 11 linhas adicionadas e nenhuma removida; 4 testes Python e 33 OAuth Node aprovados.
 - CI global de PR #896 com `hub-node22-and-container` e `core-and-cycle-postgres` SUCCESS; `logistics-typescript` FAILURE decorrente de diagnósticos nos módulos Núcleo e Saúde, sem erro registrado nos arquivos da Integração. Não declarar CI geral verde.
+
+**Correção de evidência:** captura Cloud Shell posterior confirmou a candidata `integration-hub-00262-vuy` (não `00262-yvl`), com tag `celivio-gateway-validacao`, tráfego 0%; a revisão principal permaneceu `00257-fus`, 100%. Preferir a leitura dinâmica do nome pela tag em consultas futuras.
 
 ### Comando de conferência SOMENTE LEITURA — executar no Cloud Shell
 Não revelar nomes de secret versions, tokens, valores de env ou dados privados. O script abaixo imprime apenas inventário de *nomes* de variáveis, mudanças por categoria (sem valores) e campos operacionais não sensíveis:
@@ -84,7 +86,7 @@ PROJECT=painel-central-integration-hub
 REGION=southamerica-east1
 SERVICE=integration-hub
 MAIN=integration-hub-00257-fus
-CANDIDATE=integration-hub-00262-yvl
+CANDIDATE=integration-hub-00262-vuy
 mkdir -p /tmp/celivio-promotion
 
 gcloud run revisions describe "$MAIN" --project="$PROJECT" --region="$REGION" \
@@ -108,7 +110,7 @@ primary=[x for x in traffic if x.get('percent',0)>0]
 if len(primary)!=1 or primary[0].get('percent')!=100 or primary[0].get('revisionName')!='integration-hub-00257-fus':
     raise SystemExit('BLOQUEADO: revisão principal não corresponde ao checkpoint')
 tag=[x for x in traffic if x.get('tag')=='celivio-gateway-validacao']
-if len(tag)!=1 or tag[0].get('revisionName')!='integration-hub-00262-yvl' or tag[0].get('percent',0)!=0:
+if len(tag)!=1 or tag[0].get('revisionName')!='integration-hub-00262-vuy' or tag[0].get('percent',0)!=0:
     raise SystemExit('BLOQUEADO: tag de validação divergente')
 def container(x):
     containers=x.get('spec',{}).get('containers') or []
@@ -118,7 +120,7 @@ def env(x):
     return {e['name']:e for e in container(x).get('env',[])}
 a,b=env(m),env(c)
 print('MAIN: integration-hub-00257-fus | 100%')
-print('CANDIDATE: integration-hub-00262-yvl | 0%')
+print('CANDIDATE: integration-hub-00262-vuy | 0%')
 print('NOMES_ENV_ADICIONADOS:', ', '.join(sorted(set(b)-set(a))) or 'nenhum')
 print('NOMES_ENV_REMOVIDOS:', ', '.join(sorted(set(a)-set(b))) or 'nenhum')
 print('NOMES_ENV_COM_CONFIG_DIFERENTE:', ', '.join(sorted(k for k in set(a)&set(b) if a[k]!=b[k])) or 'nenhum')
