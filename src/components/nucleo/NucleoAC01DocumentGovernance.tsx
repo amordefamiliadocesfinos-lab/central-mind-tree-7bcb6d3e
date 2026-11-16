@@ -38,9 +38,11 @@ const CAP=180;
  * Não inventar estado de vigente quando contratos estiverem vazios ou incompletos.
  */
 export default function NucleoAC01DocumentGovernance({
- moduleId,moduleName,declaredRole,contributions,readAt,
-}:{moduleId:string;moduleName:string;declaredRole:string;contributions:Ac01Record[];readAt:string}) {
+ moduleId,moduleName,declaredRole,contributions,readAt,requestedTab,
+}:{moduleId:string;moduleName:string;declaredRole:string;contributions:Ac01Record[];readAt:string;
+ requestedTab?:{key:Tab;seq:number}|null}) {
  const [tab,setTab]=useState<Tab>("vigente");
+ useEffect(()=>{if(requestedTab)setTab(requestedTab.key);},[requestedTab]);
  const [query,setQuery]=useState("");
  const [category,setCategory]=useState("todas");
  const [refresh,setRefresh]=useState(0);
