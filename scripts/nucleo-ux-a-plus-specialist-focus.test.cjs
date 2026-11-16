@@ -110,4 +110,19 @@ assert.deepEqual(simulateReference({target:"rev2",parentId:"",dirty:false,uncert
  "Resultado indeterminado impede troca de origem");
 assert.deepEqual(simulateReference({target:"rev2",parentId:"rev2",dirty:true}).calls,[],
  "Retorno à mesma referência preserva contexto");
+// Reconsulta AC-01: não converter recorte incompleto em versão excluída.
+for(const term of [
+ 'const referenceMissing=Boolean(parentId&&!reading&&!readError&&!parent)',
+ 'if(saving||reading||readError||uncertainRef.current||referenceMissing)return;',
+ 'disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}',
+ 'A versão de origem selecionada está aguardando reconsulta completa.',
+ 'A versão de origem selecionada não foi localizada na leitura atual.',
+ 'Não inferir exclusão.',
+])assert(contributions.includes(term),"Reconsulta AC-01 não protege referência: "+term);
+const missing=(parentId,reading,readError,found)=>Boolean(parentId&&!reading&&!readError&&!found);
+assert.equal(missing("v1",true,"",false),false,"Durante consulta: ausência é indeterminada");
+assert.equal(missing("v1",false,"Falha",false),false,"Falha de leitura não certifica versão ausente");
+assert.equal(missing("v1",false,"",false),true,"Leitura completa sem referência bloqueia registro");
+assert.equal(missing("v1",false,"",true),false,"Versão presente continua válida");
+assert.equal(missing("",false,"",false),false,"Nova proposta não exige versão anterior");
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");

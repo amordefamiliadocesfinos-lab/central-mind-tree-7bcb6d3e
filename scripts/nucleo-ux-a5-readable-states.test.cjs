@@ -20,7 +20,7 @@ has(c,'{rows.length===0&&<p role="status"',"AC01 no rows after read");
 has(c,"min-h-11 w-full whitespace-normal sm:w-auto","Mobile action");
 has(c,'disabled={saving||reading||Boolean(readError)}',"Prevent form entry without read");
 has(c,'className="break-all">Origem:',"Long reference");
-has(c,'disabled={reading||Boolean(readError)||saving||uncertainRef.current}',"AC01 original gate");
+has(c,'disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}',"AC01 original gate, including reference not found in complete read");
 has(c,'check.data.authority_state!==(parent?"em_evolucao":"proposta")',"AC01 original authority");
 has(f,'authority_state:"rascunho"',"FM original authority");
 has(f,'.eq("id",result.data.id).maybeSingle()',"FM readback");

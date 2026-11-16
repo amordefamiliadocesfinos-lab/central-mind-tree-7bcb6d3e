@@ -130,12 +130,15 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    setFeedback("");
  };
  const parent=rows.find(item=>item.id===parentId);
+ // O ID da versão escolhida pode deixar de constar no recorte após reconsulta.
+ // Não inferir que a ausência é exclusão, nem permitir registro pela origem antiga.
+ const referenceMissing=Boolean(parentId&&!reading&&!readError&&!parent);
  const latestByLineage=new Map<string,RecordRow>();
  for(const item of rows){const latest=latestByLineage.get(item.lineage_id);if(!latest||item.version_no>latest.version_no)latestByLineage.set(item.lineage_id,item);}
  const latestRows=[...latestByLineage.values()].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
  const compareFields:[string,keyof RecordRow][]=[["Título","title"],["Localizador","source_locator"],["Origem","source_kind"],["SHA-256","source_checksum_sha256"],["Observação","note"]];
  const submit=async()=>{
-   if(saving||reading||readError||uncertainRef.current)return;
+   if(saving||reading||readError||uncertainRef.current||referenceMissing)return;
    const cleanRole=role.trim(),cleanTitle=title.trim(),cleanSource=locator.trim(),cleanNote=note.trim();
    if(cleanRole.length<3||cleanRole.length>180||cleanTitle.length<3||cleanTitle.length>180||
      cleanSource.length<8||cleanSource.length>1500||cleanNote.length>2000||
@@ -241,6 +244,13 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    {feedback&&<p role={uncertainRef.current?"alert":"status"} className="rounded-md border p-3 text-sm">{feedback}</p>}
    {reading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando contribuições autorizadas do Core…</p>}
    {readError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{readError}</p>}
+   {parentId&&(reading||Boolean(readError))&&<p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+     A versão de origem selecionada está aguardando reconsulta completa. A minuta foi preservada, mas nenhuma nova revisão deve ser registrada antes da conferência.
+   </p>}
+   {referenceMissing&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+     A versão de origem selecionada não foi localizada na leitura atual. Não inferir exclusão. Preserve a minuta e selecione uma origem válida antes de registrar outra revisão.
+   </p>}
+
    <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={saving||reading}
      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
    <nav aria-label="Ciclo documental AC-01 — atalhos" className="rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] p-3 dark:border-blue-900 dark:bg-blue-950/20">
@@ -347,7 +357,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        <Textarea className="text-sm" value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving||reading||Boolean(readError)}/>
      </label>
      <p className="text-xs text-muted-foreground">Nova contribuição: v1/proposta. Revisão: versão incrementada pelo Core, em evolução e append-only. A comparação exibe somente metadados; homologação e alteração de vigência exigem processos separados.</p>
-     <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current}>
+     <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
 
