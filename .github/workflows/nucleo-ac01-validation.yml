@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01ConsolidationQueueV13.ts"
+      - "scripts/nucleo-ac01-consolidation-queue.test.cjs"
       - "src/lib/nucleo/ac01FmLineageV13.ts"
       - "scripts/nucleo-ac01-fm-lineage.test.cjs"
       - "src/lib/nucleo/ac01FmSourceMatchV13.ts"
@@ -194,4 +196,6 @@ jobs:
         run: node scripts/nucleo-ac01-fm-source-match.test.cjs
       - name: Verify AC01 version-to-decision lineage and FM candidates
         run: node scripts/nucleo-ac01-fm-lineage.test.cjs
+      - name: Verify AC01 governed consolidation queue
+        run: node scripts/nucleo-ac01-consolidation-queue.test.cjs
       - run: npm run build
