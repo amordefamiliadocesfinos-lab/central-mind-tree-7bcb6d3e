@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
+      - "src/components/nucleo/NucleoModuleKnowledge.tsx"
+      - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "scripts/nucleo-fm-ac01-navigation.test.cjs"
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "scripts/nucleo-ux-a5-readable-states.test.cjs"
@@ -181,4 +184,6 @@ jobs:
         run: node scripts/nucleo-ux-v22-visual-identity.test.cjs
       - name: Verify UX V2.5 Core/local and documentary clarity
         run: node scripts/nucleo-ux-v25-core-local-clarity.test.cjs
+      - name: Verify Ficha Viva to AC01 contextual workflow
+        run: node scripts/nucleo-fm-ac01-navigation.test.cjs
       - run: npm run build
