@@ -2,6 +2,7 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const ui=fs.readFileSync("src/components/nucleo/NucleoAc02ContinuityRead.tsx","utf8");
+const atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
 const contract=fs.readFileSync("supabase/functions/_shared/nucleo/ac02-registry-contract.ts","utf8");
 const source=fs.readFileSync("supabase/functions/nucleo-knowledge-read/index.ts","utf8");
 for(const term of [
@@ -24,6 +25,12 @@ for(const term of [
  'Copiar rascunho revisado',
  'Recebimento e aceite NÃO comprovados',
 ]){const match=term==="não transmitido"?ui.includes("não transmite conteúdo automaticamente"):term==="Conferências pendentes"?ui.includes("Divergências e conferências pendentes"):ui.includes(term);assert(match,"Missing AC02 UX contract "+term);}
+for(const term of ["Localizar o contexto para continuar","Frentes e checkpoints M3","Documentos e versões AC-01","Mandatos e limites","onViewWorkstreams","onViewDocuments","onViewMandates"]){
+ assert(ui.includes(term),"Missing continuity context link: "+term);
+}
+assert(atlas.includes('onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}'),"M3 navigation reuses existing module area");
+assert(atlas.includes('onViewDocuments={()=>openSpecialistPanel("documentos")}'),"AC01 navigation reuses mounted specialist panel");
+assert(atlas.includes('onViewMandates={()=>openSpecialistPanel("mandato")}'),"Mandate navigation reuses existing panel");
 assert(contract.includes('export type Ac02Projection'),"Reuse backend registry projection");
 assert(contract.includes('AC02_GLOBAL_ITEMS'),"No parallel identity hardcoded");
 assert(source.includes('ac02=prepareAc02AssumptionDraft'),"Backend source exists");

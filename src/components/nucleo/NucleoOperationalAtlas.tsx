@@ -613,7 +613,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <div id="nucleo-specialist-continuidade" hidden={specialistPanel!=="continuidade"}
                 aria-hidden={specialistPanel!=="continuidade"}>
                 {specialistPanelVisited.includes("continuidade")&&
-                  <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
+                  <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
+                    onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
+                    onViewDocuments={()=>openSpecialistPanel("documentos")}
+                    onViewMandates={()=>openSpecialistPanel("mandato")}/> }
               </div>
               <div id="nucleo-specialist-documentos" hidden={specialistPanel!=="documentos"}
                 aria-hidden={specialistPanel!=="documentos"}>

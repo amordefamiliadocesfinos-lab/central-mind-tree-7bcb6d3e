@@ -63,8 +63,9 @@ const isRegistry=(value:unknown):value is RegistryEnvelope=>{
    typeof row.observedAt==="string"&&typeof row.source==="string")&&
   Array.isArray(registry.conflicts)&&Array.isArray(registry.missingChecks);
 };
-export default function NucleoAc02ContinuityRead({moduleId,moduleCode}:{
+export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWorkstreams,onViewDocuments,onViewMandates}:{
  moduleId:string;moduleCode:string;
+ onViewWorkstreams?:()=>void;onViewDocuments?:()=>void;onViewMandates?:()=>void;
 }){
  const [busy,setBusy]=useState(false);
  const [draft,setDraft]=useState<SafeExport|null>(null);
@@ -119,6 +120,18 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode}:{
    Consulta o Core pela sessão autenticada e concessão nucleo_manage. Não concede acesso,
    não transmite conteúdo automaticamente e não certifica fontes, método ou recebimento.
   </p>
+  <nav aria-label="Conferir contexto antes da assunção" className="rounded-md border p-3 space-y-2">
+   <p className="text-xs font-semibold">Localizar o contexto para continuar</p>
+   <p className="text-xs text-muted-foreground">
+    Consulte o último checkpoint e a próxima ação nas frentes M3, as versões em AC-01 e os limites de mandato.
+    Esses registros precisam ser conferidos na fonte; nenhum é declarado aceito por esta navegação.
+   </p>
+   <div className="flex flex-wrap gap-2">
+    {onViewWorkstreams&&<Button type="button" size="sm" variant="outline" onClick={onViewWorkstreams}>Frentes e checkpoints M3</Button>}
+    {onViewDocuments&&<Button type="button" size="sm" variant="outline" onClick={onViewDocuments}>Documentos e versões AC-01</Button>}
+    {onViewMandates&&<Button type="button" size="sm" variant="outline" onClick={onViewMandates}>Mandatos e limites</Button>}
+   </div>
+  </nav>
   <Button type="button" size="sm" variant="outline" onClick={prepare} disabled={busy}>
    {busy?"Consultando Core…":"Preparar contexto de continuidade"}
   </Button>
