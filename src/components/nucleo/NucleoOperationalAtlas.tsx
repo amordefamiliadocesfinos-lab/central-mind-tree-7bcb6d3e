@@ -785,6 +785,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               {knowledgeVisited && (
                 <div hidden={!knowledgeOpen}>
                   <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
+                    workstreams={workstreams} events={events}
                     onDraftStateChange={setFmDraftState}/>
                 </div>
               )}
