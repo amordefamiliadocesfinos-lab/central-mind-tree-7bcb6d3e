@@ -74,6 +74,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   // permanecem montados para preservar rascunhos AC-01 e consultas AC-02.
   const [specialistPanel,setSpecialistPanel]=useState<"papel"|"mandato"|"continuidade"|"documentos">("papel");
   const [specialistPanelVisited,setSpecialistPanelVisited]=useState<Array<"mandato"|"continuidade"|"documentos">>([]);
+  const [ac01Request,setAc01Request]=useState<{stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico";seq:number}|null>(null);
   const openSpecialistPanel=(id:"papel"|"mandato"|"continuidade"|"documentos")=>{
     setSpecialistPanel(id);
     if(id!=="papel")setSpecialistPanelVisited(current=>current.includes(id)?current:[...current,id]);
@@ -199,6 +200,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setSpecialistVisited(false);
       setSpecialistPanel("papel");
       setSpecialistPanelVisited([]);
+      setAc01Request(null);
       setKnowledgeVisited(false);
     }
     setSelectedId(item.id);
@@ -220,6 +222,16 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
   };
 
+  const openAc01FromFm=(stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico")=>{
+    if(fmDraftState.busy||specialistDraftState.busy){
+      window.alert("Gravação em andamento ou estado indeterminado; reconcilie antes de navegar.");
+      return;
+    }
+    // A Ficha Viva continua montada: o rascunho ainda não salvo permanece preservado.
+    openSpecialistPanel("documentos");
+    setAc01Request(previous=>({stage,seq:(previous?.seq??0)+1}));
+    selectModuleArea("especialista");
+  };
   const openCrmStage = (stage: CrmStage) => {
     const area: ModuleSection = stage === "especialista" ? "especialista"
       : stage === "conhecimento" ? "conhecimento"
@@ -608,6 +620,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {specialistPanelVisited.includes("documentos")&&
                   <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
                     moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}
+                    requestedStage={ac01Request}
                     onDraftStateChange={setSpecialistDraftState}/>}
               </div>
             </section>
@@ -786,6 +799,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 <div hidden={!knowledgeOpen}>
                   <NucleoModuleKnowledge key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
                     workstreams={workstreams} events={events}
+                    onOpenAc01Stage={openAc01FromFm}
                     onDraftStateChange={setFmDraftState}/>
                 </div>
               )}
