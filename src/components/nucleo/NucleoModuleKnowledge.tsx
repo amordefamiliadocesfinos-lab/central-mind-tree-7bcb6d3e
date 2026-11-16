@@ -90,9 +90,10 @@ function SourceReferences({reference}:{reference:string}) {
 
 
 type DraftState={dirty:boolean;busy:boolean};
-export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events}:{
+export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events,onOpenAc01Stage}:{
   moduleId:string;moduleCode:string;onDraftStateChange?:(value:DraftState)=>void;
   workstreams?:readonly DevelopmentWorkstream[];events?:readonly DevelopmentEvent[];
+  onOpenAc01Stage?:(stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico")=>void;
 }) {
   const [section,setSection]=useState<FMSection>("FM-01");
   const [revisions,setRevisions]=useState<Revision[]>([]);
@@ -275,6 +276,37 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           ))}
         </div>
       </section>
+      {onOpenAc01Stage&&
+        <div className="rounded-md border p-3 space-y-2" aria-label="Continuidade entre Ficha Viva e AC-01">
+          <p className="text-sm font-semibold">Continuar no ciclo documental do especialista</p>
+          <p className="text-xs text-muted-foreground">
+            A Ficha Viva e as contribuições AC-01 preservam históricos diferentes.
+            A navegação não vincula documentos automaticamente, nem cria revisão,
+            decisão, mandato ou publicação.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm"
+              disabled={saving} onClick={()=>onOpenAc01Stage("vincular")}>
+              Vincular fonte no AC-01
+            </Button>
+            <Button type="button" variant="outline" size="sm"
+              disabled={saving} onClick={()=>onOpenAc01Stage("versoes")}>
+              Consultar versões AC-01
+            </Button>
+            <Button type="button" variant="outline" size="sm"
+              disabled={saving} onClick={()=>onOpenAc01Stage("refinar")}>
+              Revisões e propostas
+            </Button>
+            <Button type="button" variant="outline" size="sm"
+              disabled={saving} onClick={()=>onOpenAc01Stage("vigencia")}>
+              Conferir vigência
+            </Button>
+            <Button type="button" variant="outline" size="sm"
+              disabled={saving} onClick={()=>onOpenAc01Stage("historico")}>
+              Consultar histórico AC-01
+            </Button>
+          </div>
+        </div>}
       {["FM-04","FM-05","FM-06","FM-07","FM-08","FM-09","FM-10"].includes(section)&&
         <section className="rounded-md border p-3 space-y-2" aria-label="Vínculos de prova operacional da seção FM">
           <div className="flex flex-wrap gap-2 items-center justify-between">
