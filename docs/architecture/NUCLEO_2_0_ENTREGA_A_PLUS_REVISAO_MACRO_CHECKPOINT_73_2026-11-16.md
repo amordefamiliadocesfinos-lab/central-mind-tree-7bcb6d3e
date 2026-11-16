@@ -58,3 +58,14 @@ Continuam **PENDENTES**, não excluídas do escopo. Nenhuma deve ser promovida a
 **Fechar como suficientemente desenvolvida a camada consultiva/documental AC-02 da Entrega A+, sem declarar homologação operacional.** Registrar um checkpoint único; evitar novas PRs de nomenclatura, listagens, formulários ou classificações sem falha comprovada. O próximo avanço, se houver, deve partir de uma necessidade real do UX ou de nova evidência nas fontes, não de mais fragmentação documental.
 
 **Estado do checkpoint:** avaliação macro realizada na `main`. Nenhuma alteração de schema, código funcional, privilégio, deploy, informação em M3/M4, UI ou Fonte Viva é autorizada ou executada por este relatório. Entrega B continua fechada.
+
+
+## 6. Encaminhamento do proprietário — pausa da expansão documental incremental (16/11/2026)
+
+**Decisão operacional para esta frente:** encerrar a sequência de acréscimos documentais incrementais do AC-02. Os contratos consultivos existentes são considerados **suficientemente desenvolvidos para esta fase**, sem representar homologação, aprovação de conteúdo original ou assunção efetiva de um especialista.
+
+**A partir deste checkpoint:** não criar novas versões de checklist, indicadores de prontidão, documentos de repasse redundantes, novas classificações G01–G08 ou seções do Pacote Oficial apenas por continuidade automática. Permanecem permitidas **correções pontuais comprovadas**, atualização de referências quando suas fontes originais mudarem e integração necessária com a frente UX existente, sempre com rastreabilidade e preservação de dados únicos.
+
+**Pendências preservadas, sem bloqueio do restante do projeto:** AC02-SESSION-01, AC02-PROOF-01, AC02-PACKAGE-01, ledger/gateway produtivos, políticas, implantação, testes reais, apresentação visual, recebimento/aceite e homologação. Nenhuma das pendências é cancelada ou marcada como concluída. Sua retomada exige nova decisão de escopo apropriada, sem avanço implícito nesta pausa.
+
+**Autoridade e limites:** esta é uma diretriz operacional do proprietário para a continuidade do trabalho do Especialista Núcleo, **não substitui eventual decisão formal da Camada Mestre**, os mapas soberanos nem as fontes originais. Não foi alterado qualquer contrato executável, código, banco, credencial, permissão, mandato, interface ou documento anterior. Mapa V1.3 preservado por referência; Entrega B continua fechada.
