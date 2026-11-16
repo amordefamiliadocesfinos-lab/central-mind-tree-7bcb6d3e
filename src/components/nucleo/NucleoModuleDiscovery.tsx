@@ -9,7 +9,7 @@ import { MODULE_ORIGINAL_SOURCES_V12 } from "@/lib/nucleo/moduleOriginalSourcesV
 import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
 import { MODULE_SCREENS_V12 } from "@/lib/nucleo/moduleScreenDiscoveriesV12";
 import { MODULE_JOURNEYS_V12 } from "@/lib/nucleo/moduleJourneysV12";
-import NucleoGuidedJourneys from "@/components/nucleo/NucleoGuidedJourneys";
+import NucleoGuidedJourneys, { type GuidedJourneyRequest } from "@/components/nucleo/NucleoGuidedJourneys";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 
 type Props={module:KnowledgeModule;mode:"funcoes"|"conhecimento";isRegistered:boolean};
@@ -20,6 +20,7 @@ type Props={module:KnowledgeModule;mode:"funcoes"|"conhecimento";isRegistered:bo
  */
 export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
   const [search,setSearch]=useState("");
+  const [journeyRequest,setJourneyRequest]=useState<GuidedJourneyRequest|null>(null);
   const controls=MODULE_CONTROLS_V12[module.id]??[];
   const screens=MODULE_SCREENS_V12[module.id]??[];
   const sources=MODULE_RECONCILIATION_V12[module.id]??[];
@@ -35,6 +36,14 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
       target?.scrollIntoView({behavior:"smooth",block:"start"});
       if(target instanceof HTMLElement&&target.tabIndex>=0)target.focus({preventScroll:true});
     });
+  };
+  const openRelatedJourney=(controlLabel:string)=>{
+    const found=journeys.find(item=>item.steps.some(step=>step.controlLabel===controlLabel));
+    if(!found)return;
+    setJourneyRequest(previous=>({
+      journeyId:found.id,controlLabel,requestId:(previous?.requestId??0)+1,
+    }));
+    go("procedures");
   };
   const query=search.trim().toLocaleLowerCase("pt-BR");
   const visibleControls=useMemo(()=>controls.filter(item=>!query||
@@ -98,7 +107,7 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
           ))}
         </div>
       </nav>
-      <NucleoGuidedJourneys key={module.id} module={module}/>
+      <NucleoGuidedJourneys key={module.id} module={module} request={journeyRequest}/>
       <div id={module.id==="CRM"?"nucleo-crm-screens":anchor("screens")}
         className="scroll-mt-28 space-y-2" tabIndex={-1}
         aria-label="Mapa visual de telas do módulo">
@@ -165,6 +174,11 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
             <div><dt className="font-semibold">Como conferir</dt><dd>{item.confirmation}</dd></div>
             <div><dt className="font-semibold">O que ainda não comprova</dt><dd>{item.limitation}</dd></div>
           </dl>
+          {journeys.some(journey=>journey.steps.some(step=>step.controlLabel===item.label))&&
+            <Button type="button" size="sm" variant="outline" className="mt-3 min-h-10"
+              onClick={()=>openRelatedJourney(item.label)}>
+              Ver procedimento relacionado
+            </Button>}
           <a href={item.source} target="_blank" rel="noopener noreferrer"
             className="text-xs inline-flex items-center gap-1 underline mt-3">
             Conferir fonte no GitHub <ExternalLink className="h-3 w-3" aria-hidden="true"/>
