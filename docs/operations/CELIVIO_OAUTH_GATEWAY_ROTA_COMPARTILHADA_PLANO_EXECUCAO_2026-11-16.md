@@ -63,3 +63,82 @@ diff -u /tmp/celivio-gateway/current.yaml /tmp/celivio-gateway/celivio-proposta.
 
 ## Estado da missão neste commit
 Somente preparação e testes de código. Nenhuma API config nova, alteração no Gateway, revisão principal, flag de Celivio, OAuth Live ou pedidos foi executada por este documento.
+
+
+## Etapa B — preflight de promoção do backend principal autorizado para preparação (16/11/2026)
+**Autorização do proprietário:** preparar a promoção sem transferir o tráfego atual, alterar variáveis produtivas, autorizar OAuth ou modificar o Gateway. A promoção efetiva será uma operação posterior, com evidência e decisão expressa.
+
+### Evidência já comprovada pelo operador no Cloud Shell
+- Código oficial revisado `6d09394a77d6` (PR #896).
+- Imagem construída `southamerica-east1-docker.pkg.dev/painel-central-integration-hub/cloud-run-source-deploy/integration-hub:celivio-gateway-6d09394a77d6`; digest registrado na saída Cloud Build; usar digest verificado, não uma tag mutável, na operação futura.
+- Revisão candidata `integration-hub-00262-yvl`, tag `celivio-gateway-validacao`, 0% do tráfego principal; proxy autenticado testado: GET `/health` → HTTP 200; GET `/shopee/live/oauth/celivio/start` → HTTP 503 com flag OFF.
+- Principal `integration-hub-00257-fus` com 100%; `shopee-adao-intake-v1` PAUSED. Gateway API config `oauth-f6q3b-6a1a4b33` permanece ACTIVE; proposta local `/tmp/celivio-gateway/celivio-proposta.yaml` gerada com 11 linhas adicionadas e nenhuma removida; 4 testes Python e 33 OAuth Node aprovados.
+- CI global de PR #896 com `hub-node22-and-container` e `core-and-cycle-postgres` SUCCESS; `logistics-typescript` FAILURE decorrente de diagnósticos nos módulos Núcleo e Saúde, sem erro registrado nos arquivos da Integração. Não declarar CI geral verde.
+
+### Comando de conferência SOMENTE LEITURA — executar no Cloud Shell
+Não revelar nomes de secret versions, tokens, valores de env ou dados privados. O script abaixo imprime apenas inventário de *nomes* de variáveis, mudanças por categoria (sem valores) e campos operacionais não sensíveis:
+
+```bash
+set -euo pipefail
+PROJECT=painel-central-integration-hub
+REGION=southamerica-east1
+SERVICE=integration-hub
+MAIN=integration-hub-00257-fus
+CANDIDATE=integration-hub-00262-yvl
+mkdir -p /tmp/celivio-promotion
+
+gcloud run revisions describe "$MAIN" --project="$PROJECT" --region="$REGION" \
+  --format=json > /tmp/celivio-promotion/main.json
+gcloud run revisions describe "$CANDIDATE" --project="$PROJECT" --region="$REGION" \
+  --format=json > /tmp/celivio-promotion/candidate.json
+gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" \
+  --format=json > /tmp/celivio-promotion/service.json
+STATE="$(gcloud scheduler jobs describe shopee-adao-intake-v1 \
+  --project="$PROJECT" --location="$REGION" --format='value(state)')"
+test "$STATE" = PAUSED || { echo "BLOQUEADO: Adão não está PAUSED"; exit 1; }
+
+python3 - <<'PY'
+import json,pathlib
+root=pathlib.Path('/tmp/celivio-promotion')
+m=json.loads((root/'main.json').read_text())
+c=json.loads((root/'candidate.json').read_text())
+s=json.loads((root/'service.json').read_text())
+traffic=s.get('status',{}).get('traffic') or []
+primary=[x for x in traffic if x.get('percent',0)>0]
+if len(primary)!=1 or primary[0].get('percent')!=100 or primary[0].get('revisionName')!='integration-hub-00257-fus':
+    raise SystemExit('BLOQUEADO: revisão principal não corresponde ao checkpoint')
+tag=[x for x in traffic if x.get('tag')=='celivio-gateway-validacao']
+if len(tag)!=1 or tag[0].get('revisionName')!='integration-hub-00262-yvl' or tag[0].get('percent',0)!=0:
+    raise SystemExit('BLOQUEADO: tag de validação divergente')
+def container(x):
+    containers=x.get('spec',{}).get('containers') or []
+    if len(containers)!=1: raise SystemExit('BLOQUEADO: esperado 1 contêiner')
+    return containers[0]
+def env(x):
+    return {e['name']:e for e in container(x).get('env',[])}
+a,b=env(m),env(c)
+print('MAIN: integration-hub-00257-fus | 100%')
+print('CANDIDATE: integration-hub-00262-yvl | 0%')
+print('NOMES_ENV_ADICIONADOS:', ', '.join(sorted(set(b)-set(a))) or 'nenhum')
+print('NOMES_ENV_REMOVIDOS:', ', '.join(sorted(set(a)-set(b))) or 'nenhum')
+print('NOMES_ENV_COM_CONFIG_DIFERENTE:', ', '.join(sorted(k for k in set(a)&set(b) if a[k]!=b[k])) or 'nenhum')
+for key in ('SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED','SHOPEE_LIVE_CELIVIO_SHOP_ID'):
+    entry=b.get(key,{})
+    value=entry.get('value')
+    if key.endswith('_ENABLED') and value!='false': raise SystemExit('BLOQUEADO: flag Celivio não está OFF')
+    if key.endswith('_SHOP_ID') and value!='1357031949': raise SystemExit('BLOQUEADO: shop_id não corresponde à referência')
+print('CELIVIO: shop_id esperado e OAuth OFF')
+for key in ('serviceAccountName','timeoutSeconds','containerConcurrency'):
+    print(key, 'IGUAL' if m.get('spec',{}).get(key)==c.get('spec',{}).get(key) else 'DIFERENTE')
+for key in ('ports','resources'):
+    print(key,'IGUAL' if container(m).get(key)==container(c).get(key) else 'DIFERENTE')
+print('IMAGENS_DISTINTAS:',container(m).get('image')!=container(c).get('image'))
+print('PRE-FLIGHT SOMENTE LEITURA CONCLUIDO')
+PY
+```
+
+### Interpretação do preflight
+- Nomes de variáveis adicionadas exclusivamente Celivio, flags OFF e mesmo serviço/conta de execução são esperados, mas **qualquer diferença além do escopo esperado exige explicação antes da promoção**; não presumir automaticamente segurança pelo HTTP 200/503.
+- O código da revisão candidata incorpora mudanças de main posteriores à produção; exige confronto de versão e risco de regressão de processos existentes, mesmo com flags OFF.
+- O backup de referência é a **revisão produtiva** `integration-hub-00257-fus`, não apenas a tag ou a imagem de Celivio. Registrar a situação atual de 100% para futura reversão do tráfego se necessária.
+- Não executar `gcloud run services update-traffic`, `gcloud run deploy`, `gcloud api-gateway gateways update`, nem alterar IAM, env ou Scheduler enquanto esse preflight está em preparação. A transferência do tráfego e o Gateway demandam gates posteriores separados.
