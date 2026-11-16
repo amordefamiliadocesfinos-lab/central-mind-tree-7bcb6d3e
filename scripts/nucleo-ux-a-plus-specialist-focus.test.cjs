@@ -75,7 +75,7 @@ assert(ac02.includes('Consultando contexto AC-02 no Core.'),"Consulta AC-02 prec
 assert(ac02.includes('{error&&<p role="alert"'),"Erro AC-02 permanece alerta");
 // AC-01: seleção de versão deve ser transacional para a minuta local.
 const selector=contributions.slice(contributions.indexOf(' const chooseReference=(id:string)=>{'),contributions.indexOf(' const parent=rows.find(item=>item.id===parentId);'));
-assert(selector.includes('if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current)return;'),"Não trocar origem em leitura falha ou escrita indeterminada");
+assert(selector.includes('if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current||fence.blocked)return;'),"Não trocar origem em leitura falha ou escrita indeterminada");
 assert(selector.indexOf('if(draftDirty&&!window.confirm(')<selector.indexOf('setParentId(id);'),"Confirmar descarte antes de alterar seleção");
 assert(contributions.includes('onChange={e=>chooseReference(e.target.value)}'),"Seletor usa única guarda de minuta");
 const vm=require("node:vm");
@@ -113,8 +113,8 @@ assert.deepEqual(simulateReference({target:"rev2",parentId:"rev2",dirty:true}).c
 // Reconsulta AC-01: não converter recorte incompleto em versão excluída.
 for(const term of [
  'const referenceMissing=Boolean(parentId&&!reading&&!readError&&!parent)',
- 'if(saving||reading||readError||uncertainRef.current||referenceMissing)return;',
- 'disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}',
+ 'if(saving||reading||readError||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked)return;',
+ 'disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked}',
  'A versão de origem selecionada está aguardando reconsulta completa.',
  'A versão de origem selecionada não foi localizada na leitura atual.',
  'Não inferir exclusão.',
