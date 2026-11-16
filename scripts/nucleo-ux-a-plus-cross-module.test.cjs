@@ -26,4 +26,9 @@ for(const code of ["FIN","OPE","ROT","CAP","DIG","ASS"]){
 assert(g.includes('"nucleo-module-"+module.id.toLowerCase()+"-procedures"'),"Generic guide target");
 assert(g.includes('if(journeys.length===0)return null'),"Do not invent empty journeys");
 assert(g.includes('não salva progresso'),"No fabricated task completion");
+assert(d.includes('onClick={()=>openRelatedJourney(item.label)}'),"Control must link to related guide");
+assert(d.includes('journey.steps.some(step=>step.controlLabel===item.label)'),"Only documented related controls may link");
+assert(d.includes('request={journeyRequest}'),"Guide receives explicit request");
+assert(g.includes('found?.steps.findIndex(step=>step.controlLabel===request.controlLabel)'),"Guide selects matching step, not arbitrary instruction");
+assert(g.includes('setActiveIndex(index)'),"Guide opens at exact catalogued step");
 console.log("UX A+ transversal: sourced controls/routes/guides with explicit gaps and no duplicate catalog PASS");
