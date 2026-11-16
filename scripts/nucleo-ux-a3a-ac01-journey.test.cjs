@@ -18,7 +18,7 @@ assert.match(source,/Papel declarado; mandato não inferido/);
 assert.match(source,/Publicação interna AC-01 não comprova atualização canônica/);
 assert.match(source,/Consulta indisponível ou parcial/);
 assert.match(source,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
-assert.match(source,/check\.data\.authority_state!==\(parent\?"em_evolucao":"proposta"\)/);
+assert.match(source,/!isMatchingPendingAttempt\(check\.data,attempt\)/);
 assert.match(source,/disabled=\{reading\|\|Boolean\(readError\)\|\|saving\|\|uncertainRef\.current\|\|referenceMissing\}/);
 assert.match(source,/Registrar proposta e conferir no Core/);
 console.log("UX-A3A: áreas documentais preservadas, sem writers ou autoridade novos");

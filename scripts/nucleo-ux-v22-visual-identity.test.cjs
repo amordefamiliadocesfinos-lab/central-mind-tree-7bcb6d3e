@@ -47,7 +47,7 @@ assertHas(atlas,"NucleoMandateRegistry","Mandate reading");
 assertHas(ficha,'authority_state:"rascunho"',"FM draft authority");
 assertHas(ficha,'.eq("id",result.data.id).maybeSingle()',"FM readback");
 assertHas(ficha,"Comparação integral indisponível:","Conservative diff limitations");
-assertHas(specialist,'check.data.authority_state!==(parent?"em_evolucao":"proposta")',"AC01 readback authority");
+assertHas(specialist,'row.authority_state===attempt.authorityState',"AC01 readback authority checked against full snapshot");
 assertHas(specialist,"Publicação interna AC-01 não comprova atualização canônica","AC01 disclosure");
 assertHas(specialist,'nucleo-v22-guard',"Warnings visually prominent");
 assertHas(governance,"Publicação interna AC-01 não comprova a vigência","Internal vs canonical distinction");

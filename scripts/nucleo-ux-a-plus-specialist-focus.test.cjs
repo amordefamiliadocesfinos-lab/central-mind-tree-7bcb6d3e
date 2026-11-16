@@ -125,4 +125,33 @@ assert.equal(missing("v1",false,"Falha",false),false,"Falha de leitura não cert
 assert.equal(missing("v1",false,"",false),true,"Leitura completa sem referência bloqueia registro");
 assert.equal(missing("v1",false,"",true),false,"Versão presente continua válida");
 assert.equal(missing("",false,"",false),false,"Nova proposta não exige versão anterior");
+// Reconciliação AC-01: request_id sozinho não comprova os dados enviados.
+const start=contributions.indexOf('const isMatchingPendingAttempt=');
+const end=contributions.indexOf('type ACDB=',start);
+assert(start>=0&&end>start,"Validador de tentativa imutável presente");
+assert(contributions.includes('const pendingAttemptRef=useRef<PendingAttempt|null>(null)'),"Guardar snapshot da tentativa");
+assert(contributions.includes('const attempt=pendingAttemptRef.current;'),"Reconsulta usa snapshot original");
+assert(contributions.includes('prior&&attempt&&isMatchingPendingAttempt(prior,attempt)'),"Reconciliar somente correspondência integral");
+assert(contributions.includes('!isMatchingPendingAttempt(check.data,attempt)'),"Readback imediato tem a mesma guarda");
+assert(contributions.includes('Registro com o mesmo identificador localizado, mas os dados da tentativa não foram integralmente confirmados.'),"Divergência explícita");
+assert(contributions.includes('uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;'),"Liberar estado só após correspondência");
+const vmAttempt=require("node:vm");
+const matcherSource=contributions.slice(start,end)
+ .replace('=(row:RecordRow,attempt:PendingAttempt)=>','=(row,attempt)=>');
+const matcher=vmAttempt.runInNewContext(matcherSource+';isMatchingPendingAttempt');
+const attempt={requestId:"req-1",moduleId:"mod-1",specialistRole:"Especialista",
+ contributionKind:"manual",title:"Fonte",sourceKind:"git",sourceLocator:"docs/origem",
+ checksum:null,note:"Observação",parentRevisionId:null,versionNo:1,authorityState:"proposta"};
+const row={request_id:attempt.requestId,module_id:attempt.moduleId,
+ specialist_role:attempt.specialistRole,contribution_kind:attempt.contributionKind,
+ title:attempt.title,source_kind:attempt.sourceKind,source_locator:attempt.sourceLocator,
+ source_checksum_sha256:attempt.checksum,note:attempt.note,parent_revision_id:attempt.parentRevisionId,
+ version_no:attempt.versionNo,authority_state:attempt.authorityState};
+assert.equal(matcher(row,attempt),true,"Snapshot igual pode ser reconciliado");
+for(const [field,value] of [
+ ["title","Título alterado"],["source_locator","docs/outra"],["note","Diferente"],
+ ["source_checksum_sha256","sha"],["request_id","req-2"],["version_no",2],
+ ["module_id","mod-2"],["authority_state","homologado"],["parent_revision_id","rev-x"],
+ ["specialist_role","Outro"],["contribution_kind","mapa"],["source_kind","drive"]
+])assert.equal(matcher({...row,[field]:value},attempt),false,"Rejeitar divergência: "+field);
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");

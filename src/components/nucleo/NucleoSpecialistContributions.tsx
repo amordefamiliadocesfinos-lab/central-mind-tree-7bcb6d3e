@@ -17,6 +17,19 @@ type RecordRow={
  recorded_by_auth_uid:string;recorded_at:string;lineage_id:string;version_no:number;
  parent_revision_id:string|null;request_id:string;
 };
+type PendingAttempt={
+ requestId:string;moduleId:string;specialistRole:string;contributionKind:string;title:string;
+ sourceKind:string;sourceLocator:string;checksum:string|null;note:string;
+ parentRevisionId:string|null;versionNo:number;authorityState:"proposta"|"em_evolucao";
+};
+const isMatchingPendingAttempt=(row:RecordRow,attempt:PendingAttempt)=>(
+ row.request_id===attempt.requestId&&row.module_id===attempt.moduleId&&
+ row.specialist_role===attempt.specialistRole&&row.contribution_kind===attempt.contributionKind&&
+ row.title===attempt.title&&row.source_kind===attempt.sourceKind&&
+ row.source_locator===attempt.sourceLocator&&row.source_checksum_sha256===attempt.checksum&&
+ row.note===attempt.note&&row.parent_revision_id===attempt.parentRevisionId&&
+ row.version_no===attempt.versionNo&&row.authority_state===attempt.authorityState
+);
 type ACDB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
  Tables:Database["public"]["Tables"]&{nucleo_specialist_contributions:{
  Row:RecordRow; Insert:Partial<RecordRow>;Update:never;Relationships:[];
@@ -70,6 +83,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [feedback,setFeedback]=useState("");
  const requestRef=useRef<string|null>(null);
  const uncertainRef=useRef(false);
+ const pendingAttemptRef=useRef<PendingAttempt|null>(null);
  const draftDirty=Boolean(title.trim()||locator.trim()||note.trim()||checksum.trim()||
    role!==(declaredRole||"")||parentId||kind!=="metodo"||sourceKind!=="referencia_privada");
  const draftBusy=saving||uncertainRef.current;
@@ -83,7 +97,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    window.addEventListener("beforeunload",warn);
    return ()=>window.removeEventListener("beforeunload",warn);
  },[draftDirty,draftBusy]);
- useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;pendingAttemptRef.current=null;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void db.from("nucleo_specialist_contributions").select("*")
@@ -95,11 +109,14 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
       }else{
         setRows(result.data);setReadAt(new Date().toISOString());
         if(uncertainRef.current&&requestRef.current){
+          const attempt=pendingAttemptRef.current;
           const prior=result.data.find(item=>item.request_id===requestRef.current);
-          if(prior){
-            setFeedback("Proposta previamente enviada localizada no Core (v"+prior.version_no+"). Readback de reconciliação confirmado; não reenviar.");
-            uncertainRef.current=false;requestRef.current=null;
+          if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)){
+            setFeedback("Proposta previamente enviada localizada e integralmente conferida no Core (v"+prior.version_no+"). Não reenviar.");
+            uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
             setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+          }else if(prior){
+            setFeedback("Registro com o mesmo identificador localizado, mas os dados da tentativa não foram integralmente confirmados. Estado indeterminado; não repetir nem trocar o identificador.");
           }else{
             setFeedback("A proposta anterior não foi localizada neste recorte. Estado permanece indeterminado; não criar outra com novo identificador.");
           }
@@ -153,6 +170,13 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    setSaving(true);setFeedback("");
    const requestId=requestRef.current??crypto.randomUUID();
    requestRef.current=requestId;
+   const attempt:PendingAttempt={
+     requestId,moduleId,specialistRole:cleanRole,contributionKind:kind,title:cleanTitle,
+     sourceKind,sourceLocator:cleanSource,checksum:checksum.trim()||null,note:cleanNote,
+     parentRevisionId:parent?.id??null,versionNo:parent?parent.version_no+1:1,
+     authorityState:parent?"em_evolucao":"proposta",
+   };
+   pendingAttemptRef.current=attempt;
    try{
      const result=await db.from("nucleo_specialist_contributions").insert({
        module_id:moduleId,specialist_role:cleanRole,contribution_kind:kind,title:cleanTitle,
@@ -162,15 +186,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      if(result.error||!result.data){uncertainRef.current=true;
        setFeedback("Gravação não confirmada: não repita a proposta. Reconsulte e confira o request_id antes de qualquer nova ação.");return;}
      const check=await db.from("nucleo_specialist_contributions").select("*").eq("id",result.data.id).maybeSingle();
-     if(check.error||!check.data||check.data.request_id!==requestId||
-        check.data.module_id!==moduleId||check.data.specialist_role!==cleanRole||
-        check.data.source_locator!==cleanSource||
-        check.data.version_no!==(parent?parent.version_no+1:1)||
-        check.data.parent_revision_id!==(parent?.id??null)||
-        check.data.authority_state!==(parent?"em_evolucao":"proposta")){
+     if(check.error||!check.data||!isMatchingPendingAttempt(check.data,attempt)){
        uncertainRef.current=true;setFeedback("Inserção retornou, mas readback não confirmou todos os dados. Confira a origem antes de repetir.");return;
      }
-     requestRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+     requestRef.current=null;pendingAttemptRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
      setFeedback("Contribuição confirmada no Core por readback. Não homologada; versões anteriores preservadas na origem.");
      setRefresh(n=>n+1);
    }catch{
