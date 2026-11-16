@@ -52,7 +52,7 @@ for(const token of [
  'const blocked=raw!==null',
  'window.localStorage.removeItem(key)',
  'setState({ready:false,blocked:true,witness:null})',
- 'if(!key||!state.ready||state.blocked)return false',
+ 'if(!key||!state.ready||state.blocked|| (witness&&',
  'event==="SIGNED_OUT"',
 ])assert(fence.includes(token),"Trava persistente incompleta: "+token);
 assert(!/localStorage\.setItem\([^\n]*(?:body|title|source|token|attempt)/.test(fence),
