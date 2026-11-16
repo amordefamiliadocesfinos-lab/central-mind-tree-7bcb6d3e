@@ -157,6 +157,9 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  };
  useEffect(()=>{
   if(!requestedStage)return;
+  // Uma solicitação externa não deve ocultar a etapa atual enquanto uma
+  // gravação ainda estiver em curso ou depender de reconciliação.
+  if(saving||uncertainRef.current)return;
   const step=FLOW.find(item=>item.id===requestedStage.stage);
   if(!step)return;
   setFlowStep(step.id);setArea(step.area);
@@ -168,6 +171,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
   requestAnimationFrame(()=>document.getElementById(areaId+"-fila")?.scrollIntoView({behavior:"smooth",block:"start"}));
  };
  const goToFlow=(step:(typeof FLOW)[number])=>{
+  if(saving||uncertainRef.current){
+    setFeedback("Registro em andamento ou indeterminado. Reconcilie antes de mudar de etapa.");
+    return;
+  }
   setFlowStep(step.id);
   setArea(step.area);
   if(step.tab)setGovernanceTarget({key:step.tab,seq:++targetCounter.current});
@@ -202,6 +209,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      <p className="text-xs text-muted-foreground mb-2">Roteiro de consulta, sem decisões ou publicações automáticas.</p>
      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
        {FLOW.map(step=><button key={step.id} type="button" onClick={()=>goToFlow(step)}
+         disabled={saving||uncertainRef.current}
          aria-pressed={flowStep===step.id} aria-label={step.name+": "+step.note}
          className={"min-h-11 rounded-lg border px-2 py-2 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] "+
            (flowStep===step.id?"border-[#1a73e8] bg-white text-[#174ea6] dark:bg-blue-950 dark:text-blue-100":"border-[#d2e3fc] bg-white hover:bg-[#f5f9ff] dark:bg-slate-900")}>
@@ -217,7 +225,8 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        variant={area===item.id?"default":"outline"}
        className="nucleo-v22-pill h-auto min-h-14 justify-start px-3 py-2 text-left"
        aria-pressed={area===item.id} aria-controls={areaId+"-"+item.id}
-       onClick={()=>setArea(item.id)}>
+       disabled={saving||uncertainRef.current}
+       onClick={()=>{if(saving||uncertainRef.current)return;setArea(item.id);}}>
        <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal">
          <span className="text-sm font-semibold">{item.title}</span>
          <span className={area===item.id?"text-xs text-primary-foreground/80":"text-xs text-muted-foreground"}>{item.hint}</span>
