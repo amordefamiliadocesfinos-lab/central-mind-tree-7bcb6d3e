@@ -32,7 +32,7 @@ export function projectFm09Continuity(
   return false;
  });
  const acceptedIds=new Set([moduleId,...descendants.map(w=>w.id)]);
- const codes=new Map([[moduleId,root.code],...descendants.map(w=>[w.id,w.code] as const)]);
+ const codes=new Map<string,string>([[moduleId,root.code],...descendants.map(w=>[w.id,w.code] as [string,string])]);
  return {
   fronts:descendants.map(w=>({
    id:w.id,code:w.code,title:w.title,status:w.status,
