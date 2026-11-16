@@ -1101,3 +1101,16 @@ Estados: `preparado → disponibilizado → entregue → recebido → aceito`. `
 **Pacote:** `ac02-assumption-export.ts` acrescenta seção `Visão de prontidão documental — somente leitura` com contagens, estados de G01–G08 e ressalvas. Reusa o reexport `src/lib/nucleo/ac02KnowledgeGaps.ts`; não cria interface ou nova consulta ao banco. Provas técnicas continuam limitadas aos metadados previamente autorizados por JWT/RLS. Teste de contrato acrescentado a `scripts/nucleo-ac02-knowledge-gaps.test.cjs` cobre contagens, ausência de promoção, adiamentos, duplicidade e lacunas ausentes.
 
 **Limite:** essa visão não avalia conteúdo material das Fichas Vivas, não certifica qualidade ou vigência de fontes, e não produz decisão pela Camada Mestre. Mapa V1.3 e Entrega A+ preservados; Entrega B continua não iniciada.
+
+
+## 72. AC-02 — consolidação enxuta do Pacote Oficial de Assunção, sem perdas (16/11/2026)
+
+**Diretriz do proprietário:** eliminar repetições sem apagar patrimônio documental ou informações únicas. Continuar a Entrega A+ pelo GitHub direto, preservando o Mapa Mestre Núcleo 2.0 V1.3; segurança, gateway, ledger produtivo, deploy, RLS, testes reais, UX e homologação continuam pendentes, sem Entrega B.
+
+**Achado:** após as evoluções #827 (roteiro), #828 (oito lacunas) e #832 (prontidão documental), o pacote repetia os oito identificadores G01–G08 e seus estados em duas seções consecutivas. A seção 10 enumerava identidade, estado, fonte e ação; a seção 11 repetia identidade, categoria e estado, agora sob um agrupamento. Essa duplicidade aumentava o texto e podia induzir inconsistência futura.
+
+**Refinamento não destrutivo:** a seção 10 permanece como **registro textual único de G01–G08** e passa a apresentar, em cada linha, também a categoria (documental, operacional, governança ou implantação), preservando identidade, estado, origem e ação. A seção 11 preserva todas as cinco contagens, a classificação consultiva, a indicação expressa de prontidão operacional não comprovada e a ordem de conferência, mas referencia a seção 10 no lugar de repetir os mesmos oito registros. As demais dez seções e todas as referências únicas (identidade global, FM-03/FM-08/FM-09, M3, M4, pendências, roteiro, limites de acesso) são preservadas.
+
+**Contratos e compatibilidade:** não altera a forma do retorno `Ac02AssumptionExport`, seus campos `kind`, `status`, `version`, `unresolved`, `privateSourcesIncluded` ou as validações da preparação da PR #815. Não modifica assinaturas, dados SQL ou tabelas. O texto permanece rascunho **NÃO HOMOLOGADO**. Os testes de regressão e o novo `scripts/nucleo-ac02-pacote-enxuto-sem-perdas.test.cjs` exigem uma única ocorrência descritiva de cada G01–G08 na seção 10, ausência de duplicação na seção 11, manutenção das referências FM/M4, ausência de campos privados e ressalvas de autorização. A redução se restringe a conteúdo realmente repetido, sem substituir os arquivos originais nem usar inferências de fontes externas.
+
+**Restrições preservadas:** nenhuma implantação no Cloud, nenhuma mudança no endpoint de leitura, nenhuma nova permissão ou mandato, nenhuma tela pelo Especialista Núcleo e nenhuma homologação funcional. O Especialista UX poderá aproveitar o contrato existente; a decisão visual pertence à sua frente.

@@ -158,8 +158,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "- Leituras indeterminadas: "+readiness.coverage.recortes_indeterminados,
   "- Comprovações externas pendentes: "+readiness.coverage.comprovacoes_externas_pendentes,
   "- Fases formalmente adiadas: "+readiness.coverage.fases_adiadas,
-  ...readiness.categories.flatMap(group=>group.entries.map(entry=>
-   "- "+group.category+" / "+entry.id+" / "+entry.state)),
+  "- Identificadores, categorias, estados, fontes e ações individuais: ver inventário G01–G08 na seção 10.",
   "- Pronto para assunção operacional: NÃO COMPROVADO. Conferir documentos, mandato, fontes e checkpoint original.",
   "- Ordem de conferência (sem itens adiados e sem autorização de execução): "+readiness.reviewOrder.join(", "),
  ];
@@ -167,8 +166,8 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "- Lacunas identificadas neste recorte; não significam ausência no projeto inteiro.",
   "- Documentais: "+gaps.summary.documental+" | Operacionais: "+gaps.summary.operacional+
     " | Governança: "+gaps.summary.governanca+" | Implantação adiada: "+gaps.summary.implantacao,
-  ...gaps.gaps.map(g=>"- "+g.id+" / "+g.state+" / "+g.evidence+": "+g.action),
-  "- As lacunas não são instruções de execução e não concedem autoridade ao sucessor.",
+  ...gaps.gaps.map(g=>"- "+g.id+" / "+g.category+" / "+g.state+" / "+g.evidence+": "+g.action),
+  "- Ações acima são consultas ao acervo, não instruções de execução; não concedem autoridade ao sucessor.",
  ];
 
  // Deliberately don't include arbitrary strings from moduleTitle,

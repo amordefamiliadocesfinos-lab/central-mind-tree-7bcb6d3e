@@ -34,6 +34,7 @@ on:
       - "supabase/functions/_shared/nucleo/ac02-knowledge-gaps.ts"
       - "src/lib/nucleo/ac02KnowledgeGaps.ts"
       - "scripts/nucleo-ac02-knowledge-gaps.test.cjs"
+      - "scripts/nucleo-ac02-pacote-enxuto-sem-perdas.test.cjs"
       - "supabase/functions/_shared/nucleo/ac02-controlled-distribution.ts"
       - "src/lib/nucleo/ac02ControlledDistribution.ts"
       - "scripts/nucleo-ac02-controlled-distribution.test.cjs"
@@ -168,6 +169,7 @@ jobs:
       - run: node scripts/nucleo-ac02-documentary-coverage.test.cjs
       - run: node scripts/nucleo-ac02-assumption-guide.test.cjs
       - run: node scripts/nucleo-ac02-knowledge-gaps.test.cjs
+      - run: node scripts/nucleo-ac02-pacote-enxuto-sem-perdas.test.cjs
       - run: node scripts/nucleo-ac02-controlled-distribution.test.cjs
       - run: node scripts/nucleo-ac02-handoff-ledger-contract.test.cjs
       - run: node scripts/nucleo-ac02-package-manifest.test.cjs
