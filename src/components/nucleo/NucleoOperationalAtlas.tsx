@@ -241,6 +241,16 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   };
 
   const openFm09Continuity=()=>{
+    // A solicitação FM-09 muda a seção ativa: não remapear um rascunho local
+    // para outra seção nem navegar durante uma gravação indeterminada.
+    if(fmDraftState.busy||specialistDraftState.busy){
+      window.alert("Gravação em andamento ou estado indeterminado. Reconcilie antes de abrir FM-09.");
+      return;
+    }
+    if(fmDraftState.dirty){
+      window.alert("Existe um rascunho não salvo na Ficha Viva. Salve ou limpe o rascunho na seção atual antes de abrir FM-09.");
+      return;
+    }
     setFmSectionRequest(previous=>({section:"FM-09",seq:(previous?.seq??0)+1}));
     selectModuleArea("conhecimento");
   };

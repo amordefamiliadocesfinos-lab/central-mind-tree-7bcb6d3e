@@ -99,7 +99,10 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
 }) {
   const [section,setSection]=useState<FMSection>("FM-01");
   useEffect(()=>{
-    if(requestedSection?.section)setSection(requestedSection.section);
+    // Pedido de seção vindo do Atlas não equivale a descarte autorizado.
+    // A navegação direta entre FM mantém a confirmação própria em changeSection.
+    if(requestedSection?.section && !saving && !draftDirty)
+      setSection(requestedSection.section);
   },[requestedSection?.seq,requestedSection?.section]);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [loading,setLoading]=useState(true);
