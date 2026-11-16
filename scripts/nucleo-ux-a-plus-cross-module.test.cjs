@@ -31,4 +31,8 @@ assert(d.includes('journey.steps.some(step=>step.controlLabel===item.label)'),"O
 assert(d.includes('request={journeyRequest}'),"Guide receives explicit request");
 assert(g.includes('found?.steps.findIndex(step=>step.controlLabel===request.controlLabel)'),"Guide selects matching step, not arbitrary instruction");
 assert(g.includes('setActiveIndex(index)'),"Guide opens at exact catalogued step");
+// A busca deve informar vazio segundo os resultados realmente exibidos na área.
+assert(d.includes('mode==="funcoes"\n      ? visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0'),"Functional empty state covers visible cards");
+assert(d.includes(': visibleSources.length===0&&visibleOriginals.length===0'),"Knowledge empty state ignores hidden controls/screens");
+assert(d.includes('Nenhum item corresponde à busca.'),"No-result feedback remains visible");
 console.log("UX A+ transversal: sourced controls/routes/guides with explicit gaps and no duplicate catalog PASS");
