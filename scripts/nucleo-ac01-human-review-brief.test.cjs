@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),ts=require("typescript");
+function load(path,dep=()=>({})){
+ const out=ts.transpileModule(fs.readFileSync(path,"utf8"),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(out.diagnostics?.filter(d=>d.category===ts.DiagnosticCategory.Error).length??0,0);
+ const module={exports:{}};new Function("module","exports","require",out.outputText)(module,module.exports,dep);return module.exports;
+}
+const match=load("src/lib/nucleo/ac01FmSourceMatchV13.ts");
+const compare=load("src/lib/nucleo/ac01AssistedComparisonV13.ts",()=>match);
+const lineage=load("src/lib/nucleo/ac01FmLineageV13.ts",()=>match);
+const review=load("src/lib/nucleo/ac01ReviewCriteriaV13.ts",name=>name.includes("Comparison")?compare:lineage);
+const {prepareAc01HumanReviewBrief:brief}=load("src/lib/nucleo/ac01HumanReviewBriefV13.ts",name=>name.includes("ReviewCriteria")?review:lineage);
+const c={id:"c1",module_id:"CRM",lineage_id:"L1",version_no:1,parent_revision_id:null,title:"Método CRM",specialist_role:"CRM",contribution_kind:"metodo",source_locator:"docs/crm.md",source_kind:"github",authority_state:"proposta"};
+const c2={...c,id:"c2",version_no:2,parent_revision_id:"c1",authority_state:"em_evolucao"};
+const req={id:"r1",contribution_id:"c2",requested_outcome:"aprovar"};
+const dec={id:"d1",contribution_id:"c2",decision_request_id:"r1",outcome:"aprovada"};
+const pub={id:"p1",contribution_id:"c2",decision_act_id:"d1"};
+const fm={id:"f1",module_id:"CRM",section_code:"FM-08",version_no:2,source_reference:"docs/crm.md",authority_state:"rascunho",title:"FM"};
+let result=brief(c2,[c,c2,{...c,id:"other",module_id:"FIN",lineage_id:"L2"}],[req],[dec],[pub],fm);
+assert.equal(result.visibleVersions,2);
+assert.equal(result.target.id,"f1");
+assert.deepEqual(result.requests,["r1"]);
+assert.deepEqual(result.decisions.map(d=>d.id),["d1"]);
+assert.deepEqual(result.internalPublications,["p1"]);
+assert.equal(result.tasks.length,6);
+assert.equal(result.authorizedForApproval,false);
+assert.equal(result.authorizedForPublication,false);
+assert.equal(result.containsExternalContent,false);
+assert.equal(result.replacesOriginal,false);
+assert.equal(result.recorteNaoExaustivo,true);
+result=brief(c2,[c2],[],[],[],{...fm,module_id:"FIN"});
+assert.equal(result.target,null);
+assert(result.chainIssues.length>0);
+assert(result.unverifiedTasks>0);
+assert.deepEqual(result.decisions,[]);
+const src=fs.readFileSync("src/lib/nucleo/ac01HumanReviewBriefV13.ts","utf8");
+assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(src));
+const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
+assert(ui.includes("prepareAc01HumanReviewBrief(selected,contributions,reqs,decisions,publications,selectedFM)"));
+assert(ui.includes("reviewBrief.tasks.map("));
+assert(ui.includes("Publicação externa: não verificada"));
+assert(ui.includes('preview.action'));
+console.log("AC01 human review brief: explicit sources, IDs, limited recorte, human authority retained.");
