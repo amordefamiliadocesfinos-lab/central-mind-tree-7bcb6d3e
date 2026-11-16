@@ -89,6 +89,7 @@ export default function NucleoDevelopmentCenter() {
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
+  const [returnToAtlas,setReturnToAtlas] = useState(false);
   const [lastOpenedId,setLastOpenedId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
@@ -521,12 +522,13 @@ export default function NucleoDevelopmentCenter() {
             </Button>
           </div>
         </section>
-        <div id="nucleo-atlas-completo" hidden={!atlasExpanded} aria-hidden={!atlasExpanded}
+        <div id="nucleo-atlas-completo" tabIndex={-1} hidden={!atlasExpanded} aria-hidden={!atlasExpanded}
           className={atlasExpanded?"space-y-4":"hidden"}>
           {atlasVisited&&<NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
             onPrepareModule={prepareModule}
             onSelectWorkstream={id => {
               if (!choose(id)) return;
+              setReturnToAtlas(true);
               setWorkspaceView("frentes");
               requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
             }}/>}
@@ -897,6 +899,18 @@ export default function NucleoDevelopmentCenter() {
                       {" · "}Situação registrada: {states.find(state=>state.key===selected.status)?.label}
                     </p>
                   </div>
+                  {returnToAtlas&&<Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                    onClick={()=>{
+                      setWorkspaceView("geral");
+                      setAtlasExpanded(true);
+                      requestAnimationFrame(()=>{
+                        const atlas=document.getElementById("nucleo-atlas-completo");
+                        atlas?.scrollIntoView({behavior:"smooth",block:"start"});
+                        atlas?.focus({preventScroll:true});
+                      });
+                    }}>
+                    Voltar ao módulo no Atlas
+                  </Button>}
                   <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
                     onClick={()=>document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"})}>
                     Voltar ao foco
