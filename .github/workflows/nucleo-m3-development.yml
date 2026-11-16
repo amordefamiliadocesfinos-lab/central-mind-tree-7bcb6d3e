@@ -20,6 +20,8 @@ on:
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "src/components/nucleo/NucleoGuidedJourneys.tsx"
+      - "scripts/nucleo-ux-a-plus-crm-journey.test.cjs"
       - "scripts/nucleo-ux-v24-document-drafts.test.cjs"
       - "scripts/nucleo-ux-a3b-ficha-viva-context.test.cjs"
       - "scripts/nucleo-ux-a2-navigation.test.cjs"
@@ -134,4 +136,6 @@ jobs:
         run: node scripts/nucleo-ux-din05-execution.test.cjs
       - name: Verify UX-DIN-06 compact responsive navigation
         run: node scripts/nucleo-ux-din06-a11y.test.cjs
+      - name: Verify UX A+ navigable CRM journey
+        run: node scripts/nucleo-ux-a-plus-crm-journey.test.cjs
       - run: npm run build
