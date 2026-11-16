@@ -63,4 +63,14 @@ const external=contributions.slice(contributions.indexOf(' useEffect(()=>{\n  if
 assert(external.indexOf('if(saving||uncertainRef.current)return;')<external.indexOf('setFlowStep(step.id)'),"Pedido externo só altera etapa após guarda de gravação");
 const ac02=fs.readFileSync("src/components/nucleo/NucleoAc02ContinuityRead.tsx","utf8");
 assert(ac02.includes('!isSafe(response.ac02_assumption_export)||!isRegistry(response.ac02)'),"AC-02 fail-closed for partial response");
+// UX-3: estados visíveis antes dos atalhos AC-01 e consulta AC-02.
+for(const token of [
+ 'Registro em andamento. Aguarde a conferência no Core antes de navegar ou repetir.',
+ 'Minuta AC-01 não salva neste módulo.',
+ 'Resultado indeterminado. Reconsulte o Core e reconcilie a proposta',
+ 'role={uncertainRef.current?"alert":"status"}',
+])assert(contributions.includes(token),"AC-01 status visual ausente: "+token);
+assert(contributions.indexOf('Resultado indeterminado. Reconsulte o Core')<contributions.indexOf('<nav aria-label="Ciclo documental AC-01'),"Alerta de reconciliação precisa anteceder navegação");
+assert(ac02.includes('Consultando contexto AC-02 no Core.'),"Consulta AC-02 precisa de status explícito");
+assert(ac02.includes('{error&&<p role="alert"'),"Erro AC-02 permanece alerta");
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");
