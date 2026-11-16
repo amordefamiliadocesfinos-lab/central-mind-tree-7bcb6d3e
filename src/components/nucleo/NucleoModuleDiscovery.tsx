@@ -98,10 +98,7 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
           ))}
         </div>
       </nav>
-      <div id={anchor("procedures")} className="scroll-mt-28" tabIndex={-1}
-        aria-label={"Roteiros de consulta do módulo "+module.name}>
-        <NucleoGuidedJourneys key={module.id} module={module}/>
-      </div>
+      <NucleoGuidedJourneys key={module.id} module={module}/>
       <div id={module.id==="CRM"?"nucleo-crm-screens":anchor("screens")}
         className="scroll-mt-28 space-y-2" tabIndex={-1}
         aria-label="Mapa visual de telas do módulo">
