@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -89,6 +89,15 @@ function SourceReferences({reference}:{reference:string}) {
 }
 
 
+type PendingFmAttempt={
+ moduleId:string;sectionCode:FMSection;versionNo:number;title:string;body:string;sourceReference:string;
+};
+const matchesPendingFmAttempt=(row:Revision,pending:PendingFmAttempt)=>(
+ row.module_id===pending.moduleId&&row.section_code===pending.sectionCode&&
+ row.version_no===pending.versionNo&&row.title===pending.title&&
+ row.body===pending.body&&row.source_reference===pending.sourceReference&&
+ row.authority_state==="rascunho"&&row.evidence_level==="declarado"
+);
 type DraftState={dirty:boolean;busy:boolean};
 export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events,onOpenAc01Stage,onOpenWorkstream,requestedSection}:{
   moduleId:string;moduleCode:string;onDraftStateChange?:(value:DraftState)=>void;
@@ -113,20 +122,22 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [body,setBody]=useState("");
   const [source,setSource]=useState("");
   const [saving,setSaving]=useState(false);
+  const [writeUncertain,setWriteUncertain]=useState(false);
+  const pendingAttemptRef=useRef<PendingFmAttempt|null>(null);
   const [m4FrontId,setM4FrontId]=useState<string|null>(null);
   const [compareOlderId,setCompareOlderId]=useState("");
   const [compareNewerId,setCompareNewerId]=useState("");
   const draftDirty=Boolean(title.trim()||body.trim()||source.trim());
   useEffect(()=>{
-    onDraftStateChange?.({dirty:draftDirty,busy:saving});
+    onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain});
     return ()=>onDraftStateChange?.({dirty:false,busy:false});
-  },[draftDirty,saving,onDraftStateChange]);
+  },[draftDirty,saving,writeUncertain,onDraftStateChange]);
   useEffect(()=>{
-    if(!draftDirty&&!saving)return;
+    if(!draftDirty&&!saving&&!writeUncertain)return;
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
     window.addEventListener("beforeunload",warn);
     return ()=>window.removeEventListener("beforeunload",warn);
-  },[draftDirty,saving]);
+  },[draftDirty,saving,writeUncertain]);
 
   useEffect(()=>{
     let current=true;
@@ -145,6 +156,21 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           setError("Histórico da Ficha Viva atingiu o limite de leitura. A cobertura e a próxima versão são indeterminadas; não registre outra revisão antes de reconciliar o histórico completo.");
         } else {
           setRevisions(result.data);
+          const pending=pendingAttemptRef.current;
+          if(writeUncertain&&pending){
+            const sameVersion=result.data.filter(row=>row.module_id===pending.moduleId&&
+              row.section_code===pending.sectionCode&&row.version_no===pending.versionNo);
+            if(sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)){
+              pendingAttemptRef.current=null;
+              setWriteUncertain(false);
+              setTitle("");setBody("");setSource("");setValidationError(null);
+              setError("Revisão anteriormente enviada localizada e integralmente conferida no histórico. Não reenviar.");
+            }else if(sameVersion.length>0){
+              setError("A versão esperada foi localizada, mas os dados divergem da tentativa. Estado indeterminado; não reenviar.");
+            }else{
+              setError("Tentativa anterior não localizada neste recorte. Estado continua indeterminado; não repetir a gravação.");
+            }
+          }
         }
         setLoading(false);
       }).catch(()=>{
@@ -199,7 +225,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   useEffect(()=>{setM4FrontId(null);},[moduleId,section]);
 
   const changeSection = (next: FMSection) => {
-    if (next === section || saving) return;
+    if (next === section || saving || writeUncertain) return;
     // Uma confirmação de descarte precisa esvaziar a minuta anterior.
     // Caso contrário, os campos antigos passam a aparecer na nova seção FM.
     if (draftDirty) {
@@ -224,7 +250,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   };
   const save=async()=>{
     const cleanTitle=title.trim(), cleanBody=body.trim(), cleanSource=source.trim();
-    if(loading||error||saving) return;
+    if(loading||error||saving||writeUncertain) return;
     if(cleanTitle.length<3||cleanTitle.length>180||cleanBody.length<10||cleanBody.length>12000||cleanSource.length>1500){
       setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
     }
@@ -232,28 +258,32 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     // Snapshot imutável para impedir que edições ocorridas durante o envio
     // sejam confundidas com a revisão confirmada pelo Core.
     const version=(latest?.version_no??0)+1;
+    const attempt:PendingFmAttempt={moduleId,sectionCode:section,versionNo:version,
+      title:cleanTitle,body:cleanBody,sourceReference:cleanSource};
+    pendingAttemptRef.current=attempt;
     try {
       const result=await client.from("nucleo_module_knowledge_revisions").insert({
         module_id:moduleId,section_code:section,version_no:version,title:cleanTitle,body:cleanBody,
         source_reference:cleanSource,authority_state:"rascunho",evidence_level:"declarado",
       }).select("*").maybeSingle();
       if(result.error||!result.data) {
+        setWriteUncertain(true);
         setError("Gravação não confirmada. Atualize o histórico antes de tentar novamente; outra revisão pode ter sido registrada.");
         return;
       }
       // Leitura independente por ID: não afirmar sucesso apenas pelo retorno do INSERT.
       const check=await client.from("nucleo_module_knowledge_revisions")
         .select("*").eq("id",result.data.id).maybeSingle();
-      if(check.error||!check.data||check.data.module_id!==moduleId||
-         check.data.section_code!==section||check.data.title!==cleanTitle||
-         check.data.body!==cleanBody||check.data.source_reference!==cleanSource||
-         check.data.version_no!==version||check.data.authority_state!=="rascunho"){
+      if(check.error||!check.data||!matchesPendingFmAttempt(check.data,attempt)){
+        setWriteUncertain(true);
         setError("Envio efetuado, mas a revisão não foi integralmente confirmada. Recarregue o histórico antes de outra tentativa.");
         return;
       }
+      pendingAttemptRef.current=null;
       setTitle("");setBody("");setSource("");
       setReload(n=>n+1);
     } catch {
+      setWriteUncertain(true);
       // Erro de transporte é ambíguo: não repetir a escrita sem conferir a origem.
       setError("Conexão interrompida durante o registro ou a conferência. Recarregue o histórico antes de tentar novamente.");
     } finally {
@@ -284,7 +314,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           {coverage.map(entry => (
             <button type="button" key={entry.code}
               aria-pressed={section === entry.code}
-              disabled={saving}
+              disabled={saving||writeUncertain}
               onClick={() => changeSection(entry.code)}
               className={`nucleo-v22-area-card min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
@@ -455,6 +485,9 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           </div>
         </details>
       )}
+      {writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        Gravação anterior indeterminada. Atualize o histórico para conferir a versão; não repita o registro nem altere a seção antes da reconciliação.
+      </p>}
       {loading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando revisões autorizadas…</p>}
       {error&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
       {validationError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{validationError}</p>}
@@ -589,7 +622,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               <Input disabled={saving} value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
             </label>
             <p className="text-xs text-muted-foreground">A nova revisão recebe v{(latest?.version_no??0)+1}; a versão anterior permanece imutável. A aprovação normativa requer procedimento humano separado.</p>
-            <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)} onClick={()=>void save()}>
+            <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)||writeUncertain} onClick={()=>void save()}>
               {saving?"Registrando…":"Registrar revisão e conferir"}
             </Button>
           </div>
