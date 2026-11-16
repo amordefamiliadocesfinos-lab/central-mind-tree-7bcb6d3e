@@ -15,6 +15,7 @@ import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevel
 import NucleoPanoramaDinV30, { moduleIdForWorkstream } from "@/components/nucleo/NucleoPanoramaDinV30";
 import NucleoFocusPreviewV30 from "@/components/nucleo/NucleoFocusPreviewV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
+import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -179,6 +180,10 @@ export default function NucleoDevelopmentCenter() {
   const resumeItem=lastOpened ?? (latestEvent ? byId.get(latestEvent.workstream_id) : undefined);
   const resumeSource=lastOpened?"Último registro aberto neste navegador"
     :latestEvent?"Última movimentação entre os eventos carregados do Core":null;
+  const resumeCheckpoint=resumeItem
+    ? history.find(event=>event.workstream_id===resumeItem.id)
+    : undefined;
+  const resumeCheckpointSummary=resumeCheckpoint? summarizeDevelopmentCheckpoint(resumeCheckpoint):null;
   const moduleOptions=items.filter(item=>item.kind==="modulo"&&item.code!=="NUC");
   const specialistOptions=Array.from(new Set(
     items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
@@ -436,6 +441,20 @@ export default function NucleoDevelopmentCenter() {
                   <strong>Próxima ação registrada:</strong>{" "}
                   {resumeItem.next_action?.trim()||"Nenhuma próxima ação registrada nesta frente."}
                 </p>
+                <div className="rounded-xl border p-3 space-y-1" aria-label="Último checkpoint M3 localizado">
+                  <p className="text-xs font-semibold">Último checkpoint M3 localizado nesta leitura</p>
+                  {resumeCheckpoint && resumeCheckpointSummary ? <>
+                    <p className="text-sm">{resumeCheckpointSummary.label} · {new Date(resumeCheckpoint.recorded_at).toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {resumeCheckpointSummary.changes.length>0
+                        ? resumeCheckpointSummary.changes.slice(0,2).map(change=>change.field+": "+change.after).join(" · ")
+                        : "Este evento não contém campos comparáveis para resumir."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Evento administrativo; não equivale a aceite, deploy ou homologação.</p>
+                  </> : <p className="text-xs text-muted-foreground">
+                    Nenhum evento desta frente localizado na janela global de 200 registros. Histórico anterior pode existir.
+                  </p>}
+                </div>
                 {resumeItem.status==="bloqueado"&&<p className="text-sm text-rose-800 dark:text-rose-200">
                   <strong>Bloqueio:</strong> {resumeItem.blocker?.trim()||"Motivo não informado"}
                 </p>}
