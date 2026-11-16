@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01PostReviewEvidenceV13.ts"
+      - "scripts/nucleo-ac01-postreview-evidence.test.cjs"
       - "src/lib/nucleo/ac01PendingReviewGuidanceV13.ts"
       - "scripts/nucleo-ac01-pending-review-bridge.test.cjs"
       - "src/components/nucleo/NucleoAC01ReviewContinuityRead.tsx"
@@ -219,4 +221,6 @@ jobs:
         run: node scripts/nucleo-ac01-review-continuity.test.cjs
       - name: Verify AC01 pending issue to existing review workflow
         run: node scripts/nucleo-ac01-pending-review-bridge.test.cjs
+      - name: Verify AC01 post-review evidence is not proof of resolution
+        run: node scripts/nucleo-ac01-postreview-evidence.test.cjs
       - run: npm run build
