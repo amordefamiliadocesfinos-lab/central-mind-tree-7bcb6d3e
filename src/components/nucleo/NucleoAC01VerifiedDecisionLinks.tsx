@@ -6,6 +6,7 @@ import {Button} from "@/components/ui/button";
 import {verifyAc01DecisionLinks,type DecisionRequestLinkV13,type DecisionActLinkV13}
  from "@/lib/nucleo/ac01VerifiedLinksV13";
 import type {ReviewEventV13} from "@/lib/nucleo/ac01ReviewContinuityV13";
+import {buildAc01EvidencePanoramaV13} from "@/lib/nucleo/ac01EvidencePanoramaV13";
 
 type DB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
  Tables:Database["public"]["Tables"]&{
@@ -43,6 +44,8 @@ export default function NucleoAC01VerifiedDecisionLinks({
  },[moduleId,contributionId,refresh]);
  const projected=useMemo(()=>verifyAc01DecisionLinks(moduleId,contributionId,events,requests,decisions),
   [moduleId,contributionId,events,requests,decisions]);
+ const panorama=useMemo(()=>buildAc01EvidencePanoramaV13(moduleId,contributionId,events,requests,decisions),
+  [moduleId,contributionId,events,requests,decisions]);
  return <section className="rounded border p-3 text-xs space-y-2"
   aria-label="Reconciliação consultiva de IDs de encaminhamentos, solicitações e decisões">
   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -57,6 +60,27 @@ export default function NucleoAC01VerifiedDecisionLinks({
   {loading&&<p role="status">Consultando vínculos do Core…</p>}
   {error&&<p role="alert" className="text-destructive">{error}</p>}
   {!loading&&!error&&<>
+   <div className="space-y-2 rounded-md border p-3"
+     aria-label="Panorama de provas e lacunas da contribuição">
+     <strong>Provas e lacunas desta contribuição</strong>
+     <p className="text-muted-foreground">
+       Registros localizados são somente evidências de existência no recorte.
+       Não atestam competência atual, fechamento de pendências ou publicação externa.
+     </p>
+     <div className="grid gap-2 sm:grid-cols-2">
+       {panorama.checkpoints.map(item=><div key={item.code}
+         className="rounded border p-2 space-y-1">
+         <p className="font-semibold">{item.title}</p>
+         <p>{item.state==="registro_localizado"?"Registro localizado"
+          :item.state==="vinculo_incompleto"?"Vínculo ausente ou incompleto no recorte"
+          :"Verificação externa necessária"}</p>
+         <p className="text-muted-foreground">{item.evidence}</p>
+       </div>)}
+     </div>
+     <p className="font-medium">{panorama.completeIdChains} cadeia(s) completa(s) por IDs;
+       {" "+panorama.brokenLinks} vínculo(s) incompleto(s).
+       Resolução e publicação externa continuam não comprovadas.</p>
+   </div>
    {projected.lines.length===0&&<p>Nenhuma solicitação retornada para esta contribuição; isso não comprova ausência fora do recorte.</p>}
    {projected.lines.map(line=><article key={line.requestId} className="border-l-2 pl-2 space-y-1">
     <p>Solicitação {line.requestId.slice(0,8)}… · {line.requestedOutcome}</p>
