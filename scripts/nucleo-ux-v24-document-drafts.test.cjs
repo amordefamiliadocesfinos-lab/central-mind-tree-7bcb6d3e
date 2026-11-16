@@ -10,7 +10,7 @@ for(const [src,t,reason] of [
 [a,'onDraftStateChange={setSpecialistDraftState}',"Specialist callback"],
 [a,'onDraftStateChange={setFmDraftState}',"Ficha Viva callback"],
 [k,'const draftDirty=Boolean(title.trim()||body.trim()||source.trim())',"FM editing"],
-[s,'const draftBusy=saving||uncertainRef.current',"Uncertain AC01 never discarded"],
+[s,'const draftBusy=saving||uncertainRef.current||fence.blocked',"Uncertain AC01 never discarded"],
 [s,'row.authority_state===attempt.authorityState',"AC01 readback preserved by full snapshot"],
 [k,'authority_state:"rascunho"',"FM authority preserved"],
 [k,'.eq("id",result.data.id).maybeSingle()',"FM readback preserved"],
@@ -36,9 +36,9 @@ for(const [key,wrong] of [
  ["body","Mudado"],["source_reference","outro.md"],["authority_state","homologado"],
  ["evidence_level","uso_real_verificado"]
 ])assert.equal(matcher({...row,[key]:wrong},attempt),false,"Rejeitar divergência "+key);
-assert(k.includes('onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain})'),"Estado indeterminado propaga bloqueio ao Atlas");
-assert(k.includes('if(loading||error||saving||writeUncertain) return;'),"Nova escrita bloqueada após gravação ambígua");
-assert(k.includes('if (next === section || saving || writeUncertain) return;'),"Troca de seção bloqueada");
+assert(k.includes('onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain||fence.blocked})'),"Estado indeterminado propaga bloqueio ao Atlas");
+assert(k.includes('if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked) return;'),"Nova escrita bloqueada após gravação ambígua");
+assert(k.includes('if (next === section || saving || writeUncertain || fence.blocked) return;'),"Troca de seção bloqueada");
 assert(k.includes('sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)'),"Só confirmar pela versão única e integral");
 assert(k.includes('setWriteUncertain(true);'),"Falhas tornam a gravação indeterminada");
 assert(k.includes('setReconciliationNotice("Revisão anteriormente enviada localizada'),"Confirmação é status informativo");
