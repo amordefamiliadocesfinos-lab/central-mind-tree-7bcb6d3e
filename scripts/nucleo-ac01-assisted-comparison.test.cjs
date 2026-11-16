@@ -1,0 +1,40 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),ts=require("typescript");
+function load(file,requireMock=()=>({})){
+ const source=fs.readFileSync(file,"utf8");
+ const out=ts.transpileModule(source,{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(out.diagnostics?.filter(d=>d.category===ts.DiagnosticCategory.Error).length??0,0);
+ const mod={exports:{}};new Function("module","exports","require",out.outputText)(mod,mod.exports,requireMock);return mod.exports;
+}
+const match=load("src/lib/nucleo/ac01FmSourceMatchV13.ts");
+const {prepareAc01AssistedComparison:compare}=load("src/lib/nucleo/ac01AssistedComparisonV13.ts",()=>match);
+const initial={id:"a",module_id:"CRM",lineage_id:"L",version_no:1,parent_revision_id:null,source_locator:"source/a",source_kind:"github",title:"Versão A",specialist_role:"CRM",contribution_kind:"manual",authority_state:"proposta"};
+const current={...initial,id:"b",version_no:2,parent_revision_id:"a",title:"Versão B",source_locator:"source/b",authority_state:"em_evolucao"};
+const fm={id:"fm",module_id:"CRM",section_code:"FM-07",version_no:3,title:"Ficha",source_reference:"source/b",authority_state:"rascunho"};
+let result=compare(current,[initial,current],fm);
+assert.equal(result.previous?.version,1);
+assert.equal(result.destination?.version,3);
+assert.equal(result.originMatch,"localizador_identico");
+assert(result.differences.find(d=>d.label==="Título")?.changed);
+assert(result.differences.find(d=>d.label==="Localizador original")?.changed);
+assert.equal(result.externalContentDiffAvailable,false);
+assert.equal(result.fmBodyDiffAvailable,false);
+assert.equal(result.canonicalWriteAllowed,false);
+result=compare(current,[current],fm);
+assert(result.issues.some(x=>x.includes("anterior")));
+assert.equal(result.previous,null);
+assert(result.differences.every(d=>!d.changed),"Missing old version cannot imply changed fields");
+result=compare(current,[initial,current],{...fm,module_id:"OTHER"});
+assert.equal(result.destination,null);
+assert(result.issues.some(x=>x.includes("outro módulo")));
+result=compare(current,[initial,current],null);
+assert.equal(result.destination,null);
+assert(result.issues.some(x=>x.includes("Nenhuma revisão FM")));
+const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
+assert(ui.includes("prepareAc01AssistedComparison(selected,contributions,selectedFM)"));
+assert(ui.includes("assisted.differences.map("));
+assert(ui.includes("Nenhuma diferença de conteúdo"));
+assert(ui.includes("o documento vigente não é alterado"));
+assert(ui.includes('preview.action'),"Existing publication gate must remain");
+console.log("AC-01 CA-25/26: side-by-side source, predecessor and FM metadata; no fictional content comparison.");
