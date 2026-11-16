@@ -12,6 +12,9 @@ import { CRM_AUTHORITY_SOURCES_V12, CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALI
 import { compareDocumentVersionsV13 } from "@/lib/nucleo/documentDiffV13";
 import { numberDocumentDiffLinesV13 } from "@/lib/nucleo/documentDiffPresentationV13";
 import { fmLinkedEvidence } from "@/lib/nucleo/fmLinkedEvidenceV13";
+import { projectFm09Continuity } from "@/lib/nucleo/fmContinuityV13";
+import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
+import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -87,8 +90,9 @@ function SourceReferences({reference}:{reference:string}) {
 
 
 type DraftState={dirty:boolean;busy:boolean};
-export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange}:{
+export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events}:{
   moduleId:string;moduleCode:string;onDraftStateChange?:(value:DraftState)=>void;
+  workstreams?:readonly DevelopmentWorkstream[];events?:readonly DevelopmentEvent[];
 }) {
   const [section,setSection]=useState<FMSection>("FM-01");
   const [revisions,setRevisions]=useState<Revision[]>([]);
@@ -100,6 +104,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [body,setBody]=useState("");
   const [source,setSource]=useState("");
   const [saving,setSaving]=useState(false);
+  const [m4FrontId,setM4FrontId]=useState<string|null>(null);
   const [compareOlderId,setCompareOlderId]=useState("");
   const [compareNewerId,setCompareNewerId]=useState("");
   const draftDirty=Boolean(title.trim()||body.trim()||source.trim());
@@ -179,6 +184,11 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const templateCount = coverage.filter(entry => entry.hasTemplate).length;
   const persistedCount = coverage.filter(entry => entry.revisionCount > 0).length;
   const linkedEvidence=useMemo(()=>fmLinkedEvidence(moduleCode,section),[moduleCode,section]);
+  const fm09=useMemo(()=>
+    workstreams&&events?projectFm09Continuity(moduleId,workstreams,events):null,
+    [moduleId,workstreams,events]);
+  useEffect(()=>{setM4FrontId(null);},[moduleId,section]);
+
   const changeSection = (next: FMSection) => {
     if (next === section || saving) return;
     // Troca de seção não pode descartar conteúdo digitado sem decisão humana.
@@ -265,7 +275,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           ))}
         </div>
       </section>
-      {["FM-04","FM-05","FM-06","FM-07","FM-08"].includes(section)&&
+      {["FM-04","FM-05","FM-06","FM-07","FM-08","FM-09","FM-10"].includes(section)&&
         <section className="rounded-md border p-3 space-y-2" aria-label="Vínculos de prova operacional da seção FM">
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <h5 className="text-sm font-semibold">Vínculos de origem para {section}</h5>
@@ -291,6 +301,57 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             </article>)}
           </div>}
         </section>}
+      {section==="FM-09"&&<section className="rounded-md border p-3 space-y-3"
+        aria-label="Evolução declarada e histórico M3 do módulo">
+        <h5 className="text-sm font-semibold">Desenvolvimento relacionado — registros M3/M4</h5>
+        <p className="text-xs text-muted-foreground">
+          Frente e próxima ação são estados declarados no Core. Histórico abaixo considera
+          apenas a janela global de até 200 eventos carregada pela Central;
+          ausência de registro nesta janela não comprova ausência de evento anterior.
+        </p>
+        {!fm09?<p role="status" className="text-xs text-muted-foreground">
+          Recorte M3 não disponível nesta sessão; consultar a área Desenvolvimento do módulo.
+        </p>:<>
+          <p className="text-xs">Frentes e subfrentes vinculadas: {fm09.fronts.length} · Eventos no recorte: {fm09.events.length}</p>
+          <div className="space-y-2">
+            {fm09.fronts.length===0&&<p role="status" className="text-xs text-muted-foreground">
+              Nenhuma frente vinculada na leitura M3 desta sessão; não inferir ausência de trabalho externo.
+            </p>}
+            {fm09.fronts.map(front=><div key={front.id} className="rounded border p-2 space-y-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="font-semibold text-xs">{front.code} · {front.title}</span>
+                <Badge variant="outline">M3: {front.status.replaceAll("_"," ")}</Badge>
+                <Badge variant="outline">Prova declarada: {front.evidenceState.replaceAll("_"," ")}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">Próxima ação: {front.nextAction||"não declarada"}</p>
+              <Button type="button" size="sm" variant="outline"
+                aria-expanded={m4FrontId===front.id}
+                onClick={()=>setM4FrontId(id=>id===front.id?null:front.id)}>
+                {m4FrontId===front.id?"Ocultar evidências M4":"Consultar evidências M4 desta frente"}
+              </Button>
+              {m4FrontId===front.id&&<NucleoTechnicalEvidence workstreamId={front.id}/>}
+            </div>)}
+          </div>
+          <details className="rounded-md border p-2 text-xs">
+            <summary className="cursor-pointer font-semibold">
+              Eventos M3 vinculados neste recorte ({fm09.events.length})
+            </summary>
+            <div className="mt-2 space-y-2">
+              {fm09.events.length===0?<p>Não localizado na janela global carregada.</p>:
+              fm09.events.map(event=><p key={event.id} className="border-b pb-1">
+                {event.workstreamCode} · {event.eventType} · {new Date(event.recordedAt).toLocaleString("pt-BR")}
+                {" · Autoria: "+(event.hasIdentifiedActor?"identificada no Core":"não identificada")}
+              </p>)}
+            </div>
+          </details>
+        </>}
+      </section>}
+      {section==="FM-10"&&<p className="rounded-md border p-3 text-xs text-muted-foreground">
+        Referências nesta seção são candidatas a aprendizagem e não representam
+        lições comprovadas em uso real. Somente revisões FM-10 efetivamente
+        gravadas e lidas do Core aparecem no histórico da Ficha Viva,
+        sem promoção automática a conhecimento vigente.
+      </p>}
       {moduleCode==="CRM" && (section==="FM-01"||section==="FM-03"||section==="FM-07"||section==="FM-08") && (
         <details className="rounded-md border p-3 space-y-2" aria-label="Referências originais e autoridade documental CRM">
           <summary className="cursor-pointer text-sm font-semibold">
