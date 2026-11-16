@@ -31,6 +31,9 @@ on:
       - "src/lib/nucleo/operationalProvenanceV12.ts"
       - "src/lib/nucleo/knowledgeArchiveSourcesV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
+      - "src/components/nucleo/NucleoSpecialistContributions.tsx"
+      - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "scripts/nucleo-ux-a-plus-ac01-flow.test.cjs"
       - "scripts/nucleo-ux-a5-readable-states.test.cjs"
       - "src/lib/nucleo/documentDiffPresentationV13.ts"
       - "scripts/nucleo-ux-a4-comparacao-documental.test.cjs"
@@ -141,4 +144,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-crm-journey.test.cjs
       - name: Verify UX A+ specialist panels and preservation
         run: node scripts/nucleo-ux-a-plus-specialist-focus.test.cjs
+      - name: Verify UX A+ AC01 document journey
+        run: node scripts/nucleo-ux-a-plus-ac01-flow.test.cjs
       - run: npm run build
