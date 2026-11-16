@@ -11,6 +11,7 @@ import { CRM_DRAFTS, CCH_DRAFTS, SHOPEE_DRAFTS, OPERACOES_DRAFTS, FINANCEIRO_DRA
 import { CRM_AUTHORITY_SOURCES_V12, CRM_CONTINUITY_CHECKPOINTS_V12, CRM_SPECIALIST_CA17 } from "@/lib/nucleo/crmAuthoritySourcesV12";
 import { compareDocumentVersionsV13 } from "@/lib/nucleo/documentDiffV13";
 import { numberDocumentDiffLinesV13 } from "@/lib/nucleo/documentDiffPresentationV13";
+import { fmLinkedEvidence } from "@/lib/nucleo/fmLinkedEvidenceV13";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -177,6 +178,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   }));
   const templateCount = coverage.filter(entry => entry.hasTemplate).length;
   const persistedCount = coverage.filter(entry => entry.revisionCount > 0).length;
+  const linkedEvidence=useMemo(()=>fmLinkedEvidence(moduleCode,section),[moduleCode,section]);
   const changeSection = (next: FMSection) => {
     if (next === section || saving) return;
     // Troca de seção não pode descartar conteúdo digitado sem decisão humana.
@@ -263,6 +265,32 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           ))}
         </div>
       </section>
+      {["FM-04","FM-05","FM-06","FM-07","FM-08"].includes(section)&&
+        <section className="rounded-md border p-3 space-y-2" aria-label="Vínculos de prova operacional da seção FM">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
+            <h5 className="text-sm font-semibold">Vínculos de origem para {section}</h5>
+            <Badge variant="outline">{linkedEvidence.length} referência(s) catalogada(s)</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Consulta ao inventário técnico e documental já existente no Núcleo.
+            Estes vínculos NÃO são revisão FM gravada, validação de funcionamento, homologação
+            nem comprovação de acesso ao documento original.
+          </p>
+          {linkedEvidence.length===0?<p role="status" className="text-xs text-muted-foreground">
+            Ainda não há vínculo reconciliado para esta seção no módulo. Conferir fontes antes de registrar.
+          </p>:<div className="max-h-80 overflow-y-auto space-y-2" role="list">
+            {linkedEvidence.map(item=><article key={item.key} role="listitem" className="rounded border p-2 space-y-1">
+              <div className="flex flex-wrap gap-2 items-center">
+                <p className="text-xs font-semibold">{item.title}</p>
+                <Badge variant="outline">{item.evidence==="codigo_catalogado"?"Código catalogado":item.evidence==="documento_declarado"?"Declaração documental":"Referência histórica"}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">{item.detail}</p>
+              {item.url?<a href={item.url} target="_blank" rel="noopener noreferrer"
+                className="text-xs underline underline-offset-2">Conferir origem no GitHub</a>
+                :<p className="text-xs break-all">Localizador da fonte: {item.reference} (não é link público)</p>}
+            </article>)}
+          </div>}
+        </section>}
       {moduleCode==="CRM" && (section==="FM-01"||section==="FM-03"||section==="FM-07"||section==="FM-08") && (
         <details className="rounded-md border p-3 space-y-2" aria-label="Referências originais e autoridade documental CRM">
           <summary className="cursor-pointer text-sm font-semibold">
