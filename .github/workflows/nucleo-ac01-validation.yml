@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01HumanReviewBriefV13.ts"
+      - "scripts/nucleo-ac01-human-review-brief.test.cjs"
       - "src/lib/nucleo/ac01ReviewCriteriaV13.ts"
       - "scripts/nucleo-ac01-review-criteria.test.cjs"
       - "src/lib/nucleo/ac01AssistedComparisonV13.ts"
@@ -206,4 +208,6 @@ jobs:
         run: node scripts/nucleo-ac01-assisted-comparison.test.cjs
       - name: Verify AC01 review criteria and fail-closed gates
         run: node scripts/nucleo-ac01-review-criteria.test.cjs
+      - name: Verify AC01 human-review preparation remains read-only
+        run: node scripts/nucleo-ac01-human-review-brief.test.cjs
       - run: npm run build
