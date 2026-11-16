@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
+import { MODULE_ORIGINAL_SOURCES_V12 } from "@/lib/nucleo/moduleOriginalSourcesV12";
 import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
 import { MODULE_SCREENS_V12 } from "@/lib/nucleo/moduleScreenDiscoveriesV12";
 import NucleoGuidedJourneys from "@/components/nucleo/NucleoGuidedJourneys";
@@ -21,12 +22,16 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
   const controls=MODULE_CONTROLS_V12[module.id]??[];
   const screens=MODULE_SCREENS_V12[module.id]??[];
   const sources=MODULE_RECONCILIATION_V12[module.id]??[];
+  const originals=MODULE_ORIGINAL_SOURCES_V12[module.id]??[];
   const query=search.trim().toLocaleLowerCase("pt-BR");
   const visibleControls=useMemo(()=>controls.filter(item=>!query||
     [item.label,item.screen,item.prerequisite,item.observed,item.limitation]
       .some(value=>value.toLocaleLowerCase("pt-BR").includes(query))),[controls,query]);
   const visibleScreens=useMemo(()=>screens.filter(item=>!query||
     [item.name,item.area,item.description].some(value=>value.toLocaleLowerCase("pt-BR").includes(query))),[screens,query]);
+  const visibleOriginals=useMemo(()=>originals.filter(item=>!query||
+    [item.title,item.version,item.archive,item.originalFile,item.sourceStatus,item.authorityScope]
+      .some(value=>value.toLocaleLowerCase("pt-BR").includes(query))),[originals,query]);
   const visibleSources=useMemo(()=>sources.filter(item=>!query||
     [item.label,item.observed,item.nextGate].some(value=>
       value.toLocaleLowerCase("pt-BR").includes(query))),[sources,query]);
@@ -53,7 +58,7 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         consulta, não realiza esses procedimentos.
       </p>
     </div>
-    {(screens.length>0||controls.length>0||sources.length>0)&&<label className="relative block max-w-lg">
+    {(screens.length>0||controls.length>0||sources.length>0||originals.length>0)&&<label className="relative block max-w-lg">
       <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" aria-hidden="true"/>
       <Input aria-label="Buscar funcionalidade ou referência do módulo" className="pl-9"
         placeholder="Buscar botão, fluxo ou fonte…" value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -148,12 +153,37 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         </div>)}
       </div>
     </div>}
+    {mode==="conhecimento"&&originals.length>0&&<section className="space-y-2" aria-label="Fontes originais e situação de autoridade">
+      <div className="flex flex-wrap justify-between gap-2 items-center">
+        <h5 className="text-sm font-semibold">Documentos originais identificados ({visibleOriginals.length}/{originals.length})</h5>
+        <Badge variant="outline">Metadados do acervo · sem cópia do original</Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Os caminhos abaixo pertencem aos arquivos originais fornecidos ao projeto. Não são
+        links públicos, não indicam que o documento já foi importado ao Core e não autorizam
+        alterar sua vigência.
+      </p>
+      <div className="grid gap-2 lg:grid-cols-2">
+        {visibleOriginals.map(item=><details key={item.id} className="rounded-md border p-3 space-y-2">
+          <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {item.title} <span className="font-normal text-xs text-muted-foreground">· {item.version}</span>
+          </summary>
+          <dl className="mt-3 space-y-2 text-xs break-words">
+            <div><dt className="font-semibold">Estado na fonte</dt><dd>{item.sourceStatus}</dd></div>
+            <div><dt className="font-semibold">Âmbito documental</dt><dd>{item.authorityScope}</dd></div>
+            <div><dt className="font-semibold">Origem (arquivo ZIP)</dt><dd>{item.archive}</dd></div>
+            <div><dt className="font-semibold">Caminho original</dt><dd className="font-mono break-all">{item.originalFile}</dd></div>
+            <div><dt className="font-semibold">Verificação antes de usar</dt><dd>{item.reconciliation}</dd></div>
+          </dl>
+        </details>)}
+      </div>
+    </section>}
     {mode==="conhecimento"&&controls.length>0&&
       <p className="text-xs text-muted-foreground">
         {controls.length} controle(s) com observações técnicas disponíveis na seção Funcionalidades.
         Essas observações não são instruções normativas nem revisões FM.
       </p>}
-    {visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0&&
+    {visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0&&visibleOriginals.length===0&&
       <p role="status" className="text-sm text-muted-foreground">
         {query?"Nenhum item corresponde à busca.":"Não há fonte funcional reconciliada neste catálogo. Cobertura não verificada."}
       </p>}
