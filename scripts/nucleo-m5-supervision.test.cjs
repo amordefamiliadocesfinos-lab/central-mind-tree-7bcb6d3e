@@ -310,7 +310,8 @@ assert.match(discoverySource,/O que ainda não comprova/);
 assert.match(discoverySource,/mode==="funcoes"/);
 assert.match(discoverySource,/mode==="conhecimento"/);
 assert.match(atlasVisual,/import NucleoModuleDiscovery/);
-assert.match(atlasVisual,/selected\.id!=="CRM" && <NucleoModuleDiscovery/);
+assert.match(atlasVisual,/moduleSection==="funcoes" && \(selected\.id==="CRM" \? \(/);
+assert.match(atlasVisual,/NucleoModuleDiscovery key=\{selected\.id\+"-funcoes"\}/);
 console.log("Núcleo A+ CA14/22: controles fora do CRM rastreados ao código e fontes PASS (não UAT).");
 
 
