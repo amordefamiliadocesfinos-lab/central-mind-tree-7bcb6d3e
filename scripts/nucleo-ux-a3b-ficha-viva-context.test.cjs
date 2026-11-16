@@ -27,7 +27,7 @@ for(const token of [
 ])assert(text.includes(token),"Retomada M3 / FM-09: "+token);
 for(const token of [
  'requestedSection?:{section:FMSection;seq:number}|null',
- 'if(requestedSection?.section && !saving && !draftDirty)',
+ 'if(requestedSection?.section && !saving && !draftDirty && !writeUncertain)',
  'onClick={()=>onOpenWorkstream(front.id)}',
  'Abrir ficha M3 desta frente',
  'onOpenWorkstream&&',
@@ -41,7 +41,7 @@ assert(fm09Handler.indexOf('if(fmDraftState.dirty)')<fm09Handler.indexOf('setFmS
 assert(fm.includes('requestedSection?.section && !saving && !draftDirty'),"Guarda defensiva no efeito FM");
 // A troca confirmada deve limpar os três campos ANTES de alterar a seção.
 const switchFn=fm.slice(fm.indexOf('  const changeSection = (next: FMSection) => {'),fm.indexOf('  const prepareReference = () => {'));
-assert(switchFn.includes('if (next === section || saving) return;'),"Sem troca durante gravação ou sem mudança");
+assert(switchFn.includes('if (next === section || saving || writeUncertain) return;'),"Sem troca durante gravação ou sem mudança");
 assert(switchFn.includes('if (draftDirty) {'),"Só consultar descarte com minuta");
 assert(switchFn.includes('if (!window.confirm('), "Cancelamento deve preservar minuta");
 for(const token of ['setTitle("");','setBody("");','setSource("");','setValidationError(null);'])
@@ -49,13 +49,13 @@ for(const token of ['setTitle("");','setBody("");','setSource("");','setValidati
 assert(switchFn.indexOf('setValidationError(null);')<switchFn.indexOf('setSection(next);'),"Limpar minuta antes de selecionar seção FM");
 const vm=require("node:vm");
 const executable=switchFn.replace('next: FMSection','next')+'; changeSection(target);';
-function simulateSwitch({dirty,confirm,save,from,to}){
+function simulateSwitch({dirty,confirm,save,from,to,uncertain=false}){
   const calls=[];
   const setters={setTitle:v=>calls.push(['title',v]),setBody:v=>calls.push(['body',v]),
     setSource:v=>calls.push(['source',v]),setValidationError:v=>calls.push(['error',v]),
     setSection:v=>calls.push(['section',v])};
   let prompts=0;
-  vm.runInNewContext(executable,{section:from,saving:save,draftDirty:dirty,
+  vm.runInNewContext(executable,{section:from,saving:save,draftDirty:dirty,writeUncertain:uncertain,
     window:{confirm:()=>{prompts++;return confirm;}},target:to,...setters});
   return {calls,prompts};
 }
@@ -69,6 +69,8 @@ assert.deepEqual(simulateSwitch({dirty:true,confirm:true,save:true,from:'FM-01',
   [],"Gravação bloqueia troca");
 assert.deepEqual(simulateSwitch({dirty:true,confirm:true,save:false,from:'FM-01',to:'FM-01'}).calls,
   [],"Retorno sucessivo à mesma seção não altera minuta");
+assert.deepEqual(simulateSwitch({dirty:true,confirm:true,save:false,from:'FM-01',to:'FM-09',uncertain:true}).calls,
+  [],"Gravação indeterminada bloqueia troca da seção");
 // UX-3: distinguir rascunho, gravação e falha de leitura na Ficha Viva.
 for(const token of [
  'Registrando revisão no Core. Não altere a seção até a confirmação da operação.',
