@@ -40,4 +40,12 @@ assert(fm09Handler.includes('if(fmDraftState.dirty)'),"Bloquear remapeamento de 
 assert(fm09Handler.indexOf('if(fmDraftState.dirty)')<fm09Handler.indexOf('setFmSectionRequest(previous=>'),"Verificar rascunho antes de alterar seção");
 assert(fm.includes('requestedSection?.section && !saving && !draftDirty'),"Guarda defensiva no efeito FM");
 assert(fm.includes('if ((title.trim() || body.trim() || source.trim()) &&'),"Confirmação manual de seção preservada");
+// UX-3: distinguir rascunho, gravação e falha de leitura na Ficha Viva.
+for(const token of [
+ 'Registrando revisão no Core. Não altere a seção até a confirmação da operação.',
+ 'Rascunho não salvo em {section}.',
+ 'Cobertura indeterminada — erro de leitura',
+ '{error&&<p role="alert"',
+])assert(fm.includes(token),"Ficha Viva sem aviso contextual: "+token);
+assert(fm.indexOf('Rascunho não salvo em {section}.')<fm.indexOf('<section aria-label="Cobertura documental por seção"'),"Aviso de minuta deve anteceder troca de seção");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
