@@ -100,3 +100,36 @@
 - **P4/P5 — permanecem pendentes e sem autorização implícita**.
 
 **Próximo passo operacional estrito:** somente diante de documento real e acesso autorizado, observar registro de contribuição append-only e readback pelo operador; depois verificar versionamento e comparação conforme o mapa, conservando originais. Sem esse caso, manter P2/P3 aguardando prova, sem abrir nova frente, inventar dado ou marcar Entrega A+ homologada.
+
+
+## 8. Piloto AC-01 — fonte real selecionada, porta de escrita preservada (16/11/2026)
+
+**Natureza:** pré-conferência efetiva do original e prontidão do piloto P2/P3, **sem registro no Core**. Este apontamento complementa, não substitui, os gates do item 7. Não constitui certificado de vigência ou autorização de uso externo.
+
+**Original realmente reaberto:** arquivo `ATENDIMENTO CRM ETAPAS.zip`, entrada exata `ATENDIMENTO CRM ETAPAS/DOCUMENTO_MESTRE_PROCESSO_COMERCIAL_CRM_AMOR_DE_FAMILIA_V1_0.txt`, de 27.659 bytes. SHA-256 calculado **sobre os bytes brutos dessa entrada**: `d6e1222281ad05d8c7c2e10e0f3b31151ab4bedd7f3a7b057942070faddbdc57`. Foi lido o corpo inicial para conferir título, versão 1.0, finalidade e as oito etapas; **não copiar o conteúdo para o Core**. Hash de bytes não atesta autor, versão vigente ou homologação atual.
+
+**Inventário existente consultado:** `src/lib/nucleo/crmAuthoritySourcesV12.ts` já indexa essa origem sob `CRM-PROCESSO`, como documento mestre da base estrutural. A fonte não foi inventada nem reclassificada. **Módulo real no Core:** `CRM`, `id=f07bb967-788a-45eb-bce7-242581d74cd4`, `kind=modulo`, `status=em_andamento`; especialista descrito como papel funcional com vínculo documental a conciliar. A consulta de capacidade mostrou **1 concessão `nucleo_manage` ativa**, mas isso não comprova que esta execução possui a sessão correspondente.
+
+**Contrato de escrita verificado diretamente:** `supabase/migrations/20261114183000_nucleo_ac01_contributions.sql`, trigger `nucleo_ac01_before_insert()`, exige `auth.uid()` não nulo; política `nucleo_ac01_insert` exige `nucleo_manage` ativo do autor. O fluxo de UI realiza `INSERT` append-only e readback com `request_id`; consulta SQL administrativa não equivale a sessão humana autenticada. **Não contornar trigger/RLS por conexão privilegiada**.
+
+**Campos de origem prontos para conferência humana no formulário existente:**
+
+| Campo | Valor candidato, não salvo |
+|---|---|
+| Módulo | CRM (ID acima) |
+| Papel | Especialista CRM, sujeito a confirmação funcional/autoridade |
+| Categoria | `metodo` (classificação a conferir pelo registrador) |
+| Título | Documento Mestre — Processo Comercial CRM V1.0 |
+| Tipo de origem | `referencia_privada` (arquivo do ZIP fornecido, não importado ao Core) |
+| Localizador | `ATENDIMENTO CRM ETAPAS.zip :: ATENDIMENTO CRM ETAPAS/DOCUMENTO_MESTRE_PROCESSO_COMERCIAL_CRM_AMOR_DE_FAMILIA_V1_0.txt` |
+| SHA-256 de origem | `d6e1222281ad05d8c7c2e10e0f3b31151ab4bedd7f3a7b057942070faddbdc57` |
+| Estado pretendido pelo contrato | `proposta`, **jamais vigente automático** |
+| ID de pedido / ator / registro | **Ainda não gerados ou persistidos**; dependerão da UI autorizada |
+
+**Pendências objetivas do piloto, sem aprovar por narrativa:**
+1. **P2 (gravação real):** executar apenas pelo formulário AC-01 em sessão autenticada com `nucleo_manage`, sob ação explícita do operador, e conferir o mesmo `request_id` no readback; sem essa sessão a gravação não foi realizada.
+2. **P3 (segunda versão legítima):** o ZIP consultado inclui esse documento na versão 1.0; **nenhuma V1.1 deste mesmo Documento Mestre foi comprovada nesta inspeção**. Outros documentos CRM (como Matriz 09.01 V1.1 e dicionários) são identidades distintas e não devem ser usados como “versão 2” da mesma linhagem. Localizar revisão original legítima ou aguardar evolução real antes de criar revisão.
+3. **P1/segregação:** validar RLS em sessão legítima (autor autorizado e caso negado) com evidência; existência de concessão administrativa não demonstra direito do ator atual.
+4. **P4/P5:** decisões, publicação e homologação permanecem fora deste preparo; não há ato autorizado neste checkpoint.
+
+**Resultado factual:** **fonte e módulo reais conferidos; piloto P2/P3 ainda não executado nem homologado**. Preservados original, Core vazio, gates de autoridade e Mapa V1.3. Não abrir frente de UI paralela nem preencher dados fictícios.
