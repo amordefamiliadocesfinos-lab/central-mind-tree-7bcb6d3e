@@ -19,9 +19,9 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
   const step=selected?.steps[activeIndex];
   const screen=step?MODULE_SCREENS_V12[module.id]?.find(item=>item.id===step.screenId):null;
   const control=step?.controlLabel?MODULE_CONTROLS_V12[module.id]?.find(item=>item.label===step.controlLabel):null;
-  return <section id={module.id==="CRM"?"nucleo-crm-procedures":undefined}
+  return <section id={module.id==="CRM"?"nucleo-crm-procedures":"nucleo-module-"+module.id.toLowerCase()+"-procedures"}
     className="scroll-mt-28 rounded-lg border p-3 md:p-4 space-y-4"
-    tabIndex={module.id==="CRM"?-1:undefined}
+    tabIndex={-1}
     aria-label={"Jornadas orientadas por tarefa de "+module.name}>
     <div className="flex flex-wrap justify-between items-start gap-2">
       <div className="space-y-1">
