@@ -164,3 +164,54 @@ A revisão acima **não altera nem aprova os critérios CA-01–CA-29**. As caut
 - **UX V2.3–V2.5:** refinamentos autorizados de apresentação e proteção de estado, sem reconstrução de Núcleo, Ficha Viva, Biblioteca, integração com GitHub/Supabase ou permissões.
 - **Pendências ainda legítimas:** homologação autenticada desktop/mobile e acessibilidade integral, ações de navegação SPA externas não cobertas por avisos de `beforeunload`, rascunhos entre sessões/recarregamentos, dependência AC-02 condicionada à Camada Mestre, publicação canônica externa e portões INSERT/RPC fechados. Não criar por padrão novas frentes de aparência sem evidência de uso real.
 - **Prova de CI:** verificações técnicas em GitHub Actions; não confirma por si só disponibilidade do deployment final, qualidade visual percebida ou conformidade WCAG 2.2 AA.
+
+## 11. UX V3.0 — Panorama, Foco e Execução — ADENDO CONGELADO (16/11/2026)
+
+**Estado:** CONGELADO por determinação expressa do proprietário. **Hierarquia:** extensão de experiência do Mapa UX V1.0 existente, subordinada ao Mapa Mestre Núcleo 2.0 V1.3 e CA-01–CA-29; não substitui as seções 1–10. Congelamento da orientação **não equivale** a homologação visual humana nem a implementação integral desta rodada.
+
+### 11.1 Problema, objetivo e princípio
+O Painel Central já oferece o padrão de encaixes, filtros, gráficos e leitura macro/micro. A Central Núcleo V2.7 melhorou retomada e cartões de situação, porém o acompanhamento ainda agrupa seções longas e indicadores repetidos. O gestor precisa abrir a tela e identificar **onde está, onde parou, o que precisa de atenção e como continuar**, com profundidade escolhida.
+
+**Princípio congelado:** mostrar o essencial primeiro; expandir por intenção. **Panorama → Foco → Execução** em uma única experiência, sem criar segunda Biblioteca, segundo Núcleo, rota paralela, Entrega B ou M6.
+
+### 11.2 Arquitetura dos três modos
+
+| Nível | Entrada | Ação imediata | Detalhe sob demanda |
+|---|---|---|---|
+| **Panorama geral** | Onde estou, última frente aberta neste navegador ou evento recente do recorte do Core com origem explícita, resumo por estado, atenção e cobertura | Continuar, abrir recorte, localizar módulo | Atlas completo, histórico e supervisão |
+| **Foco micro** | Recorte por situação, módulo ou especialista **declarado**, cartões e barras do mesmo universo, lista/kanban focados | Limpar foco, abrir frente sem perder seleção | Ficha, prova e dependências |
+| **Execução** | Frente selecionada, código/título, status, próxima ação registrada e bloqueio; autoria/prova quando disponíveis | Editar, salvar, consultar evidência | Histórico, documentação e dependências progressivas |
+
+A transição mantém a rota /nucleo, os mesmos registros e IDs; componentes com minuta devem permanecer montados ou exigir confirmação explícita de descarte. Se a gravação estiver em andamento ou for indeterminada, não descartar contexto silenciosamente. Painéis não devem parecer clicáveis sem ação real.
+
+### 11.3 Paleta e dashboards honestos
+Paleta existente: **azul #1A73E8** (navegação/foco), **verde #34A853** (concluído declarado ou evidência realmente verificada, com texto), **amarelo #FBBC04** (validação/atenção), **vermelho #EA4335** (bloqueio) e **azul claro #E8F0FE** (superfície). Cor jamais é prova de homologação.
+
+Barras e percentuais só podem indicar uma **proporção objetiva** do mesmo universo consultado e rotulado:
+- Distribuição de estados M3: contagem por estado / total elegível do recorte, incluindo planejado e concluído.
+- Concluídas **declaradas** no recorte: estado concluído / frentes e subfrentes elegíveis; **não** percentual geral de desenvolvimento do módulo.
+- Bloqueadas, em validação, em andamento e próximas ações preenchidas: contagem e denominador visíveis; próxima ação presente **não** comprova sua execução.
+- Estado de evidência **declarado M3**: sem_evidencia, relatada, comprovada. Não equiparar à conferência de prova técnica M4.
+- Evidência M4: somente calcular se a consulta M4 sustentar numerador e denominador do mesmo universo; recorte parcial, erro e sem acesso devem ser rotulados. Nunca inferir prova por estado M3.
+
+**Contrato de barra:** nome, numerador, denominador, percentual derivado, fonte, recorte e limitação. Vazio/indisponível não é 0%. Excluir raiz NUC da contagem operacional. Ao agregar módulo, não tomar 100% das frentes concluídas como 100% da implantação real.
+
+### 11.4 Seis microfrentes congeladas
+
+| Ordem | ID | Entrega | Aceite técnico mínimo |
+|---|---|---|---|
+| 1 | **UX-DIN-01 — Entrada dinâmica** | Compor retomada, atenção, distribuição real e acesso aos recortes num resumo compacto; reduzir repetição visual | Fonte M3 e IDs preservados, erros/vazios, responsividade, build/CI |
+| 2 | **UX-DIN-02 — Foco acionável** | Reutilizar filtros V2.7 e incluir situação, módulo, especialista declarado, limpar foco, lista/kanban sob recorte | Filtros sem writers, seleção/rascunho protegidos, retorno ao panorama |
+| 3 | **UX-DIN-03 — Barras verdadeiras** | Componente reaproveitável com distribuição, conclusão declarada e cobertura quando comprovável | Testes 0/0, arredondamento, origem e cor+texto; sem porcentagem inventada |
+| 4 | **UX-DIN-04 — Resumo micro** | Consulta rápida de status, prioridade, ação, última atualização, especialista declarado e evidência do registro | Abrir a mesma frente/ID, sem duplicar editor ou banco |
+| 5 | **UX-DIN-05 — Execução encaixada** | Priorizar próxima ação e recolher progressivamente evidência, dependência, checkpoint e histórico existentes | Guardas de edição preservadas, sem escritores ou portões novos |
+| 6 | **UX-DIN-06 — Continuidade visual** | Unificar cartões, barras, acessibilidade, densidade e estados vazios; reconciliar evidências neste mesmo mapa | Build, CI, revisão de limites, homologação visual humana adiada |
+
+**Ordem operacional:** DIN-01 → DIN-02 → DIN-03 → DIN-04 → DIN-05 → DIN-06. Reusar NucleoDevelopmentCenter, NucleoOperationalAtlas, NucleoExecutiveDevelopment, NucleoTechnicalEvidence e componentes FM/AC-01. Não duplicar fontes ou telas.
+
+### 11.5 Governança, testes e limites
+- GitHub oficial, branch pequena → teste estático/TypeScript/build → CI → PR → merge. Lovable apenas ambiente de execução, jamais construtor visual.
+- Não alterar mandatos, RLS, CA-01–CA-29, contratos FM/AC-01, estado canônico, portões de decisão/publicação, nem atribuir autoridade às cores. Qualquer evolução técnica fora da interface deve ser coordenada com o Especialista Núcleo.
+- Não mostrar percentuais de maturidade subjetiva, estimativa de avanço, autoria ou próxima ação inventada. Quando faltar prova, apresentar não verificado/indisponível.
+- Congelamento do mapa **não certifica** layout em uso real: homologação humana e verificação WCAG integral seguem adiadas.
+- Consolidar resultados e evidências das DINs no **mesmo mapa** como adendos datados. Não criar documentação soberana redundante.
