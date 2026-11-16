@@ -80,6 +80,7 @@ export default function NucleoDevelopmentCenter() {
   const [executiveVisited,setExecutiveVisited] = useState(false);
   const [executiveExpanded,setExecutiveExpanded] = useState(false);
   const [supervisionExpanded,setSupervisionExpanded] = useState(false);
+  const [supervisionVisited,setSupervisionVisited] = useState(false);
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
@@ -177,7 +178,7 @@ export default function NucleoDevelopmentCenter() {
     items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
       .map(item=>item.specialist.trim()).filter(Boolean)
   )).sort((a,b)=>a.localeCompare(b,"pt-BR"));
-  const attention=items.filter(item=>item.code!=="NUC");
+  const attention=items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC");
   const blocked=attention.filter(item=>item.status==="bloqueado").length;
   const validating=attention.filter(item=>item.status==="em_validacao").length;
   const active=attention.filter(item=>item.status==="em_andamento").length;
@@ -440,7 +441,7 @@ export default function NucleoDevelopmentCenter() {
             </Card>
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="Situação das frentes registradas no Core">
               <h4 className="text-sm font-semibold">O que precisa de atenção</h4>
-              <p className="mt-1 text-sm text-muted-foreground">Contagem dos registros M3 carregados, exceto a raiz NUC; não é inventário global.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Frentes e subfrentes M3 carregadas, sem módulos-raiz. Não é inventário global.</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <button type="button" aria-label="Ver frentes: Bloqueadas"
                   onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
@@ -584,7 +585,7 @@ export default function NucleoDevelopmentCenter() {
               setAttentionStatus(null);
             }}>Limpar foco</Button>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_auto]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,1.3fr)_auto]">
           <label className="space-y-1 text-xs font-semibold">Módulo
             <select className="min-h-11 w-full rounded-xl border border-[#d2e3fc] bg-white px-3 text-sm font-normal dark:bg-slate-800"
               value={moduleFocusId} onChange={e=>setModuleFocusId(e.target.value)}>
@@ -597,6 +598,13 @@ export default function NucleoDevelopmentCenter() {
               value={specialistFocus} onChange={e=>setSpecialistFocus(e.target.value)}>
               <option value="">Todos os especialistas</option>
               {specialistOptions.map(name=><option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold">Situação
+            <select className="min-h-11 w-full rounded-xl border border-[#d2e3fc] bg-white px-3 text-sm font-normal dark:bg-slate-800"
+              value={attentionStatus||""} onChange={e=>setAttentionStatus(e.target.value?(e.target.value as DevelopmentStatus):null)}>
+              <option value="">Todas as situações</option>
+              {states.map(state=><option key={state.key} value={state.key}>{state.label}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-xs font-semibold">Buscar neste recorte
@@ -628,10 +636,10 @@ export default function NucleoDevelopmentCenter() {
         </div>
         <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
           aria-expanded={supervisionExpanded} aria-controls="nucleo-din-supervision"
-          onClick={()=>setSupervisionExpanded(v=>!v)}>{supervisionExpanded?"Recolher supervisão":"Abrir supervisão"}</Button>
+          onClick={()=>{setSupervisionVisited(true);setSupervisionExpanded(v=>!v);}}>{supervisionExpanded?"Recolher supervisão":"Abrir supervisão"}</Button>
       </div>
       <div id="nucleo-din-supervision" hidden={!supervisionExpanded} className={supervisionExpanded?"":"hidden"}>
-        {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
+        {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
       </div>
 
       <Card className="p-3 space-y-2">
