@@ -1,3 +1,4 @@
+import { CRM_ACTIONS } from "./operationalKnowledgeV12";
 /**
  * Núcleo 2.0 V1.2 — descobertas operacionais verificadas no código para
  * a Entrega A+ CA-14/22. Apenas leitura/orientação: não constitui manual
@@ -14,6 +15,12 @@ export type ModuleControlDiscovery = {
 };
 const repo="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/";
 export const MODULE_CONTROLS_V12:Readonly<Record<string,ReadonlyArray<ModuleControlDiscovery>>>={
+ CRM:CRM_ACTIONS.map(action=>({
+  label:action.label,screen:action.screen,prerequisite:action.prerequisite,
+  observed:action.expectedEffect,confirmation:action.confirmation,
+  limitation:action.limit,source:action.source,
+ })),
+
   FIN:[
     {
       label:"Revisar importados",screen:"Financeiro — filtros e operações de importação",
