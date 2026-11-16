@@ -200,9 +200,15 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
 
   const changeSection = (next: FMSection) => {
     if (next === section || saving) return;
-    // Troca de seção não pode descartar conteúdo digitado sem decisão humana.
-    if ((title.trim() || body.trim() || source.trim()) &&
-      !window.confirm("Há um rascunho não salvo nesta seção. Descartá-lo e abrir outra seção?")) return;
+    // Uma confirmação de descarte precisa esvaziar a minuta anterior.
+    // Caso contrário, os campos antigos passam a aparecer na nova seção FM.
+    if (draftDirty) {
+      if (!window.confirm("Há um rascunho não salvo nesta seção. Descartá-lo e abrir outra seção?")) return;
+      setTitle("");
+      setBody("");
+      setSource("");
+      setValidationError(null);
+    }
     setSection(next);
   };
   const prepareReference = () => {
