@@ -242,7 +242,9 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         {controls.length} controle(s) com observações técnicas disponíveis na seção Funcionalidades.
         Essas observações não são instruções normativas nem revisões FM.
       </p>}
-    {visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0&&visibleOriginals.length===0&&
+    {(mode==="funcoes"
+      ? visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0
+      : visibleSources.length===0&&visibleOriginals.length===0)&&
       <p role="status" className="text-sm text-muted-foreground">
         {query?"Nenhum item corresponde à busca.":"Não há fonte funcional reconciliada neste catálogo. Cobertura não verificada."}
       </p>}
