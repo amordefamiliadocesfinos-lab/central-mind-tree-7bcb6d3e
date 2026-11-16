@@ -26,6 +26,7 @@ for(const label of ["Registrar resultado","Confirmar resultado","Próximo atendi
   assert(crm.includes('label: "'+label+'"'),"CRM source control does not exist: "+label);
 for(const id of ["CRM-ESTADO","CRM-05.03","CRM-PROCESSO","CRM-09.01","CRM-09.02","CRM-09.03","CRM-09.04","CRM-09.05"])
  assert(authority.includes('id:"'+id+'"'),"Original authority index missing: "+id);
+assert.match(atlas,/setLevel\("module"\);\s*selectModuleArea\("conhecimento"\);\s*\}\}>Abrir Ficha Viva CRM e fontes/,"Gestor deve abrir área de Conhecimento e montar FM sob demanda");
 // Never add an implicit writer, UAT approval, copied body or raw-document migration.
 assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(discovery),"Discovery must remain read-only");
 assert(original.includes("OPE:[{"),"Segundo módulo deve reutilizar o índice documental");
