@@ -21,7 +21,7 @@ has(c,"min-h-11 w-full whitespace-normal sm:w-auto","Mobile action");
 has(c,'disabled={saving||reading||Boolean(readError)}',"Prevent form entry without read");
 has(c,'className="break-all">Origem:',"Long reference");
 has(c,'disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}',"AC01 original gate, including reference not found in complete read");
-has(c,'check.data.authority_state!==(parent?"em_evolucao":"proposta")',"AC01 original authority");
+has(c,'row.authority_state===attempt.authorityState',"AC01 authority verified against immutable attempt");
 has(f,'authority_state:"rascunho"',"FM original authority");
 has(f,'.eq("id",result.data.id).maybeSingle()',"FM readback");
 console.log("UX-A5: responsividade, estados, acesso e contratos preservados");
