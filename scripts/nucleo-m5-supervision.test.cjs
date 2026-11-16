@@ -266,7 +266,15 @@ const moduleControlJs=ts.transpileModule(moduleControlSource,{compilerOptions:{
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
 },reportDiagnostics:true});
 assert.equal((moduleControlJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
-const moduleControlScope={exports:{}};
+// CA-14/22 aqui confere somente os controles não CRM; o catálogo reutiliza
+// CRM_ACTIONS de outro módulo, que não deve ser resolvido dentro desta VM isolada.
+const moduleControlScope={
+  exports:{},
+  require:(specifier)=>{
+    assert.equal(specifier,"./operationalKnowledgeV12","Dependência inesperada na VM de controles");
+    return {CRM_ACTIONS:[]};
+  },
+};
 vm.runInNewContext(moduleControlJs.outputText,moduleControlScope,{timeout:1000});
 const moduleControls=moduleControlScope.exports.MODULE_CONTROLS_V12;
 for(const mod of ["FIN","OPE","ROT","CAP"]){
