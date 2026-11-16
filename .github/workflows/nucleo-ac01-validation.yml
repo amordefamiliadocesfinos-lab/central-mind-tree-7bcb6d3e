@@ -16,6 +16,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
       - "src/components/nucleo/NucleoAC01VerifiedDecisionLinks.tsx"
+      - "src/lib/nucleo/ac01EvidencePanoramaV13.ts"
+      - "scripts/nucleo-ac01-evidence-panorama.test.cjs"
       - "src/lib/nucleo/ac01VerifiedLinksV13.ts"
       - "scripts/nucleo-ac01-verified-links.test.cjs"
       - "src/lib/nucleo/ac01PostReviewEvidenceV13.ts"
@@ -228,4 +230,6 @@ jobs:
         run: node scripts/nucleo-ac01-postreview-evidence.test.cjs
       - name: Verify AC01 actual decision ID links and pending resolution
         run: node scripts/nucleo-ac01-verified-links.test.cjs
+      - name: Verify per-contribution AC01 evidence and gaps
+        run: node scripts/nucleo-ac01-evidence-panorama.test.cjs
       - run: npm run build
