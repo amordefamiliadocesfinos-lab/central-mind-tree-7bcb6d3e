@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),ts=require("typescript");
+function load(path,requireMock=()=>({})){
+ const out=ts.transpileModule(fs.readFileSync(path,"utf8"),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(out.diagnostics?.filter(d=>d.category===ts.DiagnosticCategory.Error).length??0,0);
+ const mod={exports:{}};new Function("module","exports","require",out.outputText)(mod,mod.exports,requireMock);return mod.exports;
+}
+const linked=load("src/lib/nucleo/ac01VerifiedLinksV13.ts");
+const {buildAc01EvidencePanoramaV13:build}=load("src/lib/nucleo/ac01EvidencePanoramaV13.ts",()=>linked);
+const ev=(id,module_id,contribution_id,event_kind)=>({id,module_id,contribution_id,event_kind,body:"teste",recorded_at:"2026-11-16",actor_auth_uid:"actor"});
+const req={id:"r",module_id:"CRM",contribution_id:"c",review_event_id:"e",requested_outcome:"avaliar_aprovacao",recorded_at:"2026-11-16"};
+const act={id:"a",contribution_id:"c",decision_request_id:"r",outcome:"aprovada",recorded_at:"2026-11-16"};
+let r=build("CRM","c",[ev("e","CRM","c","encaminhar_decisao")],[req],[act]);
+assert.equal(r.completeIdChains,1);
+assert.equal(r.brokenLinks,0);
+assert.equal(r.checkpoints.length,7);
+assert.equal(r.checkpoints.find(x=>x.code==="cadeia").state,"registro_localizado");
+assert.equal(r.checkpoints.find(x=>x.code==="resolucao").state,"verificacao_externa");
+assert.equal(r.checkpoints.find(x=>x.code==="fonte_externa").state,"verificacao_externa");
+assert.equal(r.resolutionConfirmed,false);
+assert.equal(r.publicationConfirmed,false);
+r=build("CRM","c",[],[],[]);
+assert.equal(r.completeIdChains,0);
+assert.equal(r.checkpoints.find(x=>x.code==="cadeia").state,"vinculo_incompleto");
+r=build("CRM","c",[ev("e","OTHER","c","encaminhar_decisao")],[req],[act]);
+assert.equal(r.completeIdChains,0);
+assert.equal(r.brokenLinks,1);
+r=build("CRM","c",[ev("e","CRM","other","encaminhar_decisao")],[req],[act]);
+assert.equal(r.completeIdChains,0);
+r=build("CRM","c",[ev("e","CRM","c","encaminhar_decisao")],[req],[]);
+assert.equal(r.completeIdChains,0);
+assert(r.brokenLinks>0);
+const ui=fs.readFileSync("src/components/nucleo/NucleoAC01VerifiedDecisionLinks.tsx","utf8");
+assert(ui.includes("buildAc01EvidencePanoramaV13(moduleId,contributionId,events,requests,decisions)"));
+assert(ui.includes("Panorama de provas e lacunas da contribuição"));
+assert(ui.includes("!loading&&!error&&<>"));
+assert(ui.includes("Resolução e publicação externa continuam não comprovadas"));
+const lib=fs.readFileSync("src/lib/nucleo/ac01EvidencePanoramaV13.ts","utf8");
+assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(lib+ui));
+console.log("AC01 evidence panorama: explicit ID chain, incomplete links, external checks; no automatic resolution.");
