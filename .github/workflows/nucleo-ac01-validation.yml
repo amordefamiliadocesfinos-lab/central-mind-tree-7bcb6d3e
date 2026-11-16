@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01PendingReviewGuidanceV13.ts"
+      - "scripts/nucleo-ac01-pending-review-bridge.test.cjs"
       - "src/components/nucleo/NucleoAC01ReviewContinuityRead.tsx"
       - "src/lib/nucleo/ac01ReviewContinuityV13.ts"
       - "scripts/nucleo-ac01-review-continuity.test.cjs"
@@ -215,4 +217,6 @@ jobs:
         run: node scripts/nucleo-ac01-human-review-brief.test.cjs
       - name: Verify AC01 review continuity read-only scope
         run: node scripts/nucleo-ac01-review-continuity.test.cjs
+      - name: Verify AC01 pending issue to existing review workflow
+        run: node scripts/nucleo-ac01-pending-review-bridge.test.cjs
       - run: npm run build
