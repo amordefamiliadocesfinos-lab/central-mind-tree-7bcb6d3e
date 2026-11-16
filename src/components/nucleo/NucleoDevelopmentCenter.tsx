@@ -12,6 +12,7 @@ import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
+import NucleoPanoramaDinV30, { moduleIdForWorkstream } from "@/components/nucleo/NucleoPanoramaDinV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
@@ -74,6 +75,11 @@ export default function NucleoDevelopmentCenter() {
   const [workspaceView, setWorkspaceView] = useState<"geral" | "frentes">("geral");
   // Filtro de apresentação, sem alteração de estado no Core.
   const [attentionStatus,setAttentionStatus] = useState<DevelopmentStatus | null>(null);
+  const [moduleFocusId,setModuleFocusId] = useState("");
+  const [specialistFocus,setSpecialistFocus] = useState("");
+  const [executiveVisited,setExecutiveVisited] = useState(false);
+  const [executiveExpanded,setExecutiveExpanded] = useState(false);
+  const [supervisionExpanded,setSupervisionExpanded] = useState(false);
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
@@ -166,13 +172,22 @@ export default function NucleoDevelopmentCenter() {
   const resumeItem=lastOpened ?? (latestEvent ? byId.get(latestEvent.workstream_id) : undefined);
   const resumeSource=lastOpened?"Último registro aberto neste navegador"
     :latestEvent?"Última movimentação entre os eventos carregados do Core":null;
+  const moduleOptions=items.filter(item=>item.kind==="modulo"&&item.code!=="NUC");
+  const specialistOptions=Array.from(new Set(
+    items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
+      .map(item=>item.specialist.trim()).filter(Boolean)
+  )).sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const attention=items.filter(item=>item.code!=="NUC");
   const blocked=attention.filter(item=>item.status==="bloqueado").length;
   const validating=attention.filter(item=>item.status==="em_validacao").length;
   const active=attention.filter(item=>item.status==="em_andamento").length;
   // A raiz NUC integra o total M3, mas não é uma frente operacional.
   const governanceRootCount = visible.filter(item => item.code === "NUC").length;
-  const allOperationalVisible = visible.filter(item => item.code !== "NUC");
+  const allOperationalVisible = visible.filter(item =>
+    item.code !== "NUC" && item.kind !== "modulo"
+    && (!moduleFocusId || moduleIdForWorkstream(item,byId)===moduleFocusId)
+    && (!specialistFocus || item.specialist.trim()===specialistFocus)
+  );
   const operationalVisible = allOperationalVisible.filter(item => !attentionStatus || item.status === attentionStatus);
   const sortedOperational = useMemo(() => {
     const priorityRank: Record<Priority,number> = {critica:0,alta:1,normal:2,baixa:3};
@@ -183,7 +198,7 @@ export default function NucleoDevelopmentCenter() {
       stateRank[a.status] - stateRank[b.status] ||
       priorityRank[a.priority] - priorityRank[b.priority] ||
       a.code.localeCompare(b.code, "pt-BR"));
-  }, [visible,attentionStatus]);
+  }, [visible,attentionStatus,moduleFocusId,specialistFocus]);
 
   const choose = (id: string): boolean => {
     if (id === selectedId) return true;
@@ -329,6 +344,8 @@ export default function NucleoDevelopmentCenter() {
     if(!choose(id))return;
     setFilter("");
     setAttentionStatus(null);
+    setModuleFocusId("");
+    setSpecialistFocus("");
     setWorkspaceView("frentes");
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
@@ -339,6 +356,8 @@ export default function NucleoDevelopmentCenter() {
       if (!choose(registered.id)) return;
       setFilter("");
       setAttentionStatus(null);
+      setModuleFocusId("");
+      setSpecialistFocus("");
       setWorkspaceView("frentes");
       toast.info("Este módulo já está cadastrado no Core M3.");
       requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
@@ -424,19 +443,19 @@ export default function NucleoDevelopmentCenter() {
               <p className="mt-1 text-sm text-muted-foreground">Contagem dos registros M3 carregados, exceto a raiz NUC; não é inventário global.</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <button type="button" aria-label="Ver frentes: Bloqueadas"
-                  onClick={()=>{setFilter("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-rose-200 bg-rose-50 p-3 text-center transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 dark:border-rose-800 dark:bg-rose-950/20">
                   <p className="text-2xl font-bold tabular-nums text-rose-800 dark:text-rose-200">{blocked}</p>
                   <p className="text-xs font-semibold text-rose-950 dark:text-rose-100">Bloqueadas</p>
                 </button>
                 <button type="button" aria-label="Ver frentes: Em validação"
-                  onClick={()=>{setFilter("");setAttentionStatus("em_validacao");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("em_validacao");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 dark:border-amber-800 dark:bg-amber-950/20">
                   <p className="text-2xl font-bold tabular-nums text-amber-800 dark:text-amber-200">{validating}</p>
                   <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">Em validação</p>
                 </button>
                 <button type="button" aria-label="Ver frentes: Em andamento"
-                  onClick={()=>{setFilter("");setAttentionStatus("em_andamento");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("em_andamento");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-blue-200 bg-blue-50 p-3 text-center transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 dark:border-blue-800 dark:bg-blue-950/20">
                   <p className="text-2xl font-bold tabular-nums text-blue-800 dark:text-blue-200">{active}</p>
                   <p className="text-xs font-semibold text-blue-950 dark:text-blue-100">Em andamento</p>
@@ -447,6 +466,21 @@ export default function NucleoDevelopmentCenter() {
                 onClick={()=>setWorkspaceView("frentes")}>Ver frentes e próximas ações</Button>
             </Card>
           </div>
+          <NucleoPanoramaDinV30 workstreams={items}
+            onFocusModule={moduleId=>{
+              setFilter("");
+              setAttentionStatus(null);
+              setSpecialistFocus("");
+              setModuleFocusId(moduleId);
+              setWorkspaceView("frentes");
+            }}
+            onFocusStatus={status=>{
+              setFilter("");
+              setModuleFocusId("");
+              setSpecialistFocus("");
+              setAttentionStatus(status);
+              setWorkspaceView("frentes");
+            }}/>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <div>
               <h4 className="text-sm font-semibold">Precisa explorar um módulo?</h4>
@@ -471,11 +505,28 @@ export default function NucleoDevelopmentCenter() {
       </div>
       <div hidden={workspaceView !== "frentes"} className={workspaceView === "frentes" ? "space-y-4" : "hidden"}
         aria-hidden={workspaceView !== "frentes"}>
-        <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
-          events={history} onOpenWorkstream={id=>{
-            if (!choose(id)) return;
-            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
-          }}/>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dce5f1] bg-[#f7faff] p-3 dark:border-slate-700 dark:bg-slate-800">
+          <div>
+            <p className="text-sm font-semibold">Análise executiva detalhada</p>
+            <p className="text-xs text-muted-foreground">Prioridades, pendências e checkpoints; abra somente quando precisar.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+            aria-expanded={executiveExpanded} aria-controls="nucleo-din-executive"
+            onClick={() => {setExecutiveVisited(true);setExecutiveExpanded(v=>!v);}}>
+            {executiveExpanded?"Recolher análise":"Abrir análise"}
+          </Button>
+        </div>
+        <div id="nucleo-din-executive" hidden={!executiveExpanded} className={executiveExpanded?"":"hidden"}>
+          {executiveVisited&&<NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
+            events={history} onOpenWorkstream={id=>{
+              if (!choose(id)) return;
+              setFilter("");
+              setAttentionStatus(null);
+              setModuleFocusId("");
+              setSpecialistFocus("");
+              requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+            }}/>}
+        </div>
 
       {creating && (
         <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
@@ -519,11 +570,50 @@ export default function NucleoDevelopmentCenter() {
         </Card>
       )}
 
-      <div className="flex items-center gap-2">
-        <Input className="max-w-md" value={filter} onChange={e => setFilter(e.target.value)}
-          placeholder="Filtrar código, especialista, frente ou próxima ação"/>
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Atualizar</Button>
-      </div>
+      <section className="space-y-2 rounded-2xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 dark:border-slate-700 dark:bg-slate-900" aria-label="Foco do acompanhamento">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">Foco do acompanhamento</h3>
+            <p className="text-xs text-muted-foreground">Filtre o mesmo Core M3 por módulo, especialista declarado ou situação; não altera os registros.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+            onClick={()=>{
+              setFilter("");
+              setModuleFocusId("");
+              setSpecialistFocus("");
+              setAttentionStatus(null);
+            }}>Limpar foco</Button>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_auto]">
+          <label className="space-y-1 text-xs font-semibold">Módulo
+            <select className="min-h-11 w-full rounded-xl border border-[#d2e3fc] bg-white px-3 text-sm font-normal dark:bg-slate-800"
+              value={moduleFocusId} onChange={e=>setModuleFocusId(e.target.value)}>
+              <option value="">Todos os módulos</option>
+              {moduleOptions.map(item=><option key={item.id} value={item.id}>{item.code} · {item.title}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold">Especialista declarado
+            <select className="min-h-11 w-full rounded-xl border border-[#d2e3fc] bg-white px-3 text-sm font-normal dark:bg-slate-800"
+              value={specialistFocus} onChange={e=>setSpecialistFocus(e.target.value)}>
+              <option value="">Todos os especialistas</option>
+              {specialistOptions.map(name=><option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold">Buscar neste recorte
+            <Input className="min-h-11 rounded-xl border-[#d2e3fc] bg-white text-sm" value={filter}
+              onChange={e=>setFilter(e.target.value)} placeholder="Código, frente ou próxima ação"/>
+          </label>
+          <Button type="button" size="sm" variant="outline" className="min-h-11 self-end rounded-full"
+            onClick={()=>void refresh()} disabled={loading}>Atualizar</Button>
+        </div>
+        {(moduleFocusId||specialistFocus||attentionStatus||filter.trim())&&
+          <p role="status" className="text-xs font-semibold text-[#174ea6] dark:text-blue-300">
+            Recorte ativo: {moduleFocusId?(byId.get(moduleFocusId)?.title||"Módulo indisponível"):"Todos os módulos"}
+            {" · "}{specialistFocus||"Todos os especialistas"}
+            {" · "}{attentionStatus?(states.find(state=>state.key===attentionStatus)?.label||"Situação"):"Todas as situações"}
+            {" · "}{operationalVisible.length} frente(s)/subfrente(s) no recorte
+          </p>}
+      </section>
 
       {attentionStatus && (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] px-3 py-2 text-sm text-[#174ea6] dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
@@ -531,7 +621,18 @@ export default function NucleoDevelopmentCenter() {
           <Button type="button" size="sm" variant="outline" className="min-h-9 rounded-full" onClick={()=>setAttentionStatus(null)}>Mostrar todas as situações</Button>
         </div>
       )}
-      {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+        <div>
+          <p className="text-sm font-semibold">Supervisão de dependências</p>
+          <p className="text-xs text-muted-foreground">Indicadores gerais e leitura técnica disponíveis sob demanda.</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+          aria-expanded={supervisionExpanded} aria-controls="nucleo-din-supervision"
+          onClick={()=>setSupervisionExpanded(v=>!v)}>{supervisionExpanded?"Recolher supervisão":"Abrir supervisão"}</Button>
+      </div>
+      <div id="nucleo-din-supervision" hidden={!supervisionExpanded} className={supervisionExpanded?"":"hidden"}>
+        {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
+      </div>
 
       <Card className="p-3 space-y-2">
         <h3 className="text-sm font-semibold">Árvore de módulos e frentes</h3>
