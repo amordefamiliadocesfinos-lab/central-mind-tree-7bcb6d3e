@@ -11,7 +11,7 @@ for(const [src,t,reason] of [
 [a,'onDraftStateChange={setFmDraftState}',"Ficha Viva callback"],
 [k,'const draftDirty=Boolean(title.trim()||body.trim()||source.trim())',"FM editing"],
 [s,'const draftBusy=saving||uncertainRef.current',"Uncertain AC01 never discarded"],
-[s,'check.data.authority_state!==(parent?"em_evolucao":"proposta")',"AC01 readback preserved"],
+[s,'row.authority_state===attempt.authorityState',"AC01 readback preserved by full snapshot"],
 [k,'authority_state:"rascunho"',"FM authority preserved"],
 [k,'.eq("id",result.data.id).maybeSingle()',"FM readback preserved"],
 ]){
