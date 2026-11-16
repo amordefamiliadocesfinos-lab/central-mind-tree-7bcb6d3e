@@ -66,3 +66,37 @@
 **Essa ausência impede concluir homologação; não prova inexistência absoluta fora do escopo inspecionado.**
 
 **Resultado de checkpoint:** **A+ — desenvolvimento técnico avançado / homologação funcional pendente**. Entrega A restrita preservada. Entrega B continua não autorizada. **Nenhuma frente nova aberta e nenhuma autoridade ou condição normativa alterada.**
+
+
+## 7. Readback produtivo dirigido — 16/11/2026 (P0/P1; sem mutação)
+
+**Origem da evidência:** conector de leitura de metadados do projeto Painel Central `1720a410-34cd-4410-995c-8c92c7edf16b`, com `get_project` e `get_database_status`; `SELECT` no PostgreSQL oficial habilitado; `main` lida diretamente no GitHub. **Não foi usado o construtor visual nem executado DDL/DML.**
+
+| Verificação | Resultado observado | Limite probatório |
+|---|---|---|
+| GitHub `main` | `8442a75ad2cd6917edf3383230632ab0272d1e78` | Commit de referência no instante da leitura |
+| Projeto conectado | `project.status=ready`, `is_published=true`, `latest_commit_sha=8442a75ad2cd6917edf3383230632ab0272d1e78` | **SHA informado pelo projeto corresponde à `main`; não foi feita prova de carregamento da UI em sessão real, cache/build publicado, ou execução específica de Edge Function** |
+| Banco | `enabled=true`, `stack=supabase` | Banco operacional e consultável, mas não implica jornada documental executada |
+| Ledger de migrations | `20261114183000` a `20261114183600`, sete versões listadas na tabela `supabase_migrations.schema_migrations` | Migrations presentes no ledger; não é ensaio de toda trigger/RLS sob sessão JWT |
+| RLS | `relrowsecurity=true` nas oito tabelas abaixo; `anon SELECT=false`; `authenticated SELECT=true` como privilégio de tabela | Privilégio `authenticated` **não ignora RLS**; falta testar efetivamente papel autorizado, negado e revogação em sessão |
+| Quantidade de registros no Core | Zero nas oito tabelas AC-01/FM/mandatos abaixo, **nesta consulta** | Impede piloto positivo com registros atuais; não demonstra inexistência de documentos externos ou usuários autorizados |
+
+**Tabelas consultadas** (cada uma retornou `count(*)=0`, RLS ativa e `anon SELECT=false`):
+`nucleo_specialist_contributions`,
+`nucleo_ac01_review_events`,
+`nucleo_ac01_decision_requests`,
+`nucleo_ac01_decision_acts`,
+`nucleo_ac01_publication_events`,
+`nucleo_ac01_authority_grants`,
+`nucleo_module_knowledge_revisions`,
+`nucleo_specialist_mandate_records`.
+
+**Atualização da seção 6:** sua frase “query SQL atual no Core não realizada” descrevia o corte anterior e **foi superada exclusivamente para as leituras listadas neste item 7**. Continuam não executados: ensaio autenticado positivo/negativo com JWT real, navegação de UI publicada, gravação/readback de contribuição real, comparação textual integral entre originais, UAT mobile/teclado, teste de mandato/decisão/publicação e homologação. Não tratar igualdade de SHA como confirmação operacional de todo fluxo.
+
+**Conclusão de portões:**
+- **P0 — parcialmente verificado:** metadados GitHub/projeto conciliados, sete migrations no ledger, banco consultável; **runtime visual/endpoints e revisão exata de deploy não homologados**.
+- **P1 — parcialmente verificado:** RLS habilitada e sem `anon SELECT` nas oito tabelas; **enforcement em sessões reais ainda não ensaiado**.
+- **P2/P3 — condicionados a uma contribuição real elegível, autorização do proprietário e pelo menos duas versões**; não inserir proposta de fachada para satisfazer o teste.
+- **P4/P5 — permanecem pendentes e sem autorização implícita**.
+
+**Próximo passo operacional estrito:** somente diante de documento real e acesso autorizado, observar registro de contribuição append-only e readback pelo operador; depois verificar versionamento e comparação conforme o mapa, conservando originais. Sem esse caso, manter P2/P3 aguardando prova, sem abrir nova frente, inventar dado ou marcar Entrega A+ homologada.
