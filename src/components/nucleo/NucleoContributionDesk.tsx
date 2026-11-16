@@ -10,8 +10,9 @@ import { AC01_QUEUE_ISSUE_LABELS, type Ac01QueueIssue } from "@/lib/nucleo/ac01C
 import { preparePendingReviewGuidance } from "@/lib/nucleo/ac01PendingReviewGuidanceV13";
 
 type Props={moduleName:string;declaredRole:string;rows:ContributionMetadata[];readAt:string;
- requestedReview?:{contributionId:string;issues:readonly Ac01QueueIssue[];seq:number}|null};
-export default function NucleoContributionDesk({moduleName,declaredRole,rows,readAt,requestedReview}:Props) {
+ requestedReview?:{contributionId:string;issues:readonly Ac01QueueIssue[];seq:number}|null;
+ onOpenCycleEvidence?:(contributionId:string)=>void};
+export default function NucleoContributionDesk({moduleName,declaredRole,rows,readAt,requestedReview,onOpenCycleEvidence}:Props) {
  const [query,setQuery]=useState("");
  const [state,setState]=useState<DeskState>("todas");
  const [selectedId,setSelectedId]=useState("");
@@ -85,7 +86,13 @@ export default function NucleoContributionDesk({moduleName,declaredRole,rows,rea
      </button>)}
    </div>
    {selected&&<div className="nucleo-v22-soft-surface space-y-2 p-3 text-sm">
-     <strong>Preparação de consolidação · {selected.title}</strong>
+     <div className="flex flex-wrap items-center justify-between gap-2">
+       <strong>Preparação de consolidação · {selected.title}</strong>
+       {onOpenCycleEvidence&&<Button type="button" size="sm" variant="outline"
+         onClick={()=>onOpenCycleEvidence(selected.id)}>
+         Examinar provas e pendências no ciclo AC-01
+       </Button>}
+     </div>
      <p className="text-xs">Versão {selected.version_no}; origem declarada: {selected.source_kind}. Conteúdo original não foi acessado.</p>
      <p className="text-xs break-all">Localizador: {selected.source_locator}</p>
      <p className="text-xs">Antecessor: {previous?"v"+previous.version_no:"indisponível neste recorte"} · Estado: {selected.authority_state}</p>

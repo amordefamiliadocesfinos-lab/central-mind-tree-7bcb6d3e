@@ -50,6 +50,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [flowStep,setFlowStep]=useState<DocStage|null>(null);
  const [governanceTarget,setGovernanceTarget]=useState<{key:GovTab;seq:number}|null>(null);
  const [requestedReview,setRequestedReview]=useState<{contributionId:string;issues:readonly Ac01QueueIssue[];seq:number}|null>(null);
+ const [focusedCycleContribution,setFocusedCycleContribution]=useState<{contributionId:string;seq:number}|null>(null);
  const targetCounter=useRef(0);
  const areaId=useId();
  const [rows,setRows]=useState<RecordRow[]>([]);
@@ -82,7 +83,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    window.addEventListener("beforeunload",warn);
    return ()=>window.removeEventListener("beforeunload",warn);
  },[draftDirty,draftBusy]);
- useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void db.from("nucleo_specialist_contributions").select("*")
@@ -183,7 +184,17 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
   setFlowStep(step.id);setArea(step.area);
   if(step.tab)setGovernanceTarget({key:step.tab,seq:++targetCounter.current});
  },[requestedStage,moduleId]);
+ const openCycleEvidence=(contributionId:string)=>{
+  if(saving||uncertainRef.current||reading||readError)return;
+  if(!rows.some(item=>item.id===contributionId&&item.module_id===moduleId))return;
+  setFocusedCycleContribution({contributionId,seq:++targetCounter.current});
+  setGovernanceTarget({key:"decisao",seq:++targetCounter.current});
+  setArea("ciclo");setFlowStep("decidir");
+  requestAnimationFrame(()=>document.getElementById(areaId+"-ciclo")?.scrollIntoView({behavior:"smooth",block:"start"}));
+ };
  const openPendingReview=(contributionId:string,issues:readonly Ac01QueueIssue[])=>{
+  if(saving||uncertainRef.current||reading||readError)return;
+  if(!rows.some(item=>item.id===contributionId&&item.module_id===moduleId))return;
   setRequestedReview(previous=>({contributionId,issues,seq:(previous?.seq??0)+1}));
   setArea("fila");setFlowStep("refinar");
   requestAnimationFrame(()=>document.getElementById(areaId+"-fila")?.scrollIntoView({behavior:"smooth",block:"start"}));
@@ -264,14 +275,15 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    {/* Alternância só visual: minutas e filtros locais permanecem montados. */}
    <div id={areaId+"-fila"} hidden={area!=="fila"} className="space-y-3">
      {!reading&&!readError&&readAt
-       ? <NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt} requestedReview={requestedReview}/>
+       ? <NucleoContributionDesk moduleName={moduleName} declaredRole={declaredRole} rows={rows} readAt={readAt} requestedReview={requestedReview}
+          onOpenCycleEvidence={openCycleEvidence}/>
        : <p className="rounded-md border p-3 text-sm text-muted-foreground">Fila consultiva disponível após leitura completa do Core. Consulta indisponível não significa ausência de propostas.</p>}
    </div>
    <div id={areaId+"-ciclo"} hidden={area!=="ciclo"} className="space-y-3">
      {!reading&&!readError&&readAt
        ? <NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole}
          contributions={rows} readAt={readAt} requestedTab={governanceTarget}
-         onOpenPendingReview={openPendingReview}/>
+         requestedContribution={focusedCycleContribution} onOpenPendingReview={openPendingReview}/>
        : <p className="rounded-md border p-3 text-sm text-muted-foreground">Estados, decisões e competências requerem leitura confirmada. Nenhum ato decisório ou publicação está habilitado nesta interface.</p>}
    </div>
    <div id={areaId+"-contribuicoes"} hidden={area!=="contribuicoes"} className="space-y-3">

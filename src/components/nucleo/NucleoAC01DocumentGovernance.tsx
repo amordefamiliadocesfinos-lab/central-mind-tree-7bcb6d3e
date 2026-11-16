@@ -45,9 +45,10 @@ const CAP=180;
  * Não inventar estado de vigente quando contratos estiverem vazios ou incompletos.
  */
 export default function NucleoAC01DocumentGovernance({
- moduleId,moduleName,declaredRole,contributions,readAt,requestedTab,onOpenPendingReview,
+ moduleId,moduleName,declaredRole,contributions,readAt,requestedTab,requestedContribution,onOpenPendingReview,
 }:{moduleId:string;moduleName:string;declaredRole:string;contributions:Ac01Record[];readAt:string;
  requestedTab?:{key:Tab;seq:number}|null;
+ requestedContribution?:{contributionId:string;seq:number}|null;
  onOpenPendingReview?:(contributionId:string,issues:readonly Ac01QueueIssue[])=>void}) {
  const [tab,setTab]=useState<Tab>("vigente");
  useEffect(()=>{if(requestedTab)setTab(requestedTab.key);},[requestedTab]);
@@ -67,6 +68,13 @@ export default function NucleoAC01DocumentGovernance({
  const [fm,setFm]=useState<Ac01FM[]>([]);
  const [selectedId,setSelectedId]=useState("");
  const [reviewHistoryOpen,setReviewHistoryOpen]=useState(false);
+ useEffect(()=>{
+  if(!requestedContribution)return;
+  if(!contributions.some(c=>c.module_id===moduleId&&c.id===requestedContribution.contributionId))return;
+  setSelectedId(requestedContribution.contributionId);
+  setTab("decisao");setReviewHistoryOpen(false);
+  setQuery("");setCategory("todas");setTargetId("");
+ },[requestedContribution,moduleId,contributions]);
  useEffect(()=>{
   let mounted=true;
   setLoading(true);setError("");setSnapshotAt("");
@@ -286,7 +294,7 @@ export default function NucleoAC01DocumentGovernance({
      </div>
     </details>
    </div>}
-   {selected&&<div className="rounded border p-3 space-y-1 text-xs">
+   {selected&&<div id="nucleo-ac01-selected-evidence" className="rounded border p-3 space-y-1 text-xs">
     <strong>Referência selecionada: {selected.title} · v{selected.version_no}</strong>
     <p>Especialidade: {selected.specialist_role}; categoria: {selected.contribution_kind}</p>
     <p>Autor autenticado: {selected.recorded_by_auth_uid.slice(0,8)}… · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
