@@ -40,5 +40,15 @@ for(const [part,why] of [
  ['Nenhum evento desta frente localizado na janela global de 200 registros',"Explicit absence in bounded history"],
  ['Evento administrativo; não equivale a aceite, deploy ou homologação.',"No implicit authorization"],
 ])has(part,why);
+// UX-3: Atlas continua montado; retorno não sobrescreve filtros nem a ficha FM.
+for(const [part,why] of [
+ ['const [returnToAtlas,setReturnToAtlas] = useState(false)',"Origin marker only after Atlas selection"],
+ ['setReturnToAtlas(true);\n              setWorkspaceView("frentes")',"Atlas handoff is guarded by choose"],
+ ['{returnToAtlas&&<Button',"Return is contextual"],
+ ['Voltar ao módulo no Atlas',"Explicit return"],
+ ['setWorkspaceView("geral");\n                      setAtlasExpanded(true)',"Return to mounted Atlas without recreation"],
+ ['id="nucleo-atlas-completo" tabIndex={-1}',"Accessible return focus target"],
+ ['atlas?.focus({preventScroll:true})',"Keyboard focus restored"],
+])has(part,why);
 console.log("UX V2.7: filters are actionable; unsafe scroll prevented");
 console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contracts");
