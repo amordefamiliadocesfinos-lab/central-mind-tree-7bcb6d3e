@@ -110,6 +110,24 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
     });
    return()=>{mounted=false};
  },[moduleId,refresh]);
+ const chooseReference=(id:string)=>{
+   if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current)return;
+   // A escolha de outra origem pode substituir uma minuta; cancelamento preserva
+   // todos os campos e o seletor controlado conserva a seleção anterior.
+   if(draftDirty&&!window.confirm("Há uma minuta AC-01 não salva. Substituí-la pelos dados da versão selecionada?"))return;
+   const selected=rows.find(row=>row.id===id);
+   setParentId(id);
+   if(selected){
+     setRole(selected.specialist_role);setKind(selected.contribution_kind);
+     setTitle(selected.title);setSourceKind(selected.source_kind);
+     setLocator(selected.source_locator);setNote(selected.note);
+     setChecksum(selected.source_checksum_sha256??"");
+   }else{
+     setRole(declaredRole||"");setKind("metodo");setTitle("");
+     setSourceKind("referencia_privada");setLocator("");setNote("");setChecksum("");
+   }
+   setFeedback("");
+ };
  const parent=rows.find(item=>item.id===parentId);
  const latestByLineage=new Map<string,RecordRow>();
  for(const item of rows){const latest=latestByLineage.get(item.lineage_id);if(!latest||item.version_no>latest.version_no)latestByLineage.set(item.lineage_id,item);}
@@ -280,7 +298,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    <div id="nucleo-ac01-source-form" className="nucleo-v22-soft-surface scroll-mt-28 space-y-3 p-3">
      <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
      <label className="block space-y-1 text-sm">Histórico / versão de origem
-       <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+       <select value={parentId} disabled={saving||reading||Boolean(readError)||uncertainRef.current} onChange={e=>chooseReference(e.target.value)} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
          <option value="">Nova contribuição — v1</option>
          {latestRows.map(item=><option key={item.id} value={item.id}>{item.title} · {item.specialist_role} · v{item.version_no}</option>)}
        </select>
