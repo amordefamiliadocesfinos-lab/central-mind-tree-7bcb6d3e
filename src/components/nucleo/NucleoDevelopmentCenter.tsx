@@ -72,6 +72,10 @@ export default function NucleoDevelopmentCenter() {
   const [displayMode, setDisplayMode] = useState<"lista" | "quadro">("lista");
   // UX-A1: as duas visões permanecem montadas durante a sessão.
   const [workspaceView, setWorkspaceView] = useState<"geral" | "frentes">("geral");
+  // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
+  const [atlasVisited,setAtlasVisited] = useState(false);
+  const [atlasExpanded,setAtlasExpanded] = useState(false);
+  const [lastOpenedId,setLastOpenedId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
   const [dependencyTarget, setDependencyTarget] = useState("");
@@ -124,6 +128,13 @@ export default function NucleoDevelopmentCenter() {
   }, [session?.user?.id]);
 
   useEffect(() => { if (authorized) void refresh(); }, [authorized, refresh]);
+  // ID local por usuário; não armazenar minutas, conteúdo ou permissões.
+  useEffect(() => {
+    const uid=session?.user?.id;
+    if(!uid){setLastOpenedId("");return;}
+    try {setLastOpenedId(window.localStorage.getItem("nucleo-last-opened:"+uid)||"");}
+    catch {setLastOpenedId("");}
+  },[session?.user?.id]);
 
   const byId = useMemo(() => new Map(items.map(item => [item.id, item])), [items]);
   const selected = byId.get(selectedId);
@@ -147,6 +158,16 @@ export default function NucleoDevelopmentCenter() {
       .some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [items, filter]);
   const selectedHistory = useMemo(() => history.filter(event => event.workstream_id === selectedId), [history, selectedId]);
+  const lastOpened=byId.get(lastOpenedId);
+  // A trilha carregada tem até 200 eventos globais; não representa o último ato pessoal.
+  const latestEvent=history.find(e=>{const item=byId.get(e.workstream_id);return !!item&&item.code!=="NUC";});
+  const resumeItem=lastOpened ?? (latestEvent ? byId.get(latestEvent.workstream_id) : undefined);
+  const resumeSource=lastOpened?"Último registro aberto neste navegador"
+    :latestEvent?"Última movimentação entre os eventos carregados do Core":null;
+  const attention=items.filter(item=>item.code!=="NUC");
+  const blocked=attention.filter(item=>item.status==="bloqueado").length;
+  const validating=attention.filter(item=>item.status==="em_validacao").length;
+  const active=attention.filter(item=>item.status==="em_andamento").length;
   // A raiz NUC integra o total M3, mas não é uma frente operacional.
   const governanceRootCount = visible.filter(item => item.code === "NUC").length;
   const operationalVisible = visible.filter(item => item.code !== "NUC");
@@ -171,6 +192,11 @@ export default function NucleoDevelopmentCenter() {
       "Há alterações não salvas nesta frente. Descartá-las e abrir outra frente?"
     )) return false;
     setSelectedId(id);
+    setLastOpenedId(id);
+    if(session?.user?.id){
+      try {window.localStorage.setItem("nucleo-last-opened:"+session.user.id,id);}
+      catch {/* A navegação não depende do armazenamento local. */}
+    }
     setDependencyTarget("");
     const item = byId.get(id);
     setEdit(item ? {
@@ -296,6 +322,12 @@ export default function NucleoDevelopmentCenter() {
     </Card>
   );
 
+  const resumeFront=(id:string)=>{
+    if(!choose(id))return;
+    setWorkspaceView("frentes");
+    requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+  };
+  const toggleAtlas=()=>{setAtlasVisited(true);setAtlasExpanded(open=>!open);};
   const prepareModule = (module:KnowledgeModule) => {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
@@ -319,7 +351,7 @@ export default function NucleoDevelopmentCenter() {
         <div>
           <h2 className="font-semibold text-lg">Central Visual de Desenvolvimento</h2>
           <p className="text-xs text-muted-foreground">
-            Estados declarados, histórico auditável, evidências técnicas M4 e supervisão assistida M5 em modo de leitura.
+            Acompanhe as frentes do Core, retome o trabalho registrado e abra detalhes quando precisar.
           </p>
         </div>
         <Button type="button" size="sm" className="nucleo-v22-primary-button" onClick={() => {
@@ -343,18 +375,87 @@ export default function NucleoDevelopmentCenter() {
         </Button>
       </nav>
 
-      {/* Ambos os ambientes permanecem montados: alternar não descarta filtros e minutas. */}
+      {/* Entrada resumida; Atlas detalhado só é montado quando solicitado. */}
       <div hidden={workspaceView !== "geral"} className={workspaceView === "geral" ? "space-y-4" : "hidden"}
         aria-hidden={workspaceView !== "geral"}>
-        <NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
-          onPrepareModule={prepareModule}
-          onSelectWorkstream={id => {
-            if (!choose(id)) return;
-            setWorkspaceView("frentes");
-            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
-          }}/>
+        <section className="space-y-3" aria-label="Início do acompanhamento do Núcleo">
+          <div className="rounded-2xl border border-[#d2e3fc] bg-[#e8f0fe] p-4 dark:border-blue-900 dark:bg-blue-950/30">
+            <p className="text-xs font-bold text-[#174ea6] dark:text-blue-200">CENTRAL VISUAL / INÍCIO</p>
+            <h3 className="mt-1 text-xl font-bold text-[#202124] dark:text-slate-50">Onde estamos e como continuar</h3>
+            <p className="mt-1 text-sm text-[#3c4043] dark:text-slate-200">
+              Resumo do Core M3 e da navegação deste navegador. Não indica homologação, vigência nem publicação.
+            </p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
+              <h4 className="text-sm font-semibold">De onde continuar</h4>
+              {resumeItem ? <div className="mt-2 space-y-2">
+                <p className="text-xs font-medium text-[#174ea6] dark:text-blue-300">{resumeSource}</p>
+                <h5 className="break-words text-base font-semibold">{resumeItem.code} · {resumeItem.title}</h5>
+                <p className="text-sm text-muted-foreground">
+                  Situação: <strong>{states.find(v=>v.key===resumeItem.status)?.label}</strong>
+                  {" · "}Atualizada em {new Date(resumeItem.updated_at).toLocaleString("pt-BR")}
+                </p>
+                <p className="break-words rounded-xl bg-[#f5f9ff] p-3 text-sm dark:bg-slate-800">
+                  <strong>Próxima ação registrada:</strong>{" "}
+                  {resumeItem.next_action?.trim()||"Nenhuma próxima ação registrada nesta frente."}
+                </p>
+                {resumeItem.status==="bloqueado"&&<p className="text-sm text-rose-800 dark:text-rose-200">
+                  <strong>Bloqueio:</strong> {resumeItem.blocker?.trim()||"Motivo não informado"}
+                </p>}
+                <Button type="button" className="min-h-11 rounded-full bg-[#1a73e8] px-5 text-white hover:bg-[#185abc]"
+                  onClick={()=>resumeFront(resumeItem.id)}>Continuar nesta frente</Button>
+              </div>:<div className="mt-2 space-y-3">
+                <p className="text-sm text-muted-foreground">Nenhum registro anterior identificado neste navegador ou no recorte de eventos carregados.</p>
+                <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={()=>setWorkspaceView("frentes")}>
+                  Escolher uma frente
+                </Button>
+              </div>}
+            </Card>
+            <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="Situação das frentes registradas no Core">
+              <h4 className="text-sm font-semibold">O que precisa de atenção</h4>
+              <p className="mt-1 text-sm text-muted-foreground">Contagem dos registros M3 carregados, exceto a raiz NUC; não é inventário global.</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-center dark:border-rose-800 dark:bg-rose-950/20">
+                  <p className="text-2xl font-bold tabular-nums text-rose-800 dark:text-rose-200">{blocked}</p>
+                  <p className="text-xs font-semibold text-rose-950 dark:text-rose-100">Bloqueadas</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-800 dark:bg-amber-950/20">
+                  <p className="text-2xl font-bold tabular-nums text-amber-800 dark:text-amber-200">{validating}</p>
+                  <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">Em validação</p>
+                </div>
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-center dark:border-blue-800 dark:bg-blue-950/20">
+                  <p className="text-2xl font-bold tabular-nums text-blue-800 dark:text-blue-200">{active}</p>
+                  <p className="text-xs font-semibold text-blue-950 dark:text-blue-100">Em andamento</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">As cores refletem estados registrados, não certificam aprovação.</p>
+              <Button type="button" variant="outline" className="mt-3 min-h-11 rounded-full border-[#1a73e8] text-[#174ea6] hover:bg-[#e8f0fe]"
+                onClick={()=>setWorkspaceView("frentes")}>Ver frentes e próximas ações</Button>
+            </Card>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+            <div>
+              <h4 className="text-sm font-semibold">Precisa explorar um módulo?</h4>
+              <p className="text-xs text-muted-foreground">Consulte especialistas, Ficha Viva e documentação no Atlas detalhado.</p>
+            </div>
+            <Button type="button" variant="outline" className="min-h-11 rounded-full"
+              aria-expanded={atlasExpanded} aria-controls="nucleo-atlas-completo" onClick={toggleAtlas}>
+              {atlasExpanded?"Recolher módulos":"Explorar módulos"}
+            </Button>
+          </div>
+        </section>
+        <div id="nucleo-atlas-completo" hidden={!atlasExpanded} aria-hidden={!atlasExpanded}
+          className={atlasExpanded?"space-y-4":"hidden"}>
+          {atlasVisited&&<NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
+            onPrepareModule={prepareModule}
+            onSelectWorkstream={id => {
+              if (!choose(id)) return;
+              setWorkspaceView("frentes");
+              requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+            }}/>}
+        </div>
       </div>
-
       <div hidden={workspaceView !== "frentes"} className={workspaceView === "frentes" ? "space-y-4" : "hidden"}
         aria-hidden={workspaceView !== "frentes"}>
         <NucleoExecutiveDevelopment workstreams={items} dependencies={dependencies}
@@ -477,7 +578,7 @@ export default function NucleoDevelopmentCenter() {
           <Button type="button" size="sm" variant="outline" onClick={() => {
             const root = visible.find(item => item.code === "NUC");
             if (root) {
-              choose(root.id);
+              if (!choose(root.id)) return;
               document.getElementById("nucleo-m3-workstream-detail")
                 ?.scrollIntoView({behavior:"smooth",block:"start"});
             }
@@ -572,7 +673,7 @@ export default function NucleoDevelopmentCenter() {
                   {stateItems.map(item => (
                     <button type="button" key={item.id}
                       onClick={() => {
-                        choose(item.id);
+                        if (!choose(item.id)) return;
                         document.getElementById("nucleo-m3-workstream-detail")
                           ?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
