@@ -41,6 +41,12 @@ on:
       - "scripts/nucleo-v12-ficha-viva.test.sql"
       - "src/pages/Nucleo.tsx"
       - "scripts/nucleo-ux-v21-operational-flow.test.cjs"
+      - "scripts/nucleo-a-plus-operational-dossier.test.cjs"
+      - "src/components/nucleo/NucleoModuleDiscovery.tsx"
+      - "src/lib/nucleo/moduleOriginalSourcesV12.ts"
+      - "src/lib/nucleo/moduleScreenDiscoveriesV12.ts"
+      - "src/lib/nucleo/moduleControlDiscoveriesV12.ts"
+      - "src/lib/nucleo/moduleJourneysV12.ts"
       - "src/components/CapturaCentralFAB.tsx"
       - "src/components/GlobalFooterBar.tsx"
       - "src/index.css"
@@ -106,6 +112,8 @@ jobs:
         run: node scripts/nucleo-ux-a4-comparacao-documental.test.cjs
       - name: Verify UX-A5 responsive and accessible states
         run: node scripts/nucleo-ux-a5-readable-states.test.cjs
+      - name: Verify Núcleo A+ operational CRM-to-module reuse
+        run: node scripts/nucleo-a-plus-operational-dossier.test.cjs
       - name: Verify Nucleo UX V2.1 operational navigation
         run: node scripts/nucleo-ux-v21-operational-flow.test.cjs
       - name: Verify Núcleo V2.2 visual identity and governance labels

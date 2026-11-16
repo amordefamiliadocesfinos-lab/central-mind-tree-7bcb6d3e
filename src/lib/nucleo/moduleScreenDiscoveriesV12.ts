@@ -1,3 +1,4 @@
+import { CRM_SCREENS } from "./operationalKnowledgeV12";
 /**
  * Núcleo 2.0 V1.2 — mapa de superfícies/telas descobertas no código.
  * Apenas inventário visual e leitura, não manual nem prova de deploy/UAT.
@@ -15,6 +16,17 @@ const screen=(id:string,name:string,area:string,description:string,route:string|
 const onlyTab="O botão abre uma área da interface, não comprova gravação, integração ou procedimento homologado.";
 const checkTab="Conferir o título/aba selecionada na interface autenticada, sem acionar comandos de escrita.";
 export const MODULE_SCREENS_V12:Readonly<Record<string,ReadonlyArray<ModuleScreenDiscovery>>>={
+ CRM:CRM_SCREENS.map((item,index)=>({
+  id:["contatos","inbox","tarefas"][index],
+  name:item.label,area:"Atendimento",description:
+   index===0?"Fila e visão do contato no CRM":
+   index===1?"Caixa de atendimentos e conversa contextual":"Tarefas vinculadas a contatos",
+  route:item.route,source:item.source,
+  navigation:"rota_verificada" as const,
+  check:"Confirmar rota e contexto da tela na sessão autorizada; não alterar contatos em inspeção.",
+  limitation:"Rota e código não comprovam integração WhatsApp, persistência ou homologação de uso real.",
+ })),
+
  FIN:[
   screen("dashboard","Dashboard","Visão geral","Painel de indicadores financeiros.",null,"src/pages/Financeiro.tsx","abrir_modulo_selecionar_aba",checkTab,"Dados e regras de apuração ainda exigem conferência operacional."),
   screen("receber","Receber","Lançamentos","Área de contas e lançamentos a receber.",null,"src/pages/Financeiro.tsx","abrir_modulo_selecionar_aba",checkTab,onlyTab),

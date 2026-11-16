@@ -17,6 +17,25 @@ export type ModuleJourneyV12={
 };
 const inspectOnly="Esta orientação não executa a ação. A abertura ou seleção visual não comprova sucesso operacional.";
 export const MODULE_JOURNEYS_V12:Readonly<Record<string,ReadonlyArray<ModuleJourneyV12>>>={
+ CRM:[{
+  id:"crm-atendimento",title:"Entender o atendimento e o registro de Resultado",
+  goal:"Localizar a conversa, distinguir fatos de próxima ação e verificar os limites do registro.",
+  kind:"consulta",steps:[
+   {screenId:"inbox",task:"Encontrar a conversa e o histórico",inspect:"Abrir Caixa de atendimentos e selecionar um contato permitido; reconhecer contexto, histórico e próxima ação.",verify:"Conferir a conversa selecionada; não presumir que uma mensagem foi enviada.",limit:inspectOnly},
+   {screenId:"contatos",controlLabel:"Registrar resultado",task:"Reconhecer a seleção de Resultado",inspect:"Localizar Registrar resultado e verificar o contexto antes de escolher um fato realmente ocorrido.",verify:"O código abre seleção contextual sem gravar só pela escolha.",limit:"Não inventar Resultado ou usar dados reais durante inspeção."},
+   {screenId:"contatos",controlLabel:"Confirmar resultado",task:"Conhecer o portão de persistência",inspect:"Inspecionar as pré-condições de confirmação e os campos obrigatórios no código; não confirmar atendimento fictício.",verify:"Em operação autorizada, a confirmação depende de retorno positivo e contexto correspondente.",limit:"Este roteiro não envia comando e não substitui readback real."},
+   {screenId:"inbox",controlLabel:"Próximo atendimento",task:"Distinguir avanço da fila e registro",inspect:"Localizar Próximo atendimento e confrontar com Resultado e tarefas pendentes.",verify:"Conferir seleção ou estado da fila somente em operação real acompanhada.",limit:"Avançar não cria Resultado e não comprova atendimento finalizado."},
+  ],
+ },{
+  id:"crm-revisao",title:"Reconhecer adiamento e fechamento sem criar fato fictício",
+  goal:"Diferenciar Adiar, Concluir e Reabrir por efeito e confirmação.",
+  kind:"consulta",steps:[
+   {screenId:"contatos",controlLabel:"Adiar atendimento",task:"Reconhecer o adiamento",inspect:"Verificar pré-condição e motivo para usar Adiar atendimento em vez de criar Resultado comercial.",verify:"Em fluxo real autorizado, conferir data e posição da fila após retorno.",limit:inspectOnly},
+   {screenId:"inbox",controlLabel:"Concluir",task:"Distinguir conclusão de conversa",inspect:"Identificar o comando Concluir e suas advertências sobre resultado/tarefa pendente.",verify:"Na execução legítima, conferir estado resolvido em service_conversations.",limit:"Não conclui tarefa oficial nem cria Resultado."},
+   {screenId:"inbox",controlLabel:"Reabrir",task:"Reconhecer reabertura",inspect:"Identificar estado resolvido que habilita Reabrir.",verify:"Na execução legítima, conferir novo estado depois de recarga.",limit:"Reabrir não apaga histórico comercial."},
+  ],
+ }],
+
   FIN:[{
     id:"fin-importados",title:"Conferir lançamentos importados",goal:"Localizar o ponto de revisão sem editar lançamentos.",kind:"consulta",
     steps:[
