@@ -82,6 +82,8 @@ export default function NucleoDevelopmentCenter() {
   const [executiveExpanded,setExecutiveExpanded] = useState(false);
   const [supervisionExpanded,setSupervisionExpanded] = useState(false);
   const [supervisionVisited,setSupervisionVisited] = useState(false);
+  // Prova M4 só é consultada quando o usuário abre esta área.
+  const [expandedEvidenceFor,setExpandedEvidenceFor] = useState<string|null>(null);
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
@@ -572,7 +574,7 @@ export default function NucleoDevelopmentCenter() {
         </Card>
       )}
 
-      <section className="space-y-2 rounded-2xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 dark:border-slate-700 dark:bg-slate-900" aria-label="Foco do acompanhamento">
+      <section id="nucleo-din-focus" className="scroll-mt-28 space-y-2 rounded-2xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 dark:border-slate-700 dark:bg-slate-900" aria-label="Foco do acompanhamento">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold">Foco do acompanhamento</h3>
@@ -860,11 +862,44 @@ export default function NucleoDevelopmentCenter() {
             </div>
           ) : (
             <>
-              <div>
-                <p className="text-xs font-mono">{selected.code}</p>
-                <h3 className="font-semibold">{selected.title}</h3>
-                <p className="text-xs text-muted-foreground">{selected.kind} · {new Date(selected.updated_at).toLocaleDateString("pt-BR")}</p>
+              <div className="rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] p-3 dark:border-blue-900 dark:bg-blue-950/20">
+                <p className="text-xs font-semibold text-[#174ea6] dark:text-blue-300">NÚCLEO / FOCO / EXECUÇÃO</p>
+                <div className="mt-1 flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs">{selected.code}</p>
+                    <h3 className="break-words text-lg font-semibold">{selected.title}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {selected.kind} · Atualizada em {new Date(selected.updated_at).toLocaleString("pt-BR")}
+                      {" · "}Situação registrada: {states.find(state=>state.key===selected.status)?.label}
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                    onClick={()=>document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"})}>
+                    Voltar ao foco
+                  </Button>
+                </div>
               </div>
+              {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+                Alterações não salvas nesta frente. Salve ou confirme descarte antes de navegar para outro registro.
+              </p>}
+              <div className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs font-semibold text-[#174ea6] dark:text-blue-200">PRÓXIMA AÇÃO · EDITÁVEL</p>
+                <p className="whitespace-pre-wrap break-words text-sm">
+                  {(edit.next_action||"").trim()||"Nenhuma próxima ação registrada nesta frente."}
+                </p>
+                <label className="block space-y-1 text-xs font-medium">Atualizar próxima ação
+                  <Input className="min-h-11" value={edit.next_action||""}
+                    onChange={e=>setEdit(v=>({...v,next_action:e.target.value}))}/>
+                </label>
+                <Button size="sm" className="min-h-10 rounded-full" disabled={saving || !hasPendingChanges} onClick={saveItem}>
+                  {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
+                </Button>
+              </div>
+              <details className="rounded-xl border border-[#dce5f1] bg-[#f8fbff] p-3 dark:border-slate-700 dark:bg-slate-900">
+                <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">
+                  Editar demais dados da frente
+                </summary>
+                <div className="mt-3 space-y-3">
               <label className="block text-xs space-y-1">Título
                 <Input value={edit.title||""} onChange={e=>setEdit(v=>({...v,title:e.target.value}))}/>
               </label>
@@ -886,9 +921,6 @@ export default function NucleoDevelopmentCenter() {
                   {Object.entries(priorityNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
-              <label className="block text-xs space-y-1">Próxima ação
-                <Input value={edit.next_action||""} onChange={e=>setEdit(v=>({...v,next_action:e.target.value}))}/>
-              </label>
               <label className="block text-xs space-y-1">Critérios de aceite
                 <Textarea value={edit.acceptance_criteria||""} onChange={e=>setEdit(v=>({...v,acceptance_criteria:e.target.value}))}/>
               </label>
@@ -904,12 +936,25 @@ export default function NucleoDevelopmentCenter() {
               <label className="block text-xs space-y-1">Evidência / justificativa
                 <Textarea value={edit.evidence_note||""} onChange={e=>setEdit(v=>({...v,evidence_note:e.target.value}))}/>
               </label>
-              <Button size="sm" disabled={saving || !hasPendingChanges} onClick={saveItem}>
-                {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
-              </Button>
-              <NucleoTechnicalEvidence workstreamId={selected.id} />
-              <div className="border-t pt-3 space-y-2">
-                <h4 className="text-xs font-semibold">Dependências registradas</h4>
+                </div>
+              </details>
+              <section className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900" aria-label="Consulta de evidências técnicas M4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold">Evidências técnicas M4</h4>
+                    <p className="text-xs text-muted-foreground">Carregadas apenas sob solicitação; não são a classificação declarada M3.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                    aria-expanded={expandedEvidenceFor===selected.id}
+                    onClick={()=>setExpandedEvidenceFor(current=>current===selected.id?null:selected.id)}>
+                    {expandedEvidenceFor===selected.id?"Recolher provas M4":"Consultar provas M4"}
+                  </Button>
+                </div>
+                {expandedEvidenceFor===selected.id&&<NucleoTechnicalEvidence workstreamId={selected.id} />}
+              </section>
+              <details className="rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <summary className="cursor-pointer text-sm font-semibold">Dependências registradas</summary>
+                <div className="mt-3 space-y-2">
                 {dependencies.filter(d=>d.workstream_id===selected.id).map(d=>(
                   <p key={d.id} className="text-xs">{byId.get(d.depends_on_id)?.code||"ID não disponível"} — {d.description}</p>
                 ))}
@@ -925,15 +970,20 @@ export default function NucleoDevelopmentCenter() {
                   </select>
                   <Button size="sm" variant="outline" disabled={!dependencyTarget||saving} onClick={addDependency}>Adicionar</Button>
                 </div>
-                <h4 className="text-xs font-semibold pt-2">Linha do tempo (últimos 200 eventos globais)</h4>
+                </div>
+              </details>
+              <details className="rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <summary className="cursor-pointer text-sm font-semibold">Histórico M3 no recorte (últimos 200 eventos globais)</summary>
+                <div className="mt-3 space-y-2">
                 {selectedHistory.map(event=>(
                   <div key={event.id} className="text-xs border-l-2 pl-2">
                     <p>{event.event_type} — {new Date(event.recorded_at).toLocaleString("pt-BR")}</p>
                     <p className="text-muted-foreground">Histórico preservado no Core</p>
                   </div>
                 ))}
-                {!selectedHistory.length&&<p className="text-xs text-muted-foreground">Nenhum evento carregado.</p>}
-              </div>
+                {!selectedHistory.length&&<p className="text-xs text-muted-foreground">Nenhum evento carregado; registros anteriores podem existir.</p>}
+                </div>
+              </details>
             </>
           )}
         </Card>
