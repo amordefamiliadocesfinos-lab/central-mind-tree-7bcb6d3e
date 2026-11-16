@@ -89,4 +89,19 @@ assert(k.includes('result.data.length!==1'),"FM rejeita ambiguidade de leitura")
 assert(s.includes('result.data.length!==1'),"AC-01 rejeita ambiguidade de leitura");
 assert(k.includes('await fence.verifyAndClear(witnessFieldsFm(row)'),"FM confere impressão");
 assert(s.includes('await fence.verifyAndClear(witnessFieldsAc01(row)'),"AC-01 confere impressão");
+// Governança de abas: leitura fresca antes de qualquer escrita, eventos de
+// storage e remoção apenas do marcador correspondente ao readback atual.
+for(const term of [
+ 'window.addEventListener("storage",handleStorage)',
+ 'window.removeEventListener("storage",handleStorage)',
+ 'event.key!==key&&event.key!==null',
+ 'if(window.localStorage.getItem(key)!==null)',
+ 'if(current===null)return false;',
+ 'state.witness?current!==JSON.stringify(state.witness):current!=="pending"',
+])assert(fence.includes(term),"Proteção multiaba ausente: "+term);
+assert(fence.indexOf('if(window.localStorage.getItem(key)!==null)')<
+ fence.indexOf('window.localStorage.setItem(key,witness?JSON.stringify(witness):"pending")'),
+ "A verificação do marcador deve anteceder a gravação");
+assert(fence.includes('window.localStorage.getItem(key)!==JSON.stringify(witness)'),
+ "Reconciliação criptográfica respeita atualização concorrente");
 console.log("UX V2.4 document drafts and write guards PASS");

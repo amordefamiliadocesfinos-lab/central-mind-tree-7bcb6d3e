@@ -43,10 +43,34 @@ export function usePendingWriteFence(kind:"fm"|"ac01",moduleId:string){
    }).catch(()=>{if(active)setState({ready:false,blocked:true,witness:null});});
    return()=>{active=false;keyRef.current=null;};
  },[kind,moduleId,authEpoch]);
+ // Uma segunda aba pode criar/alterar uma pendência enquanto esta está aberta.
+ // Os eventos de storage atualizam a UI; a escrita também reconsulta a chave.
+ useEffect(()=>{
+   const handleStorage=(event:StorageEvent)=>{
+     const key=keyRef.current;
+     if(!key||event.storageArea!==window.localStorage||
+       (event.key!==key&&event.key!==null))return;
+     try{
+       const raw=window.localStorage.getItem(key);
+       let candidate:unknown=null;
+       if(raw&&raw!=="pending"){try{candidate=JSON.parse(raw);}catch{/* fail-closed */}}
+       const witness=isWriteWitness(candidate)&&candidate.kind===kind&&candidate.moduleId===moduleId?candidate:null;
+       setState({ready:true,blocked:raw!==null,witness});
+     }catch{setState({ready:false,blocked:true,witness:null});}
+   };
+   window.addEventListener("storage",handleStorage);
+   return()=>window.removeEventListener("storage",handleStorage);
+ },[kind,moduleId,authEpoch]);
  const markStarted=useCallback((witness?:WriteWitness)=>{
    const key=keyRef.current;
    if(!key||!state.ready||state.blocked|| (witness&&(witness.kind!==kind||witness.moduleId!==moduleId||!isWriteWitness(witness))))return false;
    try{
+     // A leitura do React pode estar obsoleta após gravação em outra aba.
+     // Nunca sobrescrever a pendência anterior, mesmo com state.blocked falso.
+     if(window.localStorage.getItem(key)!==null){
+       setState({ready:true,blocked:true,witness:null});
+       return false;
+     }
      window.localStorage.setItem(key,witness?JSON.stringify(witness):"pending");
      setState({ready:true,blocked:true,witness:witness??null});
      return true;
@@ -59,6 +83,10 @@ export function usePendingWriteFence(kind:"fm"|"ac01",moduleId:string){
    const key=keyRef.current;
    if(!key)return false;
    try{
+     const current=window.localStorage.getItem(key);
+     // O marcador pode ter mudado em outra aba ou entre a gravação e o readback.
+     if(current===null)return false;
+     if(state.witness?current!==JSON.stringify(state.witness):current!=="pending")return false;
      window.localStorage.removeItem(key);
      setState({ready:true,blocked:false,witness:null});
      return true;
@@ -66,7 +94,7 @@ export function usePendingWriteFence(kind:"fm"|"ac01",moduleId:string){
      setState({ready:false,blocked:true,witness:null});
      return false;
    }
- },[]);
+ },[state.witness]);
  const verifyAndClear=useCallback(async(fields:unknown[],identity:{requestId?:string;section?:string;version?:number})=>{
    const key=keyRef.current;
    const witness=state.witness;
