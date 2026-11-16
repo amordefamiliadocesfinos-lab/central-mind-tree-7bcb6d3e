@@ -135,6 +135,9 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
   <Button type="button" size="sm" variant="outline" onClick={prepare} disabled={busy}>
    {busy?"Consultando Core…":"Preparar contexto de continuidade"}
   </Button>
+  {busy&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+    Consultando contexto AC-02 no Core. O resultado ainda não foi validado e nenhum pacote foi preparado.
+  </p>}
   {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
   {draft&&<div className="space-y-3">
    <p role="status" className="text-xs">
