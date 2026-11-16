@@ -215,3 +215,35 @@ Barras e percentuais só podem indicar uma **proporção objetiva** do mesmo uni
 - Não mostrar percentuais de maturidade subjetiva, estimativa de avanço, autoria ou próxima ação inventada. Quando faltar prova, apresentar não verificado/indisponível.
 - Congelamento do mapa **não certifica** layout em uso real: homologação humana e verificação WCAG integral seguem adiadas.
 - Consolidar resultados e evidências das DINs no **mesmo mapa** como adendos datados. Não criar documentação soberana redundante.
+
+## 12. Evidências UX V3.0 — panorama, foco e execução (16/11/2026)
+
+**Natureza:** atualização de evidências técnicas da seção 11 congelada, no **mesmo mapa**. Não redefine os critérios UX, a arquitetura Mestre V1.3, os contratos AC-01–CA-29 nem a autoridade do Especialista Núcleo. O status abaixo descreve a integração GitHub/CI; **não é homologação visual humana**.
+
+| Microfrente | Integração em main | Efeito observável no código e limite |
+|---|---|---|
+| **Congelamento do mapa UX V3.0** | [PR #841](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/841), merge dca4b3f90066a2dd6a1e5cf415f54aa020232032 | Seção 11 preservada, critérios de Panorama/Foco/Execução, seis DINs, fontes e numeradores documentados. Sem migração, writer, RLS ou tela paralela |
+| **DIN-01 — Entrada dinâmica** | [PR #844](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/844), merge 1f2862fb2504bb8e9bfb8cc0b49f8dd2c557dc87 | Panorama existente V2.7 acrescido de distribuição real M3 e módulo expansível. Mantém retomada, estado e alerta. Não é maturidade do módulo |
+| **DIN-02 — Foco acionável** | [PR #844](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/844), merge 1f2862fb2504bb8e9bfb8cc0b49f8dd2c557dc87 | Filtro combinável por módulo, especialista **declarado**, situação e pesquisa; limpar foco, lista/Kanban e leitura sem writers. Análise executiva e supervisão sob demanda |
+| **DIN-03 — Barras verificáveis** | [PR #845](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/845), merge 5dce0fed7ea5396bcff21c5f0fa713094edbbc43 | Barra por distribuição de estados e coberturas M3 com numerador, denominador e percentual derivado; 0/0 retorna **não mensurável**. Testes numéricos 0/0, 0/7, 1/3, 2/3, 7/7, inputs inválidos, exclusão de módulos. Nenhuma agregação presumida de prova técnica M4 |
+| **DIN-04 — Resumo micro** | [PR #846](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/846), merge bd518e24107dc74c2496bdf74e54c884a3978b73 | Resumo em leitura de até três frentes do recorte: código, status, prioridade, especialista declarado, data M3, evidência declarada e próxima ação. Abrir ficha conserva ID/guardas |
+| **DIN-05 — Execução encaixada** | [PR #847](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/847), merge 30ef9f1219f30d92ca6e158e5d14218770d97d29 | Próxima ação editável + Salvar em primeiro plano. Demais campos, M4, dependências e histórico em detalhes progressivos. Prova M4 somente consultada quando aberta; sem novo editor ou mecanismo de escrita |
+| **DIN-06 — Densidade, estado e continuidade** | [PR #848](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/848), merge bff273094937bda5d9f9b8996a5a8f3e80440afd | Árvore completa recolhida, aviso duplicado de situação eliminado, indicadores em grid responsivo, hora da última leitura M3 bem-sucedida e erro sem falso timestamp. Testes proporcionais adicionados |
+
+### 12.1 Evidência técnica e escopo preservado
+
+- **GitHub/CI:** todas as PRs de código acima foram integradas após seus workflows pertinentes concluírem com SUCCESS: M3 incluindo RLS e frontend, M4 quando acionado, M5 quando acionado e regressão M3 no-op/layout; DIN-03 teve ao menos M3 completo, incluindo testes numéricos e build. Isso demonstra verificação automática, **não observação autenticada de uso real**.
+- **Único Core:** /nucleo e o projeto Supabase existente. Nenhuma tabela nova, migration, writer, concessão de mandato, decisão/assinatura ou publicação foi criada nesta rodada.
+- **Cores e percentuais:** sem evolução subjetiva; status e evidência M3 permanecem declarações, não provas de implantação integral. Nenhuma cobertura técnica M4 foi extrapolada sem consulta.
+- **Navegação:** filtros só alteram a apresentação; a troca de frente e de módulo continua protegida pelos controles de edição/gravação previamente implementados. Os dados e versões documentais originais não são promovidos automaticamente.
+- **Alcance:** mapa e entregas V3.0 se referem à experiência visual do Núcleo A+, não ao fechamento de AC-02, Entrega B ou de todos os serviços do Painel Central.
+
+### 12.2 Pendências explicitamente não homologadas
+
+1. **Homologação humana visual em uso real** segue ADIADA pelo proprietário: desktop, ~1024, tablet, mobile ~390/320, contraste, teclado, foco, rolagem, utilização com dados verdadeiros e clareza de navegação.
+2. **Proteção universal de navegação externa SPA** e recuperação de rascunhos após recarga/fechamento permanecem fora do alcance das guardas atuais; não declarar garantia universal de continuidade.
+3. **Prova M4 agregada em percentual** não foi implementada sem contrato de consulta com mesmo recorte/denominador. A classificação de evidência M3 **não** valida prova técnica M4.
+4. **Vigência canônica, mandatos e portões INSERT/RPC** permanecem sujeitos ao Mapa Mestre, sem abertura pela frente UX.
+5. **AC-02** permanece dependente de coordenação específica com Camada Mestre e Especialista Núcleo; não reabrir por conveniência visual.
+
+**Encerramento técnico V3.0:** UX-DIN-01 a 06 integradas e documentadas. Próxima intervenção visual estrutural deve partir de uso real comprovado ou determinação expressa da Camada Mestre, preservando este adendo e as fontes originais.
