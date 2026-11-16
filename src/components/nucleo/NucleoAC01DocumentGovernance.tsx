@@ -10,6 +10,7 @@ import {
  type Ac01Record, type Ac01Request, type Ac01Decision, type Ac01Publication,
  type Ac01Mandate, type Ac01Grant, type Ac01Revocation, type Ac01FM,
 } from "@/lib/nucleo/ac01DocumentGovernance";
+import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01FmSourceMatchV13";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -130,6 +131,9 @@ export default function NucleoAC01DocumentGovernance({
  const now=snapshotAt||readAt;
  const scopedGrants=declaredAuthorityCoverage(moduleId,declaredRole,category==="todas"?"metodo":category,grants,mandates,now,revocations);
  const preview=selected?canonicalReadinessPreview(selected,fm.find(x=>x.id===targetId)??null,decisions,publications):null;
+ const relatedFM=selected?assessAc01FmCandidates(selected,fm):[];
+ const selectedFM=fm.find(x=>x.id===targetId)??null;
+ const selectedMatch=selected&&selectedFM?compareAc01FmSource(selected,selectedFM):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
   onClick={()=>setSelectedId(c.id)}
@@ -240,12 +244,36 @@ export default function NucleoAC01DocumentGovernance({
     <p className="break-all">Original preservado em: {selected.source_kind} · {selected.source_locator}</p>
     <p className="text-muted-foreground">Qualquer comparação de conteúdo requer acesso válido à fonte original. Sem diffs fictícios nem aprovação implícita.</p>
     <div className="nucleo-v22-guard space-y-2 border-t pt-2"><strong>Prévia de reconciliação canônica — bloqueada</strong>
+     <p className="text-muted-foreground">
+       AC-01 e FM têm registros independentes, sem vínculo de contribuição para revisão por ID.
+       Coincidência de localizador é somente uma pista textual: não comprova o mesmo conteúdo,
+       versão, validade, publicação, homologação ou associação persistida.
+     </p>
+     <p>Revisões FM no recorte deste módulo: {relatedFM.length} ·
+       Localizador idêntico: {relatedFM.filter(item=>item.match==="localizador_identico").length}</p>
+     {relatedFM.length===0&&<p role="status">Nenhuma revisão FM retornada nesta consulta.
+       Não inferir ausência do documento na fonte externa.</p>}
      <label className="block">Alvo de Ficha Viva para análise (sem alteração)
        <select className="w-full rounded border bg-background p-2" value={targetId} onChange={e=>setTargetId(e.target.value)}>
         <option value="">Não selecionado</option>
-        {fm.map(x=><option key={x.id} value={x.id}>{x.section_code} · {x.title} · v{x.version_no}</option>)}
+        {fm.map(x=><option key={x.id} value={x.id}>
+          {x.section_code} · {x.title} · v{x.version_no} ·
+          {selected?compareAc01FmSource(selected,x)==="localizador_identico"
+            ?" localizador declarado idêntico"
+            :compareAc01FmSource(selected,x)==="referencia_insuficiente"
+              ?" origem insuficiente":" localizador divergente"
+            :" origem não comparada"}
+        </option>)}
        </select>
      </label>
+     {selectedMatch&&<p role="status" className="rounded-md border p-2">
+       Comparação do alvo: {selectedMatch==="localizador_identico"
+         ?"localizador textualmente idêntico — vínculo NÃO comprovado"
+         :selectedMatch==="referencia_insuficiente"
+           ?"origem insuficiente para comparar"
+           :"localizador divergente — conferir versões e fontes"}.
+       {selectedFM&&" Estado declarado FM: "+selectedFM.authority_state+"; sem promoção de autoridade."}
+     </p>}
      {preview&&<><Badge variant="outline">{preview.action}</Badge>
        <p>Origem v{preview.sourceVersion} · destino v{preview.targetVersion??"não selecionado"}</p>
        <ul className="list-disc pl-4">{preview.blockers.map(b=><li key={b}>{b}</li>)}</ul>
