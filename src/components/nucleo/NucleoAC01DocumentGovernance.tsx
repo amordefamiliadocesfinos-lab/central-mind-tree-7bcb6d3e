@@ -13,6 +13,7 @@ import {
 import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01FmSourceMatchV13";
 import { buildAc01FmLineage } from "@/lib/nucleo/ac01FmLineageV13";
 import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS } from "@/lib/nucleo/ac01ConsolidationQueueV13";
+import { prepareAc01AssistedComparison } from "@/lib/nucleo/ac01AssistedComparisonV13";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -138,6 +139,7 @@ export default function NucleoAC01DocumentGovernance({
  const relatedFM=selected?assessAc01FmCandidates(selected,fm):[];
  const selectedFM=fm.find(x=>x.id===targetId)??null;
  const selectedMatch=selected&&selectedFM?compareAc01FmSource(selected,selectedFM):null;
+ const assisted=selected?prepareAc01AssistedComparison(selected,contributions,selectedFM):null;
  const lineage=selected?buildAc01FmLineage(selected,contributions,reqs,decisions,publications,fm):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
@@ -340,6 +342,54 @@ export default function NucleoAC01DocumentGovernance({
            :"localizador divergente — conferir versões e fontes"}.
        {selectedFM&&" Estado declarado FM: "+selectedFM.authority_state+"; sem promoção de autoridade."}
      </p>}
+     {assisted&&<details className="rounded-md border p-3 space-y-3"
+       aria-label="Preparação de consolidação assistida e comparação de metadados">
+       <summary className="cursor-pointer font-semibold">Examinar lado a lado a origem, a versão anterior e a revisão FM</summary>
+       <p className="mt-2 text-muted-foreground">
+         Esta comparação usa apenas metadados presentes no Core: não há texto do arquivo
+         original nem corpo da revisão FM nesta consulta. Nenhuma diferença de conteúdo
+         externo é presumida; o documento vigente não é alterado.
+       </p>
+       {assisted.issues.map((issue,index)=><p key={index} role="status" className="rounded border p-2">
+         Limite de verificação: {issue}
+       </p>)}
+       <div className="grid gap-2 md:grid-cols-2">
+         <article className="rounded-md border p-3 space-y-2">
+           <p className="font-semibold">Contribuição AC-01 · v{assisted.current.version}</p>
+           <p>{assisted.current.title}</p>
+           <p>Estado: {assisted.current.authority}</p>
+           <p>Origem: {assisted.current.kind}</p>
+           <p className="break-all">Localizador: {assisted.current.source}</p>
+           <p>Anterior: {assisted.previous?"v"+assisted.previous.version:"indisponível ou inicial"}</p>
+         </article>
+         <article className="rounded-md border p-3 space-y-2">
+           <p className="font-semibold">Revisão FM selecionada (somente análise)</p>
+           {assisted.destination?<div className="space-y-2">
+             <p>{assisted.destination.section} · v{assisted.destination.version} · {assisted.destination.title}</p>
+             <p>Estado declarado: {assisted.destination.authority}</p>
+             <p className="break-all">Fontes declaradas: {assisted.destination.source||"não informadas"}</p>
+             <p>Origem: {assisted.originMatch==="localizador_identico"
+               ?"localizador idêntico, sem vínculo comprovado"
+               :assisted.originMatch==="referencia_insuficiente"
+                 ?"referência insuficiente":"localizador divergente"}</p>
+           </div>:<p>Nenhuma revisão FM válida selecionada neste módulo.</p>}
+         </article>
+       </div>
+       <div className="space-y-2">
+         <p className="font-semibold">Diferenças de metadados AC-01 · anterior versus atual</p>
+         {assisted.differences.map(diff=><div key={diff.label} className="rounded border p-2 space-y-1">
+           <p className="font-medium">{diff.label} · {assisted.previous?(diff.changed?"alterado":"mantido"):"sem anterior comparável"}</p>
+           <div className="grid gap-2 md:grid-cols-2">
+             <p className="break-all">Anterior: {diff.previous}</p>
+             <p className="break-all">Atual: {diff.current}</p>
+           </div>
+         </div>)}
+         <p className="text-muted-foreground">
+           Resultado apenas consultivo: sem diff de conteúdo externo, sem diff do corpo FM,
+           sem consolidação canônica, aprovação ou publicação automatizada.
+         </p>
+       </div>
+     </details>}
      {preview&&<><Badge variant="outline">{preview.action}</Badge>
        <p>Origem v{preview.sourceVersion} · destino v{preview.targetVersion??"não selecionado"}</p>
        <ul className="list-disc pl-4">{preview.blockers.map(b=><li key={b}>{b}</li>)}</ul>
