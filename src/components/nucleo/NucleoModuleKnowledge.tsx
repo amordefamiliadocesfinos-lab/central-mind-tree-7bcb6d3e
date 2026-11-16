@@ -260,6 +260,12 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         <h4 className="nucleo-v22-title text-lg">Ficha Viva — seções FM-01 a FM-10</h4>
         <p className="text-xs text-muted-foreground">Histórico por versão. O formulário cria apenas rascunhos declarados, nunca manuais homologados automaticamente.</p>
       </div>
+      {saving&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
+        Registrando revisão no Core. Não altere a seção até a confirmação da operação.
+      </p>}
+      {draftDirty&&!saving&&<p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
+        Rascunho não salvo em {section}. Revise e registre ou confirme o descarte antes de mudar de seção.
+      </p>}
       <section aria-label="Cobertura documental por seção" className="nucleo-v22-soft-surface p-3 space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="secondary">{templateCount}/10 modelos locais</Badge>

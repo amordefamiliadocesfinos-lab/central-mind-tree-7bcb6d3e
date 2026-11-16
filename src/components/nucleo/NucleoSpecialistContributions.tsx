@@ -200,6 +200,16 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    <p className="nucleo-v22-guard text-xs">
      Proposta ou revisão registrada não é decisão homologada. Publicação interna AC-01 não comprova atualização canônica da Ficha Viva, Drive ou GitHub.
    </p>
+   {saving&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
+     Registro em andamento. Aguarde a conferência no Core antes de navegar ou repetir.
+   </p>}
+   {draftDirty&&!saving&&!uncertainRef.current&&<p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
+     Minuta AC-01 não salva neste módulo. A troca de etapas preserva o formulário; registrar a proposta exige ação explícita.
+   </p>}
+   {uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+     Resultado indeterminado. Reconsulte o Core e reconcilie a proposta antes de repetir a operação ou trocar de etapa.
+   </p>}
+   {feedback&&<p role={uncertainRef.current?"alert":"status"} className="rounded-md border p-3 text-sm">{feedback}</p>}
    {reading&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">Consultando contribuições autorizadas do Core…</p>}
    {readError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{readError}</p>}
    <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={saving||reading}
@@ -310,7 +320,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
-     {feedback&&<p role="status" className="rounded-md border p-3 text-sm">{feedback}</p>}
+
    </div>
    </div>
  </section>;
