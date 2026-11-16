@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import NucleoAC01DecisionIntake from "@/components/nucleo/NucleoAC01DecisionIntake";
+import NucleoAC01VerifiedDecisionLinks from "@/components/nucleo/NucleoAC01VerifiedDecisionLinks";
 import {summarizePostReviewEvidence} from "@/lib/nucleo/ac01PostReviewEvidenceV13";
 import {AC01_QUEUE_ISSUE_LABELS,type Ac01QueueIssue} from "@/lib/nucleo/ac01ConsolidationQueueV13";
 
@@ -135,6 +136,8 @@ export default function NucleoAC01ReviewTrail({
    </p>)}
    <p className="font-medium">Registro de evento não confirma ação concluída, decisão aprovada ou publicação.</p>
   </section>}
+  {!loading&&!error&&evidence&&<NucleoAC01VerifiedDecisionLinks
+    key={contributionId} moduleId={moduleId} contributionId={contributionId} events={rows}/>}
   {!loading&&!error&&<NucleoAC01DecisionIntake key={contributionId} moduleId={moduleId} contributionId={contributionId} referrals={rows.filter(r=>r.event_kind==="encaminhar_decisao").map(r=>({id:r.id,recorded_at:r.recorded_at}))}/>}
   <div className="space-y-2 rounded-md bg-muted/30 p-2">
    <label className="block text-xs">Tipo de evento
