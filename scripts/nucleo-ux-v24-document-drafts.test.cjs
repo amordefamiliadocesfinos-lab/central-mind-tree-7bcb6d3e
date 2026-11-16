@@ -43,4 +43,28 @@ assert(k.includes('sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0
 assert(k.includes('setWriteUncertain(true);'),"Falhas tornam a gravação indeterminada");
 assert(k.includes('setReconciliationNotice("Revisão anteriormente enviada localizada'),"Confirmação é status informativo");
 assert(k.includes('Tentativa anterior não localizada neste recorte. Estado continua indeterminado; não repetir a gravação.'),"Ausência no recorte não permite repetição");
+// Recarregamento de página: o bloqueio persistente não pode armazenar minuta
+// ou tokens e deve usar identidade autenticada, escopo e fail-closed.
+const fence=fs.readFileSync("src/lib/nucleo/pendingWriteFenceV1.ts","utf8");
+for(const token of [
+ 'data.user.id,kind,moduleId',
+ 'window.localStorage.setItem(key,"pending")',
+ 'window.localStorage.getItem(key)!==null',
+ 'window.localStorage.removeItem(key)',
+ 'setState({ready:false,blocked:true})',
+ 'if(!key||!state.ready||state.blocked)return false',
+ 'event==="SIGNED_OUT"',
+])assert(fence.includes(token),"Trava persistente incompleta: "+token);
+assert(!/localStorage\.setItem\([^\n]*(?:body|title|source|token|attempt)/.test(fence),
+  "Não salvar conteúdo documental ou credenciais no armazenamento local");
+assert(k.includes('const fence=usePendingWriteFence("fm",moduleId)'),"FM usa trava por módulo");
+assert(s.includes('const fence=usePendingWriteFence("ac01",moduleId)'),"AC-01 usa trava por módulo");
+assert(k.includes('if(!fence.markStarted())'),"FM grava marcador ANTES do envio");
+assert(s.includes('if(!fence.markStarted())'),"AC-01 grava marcador ANTES do envio");
+assert(k.includes('&&fence.clearConfirmed()'),"FM só libera após leitura conferida");
+assert(s.includes('&&fence.clearConfirmed()'),"AC-01 só libera após readback integral");
+assert(k.includes('Sem o conteúdo original em memória, a liberação automática não é segura'),
+  "FM não libera após reload sem snapshot");
+assert(s.includes('O conteúdo da minuta não foi salvo no navegador'),
+  "AC-01 não promete restauração de minuta");
 console.log("UX V2.4 document drafts and write guards PASS");
