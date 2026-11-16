@@ -10,6 +10,7 @@ import NucleoContributionDesk from "@/components/nucleo/NucleoContributionDesk";
 import NucleoAC01DocumentGovernance from "@/components/nucleo/NucleoAC01DocumentGovernance";
 import type {Ac01QueueIssue} from "@/lib/nucleo/ac01ConsolidationQueueV13";
 import {usePendingWriteFence} from "@/lib/nucleo/pendingWriteFenceV1";
+import {makeWitness,witnessFieldsAc01} from "@/lib/nucleo/writeRecoveryWitnessV1";
 
 type RecordRow={
  id:string;module_id:string;workstream_id:string|null;specialist_role:string;contribution_kind:string;
@@ -83,6 +84,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const [checksum,setChecksum]=useState("");
  const [saving,setSaving]=useState(false);
  const [feedback,setFeedback]=useState("");
+ const [recovering,setRecovering]=useState(false);
  const requestRef=useRef<string|null>(null);
  const uncertainRef=useRef(false);
  const pendingAttemptRef=useRef<PendingAttempt|null>(null);
@@ -169,21 +171,29 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setFeedback("A versão anterior precisa pertencer ao mesmo especialista e tipo. Reconsulte e selecione novamente.");return;
    }
    if(!window.confirm(parent ? "Registrar NOVA revisão append-only da contribuição? A referência anterior permanece preservada e nenhuma versão será homologada." : "Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
-   if(!fence.markStarted()){
-     setFeedback("Sem proteção local para esta tentativa. Nenhuma proposta foi enviada.");
-     return;
-   }
    setSaving(true);setFeedback("");
    const requestId=requestRef.current??crypto.randomUUID();
-   requestRef.current=requestId;
    const attempt:PendingAttempt={
      requestId,moduleId,specialistRole:cleanRole,contributionKind:kind,title:cleanTitle,
      sourceKind,sourceLocator:cleanSource,checksum:checksum.trim()||null,note:cleanNote,
      parentRevisionId:parent?.id??null,versionNo:parent?parent.version_no+1:1,
      authorityState:parent?"em_evolucao":"proposta",
    };
-   pendingAttemptRef.current=attempt;
    try{
+     const fields=witnessFieldsAc01({
+       request_id:requestId,module_id:moduleId,specialist_role:cleanRole,
+       contribution_kind:kind,title:cleanTitle,source_kind:sourceKind,
+       source_locator:cleanSource,source_checksum_sha256:checksum.trim()||null,
+       note:cleanNote,parent_revision_id:parent?.id??null,
+       version_no:attempt.versionNo,authority_state:attempt.authorityState,
+     });
+     const witness=await makeWitness("ac01",moduleId,fields,{requestId});
+     if(!fence.markStarted(witness)){
+       setFeedback("Sem proteção local para esta tentativa. Nenhuma proposta foi enviada.");
+       return;
+     }
+     requestRef.current=requestId;
+     pendingAttemptRef.current=attempt;
      const result=await db.from("nucleo_specialist_contributions").insert({
        module_id:moduleId,specialist_role:cleanRole,contribution_kind:kind,title:cleanTitle,
        source_kind:sourceKind,source_locator:cleanSource,source_checksum_sha256:checksum.trim()||null,
@@ -232,6 +242,31 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
   setArea("fila");setFlowStep("refinar");
   requestAnimationFrame(()=>document.getElementById(areaId+"-fila")?.scrollIntoView({behavior:"smooth",block:"start"}));
  };
+ const recoverPersistent=async()=>{
+   if(!fence.ready||!fence.blocked||!fence.witness||saving||reading||recovering)return;
+   const witness=fence.witness;
+   if(witness.kind!=="ac01"||witness.moduleId!==moduleId)return;
+   setRecovering(true);
+   try{
+     const result=await db.from("nucleo_specialist_contributions").select("*")
+       .eq("module_id",moduleId).eq("request_id",witness.requestId as string).limit(2);
+     if(result.error||!result.data||result.data.length!==1){
+       setFeedback("Reconciliação AC-01 inconclusiva: consulta falhou ou identificador não é único. Trava preservada.");
+       return;
+     }
+     const row=result.data[0];
+     if(!await fence.verifyAndClear(witnessFieldsAc01(row),{requestId:row.request_id})){
+       setFeedback("Contribuição localizada, mas a impressão criptográfica diverge da tentativa. Trava preservada.");
+       return;
+     }
+     uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
+     setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+     setFeedback("Contribuição anterior conferida integralmente no Core. Trava liberada; não reenviar a tentativa.");
+     setRefresh(n=>n+1);
+   }catch{
+     setFeedback("Falha na consulta de reconciliação AC-01. Trava preservada.");
+   }finally{setRecovering(false);}
+ };
  const goToFlow=(step:(typeof FLOW)[number])=>{
   if(saving||uncertainRef.current){
     setFeedback("Registro em andamento ou indeterminado. Reconcilie antes de mudar de etapa.");
@@ -269,6 +304,14 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      Minuta AC-01 não salva neste módulo. A troca de etapas preserva o formulário; registrar a proposta exige ação explícita.
    </p>}
    {fence.blocked&&!uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Tentativa pendente nesta conta e módulo, inclusive após recarregamento. O conteúdo da minuta não foi salvo no navegador; reconcilie no Core antes de repetir.</p>}
+   {fence.blocked&&<div className="space-y-2">
+     <p className="text-xs text-muted-foreground">{fence.witness
+       ?"O registro pendente tem testemunho técnico sem conteúdo documental. Somente evidência integral do Core permite liberar."
+       :"Trava antiga sem testemunho técnico, ou sessão não verificada. A liberação automática não é permitida; encaminhe à governança."}</p>
+     {fence.witness&&<Button type="button" size="sm" variant="outline"
+       disabled={recovering||saving||reading} onClick={()=>void recoverPersistent()}>
+       {recovering?"Conferindo no Core…":"Reconciliar trava AC-01 com o Core"}</Button>}
+   </div>}
    {uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
      Resultado indeterminado. Reconsulte o Core e reconcilie a proposta antes de repetir a operação ou trocar de etapa.
    </p>}
