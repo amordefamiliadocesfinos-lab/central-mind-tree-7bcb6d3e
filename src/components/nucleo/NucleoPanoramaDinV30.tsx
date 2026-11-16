@@ -35,9 +35,11 @@ export function moduleIdForWorkstream(
 export function NucleoStatusDistribution({
   records,
   label,
+  onFocusStatus,
 }: {
   records: DevelopmentWorkstream[];
   label: string;
+  onFocusStatus: (status: DevelopmentStatus) => void;
 }) {
   const total = records.length;
   return (
@@ -65,10 +67,12 @@ export function NucleoStatusDistribution({
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {statusDisplay.map(state => {
               const n = records.filter(record => record.status === state.key).length;
-              return <span key={state.key} className="inline-flex items-center gap-1.5 text-xs text-[#3c4043] dark:text-slate-300">
+              return <button type="button" key={state.key} onClick={()=>onFocusStatus(state.key)}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-xs text-[#3c4043] transition-colors hover:bg-[#e8f0fe] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] dark:text-slate-300 dark:hover:bg-slate-800"
+                aria-label={"Mostrar somente frentes: " + state.label}>
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{backgroundColor:state.color}} aria-hidden="true"/>
                 {state.label}: <strong className="tabular-nums">{n}/{total}</strong>
-              </span>;
+              </button>;
             })}
           </div>
         </>
@@ -90,7 +94,7 @@ export default function NucleoPanoramaDinV30({workstreams,onFocusModule,onFocusS
 
   return (
     <section aria-label="Panorama dinâmico de frentes M3" className="rounded-2xl border border-[#dce5f1] bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
-      <NucleoStatusDistribution records={fronts} label="Distribuição das frentes por situação"/>
+      <NucleoStatusDistribution records={fronts} label="Distribuição das frentes por situação" onFocusStatus={onFocusStatus}/>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e5ecf5] pt-3 dark:border-slate-700">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Panorama por módulo</p>
