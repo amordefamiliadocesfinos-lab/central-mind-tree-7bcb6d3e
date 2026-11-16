@@ -14,6 +14,7 @@ import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01Fm
 import { buildAc01FmLineage } from "@/lib/nucleo/ac01FmLineageV13";
 import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS } from "@/lib/nucleo/ac01ConsolidationQueueV13";
 import { prepareAc01AssistedComparison } from "@/lib/nucleo/ac01AssistedComparisonV13";
+import { deriveAc01ReviewCriteria } from "@/lib/nucleo/ac01ReviewCriteriaV13";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -140,6 +141,7 @@ export default function NucleoAC01DocumentGovernance({
  const selectedFM=fm.find(x=>x.id===targetId)??null;
  const selectedMatch=selected&&selectedFM?compareAc01FmSource(selected,selectedFM):null;
  const assisted=selected?prepareAc01AssistedComparison(selected,contributions,selectedFM):null;
+ const review=selected?deriveAc01ReviewCriteria(selected,contributions,reqs,decisions,publications,selectedFM):null;
  const lineage=selected?buildAc01FmLineage(selected,contributions,reqs,decisions,publications,fm):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
@@ -390,6 +392,30 @@ export default function NucleoAC01DocumentGovernance({
          </p>
        </div>
      </details>}
+     {review&&<section className="rounded-md border p-3 space-y-2"
+       aria-label="Critérios verificáveis para revisão humana e consolidação assistida">
+       <div className="flex flex-wrap items-center justify-between gap-2">
+         <p className="font-semibold">Critérios de revisão antes de consolidar</p>
+         <Badge variant="outline">{review.pendingCount} pendência(s) identificada(s)</Badge>
+       </div>
+       <p className="text-muted-foreground">
+         Conferência do recorte AC-01/FM carregado. Estado registrado ou sem pendência
+         encontrada não dispensa revisão independente, aprovação competente,
+         verificação da fonte original nem publicação controlada.
+       </p>
+       <div className="grid gap-2 md:grid-cols-2">
+         {review.criteria.map(criterion=><article key={criterion.code}
+           className="rounded border p-2 space-y-1">
+           <div className="flex flex-wrap items-center gap-2">
+             <p className="font-semibold">{criterion.title}</p>
+             <Badge variant="outline">{criterion.result==="registrado"?"Registro localizado":
+               criterion.result==="conferir"?"Conferir": "Pendente"}</Badge>
+           </div>
+           <p className="text-muted-foreground">{criterion.detail}</p>
+         </article>)}
+       </div>
+       <p className="font-medium">Consolidação e publicação continuam bloqueadas: este painel não registra aceite nem executa escrita.</p>
+     </section>}
      {preview&&<><Badge variant="outline">{preview.action}</Badge>
        <p>Origem v{preview.sourceVersion} · destino v{preview.targetVersion??"não selecionado"}</p>
        <ul className="list-disc pl-4">{preview.blockers.map(b=><li key={b}>{b}</li>)}</ul>

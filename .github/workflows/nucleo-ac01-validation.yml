@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01ReviewCriteriaV13.ts"
+      - "scripts/nucleo-ac01-review-criteria.test.cjs"
       - "src/lib/nucleo/ac01AssistedComparisonV13.ts"
       - "scripts/nucleo-ac01-assisted-comparison.test.cjs"
       - "src/lib/nucleo/ac01ConsolidationQueueV13.ts"
@@ -202,4 +204,6 @@ jobs:
         run: node scripts/nucleo-ac01-consolidation-queue.test.cjs
       - name: Verify AC01 assisted comparison without synthetic content diff
         run: node scripts/nucleo-ac01-assisted-comparison.test.cjs
+      - name: Verify AC01 review criteria and fail-closed gates
+        run: node scripts/nucleo-ac01-review-criteria.test.cjs
       - run: npm run build
