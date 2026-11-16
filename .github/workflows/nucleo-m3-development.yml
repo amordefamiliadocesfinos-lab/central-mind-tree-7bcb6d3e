@@ -20,6 +20,7 @@ on:
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "scripts/nucleo-ux-a-plus-final-a11y.test.cjs"
       - "src/components/nucleo/NucleoAc02ContinuityRead.tsx"
       - "scripts/nucleo-ux-a-plus-ac02-registry.test.cjs"
       - "scripts/nucleo-ux-a-plus-specialist-focus.test.cjs"
@@ -153,4 +154,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-ac02-registry.test.cjs
       - name: Verify UX A+ cross-module sourced navigation
         run: node scripts/nucleo-ux-a-plus-cross-module.test.cjs
+      - name: Verify UX A+ location and keyboard progress semantics
+        run: node scripts/nucleo-ux-a-plus-final-a11y.test.cjs
       - run: npm run build
