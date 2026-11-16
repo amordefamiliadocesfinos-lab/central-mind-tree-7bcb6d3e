@@ -212,7 +212,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       : "funcoes";
     selectModuleArea(area);
     const anchors: Partial<Record<CrmStage,string>> = {
-      modulo:"nucleo-module-section-content",
+      modulo:"nucleo-crm-module-summary",
       telas:"nucleo-crm-screens",
       funcionalidades:"nucleo-crm-controls",
       procedimentos:"nucleo-crm-procedures",
@@ -417,7 +417,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <Button type="button" variant="outline" size="sm"
               onClick={() => setLevel("overview")}>Voltar ao Painel Geral</Button>
           </div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div id={selected.id==="CRM"?"nucleo-crm-module-summary":undefined}
+            className="scroll-mt-28 flex flex-wrap items-start justify-between gap-3"
+            tabIndex={selected.id==="CRM"?-1:undefined}>
             <div>
               <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
               <h3 className="font-semibold text-lg">{selected.name}</h3>
