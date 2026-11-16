@@ -15,6 +15,9 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/components/nucleo/NucleoAC01ReviewContinuityRead.tsx"
+      - "src/lib/nucleo/ac01ReviewContinuityV13.ts"
+      - "scripts/nucleo-ac01-review-continuity.test.cjs"
       - "src/lib/nucleo/ac01HumanReviewBriefV13.ts"
       - "scripts/nucleo-ac01-human-review-brief.test.cjs"
       - "src/lib/nucleo/ac01ReviewCriteriaV13.ts"
@@ -210,4 +213,6 @@ jobs:
         run: node scripts/nucleo-ac01-review-criteria.test.cjs
       - name: Verify AC01 human-review preparation remains read-only
         run: node scripts/nucleo-ac01-human-review-brief.test.cjs
+      - name: Verify AC01 review continuity read-only scope
+        run: node scripts/nucleo-ac01-review-continuity.test.cjs
       - run: npm run build
