@@ -8,6 +8,7 @@ import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12"
 import { MODULE_ORIGINAL_SOURCES_V12 } from "@/lib/nucleo/moduleOriginalSourcesV12";
 import { MODULE_CONTROLS_V12 } from "@/lib/nucleo/moduleControlDiscoveriesV12";
 import { MODULE_SCREENS_V12 } from "@/lib/nucleo/moduleScreenDiscoveriesV12";
+import { MODULE_JOURNEYS_V12 } from "@/lib/nucleo/moduleJourneysV12";
 import NucleoGuidedJourneys from "@/components/nucleo/NucleoGuidedJourneys";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 
@@ -23,6 +24,18 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
   const screens=MODULE_SCREENS_V12[module.id]??[];
   const sources=MODULE_RECONCILIATION_V12[module.id]??[];
   const originals=MODULE_ORIGINAL_SOURCES_V12[module.id]??[];
+  const journeys=MODULE_JOURNEYS_V12[module.id]??[];
+  // Navegação proporcional a descobertas reais; nunca fabricar roteiro.
+  const anchor=(kind:"screens"|"controls"|"procedures")=>module.id==="CRM"?
+    "nucleo-crm-"+kind:"nucleo-module-"+module.id.toLowerCase()+"-"+kind;
+  const go=(kind:"screens"|"controls"|"procedures")=>{
+    setSearch("");
+    requestAnimationFrame(()=>{
+      const target=document.getElementById(anchor(kind));
+      target?.scrollIntoView({behavior:"smooth",block:"start"});
+      if(target instanceof HTMLElement&&target.tabIndex>=0)target.focus({preventScroll:true});
+    });
+  };
   const query=search.trim().toLocaleLowerCase("pt-BR");
   const visibleControls=useMemo(()=>controls.filter(item=>!query||
     [item.label,item.screen,item.prerequisite,item.observed,item.limitation]
@@ -64,9 +77,30 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
         placeholder="Buscar botão, fluxo ou fonte…" value={search} onChange={e=>setSearch(e.target.value)}/>
     </label>}
     {mode==="funcoes"&&<>
+      <nav aria-label={"Explorar telas, controles e roteiros existentes de "+module.name}
+        className="rounded-xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 dark:border-slate-700 dark:bg-slate-800">
+        <p className="text-sm font-semibold">Explore o módulo por intenção</p>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Somente descobertas documentadas; quantidade não equivale a cobertura integral nem homologação.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {([
+            {kind:"screens",label:"Telas identificadas",total:screens.length},
+            {kind:"controls",label:"Controles descritos",total:controls.length},
+            {kind:"procedures",label:"Roteiros de consulta",total:journeys.length},
+          ] as const).map(item=>(
+            <button key={item.kind} type="button" onClick={()=>go(item.kind)}
+              disabled={item.total===0}
+              aria-label={item.label+": "+(item.total?item.total+" registro(s) no catálogo":"cobertura não verificada")}
+              className="min-h-11 rounded-xl border border-[#d2e3fc] bg-white px-3 py-2 text-left text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-200">
+              {item.label} · {item.total||"não verificado"}
+            </button>
+          ))}
+        </div>
+      </nav>
       <NucleoGuidedJourneys key={module.id} module={module}/>
-      <div id={module.id==="CRM"?"nucleo-crm-screens":undefined}
-        className="scroll-mt-28 space-y-2" tabIndex={module.id==="CRM"?-1:undefined}
+      <div id={anchor("screens")}
+        className="scroll-mt-28 space-y-2" tabIndex={-1}
         aria-label="Mapa visual de telas do módulo">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <h5 className="text-sm font-semibold">Mapa de telas identificadas ({visibleScreens.length}/{screens.length})</h5>
@@ -109,13 +143,13 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
           não comprova que o módulo não possua telas.
         </p>}
       </div>
-      <div id={module.id==="CRM"?"nucleo-crm-controls":undefined}
+      <div id={anchor("controls")}
         className="flex scroll-mt-28 flex-wrap items-center justify-between gap-2"
-        tabIndex={module.id==="CRM"?-1:undefined}>
+        tabIndex={-1}>
         <h5 className="text-sm font-semibold">Controles e efeitos observados</h5>
-        {module.id==="CRM"&&<Button type="button" variant="outline" size="sm"
+        {journeys.length>0&&<Button type="button" variant="outline" size="sm"
           className="min-h-10 rounded-full"
-          onClick={()=>document.getElementById("nucleo-crm-procedures")?.scrollIntoView({behavior:"smooth",block:"start"})}>
+          onClick={()=>go("procedures")}>
           Ver procedimentos orientados
         </Button>}
       </div>
