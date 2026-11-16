@@ -52,7 +52,10 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
         </div>
         <Badge variant="outline">{screen.name}</Badge>
       </div>
-      <div className="h-1.5 rounded bg-muted overflow-hidden" aria-label="Posição de leitura na jornada">
+      <div className="h-2.5 rounded-full bg-muted overflow-hidden" role="progressbar"
+        aria-label="Posição de leitura na jornada"
+        aria-valuemin={1} aria-valuemax={selected.steps.length} aria-valuenow={activeIndex+1}
+        aria-valuetext={"Etapa "+(activeIndex+1)+" de "+selected.steps.length+"; somente leitura, não comprova execução"}>
         <div className="h-full bg-primary transition-all"
           style={{width:`${((activeIndex+1)/selected.steps.length)*100}%`}}/>
       </div>
