@@ -203,6 +203,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     }
     setSelectedId(item.id);
     setLevel("module");
+    requestAnimationFrame(()=>{
+      const heading=document.getElementById("nucleo-atlas-module-heading");
+      heading?.scrollIntoView({behavior:"smooth",block:"start"});
+      heading?.focus({preventScroll:true});
+    });
   };
   const selectModuleArea = (area: ModuleSection) => {
     setModuleSection(area);
@@ -427,12 +432,20 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <Button type="button" variant="outline" size="sm"
               onClick={() => setLevel("overview")}>Voltar ao Painel Geral</Button>
           </div>
+          <nav aria-label="Localização dentro do Núcleo"
+            className="flex flex-wrap items-center gap-2 rounded-xl bg-[#f5f9ff] px-3 py-2 text-xs dark:bg-slate-800">
+            <span className="text-muted-foreground">Núcleo / Painel Geral</span>
+            <span aria-hidden="true" className="text-[#1a73e8]">›</span>
+            <span className="font-semibold">{selected.name}</span>
+            <span aria-hidden="true" className="text-[#1a73e8]">›</span>
+            <span aria-current="page" className="font-semibold text-[#174ea6] dark:text-blue-200">{currentModuleArea.label}</span>
+          </nav>
           <div id={selected.id==="CRM"?"nucleo-crm-module-summary":undefined}
             className="scroll-mt-28 flex flex-wrap items-start justify-between gap-3"
             tabIndex={selected.id==="CRM"?-1:undefined}>
             <div>
               <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
-              <h3 className="font-semibold text-lg">{selected.name}</h3>
+              <h3 id="nucleo-atlas-module-heading" tabIndex={-1} className="scroll-mt-24 font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">{selected.name}</h3>
               <p className="text-sm leading-relaxed mt-1">{selected.purpose}</p>
             </div>
             <Badge variant={selected.coverage==="piloto_parcial"?"secondary":"outline"}>
