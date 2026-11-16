@@ -20,6 +20,8 @@ on:
       - "src/styles/nucleoVisualV22.css"
       - "scripts/nucleo-ux-v22-visual-identity.test.cjs"
       - "src/components/nucleo/NucleoOperationalAtlas.tsx"
+      - "src/components/nucleo/NucleoAc02ContinuityRead.tsx"
+      - "scripts/nucleo-ux-a-plus-ac02-registry.test.cjs"
       - "scripts/nucleo-ux-a-plus-specialist-focus.test.cjs"
       - "src/components/nucleo/NucleoGuidedJourneys.tsx"
       - "scripts/nucleo-ux-a-plus-crm-journey.test.cjs"
@@ -146,4 +148,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-specialist-focus.test.cjs
       - name: Verify UX A+ AC01 document journey
         run: node scripts/nucleo-ux-a-plus-ac01-flow.test.cjs
+      - name: Verify UX A+ AC02 registry and assumption provenance
+        run: node scripts/nucleo-ux-a-plus-ac02-registry.test.cjs
       - run: npm run build
