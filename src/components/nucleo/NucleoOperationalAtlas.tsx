@@ -765,7 +765,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 <p className="text-xs">A Ficha Viva FM-01–FM-10 e a proveniência são consultadas na ficha do módulo.
                   Modelos locais e documentos históricos não são homologações.</p>
                 <Button type="button" size="sm" variant="outline" onClick={()=>{
-                  setKnowledgeOpen(true);setLevel("module");
+                  setLevel("module");
+                  selectModuleArea("conhecimento");
                 }}>Abrir Ficha Viva CRM e fontes</Button>
               </div>
               <div className="rounded-lg border p-3 space-y-1">
