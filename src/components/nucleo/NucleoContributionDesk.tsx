@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -6,9 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import NucleoAC01ReviewTrail from "@/components/nucleo/NucleoAC01ReviewTrail";
 import { continuityContext, deskFilter, latestContributions } from "@/lib/nucleo/ac01ReadOnlyDesk";
 import type { ContributionMetadata, DeskState } from "@/lib/nucleo/ac01ReadOnlyDesk";
+import { AC01_QUEUE_ISSUE_LABELS, type Ac01QueueIssue } from "@/lib/nucleo/ac01ConsolidationQueueV13";
+import { preparePendingReviewGuidance } from "@/lib/nucleo/ac01PendingReviewGuidanceV13";
 
-type Props={moduleName:string;declaredRole:string;rows:ContributionMetadata[];readAt:string};
-export default function NucleoContributionDesk({moduleName,declaredRole,rows,readAt}:Props) {
+type Props={moduleName:string;declaredRole:string;rows:ContributionMetadata[];readAt:string;
+ requestedReview?:{contributionId:string;issues:readonly Ac01QueueIssue[];seq:number}|null};
+export default function NucleoContributionDesk({moduleName,declaredRole,rows,readAt,requestedReview}:Props) {
  const [query,setQuery]=useState("");
  const [state,setState]=useState<DeskState>("todas");
  const [selectedId,setSelectedId]=useState("");
@@ -17,6 +20,14 @@ export default function NucleoContributionDesk({moduleName,declaredRole,rows,rea
  const latest=useMemo(()=>latestContributions(rows),[rows]);
  const visible=useMemo(()=>deskFilter(latest,state,query),[latest,state,query]);
  const selected=latest.find(r=>r.id===selectedId);
+ const suggested=selected&&requestedReview?.contributionId===selected.id
+  ?preparePendingReviewGuidance(requestedReview.issues):[];
+ useEffect(()=>{
+  if(!requestedReview)return;
+  // A fila de revisão só opera a versão mais recente; não inventar atalho para histórico.
+  setSelectedId(requestedReview.contributionId);setState("todas");setQuery("");
+  setPrepared("");setNotice("");
+ },[requestedReview]);
  const previous=selected?.parent_revision_id ? rows.find(r=>r.id===selected.parent_revision_id):null;
  const prepare=()=>{
    if(!selected)return;
@@ -83,6 +94,14 @@ export default function NucleoContributionDesk({moduleName,declaredRole,rows,rea
      {prepared&&<div className="space-y-2"><label className="text-xs">Minuta consultiva editável — permanece apenas nesta sessão
        <Textarea value={prepared} onChange={e=>setPrepared(e.target.value)} rows={10}/>
      </label><Button size="sm" variant="outline" type="button" onClick={()=>void copy(prepared)}>Copiar minuta</Button></div>}
+     {suggested.length>0&&<div className="rounded border p-3 text-xs space-y-2"
+       aria-label="Pendências encaminhadas para ações de revisão AC-01">
+       <p className="font-semibold">Pendências para examinar nesta revisão</p>
+       <p className="text-muted-foreground">Orientações de leitura, não eventos registrados. Se necessário, escolha manualmente a ação no formulário existente. Nenhuma pendência é encerrada por este atalho.</p>
+       {suggested.map(item=><p key={item.issue} className="border-l-2 pl-2">
+         {AC01_QUEUE_ISSUE_LABELS[item.issue]} · ação possível: {item.action==="solicitar_refinamento"?"Solicitar refinamento":"Comentário de análise"} · {item.instruction}
+       </p>)}
+     </div>}
      <NucleoAC01ReviewTrail key={selected.id} moduleId={selected.module_id} contributionId={selected.id} initialDraft={prepared}/>
    </div>}
    <div className="space-y-2 border-t pt-3">
