@@ -25,7 +25,7 @@ const db=supabase as unknown as SupabaseClient<ACDB>;
 const LIMIT=200;
 const kinds=["metodo","ecossistema","manual","procedimento","aprendizado","mapa","checkpoint","arquivo","outro"];
 type DraftState={dirty:boolean;busy:boolean};
-type Props={moduleId:string; moduleName:string; declaredRole:string; onDraftStateChange?:(value:DraftState)=>void};
+type Props={moduleId:string; moduleName:string; declaredRole:string; onDraftStateChange?:(value:DraftState)=>void; requestedStage?:{stage:DocStage;seq:number}|null};
 type ExperienceArea = "contribuicoes" | "fila" | "ciclo";
 type DocStage="vincular"|"versoes"|"comparar"|"refinar"|"consolidar"|"decidir"|"vigencia"|"historico";
 type GovTab="vigente"|"propostas"|"evolucao"|"decisao"|"historico"|"competencias";
@@ -44,7 +44,7 @@ const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
  {id:"fila",title:"Fila e revisões",hint:"Pendências, refinamento e continuidade"},
  {id:"ciclo",title:"Ciclo documental AC-01",hint:"Estados, competências, decisões e histórico"},
 ];
-export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange}:Props){
+export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange,requestedStage}:Props){
  const [area,setArea]=useState<ExperienceArea>("contribuicoes");
  const [flowStep,setFlowStep]=useState<DocStage|null>(null);
  const [governanceTarget,setGovernanceTarget]=useState<{key:GovTab;seq:number}|null>(null);
@@ -153,6 +153,13 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      uncertainRef.current=true;setFeedback("Transporte interrompido: estado indeterminado. Não repetir sem reconciliação.");
    }finally{setSaving(false);}
  };
+ useEffect(()=>{
+  if(!requestedStage)return;
+  const step=FLOW.find(item=>item.id===requestedStage.stage);
+  if(!step)return;
+  setFlowStep(step.id);setArea(step.area);
+  if(step.tab)setGovernanceTarget({key:step.tab,seq:++targetCounter.current});
+ },[requestedStage,moduleId]);
  const goToFlow=(step:(typeof FLOW)[number])=>{
   setFlowStep(step.id);
   setArea(step.area);
