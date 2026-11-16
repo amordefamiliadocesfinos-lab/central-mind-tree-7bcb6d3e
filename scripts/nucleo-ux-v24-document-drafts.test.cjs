@@ -48,8 +48,8 @@ assert(k.includes('Tentativa anterior não localizada neste recorte. Estado cont
 const fence=fs.readFileSync("src/lib/nucleo/pendingWriteFenceV1.ts","utf8");
 for(const token of [
  'data.user.id,kind,moduleId',
- 'window.localStorage.setItem(key,"pending")',
- 'window.localStorage.getItem(key)!==null',
+ 'window.localStorage.setItem(key,witness?JSON.stringify(witness):"pending")',
+ 'const blocked=raw!==null',
  'window.localStorage.removeItem(key)',
  'setState({ready:false,blocked:true})',
  'if(!key||!state.ready||state.blocked)return false',
@@ -59,12 +59,34 @@ assert(!/localStorage\.setItem\([^\n]*(?:body|title|source|token|attempt)/.test(
   "Não salvar conteúdo documental ou credenciais no armazenamento local");
 assert(k.includes('const fence=usePendingWriteFence("fm",moduleId)'),"FM usa trava por módulo");
 assert(s.includes('const fence=usePendingWriteFence("ac01",moduleId)'),"AC-01 usa trava por módulo");
-assert(k.includes('if(!fence.markStarted())'),"FM grava marcador ANTES do envio");
-assert(s.includes('if(!fence.markStarted())'),"AC-01 grava marcador ANTES do envio");
+assert(k.includes('if(!fence.markStarted(witness))'),"FM grava marcador ANTES do envio");
+assert(s.includes('if(!fence.markStarted(witness))'),"AC-01 grava marcador ANTES do envio");
 assert(k.includes('&&fence.clearConfirmed()'),"FM só libera após leitura conferida");
 assert(s.includes('&&fence.clearConfirmed()'),"AC-01 só libera após readback integral");
 assert(k.includes('Sem o conteúdo original em memória, a liberação automática não é segura'),
   "FM não libera após reload sem snapshot");
 assert(s.includes('O conteúdo da minuta não foi salvo no navegador'),
   "AC-01 não promete restauração de minuta");
+// A liberação da trava persistente só é permitida por testemunho e prova de leitura.
+const witnessSource=fs.readFileSync("src/lib/nucleo/writeRecoveryWitnessV1.ts","utf8");
+for(const token of [
+ 'const salt=crypto.randomUUID()',
+ 'crypto.subtle.digest("SHA-256",bytes)',
+ 'witnessFieldsFm',
+ 'witnessFieldsAc01',
+ 'isWriteWitness',
+])assert(witnessSource.includes(token),"Testemunho técnico: "+token);
+for(const token of [
+ 'window.localStorage.getItem(key)!==JSON.stringify(witness)',
+ 'await fingerprint(fields,witness.salt)!==witness.digest',
+ 'identity.requestId!==witness.requestId',
+ 'identity.section!==witness.section||identity.version!==witness.version',
+ 'if(!key||!state.ready||!state.blocked||!witness)return false',
+])assert(fence.includes(token),"Reconciliador conservador: "+token);
+assert(k.includes('Reconciliar trava FM com o Core'),"FM requer ação expressa");
+assert(s.includes('Reconciliar trava AC-01 com o Core'),"AC-01 requer ação expressa");
+assert(k.includes('result.data.length!==1'),"FM rejeita ambiguidade de leitura");
+assert(s.includes('result.data.length!==1'),"AC-01 rejeita ambiguidade de leitura");
+assert(k.includes('await fence.verifyAndClear(witnessFieldsFm(row)'),"FM confere impressão");
+assert(s.includes('await fence.verifyAndClear(witnessFieldsAc01(row)'),"AC-01 confere impressão");
 console.log("UX V2.4 document drafts and write guards PASS");
