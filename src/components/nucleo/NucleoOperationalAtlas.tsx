@@ -162,6 +162,22 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const modulePending = moduleWork.filter(item => item.status !== "concluido");
   const moduleBlocked = modulePending.filter(item => item.status === "bloqueado");
   const moduleAwaitingAction = modulePending.filter(item => !item.next_action.trim());
+  // FM-08/FM-09: recorte por papel declarado, sem atribuir frentes sem responsável
+  // ou promover o vínculo textual M3 a mandato do especialista.
+  const specialistRole = selectedRecord?.specialist.trim() || "";
+  const specialistWork = specialistRole
+    ? moduleWork.filter(item => item.specialist.trim() === specialistRole)
+    : [];
+  const specialistPending = specialistWork.filter(item => item.status !== "concluido");
+  const specialistPriority = [...specialistPending].sort((a,b) =>
+    Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
+    ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
+     {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
+    a.code.localeCompare(b.code,"pt-BR")).slice(0,3);
+  const specialistLatestEvent = events
+    .filter(event => specialistWork.some(item => item.id === event.workstream_id))
+    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
+
   const moduleStatusCounts = {
     andamento: moduleWork.filter(item => item.status === "em_andamento").length,
     validacao: moduleWork.filter(item => item.status === "em_validacao").length,
@@ -586,6 +602,43 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   </p>
                 </div>
               </div>
+              <section className="rounded-md border p-3 space-y-3" aria-label="Pendências e evidências do papel declarado">
+                <div>
+                  <p className="font-semibold text-sm">Continuidade das frentes do especialista · M3</p>
+                  <p className="text-xs text-muted-foreground">
+                    Vínculo por nome de responsável declarado nesta ficha. Não comprova mandato,
+                    autoria de entregas, deploy ou aceite; registros sem esse vínculo não são atribuídos automaticamente.
+                  </p>
+                </div>
+                {specialistRole ? <>
+                  <p className="text-xs">
+                    {specialistWork.length} frente(s)/subfrente(s) com vínculo textual exato;
+                    {" "}{specialistPending.length} pendente(s);
+                    {" "}{specialistPending.filter(item=>item.evidence_state!=="comprovada").length} pendente(s) sem prova marcada como comprovada no M3.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Último evento M3 localizado para esse vínculo: {specialistLatestEvent
+                      ? new Date(specialistLatestEvent.recorded_at).toLocaleString("pt-BR")+" · evento administrativo"
+                      : "não localizado nos 200 eventos globais carregados; histórico anterior pode existir"}.
+                  </p>
+                  {specialistPriority.length>0 ? <div className="space-y-2">
+                    {specialistPriority.map(item=><div key={item.id} className="rounded-md border p-2 space-y-1 text-xs">
+                      <p className="font-semibold">{item.code} · {item.title}</p>
+                      <p>Situação: {item.status.replaceAll("_"," ")} · Prova M3: {item.evidence_state.replaceAll("_"," ")}</p>
+                      <p>Bloqueio: {item.blocker.trim()||"Não registrado"}</p>
+                      <p>Próxima ação: {item.next_action.trim()||"Não registrada"}</p>
+                      <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha e evidências M3/M4</Button>
+                    </div>)}
+                  </div> : <p className="text-xs text-muted-foreground">
+                    Nenhuma pendência vinculada por nome neste recorte. Isso não comprova inexistência de trabalho externo ao M3.
+                  </p>}
+                </> : <p className="text-xs text-muted-foreground">
+                  Responsável não informado no módulo M3; não é possível atribuir frentes a um especialista nesta leitura.
+                </p>}
+                <Button type="button" size="sm" variant="outline" onClick={()=>selectModuleArea("desenvolvimento")}>
+                  Ver todas as frentes e provas do módulo
+                </Button>
+              </section>
               <div className="rounded-md border p-3 space-y-2" aria-label="Conhecimento e Evolução AC-01">
                 <p className="font-semibold text-sm">Conhecimento e Evolução do especialista</p>
                 <p className="text-xs text-muted-foreground">
