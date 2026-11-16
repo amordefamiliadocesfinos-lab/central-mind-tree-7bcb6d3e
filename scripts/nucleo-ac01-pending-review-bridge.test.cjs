@@ -28,7 +28,7 @@ assert(parent.includes('onOpenPendingReview={openPendingReview}'));
 assert(parent.includes('requestedReview={requestedReview}'));
 assert(governance.includes('onOpenPendingReview(item.contributionId,item.issues)'),"Use actual queue record IDs");
 assert(governance.includes('Abrir ações de revisão existentes'));
-assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(fs.readFileSync(file,"utf8"))));
+assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(fs.readFileSync(file,"utf8")));
 for(const [name,source] of [["desk",desk],["parent",parent],["gov",governance]]){
  const compiled=ts.transpileModule(source,{fileName:name+".tsx",compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
  assert.equal(compiled.diagnostics?.filter(x=>x.category===ts.DiagnosticCategory.Error).length??0,0,name+" syntax");
