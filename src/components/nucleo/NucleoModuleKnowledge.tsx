@@ -15,6 +15,7 @@ import { fmLinkedEvidence } from "@/lib/nucleo/fmLinkedEvidenceV13";
 import { projectFm09Continuity } from "@/lib/nucleo/fmContinuityV13";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
+import {usePendingWriteFence} from "@/lib/nucleo/pendingWriteFenceV1";
 
 type FMSection = "FM-01" | "FM-02" | "FM-03" | "FM-04" | "FM-05" | "FM-06" | "FM-07" | "FM-08" | "FM-09" | "FM-10";
 const sections: Record<FMSection, string> = {
@@ -106,11 +107,12 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   onOpenWorkstream?:(id:string)=>void;
   requestedSection?:{section:FMSection;seq:number}|null;
 }) {
+  const fence=usePendingWriteFence("fm",moduleId);
   const [section,setSection]=useState<FMSection>("FM-01");
   useEffect(()=>{
     // Pedido de seção vindo do Atlas não equivale a descarte autorizado.
     // A navegação direta entre FM mantém a confirmação própria em changeSection.
-    if(requestedSection?.section && !saving && !draftDirty && !writeUncertain)
+    if(requestedSection?.section && !saving && !draftDirty && !writeUncertain && !fence.blocked)
       setSection(requestedSection.section);
   },[requestedSection?.seq,requestedSection?.section]);
   const [revisions,setRevisions]=useState<Revision[]>([]);
@@ -130,15 +132,15 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [compareNewerId,setCompareNewerId]=useState("");
   const draftDirty=Boolean(title.trim()||body.trim()||source.trim());
   useEffect(()=>{
-    onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain});
+    onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain||fence.blocked});
     return ()=>onDraftStateChange?.({dirty:false,busy:false});
-  },[draftDirty,saving,writeUncertain,onDraftStateChange]);
+  },[draftDirty,saving,writeUncertain,fence.blocked,onDraftStateChange]);
   useEffect(()=>{
-    if(!draftDirty&&!saving&&!writeUncertain)return;
+    if(!draftDirty&&!saving&&!writeUncertain&&!fence.blocked)return;
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
     window.addEventListener("beforeunload",warn);
     return ()=>window.removeEventListener("beforeunload",warn);
-  },[draftDirty,saving,writeUncertain]);
+  },[draftDirty,saving,writeUncertain,fence.blocked]);
 
   useEffect(()=>{
     let current=true;
@@ -161,7 +163,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           if(writeUncertain&&pending){
             const sameVersion=result.data.filter(row=>row.module_id===pending.moduleId&&
               row.section_code===pending.sectionCode&&row.version_no===pending.versionNo);
-            if(sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)){
+            if(sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)&&fence.clearConfirmed()){
               pendingAttemptRef.current=null;
               setWriteUncertain(false);
               setTitle("");setBody("");setSource("");setValidationError(null);
@@ -226,7 +228,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   useEffect(()=>{setM4FrontId(null);},[moduleId,section]);
 
   const changeSection = (next: FMSection) => {
-    if (next === section || saving || writeUncertain) return;
+    if (next === section || saving || writeUncertain || fence.blocked) return;
     // Uma confirmação de descarte precisa esvaziar a minuta anterior.
     // Caso contrário, os campos antigos passam a aparecer na nova seção FM.
     if (draftDirty) {
@@ -251,9 +253,13 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   };
   const save=async()=>{
     const cleanTitle=title.trim(), cleanBody=body.trim(), cleanSource=source.trim();
-    if(loading||error||saving||writeUncertain) return;
+    if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked) return;
     if(cleanTitle.length<3||cleanTitle.length>180||cleanBody.length<10||cleanBody.length>12000||cleanSource.length>1500){
       setValidationError("Verifique título (3–180), conteúdo (10–12.000) e referência (até 1.500 caracteres).");return;
+    }
+    if(!fence.markStarted()){
+      setError("Não foi possível proteger a tentativa nesta sessão. Nenhum registro foi enviado.");
+      return;
     }
     setSaving(true);setError(null);setReconciliationNotice("");setValidationError(null);
     // Snapshot imutável para impedir que edições ocorridas durante o envio
@@ -278,6 +284,11 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
       if(check.error||!check.data||!matchesPendingFmAttempt(check.data,attempt)){
         setWriteUncertain(true);
         setError("Envio efetuado, mas a revisão não foi integralmente confirmada. Recarregue o histórico antes de outra tentativa.");
+        return;
+      }
+      if(!fence.clearConfirmed()){
+        setWriteUncertain(true);
+        setError("Revisão confirmada, mas a trava local não foi liberada. Não repetir; reconcilie a sessão.");
         return;
       }
       pendingAttemptRef.current=null;
@@ -315,7 +326,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           {coverage.map(entry => (
             <button type="button" key={entry.code}
               aria-pressed={section === entry.code}
-              disabled={saving||writeUncertain}
+              disabled={saving||writeUncertain||fence.blocked}
               onClick={() => changeSection(entry.code)}
               className={`nucleo-v22-area-card min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
@@ -487,6 +498,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         </details>
       )}
       {reconciliationNotice&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">{reconciliationNotice}</p>}
+      {fence.blocked&&!writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Tentativa pendente identificada nesta sessão ou após recarregamento. Sem o conteúdo original em memória, a liberação automática não é segura. Confira o Core com a governança antes de qualquer nova gravação.</p>}
       {writeUncertain&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         Gravação anterior indeterminada. Atualize o histórico para conferir a versão; não repita o registro nem altere a seção antes da reconciliação.
       </p>}
@@ -624,7 +636,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               <Input disabled={saving} value={source} onChange={e=>{setSource(e.target.value);setValidationError(null);}} maxLength={1500} placeholder="Caminho, ID de documento ou link original"/>
             </label>
             <p className="text-xs text-muted-foreground">A nova revisão recebe v{(latest?.version_no??0)+1}; a versão anterior permanece imutável. A aprovação normativa requer procedimento humano separado.</p>
-            <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)||writeUncertain} onClick={()=>void save()}>
+            <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)||writeUncertain||!fence.ready||fence.blocked} onClick={()=>void save()}>
               {saving?"Registrando…":"Registrar revisão e conferir"}
             </Button>
           </div>

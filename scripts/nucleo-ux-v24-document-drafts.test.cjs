@@ -10,7 +10,7 @@ for(const [src,t,reason] of [
 [a,'onDraftStateChange={setSpecialistDraftState}',"Specialist callback"],
 [a,'onDraftStateChange={setFmDraftState}',"Ficha Viva callback"],
 [k,'const draftDirty=Boolean(title.trim()||body.trim()||source.trim())',"FM editing"],
-[s,'const draftBusy=saving||uncertainRef.current',"Uncertain AC01 never discarded"],
+[s,'const draftBusy=saving||uncertainRef.current||fence.blocked',"Uncertain AC01 never discarded"],
 [s,'row.authority_state===attempt.authorityState',"AC01 readback preserved by full snapshot"],
 [k,'authority_state:"rascunho"',"FM authority preserved"],
 [k,'.eq("id",result.data.id).maybeSingle()',"FM readback preserved"],
@@ -36,11 +36,35 @@ for(const [key,wrong] of [
  ["body","Mudado"],["source_reference","outro.md"],["authority_state","homologado"],
  ["evidence_level","uso_real_verificado"]
 ])assert.equal(matcher({...row,[key]:wrong},attempt),false,"Rejeitar divergência "+key);
-assert(k.includes('onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain})'),"Estado indeterminado propaga bloqueio ao Atlas");
-assert(k.includes('if(loading||error||saving||writeUncertain) return;'),"Nova escrita bloqueada após gravação ambígua");
-assert(k.includes('if (next === section || saving || writeUncertain) return;'),"Troca de seção bloqueada");
+assert(k.includes('onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain||fence.blocked})'),"Estado indeterminado propaga bloqueio ao Atlas");
+assert(k.includes('if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked) return;'),"Nova escrita bloqueada após gravação ambígua");
+assert(k.includes('if (next === section || saving || writeUncertain || fence.blocked) return;'),"Troca de seção bloqueada");
 assert(k.includes('sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)'),"Só confirmar pela versão única e integral");
 assert(k.includes('setWriteUncertain(true);'),"Falhas tornam a gravação indeterminada");
 assert(k.includes('setReconciliationNotice("Revisão anteriormente enviada localizada'),"Confirmação é status informativo");
 assert(k.includes('Tentativa anterior não localizada neste recorte. Estado continua indeterminado; não repetir a gravação.'),"Ausência no recorte não permite repetição");
+// Recarregamento de página: o bloqueio persistente não pode armazenar minuta
+// ou tokens e deve usar identidade autenticada, escopo e fail-closed.
+const fence=fs.readFileSync("src/lib/nucleo/pendingWriteFenceV1.ts","utf8");
+for(const token of [
+ 'data.user.id,kind,moduleId',
+ 'window.localStorage.setItem(key,"pending")',
+ 'window.localStorage.getItem(key)!==null',
+ 'window.localStorage.removeItem(key)',
+ 'setState({ready:false,blocked:true})',
+ 'if(!key||!state.ready||state.blocked)return false',
+ 'event==="SIGNED_OUT"',
+])assert(fence.includes(token),"Trava persistente incompleta: "+token);
+assert(!/localStorage\.setItem\([^\n]*(?:body|title|source|token|attempt)/.test(fence),
+  "Não salvar conteúdo documental ou credenciais no armazenamento local");
+assert(k.includes('const fence=usePendingWriteFence("fm",moduleId)'),"FM usa trava por módulo");
+assert(s.includes('const fence=usePendingWriteFence("ac01",moduleId)'),"AC-01 usa trava por módulo");
+assert(k.includes('if(!fence.markStarted())'),"FM grava marcador ANTES do envio");
+assert(s.includes('if(!fence.markStarted())'),"AC-01 grava marcador ANTES do envio");
+assert(k.includes('&&fence.clearConfirmed()'),"FM só libera após leitura conferida");
+assert(s.includes('&&fence.clearConfirmed()'),"AC-01 só libera após readback integral");
+assert(k.includes('Sem o conteúdo original em memória, a liberação automática não é segura'),
+  "FM não libera após reload sem snapshot");
+assert(s.includes('O conteúdo da minuta não foi salvo no navegador'),
+  "AC-01 não promete restauração de minuta");
 console.log("UX V2.4 document drafts and write guards PASS");

@@ -19,6 +19,6 @@ assert.match(source,/Publicação interna AC-01 não comprova atualização can�
 assert.match(source,/Consulta indisponível ou parcial/);
 assert.match(source,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 assert.match(source,/!isMatchingPendingAttempt\(check\.data,attempt\)/);
-assert.match(source,/disabled=\{reading\|\|Boolean\(readError\)\|\|saving\|\|uncertainRef\.current\|\|referenceMissing\}/);
+assert.match(source,/disabled=\{reading\|\|Boolean\(readError\)\|\|saving\|\|uncertainRef\.current\|\|referenceMissing\|\|!fence\.ready\|\|fence\.blocked\}/);
 assert.match(source,/Registrar proposta e conferir no Core/);
 console.log("UX-A3A: áreas documentais preservadas, sem writers ou autoridade novos");

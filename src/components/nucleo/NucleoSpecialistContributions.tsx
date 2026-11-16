@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import NucleoContributionDesk from "@/components/nucleo/NucleoContributionDesk";
 import NucleoAC01DocumentGovernance from "@/components/nucleo/NucleoAC01DocumentGovernance";
 import type {Ac01QueueIssue} from "@/lib/nucleo/ac01ConsolidationQueueV13";
+import {usePendingWriteFence} from "@/lib/nucleo/pendingWriteFenceV1";
 
 type RecordRow={
  id:string;module_id:string;workstream_id:string|null;specialist_role:string;contribution_kind:string;
@@ -59,6 +60,7 @@ const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
  {id:"ciclo",title:"Ciclo documental AC-01",hint:"Estados, competências, decisões e histórico"},
 ];
 export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange,requestedStage}:Props){
+ const fence=usePendingWriteFence("ac01",moduleId);
  const [area,setArea]=useState<ExperienceArea>("contribuicoes");
  const [flowStep,setFlowStep]=useState<DocStage|null>(null);
  const [governanceTarget,setGovernanceTarget]=useState<{key:GovTab;seq:number}|null>(null);
@@ -86,11 +88,11 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const pendingAttemptRef=useRef<PendingAttempt|null>(null);
  const draftDirty=Boolean(title.trim()||locator.trim()||note.trim()||checksum.trim()||
    role!==(declaredRole||"")||parentId||kind!=="metodo"||sourceKind!=="referencia_privada");
- const draftBusy=saving||uncertainRef.current;
+ const draftBusy=saving||uncertainRef.current||fence.blocked;
  useEffect(()=>{
    onDraftStateChange?.({dirty:draftDirty,busy:draftBusy});
    return ()=>onDraftStateChange?.({dirty:false,busy:false});
- },[draftDirty,draftBusy,feedback,onDraftStateChange]);
+ },[draftDirty,draftBusy,feedback,fence.blocked,onDraftStateChange]);
  useEffect(()=>{
    if(!draftDirty&&!draftBusy)return;
    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
@@ -111,7 +113,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
         if(uncertainRef.current&&requestRef.current){
           const attempt=pendingAttemptRef.current;
           const prior=result.data.find(item=>item.request_id===requestRef.current);
-          if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)){
+          if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)&&fence.clearConfirmed()){
             setFeedback("Proposta previamente enviada localizada e integralmente conferida no Core (v"+prior.version_no+"). Não reenviar.");
             uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
             setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
@@ -129,7 +131,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    return()=>{mounted=false};
  },[moduleId,refresh]);
  const chooseReference=(id:string)=>{
-   if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current)return;
+   if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current||fence.blocked)return;
    // A escolha de outra origem pode substituir uma minuta; cancelamento preserva
    // todos os campos e o seletor controlado conserva a seleção anterior.
    if(draftDirty&&!window.confirm("Há uma minuta AC-01 não salva. Substituí-la pelos dados da versão selecionada?"))return;
@@ -155,7 +157,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const latestRows=[...latestByLineage.values()].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
  const compareFields:[string,keyof RecordRow][]=[["Título","title"],["Localizador","source_locator"],["Origem","source_kind"],["SHA-256","source_checksum_sha256"],["Observação","note"]];
  const submit=async()=>{
-   if(saving||reading||readError||uncertainRef.current||referenceMissing)return;
+   if(saving||reading||readError||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked)return;
    const cleanRole=role.trim(),cleanTitle=title.trim(),cleanSource=locator.trim(),cleanNote=note.trim();
    if(cleanRole.length<3||cleanRole.length>180||cleanTitle.length<3||cleanTitle.length>180||
      cleanSource.length<8||cleanSource.length>1500||cleanNote.length>2000||
@@ -167,6 +169,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setFeedback("A versão anterior precisa pertencer ao mesmo especialista e tipo. Reconsulte e selecione novamente.");return;
    }
    if(!window.confirm(parent ? "Registrar NOVA revisão append-only da contribuição? A referência anterior permanece preservada e nenhuma versão será homologada." : "Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
+   if(!fence.markStarted()){
+     setFeedback("Sem proteção local para esta tentativa. Nenhuma proposta foi enviada.");
+     return;
+   }
    setSaving(true);setFeedback("");
    const requestId=requestRef.current??crypto.randomUUID();
    requestRef.current=requestId;
@@ -188,6 +194,11 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      const check=await db.from("nucleo_specialist_contributions").select("*").eq("id",result.data.id).maybeSingle();
      if(check.error||!check.data||!isMatchingPendingAttempt(check.data,attempt)){
        uncertainRef.current=true;setFeedback("Inserção retornou, mas readback não confirmou todos os dados. Confira a origem antes de repetir.");return;
+     }
+     if(!fence.clearConfirmed()){
+       uncertainRef.current=true;
+       setFeedback("Registro confirmado, mas a trava local permaneceu ativa. Não repetir; reconcilie a sessão.");
+       return;
      }
      requestRef.current=null;pendingAttemptRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
      setFeedback("Contribuição confirmada no Core por readback. Não homologada; versões anteriores preservadas na origem.");
@@ -257,6 +268,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    {draftDirty&&!saving&&!uncertainRef.current&&<p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
      Minuta AC-01 não salva neste módulo. A troca de etapas preserva o formulário; registrar a proposta exige ação explícita.
    </p>}
+   {fence.blocked&&!uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Tentativa pendente nesta conta e módulo, inclusive após recarregamento. O conteúdo da minuta não foi salvo no navegador; reconcilie no Core antes de repetir.</p>}
    {uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
      Resultado indeterminado. Reconsulte o Core e reconcilie a proposta antes de repetir a operação ou trocar de etapa.
    </p>}
@@ -376,7 +388,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        <Textarea className="text-sm" value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving||reading||Boolean(readError)}/>
      </label>
      <p className="text-xs text-muted-foreground">Nova contribuição: v1/proposta. Revisão: versão incrementada pelo Core, em evolução e append-only. A comparação exibe somente metadados; homologação e alteração de vigência exigem processos separados.</p>
-     <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing}>
+     <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
 
