@@ -214,7 +214,7 @@ export default function NucleoDevelopmentCenter() {
   }, [visible,attentionStatus,moduleFocusId,specialistFocus]);
 
   const choose = (id: string): boolean => {
-    if (id === selectedId) return true;
+    if (id === selectedId) { setReturnToAtlas(false); return true; }
     if (saving) {
       toast.warning("Aguarde a conclusão do registro antes de trocar de frente.");
       return false;
@@ -222,6 +222,9 @@ export default function NucleoDevelopmentCenter() {
     if (hasPendingChanges && !window.confirm(
       "Há alterações não salvas nesta frente. Descartá-las e abrir outra frente?"
     )) return false;
+    // O retorno só vale para a seleção feita no Atlas; outras origens revogam o atalho.
+    // Nunca limpar a origem quando a troca foi recusada por rascunho não salvo.
+    setReturnToAtlas(false);
     setSelectedId(id);
     setLastOpenedId(id);
     if(session?.user?.id){

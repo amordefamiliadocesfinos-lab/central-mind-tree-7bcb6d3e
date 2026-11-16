@@ -50,5 +50,12 @@ for(const [part,why] of [
  ['id="nucleo-atlas-completo" tabIndex={-1}',"Accessible return focus target"],
  ['atlas?.focus({preventScroll:true})',"Keyboard focus restored"],
 ])has(part,why);
+// UX-3: origem da navegação deve refletir a última seleção aceita.
+const chooseSection=s.slice(s.indexOf('  const choose = (id: string): boolean => {'),s.indexOf('  const addItem = async () => {'));
+assert(chooseSection.includes('if (id === selectedId) { setReturnToAtlas(false); return true; }'),"Mesmo item reaberto diretamente revoga retorno antigo");
+assert(chooseSection.includes('if (saving) {'),"Seleção protegida durante gravação");
+assert(chooseSection.includes('if (hasPendingChanges && !window.confirm('),"Proteção para alterações não salvas");
+assert(chooseSection.indexOf('    setReturnToAtlas(false);\n    setSelectedId(id);')>chooseSection.indexOf('if (hasPendingChanges && !window.confirm('),"Origem revogada depois da guarda de rascunho");
+assert(s.includes('if (!choose(id)) return;\n              setReturnToAtlas(true);'),"Atlas só registra origem após seleção aceita");
 console.log("UX V2.7: filters are actionable; unsafe scroll prevented");
 console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contracts");
