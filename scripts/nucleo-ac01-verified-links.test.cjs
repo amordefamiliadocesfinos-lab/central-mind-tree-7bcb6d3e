@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),ts=require("typescript");
+const path="src/lib/nucleo/ac01VerifiedLinksV13.ts";
+const js=ts.transpileModule(fs.readFileSync(path,"utf8"),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(js.diagnostics?.filter(x=>x.category===ts.DiagnosticCategory.Error).length??0,0);
+const mod={exports:{}};new Function("module","exports",js.outputText)(mod,mod.exports);
+const verify=mod.exports.verifyAc01DecisionLinks;
+const ev=(id,module_id,contribution_id,event_kind)=>({id,module_id,contribution_id,event_kind,body:"teste",actor_auth_uid:"abc",recorded_at:"2026-11-16"});
+const request={id:"req",module_id:"crm",contribution_id:"c",review_event_id:"ref",requested_outcome:"avaliar_aprovacao"};
+const act={id:"act",contribution_id:"c",decision_request_id:"req",outcome:"aprovada",recorded_at:"2026-11-16"};
+let result=verify("crm","c",[ev("ref","crm","c","encaminhar_decisao"),ev("other","crm","c","comentario"),ev("foreign","fin","c","encaminhar_decisao")],[request],[act]);
+assert.equal(result.lines.length,1);
+assert.equal(result.lines[0].referralConfirmed,true);
+assert.equal(result.lines[0].decisionRecorded,true);
+assert.deepEqual(result.lines[0].decisions.map(d=>d.id),["act"]);
+assert.equal(result.lines[0].resolutionVerified,false);
+assert.equal(result.externalPublicationVerified,false);
+assert.equal(result.pendingResolution,true);
+result=verify("crm","c",[ev("ref","crm","c","encaminhar_decisao")],[{...request,module_id:"fin"}],[act]);
+assert.equal(result.lines.length,0);
+assert.equal(result.referralWithoutVisibleRequest,1);
+assert.equal(result.decisionsNotLinkedToVisibleRequest,1);
+result=verify("crm","c",[ev("ref","crm","c","comentario")],[request],[act]);
+assert.equal(result.lines[0].referralConfirmed,false);
+result=verify("crm","c",[ev("ref","crm","c","encaminhar_decisao")],[request],[{...act,contribution_id:"other"}]);
+assert.equal(result.lines[0].decisionRecorded,false);
+const ui=fs.readFileSync("src/components/nucleo/NucleoAC01VerifiedDecisionLinks.tsx","utf8");
+const trail=fs.readFileSync("src/components/nucleo/NucleoAC01ReviewTrail.tsx","utf8");
+assert(ui.includes('.eq("module_id",moduleId).eq("contribution_id",contributionId)'));
+assert(ui.includes('.eq("contribution_id",contributionId)'));
+assert(ui.includes("req.data.length>=LIMIT||act.data.length>=LIMIT"));
+assert(ui.includes("setError("));
+assert(ui.includes("Resolução de pendência: não comprovada"));
+assert(trail.includes("!loading&&!error&&evidence&&<NucleoAC01VerifiedDecisionLinks"));
+for(const [name,txt] of [["ui",ui],["trail",trail]]){
+ const out=ts.transpileModule(txt,{fileName:name+".tsx",compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(out.diagnostics?.filter(x=>x.category===ts.DiagnosticCategory.Error).length??0,0);
+}
+assert(!/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(ui+fs.readFileSync(path,"utf8")));
+console.log("AC01: encaminhamento → solicitação → decisão por IDs; resolução externa sempre não comprovada.");
