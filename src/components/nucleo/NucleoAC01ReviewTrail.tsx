@@ -5,6 +5,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import NucleoAC01DecisionIntake from "@/components/nucleo/NucleoAC01DecisionIntake";
+import {summarizePostReviewEvidence} from "@/lib/nucleo/ac01PostReviewEvidenceV13";
+import {AC01_QUEUE_ISSUE_LABELS,type Ac01QueueIssue} from "@/lib/nucleo/ac01ConsolidationQueueV13";
 
 type ReviewKind="comentario"|"solicitar_refinamento"|"minuta_consolidacao"|"encaminhar_decisao";
 type ReviewRow={
@@ -26,8 +28,8 @@ const kinds:{value:ReviewKind;label:string}[]=[
 ];
 
 export default function NucleoAC01ReviewTrail({
- moduleId,contributionId,initialDraft
-}:{moduleId:string;contributionId:string;initialDraft?:string}){
+ moduleId,contributionId,initialDraft,trackedIssues
+}:{moduleId:string;contributionId:string;initialDraft?:string;trackedIssues?:readonly Ac01QueueIssue[]}){
  const [rows,setRows]=useState<ReviewRow[]>([]);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -38,6 +40,7 @@ export default function NucleoAC01ReviewTrail({
  const [revision,setRevision]=useState(0);
  const pendingRequest=useRef<string|null>(null);
  const uncertain=useRef(false);
+ const evidence=trackedIssues?.length?summarizePostReviewEvidence(moduleId,contributionId,trackedIssues,rows):null;
  useEffect(()=>{
    setRows([]);setError("");setBody("");setKind("comentario");setNotice("");
    pendingRequest.current=null;uncertain.current=false;
@@ -113,6 +116,25 @@ export default function NucleoAC01ReviewTrail({
       <p className="text-muted-foreground">Autoria autenticada: {row.actor_auth_uid.slice(0,8)}… · {new Date(row.recorded_at).toLocaleString("pt-BR")}</p>
     </div>)}
   </div>}
+  {!loading&&!error&&evidence&&<section className="rounded border p-3 text-xs space-y-2"
+   aria-label="Acompanhamento de pendências após os eventos de revisão">
+   <strong>Eventos registrados e pendências ainda não comprovadas</strong>
+   <p className="text-muted-foreground">
+    Contagem baseada na trilha de eventos deste registro, após leitura do Core.
+    O contrato AC-01 não possui vínculo estruturado entre um evento e cada
+    pendência; nenhuma associação ou resolução pode ser inferida pelo texto.
+   </p>
+   <div className="flex flex-wrap gap-2">
+    <span>{evidence.counts.comments} comentário(s)</span>
+    <span>{evidence.counts.refinementRequests} pedido(s) de refinamento</span>
+    <span>{evidence.counts.drafts} minuta(s)</span>
+    <span>{evidence.counts.referrals} encaminhamento(s)</span>
+   </div>
+   {evidence.issues.map(item=><p key={item.issue} className="border-l-2 pl-2">
+     {AC01_QUEUE_ISSUE_LABELS[item.issue]} — resolução não comprovada neste recorte
+   </p>)}
+   <p className="font-medium">Registro de evento não confirma ação concluída, decisão aprovada ou publicação.</p>
+  </section>}
   {!loading&&!error&&<NucleoAC01DecisionIntake key={contributionId} moduleId={moduleId} contributionId={contributionId} referrals={rows.filter(r=>r.event_kind==="encaminhar_decisao").map(r=>({id:r.id,recorded_at:r.recorded_at}))}/>}
   <div className="space-y-2 rounded-md bg-muted/30 p-2">
    <label className="block text-xs">Tipo de evento

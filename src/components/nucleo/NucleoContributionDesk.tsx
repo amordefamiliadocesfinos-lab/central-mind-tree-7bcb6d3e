@@ -102,7 +102,8 @@ export default function NucleoContributionDesk({moduleName,declaredRole,rows,rea
          {AC01_QUEUE_ISSUE_LABELS[item.issue]} · ação possível: {item.action==="solicitar_refinamento"?"Solicitar refinamento":"Comentário de análise"} · {item.instruction}
        </p>)}
      </div>}
-     <NucleoAC01ReviewTrail key={selected.id} moduleId={selected.module_id} contributionId={selected.id} initialDraft={prepared}/>
+     <NucleoAC01ReviewTrail key={selected.id} moduleId={selected.module_id} contributionId={selected.id} initialDraft={prepared}
+       trackedIssues={suggested.map(item=>item.issue)}/>
    </div>}
    <div className="space-y-2 border-t pt-3">
      <h6 className="text-sm font-semibold">Contexto de continuidade para destinatário autorizado</h6>
