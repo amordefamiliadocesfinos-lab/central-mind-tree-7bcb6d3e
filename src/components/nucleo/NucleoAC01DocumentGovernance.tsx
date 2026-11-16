@@ -12,7 +12,7 @@ import {
 } from "@/lib/nucleo/ac01DocumentGovernance";
 import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01FmSourceMatchV13";
 import { buildAc01FmLineage } from "@/lib/nucleo/ac01FmLineageV13";
-import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS } from "@/lib/nucleo/ac01ConsolidationQueueV13";
+import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS, type Ac01QueueIssue } from "@/lib/nucleo/ac01ConsolidationQueueV13";
 import { prepareAc01AssistedComparison } from "@/lib/nucleo/ac01AssistedComparisonV13";
 import { deriveAc01ReviewCriteria } from "@/lib/nucleo/ac01ReviewCriteriaV13";
 import { prepareAc01HumanReviewBrief } from "@/lib/nucleo/ac01HumanReviewBriefV13";
@@ -45,9 +45,10 @@ const CAP=180;
  * Não inventar estado de vigente quando contratos estiverem vazios ou incompletos.
  */
 export default function NucleoAC01DocumentGovernance({
- moduleId,moduleName,declaredRole,contributions,readAt,requestedTab,
+ moduleId,moduleName,declaredRole,contributions,readAt,requestedTab,onOpenPendingReview,
 }:{moduleId:string;moduleName:string;declaredRole:string;contributions:Ac01Record[];readAt:string;
- requestedTab?:{key:Tab;seq:number}|null}) {
+ requestedTab?:{key:Tab;seq:number}|null;
+ onOpenPendingReview?:(contributionId:string,issues:readonly Ac01QueueIssue[])=>void}) {
  const [tab,setTab]=useState<Tab>("vigente");
  useEffect(()=>{if(requestedTab)setTab(requestedTab.key);},[requestedTab]);
  const [query,setQuery]=useState("");
@@ -235,10 +236,16 @@ export default function NucleoAC01DocumentGovernance({
           </div>
           <p>{item.matchedFm} referência(s) FM com localizador textualmente idêntico, sem vínculo canônico.</p>
           {item.issues.map(issue=><p key={issue} className="text-muted-foreground">Pendência: {AC01_QUEUE_ISSUE_LABELS[issue]}</p>)}
-          <Button size="sm" type="button" variant="outline"
-            onClick={()=>setSelectedId(item.contributionId)}>
-            Examinar linhagem no AC-01
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" type="button" variant="outline"
+              onClick={()=>{setSelectedId(item.contributionId);setReviewHistoryOpen(false);}}>
+              Examinar linhagem no AC-01
+            </Button>
+            {onOpenPendingReview&&<Button size="sm" type="button" variant="outline"
+              onClick={()=>onOpenPendingReview(item.contributionId,item.issues)}>
+              Abrir ações de revisão existentes
+            </Button>}
+          </div>
         </article>)}
     </section>}
    {tab==="decisao"&&<div className="space-y-2">
