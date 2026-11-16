@@ -13,6 +13,7 @@ import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
 import NucleoPanoramaDinV30, { moduleIdForWorkstream } from "@/components/nucleo/NucleoPanoramaDinV30";
+import NucleoFocusPreviewV30 from "@/components/nucleo/NucleoFocusPreviewV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
@@ -715,6 +716,14 @@ export default function NucleoDevelopmentCenter() {
           </Button>
         )}
       </div>
+
+      {(moduleFocusId||specialistFocus||attentionStatus||filter.trim())&&(
+        <NucleoFocusPreviewV30 records={sortedOperational} onOpenWorkstream={id=>{
+          if (!choose(id)) return;
+          requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")
+            ?.scrollIntoView({behavior:"smooth",block:"start"}));
+        }}/>
+      )}
 
       {displayMode === "lista" && (
         <section aria-label="Lista compacta de frentes" className="space-y-2">

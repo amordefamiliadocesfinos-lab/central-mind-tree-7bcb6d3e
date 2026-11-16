@@ -7,6 +7,8 @@ on:
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
       - "src/components/nucleo/NucleoPanoramaDinV30.tsx"
+      - "src/components/nucleo/NucleoFocusPreviewV30.tsx"
+      - "scripts/nucleo-ux-din04-preview.test.cjs"
       - "src/lib/nucleo/progressMetricsV30.ts"
       - "scripts/nucleo-ux-din03-metrics.test.cjs"
       - "scripts/nucleo-ux-din01-02.test.cjs"
@@ -116,4 +118,6 @@ jobs:
         run: node scripts/nucleo-ux-din01-02.test.cjs
       - name: Verify UX-DIN-03 computed M3 coverage
         run: node scripts/nucleo-ux-din03-metrics.test.cjs
+      - name: Verify UX-DIN-04 contextual preview
+        run: node scripts/nucleo-ux-din04-preview.test.cjs
       - run: npm run build
