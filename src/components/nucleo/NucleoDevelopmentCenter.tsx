@@ -327,6 +327,7 @@ export default function NucleoDevelopmentCenter() {
 
   const resumeFront=(id:string)=>{
     if(!choose(id))return;
+    setFilter("");
     setAttentionStatus(null);
     setWorkspaceView("frentes");
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
@@ -336,6 +337,7 @@ export default function NucleoDevelopmentCenter() {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
       if (!choose(registered.id)) return;
+      setFilter("");
       setAttentionStatus(null);
       setWorkspaceView("frentes");
       toast.info("Este módulo já está cadastrado no Core M3.");
@@ -422,19 +424,19 @@ export default function NucleoDevelopmentCenter() {
               <p className="mt-1 text-sm text-muted-foreground">Contagem dos registros M3 carregados, exceto a raiz NUC; não é inventário global.</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <button type="button" aria-label="Ver frentes: Bloqueadas"
-                  onClick={()=>{setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-rose-200 bg-rose-50 p-3 text-center transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 dark:border-rose-800 dark:bg-rose-950/20">
                   <p className="text-2xl font-bold tabular-nums text-rose-800 dark:text-rose-200">{blocked}</p>
                   <p className="text-xs font-semibold text-rose-950 dark:text-rose-100">Bloqueadas</p>
                 </button>
                 <button type="button" aria-label="Ver frentes: Em validação"
-                  onClick={()=>{setAttentionStatus("em_validacao");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setAttentionStatus("em_validacao");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 dark:border-amber-800 dark:bg-amber-950/20">
                   <p className="text-2xl font-bold tabular-nums text-amber-800 dark:text-amber-200">{validating}</p>
                   <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">Em validação</p>
                 </button>
                 <button type="button" aria-label="Ver frentes: Em andamento"
-                  onClick={()=>{setAttentionStatus("em_andamento");setWorkspaceView("frentes");}}
+                  onClick={()=>{setFilter("");setAttentionStatus("em_andamento");setWorkspaceView("frentes");}}
                   className="min-h-20 rounded-xl border border-blue-200 bg-blue-50 p-3 text-center transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 dark:border-blue-800 dark:bg-blue-950/20">
                   <p className="text-2xl font-bold tabular-nums text-blue-800 dark:text-blue-200">{active}</p>
                   <p className="text-xs font-semibold text-blue-950 dark:text-blue-100">Em andamento</p>
