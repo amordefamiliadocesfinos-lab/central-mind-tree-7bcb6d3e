@@ -34,6 +34,8 @@ on:
       - "src/lib/nucleo/operationalProvenanceV12.ts"
       - "src/lib/nucleo/knowledgeArchiveSourcesV12.ts"
       - "src/components/nucleo/NucleoModuleKnowledge.tsx"
+      - "src/lib/nucleo/fmContinuityV13.ts"
+      - "scripts/nucleo-fm09-fm10-continuity.test.cjs"
       - "src/lib/nucleo/fmLinkedEvidenceV13.ts"
       - "scripts/nucleo-fm-linked-evidence.test.cjs"
       - "src/components/nucleo/NucleoSpecialistContributions.tsx"
@@ -160,4 +162,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-final-a11y.test.cjs
       - name: Verify FM linked evidence contract
         run: node scripts/nucleo-fm-linked-evidence.test.cjs
+      - name: Verify FM-09 and FM-10 continuity contract
+        run: node scripts/nucleo-fm09-fm10-continuity.test.cjs
       - run: npm run build
