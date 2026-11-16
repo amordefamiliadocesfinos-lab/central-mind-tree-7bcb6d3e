@@ -110,7 +110,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   useEffect(()=>{
     // Pedido de seção vindo do Atlas não equivale a descarte autorizado.
     // A navegação direta entre FM mantém a confirmação própria em changeSection.
-    if(requestedSection?.section && !saving && !draftDirty)
+    if(requestedSection?.section && !saving && !draftDirty && !writeUncertain)
       setSection(requestedSection.section);
   },[requestedSection?.seq,requestedSection?.section]);
   const [revisions,setRevisions]=useState<Revision[]>([]);
