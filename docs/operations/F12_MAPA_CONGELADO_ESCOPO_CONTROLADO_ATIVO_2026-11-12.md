@@ -367,3 +367,9 @@ Auditoria independente do contrato de persistência identificou necessidade de r
 6. **P6 Encerramento:** homologar paridade **somente do trecho Shopee → Hub → Core → Separação → etiqueta + composição**, não da NF PJ, organização automática, coleta, postagem, finalização ou escala multicontas. Relatar por camada: cadastrado / Core comprovado / visual comprovado / operação real. A F12 continua com subfrentes e requisitos anteriores inalterados.
 
 **Estado da missão em 16/11:** levantamento real P1 concluído; candidatos de prova visual selecionados; P2/P3/P4/P5/P6 parcialmente pendentes. Nenhuma mutação, deploy ou impressão acionada. Seguir por diferença comprovada, preservando F12.1–F12.4 e a decisão de adiamento da concorrência F12.3.
+
+
+## APLICAÇÃO MULTICONTAS CELIVIO/NETO — MÉTODO E ECOSSISTEMA (16/11/2026)
+Por decisão do proprietário, Celivio=Neto (CPF) será desenvolvida posteriormente tomando o nível comprovado de Adão (CPF) como referência, sem repetir homologações complementares Viviane (PJ) como requisito. **Não abre F12.5, não altera o mapa congelado** nem presume dispensa fiscal por CPF.
+Documentos subordinados de aplicação: [Método Celivio/Neto](./METODO_APLICACAO_MULTICONTAS_CELIVIO_NETO_2026-11-16.md) e [Ecossistema Celivio/Neto](./ECOSSISTEMA_APLICACAO_CELIVIO_NETO_BASE_ADAO_2026-11-16.md). O Método Mappings V2.2 congelado permanece inalterado.
+Core em 16/11: channel_account_id d26c7a30-aa4a-4441-8012-600d70453689, 3 mappings legados, 0 pares Item/Model completos, 3 pedidos e 0 conexões na tabela OAuth. Legado Glucose 5 kg → Folha de Ofício A4 deve ser classificado antes de reuso. **Próximo passo futuro:** catálogo Shopee autenticado netojacobus504 + shop_id e Item/Model; nenhuma ativação, writer, cron ou envio autorizado nesta preparação. Adão Scheduler PAUSED; Viviane preservada.
