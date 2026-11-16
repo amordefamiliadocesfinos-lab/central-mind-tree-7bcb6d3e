@@ -11,6 +11,7 @@ import {
  type Ac01Mandate, type Ac01Grant, type Ac01Revocation, type Ac01FM,
 } from "@/lib/nucleo/ac01DocumentGovernance";
 import { assessAc01FmCandidates, compareAc01FmSource } from "@/lib/nucleo/ac01FmSourceMatchV13";
+import { buildAc01FmLineage } from "@/lib/nucleo/ac01FmLineageV13";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -134,6 +135,7 @@ export default function NucleoAC01DocumentGovernance({
  const relatedFM=selected?assessAc01FmCandidates(selected,fm):[];
  const selectedFM=fm.find(x=>x.id===targetId)??null;
  const selectedMatch=selected&&selectedFM?compareAc01FmSource(selected,selectedFM):null;
+ const lineage=selected?buildAc01FmLineage(selected,contributions,reqs,decisions,publications,fm):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
   onClick={()=>setSelectedId(c.id)}
@@ -243,6 +245,38 @@ export default function NucleoAC01DocumentGovernance({
     <p>Autor autenticado: {selected.recorded_by_auth_uid.slice(0,8)}… · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
     <p className="break-all">Original preservado em: {selected.source_kind} · {selected.source_locator}</p>
     <p className="text-muted-foreground">Qualquer comparação de conteúdo requer acesso válido à fonte original. Sem diffs fictícios nem aprovação implícita.</p>
+    {lineage&&<details className="rounded-md border p-3 space-y-2" aria-label="Linhagem documental e atos registrados">
+      <summary className="cursor-pointer font-semibold">Rastrear versões, pedidos, decisões, publicações internas e candidatos FM ({lineage.entries.length} versão(ões))</summary>
+      <p className="mt-2 text-muted-foreground">
+        Os IDs e vínculos de atos AC-01 provêm do Core; os candidatos FM são comparados
+        apenas por localizador de origem e NÃO possuem vínculo persistido. Publicação
+        AC-01 não confirma publicação no documento externo nem revisão FM homologada.
+      </p>
+      {lineage.issues.map((issue,index)=><p key={index} role="status" className="rounded border p-2">
+        Reconciliação necessária: {issue}
+      </p>)}
+      {lineage.entries.map(entry=><article key={entry.id} className="rounded border p-2 space-y-1">
+        <p className="font-semibold">Contribuição v{entry.version} · {entry.authorityState}</p>
+        <p className="text-muted-foreground">ID: {entry.id} · anterior: {entry.parentId??"inicial"} · {new Date(entry.recordedAt).toLocaleString("pt-BR")}</p>
+        <p className="break-all">Origem declarada: {entry.sourceLocator}</p>
+        <p>Solicitações vinculadas por ID: {entry.requests.length} · decisões com solicitação no recorte: {entry.decisions.length} · publicações internas: {entry.publications.length}</p>
+        {entry.requests.map(request=><p key={request.id}>Pedido: {request.outcome} · {new Date(request.recordedAt).toLocaleString("pt-BR")}</p>)}
+        {entry.decisions.map(decision=><p key={decision.id}>Decisão registrada: {decision.outcome} · solicitação {decision.requestId.slice(0,8)}…</p>)}
+        {entry.publications.map(pub=><p key={pub.id}>
+          Publicação interna {pub.id.slice(0,8)}… · {pub.chainConfirmed?"decisão ligada por ID neste recorte":"decisão correspondente não confirmada neste recorte"} · {new Date(pub.recordedAt).toLocaleString("pt-BR")}
+        </p>)}
+      </article>)}
+      <div className="rounded border p-2 space-y-1">
+        <p className="font-semibold">Revisões FM candidatas do módulo (não vinculadas por ID): {lineage.fmCandidates.length}</p>
+        {lineage.fmCandidates.length===0&&<p>Sem revisão FM retornada neste recorte; não significa ausência de fonte externa.</p>}
+        {lineage.fmCandidates.map(candidate=><p key={candidate.id}>
+          {candidate.section} · v{candidate.version} · {candidate.declaredAuthority} ·
+          {candidate.match==="localizador_identico"?" localizador textualmente idêntico"
+            :candidate.match==="referencia_insuficiente"?" origem insuficiente":" localizadores divergentes"}
+        </p>)}
+      </div>
+    </details>}
+
     <div className="nucleo-v22-guard space-y-2 border-t pt-2"><strong>Prévia de reconciliação canônica — bloqueada</strong>
      <p className="text-muted-foreground">
        AC-01 e FM têm registros independentes, sem vínculo de contribuição para revisão por ID.
