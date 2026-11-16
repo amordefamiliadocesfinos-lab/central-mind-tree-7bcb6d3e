@@ -48,4 +48,19 @@ for(const term of [
  'onClick={()=>onSelectWorkstream(item.id)}',
  'onClick={()=>selectModuleArea("desenvolvimento")}',
 ])assert(src.includes(term),"Specialist M3 continuity contract missing: "+term);
+// AC-01: a consulta incompleta não vira fila vazia, e a gravação indeterminada
+// não pode deslocar o contexto da minuta para outra etapa.
+const contributions=fs.readFileSync("src/components/nucleo/NucleoSpecialistContributions.tsx","utf8");
+for(const term of [
+ 'if(saving||uncertainRef.current)return;',
+ 'if(saving||uncertainRef.current){',
+ 'disabled={saving||uncertainRef.current}',
+ 'Registro em andamento ou indeterminado. Reconcilie antes de mudar de etapa.',
+ 'Consulta indisponível não significa ausência de propostas.',
+ 'readError||uncertainRef.current',
+])assert(contributions.includes(term),"AC-01 continuity missing: "+term);
+const external=contributions.slice(contributions.indexOf(' useEffect(()=>{\n  if(!requestedStage)return;'),contributions.indexOf(' const openPendingReview='));
+assert(external.indexOf('if(saving||uncertainRef.current)return;')<external.indexOf('setFlowStep(step.id)'),"Pedido externo só altera etapa após guarda de gravação");
+const ac02=fs.readFileSync("src/components/nucleo/NucleoAc02ContinuityRead.tsx","utf8");
+assert(ac02.includes('!isSafe(response.ac02_assumption_export)||!isRegistry(response.ac02)'),"AC-02 fail-closed for partial response");
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");
