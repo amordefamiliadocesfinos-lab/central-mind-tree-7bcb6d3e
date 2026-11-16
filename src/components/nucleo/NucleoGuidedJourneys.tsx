@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,9 @@ export default function NucleoGuidedJourneys({module,request}: {
   const journeys=MODULE_JOURNEYS_V12[module.id]??[];
   const [activeJourney,setActiveJourney]=useState<string|null>(null);
   const [activeIndex,setActiveIndex]=useState(0);
+  const stepHeadingRef=useRef<HTMLHeadingElement|null>(null);
+  // A etapa muda sem navegação de rota; levar foco ao título permite perceber o novo contexto.
+  useEffect(()=>{if(activeJourney)stepHeadingRef.current?.focus();},[activeJourney,activeIndex]);
   useEffect(()=>{setActiveJourney(null);setActiveIndex(0);},[module.id]);
   useEffect(()=>{
     if(!request)return;
@@ -60,7 +63,7 @@ export default function NucleoGuidedJourneys({module,request}: {
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Etapa {activeIndex+1} de {selected.steps.length} · {screen.area}</p>
-          <h5 className="text-base font-semibold">{step.task}</h5>
+          <h5 ref={stepHeadingRef} tabIndex={-1} className="text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{step.task}</h5>
         </div>
         <Badge variant="outline">{screen.name}</Badge>
       </div>
