@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs");
+const s=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+const has=(part,why)=>assert(s.includes(part),why);
+for(const [part,why] of [
+["CENTRAL VISUAL / INÍCIO","Location"],["Onde estamos e como continuar","Simple entry"],
+["De onde continuar","Resume card"],["O que precisa de atenção","Attention summary"],
+["nucleo-last-opened:","Per-user browser ID"],["lastOpened ?? (latestEvent ? byId.get(latestEvent.workstream_id) : undefined)","Core event fallback"],
+["Última movimentação entre os eventos carregados do Core","Provenance"],
+["resumeItem.next_action?.trim()","Real next action"],["attention=items.filter(item=>item.code!==\"NUC\")","Exclude root"],
+["const [atlasVisited,setAtlasVisited] = useState(false)","Lazy Atlas"],
+["const [atlasExpanded,setAtlasExpanded] = useState(false)","Collapsed Atlas"],
+["aria-expanded={atlasExpanded}","Accessible expansion"],["hidden={!atlasExpanded}","Keep Atlas mounted"],
+["<NucleoOperationalAtlas workstreams={items}","Legacy Atlas"],
+["if (!choose(id)) return;","Canceled selection guard"],
+["hasPendingChanges && !window.confirm(","Unsaved edit guard"],
+["NucleoTechnicalEvidence","M4 evidence"],["NucleoSupervisionPanel","M5 supervision"],
+["NucleoExecutiveDevelopment","Executive retained"],["client.from(\"nucleo_development_events\").select(\"*\").order(\"recorded_at\", { ascending: false }).limit(200)","Bounded Core source"]
+])has(part,why);
+console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contracts");

@@ -6,6 +6,7 @@ on:
       - "scripts/nucleo-m3-workstreams-rls.test.sql"
       - ".github/workflows/nucleo-m3-development.yml"
       - "src/components/nucleo/NucleoDevelopmentCenter.tsx"
+      - "scripts/nucleo-ux-v26-resume.test.cjs"
       - "scripts/nucleo-ux-a1-v23-context-guard.test.cjs"
       - "src/components/nucleo/NucleoExecutiveDevelopment.tsx"
       - "src/styles/nucleoVisualV22.css"
@@ -105,4 +106,6 @@ jobs:
         run: node scripts/nucleo-ux-a1-v23-context-guard.test.cjs
       - name: Verify UX V2.4 document drafts
         run: node scripts/nucleo-ux-v24-document-drafts.test.cjs
+      - name: Verify UX V2.6 home and resume
+        run: node scripts/nucleo-ux-v26-resume.test.cjs
       - run: npm run build
