@@ -90,7 +90,7 @@ function simulateReference({target,parentId,dirty=false,confirm=true,reading=fal
   setNote:v=>calls.push(["note",v]),setChecksum:v=>calls.push(["checksum",v]),
   setFeedback:v=>calls.push(["feedback",v])};
  vm.runInNewContext(executable,{target,parentId,draftDirty:dirty,saving,reading,readError,
-  uncertainRef:{current:uncertain},window:{confirm:()=>{prompts++;return confirm;}},
+  uncertainRef:{current:uncertain},fence:{blocked:false},window:{confirm:()=>{prompts++;return confirm;}},
   rows,declaredRole:"Especialista original",...setters});
  return {calls,prompts};
 }
