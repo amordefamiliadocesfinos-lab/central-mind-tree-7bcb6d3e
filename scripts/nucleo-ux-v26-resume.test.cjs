@@ -8,7 +8,7 @@ for(const [part,why] of [
 ["De onde continuar","Resume card"],["O que precisa de atenção","Attention summary"],
 ["nucleo-last-opened:","Per-user browser ID"],["lastOpened ?? (latestEvent ? byId.get(latestEvent.workstream_id) : undefined)","Core event fallback"],
 ["Última movimentação entre os eventos carregados do Core","Provenance"],
-["resumeItem.next_action?.trim()","Real next action"],["attention=items.filter(item=>item.code!==\"NUC\")","Exclude root"],
+["resumeItem.next_action?.trim()","Real next action"],["attention=items.filter(item=>item.kind!==\"modulo\"&&item.code!==\"NUC\")","Exclude module roots and NUC"],
 ["const [atlasVisited,setAtlasVisited] = useState(false)","Lazy Atlas"],
 ["const [atlasExpanded,setAtlasExpanded] = useState(false)","Collapsed Atlas"],
 ["aria-expanded={atlasExpanded}","Accessible expansion"],["hidden={!atlasExpanded}","Keep Atlas mounted"],
