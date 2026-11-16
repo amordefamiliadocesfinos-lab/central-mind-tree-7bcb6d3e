@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01FmLineageV13.ts"
+      - "scripts/nucleo-ac01-fm-lineage.test.cjs"
       - "src/lib/nucleo/ac01FmSourceMatchV13.ts"
       - "scripts/nucleo-ac01-fm-source-match.test.cjs"
       - "src/pages/Nucleo.tsx"
@@ -190,4 +192,6 @@ jobs:
         run: node scripts/nucleo-fm-ac01-navigation.test.cjs
       - name: Verify AC01 to FM source-reconciliation contract
         run: node scripts/nucleo-ac01-fm-source-match.test.cjs
+      - name: Verify AC01 version-to-decision lineage and FM candidates
+        run: node scripts/nucleo-ac01-fm-lineage.test.cjs
       - run: npm run build
