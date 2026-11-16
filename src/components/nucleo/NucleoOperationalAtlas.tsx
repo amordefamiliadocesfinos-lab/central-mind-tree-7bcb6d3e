@@ -70,6 +70,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   // UX-A3B: montar painéis documentais somente após visita e preservá-los
   // quando o gestor alternar entre Especialistas e Conhecimento no mesmo módulo.
   const [specialistVisited,setSpecialistVisited]=useState(false);
+  // Os painéis do especialista são apresentados sob demanda. Quando visitados,
+  // permanecem montados para preservar rascunhos AC-01 e consultas AC-02.
+  const [specialistPanel,setSpecialistPanel]=useState<"papel"|"mandato"|"continuidade"|"documentos">("papel");
+  const [specialistPanelVisited,setSpecialistPanelVisited]=useState<Array<"mandato"|"continuidade"|"documentos">>([]);
+  const openSpecialistPanel=(id:"papel"|"mandato"|"continuidade"|"documentos")=>{
+    setSpecialistPanel(id);
+    if(id!=="papel")setSpecialistPanelVisited(current=>current.includes(id)?current:[...current,id]);
+  };
   const [knowledgeVisited,setKnowledgeVisited]=useState(false);
   const [fmDraftState,setFmDraftState]=useState({dirty:false,busy:false});
   const [specialistDraftState,setSpecialistDraftState]=useState({dirty:false,busy:false});
@@ -189,6 +197,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setEvidenceFrontId(null);
       setKnowledgeOpen(false);
       setSpecialistVisited(false);
+      setSpecialistPanel("papel");
+      setSpecialistPanelVisited([]);
       setKnowledgeVisited(false);
     }
     setSelectedId(item.id);
@@ -514,7 +524,26 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   registrado no Core são evidências diferentes. Nenhuma é promovida automaticamente.
                 </p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <nav aria-label="Consultar aspectos do especialista" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([
+                  {id:"papel",label:"Papel e método"},
+                  {id:"mandato",label:"Mandatos e limites"},
+                  {id:"continuidade",label:"Continuidade AC-02"},
+                  {id:"documentos",label:"Documentos AC-01"},
+                ] as const).map(item=>(
+                  <button key={item.id} type="button"
+                    aria-pressed={specialistPanel===item.id}
+                    aria-controls={"nucleo-specialist-"+item.id}
+                    onClick={()=>openSpecialistPanel(item.id)}
+                    className={"min-h-11 min-w-0 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] "+
+                      (specialistPanel===item.id?"border-[#1a73e8] bg-[#e8f0fe] text-[#174ea6] dark:bg-blue-950 dark:text-blue-200":"border-[#dce5f1] bg-white hover:bg-[#f5f9ff] dark:border-slate-700 dark:bg-slate-800")}>
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+              <div id="nucleo-specialist-papel" hidden={specialistPanel!=="papel"}
+                className="space-y-3" aria-hidden={specialistPanel!=="papel"}>
+                <div className="grid gap-2 sm:grid-cols-2">
                 <div className="border rounded-md p-3 space-y-1">
                   <p className="text-xs font-semibold">Responsável declarado no M3</p>
                   <p className="text-sm">{selectedRecord.specialist || "Não informado"}</p>
@@ -544,19 +573,33 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   Consultar versões e registrar rascunho
                 </Button>
               </div>
-              <NucleoMandateRegistry modules={[selectedRecord]} />
-              <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>
-              <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
-                moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}
-                onDraftStateChange={setSpecialistDraftState}/>
-
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                  onClick={()=>selectModuleArea("desenvolvimento")}>Acompanhar frentes e pendências M3</Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Frentes e subfrentes deste módulo estão listadas abaixo pelo vínculo M3.
-                A consulta de mandato não atribui automaticamente a um especialista todas as ações dessas frentes.
+                Fontes e responsabilidades textuais não conferem mandato. Consulte autorizações e história nas áreas próprias.
               </p>
+              </div>
+              <div id="nucleo-specialist-mandato" hidden={specialistPanel!=="mandato"}
+                aria-hidden={specialistPanel!=="mandato"}>
+                {specialistPanelVisited.includes("mandato")&&<NucleoMandateRegistry modules={[selectedRecord]}/>}
+              </div>
+              <div id="nucleo-specialist-continuidade" hidden={specialistPanel!=="continuidade"}
+                aria-hidden={specialistPanel!=="continuidade"}>
+                {specialistPanelVisited.includes("continuidade")&&
+                  <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>}
+              </div>
+              <div id="nucleo-specialist-documentos" hidden={specialistPanel!=="documentos"}
+                aria-hidden={specialistPanel!=="documentos"}>
+                {specialistPanelVisited.includes("documentos")&&
+                  <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
+                    moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}
+                    onDraftStateChange={setSpecialistDraftState}/>}
+              </div>
             </section>
           )}
-          {moduleSection==="especialista" && selectedProvenance && (
+          {moduleSection==="especialista" && specialistPanel==="papel" && selectedProvenance && (
             <section className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Fontes e autoridade documental">
               <div>
                 <h4 className="font-semibold text-sm">Fontes documentais e autoridade</h4>
