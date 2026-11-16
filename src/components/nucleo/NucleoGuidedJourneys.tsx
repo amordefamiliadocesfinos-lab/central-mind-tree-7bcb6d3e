@@ -97,7 +97,7 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
           </Button>
         ))}
       </nav>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
         <Button type="button" size="sm" variant="outline" disabled={activeIndex===0}
           onClick={()=>setActiveIndex(i=>Math.max(0,i-1))}>
           <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true"/> Etapa anterior
