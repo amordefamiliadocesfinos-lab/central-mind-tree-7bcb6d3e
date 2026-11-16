@@ -27,6 +27,18 @@ const kinds=["metodo","ecossistema","manual","procedimento","aprendizado","mapa"
 type DraftState={dirty:boolean;busy:boolean};
 type Props={moduleId:string; moduleName:string; declaredRole:string; onDraftStateChange?:(value:DraftState)=>void};
 type ExperienceArea = "contribuicoes" | "fila" | "ciclo";
+type DocStage="vincular"|"versoes"|"comparar"|"refinar"|"consolidar"|"decidir"|"vigencia"|"historico";
+type GovTab="vigente"|"propostas"|"evolucao"|"decisao"|"historico"|"competencias";
+const FLOW:ReadonlyArray<{id:DocStage;name:string;area:ExperienceArea;tab?:GovTab;note:string}>=[
+ {id:"vincular",name:"1. Vincular",area:"contribuicoes",note:"Referência ao original; não é importação nem homologação"},
+ {id:"versoes",name:"2. Versões",area:"contribuicoes",note:"Versões da contribuição preservadas no Core"},
+ {id:"comparar",name:"3. Comparar",area:"contribuicoes",note:"Somente metadados vinculados, sem comparar conteúdo externo"},
+ {id:"refinar",name:"4. Refinar",area:"fila",note:"Fila e revisão, sem aprovar conflitos automaticamente"},
+ {id:"consolidar",name:"5. Consolidação",area:"ciclo",tab:"evolucao",note:"Preparação consultiva, portão de publicação fechado"},
+ {id:"decidir",name:"6. Decisões",area:"ciclo",tab:"decisao",note:"Pedidos e atos apenas quando registrados"},
+ {id:"vigencia",name:"7. Vigência",area:"ciclo",tab:"vigente",note:"Publicação interna não equivale a vigência canônica"},
+ {id:"historico",name:"8. Histórico",area:"ciclo",tab:"historico",note:"Histórico no recorte autenticado do Core"},
+];
 const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
  {id:"contribuicoes",title:"Contribuições e origem",hint:"Referências, versões e registro"},
  {id:"fila",title:"Fila e revisões",hint:"Pendências, refinamento e continuidade"},
@@ -34,6 +46,9 @@ const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
 ];
 export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange}:Props){
  const [area,setArea]=useState<ExperienceArea>("contribuicoes");
+ const [flowStep,setFlowStep]=useState<DocStage|null>(null);
+ const [governanceTarget,setGovernanceTarget]=useState<{key:GovTab;seq:number}|null>(null);
+ const targetCounter=useRef(0);
  const areaId=useId();
  const [rows,setRows]=useState<RecordRow[]>([]);
  const [reading,setReading]=useState(true);
@@ -65,7 +80,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    window.addEventListener("beforeunload",warn);
    return ()=>window.removeEventListener("beforeunload",warn);
  },[draftDirty,draftBusy]);
- useEffect(()=>{setArea("contribuicoes");setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void db.from("nucleo_specialist_contributions").select("*")
@@ -138,6 +153,17 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      uncertainRef.current=true;setFeedback("Transporte interrompido: estado indeterminado. Não repetir sem reconciliação.");
    }finally{setSaving(false);}
  };
+ const goToFlow=(step:(typeof FLOW)[number])=>{
+  setFlowStep(step.id);
+  setArea(step.area);
+  if(step.tab)setGovernanceTarget({key:step.tab,seq:++targetCounter.current});
+  requestAnimationFrame(()=>{
+    const target=step.id==="vincular"?"nucleo-ac01-source-form"
+      :step.id==="versoes"||step.id==="comparar"?"nucleo-ac01-source-versions"
+      :areaId+"-"+step.area;
+    document.getElementById(target)?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+ };
  return <section className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Contribuições documentais do especialista AC-01">
    <div>
      <h4 className="nucleo-v22-title text-lg">Conhecimento e Evolução — contribuições do especialista</h4>
@@ -157,6 +183,21 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    {readError&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{readError}</p>}
    <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={saving||reading}
      onClick={()=>setRefresh(n=>n+1)}>Reconsultar registros</Button>
+   <nav aria-label="Ciclo documental AC-01 — atalhos" className="rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] p-3 dark:border-blue-900 dark:bg-blue-950/20">
+     <p className="font-semibold text-sm text-[#174ea6] dark:text-blue-200">Do documento ao histórico</p>
+     <p className="text-xs text-muted-foreground mb-2">Roteiro de consulta, sem decisões ou publicações automáticas.</p>
+     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+       {FLOW.map(step=><button key={step.id} type="button" onClick={()=>goToFlow(step)}
+         aria-pressed={flowStep===step.id} aria-label={step.name+": "+step.note}
+         className={"min-h-11 rounded-lg border px-2 py-2 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] "+
+           (flowStep===step.id?"border-[#1a73e8] bg-white text-[#174ea6] dark:bg-blue-950 dark:text-blue-100":"border-[#d2e3fc] bg-white hover:bg-[#f5f9ff] dark:bg-slate-900")}>
+         {step.name}
+       </button>)}
+     </div>
+     {flowStep&&<p role="status" className="mt-2 text-xs text-muted-foreground">
+       {FLOW.find(step=>step.id===flowStep)?.note}
+     </p>}
+   </nav>
    <nav className="nucleo-v22-tabs grid grid-cols-1 sm:grid-cols-3" aria-label="Jornada documental do especialista">
      {AREAS.map(item=><Button key={item.id} type="button"
        variant={area===item.id?"default":"outline"}
@@ -177,11 +218,12 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>
    <div id={areaId+"-ciclo"} hidden={area!=="ciclo"} className="space-y-3">
      {!reading&&!readError&&readAt
-       ? <NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole} contributions={rows} readAt={readAt}/>
+       ? <NucleoAC01DocumentGovernance moduleId={moduleId} moduleName={moduleName} declaredRole={declaredRole}
+         contributions={rows} readAt={readAt} requestedTab={governanceTarget}/>
        : <p className="rounded-md border p-3 text-sm text-muted-foreground">Estados, decisões e competências requerem leitura confirmada. Nenhum ato decisório ou publicação está habilitado nesta interface.</p>}
    </div>
    <div id={areaId+"-contribuicoes"} hidden={area!=="contribuicoes"} className="space-y-3">
-   {!reading&&!readError&&<div className="space-y-2">
+   {!reading&&!readError&&<div id="nucleo-ac01-source-versions" className="scroll-mt-28 space-y-2">
      {rows.length===0&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
      </p>}
@@ -201,7 +243,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        </div>
      </details>)}
    </div>}
-   <div className="nucleo-v22-soft-surface space-y-3 p-3">
+   <div id="nucleo-ac01-source-form" className="nucleo-v22-soft-surface scroll-mt-28 space-y-3 p-3">
      <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
      <label className="block space-y-1 text-sm">Histórico / versão de origem
        <select value={parentId} disabled={saving||reading||Boolean(readError)} onChange={e=>{const id=e.target.value;setParentId(id);const selected=rows.find(row=>row.id===id);if(selected){setRole(selected.specialist_role);setKind(selected.contribution_kind);setTitle(selected.title);setSourceKind(selected.source_kind);setLocator(selected.source_locator);setNote(selected.note);setChecksum(selected.source_checksum_sha256??"");}}} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
