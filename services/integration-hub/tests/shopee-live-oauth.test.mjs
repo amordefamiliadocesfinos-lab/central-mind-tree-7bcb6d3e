@@ -322,3 +322,54 @@ test('refresh identity mismatch never persists the renewed token or renewed snap
     assert.equal(f.connections[0].channel_account_id, ADAO_ACCOUNT);
   }
 });
+
+
+// Celivio/Neto OAuth must stay OFF until the authenticated shop ID is independently confirmed.
+test('Celivio OAuth start fails closed without its own explicit flag and unique shop ID', async () => {
+  let persisted = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: k => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'false' })[k],
+    createState: async () => { persisted++; return { ok: true }; },
+  });
+  const r = await handler({ method: 'GET', path: '/shopee/live/oauth/celivio/start', headers: {}, query: {} });
+  assert.equal(r.status, 503);
+  assert.equal(persisted, 0);
+
+  for (const shopId of ['', '0', '531736366', '1156446003', 'abc']) {
+    const configured = createShopeeLiveOauthHandler({
+      getEnv: k => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: shopId })[k],
+      createState: async () => { persisted++; return { ok: true }; },
+    });
+    const result = await configured({ method: 'GET', path: '/shopee/live/oauth/celivio/start', headers: {}, query: {} });
+    assert.equal(result.status, 503);
+  }
+  assert.equal(persisted, 0);
+});
+
+test('Celivio OAuth start binds an opaque state to Celivio alone when expressly configured', async () => {
+  let persisted;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: k => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1234567890' })[k],
+    makeState: () => 'synthetic-state',
+    createState: async data => { persisted = data; return { ok: true }; },
+    sign: async () => ({timestamp: 1700000000, sign: 'synthetic-signature'}),
+  });
+  const r = await handler({ method: 'GET', path: '/shopee/live/oauth/celivio/start', headers: {}, query: {} });
+  assert.equal(r.status, 302);
+  assert.equal(persisted.channel_account_id, 'd26c7a30-aa4a-4441-8012-600d70453689');
+  assert.equal(persisted.state_hash, sha256Hex('celivio.synthetic-state'));
+  assert.match(r.headers['Set-Cookie'], /celivio.synthetic-state/);
+});
+
+test('Celivio OAuth callback is rejected while Celivio is disabled without consuming state', async () => {
+  let consumed = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: k => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'false', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1234567890' })[k],
+    consumeState: async () => { consumed++; return { ok: true }; },
+  });
+  const r = await handler({ method: 'GET', path: '/shopee/live/oauth/callback',
+    query: { code: 'synthetic-code', shop_id: '1234567890' },
+    headers: {cookie: '__Host-pc_shopee_live_state=celivio.synthetic-state'} });
+  assert.equal(r.status, 409);
+  assert.equal(consumed, 0);
+});
