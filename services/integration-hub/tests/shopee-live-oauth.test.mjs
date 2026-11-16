@@ -373,3 +373,47 @@ test('Celivio OAuth callback is rejected while Celivio is disabled without consu
   assert.equal(r.status, 409);
   assert.equal(consumed, 0);
 });
+
+test('Celivio and existing accounts share one official callback without cross-account tokens', async () => {
+  const CELIVIO_ACCOUNT = 'd26c7a30-aa4a-4441-8012-600d70453689';
+  const CELIVIO_SHOP = 1357031949;
+  const f = oauthFixture({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? String(CELIVIO_SHOP)
+      : adaoEnv(key),
+  });
+  // Browser flows are sequential: the same __Host cookie name represents
+  // one authorization in progress per browser/domain.
+  const viviane = await f.start('/shopee/live/oauth/start');
+  assert.equal(viviane.response.status, 302);
+  assert.equal((await f.callback(viviane.cookie, { code: 'v', shop_id: '531736366' })).status, 200);
+  const adao = await f.start('/shopee/live/oauth/adao/start');
+  assert.equal(adao.response.status, 302);
+  assert.equal((await f.callback(adao.cookie, { code: 'a', shop_id: String(ADAO_SHOP) })).status, 200);
+  const celivio = await f.start('/shopee/live/oauth/celivio/start');
+  assert.equal(celivio.response.status, 302);
+  assert.match(celivio.state, /^celivio\./);
+  assert.equal(new URL(celivio.response.headers.Location).searchParams.get('redirect'),
+    CONFIG.SHOPEE_LIVE_REDIRECT_URI);
+  assert.equal(f.states.get(sha256Hex(celivio.state)).channel_account_id, CELIVIO_ACCOUNT);
+  assert.equal((await f.callback(celivio.cookie, { code: 'c', shop_id: String(CELIVIO_SHOP) })).status, 200);
+  assert.deepEqual(f.connections.map(x => x.channel_account_id),
+    [CONFIG.SHOPEE_LIVE_CHANNEL_ACCOUNT_ID, CONFIG.SHOPEE_LIVE_CHANNEL_ACCOUNT_ID,
+      ADAO_ACCOUNT, ADAO_ACCOUNT, CELIVIO_ACCOUNT, CELIVIO_ACCOUNT]);
+  assert.deepEqual(f.snapshots.map(x => x.channel_account_id),
+    [CONFIG.SHOPEE_LIVE_CHANNEL_ACCOUNT_ID, CONFIG.SHOPEE_LIVE_CHANNEL_ACCOUNT_ID,
+      ADAO_ACCOUNT, ADAO_ACCOUNT, CELIVIO_ACCOUNT, CELIVIO_ACCOUNT]);
+  assert.ok(f.connections.slice(-2).every(x => x.shop_id === CELIVIO_SHOP));
+});
+
+test('Celivio callback rejects another shop ID before token exchange', async () => {
+  const f = oauthFixture({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? '1357031949' : adaoEnv(key),
+  });
+  const { cookie } = await f.start('/shopee/live/oauth/celivio/start');
+  assert.equal((await f.callback(cookie, { code: 'wrong', shop_id: String(ADAO_SHOP) })).status, 409);
+  assert.equal(f.exchanges.length, 0);
+  assert.equal(f.connections.length, 0);
+  assert.equal(f.snapshots.length, 0);
+});
