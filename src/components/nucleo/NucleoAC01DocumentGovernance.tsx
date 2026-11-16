@@ -16,6 +16,7 @@ import { buildAc01ConsolidationQueue, AC01_QUEUE_ISSUE_LABELS, type Ac01QueueIss
 import { prepareAc01AssistedComparison } from "@/lib/nucleo/ac01AssistedComparisonV13";
 import { deriveAc01ReviewCriteria } from "@/lib/nucleo/ac01ReviewCriteriaV13";
 import { prepareAc01HumanReviewBrief } from "@/lib/nucleo/ac01HumanReviewBriefV13";
+import { summarizeAc01ContributionV13 } from "@/lib/nucleo/ac01ContributionSummaryV13";
 import NucleoAC01ReviewContinuityRead from "@/components/nucleo/NucleoAC01ReviewContinuityRead";
 
 type Tables={
@@ -155,6 +156,7 @@ export default function NucleoAC01DocumentGovernance({
  const assisted=selected?prepareAc01AssistedComparison(selected,contributions,selectedFM):null;
  const review=selected?deriveAc01ReviewCriteria(selected,contributions,reqs,decisions,publications,selectedFM):null;
  const reviewBrief=selected?prepareAc01HumanReviewBrief(selected,contributions,reqs,decisions,publications,selectedFM):null;
+ const summary=selected?summarizeAc01ContributionV13(selected,contributions,reqs,decisions,publications,selectedFM):null;
  const lineage=selected?buildAc01FmLineage(selected,contributions,reqs,decisions,publications,fm):null;
  const activeFM=fm.filter(x=>["vigente","homologado","aprovado"].includes(x.authority_state.toLowerCase()));
  const renderRecord=(c:Ac01Record,prefix="")=><button key={prefix+c.id} type="button"
@@ -294,6 +296,35 @@ export default function NucleoAC01DocumentGovernance({
      </div>
     </details>
    </div>}
+   {summary&&<section className="rounded-md border p-3 space-y-3 text-xs"
+      aria-label="Estado documental consolidado da contribuição selecionada">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <strong className="text-sm">Estado documental · {summary.title} · v{summary.version}</strong>
+        <Badge variant="outline">Contribuição {summary.declaredState}</Badge>
+      </div>
+      <p className="text-muted-foreground">
+        Resumo do recorte AC-01 autorizado, sem certificação de autoridade,
+        resolução de pendências, publicação externa ou homologação.
+      </p>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+        <div className="rounded border p-2"><strong>{summary.visibleVersions}</strong><p>Versões visíveis</p></div>
+        <div className="rounded border p-2"><strong>{summary.chainIssueCount}</strong><p>Lacunas de linhagem</p></div>
+        <div className="rounded border p-2"><strong>{summary.requestCount}</strong><p>Solicitações registradas</p></div>
+        <div className="rounded border p-2"><strong>{summary.decisionCount}</strong><p>Decisões ligadas por IDs</p></div>
+        <div className="rounded border p-2"><strong>{summary.internalPublicationCount}</strong><p>Publicações internas ligadas</p></div>
+        <div className="rounded border p-2"><strong>{summary.pendingReviewCount}</strong><p>Critérios pendentes</p></div>
+      </div>
+      <p className="break-all">Origem declarada: {summary.sourceKind} · {summary.sourceLocator}</p>
+      <p>Referência FM: {summary.validFmTarget
+         ?summary.locatorMatch==="localizador_identico"?"Localizador idêntico, sem associação canônica"
+          :summary.locatorMatch==="referencia_insuficiente"?"Referência insuficiente"
+          :"Origem divergente ou não reconciliada"
+         :"Nenhum destino FM selecionado"}</p>
+      <p>Critérios: {summary.foundRecordCount} registro(s) localizado(s);
+        {" "+summary.needsCheckCount} a conferir; {" "+summary.pendingReviewCount} pendente(s).</p>
+      <p className="font-medium">Autoridade não certificada nesta prévia ·
+        pendências não encerradas · publicação externa não verificada.</p>
+    </section>}
    {selected&&<div id="nucleo-ac01-selected-evidence" className="rounded border p-3 space-y-1 text-xs">
     <strong>Referência selecionada: {selected.title} · v{selected.version_no}</strong>
     <p>Especialidade: {selected.specialist_role}; categoria: {selected.contribution_kind}</p>
