@@ -22,6 +22,17 @@ import {
 
 type Level = "overview" | "module" | "operation";
 type ModuleSection = "funcoes" | "especialista" | "desenvolvimento" | "conhecimento";
+type CrmStage = "modulo" | "telas" | "funcionalidades" | "procedimentos" | "especialista" | "conhecimento" | "desenvolvimento" | "evidencias";
+const CRM_STAGE_NAV: ReadonlyArray<{id:CrmStage;label:string}> = [
+  {id:"modulo",label:"Conhecer módulo"},
+  {id:"telas",label:"Telas"},
+  {id:"funcionalidades",label:"Funcionalidades"},
+  {id:"procedimentos",label:"Como utilizar"},
+  {id:"especialista",label:"Especialista"},
+  {id:"conhecimento",label:"Conhecimento"},
+  {id:"desenvolvimento",label:"Desenvolvimento"},
+  {id:"evidencias",label:"Evidências"},
+];
 const MODULE_SECTIONS: Array<{id:ModuleSection;label:string;hint:string}> = [
   {id:"funcoes",label:"Operação",hint:"Telas, funções e como utilizar"},
   {id:"desenvolvimento",label:"Desenvolvimento",hint:"Frentes, prioridades e evidências"},
@@ -194,6 +205,26 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
   };
 
+  const openCrmStage = (stage: CrmStage) => {
+    const area: ModuleSection = stage === "especialista" ? "especialista"
+      : stage === "conhecimento" ? "conhecimento"
+      : stage === "desenvolvimento" || stage === "evidencias" ? "desenvolvimento"
+      : "funcoes";
+    selectModuleArea(area);
+    const anchors: Partial<Record<CrmStage,string>> = {
+      modulo:"nucleo-crm-module-summary",
+      telas:"nucleo-crm-screens",
+      funcionalidades:"nucleo-crm-controls",
+      procedimentos:"nucleo-crm-procedures",
+      evidencias:"nucleo-crm-evidence",
+    };
+    const anchor = anchors[stage];
+    if(anchor) requestAnimationFrame(()=>{
+      const element=document.getElementById(anchor);
+      element?.scrollIntoView({behavior:"smooth",block:"start"});
+      if (element instanceof HTMLElement && element.tabIndex >= 0) element.focus({preventScroll:true});
+    });
+  };
   return (
     <section className="space-y-3" aria-label="Atlas operacional do Painel Central — piloto V1.2">
       <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3">
@@ -386,7 +417,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <Button type="button" variant="outline" size="sm"
               onClick={() => setLevel("overview")}>Voltar ao Painel Geral</Button>
           </div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div id={selected.id==="CRM"?"nucleo-crm-module-summary":undefined}
+            className="scroll-mt-28 flex flex-wrap items-start justify-between gap-3"
+            tabIndex={selected.id==="CRM"?-1:undefined}>
             <div>
               <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
               <h3 className="font-semibold text-lg">{selected.name}</h3>
@@ -396,6 +429,27 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               {selected.coverage==="piloto_parcial"?"Ficha parcial":"Cobertura não verificada"}
             </Badge>
           </div>
+          {selected.id==="CRM" && (
+            <nav aria-label="Jornada funcional CRM — consulta do Núcleo"
+              className="rounded-2xl border border-[#d2e3fc] bg-[#e8f0fe] p-3 dark:border-blue-900 dark:bg-blue-950/30">
+              <p className="text-sm font-semibold text-[#174ea6] dark:text-blue-200">Explore o CRM por intenção</p>
+              <p className="mb-2 text-xs text-[#3c4043] dark:text-slate-300">
+                Escolha diretamente o que precisa entender. Não é necessário seguir a ordem.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+                {CRM_STAGE_NAV.map((step,index)=>(
+                  <button key={step.id} type="button" onClick={()=>openCrmStage(step.id)}
+                    className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-[#c6dafc] bg-white px-2 py-2 text-left text-xs font-semibold text-[#174ea6] hover:bg-[#f4f8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] dark:border-blue-900 dark:bg-slate-900 dark:text-blue-200">
+                    <span className="shrink-0 rounded-full bg-[#e8f0fe] px-2 py-1 tabular-nums dark:bg-blue-950">{index+1}</span>
+                    <span className="break-words">{step.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-[#5f6368] dark:text-slate-400">
+                Navegação de leitura do código e do Core. Não comprova operação, mandato, fonte vigente ou prova técnica M4.
+              </p>
+            </nav>
+          )}
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4" aria-label="Resumo factual do módulo">
             {[
               {label:"Frentes vinculadas",value:selectedFronts.length,note:"Core M3"},
@@ -531,7 +585,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
                 <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real. Provas M4 são registros históricos consultados sob permissão; não são verificação GitHub ao vivo.</p>
-                <div className="flex flex-wrap items-center gap-2">
+                <div id="nucleo-crm-evidence" className="flex scroll-mt-28 flex-wrap items-center gap-2" tabIndex={-1}>
                   <Badge variant="outline">{selectedFronts.length} frente(s) direta(s)</Badge>
                   <Badge variant="outline">{selectedSubfronts.length} subfrente(s) vinculada(s)</Badge>
                   <Button type="button" size="sm" variant="outline"

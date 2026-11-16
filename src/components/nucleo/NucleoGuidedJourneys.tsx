@@ -19,7 +19,9 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
   const step=selected?.steps[activeIndex];
   const screen=step?MODULE_SCREENS_V12[module.id]?.find(item=>item.id===step.screenId):null;
   const control=step?.controlLabel?MODULE_CONTROLS_V12[module.id]?.find(item=>item.label===step.controlLabel):null;
-  return <section className="rounded-lg border p-3 md:p-4 space-y-4"
+  return <section id={module.id==="CRM"?"nucleo-crm-procedures":undefined}
+    className="scroll-mt-28 rounded-lg border p-3 md:p-4 space-y-4"
+    tabIndex={module.id==="CRM"?-1:undefined}
     aria-label={"Jornadas orientadas por tarefa de "+module.name}>
     <div className="flex flex-wrap justify-between items-start gap-2">
       <div className="space-y-1">
@@ -74,10 +76,10 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
       <div className="flex flex-wrap items-center gap-2">
         {screen.route?
           <Button type="button" size="sm" variant="outline" asChild>
-            <Link to={screen.route}>Abrir a tela identificada</Link>
+            <Link to={screen.route} target="_blank" rel="noopener noreferrer">Abrir tela em nova guia</Link>
           </Button>
           :module.route?<Button type="button" size="sm" variant="outline" asChild>
-            <Link to={module.route}>Abrir módulo para localizar tela</Link>
+            <Link to={module.route} target="_blank" rel="noopener noreferrer">Abrir módulo em nova guia para localizar tela</Link>
           </Button>:null}
         <a href={control?.source??screen.source} target="_blank" rel="noopener noreferrer"
           className="text-xs underline inline-flex items-center gap-1">
@@ -85,6 +87,16 @@ export default function NucleoGuidedJourneys({module}: {module:KnowledgeModule})
         </a>
         <span className="text-xs text-muted-foreground">Acessar uma tela não confirma operação.</span>
       </div>
+      <nav aria-label="Ir diretamente a uma etapa de consulta" className="flex flex-wrap gap-2 border-t pt-3">
+        {selected.steps.map((journeyStep,index)=>(
+          <Button key={index} type="button" size="sm" variant={index===activeIndex?"default":"outline"}
+            className="min-h-10 rounded-full" aria-pressed={index===activeIndex}
+            aria-label={"Consultar etapa "+(index+1)+": "+journeyStep.task}
+            onClick={()=>setActiveIndex(index)}>
+            {index+1}
+          </Button>
+        ))}
+      </nav>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
         <Button type="button" size="sm" variant="outline" disabled={activeIndex===0}
           onClick={()=>setActiveIndex(i=>Math.max(0,i-1))}>

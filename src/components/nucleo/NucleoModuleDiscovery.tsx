@@ -65,7 +65,9 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
     </label>}
     {mode==="funcoes"&&<>
       <NucleoGuidedJourneys key={module.id} module={module}/>
-      <div className="space-y-2" aria-label="Mapa visual de telas do módulo">
+      <div id={module.id==="CRM"?"nucleo-crm-screens":undefined}
+        className="scroll-mt-28 space-y-2" tabIndex={module.id==="CRM"?-1:undefined}
+        aria-label="Mapa visual de telas do módulo">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <h5 className="text-sm font-semibold">Mapa de telas identificadas ({visibleScreens.length}/{screens.length})</h5>
           <Badge variant="outline">Código verificado · uso real não homologado</Badge>
@@ -91,9 +93,9 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
             </details>
             <div className="flex flex-wrap gap-2 items-center">
               {item.route
-                ? <Button size="sm" variant="outline" asChild><Link to={item.route}>Abrir esta tela</Link></Button>
+                ? <Button size="sm" variant="outline" asChild><Link to={item.route} target="_blank" rel="noopener noreferrer">Abrir tela em nova guia</Link></Button>
                 : module.route
-                  ? <Button size="sm" variant="outline" asChild><Link to={module.route}>Abrir módulo</Link></Button>
+                  ? <Button size="sm" variant="outline" asChild><Link to={module.route} target="_blank" rel="noopener noreferrer">Abrir módulo em nova guia</Link></Button>
                   : null}
               <a href={item.source} target="_blank" rel="noopener noreferrer"
                 className="text-xs underline inline-flex items-center gap-1">
@@ -107,7 +109,16 @@ export default function NucleoModuleDiscovery({module,mode,isRegistered}:Props){
           não comprova que o módulo não possua telas.
         </p>}
       </div>
-      <h5 className="text-sm font-semibold">Controles e efeitos observados</h5>
+      <div id={module.id==="CRM"?"nucleo-crm-controls":undefined}
+        className="flex scroll-mt-28 flex-wrap items-center justify-between gap-2"
+        tabIndex={module.id==="CRM"?-1:undefined}>
+        <h5 className="text-sm font-semibold">Controles e efeitos observados</h5>
+        {module.id==="CRM"&&<Button type="button" variant="outline" size="sm"
+          className="min-h-10 rounded-full"
+          onClick={()=>document.getElementById("nucleo-crm-procedures")?.scrollIntoView({behavior:"smooth",block:"start"})}>
+          Ver procedimentos orientados
+        </Button>}
+      </div>
       {visibleControls.length>0&&<div className="grid gap-3 lg:grid-cols-2">
         {visibleControls.map(item=><details key={item.label} className="rounded-md border p-3 min-w-0 group">
           <summary className="text-sm font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
