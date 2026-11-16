@@ -12,7 +12,7 @@ has(a,"Nenhum módulo corresponde à busca atual.","Filtered empty");
 has(f,'error ? "Core: leitura indisponível"',"Read error must not claim zero");
 has(f,'"Core: sem registro neste recorte"',"Zero only in successful recorte");
 has(f,"min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5","320/390 responsivity");
-has(f,'disabled={saving||loading||Boolean(error)}',"FM CTA read guard");
+has(f,'disabled={saving||loading||Boolean(error)||writeUncertain}',"FM CTA read and indeterminate-write guard");
 has(f,'role="alert" className="rounded-md border border-destructive/40',"FM alert");
 has(c,'{reading&&<p role="status"',"AC01 reading");
 has(c,'{readError&&<p role="alert"',"AC01 failure");
