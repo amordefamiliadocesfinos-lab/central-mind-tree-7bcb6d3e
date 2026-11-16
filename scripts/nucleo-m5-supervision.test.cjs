@@ -321,7 +321,14 @@ const screenJs=ts.transpileModule(moduleScreenSource,{compilerOptions:{
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
 },reportDiagnostics:true});
 assert.equal((screenJs.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
-const screenScope={exports:{}};
+// Verificação não CRM do mapa de telas; mesmo isolamento da dependência CRM.
+const screenScope={
+  exports:{},
+  require:(specifier)=>{
+    assert.equal(specifier,"./operationalKnowledgeV12","Dependência inesperada na VM de telas");
+    return {CRM_SCREENS:[]};
+  },
+};
 vm.runInNewContext(screenJs.outputText,screenScope,{timeout:1000});
 const screenCatalog=screenScope.exports.MODULE_SCREENS_V12;
 for(const code of ["FIN","OPE","ROT","CAP","DIG","ASS"]){
