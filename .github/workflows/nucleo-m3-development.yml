@@ -49,6 +49,7 @@ on:
       - "scripts/nucleo-ux-v21-operational-flow.test.cjs"
       - "scripts/nucleo-a-plus-operational-dossier.test.cjs"
       - "src/components/nucleo/NucleoModuleDiscovery.tsx"
+      - "scripts/nucleo-ux-a-plus-cross-module.test.cjs"
       - "src/lib/nucleo/moduleOriginalSourcesV12.ts"
       - "src/lib/nucleo/moduleScreenDiscoveriesV12.ts"
       - "src/lib/nucleo/moduleControlDiscoveriesV12.ts"
@@ -146,4 +147,6 @@ jobs:
         run: node scripts/nucleo-ux-a-plus-specialist-focus.test.cjs
       - name: Verify UX A+ AC01 document journey
         run: node scripts/nucleo-ux-a-plus-ac01-flow.test.cjs
+      - name: Verify UX A+ cross-module sourced navigation
+        run: node scripts/nucleo-ux-a-plus-cross-module.test.cjs
       - run: npm run build
