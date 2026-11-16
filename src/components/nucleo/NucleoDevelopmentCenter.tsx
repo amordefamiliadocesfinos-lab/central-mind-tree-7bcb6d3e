@@ -72,6 +72,8 @@ export default function NucleoDevelopmentCenter() {
   const [displayMode, setDisplayMode] = useState<"lista" | "quadro">("lista");
   // UX-A1: as duas visões permanecem montadas durante a sessão.
   const [workspaceView, setWorkspaceView] = useState<"geral" | "frentes">("geral");
+  // Filtro de apresentação, sem alteração de estado no Core.
+  const [attentionStatus,setAttentionStatus] = useState<DevelopmentStatus | null>(null);
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
@@ -170,7 +172,8 @@ export default function NucleoDevelopmentCenter() {
   const active=attention.filter(item=>item.status==="em_andamento").length;
   // A raiz NUC integra o total M3, mas não é uma frente operacional.
   const governanceRootCount = visible.filter(item => item.code === "NUC").length;
-  const operationalVisible = visible.filter(item => item.code !== "NUC");
+  const allOperationalVisible = visible.filter(item => item.code !== "NUC");
+  const operationalVisible = allOperationalVisible.filter(item => !attentionStatus || item.status === attentionStatus);
   const sortedOperational = useMemo(() => {
     const priorityRank: Record<Priority,number> = {critica:0,alta:1,normal:2,baixa:3};
     const stateRank: Record<DevelopmentStatus,number> = {
@@ -180,7 +183,7 @@ export default function NucleoDevelopmentCenter() {
       stateRank[a.status] - stateRank[b.status] ||
       priorityRank[a.priority] - priorityRank[b.priority] ||
       a.code.localeCompare(b.code, "pt-BR"));
-  }, [visible]);
+  }, [visible,attentionStatus]);
 
   const choose = (id: string): boolean => {
     if (id === selectedId) return true;
@@ -324,6 +327,8 @@ export default function NucleoDevelopmentCenter() {
 
   const resumeFront=(id:string)=>{
     if(!choose(id))return;
+    setFilter("");
+    setAttentionStatus(null);
     setWorkspaceView("frentes");
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
@@ -332,6 +337,8 @@ export default function NucleoDevelopmentCenter() {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
       if (!choose(registered.id)) return;
+      setFilter("");
+      setAttentionStatus(null);
       setWorkspaceView("frentes");
       toast.info("Este módulo já está cadastrado no Core M3.");
       requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
@@ -416,20 +423,26 @@ export default function NucleoDevelopmentCenter() {
               <h4 className="text-sm font-semibold">O que precisa de atenção</h4>
               <p className="mt-1 text-sm text-muted-foreground">Contagem dos registros M3 carregados, exceto a raiz NUC; não é inventário global.</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-center dark:border-rose-800 dark:bg-rose-950/20">
+                <button type="button" aria-label="Ver frentes: Bloqueadas"
+                  onClick={()=>{setFilter("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
+                  className="min-h-20 rounded-xl border border-rose-200 bg-rose-50 p-3 text-center transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 dark:border-rose-800 dark:bg-rose-950/20">
                   <p className="text-2xl font-bold tabular-nums text-rose-800 dark:text-rose-200">{blocked}</p>
                   <p className="text-xs font-semibold text-rose-950 dark:text-rose-100">Bloqueadas</p>
-                </div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-800 dark:bg-amber-950/20">
+                </button>
+                <button type="button" aria-label="Ver frentes: Em validação"
+                  onClick={()=>{setFilter("");setAttentionStatus("em_validacao");setWorkspaceView("frentes");}}
+                  className="min-h-20 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 dark:border-amber-800 dark:bg-amber-950/20">
                   <p className="text-2xl font-bold tabular-nums text-amber-800 dark:text-amber-200">{validating}</p>
                   <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">Em validação</p>
-                </div>
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-center dark:border-blue-800 dark:bg-blue-950/20">
+                </button>
+                <button type="button" aria-label="Ver frentes: Em andamento"
+                  onClick={()=>{setFilter("");setAttentionStatus("em_andamento");setWorkspaceView("frentes");}}
+                  className="min-h-20 rounded-xl border border-blue-200 bg-blue-50 p-3 text-center transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 dark:border-blue-800 dark:bg-blue-950/20">
                   <p className="text-2xl font-bold tabular-nums text-blue-800 dark:text-blue-200">{active}</p>
                   <p className="text-xs font-semibold text-blue-950 dark:text-blue-100">Em andamento</p>
-                </div>
+                </button>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">As cores refletem estados registrados, não certificam aprovação.</p>
+              <p className="mt-3 text-xs text-muted-foreground">Selecione uma situação para ver as frentes correspondentes. As cores não certificam aprovação.</p>
               <Button type="button" variant="outline" className="mt-3 min-h-11 rounded-full border-[#1a73e8] text-[#174ea6] hover:bg-[#e8f0fe]"
                 onClick={()=>setWorkspaceView("frentes")}>Ver frentes e próximas ações</Button>
             </Card>
@@ -512,6 +525,12 @@ export default function NucleoDevelopmentCenter() {
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Atualizar</Button>
       </div>
 
+      {attentionStatus && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe] px-3 py-2 text-sm text-[#174ea6] dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
+          <span>Filtro de situação: <strong>{states.find(item=>item.key===attentionStatus)?.label}</strong></span>
+          <Button type="button" size="sm" variant="outline" className="min-h-9 rounded-full" onClick={()=>setAttentionStatus(null)}>Mostrar todas as situações</Button>
+        </div>
+      )}
       {!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
 
       <Card className="p-3 space-y-2">
@@ -569,7 +588,7 @@ export default function NucleoDevelopmentCenter() {
             <div className="border rounded-lg p-3" key={state.key}>
               <p className="text-xs text-muted-foreground">{state.label}</p>
               <p className="font-bold text-xl tabular-nums">
-                {operationalVisible.filter(item => item.status === state.key).length}
+                {allOperationalVisible.filter(item => item.status === state.key).length}
               </p>
             </div>
           ))}
@@ -606,7 +625,7 @@ export default function NucleoDevelopmentCenter() {
                 <button type="button" key={item.id}
                   aria-pressed={selectedId === item.id}
                   onClick={() => {
-                    choose(item.id);
+                    if (!choose(item.id)) return;
                     document.getElementById("nucleo-m3-workstream-detail")
                       ?.scrollIntoView({ behavior:"smooth", block:"start" });
                   }}

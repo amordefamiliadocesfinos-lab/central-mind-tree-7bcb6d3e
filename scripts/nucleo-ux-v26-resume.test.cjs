@@ -18,4 +18,18 @@ for(const [part,why] of [
 ["NucleoTechnicalEvidence","M4 evidence"],["NucleoSupervisionPanel","M5 supervision"],
 ["NucleoExecutiveDevelopment","Executive retained"],["client.from(\"nucleo_development_events\").select(\"*\").order(\"recorded_at\", { ascending: false }).limit(200)","Bounded Core source"]
 ])has(part,why);
+// V2.7: status chips navigate only inside the loaded Core state.
+for(const [part,why] of [
+['const [attentionStatus,setAttentionStatus] = useState<DevelopmentStatus | null>(null)',"Status state"],
+['allOperationalVisible.filter(item => !attentionStatus || item.status === attentionStatus)',"Filtered list"],
+['setFilter("");setAttentionStatus("bloqueado");setWorkspaceView("frentes")',"Blocked shortcut"],
+['setFilter("");setAttentionStatus("em_validacao");setWorkspaceView("frentes")',"Validation shortcut"],
+['setFilter("");setAttentionStatus("em_andamento");setWorkspaceView("frentes")',"Progress shortcut"],
+['onClick={()=>setAttentionStatus(null)}>Mostrar todas as situações',"Clear state"],
+['allOperationalVisible.filter(item => item.status === state.key).length',"Unfiltered totals"],
+['if (!choose(item.id)) return;',"List cancellation guard"],
+['if (!choose(root.id)) return;',"Root guard"],
+['setFilter("");\n    setAttentionStatus(null);\n    setWorkspaceView("frentes")',"Resume clears stale status"]
+])has(part,why);
+console.log("UX V2.7: filters are actionable; unsafe scroll prevented");
 console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contracts");
