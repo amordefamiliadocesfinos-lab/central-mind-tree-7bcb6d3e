@@ -7,6 +7,7 @@ import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import NucleoSpecialistContributions from "@/components/nucleo/NucleoSpecialistContributions";
 import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
+import NucleoAc02ContinuityRead from "@/components/nucleo/NucleoAc02ContinuityRead";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
@@ -490,6 +491,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 </Button>
               </div>
               <NucleoMandateRegistry modules={[selectedRecord]} />
+              <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}/>
               <NucleoSpecialistContributions key={selectedRecord.id} moduleId={selectedRecord.id}
                 moduleName={selectedRecord.title} declaredRole={selectedRecord.specialist||""}
                 onDraftStateChange={setSpecialistDraftState}/>
