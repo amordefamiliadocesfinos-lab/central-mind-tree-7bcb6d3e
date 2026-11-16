@@ -15,6 +15,8 @@ on:
       - "src/components/nucleo/NucleoAC01DecisionIntake.tsx"
       - "src/components/nucleo/NucleoAC01DecisionStatus.tsx"
       - "src/components/nucleo/NucleoAC01DocumentGovernance.tsx"
+      - "src/lib/nucleo/ac01ContributionSummaryV13.ts"
+      - "scripts/nucleo-ac01-contribution-summary.test.cjs"
       - "scripts/nucleo-ac01-evidence-navigation.test.cjs"
       - "src/components/nucleo/NucleoAC01VerifiedDecisionLinks.tsx"
       - "src/lib/nucleo/ac01EvidencePanoramaV13.ts"
@@ -235,4 +237,6 @@ jobs:
         run: node scripts/nucleo-ac01-evidence-panorama.test.cjs
       - name: Verify bidirectional AC01 contribution evidence navigation
         run: node scripts/nucleo-ac01-evidence-navigation.test.cjs
+      - name: Verify AC01 contribution summary without authority promotion
+        run: node scripts/nucleo-ac01-contribution-summary.test.cjs
       - run: npm run build
