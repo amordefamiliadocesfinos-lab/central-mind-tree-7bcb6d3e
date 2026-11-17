@@ -210,13 +210,13 @@ export function createShopeeLiveOauthHandler({
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
       if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START) {
-        // Opt-in console handoff: set the same server-bound state as the ordinary
-        // authorization flow before the operator uses the existing Open Platform app.
-        // Never accept a client-supplied account, shop, callback or state.
+        // Keep the existing operator bookmarks. Celivio always starts consent
+        // through the signed Hub redirect, with the destination fixed by the route.
         const parameters = request?.query ?? {};
-        const consoleHandoff = parameters.via === 'console' && (path === ADAO_START || path === CELIVIO_START);
-        if (!consoleHandoff && Object.keys(parameters).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
-        if (consoleHandoff && Object.keys(parameters).length !== 1) return html(400, 'Destino inválido', 'A rota não aceita parâmetros adicionais.');
+        const parameterCount = Object.keys(parameters).length;
+        const consoleEntry = parameterCount === 1 && parameters.via === 'console'
+          && (path === ADAO_START || path === CELIVIO_START);
+        if (parameterCount && !consoleEntry) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
         const target = path === ADAO_START ? ADAO : path === CELIVIO_START ? CELIVIO : VIVIANE;
         if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
         if (target === CELIVIO && !celivioConfigured) return html(503, 'OAuth Celivio indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
@@ -241,7 +241,7 @@ export function createShopeeLiveOauthHandler({
           redirectUri,
           sign,
         });
-        if (consoleHandoff) {
+        if (consoleEntry && target === ADAO) {
           // This is an alternative UX, NOT an OAuth shortcut. The exact same Core
           // state and secure cookie are required, and the callback remains strict.
           const cookie = redirect(authorizationUrl, state).headers['Set-Cookie'];
@@ -269,8 +269,11 @@ export function createShopeeLiveOauthHandler({
       if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
       if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
 
-      if (!code || (!shopId && !mainAccountId) || !state) {
-        return html(400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.', cleared);
+      if (!code || (shopIdRaw === null && mainAccountIdRaw === null)) {
+        return html(400, 'Autorização Shopee incompleta', 'O retorno não trouxe o código ou o identificador exigido pela integração.', cleared);
+      }
+      if (!state) {
+        return html(400, 'Sessão OAuth não encontrada', 'O callback não recebeu o cookie de sessão. Reinicie pelo Painel Central e conclua na mesma aba do navegador.', cleared);
       }
       if (shopId !== null && (!Number.isSafeInteger(shopId) || shopId <= 0)) {
         return html(400, 'Autorização Shopee inválida', 'O shop_id retornado é inválido.', cleared);
@@ -312,8 +315,6 @@ export function createShopeeLiveOauthHandler({
         logger({
           event: 'shopee_live_token_exchange_rejected',
           status: tokenResult.response.status,
-          error: typeof tokenResult.payload?.error === 'string' ? tokenResult.payload.error : null,
-          request_id: tokenResult.payload?.request_id ? String(tokenResult.payload.request_id) : null,
         });
         return html(502, 'Falha ao obter token Shopee', 'A Shopee recusou a troca do código de autorização. Nenhum efeito operacional foi aplicado.', cleared);
       }
@@ -455,11 +456,8 @@ export function createShopeeLiveOauthHandler({
         `OAuth Live, get_shop_info, renovação de token e releitura concluídos para shop_id ${effectiveShopId}. Nenhuma projeção em Pedido, Estoque, Financeiro ou CRM foi executada.`,
         cleared,
       );
-    } catch (error) {
-      logger({
-        event: 'shopee_live_oauth_unavailable',
-        error: error instanceof Error ? error.message : 'unknown',
-      });
+    } catch {
+      logger({ event: 'shopee_live_oauth_unavailable' });
       return html(503, 'Shopee Live indisponível', 'A configuração ou execução do OAuth Live está indisponível.');
     }
   };

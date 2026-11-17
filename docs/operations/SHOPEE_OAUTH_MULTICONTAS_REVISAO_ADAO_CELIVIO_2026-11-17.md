@@ -22,6 +22,14 @@ No teste de Celivio, URL inicial recebeu `utm_source=chatgpt.com` e foi rejeitad
 ## Estado operacional conhecido da produção — checkpoint da sessão
 Cloud Run `integration-hub-00166-tvl` 100%, habilitação Celivio ON, revisão de rollback `integration-hub-00165-4gz`, 26 tags preservadas. Gateway config `oauth-celivio-20261116-v1` ACTIVE, /health e /health/core HTTP 200. Scheduler `shopee-adao-intake-v1` PAUSED. **Esses são resultados fornecidos pelo operador; não foram reconsultados nesta revisão GitHub.**
 
+## Correção do início de Celivio
+
+A página intermediária emitia o cookie de sessão e criava o estado no Core, mas encaminhava o operador ao console genérico. A URL assinada de `auth_partner` ficava sem uso nesse caminho. O retorno observado com código e loja foi rejeitado antes da troca de tokens. A mensagem original agrupava ausência de código, identificação de loja e cookie. Os cabeçalhos da resposta inicial demonstram emissão do cookie. A chegada dele ao Hub no callback histórico permanece sem evidência.
+
+Na revisão corrigida, iniciar em `/shopee/live/oauth/celivio/start` no host oficial do Gateway. O atalho existente com `?via=console` também retorna 302 diretamente para o consentimento assinado do aplicativo Painel Central. Finalizar como `netojacobus504` na mesma aba. O Hub deve receber o cookie e consumir o estado associado à conta Celivio. A validação autenticada e a persistência de tokens cifrados para a loja esperada `1357031949` na conta `d26c7a30-aa4a-4441-8012-600d70453689` são critérios da homologação. Caso o callback informe ausência de sessão, verificar apenas a presença do cabeçalho de cookie da navegação e se o retorno foi um GET de nível superior no mesmo host. Não copiar valores de cookies, códigos nem URLs de retorno para logs ou chamados.
+
+A correção usa o estado e o callback compartilhados existentes. O cadastro governado de futuras lojas pode reutilizar esse início assinado com resolução de conta autorizada no servidor. As rotas e flags existentes permitem a homologação sem atualizar o Gateway nem cadastrar outro aplicativo. Em rollback, iniciar uma nova autorização na revisão restaurada. Estados consumidos continuam de uso único, e as conexões já persistidas no Core seguem no armazenamento existente. A troca de tráfego e o rollback de infraestrutura devem ser validados no gate operacional.
+
 ## Decisão de arquitetura (proposta, não congelada)
 Objetivo: **um aplicativo Open Platform existente, N autorizações de lojas, tokens isolados e operação de consentimento simples**.
 Preservar fluxo seguro server-initiated antes da concessão da Shopee. Criar interface ou ação de onboarding ligada à conta Core autenticada, que dispare start pelo backend sem exposição de rota técnica nem parâmetros de seleção de destino fornecidos pelo navegador.
