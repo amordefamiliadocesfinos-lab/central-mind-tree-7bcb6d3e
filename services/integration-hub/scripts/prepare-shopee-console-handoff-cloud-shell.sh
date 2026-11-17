@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT=painel-central-integration-hub
 REGION=southamerica-east1
 SERVICE=integration-hub
-OLD=integration-hub-00166-tvl
+OLD=integration-hub-00167-hm8
 BRANCH=fix/shopee-oauth-multicontas-onboarding-20261117
 REPO=amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e
 ROOT="${HOME}/shopee-oauth-console-handoff"
@@ -16,11 +16,12 @@ python3 - "$ROOT/service-before.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
 active=[(x.get('revisionName'),x.get('percent',0)) for x in d['status']['traffic'] if x.get('percent',0)>0]
-assert active==[('integration-hub-00166-tvl',100)],'BLOQUEADO: revisao principal inesperada'
+assert active==[('integration-hub-00167-hm8',100)],'BLOQUEADO: revisao principal inesperada'
 tags={x['tag']:x['revisionName'] for x in d['status']['traffic'] if x.get('tag')}
-assert len(tags)==26,'BLOQUEADO: tags inesperadas'
+assert len(tags)==27,'BLOQUEADO: quantidade de tags diferente do checkpoint'
 assert tags['celivio-oauth-on-validacao']=='integration-hub-00166-tvl'
-print('PRODUCAO 00166-tvl 100%; 26 TAGS')
+assert tags['oauth-console-validacao']=='integration-hub-00167-hm8'
+print('PRODUCAO 00167-hm8 100%; 27 TAGS; 00166-tvl preservada')
 PY
 test "$(gcloud scheduler jobs describe shopee-adao-intake-v1 --project="$PROJECT" --location="$REGION" --format='value(state)')" = PAUSED || { echo "BLOQUEADO: Scheduler Adao nao pausado"; exit 1; }
 echo "SCHEDULER ADAO PAUSED"
