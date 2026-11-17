@@ -210,7 +210,13 @@ export function createShopeeLiveOauthHandler({
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
       if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START) {
-        if (Object.keys(request?.query ?? {}).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
+        // Opt-in console handoff: set the same server-bound state as the ordinary
+        // authorization flow before the operator uses the existing Open Platform app.
+        // Never accept a client-supplied account, shop, callback or state.
+        const parameters = request?.query ?? {};
+        const consoleHandoff = parameters.via === 'console' && (path === ADAO_START || path === CELIVIO_START);
+        if (!consoleHandoff && Object.keys(parameters).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
+        if (consoleHandoff && Object.keys(parameters).length !== 1) return html(400, 'Destino inválido', 'A rota não aceita parâmetros adicionais.');
         const target = path === ADAO_START ? ADAO : path === CELIVIO_START ? CELIVIO : VIVIANE;
         if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
         if (target === CELIVIO && !celivioConfigured) return html(503, 'OAuth Celivio indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
@@ -235,6 +241,16 @@ export function createShopeeLiveOauthHandler({
           redirectUri,
           sign,
         });
+        if (consoleHandoff) {
+          // This is an alternative UX, NOT an OAuth shortcut. The exact same Core
+          // state and secure cookie are required, and the callback remains strict.
+          const cookie = redirect(authorizationUrl, state).headers['Set-Cookie'];
+          return {
+            status: 200,
+            headers: { ...HTML_HEADERS, 'Set-Cookie': cookie },
+            body: '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Shopee — autorizar pelo aplicativo existente</title></head><body><main><h1>Preparação segura concluída</h1><p>Na MESMA janela do navegador, abra a Shopee Open Platform na conta desenvolvedora do aplicativo Painel Central, escolha o aplicativo e use Autorizar (produção). Depois, confirme somente a loja correta na Shopee Seller.</p><p>Esta preparação expira em 10 minutos. Não utilize outra janela, perfil ou navegação privada. Se a Shopee rejeitar a autorização, reinicie a preparação; não reutilize o retorno.</p><p><a href="https://open.shopee.com/">Abrir Shopee Open Platform</a></p><p>Não altere o callback nem desvincule outras lojas.</p></main></body></html>',
+          };
+        }
         return redirect(authorizationUrl, state);
       }
 
