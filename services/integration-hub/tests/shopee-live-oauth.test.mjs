@@ -488,9 +488,13 @@ test('Console handoff Celivio completes the existing one-time callback only for 
   assert.equal((await f.callback(cookie, { code: 'synthetic', shop_id: '1156446003' })).status, 409);
   assert.equal(f.connections.length, 0);
   assert.equal(f.exchanges.length, 0);
-  assert.equal((await f.callback(cookie, { code: 'synthetic', shop_id: SHOP })).status, 200);
+  // A rejected callback consumes the one-time state by design. The operator
+  // must start a fresh authorization rather than reuse that cookie.
+  const retry = await f.start(path, { via: 'console' });
+  assert.equal(retry.response.status, 200);
+  assert.equal((await f.callback(retry.cookie, { code: 'synthetic', shop_id: SHOP })).status, 200);
   assert.equal(f.connections.length, 2);
   assert.ok(f.connections.every(c => c.channel_account_id === ACCOUNT && String(c.shop_id) === SHOP));
-  assert.equal((await f.callback(cookie, { code: 'replay', shop_id: SHOP })).status, 409);
+  assert.equal((await f.callback(retry.cookie, { code: 'replay', shop_id: SHOP })).status, 409);
   assert.equal(f.connections.length, 2);
 });
