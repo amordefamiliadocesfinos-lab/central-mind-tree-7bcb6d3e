@@ -471,3 +471,26 @@ test('Celivio console handoff stays OFF when its authorization flag is disabled'
   assert.equal(result.status, 503);
   assert.equal(created, 0);
 });
+
+
+test('Console handoff Celivio completes the existing one-time callback only for its shop', async () => {
+  const ACCOUNT = 'd26c7a30-aa4a-4441-8012-600d70453689';
+  const SHOP = '1357031949';
+  const f = oauthFixture({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? SHOP : adaoEnv(key),
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  const { response, cookie, state } = await f.start(path, { via: 'console' });
+  assert.equal(response.status, 200);
+  assert.match(state, /^celivio\./);
+  assert.equal(f.states.get(sha256Hex(state)).channel_account_id, ACCOUNT);
+  assert.equal((await f.callback(cookie, { code: 'synthetic', shop_id: '1156446003' })).status, 409);
+  assert.equal(f.connections.length, 0);
+  assert.equal(f.exchanges.length, 0);
+  assert.equal((await f.callback(cookie, { code: 'synthetic', shop_id: SHOP })).status, 200);
+  assert.equal(f.connections.length, 2);
+  assert.ok(f.connections.every(c => c.channel_account_id === ACCOUNT && String(c.shop_id) === SHOP));
+  assert.equal((await f.callback(cookie, { code: 'replay', shop_id: SHOP })).status, 409);
+  assert.equal(f.connections.length, 2);
+});
