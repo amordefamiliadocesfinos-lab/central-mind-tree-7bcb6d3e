@@ -417,3 +417,57 @@ test('Celivio callback rejects another shop ID before token exchange', async () 
   assert.equal(f.connections.length, 0);
   assert.equal(f.snapshots.length, 0);
 });
+
+
+test('Celivio console handoff prepares the same secure one-time state without initiating Shopee redirect', async () => {
+  let stored;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    makeState: () => 'console-test-state',
+    now: () => 1700000000000,
+    createState: async value => { stored = value; return { ok: true }; },
+    sign: async () => ({ timestamp: 1700000000, sign: 'synthetic-signature' }),
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  const result = await handler({ method: 'GET', path, query: { via: 'console' }, headers: {} });
+  assert.equal(result.status, 200);
+  assert.equal(result.headers.Location, undefined);
+  assert.match(result.headers['Set-Cookie'], /celivio.console-test-state/);
+  assert.match(result.headers['Set-Cookie'], /HttpOnly; Secure; SameSite=Lax/);
+  assert.match(result.body, /Shopee Open Platform/);
+  assert.equal(stored.channel_account_id, 'd26c7a30-aa4a-4441-8012-600d70453689');
+  assert.equal(stored.state_hash, sha256Hex('celivio.console-test-state'));
+  assert.ok(Number.isFinite(Date.parse(stored.expires_at)));
+  assert.equal(Date.parse(stored.expires_at) - 1700000000000, 600000);
+});
+
+
+test('Celivio console handoff rejects destination injection and does not create state', async () => {
+  let created = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    createState: async () => { created++; return { ok: true }; },
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  for (const query of [
+    { via: 'console', account: 'adao' },
+    { via: 'console', shop_id: '1156446003' },
+    { via: 'console', utm_source: 'chatgpt.com' },
+    { via: 'another' },
+  ]) {
+    const result = await handler({ method: 'GET', path, query, headers: {} });
+    assert.equal(result.status, 400);
+  }
+  assert.equal(created, 0);
+});
+
+test('Celivio console handoff stays OFF when its authorization flag is disabled', async () => {
+  let created = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'false', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    createState: async () => { created++; return { ok: true }; },
+  });
+  const result = await handler({ method: 'GET', path: '/shopee/live/oauth/celivio/start', query: { via: 'console' }, headers: {} });
+  assert.equal(result.status, 503);
+  assert.equal(created, 0);
+});
