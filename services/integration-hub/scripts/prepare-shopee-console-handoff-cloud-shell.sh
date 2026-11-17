@@ -25,11 +25,14 @@ PY
 test "$(gcloud scheduler jobs describe shopee-adao-intake-v1 --project="$PROJECT" --location="$REGION" --format='value(state)')" = PAUSED || { echo "BLOQUEADO: Scheduler Adao nao pausado"; exit 1; }
 echo "SCHEDULER ADAO PAUSED"
 if [[ "$STAGE" == build ]]; then
-  if [[ ! -d "$ROOT/source/.git" ]]; then
-    git clone --quiet --branch "$BRANCH" --single-branch "https://github.com/$REPO.git" "$ROOT/source"
+  EXISTING="$HOME/painel-central-celivio-deploy"
+  if [[ ! -e "$ROOT/source/.git" ]]; then
+    test -d "$EXISTING/.git" || { echo "BLOQUEADO: clone autenticado anterior nao localizado em $EXISTING"; exit 1; }
+    git -C "$EXISTING" fetch --quiet origin "$BRANCH"
+    git -C "$EXISTING" worktree add --quiet --detach "$ROOT/source" "FETCH_HEAD"
   fi
   git -C "$ROOT/source" fetch --quiet origin "$BRANCH"
-  git -C "$ROOT/source" checkout --quiet -B "$BRANCH" "origin/$BRANCH"
+  git -C "$ROOT/source" checkout --quiet --detach "FETCH_HEAD"
   SHA="$(git -C "$ROOT/source" rev-parse HEAD)"
   SHORT="${SHA:0:12}"
   IMAGE="$REGION-docker.pkg.dev/$PROJECT/cloud-run-source-deploy/integration-hub:oauth-console-$SHORT"
