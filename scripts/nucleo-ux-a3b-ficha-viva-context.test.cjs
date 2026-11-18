@@ -79,4 +79,14 @@ for(const token of [
  '{error&&<p role="alert"',
 ])assert(fm.includes(token),"Ficha Viva sem aviso contextual: "+token);
 assert(fm.indexOf('Rascunho não salvo em {section}.')<fm.indexOf('<section aria-label="Cobertura documental por seção"'),"Aviso de minuta deve anteceder troca de seção");
+// UX-01: o cartão executivo acompanha a frente que motivou o destaque.
+for(const token of [
+ 'const focusFront = critical.find(front=>front.next_action.trim()) ?? critical[0]',
+ 'const actionOwner = focusFront ?? record;',
+ 'Frente em atenção:',
+ 'Bloqueio declarado:',
+ 'Próxima ação {focusFront?"da frente":"do módulo"}:',
+ 'actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"',
+])assert(text.includes(token),"UX-01 atenção executiva: "+token);
+assert(!text.includes('Próxima ação: {record?.next_action.trim()'),"Não atribuir ação do módulo à frente prioritária");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
