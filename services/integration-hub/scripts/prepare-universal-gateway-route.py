@@ -74,21 +74,20 @@ def prepare(source):
     cloned, op_count = OPERATION.subn("      operationId: " + OPERATION_ID, cloned, count=1)
     if op_count != 1:
         raise ValueError("operationId replacement failed")
-    # The cloned route inherits legacy documentation. Rewrite only the new
-    # route's summary/response descriptions; never edit an existing route.
+    # The source route is Adão-specific; describe only the newly inserted
+    # universal route without modifying the published document.
     cloned = re.sub(
-        r"^      summary:[^\\n]*$",
+        r"^      summary:.*$",
         "      summary: Start OAuth universal for an authorized Shopee account using a one-time handoff.",
         cloned, count=1, flags=re.M)
     cloned = cloned.replace(
         "description: Public destination selection rejected.",
         "description: Invalid handoff ticket or request.", 1)
-    # The universal start returns 409 for expired/consumed/unauthorized tickets.
-    if re.search(r"^        '400':[ \\t]*$", cloned, re.M) and not re.search(r"^        '409':[ \\t]*$", cloned, re.M):
-        cloned = re.sub(
-            r"^(        '400':[ \\t]*\\n(?:          [^\\n]*\\n)*)",
-            r"\\g<1>        '409':\\n          description: Handoff ticket expired, consumed or unauthorized.\\n",
-            cloned, count=1, flags=re.M)
+    if "        '400':" in cloned and "        '503':" in cloned and "        '409':" not in cloned:
+        cloned = cloned.replace(
+            "        '503':",
+            "        '409':\\n          description: Handoff ticket expired, consumed or unauthorized.\\n        '503':",
+            1)
     if not cloned.endswith("\n"):
         raise ValueError("source route missing terminal newline")
     # We only insert a route. This strict invariant ensures no mutation to
