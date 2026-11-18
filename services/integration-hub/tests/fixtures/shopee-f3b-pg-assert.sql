@@ -9,7 +9,7 @@ set role service_role;
 do $$
 declare v_id uuid; n int;
 begin
- select count(*), max(channel_account_id) into n,v_id from public.consume_shopee_oauth_handoff(repeat('a',64));
+ select count(*), max(channel_account_id::text)::uuid into n,v_id from public.consume_shopee_oauth_handoff(repeat('a',64));
  if n <> 1 or v_id <> '22222222-2222-4222-8222-222222222222'::uuid then raise exception 'valid ticket did not consume'; end if;
  select count(*) into n from public.consume_shopee_oauth_handoff(repeat('a',64));
  if n <> 0 then raise exception 'replay accepted'; end if;
