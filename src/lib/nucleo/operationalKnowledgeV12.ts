@@ -78,9 +78,9 @@ export const MODULES_V12: KnowledgeModule[] = [
 ];
 
 export const CRM_SCREENS = [
-  { label: "Contatos / CRM", route: "/contatos", source: REPO + "src/pages/Contatos.tsx" },
-  { label: "Caixa de atendimentos", route: "/contatos/inbox", source: REPO + "src/pages/ContatosInbox.tsx" },
-  { label: "Tarefas de contatos", route: "/contatos/tarefas", source: ROUTE_SOURCE },
+  { id: "contatos", label: "Contatos / CRM", description: "Fila e visão do contato no CRM", route: "/contatos", source: REPO + "src/pages/Contatos.tsx" },
+  { id: "inbox", label: "Caixa de atendimentos", description: "Caixa de atendimentos e conversa contextual", route: "/contatos/inbox", source: REPO + "src/pages/ContatosInbox.tsx" },
+  { id: "tarefas", label: "Tarefas de contatos", description: "Tarefas vinculadas a contatos", route: "/contatos/tarefas", source: ROUTE_SOURCE },
 ];
 
 export const CRM_ACTIONS: CrmAction[] = [
