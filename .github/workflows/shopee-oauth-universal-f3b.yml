@@ -23,6 +23,8 @@ jobs:
         run: node --test services/integration-hub/src/shopee-oauth-universal-handoff.test.mjs
       - name: Validate secure universal start
         run: node --test services/integration-hub/src/shopee-oauth-universal-start.test.mjs
+      - name: Legacy OAuth regression tests
+        run: node --test services/integration-hub/tests/shopee-live-oauth.test.mjs
       - name: Check syntax
         run: |
           node --check services/integration-hub/src/shopee-oauth-universal-handoff.mjs
