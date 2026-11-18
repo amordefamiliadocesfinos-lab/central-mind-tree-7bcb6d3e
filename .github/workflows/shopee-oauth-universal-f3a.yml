@@ -33,5 +33,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Install project dependencies for Deno's npm resolver
+        run: deno install
       - name: Check Edge Function
         run: deno check supabase/functions/shopee-oauth-connect-eligibility/index.ts
