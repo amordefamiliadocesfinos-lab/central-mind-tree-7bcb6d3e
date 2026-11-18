@@ -64,6 +64,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118153000_shopee_oauth_handoff_f3b.sql
           psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3c-pg-setup.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118160000_shopee_universal_oauth_state_binding_f3c.sql
-          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3d-pg-assert.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118170000_shopee_oauth_multicontas_refresh_cas_f3d.sql
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3d-pg-assert.sql
           psql -v ON_ERROR_STOP=1 -c "select 'F3D_CAS_READY' as marker"
