@@ -89,4 +89,22 @@ for(const token of [
  'actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"',
 ])assert(text.includes(token),"UX-01 atenção executiva: "+token);
 assert(!text.includes('Próxima ação: {record?.next_action.trim()'),"Não atribuir ação do módulo à frente prioritária");
+// UX-01: painel transversal liga frente e próxima ação ao mesmo registro M3.
+const coverage=fs.readFileSync("src/components/nucleo/NucleoCrossModuleCoverage.tsx","utf8");
+for(const token of [
+ 'const attentionFront=fronts.find(front=>front.status==="bloqueado")',
+ 'fronts.find(front=>front.priority==="critica")',
+ 'fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())',
+ 'Frente em atenção: {attentionFront.code} · {attentionFront.title}',
+ 'Próxima ação da frente:',
+ 'attentionFront.next_action.trim()||"não informada no Core"',
+ 'Próxima ação do módulo:',
+ 'Sem frente M3 vinculada — situação da operação não verificada',
+ 'Especialista:',
+ 'onClick={()=>onOpenModule(module)}',
+])assert(coverage.includes(token),"UX-01 cobertura transversal: "+token);
+assert(!coverage.includes('Próxima ação declarada: {record?.next_action.trim()'),"Não confundir ação do módulo com frente de atenção");
+// A matriz preserva a identidade visual herdada, sem introduzir paleta paralela.
+assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"'));
+assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
