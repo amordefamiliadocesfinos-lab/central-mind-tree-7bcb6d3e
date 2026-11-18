@@ -57,7 +57,8 @@ Deno.serve(async (request: Request) => {
   let startUrl: URL;
   try {
     startUrl = new URL(handoffStart);
-    if (startUrl.protocol !== 'https:' || startUrl.pathname !== '/shopee/live/oauth/universal/start'
+    if (startUrl.protocol !== 'https:' || startUrl.host !== 'integration-hub-oauth-bh4c23q1.ue.gateway.dev'
+      || startUrl.pathname !== '/shopee/live/oauth/universal/start'
       || startUrl.search || startUrl.hash || startUrl.username || startUrl.password) throw Error('invalid start URL');
   } catch { return json(503, { error: 'unavailable' }, origin); }
   let body: unknown;
