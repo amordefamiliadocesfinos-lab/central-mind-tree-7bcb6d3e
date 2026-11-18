@@ -10,7 +10,7 @@ assert.match(text,/hidden=\{moduleSection!=="especialista"\}/);
 assert.match(text,/selectedRecord && \(moduleSection==="conhecimento" \|\| knowledgeVisited\)/);
 assert.match(text,/hidden=\{moduleSection!=="conhecimento"\}/);
 assert.match(text,/hidden=\{!knowledgeOpen\}/);
-assert.match(text,/onClick=\{\(\) => selectModuleArea\("especialista"\)\}/);
+assert.match(text,/openSpecialistPanel\("documentos"\);\s*selectModuleArea\("especialista"\);/);
 assert.match(text,/onClick=\{\(\) => selectModuleArea\("conhecimento"\)\}/);
 for(const name of ['NucleoMandateRegistry','NucleoSpecialistContributions','NucleoModuleKnowledge'])assert(text.includes('<'+name),"Não remover componente "+name);
 assert.match(text,/Nenhuma aprovação é inferida/);
@@ -142,4 +142,10 @@ for(const token of [
  'onClick={returnToModuleResults}>Voltar ao Painel Geral',
 ])assert(text.includes(token),"UX-01 retorno contextual: "+token);
 assert.equal(text.split("onClick={returnToModuleResults}").length-1,2,"Ambas as entradas para Painel Geral devem restaurar busca");
+// UX-03 B/C: da Ficha Viva, o atalho AC-01 deve abrir Documentos, não Papel e método.
+const ac01KnowledgeCta=text.match(/<Button type="button" size="sm" variant="outline"\s+onClick=\{\(\) => \{([\s\S]*?)\}\}>\s*Consultar ciclo AC-01 do especialista/);
+assert(ac01KnowledgeCta,"Encontrar atalho AC-01 na área Conhecimento");
+assert(ac01KnowledgeCta[1].includes('openSpecialistPanel("documentos")'),"Atalho deve selecionar documentos AC-01");
+assert(ac01KnowledgeCta[1].includes('selectModuleArea("especialista")'),"Atalho deve revelar área do especialista");
+assert(ac01KnowledgeCta[1].indexOf('openSpecialistPanel("documentos")')<ac01KnowledgeCta[1].indexOf('selectModuleArea("especialista")'),"Montar painel sob demanda antes de revelar a área");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
