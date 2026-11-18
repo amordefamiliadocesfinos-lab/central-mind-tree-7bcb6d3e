@@ -2,6 +2,8 @@
 create schema if not exists auth;
 do $$ begin create role service_role; exception when duplicate_object then null; end $$;
 alter role service_role bypassrls;
+do $ begin create role anon; exception when duplicate_object then null; end $;
+do $ begin create role authenticated; exception when duplicate_object then null; end $;
 create table auth.users(id uuid primary key);
 create table public.digital_platforms (
  id uuid primary key, name text, is_active boolean, group_type text, parent_id uuid
