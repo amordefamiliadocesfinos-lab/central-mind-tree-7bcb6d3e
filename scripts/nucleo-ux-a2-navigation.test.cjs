@@ -34,4 +34,11 @@ for (const stage of ['telas:prefix+"screens"', 'funcionalidades:prefix+"controls
 }
 assert.match(source, /id="nucleo-module-evidence"/);
 assert.match(source, /selectModuleArea\(area\)/);
+// Jornada transversal: o conteúdo deve estar visível após o clique, não apenas selecionado.
+const selectArea=source.slice(source.indexOf('  const selectModuleArea = (area: ModuleSection) => {'),source.indexOf('  const openFm09Continuity=()=>'));
+assert(selectArea.includes('region?.scrollIntoView({behavior:"smooth",block:"start"})'),"A área selecionada deve ser trazida à tela");
+assert(selectArea.includes('region?.focus({preventScroll:true})'),"A área deve receber foco sem segunda rolagem");
+const moduleStage=source.slice(source.indexOf('  const openModuleStage = (stage: CrmStage) => {'),source.indexOf('  return (',source.indexOf('  const openModuleStage = (stage: CrmStage) => {')));
+assert(moduleStage.includes('??document.getElementById("nucleo-module-section-content")'),"Sem âncora M3, evidências devem cair na explicação da área");
+assert(moduleStage.includes('evidencias:"nucleo-module-evidence"'),"Preservar âncora das provas existentes");
 console.log("UX-A2: módulos, contexto, retorno, navegação e componentes existentes preservados");
