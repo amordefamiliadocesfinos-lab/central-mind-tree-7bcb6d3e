@@ -6,6 +6,7 @@ import { CRM_ACTIONS } from "./operationalKnowledgeV12";
  */
 export type ModuleControlDiscovery = {
   label:string;
+  screenId?:string;
   screen:string;
   prerequisite:string;
   observed:string;
@@ -16,7 +17,7 @@ export type ModuleControlDiscovery = {
 const repo="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/";
 export const MODULE_CONTROLS_V12:Readonly<Record<string,ReadonlyArray<ModuleControlDiscovery>>>={
  CRM:CRM_ACTIONS.map(action=>({
-  label:action.label,screen:action.screen,prerequisite:action.prerequisite,
+  label:action.label,screenId:action.screenId,screen:action.screen,prerequisite:action.prerequisite,
   observed:action.expectedEffect,confirmation:action.confirmation,
   limitation:action.limit,source:action.source,
  })),
