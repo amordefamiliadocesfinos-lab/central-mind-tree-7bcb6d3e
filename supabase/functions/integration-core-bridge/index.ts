@@ -532,6 +532,18 @@ async function executeAction(payload: Record<string, unknown>) {
     return executeLabelAction(core, payload);
   }
 
+  if (payload.action === 'shopee.oauth_handoff.consume') {
+    const { data, error } = await core.rpc('consume_shopee_oauth_handoff', {
+      p_ticket_hash: String(payload.ticket_hash),
+    });
+    if (error) return { status: 503, body: { error: 'oauth_handoff_unavailable' } };
+    if (!Array.isArray(data) || data.length !== 1) return { status: 409, body: { error: 'oauth_handoff_invalid_or_used' } };
+    return { status: 200, body: {
+      status: 'ok', action: payload.action,
+      channel_account_id: String(data[0].channel_account_id), partner_id: Number(data[0].partner_id),
+    } };
+  }
+
   if (payload.action === 'shopee.oauth_state.create') {
     const channelAccountId = String(payload.channel_account_id);
     const account = await activeChannelAccount(core, channelAccountId);
