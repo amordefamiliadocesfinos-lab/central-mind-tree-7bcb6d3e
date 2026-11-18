@@ -10,7 +10,7 @@ assert.match(text,/hidden=\{moduleSection!=="especialista"\}/);
 assert.match(text,/selectedRecord && \(moduleSection==="conhecimento" \|\| knowledgeVisited\)/);
 assert.match(text,/hidden=\{moduleSection!=="conhecimento"\}/);
 assert.match(text,/hidden=\{!knowledgeOpen\}/);
-assert.match(text,/onClick=\{\(\) => selectModuleArea\("especialista"\)\}/);
+assert.match(text,/openSpecialistPanel\("documentos"\);\s*selectModuleArea\("especialista"\);/);
 assert.match(text,/onClick=\{\(\) => selectModuleArea\("conhecimento"\)\}/);
 for(const name of ['NucleoMandateRegistry','NucleoSpecialistContributions','NucleoModuleKnowledge'])assert(text.includes('<'+name),"Não remover componente "+name);
 assert.match(text,/Nenhuma aprovação é inferida/);
