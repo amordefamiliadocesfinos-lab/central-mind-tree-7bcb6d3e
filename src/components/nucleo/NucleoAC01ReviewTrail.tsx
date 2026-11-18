@@ -48,7 +48,7 @@ export default function NucleoAC01ReviewTrail({
  },[moduleId,contributionId]);
  useEffect(()=>{
    let active=true;setLoading(true);setError("");
-   void db.from("nucleo_ac01_review_events").select("*")
+   void Promise.resolve(db.from("nucleo_ac01_review_events").select("*")
      .eq("contribution_id",contributionId).eq("module_id",moduleId)
      .order("recorded_at",{ascending:true}).limit(MAX)
      .then(result=>{
@@ -67,7 +67,7 @@ export default function NucleoAC01ReviewTrail({
          }
        }
        setLoading(false);
-     }).catch(()=>{if(active){setRows([]);setError("Erro na leitura da trilha; consultar novamente.");setLoading(false);}});
+     })).catch(()=>{if(active){setRows([]);setError("Erro na leitura da trilha; consultar novamente.");setLoading(false);}});
    return()=>{active=false};
  },[contributionId,moduleId,revision]);
  const submit=async()=>{
@@ -79,8 +79,11 @@ export default function NucleoAC01ReviewTrail({
    const requestId=pendingRequest.current??crypto.randomUUID();
    pendingRequest.current=requestId;
    try{
+     const auth=await supabase.auth.getUser();
+     if(auth.error||!auth.data.user){pendingRequest.current=null;setNotice("Sessão não confirmada; nenhum evento enviado.");return;}
      const result=await db.from("nucleo_ac01_review_events").insert({
        module_id:moduleId,contribution_id:contributionId,event_kind:kind,body:clean,request_id:requestId,
+       actor_auth_uid:auth.data.user.id,
      }).select("*").maybeSingle();
      if(result.error||!result.data){
        uncertain.current=true;

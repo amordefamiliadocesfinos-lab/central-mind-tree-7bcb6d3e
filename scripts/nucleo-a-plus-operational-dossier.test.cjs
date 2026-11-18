@@ -108,4 +108,13 @@ for(const contract of [
 assert(!mandates.includes('const decisions=records.filter(record=>record.record_kind!=="proposta")'),
  "NT-03 mandate must not certify a role using unrelated module decisions");
 
+// P3 AC-02: differentiated non-sensitive failure classes permit a surgical
+// production diagnosis without authorizing writes or exposing token/payload.
+const ac02Read=read("src/components/nucleo/NucleoAc02ContinuityRead.tsx");
+for(const status of [401,403,404,500,503])
+ assert(ac02Read.includes('status==='+status),"AC-02 must classify HTTP "+status+" without leaking response bodies");
+for(const kind of ["FunctionsHttpError","FunctionsFetchError","FunctionsRelayError"])
+ assert(ac02Read.includes('name==="'+kind+'"'),"AC-02 must differentiate invocation error "+kind);
+assert(ac02Read.includes('explainAc02ReadFailure(invokeError)'),"AC-02 must present classified invoke error instead of generic fallback");
+assert(!ac02Read.includes("console.error("),"AC-02 may not log possibly sensitive exceptions");
 console.log("Núcleo A+: CRM and other modules share a read-only guided journey, source and control contract.");
