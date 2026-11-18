@@ -273,7 +273,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setKnowledgeOpen(true);
     }
     setEvidenceFrontId(null);
-    requestAnimationFrame(() => document.getElementById("nucleo-module-section-content")?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const region=document.getElementById("nucleo-module-section-content");
+      region?.scrollIntoView({behavior:"smooth",block:"start"});
+      region?.focus({preventScroll:true});
+    }));
   };
 
   const openFm09Continuity=()=>{
@@ -318,7 +322,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     };
     const anchor = anchors[stage];
     if(anchor) requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      const element=document.getElementById(anchor);
+      // Sem evidência M3/M4 cadastrada, a área de Desenvolvimento explica
+      // a lacuna; nunca deixar o atalho sem destino visível.
+      const element=document.getElementById(anchor)
+        ??document.getElementById("nucleo-module-section-content");
       element?.scrollIntoView({behavior:"smooth",block:"start"});
       if (element instanceof HTMLElement && element.tabIndex >= 0) element.focus({preventScroll:true});
     }));
