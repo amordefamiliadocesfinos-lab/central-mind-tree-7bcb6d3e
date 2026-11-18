@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const source = fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx", "utf8");
 // UX-A2: regressões estáticas da navegação — não substituem UAT.
-assert.match(source, /onClick=\{\(\) => setLevel\("overview"\)\}>Painel Geral/);
+assert.match(source, /onClick=\{returnToModuleResults\}>Painel Geral/);
 assert.doesNotMatch(source, /setLevel\("overview"\);\s*setSelectedId\(null\)/);
 assert.match(source, /if \(item\.id !== selectedId\)/);
 assert.match(source, /aria-hidden=\{level !== "module"\}/);
@@ -19,7 +19,7 @@ assert(indexes.every((value, index) => index === 0 || value > indexes[index - 1]
 assert.match(source, /aria-controls="nucleo-module-section-content"/);
 assert.match(source, /id="nucleo-module-section-content" role="region" tabIndex=\{-1\}/);
 assert.match(source, /onClick=\{\(\) => selectModuleArea\(item\.id\)\}/);
-assert.match(source, /onClick=\{\(\) => setLevel\("overview"\)\}>Voltar ao Painel Geral/);
+assert.match(source, /onClick=\{returnToModuleResults\}>Voltar ao Painel Geral/);
 for (const name of ["NucleoMandateRegistry", "NucleoSpecialistContributions", "NucleoModuleKnowledge", "NucleoExecutiveDevelopment"]) {
   assert(source.includes("<" + name), "Preservar estrutura: " + name);
 }

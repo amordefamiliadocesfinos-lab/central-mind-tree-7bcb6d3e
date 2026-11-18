@@ -75,6 +75,19 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     });
     return()=>{cancelAnimationFrame(viewFrame);cancelAnimationFrame(focusFrame);};
   },[searchRequestSeq]);
+  // UX01: ao retornar da ficha, exibir novamente a busca e os resultados
+  // já filtrados, sem apagar o termo nem alterar o estado do cadastro.
+  const returnToModuleResults=()=>{
+    setLevel("overview");
+    let focusFrame=0;
+    requestAnimationFrame(()=>{
+      focusFrame=requestAnimationFrame(()=>{
+        const field=document.getElementById("nucleo-atlas-module-search");
+        field?.scrollIntoView({behavior:"smooth",block:"center"});
+        field?.focus({preventScroll:true});
+      });
+    });
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
   const [moduleSection,setModuleSection] = useState<ModuleSection>("funcoes");
@@ -324,7 +337,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         </div>
         <nav className="nucleo-v22-tabs grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center" aria-label="Navegação do Núcleo">
           <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full whitespace-normal sm:w-auto" variant={level==="overview"?"default":"outline"}
-            aria-pressed={level==="overview"} onClick={() => setLevel("overview")}>Painel Geral</Button>
+            aria-pressed={level==="overview"} onClick={returnToModuleResults}>Painel Geral</Button>
           <Button type="button" size="sm" className="nucleo-v22-pill min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words text-left sm:w-auto"
             variant={level==="module"?"default":"outline"} disabled={!selected}
             aria-label={selected ? "Retomar ficha do módulo " + selected.name : "Nenhum módulo selecionado"}
@@ -500,7 +513,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <p className="text-sm font-medium">{selected.id} · {selected.name}</p>
             </div>
             <Button type="button" variant="outline" size="sm"
-              onClick={() => setLevel("overview")}>Voltar ao Painel Geral</Button>
+              onClick={returnToModuleResults}>Voltar ao Painel Geral</Button>
           </div>
           <nav aria-label="Localização dentro do Núcleo"
             className="flex flex-wrap items-center gap-2 rounded-xl bg-[#f5f9ff] px-3 py-2 text-xs dark:bg-slate-800">
