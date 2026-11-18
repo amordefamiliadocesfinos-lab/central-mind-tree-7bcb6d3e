@@ -1,0 +1,39 @@
+name: Shopee OAuth Universal F3-A Authorization
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/_shared/shopee-oauth-authorization.mjs'
+      - 'supabase/functions/_shared/shopee-oauth-authorization.test.mjs'
+      - 'supabase/functions/shopee-oauth-connect-eligibility/**'
+      - 'supabase/migrations/20261118150000_shopee_oauth_account_grants_f3a.sql'
+      - '.github/workflows/shopee-oauth-universal-f3a.yml'
+  workflow_dispatch:
+jobs:
+  authorization-policy:
+    name: node22-policy-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated authorization policy tests
+        run: node --test supabase/functions/_shared/shopee-oauth-authorization.test.mjs
+      - name: Check JavaScript syntax
+        run: node --check supabase/functions/_shared/shopee-oauth-authorization.mjs
+  eligibility-deno:
+    name: deno-eligibility-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install project dependencies for Deno's npm resolver
+        run: deno install
+      - name: Check Edge Function
+        run: deno check supabase/functions/shopee-oauth-connect-eligibility/index.ts
