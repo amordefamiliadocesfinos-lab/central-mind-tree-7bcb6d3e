@@ -1,0 +1,61 @@
+name: Shopee OAuth Universal F3-C Callback
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/src/shopee-live-oauth.mjs'
+      - 'services/integration-hub/src/shopee-oauth-universal-*.mjs'
+      - 'services/integration-hub/tests/shopee-universal-oauth-callback.test.mjs'
+      - 'supabase/migrations/20261118160000_shopee_universal_oauth_state_binding_f3c.sql'
+      - 'supabase/functions/integration-core-bridge/**'
+      - '.github/workflows/shopee-oauth-universal-f3c.yml'
+  workflow_dispatch:
+jobs:
+  oauth-node:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Universal callback, start and legacy regression
+        run: |
+          node --test services/integration-hub/tests/shopee-universal-oauth-callback.test.mjs
+          node --test services/integration-hub/src/shopee-oauth-universal-start.test.mjs
+          node --test services/integration-hub/tests/shopee-live-oauth.test.mjs
+  f3c-postgres:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: shopee_f3c
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shopee_f3c"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: disposable_only
+      PGDATABASE: shopee_f3c
+    steps:
+      - uses: actions/checkout@v4
+      - name: F3-C DDL and expected shop authorization assertions
+        run: |
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3b-pg-setup.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118150000_shopee_oauth_account_grants_f3a.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118153000_shopee_oauth_handoff_f3b.sql
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3b-pg-assert.sql
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3c-pg-setup.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118160000_shopee_universal_oauth_state_binding_f3c.sql
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3c-pg-assert.sql
