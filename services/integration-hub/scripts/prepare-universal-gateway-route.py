@@ -86,7 +86,7 @@ def prepare(source):
     if "        '400':" in cloned and "        '503':" in cloned and "        '409':" not in cloned:
         cloned = cloned.replace(
             "        '503':",
-            "        '409':\\n          description: Handoff ticket expired, consumed or unauthorized.\\n        '503':",
+            "        '409':\n          description: Handoff ticket expired, consumed or unauthorized.\n        '503':",
             1)
     if not cloned.endswith("\n"):
         raise ValueError("source route missing terminal newline")
