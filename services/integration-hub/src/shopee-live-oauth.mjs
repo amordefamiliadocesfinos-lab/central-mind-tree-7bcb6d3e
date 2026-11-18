@@ -244,6 +244,9 @@ export function createShopeeLiveOauthHandler({
       const shopId = shopIdRaw === null ? null : Number(shopIdRaw);
       const mainAccountId = mainAccountIdRaw === null ? null : Number(mainAccountIdRaw);
       const state = readCookie(request?.headers, STATE_COOKIE);
+      // F3-B: never allow a universal state to fall back to Viviane's fixed target.
+      // F3-C must implement a verified dynamic callback before this is enabled.
+      if (state?.startsWith('universal.')) return html(503, 'OAuth universal em preparação', 'Callback universal ainda não homologado.', { 'Set-Cookie': clearStateCookie() });
       const cleared = { 'Set-Cookie': clearStateCookie() };
       const target = state?.startsWith('adao.') ? ADAO
         : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;

@@ -1,9 +1,17 @@
-// F3-A — validation ONLY. Does not authorize Shopee or create OAuth state.
-// This endpoint MUST NOT be used as a bearer capability by the Integration Hub.
+// F3-B — issue a short-lived one-use handoff after server-side account authorization.
+// Ticket alone cannot grant authorization: Core Bridge rechecks grant on consumption.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { canInitiateShopeeOAuth, validRequestedAccount } from '../_shared/shopee-oauth-authorization.mjs';
 
 const MAX_BYTES = 512;
+const PARTNER_ID = 2047685;
+const TTL_MS = 90_000;
+function hex(bytes: ArrayBuffer) {
+  return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
+}
+function base64Url(bytes: Uint8Array) {
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
 
 function json(status: number, body: Record<string, unknown>, origin: string | null = null) {
   return new Response(JSON.stringify(body), {
@@ -44,7 +52,15 @@ Deno.serve(async (request: Request) => {
   if (!match) return json(401, { error: 'authentication_required' }, origin);
   const url = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!url || !serviceKey) return json(503, { error: 'unavailable' }, origin);
+  const handoffStart = Deno.env.get('SHOPEE_OAUTH_HANDOFF_START_URL');
+  if (!url || !serviceKey || !handoffStart) return json(503, { error: 'unavailable' }, origin);
+  let startUrl: URL;
+  try {
+    startUrl = new URL(handoffStart);
+    if (startUrl.protocol !== 'https:' || startUrl.host !== 'integration-hub-oauth-bh4c23q1.ue.gateway.dev'
+      || startUrl.pathname !== '/shopee/live/oauth/universal/start'
+      || startUrl.search || startUrl.hash || startUrl.username || startUrl.password) throw Error('invalid start URL');
+  } catch { return json(503, { error: 'unavailable' }, origin); }
   let body: unknown;
   try {
     const raw = await request.text();
@@ -77,8 +93,23 @@ Deno.serve(async (request: Request) => {
       user: identity.user, appUser: appUser.data, account: account.data,
       platform: platform.data, grant: grant.data,
     });
-    // This endpoint only answers eligibility, with no OAuth handoff, token or browser redirect.
-    return json(allowed ? 200 : 403, { allowed }, origin);
+    if (!allowed) return json(403, { allowed: false }, origin);
+    const ticket = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+    const ticketHash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ticket)));
+    const now = new Date();
+    const { error: insertError } = await core.from('shopee_oauth_handoffs').insert({
+      ticket_hash: ticketHash,
+      auth_user_id: authUserId,
+      channel_account_id: accountId,
+      partner_id: PARTNER_ID,
+      environment: 'live',
+      created_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + TTL_MS).toISOString(),
+    });
+    if (insertError) return json(503, { error: 'unavailable' }, origin);
+    startUrl.searchParams.set('ticket', ticket);
+    // Never expose ticket in server logs. Browser should navigate immediately.
+    return json(200, { allowed: true, handoff_url: startUrl.toString(), expires_in_seconds: 90 }, origin);
   } catch {
     return json(503, { error: 'unavailable' }, origin);
   }

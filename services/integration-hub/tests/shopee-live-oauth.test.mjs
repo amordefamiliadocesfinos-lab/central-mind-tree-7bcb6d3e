@@ -417,3 +417,24 @@ test('Celivio callback rejects another shop ID before token exchange', async () 
   assert.equal(f.connections.length, 0);
   assert.equal(f.snapshots.length, 0);
 });
+
+
+test('F3-B universal state cannot fall back to Viviane in legacy callback', async () => {
+  let consumed = false;
+  let exchanged = false;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: env,
+    consumeState: async () => { consumed = true; throw Error('should never consume'); },
+    exchange: async () => { exchanged = true; throw Error('should never exchange'); },
+  });
+  const response = await handler({
+    method: 'GET',
+    path: '/shopee/live/oauth/callback',
+    headers: { cookie: '__Host-pc_shopee_live_state=universal.synthetic' },
+    query: { code: 'synthetic-code', shop_id: '531736366' },
+  });
+  assert.equal(response.status, 503);
+  assert.equal(consumed, false);
+  assert.equal(exchanged, false);
+  assert.match(response.headers['Set-Cookie'], /Max-Age=0/);
+});
