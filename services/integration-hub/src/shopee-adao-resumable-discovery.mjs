@@ -91,6 +91,8 @@ export function createAdaoResumableDiscovery({ readOrders, now = Date.now } = {}
         || !Array.isArray(sn) || sn.length > F12_3_SCOPE.pageSize
         || sn.some(id => typeof id !== 'string' || !ORDER_RE.test(id))
         || new Set(sn).size !== sn.length
+        // A missing/ambiguous `more` is NOT evidence of a terminal page.
+        || typeof page.more !== 'boolean'
         || state.orders + sn.length > F12_3_SCOPE.maxOrders) {
         return stopped('invalid_page', state);
       }
