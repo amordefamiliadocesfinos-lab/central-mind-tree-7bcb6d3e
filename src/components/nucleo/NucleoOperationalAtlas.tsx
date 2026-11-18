@@ -914,7 +914,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   <p className="text-xs text-muted-foreground">O especialista mantém propostas, revisões, solicitações e decisões em consulta separada da Ficha Viva. Nenhuma aprovação é inferida.</p>
                 </div>
                 <Button type="button" size="sm" variant="outline"
-                  onClick={() => selectModuleArea("especialista")}>
+                  onClick={() => {
+                    openSpecialistPanel("documentos");
+                    selectModuleArea("especialista");
+                  }}>
                   Consultar ciclo AC-01 do especialista
                 </Button>
               </div>
