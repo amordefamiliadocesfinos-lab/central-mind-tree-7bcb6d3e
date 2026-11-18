@@ -460,7 +460,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
-          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} />
+          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} onOpenWorkstream={onSelectWorkstream} />
           {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
             {catalog.length===0
               ? "Nenhum módulo identificado no catálogo deste recorte. Não comprova ausência de módulos na organização."
