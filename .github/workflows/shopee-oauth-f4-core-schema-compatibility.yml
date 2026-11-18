@@ -1,0 +1,144 @@
+name: Shopee OAuth F4 Core Schema Compatibility
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/shopee-oauth-f4-core-schema-compatibility.yml'
+      - 'supabase/migrations/20261118*shopee*.sql'
+  workflow_dispatch:
+jobs:
+  disposable-core-compatibility:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: f4_core_compat
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f4_core_compat"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: disposable_only
+      PGDATABASE: f4_core_compat
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recreate only relevant Core schema contracts observed on 2026-11-18
+        shell: bash
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          -- Disposable-only schema reconstruction; no production data or secrets.
+          CREATE SCHEMA auth;
+          CREATE ROLE service_role BYPASSRLS;
+          CREATE ROLE anon;
+          CREATE ROLE authenticated;
+          CREATE TABLE auth.users (id uuid PRIMARY KEY);
+          CREATE TABLE public.digital_platforms (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            name text NOT NULL,
+            group_type text NOT NULL DEFAULT 'social',
+            is_active boolean NOT NULL DEFAULT true,
+            parent_id uuid REFERENCES public.digital_platforms(id) ON DELETE SET NULL
+          );
+          CREATE TABLE public.channel_accounts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            platform_id uuid NOT NULL REFERENCES public.digital_platforms(id) ON DELETE RESTRICT,
+            name text NOT NULL,
+            is_active boolean NOT NULL DEFAULT true
+          );
+          CREATE TABLE public.app_users (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            name text NOT NULL,
+            auth_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            is_active boolean NOT NULL DEFAULT true
+          );
+          CREATE TABLE public.shopee_oauth_states (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            state_hash text NOT NULL UNIQUE,
+            channel_account_id uuid NOT NULL REFERENCES public.channel_accounts(id) ON DELETE RESTRICT,
+            environment text NOT NULL,
+            expires_at timestamptz NOT NULL,
+            used_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now()
+          );
+          CREATE TABLE public.shopee_oauth_connections (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            channel_account_id uuid NOT NULL REFERENCES public.channel_accounts(id) ON DELETE RESTRICT,
+            environment text NOT NULL,
+            partner_id bigint NOT NULL,
+            shop_id bigint,
+            access_token_ciphertext text NOT NULL,
+            refresh_token_ciphertext text NOT NULL,
+            access_token_expires_at timestamptz,
+            refresh_token_expires_at timestamptz,
+            last_refreshed_at timestamptz,
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT shopee_oauth_connections_channel_account_id_environment_key
+              UNIQUE(channel_account_id, environment)
+          );
+          ALTER TABLE public.shopee_oauth_states ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE public.shopee_oauth_connections ENABLE ROW LEVEL SECURITY;
+          GRANT SELECT ON public.digital_platforms, public.channel_accounts,
+            public.app_users TO service_role;
+          GRANT SELECT,INSERT,UPDATE ON public.shopee_oauth_states,
+            public.shopee_oauth_connections TO service_role;
+          SQL
+      - name: Apply F3-A to F3-D in order on disposable PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sql in \
+            supabase/migrations/20261118150000_shopee_oauth_account_grants_f3a.sql \
+            supabase/migrations/20261118153000_shopee_oauth_handoff_f3b.sql \
+            supabase/migrations/20261118160000_shopee_universal_oauth_state_binding_f3c.sql \
+            supabase/migrations/20261118170000_shopee_oauth_multicontas_refresh_cas_f3d.sql; do
+            echo "Applying: $sql"
+            psql -v ON_ERROR_STOP=1 --single-transaction -f "$sql"
+          done
+      - name: Assert deny-by-default, function signatures, and absence of seed rows
+        shell: bash
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            t text;
+            n bigint;
+          BEGIN
+            FOREACH t IN ARRAY ARRAY[
+              'shopee_oauth_account_grants',
+              'shopee_oauth_handoffs',
+              'shopee_oauth_shop_authorizations',
+              'shopee_oauth_universal_state_bindings'
+            ] LOOP
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace ns ON ns.oid=c.relnamespace
+                WHERE ns.nspname='public' AND c.relname=t AND c.relkind='r'
+                  AND c.relrowsecurity
+              ) THEN
+                RAISE EXCEPTION 'missing table or RLS: %',t;
+              END IF;
+              EXECUTE format('SELECT count(*) FROM public.%I',t) INTO n;
+              IF n <> 0 THEN RAISE EXCEPTION 'unexpected seed rows in %',t; END IF;
+              IF has_table_privilege('anon', 'public.' || t, 'SELECT') OR
+                 has_table_privilege('authenticated', 'public.' || t, 'SELECT') THEN
+                RAISE EXCEPTION 'client SELECT privilege on %',t;
+              END IF;
+            END LOOP;
+            IF to_regprocedure('public.consume_shopee_oauth_handoff(text)') IS NULL OR
+               to_regprocedure('public.create_shopee_universal_oauth_state(text,uuid,uuid,bigint,bigint,timestamptz)') IS NULL OR
+               to_regprocedure('public.resolve_shopee_universal_oauth_state(text)') IS NULL OR
+               to_regprocedure('public.refresh_shopee_oauth_connection_if_current(uuid,bigint,bigint,text,text,text,timestamptz,timestamptz,timestamptz)') IS NULL
+            THEN RAISE EXCEPTION 'expected RPC missing'; END IF;
+          END $$;
+          SELECT 'F4_DISPOSABLE_CORE_SCHEMA_COMPAT_PASS' AS result;
+          SQL
