@@ -141,5 +141,5 @@ for(const token of [
  'aria-pressed={level==="overview"} onClick={returnToModuleResults}',
  'onClick={returnToModuleResults}>Voltar ao Painel Geral',
 ])assert(text.includes(token),"UX-01 retorno contextual: "+token);
-assert.equal((text.match(/onClick=\\{returnToModuleResults\\}/g)||[]).length,2,"Ambas as entradas para Painel Geral devem restaurar busca");
+assert.equal(text.split("onClick={returnToModuleResults}").length-1,2,"Ambas as entradas para Painel Geral devem restaurar busca");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
