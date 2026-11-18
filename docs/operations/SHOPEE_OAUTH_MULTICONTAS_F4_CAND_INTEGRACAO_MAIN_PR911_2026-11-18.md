@@ -38,3 +38,14 @@ PR #911 permanece intacta, aberta e draft. Esta integração **não declara equi
 - Preservar Shop ID e tokens de Adão/Viviane/Celivio sem assumir consentimento de Celivio homologado.
 - Sem nova aplicação Shopee ou rota específica por nova conta.
 - Sem tokens, secrets, cookies, estados ou códigos em documentação e logs.
+
+## 5. Resultado dos testes de CI da integração
+
+Executados na PR #936:
+- **Aprovados:** F3-A autorização, F3-B handoff, F3-C callback, F3-D refresh, F4 integração sintética, F4 Gateway OpenAPI, F4 candidate readiness, F4 packaging Docker, reconciliação PR #911 e preflight somente leitura.
+- **Falha na suíte geral** `Shopee Integration Hub Tests and Docker`, run `44324932736`, no job `logistics-typescript`. Nesse mesmo run, `core-and-cycle-postgres` e `hub-node22-and-container` concluíram com sucesso.
+- Log do job falho aponta erros TypeScript em componentes `src/components/nucleo/*` (acesso `PromiseLike.catch`, campos obrigatórios em inserção) e `src/modules/health/hooks/useHealthMealPlanF18.ts` (soma entre união de tipos e número). **Esses arquivos não foram modificados pela PR #936**, segundo a lista de 54 arquivos alterados.
+- **Não foi demonstrado que tais falhas existem também na `main`**, pois não houve execução de referência da mesma suíte nesse SHA. Classificação adequada: falha de CI em código fora do delta OAuth; causa/baseline ainda não confirmados.
+- Por governança, **não corrigir Núcleo ou Saúde nesta frente**. Encaminhar diagnóstico à camada responsável e preservar o resultado negativo da suíte geral. Enquanto houver CI obrigatória falha, branch não está pronta para merge.
+
+**Estado da candidata:** integração de código preparada; CI específico OAuth aprovado; **gate global de CI não aprovado**. Não promover.
