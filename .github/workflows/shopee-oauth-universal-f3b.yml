@@ -21,8 +21,14 @@ jobs:
           node-version: '22'
       - name: Validate pure handoff contract
         run: node --test services/integration-hub/src/shopee-oauth-universal-handoff.test.mjs
+      - name: Validate secure universal start
+        run: node --test services/integration-hub/src/shopee-oauth-universal-start.test.mjs
       - name: Check syntax
-        run: node --check services/integration-hub/src/shopee-oauth-universal-handoff.mjs
+        run: |
+          node --check services/integration-hub/src/shopee-oauth-universal-handoff.mjs
+          node --check services/integration-hub/src/shopee-oauth-universal-start.mjs
+          node --check services/integration-hub/src/app.mjs
+          node --check services/integration-hub/src/shopee-live-oauth.mjs
   bridge-contract:
     runs-on: ubuntu-latest
     permissions:
