@@ -25,6 +25,7 @@ paths:
   '/shopee/live/oauth/adao/start':
     get:
       operationId: adaoStart
+      summary: Start fixed Adao OAuth only when enabled by server configuration.
       x-google-backend:
         address: https://integration-hub.example.run.app
       responses:
@@ -54,6 +55,8 @@ class UniversalPatchTests(unittest.TestCase):
         after = patcher.prepare(BASE)
         self.assertIn("  '/shopee/live/oauth/universal/start':", after)
         self.assertIn("operationId: shopeeUniversalOAuthStart", after)
+        self.assertIn("summary: Start OAuth universal for an authorized Shopee account using a one-time handoff.", after)
+        self.assertEqual(after.count("summary: Start fixed Adao OAuth only when enabled by server configuration."), 1)
         self.assertEqual(after.count("operationId: existingCallback"), 1)
         self.assertEqual(after.count("jwt_audience:"), 1)
         self.assertIn("securityDefinitions:\n  existing:", after)
