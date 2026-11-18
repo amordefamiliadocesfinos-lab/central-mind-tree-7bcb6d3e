@@ -1,0 +1,27 @@
+name: Núcleo — contraprova TypeScript PR 938
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/components/nucleo/**"
+      - ".github/workflows/nucleo-typescript-contraprova.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  typescript-app:
+    name: typescript-app-no-emit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type-check application (no emit)
+        run: npx tsc --noEmit -p tsconfig.app.json
