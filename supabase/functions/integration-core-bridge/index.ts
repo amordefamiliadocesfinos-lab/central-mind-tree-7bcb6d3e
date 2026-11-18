@@ -618,6 +618,53 @@ async function executeAction(payload: Record<string, unknown>) {
     };
   }
 
+  if (payload.action === 'shopee.oauth_connection.refresh_context') {
+    const id = String(payload.channel_account_id);
+    const canonical = await canonicalShopeeChannelAccount(core, id);
+    if (canonical.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!canonical.account) return { status: 409, body: { error: 'channel_account_unavailable' } };
+    const [approval, connection] = await Promise.all([
+      core.from('shopee_oauth_shop_authorizations')
+        .select('partner_id,shop_id,is_enabled').eq('channel_account_id',id).eq('environment',LIVE).maybeSingle(),
+      core.from('shopee_oauth_connections')
+        .select('partner_id,shop_id,refresh_token_ciphertext,refresh_token_expires_at,access_token_expires_at,last_refreshed_at')
+        .eq('channel_account_id',id).eq('environment',LIVE).maybeSingle(),
+    ]);
+    if (approval.error || connection.error) return { status: 503, body: { error: 'oauth_refresh_context_unavailable' } };
+    const expected = approval.data;
+    const saved = connection.data;
+    if (expected?.is_enabled !== true || Number(expected.partner_id) !== 2047685
+      || Number(expected.shop_id) <= 0 || Number(saved?.shop_id) !== Number(expected.shop_id)
+      || Number(saved?.partner_id) !== 2047685 || !saved?.refresh_token_ciphertext)
+      return { status: 409, body: { error: 'oauth_refresh_identity_unavailable' } };
+    return { status: 200, body: {
+      status:'ok',action:payload.action,channel_account_id:id,partner_id:2047685,
+      shop_id:Number(expected.shop_id), refresh_token_ciphertext:String(saved.refresh_token_ciphertext),
+      refresh_token_expires_at:saved.refresh_token_expires_at,
+      access_token_expires_at:saved.access_token_expires_at,last_refreshed_at:saved.last_refreshed_at,
+    } };
+  }
+
+  if (payload.action === 'shopee.oauth_connection.refresh_if_current') {
+    const id = String(payload.channel_account_id);
+    const canonical = await canonicalShopeeChannelAccount(core,id);
+    if (canonical.unavailable) return { status:503,body:{error:'core_unavailable'} };
+    if (!canonical.account) return { status:409,body:{error:'channel_account_unavailable'} };
+    const { data,error } = await core.rpc('refresh_shopee_oauth_connection_if_current',{
+      p_channel_account_id:id, p_partner_id:Number(payload.partner_id),p_shop_id:Number(payload.shop_id),
+      p_expected_refresh_ciphertext:String(payload.expected_refresh_token_ciphertext),
+      p_access_ciphertext:String(payload.access_token_ciphertext),
+      p_refresh_ciphertext:String(payload.refresh_token_ciphertext),
+      p_access_expires_at:String(payload.access_token_expires_at),
+      p_refresh_expires_at:String(payload.refresh_token_expires_at),
+      p_refreshed_at:String(payload.last_refreshed_at),
+    });
+    if (error) return {status:503,body:{error:'oauth_refresh_persistence_unavailable'}};
+    return data === true
+      ? {status:200,body:{status:'ok',action:payload.action}}
+      : {status:409,body:{error:'oauth_refresh_stale_or_unapproved'}};
+  }
+
   if (payload.action === 'shopee.oauth_connection.read') {
     const channelAccountId = String(payload.channel_account_id);
     const account = await activeChannelAccount(core, channelAccountId);
