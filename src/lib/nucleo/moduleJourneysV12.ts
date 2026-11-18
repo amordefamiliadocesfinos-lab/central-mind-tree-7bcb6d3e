@@ -45,6 +45,14 @@ export const MODULE_JOURNEYS_V12:Readonly<Record<string,ReadonlyArray<ModuleJour
     ]
   }],
   OPE:[{
+    id:"ope-mrp-compra",title:"Entender a passagem de MRP para preparação de Compra",
+    goal:"Localizar uma falta real no MRP e reconhecer a preparação consultiva de Compra sem gravar pedido ou movimentar estoque.",kind:"preparacao",
+    steps:[
+      {screenId:"mrp",task:"Consultar necessidades do MRP",inspect:"Abrir a aba MRP de Operações e localizar Planejamento de compras. A tabela contém necessidades calculadas; não gerar demanda sintética.",verify:"Conferir material, falta, unidade e prazo se houver linha real. Sem falta elegível, registrar não verificável para o próximo passo.",limit:inspectOnly},
+      {screenId:"mrp",controlLabel:"Preparar compra",task:"Reconhecer passagem MRP → Compras",inspect:"O botão aparece apenas quando shortage > 0. Quando houver necessidade real e inspeção autorizada, abrir preparação para ver contexto; não salvar o Pedido de Compra.",verify:"Conferir mudança para Compras e abertura do editor com material e quantidade operacional de referência.",limit:"Preparação não comprova compra salva, recebimento, entrada física ou pagamento; sem falta elegível, não criar dados para forçar o teste."},
+      {screenId:"purchases",task:"Distinguir proposta de compra e persistência",inspect:"Conferir o editor de Compras e seus campos; fechar sem gravar após observar o contexto MRP.",verify:"A abertura do editor não cria compra. Confirmar somente a navegação e o contexto, não readback de pedido inexistente.",limit:"Não salvar, editar nem excluir compra, fornecedor, estoque, produção ou dados financeiros."},
+    ]
+  },{
     id:"ope-compras",title:"Conhecer a preparação de compra",goal:"Encontrar Compras e identificar a abertura do editor, sem criar pedido.",kind:"preparacao",
     steps:[
       {screenId:"purchases",task:"Abrir Compras",inspect:"Usar a aba Compras da página Operações; a rota com tab=purchases é reconhecida no código.",verify:"A aba Compras deve ficar selecionada na interface autenticada.",limit:inspectOnly},

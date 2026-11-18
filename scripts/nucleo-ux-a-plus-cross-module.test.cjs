@@ -35,4 +35,17 @@ assert(g.includes('setActiveIndex(index)'),"Guide opens at exact catalogued step
 assert(d.includes('mode==="funcoes"\n      ? visibleScreens.length===0&&visibleControls.length===0&&visibleSources.length===0'),"Functional empty state covers visible cards");
 assert(d.includes(': visibleSources.length===0&&visibleOriginals.length===0'),"Knowledge empty state ignores hidden controls/screens");
 assert(d.includes('Nenhum item corresponde à busca.'),"No-result feedback remains visible");
-console.log("UX A+ transversal: sourced controls/routes/guides with explicit gaps and no duplicate catalog PASS");
+// A+ Operações: catalogar apenas o controle MRP que realmente encaminha contexto a Compras.
+const controls=fs.readFileSync("src/lib/nucleo/moduleControlDiscoveriesV12.ts","utf8");
+const guides=fs.readFileSync("src/lib/nucleo/moduleJourneysV12.ts","utf8");
+const mrp=fs.readFileSync("src/components/operations/MRPTab.tsx","utf8");
+const purchases=fs.readFileSync("src/components/operations/PurchasesTab.tsx","utf8");
+assert(controls.includes('label:"Preparar compra",screenId:"mrp"'),"MRP control must link to real screen");
+assert(controls.includes('source:repo+"src/components/operations/MRPTab.tsx"'),"Control must cite the real component");
+assert(guides.includes('id:"ope-mrp-compra"'),"Missing MRP → Compras guide");
+assert(guides.includes('screenId:"mrp",controlLabel:"Preparar compra"'),"Guide must link to the existing control");
+assert(guides.includes('id:"ope-compras"'),"Original Purchases journey must be preserved");
+assert(mrp.includes("need.shortage > 0 && <Button size=\"sm\" onClick={() => preparePurchase(need)}>Preparar compra</Button>"),"No unconditional MRP action");
+assert(mrp.includes("tab: 'purchases'"),"MRP must use purchases tab");
+assert(purchases.includes("planning_source: 'mrp'"),"Purchases must read real MRP planning provenance");
+console.log("UX A+ transversal: sourced controls/routes/guides and OPE MRP consultative journey PASS");
