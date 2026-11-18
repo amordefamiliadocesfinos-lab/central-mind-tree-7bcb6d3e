@@ -141,7 +141,13 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const record = workstreams.find(item=>item.kind==="modulo"&&item.code===module.id);
     const fronts = record ? workstreams.filter(item=>item.kind==="frente"&&item.parent_id===record.id) : [];
     const critical = fronts.filter(front=>front.status==="bloqueado"||front.priority==="critica");
-    return {module,record,fronts,critical,
+    // Mostrar a ação da FRENTE que gerou atenção, nunca substituí-la
+    // silenciosamente pela ação genérica do cadastro do módulo.
+    const focusFront = critical.find(front=>front.next_action.trim()) ?? critical[0]
+      ?? fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())
+      ?? fronts.find(front=>front.status!=="concluido") ?? null;
+    const actionOwner = focusFront ?? record;
+    return {module,record,fronts,critical,focusFront,actionOwner,
       reason:critical.length>0
         ? `${critical.length} frente(s) com bloqueio ou prioridade crítica declarada(s)`
         : record && fronts.length===0
@@ -353,7 +359,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <Badge variant="outline">Leitura do catálogo e do Core</Badge>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {portfolioAttention.map(({module,record,fronts,reason})=>(
+            {portfolioAttention.map(({module,fronts,reason,focusFront,actionOwner})=>(
               <button type="button" key={module.id} onClick={()=>choose(module)}
                 className="nucleo-v22-card-hover rounded-xl border p-4 text-left min-w-0 hover:border-primary/60 hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="flex items-center justify-between gap-2">
@@ -362,7 +368,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 </div>
                 <p className="font-semibold text-sm mt-3">{module.name}</p>
                 <p className="text-xs text-muted-foreground mt-1 min-h-12 leading-relaxed">{reason}</p>
-                <p className="text-xs mt-2 line-clamp-2">Próxima ação: {record?.next_action.trim()||"não cadastrada neste módulo"}</p>
+                {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">Frente em atenção:</span> {focusFront.code} · {focusFront.title}</p>}
+                {focusFront?.blocker.trim() && <p className="text-xs mt-1 leading-relaxed"><span className="font-medium">Bloqueio declarado:</span> {focusFront.blocker}</p>}
+                <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">Próxima ação {focusFront?"da frente":"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
                 <span className="block text-sm font-medium text-primary mt-3">Explorar módulo</span>
               </button>
             ))}
