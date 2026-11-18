@@ -1,0 +1,19 @@
+name: Shopee OAuth Universal Gateway OpenAPI Preparation
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/scripts/prepare-universal-gateway-route.py'
+      - 'services/integration-hub/scripts/test-prepare-universal-gateway-route.py'
+      - '.github/workflows/shopee-oauth-universal-gateway-prep.yml'
+  workflow_dispatch:
+jobs:
+  offline-openapi-delta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate minimal OpenAPI delta against synthetic published contract
+        run: python3 services/integration-hub/scripts/test-prepare-universal-gateway-route.py -v
+      - name: Compile preparer without using GCP credentials
+        run: python3 -m py_compile services/integration-hub/scripts/prepare-universal-gateway-route.py
