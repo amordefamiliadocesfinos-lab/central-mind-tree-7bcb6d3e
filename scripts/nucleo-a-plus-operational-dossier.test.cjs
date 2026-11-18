@@ -116,5 +116,10 @@ for(const status of [401,403,404,500,503])
 for(const kind of ["FunctionsHttpError","FunctionsFetchError","FunctionsRelayError"])
  assert(ac02Read.includes('name==="'+kind+'"'),"AC-02 must differentiate invocation error "+kind);
 assert(ac02Read.includes('explainAc02ReadFailure(invokeError)'),"AC-02 must present classified invoke error instead of generic fallback");
+for(const reason of ["JSON inválido","Corpo inválido","Informe module_code válido e opções booleanas include_review/include_ac02","Utilize módulo operacional externo"])
+ assert(ac02Read.includes(reason),"P3 must recognize known server-side HTTP 400 contract categories: "+reason);
+assert(ac02Read.includes("response.clone().json()"),"P3 must inspect a clone without consuming server response");
+assert(ac02Read.includes("classification=await classifyAc02ContractRejection(invokeError)"),"P3 must present only classified server contract failures");
+assert(!ac02Read.includes("JSON.stringify(parsed)")&&!ac02Read.includes("JSON.stringify(invokeError)"),"P3 must not expose raw server error contents");
 assert(!ac02Read.includes("console.error("),"AC-02 may not log possibly sensitive exceptions");
 console.log("Núcleo A+: CRM and other modules share a read-only guided journey, source and control contract.");
