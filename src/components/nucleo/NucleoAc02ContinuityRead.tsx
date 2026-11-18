@@ -63,6 +63,24 @@ const isRegistry=(value:unknown):value is RegistryEnvelope=>{
    typeof row.observedAt==="string"&&typeof row.source==="string")&&
   Array.isArray(registry.conflicts)&&Array.isArray(registry.missingChecks);
 };
+// P3: expor somente a classe/status da falha autorizada. Nunca retornar tokens,
+// payloads do Core ou texto livre da exceção para a tela.
+function explainAc02ReadFailure(error:unknown):string {
+ const value=error as {name?:unknown;context?:{status?:unknown}}|null;
+ const name=value?.name;
+ const status=value?.context?.status;
+ if(name==="FunctionsFetchError")return "AC-02: falha de rede ao alcançar a função protegida. Conferir conexão e endpoint implantado; consulta não comprovada.";
+ if(name==="FunctionsRelayError")return "AC-02: gateway da função indisponível. Conferir implantação e logs do endpoint; consulta não comprovada.";
+ if(name==="FunctionsHttpError"){
+  if(status===401)return "AC-02: HTTP 401 — sessão ou JWT recusado pela função. Conferir autenticação na mesma sessão; nenhum pacote preparado.";
+  if(status===403)return "AC-02: HTTP 403 — permissão nucleo_manage não confirmada ou negada. Conferir concessão vigente com a autoridade competente; não alterar permissões aqui.";
+  if(status===404)return "AC-02: HTTP 404 — função ou módulo não localizado. Conferir endpoint implantado e cadastro M3 do CRM, sem presumir qual falhou.";
+  if(status===400||status===413)return "AC-02: requisição rejeitada pelo contrato (HTTP "+status+"). Conferir módulo e versão da função implantada.";
+  if(status===503||status===500)return "AC-02: serviço ou leitura protegida indisponível (HTTP "+status+"). Conferir logs da função, configuração e recorte autorizado; nenhum dado certificado.";
+  return "AC-02: função respondeu com falha HTTP "+(typeof status==="number"?status:"não identificada")+". Conferir status e logs sem liberar autoridade.";
+ }
+ return "AC-02: falha não classificada na consulta protegida. Conferir sessão, rede e implantação; nenhum pacote preparado.";
+}
 export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWorkstreams,onViewDocuments,onViewMandates}:{
  moduleId:string;moduleCode:string;
  onViewWorkstreams?:()=>void;onViewDocuments?:()=>void;onViewMandates?:()=>void;
@@ -86,7 +104,7 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     body:{module_code:moduleCode,include_ac02:true,include_assumption_export:true},
    });
    if(id!==counter.current)return;
-   if(invokeError)throw new Error("Consulta protegida indisponível ou não autorizada. Confirme sessão, permissão e implantação no Cloud.");
+   if(invokeError)throw new Error(explainAc02ReadFailure(invokeError));
    const response=data as ReadResponse|null;
    if(response?.contract!=="nucleo_a_plus_ca16_ca18_v1"||
       response.module?.id!==moduleId||response.module.code!==moduleCode||
