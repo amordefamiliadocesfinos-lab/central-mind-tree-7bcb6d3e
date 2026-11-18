@@ -131,4 +131,15 @@ for(const token of [
 ])assert(text.includes(token),"UX-01 foco/contagem/prioridade: "+token);
 assert(text.includes('label:"Módulos no Core", value:summary.modules'),"Contagem operacional deve permanecer no Core");
 assert(text.includes('modules: registeredModules.length'),"Não contar NUC como módulo acompanhado");
+// Work UX01: retorno da ficha deve recuperar busca visível sem limpar o filtro.
+for(const token of [
+ 'const returnToModuleResults=()=>{',
+ 'setLevel("overview");',
+ 'getElementById("nucleo-atlas-module-search")',
+ 'field?.scrollIntoView({behavior:"smooth",block:"center"})',
+ 'field?.focus({preventScroll:true})',
+ 'aria-pressed={level==="overview"} onClick={returnToModuleResults}',
+ 'onClick={returnToModuleResults}>Voltar ao Painel Geral',
+])assert(text.includes(token),"UX-01 retorno contextual: "+token);
+assert.equal((text.match(/onClick=\\{returnToModuleResults\\}/g)||[]).length,2,"Ambas as entradas para Painel Geral devem restaurar busca");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");
