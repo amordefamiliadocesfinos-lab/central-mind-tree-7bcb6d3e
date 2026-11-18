@@ -107,3 +107,29 @@ test('F12.3: read-only slice rejects oversized configuration; never invokes writ
   assert.equal(r.code,'invalid_slice_size');
   assert.equal(calls,0);
 });
+
+test('F12.3: ambiguous or absent pagination flag never silently completes a slice', async () => {
+  for (const more of [undefined, null, 0, 1, 'false', 'true']) {
+    let calls = 0;
+    const readSlice = createAdaoResumableDiscovery({
+      now: clock,
+      readOrders: async () => {
+        calls++;
+        return {
+          ok: true,
+          shop_id: F12_3_SCOPE.shop,
+          order_sns: ['26111200000001'],
+          ...(more === undefined ? {} : { more }),
+          next_cursor: null,
+        };
+      },
+    });
+    const result = await readSlice();
+    assert.equal(result.ok, false, String(more));
+    assert.equal(result.code, 'invalid_page', String(more));
+    assert.equal(result.completed, false, String(more));
+    assert.equal(result.checkpoint, null, String(more));
+    assert.deepEqual(result.page_orders, [], String(more));
+    assert.equal(calls, 1, String(more));
+  }
+});
