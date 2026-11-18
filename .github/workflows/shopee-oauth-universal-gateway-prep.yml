@@ -4,6 +4,8 @@ on:
     paths:
       - 'services/integration-hub/scripts/prepare-universal-gateway-route.py'
       - 'services/integration-hub/scripts/test-prepare-universal-gateway-route.py'
+      - 'services/integration-hub/scripts/export-active-shopee-gateway-candidate.py'
+      - 'services/integration-hub/scripts/test-export-active-shopee-gateway-candidate.py'
       - '.github/workflows/shopee-oauth-universal-gateway-prep.yml'
   workflow_dispatch:
 jobs:
@@ -15,5 +17,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate minimal OpenAPI delta against synthetic published contract
         run: python3 services/integration-hub/scripts/test-prepare-universal-gateway-route.py -v
-      - name: Compile preparer without using GCP credentials
-        run: python3 -m py_compile services/integration-hub/scripts/prepare-universal-gateway-route.py
+      - name: Verify Cloud Shell export refuses changed active Gateway
+        run: python3 services/integration-hub/scripts/test-export-active-shopee-gateway-candidate.py -v
+      - name: Compile preparers without GCP credentials
+        run: |
+          python3 -m py_compile services/integration-hub/scripts/prepare-universal-gateway-route.py
+          python3 -m py_compile services/integration-hub/scripts/export-active-shopee-gateway-candidate.py
