@@ -42,7 +42,7 @@ export const MODULE_CONTROLS_V12:Readonly<Record<string,ReadonlyArray<ModuleCont
   ],
   OPE:[
     {
-      label:"Nova compra",screen:"Operações — Compras / Pedidos de compra",
+      label:"Nova compra",screenId:"purchases",screen:"Operações — Compras / Pedidos de compra",
       prerequisite:"Abrir o setor Compras e conferir fornecedor, itens e condições antes de qualquer registro.",
       observed:"O botão Nova compra chama openEditor no componente PurchasesTab.",
       confirmation:"Conferir o editor; uma compra só é efetiva após o fluxo de gravação e verificação próprios.",
@@ -50,7 +50,7 @@ export const MODULE_CONTROLS_V12:Readonly<Record<string,ReadonlyArray<ModuleCont
       source:repo+"src/components/operations/PurchasesTab.tsx",
     },
     {
-      label:"Central de Fornecedores",screen:"Operações — Compras",
+      label:"Central de Fornecedores",screenId:"purchases",screen:"Operações — Compras",
       prerequisite:"Estar na área de Compras.",
       observed:"O botão alterna purchaseSection para suppliers e exibe SupplierCenter.",
       confirmation:"Conferir que a seção de fornecedores foi exibida.",
