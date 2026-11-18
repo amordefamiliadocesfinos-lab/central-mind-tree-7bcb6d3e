@@ -7,6 +7,7 @@ on:
       - 'supabase/functions/integration-core-bridge/**'
       - 'supabase/functions/shopee-oauth-connect-eligibility/**'
       - 'services/integration-hub/src/core-bridge.mjs'
+      - 'services/integration-hub/tests/fixtures/shopee-f3b-pg-*.sql'
       - '.github/workflows/shopee-oauth-universal-f3b.yml'
   workflow_dispatch:
 jobs:
@@ -53,3 +54,35 @@ jobs:
         run: |
           deno check supabase/functions/shopee-oauth-connect-eligibility/index.ts
           deno check supabase/functions/integration-core-bridge/index.ts
+  disposable-postgres:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: shopee_f3b
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shopee_f3b"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: disposable_only
+      PGDATABASE: shopee_f3b
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check F3-B SQL migrations in disposable database
+        run: |
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3b-pg-setup.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118150000_shopee_oauth_account_grants_f3a.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261118153000_shopee_oauth_handoff_f3b.sql
+          psql -v ON_ERROR_STOP=1 -f services/integration-hub/tests/fixtures/shopee-f3b-pg-assert.sql
