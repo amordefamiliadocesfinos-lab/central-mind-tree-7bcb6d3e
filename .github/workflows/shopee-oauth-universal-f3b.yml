@@ -4,6 +4,9 @@ on:
     paths:
       - 'services/integration-hub/src/shopee-oauth-universal-handoff.*'
       - 'supabase/migrations/20261118153000_shopee_oauth_handoff_f3b.sql'
+      - 'supabase/functions/integration-core-bridge/**'
+      - 'supabase/functions/shopee-oauth-connect-eligibility/**'
+      - 'services/integration-hub/src/core-bridge.mjs'
       - '.github/workflows/shopee-oauth-universal-f3b.yml'
   workflow_dispatch:
 jobs:
@@ -20,3 +23,25 @@ jobs:
         run: node --test services/integration-hub/src/shopee-oauth-universal-handoff.test.mjs
       - name: Check syntax
         run: node --check services/integration-hub/src/shopee-oauth-universal-handoff.mjs
+  bridge-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check bridge and signed action syntax
+        run: |
+          node --check services/integration-hub/src/core-bridge.mjs
+          node --check supabase/functions/integration-core-bridge/handler.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install npm dependencies
+        run: deno install
+      - name: Check handoff issuer and Core Bridge
+        run: |
+          deno check supabase/functions/shopee-oauth-connect-eligibility/index.ts
+          deno check supabase/functions/integration-core-bridge/index.ts
