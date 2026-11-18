@@ -9,6 +9,7 @@ import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs'
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
+import { handleUniversalShopeeStart } from './shopee-oauth-universal-start.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
 import { refreshShopeeOauthOnce } from './shopee-oauth-refresh-once.mjs';
@@ -61,6 +62,8 @@ export async function handleRequest(
     logEvent = (event) => console.log(JSON.stringify(event)),
   } = {},
 ) {
+  const universalStartResponse = await handleUniversalShopeeStart(request);
+  if (universalStartResponse) return universalStartResponse;
   const shopeeLiveResponse = await handleShopeeLive(request);
   if (shopeeLiveResponse) return shopeeLiveResponse;
 

@@ -1,0 +1,47 @@
+name: Shopee OAuth F4 Candidate Packaging
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/Dockerfile'
+      - 'services/integration-hub/src/shopee-oauth-*.mjs'
+      - 'supabase/config.toml'
+      - 'services/integration-hub/scripts/check-shopee-oauth-candidate-source.py'
+      - '.github/workflows/shopee-oauth-f4-candidate-packaging.yml'
+  workflow_dispatch:
+jobs:
+  candidate-docker-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Hub image without cloud credentials or registry push
+        run: docker build --pull -f services/integration-hub/Dockerfile -t shopee-oauth-f4-candidate:ci .
+      - name: Verify image can start with OAuth disabled by default
+        run: |
+          docker run -d --name oauth-f4-check -p 127.0.0.1:18080:8080             -e NODE_ENV=production             shopee-oauth-f4-candidate:ci
+          trap 'docker logs oauth-f4-check 2>&1 | tail -n 15; docker rm -f oauth-f4-check >/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/health >/dev/null
+          status=$(curl -sS -o /tmp/oauth-f4-response -w '%{http_code}'             http://127.0.0.1:18080/shopee/live/oauth/universal/start)
+          test "$status" = 503
+          if grep -Ei 'token|secret|key' /tmp/oauth-f4-response; then
+            echo 'WARNING: check response language; no secrets should appear'
+            exit 1
+          fi
+          echo "PASS: container starts, /health healthy, universal route default-off=503"
+      - name: Verify candidate source inventory
+        run: python3 services/integration-hub/scripts/check-shopee-oauth-candidate-source.py --repo .
+      - name: Validate explicit JWT protection in Supabase config
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+          config=tomllib.loads(Path('supabase/config.toml').read_text())
+          assert config['functions']['shopee-oauth-connect-eligibility']['verify_jwt'] is True
+          assert config['functions']['integration-core-bridge']['verify_jwt'] is False
+          print('PASS: eligibility verify_jwt=true; signed Core Bridge contract unchanged')
+          PY

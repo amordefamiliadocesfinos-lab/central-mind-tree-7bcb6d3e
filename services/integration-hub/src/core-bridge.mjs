@@ -23,8 +23,13 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   HEALTH: 'health',
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
+  SHOPEE_OAUTH_HANDOFF_CONSUME: 'shopee.oauth_handoff.consume',
+  SHOPEE_OAUTH_UNIVERSAL_STATE_CREATE: 'shopee.oauth_universal_state.create',
+  SHOPEE_OAUTH_UNIVERSAL_STATE_RESOLVE: 'shopee.oauth_universal_state.resolve',
   SHOPEE_OAUTH_CONNECTION_READ: 'shopee.oauth_connection.read',
   SHOPEE_OAUTH_CONNECTION_REFRESH: 'shopee.oauth_connection.refresh',
+  SHOPEE_OAUTH_CONNECTION_REFRESH_CONTEXT: 'shopee.oauth_connection.refresh_context',
+  SHOPEE_OAUTH_CONNECTION_REFRESH_IF_CURRENT: 'shopee.oauth_connection.refresh_if_current',
   SHOPEE_OAUTH_CONNECTION_UPSERT: 'shopee.oauth_connection.upsert',
   SHOPEE_RAW_SHOP_SNAPSHOT_UPSERT: 'shopee.raw_shop_snapshot.upsert',
   SHOPEE_RAW_ORDER_LIST_SNAPSHOT_UPSERT: 'shopee.raw_order_list_snapshot.upsert',
@@ -179,6 +184,21 @@ export async function probeCoreBridge(options = {}) {
     && result.payload?.core === 'reachable';
 }
 
+export function createLiveShopeeUniversalState(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_UNIVERSAL_STATE_CREATE, data });
+}
+export function resolveLiveShopeeUniversalState(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_UNIVERSAL_STATE_RESOLVE, data });
+}
+
+export function consumeLiveShopeeOauthHandoff(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_HANDOFF_CONSUME,
+    data,
+  });
+}
+
 export function createLiveShopeeOauthState(data, options = {}) {
   return callCoreBridgeAction({
     ...options,
@@ -193,6 +213,13 @@ export function consumeLiveShopeeOauthState(data, options = {}) {
     action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_STATE_CONSUME,
     data,
   });
+}
+
+export function readLiveShopeeOauthRefreshContext(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_REFRESH_CONTEXT, data });
+}
+export function refreshLiveShopeeOauthIfCurrent(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_CONNECTION_REFRESH_IF_CURRENT, data });
 }
 
 export function readLiveShopeeOauthConnection(data, options = {}) {
