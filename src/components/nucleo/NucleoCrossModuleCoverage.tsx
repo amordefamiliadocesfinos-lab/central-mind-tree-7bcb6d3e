@@ -31,7 +31,13 @@ export default function NucleoCrossModuleCoverage({
       item.kind==="subfrente" && item.parent_id!==null && frontIds.has(item.parent_id));
     const provenance=MODULE_PROVENANCE[module.id];
     const candidates=MODULE_RECONCILIATION_V12[module.id] ?? [];
-    return {module,record,fronts,subfronts,provenance,candidates};
+    // Evidência transversal: destacar uma frente real, nunca substituir
+    // sua próxima ação pela declaração genérica do cadastro do módulo.
+    const attentionFront=fronts.find(front=>front.status==="bloqueado")
+      ?? fronts.find(front=>front.priority==="critica")
+      ?? fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())
+      ?? fronts.find(front=>front.status!=="concluido") ?? null;
+    return {module,record,fronts,subfronts,provenance,candidates,attentionFront};
   });
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
   const notRegistered=rows.filter(row=>!row.record).length;
@@ -72,7 +78,7 @@ export default function NucleoCrossModuleCoverage({
           aria-pressed={filter==="com_frente"} onClick={()=>setFilter("com_frente")}>Com frente vinculada</Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {visible.map(({module,record,fronts,subfronts,provenance,candidates})=>(
+        {visible.map(({module,record,fronts,subfronts,provenance,candidates,attentionFront})=>(
           <article key={module.id} className="rounded-lg border p-4 space-y-2 min-w-0">
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <span className="font-mono text-xs text-muted-foreground">{module.id}</span>
@@ -81,6 +87,7 @@ export default function NucleoCrossModuleCoverage({
               </Badge>
             </div>
             <h4 className="text-sm font-semibold">{module.name}</h4>
+            <p className="text-xs leading-relaxed"><span className="font-medium">Especialista:</span> {record?.specialist.trim()||module.specialist||"não identificado no cadastro"}</p>
             <p className="text-xs text-muted-foreground">
               Estado do módulo: {record?.status.replaceAll("_"," ") ?? "não cadastrado"} — declarativo
             </p>
@@ -123,9 +130,23 @@ export default function NucleoCrossModuleCoverage({
                 </div>
               </details>
             )}
-            <p className="text-xs line-clamp-3" title={record?.next_action||undefined}>
-              Próxima ação declarada: {record?.next_action.trim() || "não informada"}
-            </p>
+            <div className="rounded-md border bg-muted/20 p-3 space-y-1.5" aria-label={`Atenção do módulo ${module.id}`}>
+              {attentionFront ? (
+                <>
+                  <p className="text-xs font-medium leading-relaxed">Frente em atenção: {attentionFront.code} · {attentionFront.title}</p>
+                  <p className="text-xs text-muted-foreground">Situação declarada: {attentionFront.status.replaceAll("_"," ")}</p>
+                  {attentionFront.blocker.trim() && <p className="text-xs break-words"><span className="font-medium">Bloqueio:</span> {attentionFront.blocker}</p>}
+                  <p className="text-xs break-words"><span className="font-medium">Próxima ação da frente:</span> {attentionFront.next_action.trim()||"não informada no Core"}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">{fronts.length===0
+                    ?"Sem frente M3 vinculada — situação da operação não verificada"
+                    :"Sem frente pendente declarada neste recorte M3 — não equivale a homologação"}</p>
+                  <p className="text-xs break-words"><span className="font-medium">Próxima ação do módulo:</span> {record?.next_action.trim()||"não informada no Core"}</p>
+                </>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={()=>onOpenModule(module)}>
                 Abrir módulo e fontes
