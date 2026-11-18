@@ -50,14 +50,21 @@ export default function NucleoMandateRegistry({modules}:{modules:DevelopmentWork
 
   const entries=useMemo(()=>modules.map(module=>{
     const records=rows.filter(record=>record.module_id===module.id);
-    const decisions=records.filter(record=>record.record_kind!=="proposta");
+    // Uma decisão do módulo não certifica automaticamente outro papel.
+    // Confrontar a identidade declarada no M3 sem transformá-la em mandato.
+    const declaredRole=module.specialist.trim();
+    const matched=declaredRole
+      ? records.filter(record=>record.specialist_role.trim()===declaredRole)
+      : [];
+    const divergentCount=records.length-matched.length;
+    const decisions=matched.filter(record=>record.record_kind!=="proposta");
     const newest=decisions[0];
     const effective=newest?.record_kind==="certificacao"&&
       newest.effective_from!==null&&
       new Date(newest.effective_from).getTime()<=Date.now()&&
       (newest.effective_until===null||new Date(newest.effective_until).getTime()>Date.now());
-    return {module,records,decision:effective?newest:null,
-      state:effective?"certificado":newest?.record_kind==="revogacao"?"revogado":"não certificado"};
+    return {module,records,matched,divergentCount,declaredRole,decision:effective?newest:null,
+      state:!declaredRole?"papel não informado":effective?"certificado":newest?.record_kind==="revogacao"?"revogado":"não certificado"};
   }),[rows,modules]);
 
   return (
@@ -78,13 +85,14 @@ export default function NucleoMandateRegistry({modules}:{modules:DevelopmentWork
       </p>}
       {!loading&&!error&&(
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map(({module,records,decision,state})=>(
+          {entries.map(({module,records,matched,divergentCount,declaredRole,decision,state})=>(
             <article key={module.id} className="border rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-start gap-2">
                 <p className="text-sm font-semibold">{module.code} — {module.title}</p>
                 <Badge variant="outline">{state}</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">{records.length} registro(s) de mandato na consulta</p>
+              <p className="text-xs text-muted-foreground">Papel declarado M3: {declaredRole||"não informado"} · {matched.length} registro(s) correspondentes na consulta</p>
+              {divergentCount>0&&<p className="text-xs text-muted-foreground">{divergentCount} registro(s) de outro papel ou sem correspondência; não certificam esta identidade.</p>}
               {decision?(
                 <div className="space-y-1 text-sm">
                   <p>Função: {decision.specialist_role}</p>
@@ -95,8 +103,9 @@ export default function NucleoMandateRegistry({modules}:{modules:DevelopmentWork
                 </div>
               ):(
                 <p className="text-sm text-muted-foreground">
-                  {state==="revogado" ? "Última decisão formal: revogação. Sem certificação ativa." :
-                    "Nenhuma certificação vigente registrada neste contrato. Mandato do especialista continua pendente."}
+                  {state==="revogado" ? "Última decisão formal deste papel: revogação. Sem certificação ativa." :
+                    state==="papel não informado" ? "Sem papel declarado no M3, não é possível atribuir certificação a esta especialidade." :
+                    "Nenhuma certificação vigente correspondente ao papel declarado foi comprovada. Mandato continua pendente."}
                 </p>
               )}
             </article>

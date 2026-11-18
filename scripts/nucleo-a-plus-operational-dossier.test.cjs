@@ -10,6 +10,7 @@ const discovery=read("src/components/nucleo/NucleoModuleDiscovery.tsx");
 const original=read("src/lib/nucleo/moduleOriginalSourcesV12.ts");
 const crm=read("src/lib/nucleo/operationalKnowledgeV12.ts");
 const authority=read("src/lib/nucleo/crmAuthoritySourcesV12.ts");
+const mandates=read("src/components/nucleo/NucleoMandateRegistry.tsx");
 // CRM shares the same data-backed rendering logic as FIN, OPE and other modules.
 for(const [source,part] of [
  [screens,"CRM:CRM_SCREENS.map("],[controls,"CRM:CRM_ACTIONS.map("],
@@ -93,4 +94,18 @@ assert(original.includes("OPERACOES_ORIGINAL_RECOVERED"),"Operações deve refer
 assert(discovery.includes("não autorizam") && discovery.includes("sem cópia do original"),"Original authority must stay conservative");
 assert(journeys.includes("não executa")||journeys.includes("não envia comando"),"Guided journeys cannot perform writes");
 for(const key of ['FIN:[{','OPE:[{','ROT:[{','CAP:[{'])assert(journeys.includes(key),"Reuse already available for "+key);
+// NT-03: a certificação de outro papel no mesmo módulo nunca valida a
+// identidade declarada do especialista; histórico e revogações são por papel.
+for(const contract of [
+ "const declaredRole=module.specialist.trim()",
+ 'record.specialist_role.trim()===declaredRole',
+ 'const divergentCount=records.length-matched.length',
+ 'const decisions=matched.filter(record=>record.record_kind!=="proposta")',
+ 'state:!declaredRole?"papel não informado"',
+ "não certificam esta identidade",
+ "Nenhuma certificação vigente correspondente ao papel declarado",
+]) assert(mandates.includes(contract),"NT-03 mandate identity segregation missing: "+contract);
+assert(!mandates.includes('const decisions=records.filter(record=>record.record_kind!=="proposta")'),
+ "NT-03 mandate must not certify a role using unrelated module decisions");
+
 console.log("Núcleo A+: CRM and other modules share a read-only guided journey, source and control contract.");
