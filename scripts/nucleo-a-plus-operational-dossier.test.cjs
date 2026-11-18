@@ -36,6 +36,28 @@ for(const [,id,label] of actionRecords){
 }
 assert(controls.includes("screenId:action.screenId"),"CRM controls must carry canonical screen identity to consumers");
 
+// NT-02: the same module contract must resolve both CRM and Operations.
+// Operations uses the inherited purchase catalog; no parallel schema or UX resolver.
+const operationsScreens=screens.slice(screens.indexOf(" OPE:["),screens.indexOf(" ROT:[",screens.indexOf(" OPE:[")));
+const operationsControls=controls.slice(controls.indexOf("  OPE:["),controls.indexOf("  ROT:[",controls.indexOf("  OPE:[")));
+const operationsJourneys=journeys.slice(journeys.indexOf("  OPE:[{"),journeys.indexOf("  ROT:[{",journeys.indexOf("  OPE:[{")));
+assert(operationsScreens.includes('screen("purchases"') && operationsScreens.includes('"/operacoes?tab=purchases"'),"Operations purchase route must retain its verified module tab");
+for(const label of ["Nova compra","Central de Fornecedores"])
+  assert(operationsControls.includes('label:"'+label+'",screenId:"purchases"'),"Operations control must reference canonical purchases screen: "+label);
+const oeSteps=[...operationsJourneys.matchAll(/\{screenId:"([^"]+)"(?:,controlLabel:"([^"]+)")?/g)];
+assert.equal(oeSteps.length,3,"Pilot Operations purchase journey must keep its three verified steps");
+for(const [,screenId,controlLabel] of oeSteps){
+  assert.equal(screenId,"purchases","Operations purchase journey must not refer to other module screens");
+  if(controlLabel)assert(operationsControls.includes('label:"'+controlLabel+'",screenId:"'+screenId+'"'),"Operations procedure control/screen relationship missing: "+controlLabel);
+}
+for(const moduleKey of ["CRM","OPE"]){
+  assert(screens.includes(" "+moduleKey+":"),"Shared screens catalog missing module "+moduleKey);
+  assert(controls.includes(" "+moduleKey+":"),"Shared controls catalog missing module "+moduleKey);
+  assert(journeys.includes(" "+moduleKey+":"),"Shared journeys catalog missing module "+moduleKey);
+}
+assert(original.includes("OPERACOES_ORIGINAL_RECOVERED"),"Operations must preserve source provenance instead of copying originals");
+
+
 // NT-01: existing read-only CRM procedure references must point to a real control
 // on the SAME canonical screen, never merely to a matching free-text label.
 const crmJourneySection=journeys.slice(journeys.indexOf(" CRM:[{"),journeys.indexOf("  FIN:[{"));
