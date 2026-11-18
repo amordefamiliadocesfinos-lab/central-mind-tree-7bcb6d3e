@@ -1,0 +1,20 @@
+name: Shopee Universal F4 Readonly Preflight
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/scripts/shopee-universal-f4-readonly-preflight.sh'
+      - 'services/integration-hub/scripts/check-shopee-universal-published-openapi.py'
+      - 'services/integration-hub/scripts/test-shopee-universal-published-openapi.py'
+      - '.github/workflows/shopee-universal-f4-readonly-preflight.yml'
+  workflow_dispatch:
+jobs:
+  offline-preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Cloud Shell script syntax; never call GCP in CI
+        run: bash -n services/integration-hub/scripts/shopee-universal-f4-readonly-preflight.sh
+      - name: Test published OpenAPI route validator with synthetic fixtures
+        run: python3 -m unittest discover -s services/integration-hub/scripts -p 'test-shopee-universal-published-openapi.py' -v
