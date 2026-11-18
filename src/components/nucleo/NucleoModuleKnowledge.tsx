@@ -427,7 +427,25 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             </article>)}
           </div>}
         </section>}
-      {moduleCode==="CRM"&&section==="FM-09"&&<section
+      {moduleCode==="CRM"&&section==="FM-08"&&<section
+         aria-label="Método e ecossistema CRM — referências consultivas não certificadas"
+         className="rounded-md border p-3 space-y-2">
+         <h5 className="text-sm font-semibold">Método e ecossistema — distinção documental</h5>
+         {CRM_AUTHORITY_SOURCES_V12.filter(item=>["CRM-PROCESSO","CRM-09.01"].includes(item.id)).map(item=><div
+           key={item.id} className="rounded border p-2 text-xs space-y-1">
+           <p className="font-semibold">{item.id==="CRM-PROCESSO"?"Candidato a método comercial":"Referência do ecossistema operacional"}: {item.title}</p>
+           <p>Estado indicado na fonte: {item.sourceStatus}</p>
+           <p className="text-muted-foreground">Limite: {item.reconciliation}</p>
+           <p className="break-all text-muted-foreground">Origem: {item.archive} / {item.originalFile}</p>
+         </div>)}
+         <p className="text-xs text-muted-foreground">
+           Referências distintas não comprovam designação formal de dois documentos vigentes.
+           O Dicionário 09.03 permanece indicado como pronto para homologação no arquivo original;
+           a citação posterior pelo Mapa 09.04 não certifica sua vigência.
+           Não há revisão FM-08 homologada nem mandato certificado no Core por este índice.
+         </p>
+       </section>}
+       {moduleCode==="CRM"&&section==="FM-09"&&<section
          aria-label="Marcos documentais de continuidade CRM — não homologação automática"
          className="rounded-md border p-3 space-y-3">
          <h5 className="text-sm font-semibold">Marcos documentais do CRM — fonte e limite</h5>
