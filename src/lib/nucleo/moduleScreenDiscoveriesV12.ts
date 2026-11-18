@@ -16,11 +16,9 @@ const screen=(id:string,name:string,area:string,description:string,route:string|
 const onlyTab="O botão abre uma área da interface, não comprova gravação, integração ou procedimento homologado.";
 const checkTab="Conferir o título/aba selecionada na interface autenticada, sem acionar comandos de escrita.";
 export const MODULE_SCREENS_V12:Readonly<Record<string,ReadonlyArray<ModuleScreenDiscovery>>>={
- CRM:CRM_SCREENS.map((item,index)=>({
-  id:["contatos","inbox","tarefas"][index],
-  name:item.label,area:"Atendimento",description:
-   index===0?"Fila e visão do contato no CRM":
-   index===1?"Caixa de atendimentos e conversa contextual":"Tarefas vinculadas a contatos",
+ CRM:CRM_SCREENS.map(item=>({
+  id:item.id,
+  name:item.label,area:"Atendimento",description:item.description,
   route:item.route,source:item.source,
   navigation:"rota_verificada" as const,
   check:"Confirmar rota e contexto da tela na sessão autorizada; não alterar contatos em inspeção.",
