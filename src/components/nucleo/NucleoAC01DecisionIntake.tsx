@@ -38,7 +38,7 @@ export default function NucleoAC01DecisionIntake({
  setJustification("");setFeedback("");requestRef.current=null;uncertain.current=false;},[moduleId,contributionId]);
  useEffect(()=>{
   let active=true;setReading(true);setError("");setRows([]);
-  void db.from("nucleo_ac01_decision_requests").select("*")
+  void Promise.resolve(db.from("nucleo_ac01_decision_requests").select("*")
     .eq("module_id",moduleId).eq("contribution_id",contributionId)
     .order("recorded_at",{ascending:false}).limit(100)
     .then(result=>{
@@ -55,7 +55,7 @@ export default function NucleoAC01DecisionIntake({
       }
      }
      setReading(false);
-    }).catch(()=>{if(active){setError("Falha de leitura. Reconsultar antes de escrever.");setReading(false);}});
+    })).catch(()=>{if(active){setError("Falha de leitura. Reconsultar antes de escrever.");setReading(false);}});
   return ()=>{active=false};
  },[moduleId,contributionId,tick]);
  const save=async()=>{
@@ -69,11 +69,14 @@ export default function NucleoAC01DecisionIntake({
   setSaving(true);setFeedback("");
   const requestId=requestRef.current??crypto.randomUUID();requestRef.current=requestId;
   try{
+   const auth=await supabase.auth.getUser();
+   if(auth.error||!auth.data.user){requestRef.current=null;setFeedback("Sessão não confirmada; nenhuma solicitação enviada.");return;}
    const insert=await db.from("nucleo_ac01_decision_requests").insert({
     contribution_id:contributionId,module_id:moduleId,review_event_id:referral,
     requested_outcome:outcome,authority_source_locator:source,
     authority_decision_ref:evidence.trim(),justification:clean,
     candidate_decider_auth_uid:null,request_id:requestId,
+    submitter_auth_uid:auth.data.user.id,
    }).select("*").maybeSingle();
    if(insert.error||!insert.data){uncertain.current=true;setFeedback("Gravação indeterminada. Reconsultar; não duplicar.");return;}
    const check=await db.from("nucleo_ac01_decision_requests").select("*").eq("id",insert.data.id).maybeSingle();

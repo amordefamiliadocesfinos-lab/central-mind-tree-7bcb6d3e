@@ -27,7 +27,7 @@ export default function NucleoAC01ReviewContinuityRead({
  useEffect(()=>{
   let active=true;
   setRecords([]);setLoading(true);setError("");setReadAt("");
-  void db.from("nucleo_ac01_review_events").select("*")
+  void Promise.resolve(db.from("nucleo_ac01_review_events").select("*")
    .eq("module_id",moduleId).eq("contribution_id",contributionId)
    .order("recorded_at",{ascending:true}).limit(LIMIT)
    .then(result=>{
@@ -38,7 +38,7 @@ export default function NucleoAC01ReviewContinuityRead({
      setRecords(result.data);setReadAt(new Date().toISOString());
     }
     setLoading(false);
-   }).catch(()=>{if(active){setError("Leitura interrompida; reconsulte a trilha.");setLoading(false);}});
+   })).catch(()=>{if(active){setError("Leitura interrompida; reconsulte a trilha.");setLoading(false);}});
   return()=>{active=false};
  },[moduleId,contributionId,refresh]);
  const summary=useMemo(()=>summarizeAc01ReviewContinuity(moduleId,contributionId,records),

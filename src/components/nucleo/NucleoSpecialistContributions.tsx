@@ -104,7 +104,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;pendingAttemptRef.current=null;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
-   void db.from("nucleo_specialist_contributions").select("*")
+   void Promise.resolve(db.from("nucleo_specialist_contributions").select("*")
     .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(LIMIT)
     .then(result=>{
       if(!mounted)return;
@@ -127,7 +127,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
         }
       }
       setReading(false);
-    }).catch(()=>{
+    })).catch(()=>{
       if(mounted){setReadError("Leitura interrompida. Reconsulte o Core antes de registrar.");setReading(false);}
     });
    return()=>{mounted=false};
@@ -180,6 +180,8 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      authorityState:parent?"em_evolucao":"proposta",
    };
    try{
+     const auth=await supabase.auth.getUser();
+     if(auth.error||!auth.data.user){setFeedback("Sessão não confirmada; nenhuma proposta enviada.");return;}
      const fields=witnessFieldsAc01({
        request_id:requestId,module_id:moduleId,specialist_role:cleanRole,
        contribution_kind:kind,title:cleanTitle,source_kind:sourceKind,
@@ -198,6 +200,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        module_id:moduleId,specialist_role:cleanRole,contribution_kind:kind,title:cleanTitle,
        source_kind:sourceKind,source_locator:cleanSource,source_checksum_sha256:checksum.trim()||null,
        note:cleanNote,request_id:requestId,parent_revision_id:parent?.id??null,
+       recorded_by_auth_uid:auth.data.user.id,
      }).select("*").maybeSingle();
      if(result.error||!result.data){uncertainRef.current=true;
        setFeedback("Gravação não confirmada: não repita a proposta. Reconsulte e confira o request_id antes de qualquer nova ação.");return;}
