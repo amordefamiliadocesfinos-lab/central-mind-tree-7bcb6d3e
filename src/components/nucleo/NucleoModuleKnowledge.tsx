@@ -427,7 +427,59 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             </article>)}
           </div>}
         </section>}
-      {section==="FM-09"&&<section className="rounded-md border p-3 space-y-3"
+      {moduleCode==="CRM"&&section==="FM-08"&&<section
+         aria-label="Método e ecossistema CRM — referências consultivas não certificadas"
+         className="rounded-md border p-3 space-y-2">
+         <h5 className="text-sm font-semibold">Método e ecossistema — distinção documental</h5>
+         {CRM_AUTHORITY_SOURCES_V12.filter(item=>["CRM-PROCESSO","CRM-09.01"].includes(item.id)).map(item=><div
+           key={item.id} className="rounded border p-2 text-xs space-y-1">
+           <p className="font-semibold">{item.id==="CRM-PROCESSO"?"Candidato a método comercial":"Referência do ecossistema operacional"}: {item.title}</p>
+           <p>Estado indicado na fonte: {item.sourceStatus}</p>
+           <p className="text-muted-foreground">Limite: {item.reconciliation}</p>
+           <p className="break-all text-muted-foreground">Origem: {item.archive} / {item.originalFile}</p>
+         </div>)}
+         <p className="text-xs text-muted-foreground">
+           Referências distintas não comprovam designação formal de dois documentos vigentes.
+           O Dicionário 09.03 permanece indicado como pronto para homologação no arquivo original;
+           a citação posterior pelo Mapa 09.04 não certifica sua vigência.
+           Não há revisão FM-08 homologada nem mandato certificado no Core por este índice.
+         </p>
+       </section>}
+       {moduleCode==="CRM"&&section==="FM-09"&&<section
+         aria-label="Marcos documentais de continuidade CRM — não homologação automática"
+         className="rounded-md border p-3 space-y-3">
+         <h5 className="text-sm font-semibold">Marcos documentais do CRM — fonte e limite</h5>
+         <p className="text-xs text-muted-foreground">
+           Referências consultivas do índice de proveniência existente. O marco formal do Estado
+           Vigente não se confunde com os checkpoints técnicos mais recentes, com revisão FM-09
+           registrada no Core ou com homologação operacional atual.
+         </p>
+         {CRM_AUTHORITY_SOURCES_V12.filter(item=>item.id==="CRM-ESTADO").map(item=><div
+           key={item.id} className="rounded border p-2 text-xs space-y-1">
+           <p className="font-semibold">Marco formal localizado: {item.title} · {item.version}</p>
+           <p>Estado declarado na fonte: {item.sourceStatus}</p>
+           <p className="text-muted-foreground">Limite: {item.reconciliation}</p>
+           <p className="break-all text-muted-foreground">Origem: {item.archive} / {item.originalFile}</p>
+         </div>)}
+         <details className="rounded border p-2 text-xs">
+           <summary className="cursor-pointer font-semibold">
+             Checkpoints posteriores — técnicos e de sucessão ({CRM_CONTINUITY_CHECKPOINTS_V12.length})
+           </summary>
+           <div className="mt-2 space-y-2">
+             {CRM_CONTINUITY_CHECKPOINTS_V12.map(item=><div key={item.id} className="rounded border p-2 space-y-1">
+               <p className="font-semibold">{item.date} · {item.title}</p>
+               <p>Estado documental: {item.state}</p>
+               <p className="text-muted-foreground">Limite: {item.action}</p>
+               <p className="break-all text-muted-foreground">Origem: {item.sourceLocation} / {item.originalFile}</p>
+             </div>)}
+           </div>
+         </details>
+         <p className="text-xs text-muted-foreground">
+           Último checkpoint operacional formalmente aprovado após 03/10/2026: não comprovado
+           neste índice. FM-09 no Core e mandato do especialista exigem certificações próprias.
+         </p>
+       </section>}
+       {section==="FM-09"&&<section className="rounded-md border p-3 space-y-3"
         aria-label="Evolução declarada e histórico M3 do módulo">
         <h5 className="text-sm font-semibold">Desenvolvimento relacionado — registros M3/M4</h5>
         <p className="text-xs text-muted-foreground">
