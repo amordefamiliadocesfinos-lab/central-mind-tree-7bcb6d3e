@@ -155,7 +155,7 @@ export default function NucleoCrossModuleCoverage({
               {attentionFront && <Button type="button" variant="outline" size="sm"
                 onClick={()=>onOpenWorkstream(attentionFront.id)}>
                 Abrir ficha da frente {attentionFront.code}
-              </Button>
+              </Button>}
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3
               </Button>}
