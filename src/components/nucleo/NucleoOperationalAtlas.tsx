@@ -300,25 +300,28 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     setAc01Request(previous=>({stage,seq:(previous?.seq??0)+1}));
     selectModuleArea("especialista");
   };
-  const openCrmStage = (stage: CrmStage) => {
+  // A mesma jornada da ficha existe para TODOS os módulos do catálogo.
+  // Telas, funções e roteiros vêm do inventário real; lacunas permanecem explícitas.
+  const openModuleStage = (stage: CrmStage) => {
     const area: ModuleSection = stage === "especialista" ? "especialista"
       : stage === "conhecimento" ? "conhecimento"
       : stage === "desenvolvimento" || stage === "evidencias" ? "desenvolvimento"
       : "funcoes";
     selectModuleArea(area);
+    const prefix = selectedId==="CRM" ? "nucleo-crm-" : "nucleo-module-"+selectedId?.toLowerCase()+"-";
     const anchors: Partial<Record<CrmStage,string>> = {
-      modulo:"nucleo-crm-module-summary",
-      telas:"nucleo-crm-screens",
-      funcionalidades:"nucleo-crm-controls",
-      procedimentos:"nucleo-crm-procedures",
-      evidencias:"nucleo-crm-evidence",
+      modulo:"nucleo-atlas-module-heading",
+      telas:prefix+"screens",
+      funcionalidades:prefix+"controls",
+      procedimentos:prefix+"procedures",
+      evidencias:"nucleo-module-evidence",
     };
     const anchor = anchors[stage];
-    if(anchor) requestAnimationFrame(()=>{
+    if(anchor) requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const element=document.getElementById(anchor);
       element?.scrollIntoView({behavior:"smooth",block:"start"});
       if (element instanceof HTMLElement && element.tabIndex >= 0) element.focus({preventScroll:true});
-    });
+    }));
   };
   return (
     <section className="space-y-3" aria-label="Atlas operacional do Painel Central — piloto V1.2">
@@ -535,16 +538,16 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               {selected.coverage==="piloto_parcial"?"Ficha parcial":"Cobertura não verificada"}
             </Badge>
           </div>
-          {selected.id==="CRM" && (
-            <nav aria-label="Jornada funcional CRM — consulta do Núcleo"
+          {(
+            <nav aria-label={"Jornada funcional — "+selected.name}
               className="rounded-2xl border border-[#d2e3fc] bg-[#e8f0fe] p-3 dark:border-blue-900 dark:bg-blue-950/30">
-              <p className="text-sm font-semibold text-[#174ea6] dark:text-blue-200">Explore o CRM por intenção</p>
+              <p className="text-sm font-semibold text-[#174ea6] dark:text-blue-200">Explore o módulo por intenção</p>
               <p className="mb-2 text-xs text-[#3c4043] dark:text-slate-300">
                 Escolha diretamente o que precisa entender. Não é necessário seguir a ordem.
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
                 {CRM_STAGE_NAV.map((step,index)=>(
-                  <button key={step.id} type="button" onClick={()=>openCrmStage(step.id)}
+                  <button key={step.id} type="button" onClick={()=>openModuleStage(step.id)}
                     className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl border border-[#c6dafc] bg-white px-2 py-2 text-left text-xs font-semibold text-[#174ea6] hover:bg-[#f4f8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] dark:border-blue-900 dark:bg-slate-900 dark:text-blue-200">
                     <span className="shrink-0 rounded-full bg-[#e8f0fe] px-2 py-1 tabular-nums dark:bg-blue-950">{index+1}</span>
                     <span className="break-words">{step.label}</span>
@@ -771,7 +774,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <div className="rounded-lg border p-3 space-y-2">
                 <h4 className="font-semibold text-sm">Frentes reais vinculadas no Core</h4>
                 <p className="text-xs text-muted-foreground">Estado declarado pela governança, diferente de implantação, aceite e uso real. Provas M4 são registros históricos consultados sob permissão; não são verificação GitHub ao vivo.</p>
-                <div id="nucleo-crm-evidence" className="flex scroll-mt-28 flex-wrap items-center gap-2" tabIndex={-1}>
+                <div id="nucleo-module-evidence" className="flex scroll-mt-28 flex-wrap items-center gap-2" tabIndex={-1}>
                   <Badge variant="outline">{selectedFronts.length} frente(s) direta(s)</Badge>
                   <Badge variant="outline">{selectedSubfronts.length} subfrente(s) vinculada(s)</Badge>
                   <Button type="button" size="sm" variant="outline"
