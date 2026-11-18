@@ -417,3 +417,128 @@ test('Celivio callback rejects another shop ID before token exchange', async () 
   assert.equal(f.connections.length, 0);
   assert.equal(f.snapshots.length, 0);
 });
+
+
+test('Celivio console bookmark now sends the secure cookie with the signed Shopee redirect', async () => {
+  let stored;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    makeState: () => 'console-test-state',
+    now: () => 1700000000000,
+    createState: async value => { stored = value; return { ok: true }; },
+    sign: async () => ({ timestamp: 1700000000, sign: 'synthetic-signature' }),
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  const result = await handler({ method: 'GET', path, query: { via: 'console' }, headers: {} });
+  assert.equal(result.status, 302);
+  const authorization = new URL(result.headers.Location);
+  assert.equal(authorization.origin + authorization.pathname, 'https://partner.shopeemobile.com/api/v2/shop/auth_partner');
+  assert.equal(authorization.searchParams.get('partner_id'), '2047685');
+  assert.equal(authorization.searchParams.get('redirect'), CONFIG.SHOPEE_LIVE_REDIRECT_URI);
+  assert.equal(authorization.searchParams.get('sign'), 'synthetic-signature');
+  assert.equal(result.headers['Set-Cookie'], '__Host-pc_shopee_live_state=celivio.console-test-state; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax');
+  assert.equal(stored.channel_account_id, 'd26c7a30-aa4a-4441-8012-600d70453689');
+  assert.equal(stored.state_hash, sha256Hex('celivio.console-test-state'));
+  assert.ok(Number.isFinite(Date.parse(stored.expires_at)));
+  assert.equal(Date.parse(stored.expires_at) - 1700000000000, 600000);
+});
+
+
+test('Celivio console bookmark rejects destination injection and does not create state', async () => {
+  let created = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'true', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    createState: async () => { created++; return { ok: true }; },
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  for (const query of [
+    { via: 'console', account: 'adao' },
+    { via: 'console', shop_id: '1156446003' },
+    { via: 'console', utm_source: 'chatgpt.com' },
+    { via: 'another' },
+  ]) {
+    const result = await handler({ method: 'GET', path, query, headers: {} });
+    assert.equal(result.status, 400);
+  }
+  assert.equal(created, 0);
+});
+
+test('Celivio console bookmark stays OFF when its authorization flag is disabled', async () => {
+  let created = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => ({ ...CONFIG, SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED: 'false', SHOPEE_LIVE_CELIVIO_SHOP_ID: '1357031949' })[key],
+    createState: async () => { created++; return { ok: true }; },
+  });
+  const result = await handler({ method: 'GET', path: '/shopee/live/oauth/celivio/start', query: { via: 'console' }, headers: {} });
+  assert.equal(result.status, 503);
+  assert.equal(created, 0);
+});
+
+
+test('Celivio direct consent completes the existing one-time callback only for its shop', async () => {
+  const ACCOUNT = 'd26c7a30-aa4a-4441-8012-600d70453689';
+  const SHOP = '1357031949';
+  const f = oauthFixture({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? SHOP : adaoEnv(key),
+  });
+  const path = '/shopee/live/oauth/celivio/start';
+  const { response, cookie, state } = await f.start(path, { via: 'console' });
+  assert.equal(response.status, 302);
+  assert.match(state, /^celivio\./);
+  assert.equal(f.states.get(sha256Hex(state)).channel_account_id, ACCOUNT);
+  assert.equal((await f.callback(cookie, { code: 'synthetic', shop_id: '1156446003' })).status, 409);
+  assert.equal(f.connections.length, 0);
+  assert.equal(f.exchanges.length, 0);
+  // A rejected callback consumes the one-time state by design. The operator
+  // must start a fresh authorization rather than reuse that cookie.
+  const retry = await f.start(path, { via: 'console' });
+  assert.equal(retry.response.status, 302);
+  assert.equal((await f.callback(retry.cookie, { code: 'synthetic', shop_id: SHOP })).status, 200);
+  assert.equal(f.connections.length, 2);
+  assert.ok(f.connections.every(c => c.channel_account_id === ACCOUNT && String(c.shop_id) === SHOP));
+  assert.equal((await f.callback(retry.cookie, { code: 'replay', shop_id: SHOP })).status, 409);
+  assert.equal(f.connections.length, 2);
+});
+
+test('Adao console entry still serves its existing preparation page', async () => {
+  const f = oauthFixture();
+  const { response, state } = await f.start(ADAO_START, { via: 'console' });
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Shopee Open Platform/);
+  assert.equal(f.states.get(sha256Hex(state)).channel_account_id, ADAO_ACCOUNT);
+});
+
+test('Callback distinguishes missing cookie from missing authorization data without contacting Core', async () => {
+  const f = oauthFixture({
+    consumeState: async () => assert.fail('No state should be consumed'),
+  });
+  const { cookie } = await f.start();
+  const missingCookie = await f.callback(undefined);
+  assert.equal(missingCookie.status, 400);
+  assert.match(missingCookie.body, /Sessão OAuth não encontrada/);
+  const missingCode = await f.callback(cookie, { shop_id: String(ADAO_SHOP) });
+  assert.equal(missingCode.status, 400);
+  assert.match(missingCode.body, /Autorização Shopee incompleta/);
+  assert.equal(f.exchanges.length, 0);
+  assert.equal(f.connections.length, 0);
+});
+
+test('Core state failure prevents redirect or exchange and suppresses thrown diagnostics', async () => {
+  const logs = [];
+  const unavailableStart = oauthFixture({ createState: async () => ({ ok: false, status: 502 }) });
+  const { response } = await unavailableStart.start();
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.Location, undefined);
+  assert.equal(response.headers['Set-Cookie'], undefined);
+
+  const unavailableCallback = oauthFixture({
+    consumeState: async () => { throw new Error('synthetic sensitive context'); },
+    logger: entry => logs.push(entry),
+  });
+  const { cookie } = await unavailableCallback.start();
+  assert.equal((await unavailableCallback.callback(cookie)).status, 503);
+  assert.deepEqual(logs, [{ event: 'shopee_live_oauth_unavailable' }]);
+  assert.equal(unavailableCallback.exchanges.length, 0);
+  assert.equal(unavailableCallback.connections.length, 0);
+});
