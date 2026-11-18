@@ -19,6 +19,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.adao_f12.resume',
   'shopee.oauth_state.create',
   'shopee.oauth_state.consume',
+  'shopee.oauth_handoff.consume',
   'shopee.oauth_connection.read',
   'shopee.oauth_connection.refresh',
   'shopee.oauth_connection.upsert',
@@ -153,6 +154,10 @@ function validateActionPayload(payload, nowMs) {
       && Number.isFinite(expiresAt)
       && expiresAt > nowMs
       && expiresAt <= nowMs + STATE_MAX_TTL_MS;
+  }
+
+  if (payload.action === 'shopee.oauth_handoff.consume') {
+    return hasExactKeys(payload, ['action', 'ticket_hash']) && SHA256.test(payload.ticket_hash);
   }
 
   if (payload.action === 'shopee.oauth_state.consume') {
