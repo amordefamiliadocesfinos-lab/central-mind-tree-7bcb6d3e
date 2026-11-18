@@ -35,6 +35,28 @@ for(const [,id,label] of actionRecords){
   assert(id==="contatos"||id==="inbox","CRM control screen must be backed by an operational source");
 }
 assert(controls.includes("screenId:action.screenId"),"CRM controls must carry canonical screen identity to consumers");
+
+// NT-01: existing read-only CRM procedure references must point to a real control
+// on the SAME canonical screen, never merely to a matching free-text label.
+const crmJourneySection=journeys.slice(journeys.indexOf(" CRM:[{"),journeys.indexOf("  FIN:[{"));
+assert(crmJourneySection.startsWith(" CRM:[{"),"CRM journey section must exist");
+const journeySteps=[...crmJourneySection.matchAll(/\{screenId:"([^"]+)"(?:,controlLabel:"([^"]+)")?/g)];
+const crmControlsByLabel=new Map(actionRecords.map(([,id,label])=>[label,id]));
+assert(journeySteps.length>0,"CRM must retain its documented consultation steps");
+const matchedControlLabels=new Set();
+for(const [,stepScreen,label] of journeySteps){
+  assert(screenIds.has(stepScreen),"CRM procedure uses an unknown screen: "+stepScreen);
+  if(!label)continue;
+  assert(crmControlsByLabel.has(label),"CRM procedure uses an unknown control: "+label);
+  assert.equal(crmControlsByLabel.get(label),stepScreen,"CRM procedure links control to wrong screen: "+label);
+  assert(!matchedControlLabels.has(label),"CRM procedure repeats a control ambiguously: "+label);
+  matchedControlLabels.add(label);
+}
+assert(matchedControlLabels.size>0,"CRM procedure-to-control links must not disappear");
+// Coverage is intentionally partial until UX/content PR #913 is reconciled.
+// Do not invent consultation steps, promote them to homologated procedures or
+// modify the UX-owned renderer merely to satisfy this technical contract.
+
 for(const key of ["label:action.label","observed:action.expectedEffect","confirmation:action.confirmation","limitation:action.limit"])
   assert(controls.includes(key),"CRM controls must preserve original contract: "+key);
 for(const label of ["Registrar resultado","Confirmar resultado","Próximo atendimento","Adiar atendimento","Concluir","Reabrir"])
