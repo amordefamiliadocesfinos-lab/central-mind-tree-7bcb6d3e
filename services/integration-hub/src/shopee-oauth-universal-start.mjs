@@ -1,9 +1,9 @@
 // Universal OAuth F3-B start: wired behind default-off gate.
 // The universal callback is intentionally rejected by the legacy handler until F3-C.
 import { randomBytes, createHash } from 'node:crypto';
-import { consumeLiveShopeeOauthHandoff, createLiveShopeeOauthState } from './core-bridge.mjs';
+import { consumeLiveShopeeOauthHandoff, createLiveShopeeUniversalState } from './core-bridge.mjs';
 import { signPublicRequest } from './connectors/shopee-protocol.mjs';
-import { hashHandoffTicket, validateHandoffConsumeResult } from './shopee-oauth-universal-handoff.mjs';
+import { hashHandoffTicket, validApprovedUniversalIdentity } from './shopee-oauth-universal-handoff.mjs';
 
 const ROUTE = '/shopee/live/oauth/universal/start';
 const CALLBACK = 'https://integration-hub-oauth-bh4c23q1.ue.gateway.dev/shopee/live/oauth/callback';
@@ -18,7 +18,7 @@ function respond(status, message) {
 export function createUniversalShopeeStartHandler({
   getEnv = (key) => process.env[key],
   consumeHandoff = consumeLiveShopeeOauthHandoff,
-  createState = createLiveShopeeOauthState,
+  createState = createLiveShopeeUniversalState,
   sign = signPublicRequest,
   now = Date.now,
   makeState = () => randomBytes(32).toString('base64url'),
@@ -42,12 +42,15 @@ export function createUniversalShopeeStartHandler({
     }
     try {
       const consumed = await consumeHandoff({ ticket_hash: ticketHash });
-      const target = validateHandoffConsumeResult(consumed, [partnerId]);
+      const target = consumed?.ok ? validApprovedUniversalIdentity(consumed.payload, partnerId) : null;
       if (!target) return respond(409, 'Ticket expirado ou não autorizado');
       const state = 'universal.' + makeState();
       const persisted = await createState({
         state_hash: createHash('sha256').update(state).digest('hex'),
         channel_account_id: target.channel_account_id,
+        auth_user_id: target.auth_user_id,
+        partner_id: target.partner_id,
+        shop_id: target.shop_id,
         expires_at: new Date(now() + TTL_MS).toISOString(),
       });
       if (!persisted?.ok) return respond(503, 'Não foi possível preparar o estado OAuth');
