@@ -13709,6 +13709,35 @@ export type Database = {
           },
         ]
       }
+      shopee_oauth_account_grants: {
+        Row: {
+          auth_user_id: string
+          channel_account_id: string
+          created_at: string
+          granted_by_auth_user_id: string
+        }
+        Insert: {
+          auth_user_id: string
+          channel_account_id: string
+          created_at?: string
+          granted_by_auth_user_id: string
+        }
+        Update: {
+          auth_user_id?: string
+          channel_account_id?: string
+          created_at?: string
+          granted_by_auth_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_account_grants_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopee_oauth_connections: {
         Row: {
           access_token_ciphertext: string
@@ -13783,6 +13812,85 @@ export type Database = {
           },
         ]
       }
+      shopee_oauth_handoffs: {
+        Row: {
+          auth_user_id: string
+          channel_account_id: string
+          consumed_at: string | null
+          created_at: string
+          environment: string
+          expires_at: string
+          partner_id: number
+          ticket_hash: string
+        }
+        Insert: {
+          auth_user_id: string
+          channel_account_id: string
+          consumed_at?: string | null
+          created_at?: string
+          environment?: string
+          expires_at: string
+          partner_id: number
+          ticket_hash: string
+        }
+        Update: {
+          auth_user_id?: string
+          channel_account_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          environment?: string
+          expires_at?: string
+          partner_id?: number
+          ticket_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_handoffs_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopee_oauth_shop_authorizations: {
+        Row: {
+          authorized_by_auth_user_id: string
+          channel_account_id: string
+          created_at: string
+          environment: string
+          is_enabled: boolean
+          partner_id: number
+          shop_id: number
+        }
+        Insert: {
+          authorized_by_auth_user_id: string
+          channel_account_id: string
+          created_at?: string
+          environment?: string
+          is_enabled?: boolean
+          partner_id: number
+          shop_id: number
+        }
+        Update: {
+          authorized_by_auth_user_id?: string
+          channel_account_id?: string
+          created_at?: string
+          environment?: string
+          is_enabled?: boolean
+          partner_id?: number
+          shop_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_shop_authorizations_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: true
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopee_oauth_states: {
         Row: {
           channel_account_id: string
@@ -13818,6 +13926,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "channel_accounts"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopee_oauth_universal_state_bindings: {
+        Row: {
+          auth_user_id: string
+          channel_account_id: string
+          created_at: string
+          partner_id: number
+          shop_id: number
+          state_hash: string
+        }
+        Insert: {
+          auth_user_id: string
+          channel_account_id: string
+          created_at?: string
+          partner_id: number
+          shop_id: number
+          state_hash: string
+        }
+        Update: {
+          auth_user_id?: string
+          channel_account_id?: string
+          created_at?: string
+          partner_id?: number
+          shop_id?: number
+          state_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopee_oauth_universal_state_bindings_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopee_oauth_universal_state_bindings_state_hash_fkey"
+            columns: ["state_hash"]
+            isOneToOne: true
+            referencedRelation: "shopee_oauth_states"
+            referencedColumns: ["state_hash"]
           },
         ]
       }
@@ -15111,6 +15261,15 @@ export type Database = {
         Args: { p_installments: Json; p_purchase_order_id: string }
         Returns: Json
       }
+      consume_shopee_oauth_handoff: {
+        Args: { p_ticket_hash: string }
+        Returns: {
+          auth_user_id: string
+          channel_account_id: string
+          partner_id: number
+          shop_id: number
+        }[]
+      }
       consume_shopee_review_login_attempt: {
         Args: {
           p_attempt_key: string
@@ -15162,6 +15321,17 @@ export type Database = {
       create_shopee_api_order: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
+      }
+      create_shopee_universal_oauth_state: {
+        Args: {
+          p_auth_user_id: string
+          p_channel_account_id: string
+          p_expires_at: string
+          p_partner_id: number
+          p_shop_id: number
+          p_state_hash: string
+        }
+        Returns: boolean
       }
       create_unified_sale: {
         Args: { p_items: Json; p_order: Json }
@@ -16027,6 +16197,20 @@ export type Database = {
         Args: { p_closing_id: string }
         Returns: string
       }
+      refresh_shopee_oauth_connection_if_current: {
+        Args: {
+          p_access_ciphertext: string
+          p_access_expires_at: string
+          p_channel_account_id: string
+          p_expected_refresh_ciphertext: string
+          p_partner_id: number
+          p_refresh_ciphertext: string
+          p_refresh_expires_at: string
+          p_refreshed_at: string
+          p_shop_id: number
+        }
+        Returns: boolean
+      }
       register_intermediate_batch_fact: {
         Args: {
           p_event_key: string
@@ -16108,6 +16292,15 @@ export type Database = {
           p_request_hash: string
         }
         Returns: Json
+      }
+      resolve_shopee_universal_oauth_state: {
+        Args: { p_state_hash: string }
+        Returns: {
+          auth_user_id: string
+          channel_account_id: string
+          partner_id: number
+          shop_id: number
+        }[]
       }
       resume_shopee_adao_f12_staged: {
         Args: { p_channel_account_id: string }
