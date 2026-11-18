@@ -64,7 +64,7 @@ export default function NucleoKnowledgeReviewConsole({
     let current=true;reviewRequest.current+=1;
     setOriginReview(null);setOriginReviewState("ocioso");
     setReadState("carregando");setRows([]);setCopyState("");
-    void client.from("nucleo_module_knowledge_revisions")
+    void Promise.resolve(client.from("nucleo_module_knowledge_revisions")
       .select("id,module_id,section_code,version_no,title,body,source_reference,authority_state,evidence_level,recorded_at")
       .eq("module_id",selected.id).order("recorded_at",{ascending:false}).limit(LIMIT)
       .then(result=>{
@@ -73,7 +73,7 @@ export default function NucleoKnowledgeReviewConsole({
           setReadState("indeterminado");return;
         }
         setRows(result.data);setReadState("completo");
-      }).catch(()=>{if(current)setReadState("indeterminado");});
+      })).catch(()=>{if(current)setReadState("indeterminado");});
     return()=>{current=false;};
   },[selected?.id,refresh]);
   const details=useMemo(()=>{
