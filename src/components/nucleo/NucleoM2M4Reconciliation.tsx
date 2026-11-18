@@ -17,13 +17,13 @@ export default function NucleoM2M4Reconciliation({workstreams,evidence}:{workstr
   const [revision,setRevision]=useState(0);
   useEffect(()=>{
     let active=true;setRefs([]);setState("consultando");
-    void refClient.from("nucleo_source_references")
+    void Promise.resolve(refClient.from("nucleo_source_references")
       .select("id,provider,source_access_class,authority_state,reference_state,content_imported")
       .limit(LIMIT).then(result=>{
         if(!active)return;
         if(result.error||!result.data||result.data.length>=LIMIT){setState("indeterminado");return;}
         setRefs(result.data);setState("completo");
-      }).catch(()=>{if(active)setState("indeterminado");});
+      })).catch(()=>{if(active)setState("indeterminado");});
     return ()=>{active=false;};
   },[revision]);
   const rows=useMemo(()=>{
