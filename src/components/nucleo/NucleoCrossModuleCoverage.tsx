@@ -14,12 +14,13 @@ type Filter = "todos" | "precisa_reconciliar" | "somente_catalogo" | "sem_frente
  * ausência de cadastro significa ausência de trabalho no módulo.
  */
 export default function NucleoCrossModuleCoverage({
-  modules, workstreams, onOpenModule, onPrepareModule,
+  modules, workstreams, onOpenModule, onPrepareModule, onOpenWorkstream,
 }:{
   modules:KnowledgeModule[];
   workstreams:DevelopmentWorkstream[];
   onOpenModule:(module:KnowledgeModule)=>void;
   onPrepareModule:(module:KnowledgeModule)=>void;
+  onOpenWorkstream:(id:string)=>void;
 }) {
   const [filter,setFilter]=useState<Filter>("todos");
   const rows=modules.map(module => {
@@ -151,6 +152,10 @@ export default function NucleoCrossModuleCoverage({
               <Button type="button" variant="outline" size="sm" onClick={()=>onOpenModule(module)}>
                 Abrir módulo e fontes
               </Button>
+              {attentionFront && <Button type="button" variant="outline" size="sm"
+                onClick={()=>onOpenWorkstream(attentionFront.id)}>
+                Abrir ficha da frente {attentionFront.code}
+              </Button>}
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3
               </Button>}

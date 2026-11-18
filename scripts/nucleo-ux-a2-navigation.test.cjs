@@ -41,4 +41,10 @@ assert(selectArea.includes('region?.focus({preventScroll:true})'),"A área deve 
 const moduleStage=source.slice(source.indexOf('  const openModuleStage = (stage: CrmStage) => {'),source.indexOf('  return (',source.indexOf('  const openModuleStage = (stage: CrmStage) => {')));
 assert(moduleStage.includes('??document.getElementById("nucleo-module-section-content")'),"Sem âncora M3, evidências devem cair na explicação da área");
 assert(moduleStage.includes('evidencias:"nucleo-module-evidence"'),"Preservar âncora das provas existentes");
-console.log("UX-A2: módulos, contexto, retorno, navegação e componentes existentes preservados");
+// UX-01: cartão de atenção executiva abre a ficha real, sem criar frentes ou registros.
+const coverage = fs.readFileSync("src/components/nucleo/NucleoCrossModuleCoverage.tsx", "utf8");
+assert.match(source, /<NucleoCrossModuleCoverage[^\n]*onOpenWorkstream=\{onSelectWorkstream\}/);
+assert.match(coverage, /attentionFront && <Button/);
+assert.match(coverage, /onClick=\{\(\)=>onOpenWorkstream\(attentionFront\.id\)\}/);
+assert.match(coverage, /Abrir ficha da frente \{attentionFront\.code\}/);
+console.log("UX-A2/UX-01: navegação, contexto e ficha executiva real preservados");
