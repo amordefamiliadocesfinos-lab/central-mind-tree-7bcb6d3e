@@ -27,7 +27,7 @@ assert(!screens.includes('id:["contatos","inbox","tarefas"][index]'),"CRM screen
 // Stable CRM control-to-screen relationship; all labels map to an existing CRM screen ID.
 const crmActionSection=crm.slice(crm.indexOf("export const CRM_ACTIONS:"),crm.indexOf("export const CRM_JOURNEY"));
 const screenIds=new Set(["contatos","inbox","tarefas"]);
-const actionRecords=[...crmActionSection.matchAll(/\\{\\s*screenId: "(contatos|inbox|tarefas)",\\s*label: "([^"]+)"/g)];
+const actionRecords=[...crmActionSection.matchAll(/\{\s*screenId: "(contatos|inbox|tarefas)",\s*label: "([^"]+)"/g)];
 assert.equal(actionRecords.length,9,"All nine CRM controls require explicit screen identity");
 assert.equal(new Set(actionRecords.map(m=>m[2])).size,9,"CRM control labels must remain unique");
 for(const [,id,label] of actionRecords){
