@@ -477,11 +477,9 @@ export function createShopeeLiveOauthHandler({
         `OAuth Live, get_shop_info, renovação de token e releitura concluídos para shop_id ${effectiveShopId}. Nenhuma projeção em Pedido, Estoque, Financeiro ou CRM foi executada.`,
         cleared,
       );
-    } catch (error) {
-      logger({
-        event: 'shopee_live_oauth_unavailable',
-        error: error instanceof Error ? error.message : 'unknown',
-      });
+    } catch {
+      // Never surface upstream errors or secrets from OAuth exception context.
+      logger({ event: 'shopee_live_oauth_unavailable' });
       return html(503, 'Shopee Live indisponível', 'A configuração ou execução do OAuth Live está indisponível.');
     }
   };
