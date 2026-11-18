@@ -18,8 +18,12 @@ for(const [source,part] of [
  [discovery,"MODULE_ORIGINAL_SOURCES_V12[module.id]"],
  [original,"CRM:CRM_AUTHORITY_SOURCES_V12"],
 ])assert(source.includes(part),"Missing reusable bridge: "+part);
-for(const key of ['"contatos","inbox","tarefas"','route:item.route','source:item.source'])
-  assert(screens.includes(key),"CRM screens must keep original routes/sources "+key);
+// CRM identities belong to source records, not their array positions.
+for(const [id,route] of [["contatos","/contatos"],["inbox","/contatos/inbox"],["tarefas","/contatos/tarefas"]])
+  assert(crm.includes('id: "'+id+'"') && crm.includes('route: "'+route+'"'),"CRM canonical identity/route missing: "+id);
+for(const key of ["CRM:CRM_SCREENS.map(item=>","id:item.id","description:item.description","route:item.route","source:item.source"])
+  assert(screens.includes(key),"CRM screen bridge must preserve identity, route, description and source: "+key);
+assert(!screens.includes('id:["contatos","inbox","tarefas"][index]'),"CRM screen IDs must not depend on array order");
 for(const key of ["label:action.label","observed:action.expectedEffect","confirmation:action.confirmation","limitation:action.limit"])
   assert(controls.includes(key),"CRM controls must preserve original contract: "+key);
 for(const label of ["Registrar resultado","Confirmar resultado","Próximo atendimento","Adiar atendimento","Concluir","Reabrir"])
