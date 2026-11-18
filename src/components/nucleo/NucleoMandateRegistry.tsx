@@ -36,7 +36,7 @@ export default function NucleoMandateRegistry({modules}:{modules:DevelopmentWork
   useEffect(()=>{
     let current=true;
     setRows([]);setLoading(true);setError(false);
-    void client.from("nucleo_specialist_mandate_records")
+    void Promise.resolve(client.from("nucleo_specialist_mandate_records")
       .select("id,module_id,record_kind,specialist_role,method_name,method_version,authority_source_url,authority_decision_ref,effective_from,effective_until,recorded_at")
       .order("recorded_at",{ascending:false}).limit(MAX_RECORDS).then(result=>{
         if(!current)return;
@@ -44,7 +44,7 @@ export default function NucleoMandateRegistry({modules}:{modules:DevelopmentWork
           setError(true);setRows([]);
         } else setRows(result.data);
         setLoading(false);
-      }).catch(()=>{if(current){setError(true);setRows([]);setLoading(false)}});
+      })).catch(()=>{if(current){setError(true);setRows([]);setLoading(false)}});
     return()=>{current=false};
   },[version]);
 
