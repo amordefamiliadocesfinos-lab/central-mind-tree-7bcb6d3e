@@ -24,6 +24,8 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_OAUTH_STATE_CREATE: 'shopee.oauth_state.create',
   SHOPEE_OAUTH_STATE_CONSUME: 'shopee.oauth_state.consume',
   SHOPEE_OAUTH_HANDOFF_CONSUME: 'shopee.oauth_handoff.consume',
+  SHOPEE_OAUTH_UNIVERSAL_STATE_CREATE: 'shopee.oauth_universal_state.create',
+  SHOPEE_OAUTH_UNIVERSAL_STATE_RESOLVE: 'shopee.oauth_universal_state.resolve',
   SHOPEE_OAUTH_CONNECTION_READ: 'shopee.oauth_connection.read',
   SHOPEE_OAUTH_CONNECTION_REFRESH: 'shopee.oauth_connection.refresh',
   SHOPEE_OAUTH_CONNECTION_UPSERT: 'shopee.oauth_connection.upsert',
@@ -178,6 +180,13 @@ export async function probeCoreBridge(options = {}) {
     && result.payload?.status === 'ok'
     && result.payload?.bridge === 'integration-core-bridge'
     && result.payload?.core === 'reachable';
+}
+
+export function createLiveShopeeUniversalState(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_UNIVERSAL_STATE_CREATE, data });
+}
+export function resolveLiveShopeeUniversalState(data, options = {}) {
+  return callCoreBridgeAction({ ...options, action: CORE_BRIDGE_ACTIONS.SHOPEE_OAUTH_UNIVERSAL_STATE_RESOLVE, data });
 }
 
 export function consumeLiveShopeeOauthHandoff(data, options = {}) {

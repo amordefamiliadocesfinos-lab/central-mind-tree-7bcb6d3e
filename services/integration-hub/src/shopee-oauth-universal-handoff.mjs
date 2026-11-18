@@ -30,3 +30,14 @@ export function validateHandoffConsumeResult(consumed, allowedPartnerIds = [2047
   if (!consumed || consumed.ok !== true) return null;
   return validHandoffIdentity(consumed.payload, allowedPartnerIds);
 }
+
+export function validApprovedUniversalIdentity(payload, expectedPartner = 2047685) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const scoped = validHandoffIdentity(payload, [expectedPartner]);
+  const userId = payload.auth_user_id;
+  const shopId = Number(payload.shop_id);
+  if (!scoped || typeof userId !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+    || !Number.isSafeInteger(shopId) || shopId <= 0) return null;
+  return { ...scoped, auth_user_id: userId, shop_id: shopId };
+}
