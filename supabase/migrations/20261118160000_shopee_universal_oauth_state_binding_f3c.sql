@@ -94,3 +94,31 @@ as $$
 $$;
 revoke all on function public.resolve_shopee_universal_oauth_state(text) from public,anon,authenticated;
 grant execute on function public.resolve_shopee_universal_oauth_state(text) to service_role;
+
+-- F3-C upgrades the F3-B RPC to return the approved expected shop and actor,
+-- not a shop ID supplied by the callback/browser. The earlier RPC is internal only.
+drop function public.consume_shopee_oauth_handoff(text);
+create function public.consume_shopee_oauth_handoff(p_ticket_hash text)
+returns table(auth_user_id uuid,channel_account_id uuid,partner_id bigint,shop_id bigint)
+language sql security invoker set search_path = ''
+as $$
+  update public.shopee_oauth_handoffs h
+  set consumed_at = now()
+  from public.channel_accounts c
+  join public.digital_platforms p on p.id = c.platform_id
+  join public.shopee_oauth_account_grants g on g.channel_account_id = c.id
+  join public.app_users u on u.auth_user_id = g.auth_user_id
+  join public.shopee_oauth_shop_authorizations a on a.channel_account_id = c.id
+  where h.ticket_hash = p_ticket_hash
+    and h.channel_account_id = c.id and h.auth_user_id = g.auth_user_id
+    and h.auth_user_id = u.auth_user_id
+    and h.environment = 'live' and h.consumed_at is null and h.expires_at > now()
+    and c.is_active = true and p.is_active = true
+    and p.group_type = 'marketplace' and p.parent_id is null
+    and lower(p.name) like 'shopee%' and u.is_active = true
+    and a.environment = 'live' and a.is_enabled = true
+    and a.partner_id = h.partner_id
+  returning h.auth_user_id,h.channel_account_id,h.partner_id,a.shop_id;
+$$;
+revoke all on function public.consume_shopee_oauth_handoff(text) from public,anon,authenticated;
+grant execute on function public.consume_shopee_oauth_handoff(text) to service_role;
