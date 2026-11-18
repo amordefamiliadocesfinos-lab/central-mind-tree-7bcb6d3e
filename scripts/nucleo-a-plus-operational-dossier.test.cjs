@@ -24,6 +24,17 @@ for(const [id,route] of [["contatos","/contatos"],["inbox","/contatos/inbox"],["
 for(const key of ["CRM:CRM_SCREENS.map(item=>","id:item.id","description:item.description","route:item.route","source:item.source"])
   assert(screens.includes(key),"CRM screen bridge must preserve identity, route, description and source: "+key);
 assert(!screens.includes('id:["contatos","inbox","tarefas"][index]'),"CRM screen IDs must not depend on array order");
+// Stable CRM control-to-screen relationship; all labels map to an existing CRM screen ID.
+const crmActionSection=crm.slice(crm.indexOf("export const CRM_ACTIONS:"),crm.indexOf("export const CRM_JOURNEY"));
+const screenIds=new Set(["contatos","inbox","tarefas"]);
+const actionRecords=[...crmActionSection.matchAll(/\{\s*screenId: "(contatos|inbox|tarefas)",\s*label: "([^"]+)"/g)];
+assert.equal(actionRecords.length,9,"All nine CRM controls require explicit screen identity");
+assert.equal(new Set(actionRecords.map(m=>m[2])).size,9,"CRM control labels must remain unique");
+for(const [,id,label] of actionRecords){
+  assert(screenIds.has(id),"Unknown CRM screen for control "+label);
+  assert(id==="contatos"||id==="inbox","CRM control screen must be backed by an operational source");
+}
+assert(controls.includes("screenId:action.screenId"),"CRM controls must carry canonical screen identity to consumers");
 for(const key of ["label:action.label","observed:action.expectedEffect","confirmation:action.confirmation","limitation:action.limit"])
   assert(controls.includes(key),"CRM controls must preserve original contract: "+key);
 for(const label of ["Registrar resultado","Confirmar resultado","Próximo atendimento","Adiar atendimento","Concluir","Reabrir"])

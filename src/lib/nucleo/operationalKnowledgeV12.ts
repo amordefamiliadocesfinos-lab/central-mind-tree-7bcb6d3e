@@ -17,6 +17,7 @@ export type KnowledgeModule = {
 };
 export type CrmAction = {
   label: string;
+  screenId: "contatos" | "inbox";
   screen: string;
   prerequisite: string;
   expectedEffect: string;
@@ -85,6 +86,7 @@ export const CRM_SCREENS = [
 
 export const CRM_ACTIONS: CrmAction[] = [
   {
+    screenId: "contatos",
     label: "Preparar contato no WhatsApp", screen: "Fila de atendimento / foco",
     prerequisite: "Contato selecionado com telefone disponível.",
     expectedEffect: "Aciona o preparo/abertura do contato externo; não registra sozinho a conclusão do atendimento.",
@@ -93,6 +95,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/components/crm/CrmFocusQueue.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "contatos",
     label: "Registrar resultado", screen: "Fila de atendimento / formulário contextual",
     prerequisite: "Atendimento selecionado. Operador verifica o fato e escolhe uma opção do catálogo de resultados.",
     expectedEffect: "Abre seleção contextual; escolher opção não persiste resultado automaticamente.",
@@ -101,6 +104,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "contatos",
     label: "Confirmar resultado", screen: "Formulário Registrar resultado",
     prerequisite: "Resultado selecionado; data fornecida quando obrigatória; contexto de contato/conversa válido.",
     expectedEffect: "Solicita a persistência ao fluxo canônico do CRM para o contexto selecionado.",
@@ -109,6 +113,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/components/crm/AttendanceActionBar.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "contatos",
     label: "Adiar atendimento", screen: "Fila de atendimento / formulário contextual",
     prerequisite: "Contato selecionado e motivo operacional para remarcar a análise.",
     expectedEffect: "Abre o fluxo de adiamento em vez de registrar um resultado comercial fictício.",
@@ -118,6 +123,7 @@ export const CRM_ACTIONS: CrmAction[] = [
   },
 
   {
+    screenId: "inbox",
     label: "Concluir", screen: "Caixa de atendimentos / comandos essenciais",
     prerequisite: "Conversa em aberto. Confirmar eventual aviso sobre Resultado pendente, tarefa oficial ou retorno operacional.",
     expectedEffect: "Solicita marcar a conversa como resolvida; não cria Resultado comercial nem conclui tarefas oficiais.",
@@ -126,6 +132,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "inbox",
     label: "Reabrir", screen: "Caixa de atendimentos / comandos essenciais",
     prerequisite: "Conversa selecionada com status resolvido; comando habilitado apenas nesse estado.",
     expectedEffect: "Solicita reabrir a conversa e restaurar estado de atendimento, com responsável da sessão.",
@@ -134,6 +141,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "inbox",
     label: "Tirar da fila", screen: "Caixa de atendimentos / comandos essenciais",
     prerequisite: "Contato selecionado visível na fila e escrita operacional disponível.",
     expectedEffect: "Aplica etiqueta de exclusão da fila operacional; não arquiva nem conclui a conversa.",
@@ -142,6 +150,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "inbox",
     label: "Próximo atendimento", screen: "Caixa de atendimentos / Fila Hoje",
     prerequisite: "Fila Hoje em execução; contato selecionado; sem gravação pendente. Verificar aviso se ainda houver obrigação de responder ou registrar Resultado.",
     expectedEffect: "Avança para o próximo contato elegível da lista de escopo atual, com recarga do estado da fila.",
@@ -150,6 +159,7 @@ export const CRM_ACTIONS: CrmAction[] = [
     source: REPO + "src/pages/ContatosInbox.tsx", confidence: "codigo_verificado",
   },
   {
+    screenId: "inbox",
     label: "Sem fato novo — retirar da prioridade", screen: "Caixa de atendimentos / acompanhamento da prioridade",
     prerequisite: "Aparece somente quando há Resultado anterior, espera pelo cliente, nenhuma resposta pendente, saída mais recente que entrada e próxima ação não vencida.",
     expectedEffect: "Após nova conferência do contexto, registra no histórico uma revisão sem fato comercial novo e atualiza a fila.",
