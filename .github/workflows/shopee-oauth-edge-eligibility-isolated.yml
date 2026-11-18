@@ -1,0 +1,41 @@
+name: Shopee OAuth F4 — isolated eligibility edge gate
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/shopee-oauth-connect-eligibility/**'
+      - 'supabase/functions/_shared/shopee-oauth-authorization*'
+      - 'supabase/config.toml'
+      - '.github/workflows/shopee-oauth-edge-eligibility-isolated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-edge-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test isolated grant and account-authorization policy
+        run: node --test supabase/functions/_shared/shopee-oauth-authorization.test.mjs
+      - name: Assert JWT enforcement and no direct OAuth activation
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const cfg = fs.readFileSync('supabase/config.toml','utf8');
+          const src = fs.readFileSync('supabase/functions/shopee-oauth-connect-eligibility/index.ts','utf8');
+          assert.match(cfg, /\[functions\.shopee-oauth-connect-eligibility\]\s*verify_jwt\s*=\s*true/);
+          assert.match(src, /core\.auth\.getUser\(match\[1\]\)/);
+          assert.match(src, /from\('shopee_oauth_account_grants'\)/);
+          assert.match(src, /from\('shopee_oauth_handoffs'\)\.insert\(/);
+          assert.match(src, /PAINEL_PUBLIC_ORIGIN/);
+          assert.match(src, /SHOPEE_OAUTH_HANDOFF_START_URL/);
+          assert.doesNotMatch(src, /auth_partner|\/shopee\/live\/oauth\/callback/);
+          console.log('Strict JWT + explicit grant + handoff guards present; no direct Shopee consent call.');
+          JS
