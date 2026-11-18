@@ -532,6 +532,32 @@ async function executeAction(payload: Record<string, unknown>) {
     return executeLabelAction(core, payload);
   }
 
+  if (payload.action === 'shopee.oauth_universal_state.create') {
+    const { data, error } = await core.rpc('create_shopee_universal_oauth_state', {
+      p_state_hash: String(payload.state_hash),
+      p_auth_user_id: String(payload.auth_user_id),
+      p_channel_account_id: String(payload.channel_account_id),
+      p_partner_id: Number(payload.partner_id),
+      p_shop_id: Number(payload.shop_id),
+      p_expires_at: String(payload.expires_at),
+    });
+    if (error) return { status: 503, body: { error: 'oauth_universal_state_unavailable' } };
+    return data === true ? { status: 200, body: { status: 'ok', action: payload.action } }
+      : { status: 409, body: { error: 'oauth_universal_state_rejected' } };
+  }
+  if (payload.action === 'shopee.oauth_universal_state.resolve') {
+    const { data, error } = await core.rpc('resolve_shopee_universal_oauth_state', {
+      p_state_hash: String(payload.state_hash),
+    });
+    if (error) return { status: 503, body: { error: 'oauth_universal_state_unavailable' } };
+    if (!Array.isArray(data) || data.length !== 1) return { status: 409, body: { error: 'oauth_universal_state_unavailable' } };
+    return { status: 200, body: {
+      status: 'ok', action: payload.action,
+      auth_user_id: String(data[0].auth_user_id),
+      channel_account_id: String(data[0].channel_account_id),
+      partner_id: Number(data[0].partner_id), shop_id: Number(data[0].shop_id),
+    } };
+  }
   if (payload.action === 'shopee.oauth_handoff.consume') {
     const { data, error } = await core.rpc('consume_shopee_oauth_handoff', {
       p_ticket_hash: String(payload.ticket_hash),
@@ -540,7 +566,9 @@ async function executeAction(payload: Record<string, unknown>) {
     if (!Array.isArray(data) || data.length !== 1) return { status: 409, body: { error: 'oauth_handoff_invalid_or_used' } };
     return { status: 200, body: {
       status: 'ok', action: payload.action,
+      auth_user_id: String(data[0].auth_user_id),
       channel_account_id: String(data[0].channel_account_id), partner_id: Number(data[0].partner_id),
+      shop_id: Number(data[0].shop_id),
     } };
   }
 
