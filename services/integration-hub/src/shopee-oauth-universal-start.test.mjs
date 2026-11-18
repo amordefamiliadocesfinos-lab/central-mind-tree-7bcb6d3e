@@ -15,7 +15,7 @@ function deps(overrides = {}) {
     })[name],
     consumeHandoff: async () => {
       consumed += 1;
-      return { ok: true, payload: { channel_account_id: account, partner_id: 2047685 } };
+      return { ok: true, payload: { channel_account_id: account, auth_user_id: '11111111-1111-4111-8111-111111111111', shop_id: 1357031949, partner_id: 2047685 } };
     },
     createState: async () => { states += 1; return { ok: true }; },
     sign: async () => ({ timestamp: 1795000000, sign: 'a'.repeat(64) }),
@@ -56,7 +56,7 @@ test('rejects malformed ticket, parameter injection and invalid route before con
 });
 
 test('rejects consumed/unapproved ticket without state creation or redirect', async () => {
-  for (const result of [{ ok: false }, { ok: true, payload: { channel_account_id: account, partner_id: 900 } }]) {
+  for (const result of [{ ok: false }, { ok: true, payload: { channel_account_id: account, auth_user_id: '11111111-1111-4111-8111-111111111111', shop_id: 1357031949, partner_id: 900 } }]) {
     const f = deps({ consumeHandoff: async () => result });
     assert.equal((await f.handler(req)).status, 409);
     assert.equal(f.counts().states, 0);
