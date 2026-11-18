@@ -584,11 +584,23 @@ export function useHealthMealPlanF18(
         (item) => mealIds.has(item.planned_meal_id) && !item.is_optional,
       );
 
-      const sum = (key: keyof NutritionPlannedItemF18) => {
+      type NutrientSnapshotKey =
+        | "energy_kcal_snapshot"
+        | "protein_g_snapshot"
+        | "carbohydrate_g_snapshot"
+        | "fat_g_snapshot"
+        | "fiber_g_snapshot";
+
+      const sum = (key: NutrientSnapshotKey): number | null => {
         if (!requiredItems.length) return null;
-        const values = requiredItems.map((item) => item[key]);
-        if (values.some((value) => value == null)) return null;
-        return values.reduce((acc, value) => acc + Number(value), 0);
+        let total = 0;
+        for (const item of requiredItems) {
+          const value = item[key];
+          if (value == null) return null;
+          if (typeof value !== "number" || !Number.isFinite(value)) return null;
+          total += value;
+        }
+        return total;
       };
 
       map.set(pattern.id, {
