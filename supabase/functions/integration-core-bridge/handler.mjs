@@ -24,6 +24,8 @@ const LIVE_ACTIONS = new Set([
   'shopee.oauth_universal_state.resolve',
   'shopee.oauth_connection.read',
   'shopee.oauth_connection.refresh',
+  'shopee.oauth_connection.refresh_context',
+  'shopee.oauth_connection.refresh_if_current',
   'shopee.oauth_connection.upsert',
   'shopee.raw_shop_snapshot.upsert',
   'shopee.raw_order_list_snapshot.upsert',
@@ -178,6 +180,22 @@ function validateActionPayload(payload, nowMs) {
     return hasExactKeys(payload, ['action', 'state_hash']) && SHA256.test(payload.state_hash);
   }
 
+  if (payload.action === 'shopee.oauth_connection.refresh_context') {
+    return hasExactKeys(payload, ['action', 'channel_account_id']) && UUID.test(payload.channel_account_id);
+  }
+  if (payload.action === 'shopee.oauth_connection.refresh_if_current') {
+    return hasExactKeys(payload, ['action','channel_account_id','partner_id','shop_id',
+      'expected_refresh_token_ciphertext','access_token_ciphertext','refresh_token_ciphertext',
+      'access_token_expires_at','refresh_token_expires_at','last_refreshed_at'])
+      && UUID.test(payload.channel_account_id) && payload.partner_id === 2047685
+      && Number.isSafeInteger(payload.shop_id) && payload.shop_id > 0
+      && isBoundedText(payload.expected_refresh_token_ciphertext,4096)
+      && isBoundedText(payload.access_token_ciphertext,4096)
+      && isBoundedText(payload.refresh_token_ciphertext,4096)
+      && isIsoTimestamp(payload.access_token_expires_at)
+      && isIsoTimestamp(payload.refresh_token_expires_at)
+      && isIsoTimestamp(payload.last_refreshed_at);
+  }
   if (payload.action === 'shopee.oauth_connection.read') {
     return hasExactKeys(payload, ['action', 'channel_account_id'])
       && UUID.test(payload.channel_account_id);
