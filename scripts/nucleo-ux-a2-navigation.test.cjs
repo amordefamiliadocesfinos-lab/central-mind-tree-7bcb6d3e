@@ -23,4 +23,15 @@ assert.match(source, /onClick=\{returnToModuleResults\}>Voltar ao Painel Geral/)
 for (const name of ["NucleoMandateRegistry", "NucleoSpecialistContributions", "NucleoModuleKnowledge", "NucleoExecutiveDevelopment"]) {
   assert(source.includes("<" + name), "Preservar estrutura: " + name);
 }
+
+// UX-02: mesma navegação intencional para os nove módulos; sem inventar funcionalidades.
+assert.match(source, /aria-label=\{"Jornada funcional — "\+selected\.name\}/);
+assert.doesNotMatch(source, /\{selected\.id==="CRM" && \(\s*<nav aria-label="Jornada funcional/);
+assert.match(source, /onClick=\{\(\)=>openModuleStage\(step\.id\)\}/);
+assert.match(source, /const prefix = selectedId==="CRM" \? "nucleo-crm-" : "nucleo-module-"\+selectedId\?\.toLowerCase\(\)\+"-"/);
+for (const stage of ['telas:prefix+"screens"', 'funcionalidades:prefix+"controls"', 'procedimentos:prefix+"procedures"', 'evidencias:"nucleo-module-evidence"']) {
+  assert(source.includes(stage),"UX-02 destinos reais: "+stage);
+}
+assert.match(source, /id="nucleo-module-evidence"/);
+assert.match(source, /selectModuleArea\(area\)/);
 console.log("UX-A2: módulos, contexto, retorno, navegação e componentes existentes preservados");

@@ -12,11 +12,11 @@ const journeys=read("src/lib/nucleo/moduleJourneysV12.ts");
 const stages=["modulo","telas","funcionalidades","procedimentos","especialista","conhecimento","desenvolvimento","evidencias"];
 for(const stage of stages)assert(a.includes('id:"'+stage+'"'),"Missing stage: "+stage);
 for(const [src,needle,why] of [
- [a,'aria-label="Jornada funcional CRM — consulta do Núcleo"',"Accessible CRM navigation"],
- [a,'openCrmStage(step.id)',"Stage clickable"],
+ [a,'aria-label={"Jornada funcional — "+selected.name}',"Accessible cross-module navigation"],
+ [a,'openModuleStage(step.id)',"Stage clickable"],
  [a,'selectModuleArea(area)',"Reuse module section"],
  [a,'nucleo-crm-module-summary',"Purpose header focus"],
- [a,'nucleo-crm-evidence',"Real M4 entry focus"],
+ [a,'nucleo-module-evidence',"Real M4 entry focus"],
  [a,'setLevel("module");\n                  selectModuleArea("conhecimento");',"Gestor FM jump must open knowledge"],
  [a,'if ((fmDraftState.dirty || specialistDraftState.dirty) && !window.confirm(',"Protected document draft"],
  [a,'<NucleoModuleKnowledge',"Existing living module file"],
