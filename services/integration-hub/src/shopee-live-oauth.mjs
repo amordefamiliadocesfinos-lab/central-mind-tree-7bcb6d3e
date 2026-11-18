@@ -213,7 +213,13 @@ export function createShopeeLiveOauthHandler({
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
       if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START) {
-        if (Object.keys(request?.query ?? {}).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
+        // Preserve PR #911 operator bookmark: Adão console route remains a
+        // deliberate legacy UX; Celivio console bookmark goes to signed consent.
+        const parameters = request?.query ?? {};
+        const parameterCount = Object.keys(parameters).length;
+        const consoleEntry = parameterCount === 1 && parameters.via === 'console'
+          && (path === ADAO_START || path === CELIVIO_START);
+        if (parameterCount && !consoleEntry) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
         const target = path === ADAO_START ? ADAO : path === CELIVIO_START ? CELIVIO : VIVIANE;
         if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
         if (target === CELIVIO && !celivioConfigured) return html(503, 'OAuth Celivio indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
@@ -238,6 +244,16 @@ export function createShopeeLiveOauthHandler({
           redirectUri,
           sign,
         });
+        if (consoleEntry && target === ADAO) {
+          // Preserve Adão's historical operator UX from #911. The same secure
+          // state and cookie are required; this does not bypass the callback.
+          const cookie = redirect(authorizationUrl, state).headers['Set-Cookie'];
+          return {
+            status: 200,
+            headers: { ...HTML_HEADERS, 'Set-Cookie': cookie },
+            body: '<!doctype html><html lang="pt-BR"><head charset="utf-8"><title>Shopee — autorização existente</title></head><body><main><h1>Preparação segura concluída</h1><p>Na mesma aba do navegador, abra a Shopee Open Platform e use a autorização de produção do aplicativo Painel Central para a loja correta. Esta preparação expira em 10 minutos.</p><p><a href="https://open.shopee.com/">Abrir Shopee Open Platform</a></p></main></body></html>',
+          };
+        }
         return redirect(authorizationUrl, state);
       }
 
@@ -262,8 +278,11 @@ export function createShopeeLiveOauthHandler({
       if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
       if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
 
-      if (!code || (!shopId && !mainAccountId) || !state) {
-        return html(400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.', cleared);
+      if (!code || (shopIdRaw === null && mainAccountIdRaw === null)) {
+        return html(400, 'Autorização Shopee incompleta', 'O retorno não trouxe o código ou o identificador exigido pela integração.', cleared);
+      }
+      if (!state) {
+        return html(400, 'Sessão OAuth não encontrada', 'O callback não recebeu o cookie de sessão. Reinicie pelo Painel Central e conclua na mesma aba do navegador.', cleared);
       }
       if (shopId !== null && (!Number.isSafeInteger(shopId) || shopId <= 0)) {
         return html(400, 'Autorização Shopee inválida', 'O shop_id retornado é inválido.', cleared);
