@@ -107,4 +107,28 @@ assert(!coverage.includes('Próxima ação declarada: {record?.next_action.trim(
 // A matriz preserva a identidade visual herdada, sem introduzir paleta paralela.
 assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"'));
 assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));
+// Work UX-01 / achados UX01-01, UX01-02, UX01-03: testes do contrato visual.
+const center=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+for(const token of [
+ 'const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0)',
+ 'const openModuleSearch=()=>{',
+ 'setAtlasVisited(true)',
+ 'setAtlasExpanded(true)',
+ 'setModuleSearchRequestSeq(seq=>seq+1)',
+ 'Buscar módulo',
+ 'searchRequestSeq={moduleSearchRequestSeq}',
+])assert(center.includes(token),"UX-01 atalho de busca: "+token);
+for(const token of [
+ 'searchRequestSeq?: number',
+ 'searchRequestSeq = 0',
+ 'setLevel("overview")',
+ 'getElementById("nucleo-atlas-module-search")',
+ 'field?.focus({preventScroll:true})',
+ 'id="nucleo-atlas-module-search"',
+ 'return [...byCode.values()].filter(module=>module.id!=="NUC")',
+ 'const pending=fronts.some(front=>front.status!=="concluido")',
+ 'rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4',
+])assert(text.includes(token),"UX-01 foco/contagem/prioridade: "+token);
+assert(text.includes('label:"Módulos no Core", value:summary.modules'),"Contagem operacional deve permanecer no Core");
+assert(text.includes('modules: registeredModules.length'),"Não contar NUC como módulo acompanhado");
 console.log("UX-A3B: acesso contextual bidirecional, painéis montados após visita, autoridades preservadas");

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent, DevelopmentDependency } from "@/lib/nucleo/development.types";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
@@ -56,10 +56,25 @@ interface Props {
   dependencies: DevelopmentDependency[];
   onSelectWorkstream: (id: string) => void;
   onPrepareModule: (module: KnowledgeModule) => void;
+  searchRequestSeq?: number;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0 }: Props) {
   const [search, setSearch] = useState("");
+  // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
+  useEffect(()=>{
+    if(!searchRequestSeq)return;
+    setLevel("overview");
+    let focusFrame=0;
+    const viewFrame=requestAnimationFrame(()=>{
+      focusFrame=requestAnimationFrame(()=>{
+        const field=document.getElementById("nucleo-atlas-module-search");
+        field?.scrollIntoView({behavior:"smooth",block:"center"});
+        field?.focus({preventScroll:true});
+      });
+    });
+    return()=>{cancelAnimationFrame(viewFrame);cancelAnimationFrame(focusFrame);};
+  },[searchRequestSeq]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("overview");
   const [moduleSection,setModuleSection] = useState<ModuleSection>("funcoes");
@@ -128,7 +143,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         source: record.code==="NUC"?"Rota /nucleo verificada em src/App.tsx e módulo no Core M3":"Ficha do módulo no Core M3 — estado declarado, sem prova externa de rota",
       });
     }
-    return [...byCode.values()];
+    // NUC possui quadro de governança próprio: não duplicá-lo no catálogo operacional.
+    return [...byCode.values()].filter(module=>module.id!=="NUC");
   }, [workstreams]);
   const modules = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -147,6 +163,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       ?? fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())
       ?? fronts.find(front=>front.status!=="concluido") ?? null;
     const actionOwner = focusFront ?? record;
+    const pending=fronts.some(front=>front.status!=="concluido");
     return {module,record,fronts,critical,focusFront,actionOwner,
       reason:critical.length>0
         ? `${critical.length} frente(s) com bloqueio ou prioridade crítica declarada(s)`
@@ -155,7 +172,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           : !record
             ? "Módulo no catálogo sem cadastro M3 confirmado"
             : "Acompanhar o estado e as próximas ações das frentes",
-      rank:critical.length>0?0:record&&fronts.length===0?1:!record?2:3};
+      rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4};
   }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
@@ -370,7 +387,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 <p className="text-xs text-muted-foreground mt-1 min-h-12 leading-relaxed">{reason}</p>
                 {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">Frente em atenção:</span> {focusFront.code} · {focusFront.title}</p>}
                 {focusFront?.blocker.trim() && <p className="text-xs mt-1 leading-relaxed"><span className="font-medium">Bloqueio declarado:</span> {focusFront.blocker}</p>}
-                <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">Próxima ação {focusFront?"da frente":"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
+                {focusFront && <p className="text-xs mt-1"><span className="font-medium">Situação:</span> {focusFront.status.replaceAll("_"," ")==="em validacao"?"Em validação":focusFront.status.replaceAll("_"," ")==="em andamento"?"Em andamento":focusFront.status.replaceAll("_"," ")}</p>}
+                <p className="text-xs mt-2 leading-relaxed line-clamp-3" title={actionOwner?.next_action||undefined}><span className="font-medium">Próxima ação {focusFront?"da frente":"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
                 <span className="block text-sm font-medium text-primary mt-3">Explorar módulo</span>
               </button>
             ))}
@@ -416,7 +434,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <label className="relative block max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <Input aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
+            <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
               placeholder="Buscar CRM, Financeiro, Operações…" />
           </label>
           <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} />

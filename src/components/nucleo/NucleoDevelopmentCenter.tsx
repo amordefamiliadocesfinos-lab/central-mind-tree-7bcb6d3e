@@ -89,6 +89,7 @@ export default function NucleoDevelopmentCenter() {
   // Exploração detalhada sob demanda; preserva contexto depois da primeira abertura.
   const [atlasVisited,setAtlasVisited] = useState(false);
   const [atlasExpanded,setAtlasExpanded] = useState(false);
+  const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0);
   const [returnToAtlas,setReturnToAtlas] = useState(false);
   const [lastOpenedId,setLastOpenedId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
@@ -366,6 +367,12 @@ export default function NucleoDevelopmentCenter() {
     requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
   const toggleAtlas=()=>{setAtlasVisited(true);setAtlasExpanded(open=>!open);};
+  const openModuleSearch=()=>{
+    setWorkspaceView("geral");
+    setAtlasVisited(true);
+    setAtlasExpanded(true);
+    setModuleSearchRequestSeq(seq=>seq+1);
+  };
   const prepareModule = (module:KnowledgeModule) => {
     const registered=items.find(item=>item.kind==="modulo"&&item.code===module.id);
     if(registered){
@@ -430,6 +437,10 @@ export default function NucleoDevelopmentCenter() {
             <p className="mt-2 text-xs text-[#5f6368] dark:text-slate-300">
               Última leitura M3 nesta sessão: {lastReadAt ? new Date(lastReadAt).toLocaleString("pt-BR") : "não verificada"}.
             </p>
+            <Button type="button" className="mt-3 min-h-11 rounded-full bg-[#1a73e8] px-5 text-white hover:bg-[#185abc]"
+              onClick={openModuleSearch} aria-controls="nucleo-atlas-completo">
+              Buscar módulo
+            </Button>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
@@ -528,6 +539,7 @@ export default function NucleoDevelopmentCenter() {
         <div id="nucleo-atlas-completo" tabIndex={-1} hidden={!atlasExpanded} aria-hidden={!atlasExpanded}
           className={atlasExpanded?"space-y-4":"hidden"}>
           {atlasVisited&&<NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
+            searchRequestSeq={moduleSearchRequestSeq}
             onPrepareModule={prepareModule}
             onSelectWorkstream={id => {
               if (!choose(id)) return;
