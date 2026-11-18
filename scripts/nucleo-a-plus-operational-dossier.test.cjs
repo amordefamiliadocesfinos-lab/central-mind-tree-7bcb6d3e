@@ -45,12 +45,19 @@ const operationsJourneys=journeys.slice(journeys.indexOf("  OPE:[{"),journeys.in
 assert(operationsScreens.includes('screen("purchases"') && operationsScreens.includes('"/operacoes?tab=purchases"'),"Operations purchase route must retain its verified module tab");
 for(const label of ["Nova compra","Central de Fornecedores"])
   assert(operationsControls.includes('label:"'+label+'",screenId:"purchases"'),"Operations control must reference canonical purchases screen: "+label);
-const oeSteps=[...operationsJourneys.matchAll(/\{screenId:"([^"]+)"(?:,controlLabel:"([^"]+)")?/g)];
+const purchasesJourney=operationsJourneys.slice(operationsJourneys.indexOf('id:"ope-compras"'));
+const oeSteps=[...purchasesJourney.matchAll(/\{screenId:"([^"]+)"(?:,controlLabel:"([^"]+)")?/g)];
 assert.equal(oeSteps.length,3,"Pilot Operations purchase journey must keep its three verified steps");
 for(const [,screenId,controlLabel] of oeSteps){
   assert.equal(screenId,"purchases","Operations purchase journey must not refer to other module screens");
   if(controlLabel)assert(operationsControls.includes('label:"'+controlLabel+'",screenId:"'+screenId+'"'),"Operations procedure control/screen relationship missing: "+controlLabel);
 }
+const mrpJourney=operationsJourneys.slice(operationsJourneys.indexOf('id:"ope-mrp-compra"'),operationsJourneys.indexOf('id:"ope-compras"'));
+const mrpSteps=[...mrpJourney.matchAll(/\{screenId:"([^"]+)"(?:,controlLabel:"([^"]+)")?/g)];
+assert.equal(mrpSteps.length,3,"MRP → Compras guide must contain exactly three consultation steps");
+assert.deepEqual(mrpSteps.map(step=>step[1]),["mrp","mrp","purchases"],"MRP guide must preserve its real route and target");
+assert.equal(mrpSteps[1][2],"Preparar compra","MRP guide must refer to the real control");
+assert(operationsControls.includes('label:"Preparar compra",screenId:"mrp"'),"MRP control must exist in source catalog");
 for(const moduleKey of ["CRM","OPE"]){
   assert(screens.includes(" "+moduleKey+":"),"Shared screens catalog missing module "+moduleKey);
   assert(controls.includes(" "+moduleKey+":"),"Shared controls catalog missing module "+moduleKey);
