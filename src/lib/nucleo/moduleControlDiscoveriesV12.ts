@@ -42,6 +42,14 @@ export const MODULE_CONTROLS_V12:Readonly<Record<string,ReadonlyArray<ModuleCont
   ],
   OPE:[
     {
+      label:"Preparar compra",screenId:"mrp",screen:"Operações — MRP / Planejamento de compras",
+      prerequisite:"Existe necessidade de material com falta calculada (shortage > 0) na tabela de Planejamento de compras do MRP.",
+      observed:"O botão Preparar compra chama preparePurchase(need), que transfere contexto à aba Compras via parâmetros mrpProductId, mrpNeedQty, mrpUnit e mrpName; PurchasesTab prepara o editor com planning_source mrp.",
+      confirmation:"Conferir a aba Compras, o editor aberto e a identidade/necessidade do material. Preparação não é Pedido de Compra salvo.",
+      limitation:"Sem necessidade real elegível, o controle não é exibido. Não confirmar nem salvar compra, recebimento, estoque ou financeiro em teste de consulta.",
+      source:repo+"src/components/operations/MRPTab.tsx",
+    },
+    {
       label:"Nova compra",screenId:"purchases",screen:"Operações — Compras / Pedidos de compra",
       prerequisite:"Abrir o setor Compras e conferir fornecedor, itens e condições antes de qualquer registro.",
       observed:"O botão Nova compra chama openEditor no componente PurchasesTab.",
