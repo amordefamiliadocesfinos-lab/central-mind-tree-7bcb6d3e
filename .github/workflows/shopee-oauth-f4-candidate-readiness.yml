@@ -1,0 +1,38 @@
+name: Shopee OAuth Universal F4 Candidate Readiness
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/scripts/check-shopee-oauth-candidate-source.py'
+      - '.github/workflows/shopee-oauth-f4-candidate-readiness.yml'
+      - 'docs/operations/SHOPEE_OAUTH_MULTICONTAS_F4_GW_MINI_MAPA_FECHAMENTO_2026-11-18.md'
+  workflow_dispatch:
+jobs:
+  source-readiness:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify complete stacked code and default-off safety controls
+        run: python3 services/integration-hub/scripts/check-shopee-oauth-candidate-source.py --repo .
+      - name: Verify published OpenAPI patch remains fail-closed
+        run: |
+          python3 services/integration-hub/scripts/test-prepare-universal-gateway-route.py -v
+          python3 services/integration-hub/scripts/test-export-active-shopee-gateway-candidate.py -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regression of universal and legacy OAuth and multicontas refresh
+        run: |
+          node --test services/integration-hub/tests/shopee-oauth-f4-integrated.test.mjs
+          node --test services/integration-hub/tests/shopee-live-oauth.test.mjs
+          node --test services/integration-hub/tests/shopee-universal-oauth-callback.test.mjs
+          node --test services/integration-hub/tests/shopee-oauth-refresh-for-account.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verify server-bound Edge Function and Core contracts
+        run: |
+          deno install
+          deno check supabase/functions/shopee-oauth-connect-eligibility/index.ts
+          deno check supabase/functions/integration-core-bridge/index.ts
