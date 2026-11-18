@@ -31,7 +31,7 @@ export default function NucleoKnowledgeCoverage({modules}:{modules:DevelopmentWo
   useEffect(()=>{
     let current=true;
     setLoading(true);setError(false);setRows([]);
-    void client.from("nucleo_module_knowledge_revisions")
+    void Promise.resolve(client.from("nucleo_module_knowledge_revisions")
       .select("module_id,section_code").limit(MAX_ROWS).then(result=>{
         if(!current)return;
         if(result.error||!result.data||result.data.length>=MAX_ROWS){
@@ -39,7 +39,7 @@ export default function NucleoKnowledgeCoverage({modules}:{modules:DevelopmentWo
           setError(true);setRows([]);
         } else setRows(result.data);
         setLoading(false);
-      }).catch(()=>{
+      })).catch(()=>{
         if(current){setError(true);setRows([]);setLoading(false)}
       });
     return()=>{current=false;setRows([])};
