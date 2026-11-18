@@ -1,5 +1,6 @@
 import {
   consumeLiveShopeeOauthState,
+  resolveLiveShopeeUniversalState,
   createLiveShopeeOauthState,
   sha256Hex,
   upsertLiveShopeeOauthConnection,
@@ -12,6 +13,7 @@ import {
   refreshToken,
   signPublicRequest,
 } from './connectors/shopee-protocol.mjs';
+import { validApprovedUniversalIdentity } from './shopee-oauth-universal-handoff.mjs';
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const AUTH_PATH = '/api/v2/shop/auth_partner';
@@ -178,6 +180,7 @@ export function createShopeeLiveOauthHandler({
   now = Date.now,
   createState = createLiveShopeeOauthState,
   consumeState = consumeLiveShopeeOauthState,
+  resolveUniversalState = resolveLiveShopeeUniversalState,
   persistConnection = upsertLiveShopeeOauthConnection,
   persistSnapshot = upsertLiveShopeeShopSnapshot,
   exchange = exchangeToken,
@@ -244,11 +247,14 @@ export function createShopeeLiveOauthHandler({
       const shopId = shopIdRaw === null ? null : Number(shopIdRaw);
       const mainAccountId = mainAccountIdRaw === null ? null : Number(mainAccountIdRaw);
       const state = readCookie(request?.headers, STATE_COOKIE);
-      // F3-B: never allow a universal state to fall back to Viviane's fixed target.
-      // F3-C must implement a verified dynamic callback before this is enabled.
-      if (state?.startsWith('universal.')) return html(503, 'OAuth universal em preparação', 'Callback universal ainda não homologado.', { 'Set-Cookie': clearStateCookie() });
+      // Universal states are processed only with an explicit, independent callback gate.
+      // Never fall back to Viviane when a universal state is present.
+      const isUniversal = state?.startsWith('universal.') === true;
+      if (isUniversal && getEnv('SHOPEE_OAUTH_UNIVERSAL_CALLBACK_ENABLED') !== 'true') {
+        return html(503, 'OAuth universal em preparação', 'Callback universal ainda não habilitado.', { 'Set-Cookie': clearStateCookie() });
+      }
       const cleared = { 'Set-Cookie': clearStateCookie() };
-      const target = state?.startsWith('adao.') ? ADAO
+      let target = state?.startsWith('adao.') ? ADAO
         : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;
       if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
       if (target === CELIVIO && !celivioConfigured) return html(409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.', cleared);
@@ -280,6 +286,16 @@ export function createShopeeLiveOauthHandler({
       }
 
       const canonicalAccountId = consumed.payload?.channel_account_id;
+      if (isUniversal) {
+        const resolved = await resolveUniversalState({ state_hash: sha256Hex(state) });
+        const trusted = resolved?.ok ? validApprovedUniversalIdentity(resolved.payload, partnerId) : null;
+        if (!trusted || trusted.channel_account_id !== canonicalAccountId) {
+          return html(409, 'Autorização Shopee rejeitada', 'O estado não corresponde a uma loja previamente autorizada.', cleared);
+        }
+        // The expected shop comes only from the Core's approved state binding,
+        // never from callback query, self-reported metadata or a state prefix.
+        target = { account: trusted.channel_account_id, shop: trusted.shop_id };
+      }
       if (canonicalAccountId !== target.account) {
         return html(409, 'Autorização Shopee rejeitada', 'A autorização não corresponde à conta piloto configurada.', cleared);
       }
@@ -329,7 +345,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'OAuth concluído, leitura falhou', 'Os tokens foram obtidos, mas get_shop_info não respondeu com sucesso.', cleared);
       }
 
-      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, isUniversal || target !== VIVIANE)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
       const firstObservedAt = new Date(now()).toISOString();
       const firstSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
@@ -399,7 +415,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'Renovação concluída, releitura falhou', 'O token foi renovado, mas a releitura de get_shop_info falhou.', cleared);
       }
 
-      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, isUniversal || target !== VIVIANE)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
       const refreshedObservedAt = new Date(now()).toISOString();
       const refreshedSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
