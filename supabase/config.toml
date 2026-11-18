@@ -33,6 +33,11 @@ verify_jwt = false
 [functions.integration-core-bridge]
 verify_jwt = false
 
+# OAuth universal: JWT do operador validado pela plataforma e novamente via Auth server-side.
+# Sem acesso publico anonimo, sem qualquer grant automatico.
+[functions.shopee-oauth-connect-eligibility]
+verify_jwt = true
+
 # Núcleo A+ consulta somente leitura; JWT válido + nucleo_manage + RLS.
 [functions.nucleo-knowledge-read]
 verify_jwt = true
