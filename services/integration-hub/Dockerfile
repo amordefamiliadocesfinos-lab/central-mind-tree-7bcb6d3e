@@ -9,7 +9,7 @@ COPY services/integration-hub/package.json ./package.json
 COPY services/integration-hub/src ./src
 COPY supabase/functions/_shared/shopee-protocol.mjs /workspace/supabase/functions/_shared/shopee-protocol.mjs
 
-RUN node -e "Promise.all([import('file:///workspace/services/integration-hub/src/connectors/shopee-protocol.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-oauth.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-orders.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-label.mjs'), import('file:///workspace/services/integration-hub/src/shopee-shipping-preflight.mjs'), import('file:///workspace/services/integration-hub/src/shopee-ship-order-guard.mjs')])"
+RUN node -e "Promise.all([import('file:///workspace/services/integration-hub/src/connectors/shopee-protocol.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-oauth.mjs'), import('file:///workspace/services/integration-hub/src/shopee-oauth-universal-start.mjs'), import('file:///workspace/services/integration-hub/src/shopee-oauth-universal-handoff.mjs'), import('file:///workspace/services/integration-hub/src/shopee-oauth-refresh-for-account.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-orders.mjs'), import('file:///workspace/services/integration-hub/src/shopee-live-label.mjs'), import('file:///workspace/services/integration-hub/src/shopee-shipping-preflight.mjs'), import('file:///workspace/services/integration-hub/src/shopee-ship-order-guard.mjs')])"
 
 EXPOSE 8080
 

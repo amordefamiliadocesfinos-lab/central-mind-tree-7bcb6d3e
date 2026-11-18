@@ -1,0 +1,24 @@
+name: Shopee OAuth Universal PR911 Reconciliation
+on:
+  pull_request:
+    paths:
+      - 'services/integration-hub/src/shopee-live-oauth.mjs'
+      - 'services/integration-hub/tests/shopee-live-oauth.test.mjs'
+      - '.github/workflows/shopee-oauth-universal-reconcile.yml'
+  workflow_dispatch:
+jobs:
+  legacy-universal-reconciliation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Adão, Viviane, Celivio and universal OAuth regressions
+        run: |
+          node --check services/integration-hub/src/shopee-live-oauth.mjs
+          node --test services/integration-hub/tests/shopee-live-oauth.test.mjs
+          node --test services/integration-hub/tests/shopee-universal-oauth-callback.test.mjs
+          node --test services/integration-hub/src/shopee-oauth-universal-start.test.mjs
