@@ -147,7 +147,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   useEffect(()=>{
     let current=true;
     setRevisions([]);setLoading(true);setError(null);
-    void client.from("nucleo_module_knowledge_revisions").select("*")
+    void Promise.resolve(client.from("nucleo_module_knowledge_revisions").select("*")
       .eq("module_id",moduleId).order("recorded_at",{ascending:false}).limit(MAX_FM_HISTORY_ROWS)
       .then(result=>{
         if(!current)return;
@@ -178,7 +178,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           }
         }
         setLoading(false);
-      }).catch(()=>{
+      })).catch(()=>{
         if(!current)return;
         setError("Consulta interrompida. Atualize a ficha e confirme o acesso antes de registrar.");
         setLoading(false);
