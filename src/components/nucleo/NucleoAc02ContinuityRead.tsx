@@ -81,6 +81,30 @@ function explainAc02ReadFailure(error:unknown):string {
  }
  return "AC-02: falha não classificada na consulta protegida. Conferir sessão, rede e implantação; nenhum pacote preparado.";
 }
+// Apenas classes textuais documentadas na função oficial; jamais exibir
+// o corpo bruto da resposta HTTP, que pode conter dados de infraestrutura.
+async function classifyAc02ContractRejection(error:unknown):Promise<string|null>{
+ const candidate=error as {name?:unknown;context?:unknown}|null;
+ if(candidate?.name!=="FunctionsHttpError"||!(candidate.context instanceof Response)||
+    candidate.context.status!==400)return null;
+ const response=candidate.context;
+ const length=Number(response.headers.get("content-length")??"0");
+ if(length>2048||!response.headers.get("content-type")?.includes("application/json"))return null;
+ try{
+  const parsed:unknown=await response.clone().json();
+  if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))return null;
+  const reason=(parsed as {error?:unknown}).error;
+  switch(reason){
+   case "JSON inválido":return "Validação identificada: JSON inválido na função.";
+   case "Corpo inválido":return "Validação identificada: corpo JSON incompatível.";
+   case "Informe module_code válido e opções booleanas include_review/include_ac02":
+    return "Validação identificada: módulo, opções ou versão de contrato incompatíveis.";
+   case "Utilize módulo operacional externo":
+    return "Validação identificada: módulo NUC recusado pelo contrato.";
+   default:return "Validação HTTP 400 não reconhecida neste contrato; confrontar a revisão implantada e os logs autorizados.";
+  }
+ }catch{return null;}
+}
 export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWorkstreams,onViewDocuments,onViewMandates}:{
  moduleId:string;moduleCode:string;
  onViewWorkstreams?:()=>void;onViewDocuments?:()=>void;onViewMandates?:()=>void;
@@ -104,7 +128,11 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     body:{module_code:moduleCode,include_ac02:true,include_assumption_export:true},
    });
    if(id!==counter.current)return;
-   if(invokeError)throw new Error(explainAc02ReadFailure(invokeError));
+   if(invokeError){
+     const classification=await classifyAc02ContractRejection(invokeError);
+     if(id!==counter.current)return;
+     throw new Error(explainAc02ReadFailure(invokeError)+(classification?" "+classification:""));
+    }
    const response=data as ReadResponse|null;
    if(response?.contract!=="nucleo_a_plus_ca16_ca18_v1"||
       response.module?.id!==moduleId||response.module.code!==moduleCode||
