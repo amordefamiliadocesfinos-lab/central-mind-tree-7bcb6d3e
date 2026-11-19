@@ -264,6 +264,56 @@ SELECT public.e5_expect_failure($q$
  UPDATE public.health_cch_e5_policy_registry
  SET policy_document='tampered' WHERE status='active'
 $q$,ARRAY['23514']::text[]);
+-- Fail closed for voided sessions and an orphan correction injected *only*
+-- by fixture administrator to represent legacy corruption (not via E5 trigger).
+RESET ROLE;
+UPDATE public.health_workout_sessions SET record_status='voided'
+ WHERE id='ffffffff-1000-4000-8000-ffffffffffff';
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $BEGIN
+ IF EXISTS (SELECT 1 FROM public.health_cch_e5_current_session_review(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'ffffffff-1000-4000-8000-ffffffffffff')) THEN
+  RAISE EXCEPTION 'voided session exposed E5 recovery'; END IF;
+END $;
+RESET ROLE;
+UPDATE public.health_workout_sessions SET record_status='active'
+ WHERE id='ffffffff-1000-4000-8000-ffffffffffff';
+-- Isolated forensic injection: cannot be entered using approved E5 API.
+ALTER TABLE public.health_workout_events DISABLE TRIGGER health_cch_e5_session_note_guard;
+INSERT INTO public.health_workout_events
+ (id,athlete_id,session_id,event_type,source,client_event_id,
+ created_by_auth_user_id,payload)
+ VALUES('eeeeeeee-0000-4000-8000-000000000001',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 'ffffffff-1000-4000-8000-ffffffffffff',
+ 'note','user','eeeeeeee-0000-4000-8000-000000000002',
+ '11111111-1111-4111-8111-111111111111',
+ '{"contract":"cch-e5-session-review-v1","explicit_confirmation":true,
+ "recovery":"good","symptoms":"none",
+ "replaces_event_id":"eeeeeeee-0000-4000-8000-000000000003"}');
+ALTER TABLE public.health_workout_events ENABLE TRIGGER health_cch_e5_session_note_guard;
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $BEGIN
+ IF EXISTS (SELECT 1 FROM public.health_cch_e5_current_session_review(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'ffffffff-1000-4000-8000-ffffffffffff')) THEN
+  RAISE EXCEPTION 'orphan E5 correction did not fail closed'; END IF;
+END $;
+RESET ROLE;
+DELETE FROM public.health_workout_events
+ WHERE id='eeeeeeee-0000-4000-8000-000000000001';
+-- Forensic checks did not overwrite or delete the legitimate E5 chain.
+DO $BEGIN
+ IF (SELECT count(*) FROM public.health_workout_events
+ WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+ AND session_id='ffffffff-1000-4000-8000-ffffffffffff'
+ AND event_type='note' AND payload->>'contract'='cch-e5-session-review-v1')<>3
+ THEN RAISE EXCEPTION 'valid E5 chain not preserved after forensic checks'; END IF;
+END $;
+
 -- Governance version switch is a privileged fixture-only action, never client-selectable.
 -- First override any conflicting synthetic history with a fresh explicit grant.
 SET ROLE authenticated;
