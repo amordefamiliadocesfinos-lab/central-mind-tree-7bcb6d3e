@@ -16,6 +16,6 @@ test("E2 view reveals read-only source SHA to Work",()=>{
 });
 test("only a full SHA is accepted",()=>{
  assert.match(build,/\[0-9a-f\]\{40\}/);
- assert.match(build,/revision: revision\?\.slice\(0,12\)/);
+ assert.match(build,/shortRevision: revision\?\.slice\(0,12\)/);
  assert.match(build,/known: revision !== null/);
 });
