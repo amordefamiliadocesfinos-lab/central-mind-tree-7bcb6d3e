@@ -540,8 +540,15 @@ assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
 // "proposta" para inicial e "em_evolucao" para revisão), não apenas o estado.
 assert.match(ac01UI,/authorityState:parent\?"em_evolucao":"proposta"/);
 assert.match(ac01UI,/row\.authority_state===attempt\.authorityState/);
-for(const key of ["request_id","module_id","specialist_role","contribution_kind","title","source_kind","source_locator","source_checksum_sha256","note","parent_revision_id","version_no"]){
-  assert.ok(ac01UI.includes("row."+key+"===attempt."), "Readback AC-01 deve conferir "+key);
+for(const [rowField,attemptField] of [
+  ["request_id","requestId"],["module_id","moduleId"],
+  ["specialist_role","specialistRole"],["contribution_kind","contributionKind"],
+  ["title","title"],["source_kind","sourceKind"],["source_locator","sourceLocator"],
+  ["source_checksum_sha256","checksum"],["note","note"],
+  ["parent_revision_id","parentRevisionId"],["version_no","versionNo"],
+]){
+  assert.ok(ac01UI.includes("row."+rowField+"===attempt."+attemptField),
+    "Readback AC-01 deve conferir "+rowField);
 }
 assert.match(ac01UI,/!isMatchingPendingAttempt\(check\.data,attempt\)/);
 assert.ok(!ac01UI.includes('check.data.authority_state!=="proposta"'));
