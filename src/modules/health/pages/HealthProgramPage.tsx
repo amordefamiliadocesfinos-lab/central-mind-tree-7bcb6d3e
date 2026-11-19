@@ -67,6 +67,7 @@ export function HealthProgramPage() {
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [e2Reason,setE2Reason]=useState<{id:string;reason:string}|null>(null);
+  const [editReason,setEditReason]=useState("");
   const [e2Structure,setE2Structure]=useState<{id:string;operation:"swap"|"replace";targetId:string;label:string}|null>(null);
   const [e2StructureReason,setE2StructureReason]=useState("");
   const [edit, setEdit] = useState({setsMin:"",setsMax:"",repsMin:"",repsMax:"",rir:"",rest:""});
@@ -749,6 +750,7 @@ export function HealthProgramPage() {
                                     rir:String(candidate.after.rir_target??""),
                                     rest:String(candidate.after.rest_seconds??"")});
                                   setE2Reason({id:item.id,reason:candidate.reason});
+                                  setEditReason(candidate.reason);
                                 }}>Levar ao editor, sem salvar</Button> : null}
                               </div>;
                             })() : null}
@@ -806,6 +808,7 @@ export function HealthProgramPage() {
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditId(item.id);
                                 setE2Reason(null);
+                                setEditReason("");
                                 setEdit({setsMin:String(item.planned_sets_min??""),setsMax:String(item.planned_sets_max??""),
                                   repsMin:String(item.reps_min??""),repsMax:String(item.reps_max??""),
                                   rir:String(item.rir_target??""),rest:String(item.rest_seconds??"")});
@@ -816,13 +819,19 @@ export function HealthProgramPage() {
                                     <label key={key} className="text-xs">{label}<Input type="number" step={key==="rir"?"0.5":"1"} value={edit[key]}
                                       onChange={e=>setEdit(prev=>({...prev,[key]:e.target.value}))}/></label>)}
                                 </div>
-                                <Button disabled={program.saving} onClick={() => void save("Prescrição atualizada.",async () => {
+                                <label className="text-xs">Motivo da revisão (mínimo 10 caracteres)
+                                  <Input value={editReason} onChange={event=>setEditReason(event.target.value)}
+                                    placeholder="Ex.: ajuste da faixa após revisar a execução"/>
+                                </label>
+                                <p className="text-xs text-muted-foreground">Salvamento só no rascunho. Se outra edição ocorreu, os dados serão recarregados para nova conferência.</p>
+                                <Button disabled={program.saving||editReason.trim().length<10} onClick={() => void save("Prescrição atualizada.",async () => {
                                   await program.updatePrescription(item.id,{
                                     planned_sets_min:numberOrNull(edit.setsMin),planned_sets_max:numberOrNull(edit.setsMax),
                                     reps_min:numberOrNull(edit.repsMin),reps_max:numberOrNull(edit.repsMax),
                                     rir_target:numberOrNull(edit.rir),rest_seconds:numberOrNull(edit.rest)},
-                                    e2Reason?.id===item.id ? e2Reason.reason : undefined);
+                                    editReason.trim());
                                   setE2Reason(null);
+                                  setEditReason("");
                                   setEditId(null);
                                 })}>Salvar ajustes</Button>
                               </div> : null}

@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/*health_cch_e2b*'
+      - 'supabase/migrations/*health_cch_e2c*'
       - 'supabase/tests/health_cch_e2*'
       - '.github/workflows/health-cch-e2-postgres-validation.yml'
 permissions:
@@ -35,7 +36,7 @@ jobs:
           set -euo pipefail
           ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
           test -n "$ID"
-          for file in             supabase/tests/health_cch_e2_disposable_fixture.sql             supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql             supabase/tests/health_cch_e2_disposable_contract.sql
+          for file in             supabase/tests/health_cch_e2_disposable_fixture.sql             supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql             supabase/migrations/20261119112000_health_cch_e2c_guarded_prescription.sql             supabase/tests/health_cch_e2_disposable_contract.sql             supabase/tests/health_cch_e2c_disposable_contract.sql
           do
             docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID"               psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$file"
           done

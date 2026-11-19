@@ -26,6 +26,9 @@ CREATE TABLE public.health_session_template_exercises(
  id uuid PRIMARY KEY,session_template_id uuid NOT NULL REFERENCES health_session_templates(id),
  athlete_id uuid NOT NULL REFERENCES health_athletes(id),exercise_id uuid NOT NULL REFERENCES health_exercises(id),
  sequence_order integer NOT NULL,
+ planned_sets_min smallint DEFAULT 3,planned_sets_max smallint DEFAULT 4,
+ reps_min smallint DEFAULT 6,reps_max smallint DEFAULT 10,
+ rir_target numeric(3,1) DEFAULT 2,rest_seconds integer DEFAULT 120,
  prescription_notes text,
  UNIQUE(session_template_id,sequence_order));
 CREATE TABLE public.health_workout_sessions(id uuid PRIMARY KEY,athlete_id uuid);
