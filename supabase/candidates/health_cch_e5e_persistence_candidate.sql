@@ -145,6 +145,13 @@ BEGIN
     RAISE EXCEPTION 'E5 review only by athlete for completed/active session'
      USING ERRCODE='42501';
   END IF;
+  -- A self-report E5 note itself requires the currently active E5 legal gate.
+  -- Consent to analyse is distinct from authorship, but both are mandatory here;
+  -- this candidate does not activate any collection in the actual application.
+  IF NOT public.health_cch_e5_has_explicit_consent(NEW.athlete_id) THEN
+   RAISE EXCEPTION 'E5 review capture blocked without active consent'
+   USING ERRCODE='42501';
+  END IF;
   -- Serialize corrections at the session row, including concurrent transactions.
   -- Lock by composite identity without requiring broad UPDATE privileges
   -- on the workout session or changing the historic session record.
@@ -261,6 +268,19 @@ REVOKE ALL ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
 GRANT EXECUTE ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
  TO authenticated;
 
+-- Sensitive E5 notes must not be exposed by the ordinary M4 SELECT
+-- policy to coaches, owners or even the athlete after E5 revocation.
+-- Existing non-E5 M4 event read policy remains intact for ordinary events.
+DROP POLICY health_workout_events_select ON public.health_workout_events;
+CREATE POLICY health_workout_events_select ON public.health_workout_events
+ FOR SELECT TO authenticated USING (
+ public.health_can_read_athlete(athlete_id)
+ AND (NOT (event_type='note' AND payload->>'contract'='cch-e5-session-review-v1')
+   OR (EXISTS (SELECT 1 FROM public.health_athletes a WHERE a.id=athlete_id
+       AND a.auth_user_id=auth.uid() AND a.status='active')
+    AND public.health_cch_e5_has_explicit_consent(athlete_id)))
+);
+
 -- Crucial: existing M4 policy is OR-capable; REPLACE rather than ADD a new
 -- policy, so broad health_can_write_athlete cannot bypass E5 owner gate.
 DROP POLICY health_workout_events_insert ON public.health_workout_events;
@@ -269,7 +289,8 @@ CREATE POLICY health_workout_events_insert ON public.health_workout_events
  public.health_can_write_athlete(athlete_id)
  AND (created_by_auth_user_id IS NULL OR created_by_auth_user_id=auth.uid())
  AND (NOT (event_type='note' AND payload->>'contract'='cch-e5-session-review-v1')
-  OR (created_by_auth_user_id=auth.uid() AND
+  OR (public.health_cch_e5_has_explicit_consent(athlete_id)
+   AND created_by_auth_user_id=auth.uid() AND
    EXISTS (SELECT 1 FROM public.health_athletes a
     WHERE a.id=athlete_id AND a.auth_user_id=auth.uid())))
 );
