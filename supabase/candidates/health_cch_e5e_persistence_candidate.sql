@@ -64,8 +64,8 @@ BEGIN
    NEW.payload<>jsonb_build_object('contract','cch-e5-session-review-v1',
     'explicit_confirmation',true,'recovery',NEW.payload->>'recovery',
     'symptoms',NEW.payload->>'symptoms') OR
-   NEW.payload->>'recovery' NOT IN ('good','poor','unknown') OR
-   NEW.payload->>'symptoms' NOT IN ('none','pain','unknown') THEN
+   COALESCE(NEW.payload->>'recovery','') NOT IN ('good','poor','unknown') OR
+   COALESCE(NEW.payload->>'symptoms','') NOT IN ('none','pain','unknown') THEN
     RAISE EXCEPTION 'invalid E5 review attribution or payload' USING ERRCODE='23514';
   END IF;
   SELECT a.auth_user_id,s.status,s.record_status
