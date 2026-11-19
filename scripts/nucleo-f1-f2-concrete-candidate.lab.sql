@@ -106,7 +106,7 @@ CREATE TRIGGER assignments_context BEFORE INSERT OR UPDATE OF module_id,front_id
  ON f12_lab.assignments FOR EACH ROW EXECUTE FUNCTION f12_lab.validate_context();
 
 -- Close only: historical identity, method, context, role, source and validity are immutable.
-CREATE FUNCTION f12_lab.guard_assignment_history() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $
+CREATE FUNCTION f12_lab.guard_assignment_history() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $guard$
 BEGIN
  IF NEW.id IS DISTINCT FROM OLD.id OR NEW.specialty_id IS DISTINCT FROM OLD.specialty_id
     OR NEW.instance_id IS DISTINCT FROM OLD.instance_id OR NEW.auth_uid IS DISTINCT FROM OLD.auth_uid
@@ -121,7 +121,7 @@ BEGIN
   RAISE EXCEPTION 'assignment history immutable except first closure';
  END IF;
  RETURN NEW;
-END $;
+END $guard$;
 CREATE TRIGGER assignment_history_guard BEFORE UPDATE ON f12_lab.assignments
  FOR EACH ROW EXECUTE FUNCTION f12_lab.guard_assignment_history();
 
