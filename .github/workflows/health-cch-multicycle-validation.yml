@@ -1,0 +1,28 @@
+name: Health CCH V8 Multi Cycle Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/**'
+      - 'scripts/health-cch-multicycle.test.mjs'
+      - 'supabase/migrations/*health_cch_multicycle_v8*'
+      - '.github/workflows/health-cch-multicycle-validation.yml'
+permissions:
+  contents: read
+jobs:
+  multicycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-health-cch-volume
+          npx tsc src/modules/health/cch/multiCycleEvidence.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-health-cch-volume --skipLibCheck
+      - run: node --test scripts/health-cch-multicycle.test.mjs
+      - run: npx eslint src/modules/health/cch/multiCycleEvidence.ts src/modules/health/hooks/useCchCycleAdvisor.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build
