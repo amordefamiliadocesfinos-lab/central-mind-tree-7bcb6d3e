@@ -488,6 +488,41 @@ export function HealthProgramPage() {
         <Card><CardContent className="space-y-2 py-4">
           <p className="text-sm font-medium">Próximo ciclo em revisão</p>
           <p className="text-xs text-muted-foreground">A versão anterior foi copiada para revisão, não é progressão automática. Confira cargas no Histórico e revise prescrições antes de publicar.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Objetivo atual para revisar propostas E2</Label>
+              <Select value={goalChoice} onValueChange={value=>setGoalChoice(value as GuidedGoal)}>
+                <SelectTrigger><SelectValue placeholder="Escolha o objetivo"/></SelectTrigger>
+                <SelectContent>{guidedGoals.map(goal=><SelectItem key={goal.value} value={goal.value}>{goal.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Recuperação percebida agora</Label>
+              <Select value={recoveryReport} onValueChange={value=>setRecoveryReport(value as RecoveryReport)}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">Não avaliei</SelectItem>
+                  <SelectItem value="good">Adequada</SelectItem>
+                  <SelectItem value="poor">Insuficiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Dor que interfere no treino</Label>
+              <Select value={symptomReport} onValueChange={value=>setSymptomReport(value as SymptomReport)}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">Não avaliei</SelectItem>
+                  <SelectItem value="none">Não</SelectItem>
+                  <SelectItem value="pain">Sim</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Essas respostas modificam somente a avaliação consultiva desta tela; não publicam,
+            não diagnosticam e não gravam dados de recuperação. Uma proposta exige revisão e salvamento explícitos.
+          </p>
         </CardContent></Card>
       ) : null}
       <Card className="border-primary/15">
