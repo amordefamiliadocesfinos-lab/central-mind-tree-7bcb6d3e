@@ -135,10 +135,15 @@ CREATE TABLE f12_lab.read_grants (
  valid_from timestamptz NOT NULL,
  valid_until timestamptz,
  revoked_at timestamptz,
+ revoked_by_actor_ref text,
+ revocation_decision_ref text,
  decision_ref text NOT NULL CHECK(length(btrim(decision_ref))>=8),
  granting_actor_ref text NOT NULL CHECK(length(btrim(granting_actor_ref))>=8),
  CHECK(valid_until IS NULL OR valid_until>valid_from),
  CHECK(revoked_at IS NULL OR revoked_at>=granted_at),
+ CHECK((revoked_at IS NULL AND revoked_by_actor_ref IS NULL AND revocation_decision_ref IS NULL)
+    OR (revoked_at IS NOT NULL AND length(btrim(coalesce(revoked_by_actor_ref,'')))>=8
+         AND length(btrim(coalesce(revocation_decision_ref,'')))>=8)),
  FOREIGN KEY(assignment_id,auth_uid) REFERENCES f12_lab.assignments(id,auth_uid) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX f12_one_unrevoked_read_grant ON f12_lab.read_grants
@@ -164,12 +169,13 @@ BEGIN
      OR NEW.auth_uid IS DISTINCT FROM OLD.auth_uid OR NEW.permission IS DISTINCT FROM OLD.permission
      OR NEW.valid_from IS DISTINCT FROM OLD.valid_from OR NEW.valid_until IS DISTINCT FROM OLD.valid_until
      OR NEW.granted_at IS DISTINCT FROM OLD.granted_at
+     OR (OLD.revoked_by_actor_ref IS NOT NULL OR OLD.revocation_decision_ref IS NOT NULL)
      OR NEW.decision_ref IS DISTINCT FROM OLD.decision_ref OR NEW.granting_actor_ref IS DISTINCT FROM OLD.granting_actor_ref
      OR OLD.revoked_at IS NOT NULL OR NEW.revoked_at IS NULL THEN
    RAISE EXCEPTION 'grant is immutable except first revocation';
   END IF;
   INSERT INTO f12_lab.grant_history(grant_id,event_kind,decision_ref,actor_ref)
-   VALUES(NEW.id,'revoked',NEW.decision_ref,NEW.granting_actor_ref);
+   VALUES(NEW.id,'revoked',NEW.revocation_decision_ref,NEW.revoked_by_actor_ref);
  END IF;
  RETURN NEW;
 END $$;
