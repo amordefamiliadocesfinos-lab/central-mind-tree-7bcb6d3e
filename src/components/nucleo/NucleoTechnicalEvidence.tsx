@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { NucleoDevelopmentDatabase, TechnicalEvidence } from "@/lib/nucleo/development.types";
+import { M4_EVIDENCE_VISIBLE_LIMIT, projectM4EvidenceWindow } from "@/lib/nucleo/m4EvidenceWindow";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const officialRepo = "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/";
@@ -28,6 +29,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
   const [records, setRecords] = useState<TechnicalEvidence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<TechnicalEvidence["kind"][]>([]);
   const [expandedRecords, setExpandedRecords] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
@@ -37,15 +39,19 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
     setRecords([]);
     setLoading(true);
     setError(false);
+    setHasMore(false);
     setExpandedGroups([]);
     setExpandedRecords([]);
     void (async () => {
       const result = await client.from("nucleo_development_evidence")
         .select("*").eq("workstream_id", workstreamId)
-        .order("recorded_at", { ascending: false }).limit(100);
+        .order("recorded_at", { ascending: false }).limit(M4_EVIDENCE_VISIBLE_LIMIT + 1);
       if (cancelled) return;
       setError(!!result.error);
-      setRecords(result.error ? [] : result.data ?? []);
+      const returned = result.error ? [] : result.data ?? [];
+      const window = projectM4EvidenceWindow(returned);
+      setRecords(window.visible);
+      setHasMore(!result.error && window.hasMore);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -71,17 +77,20 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recarregar
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {records.length} evidência(s) arquivada(s) por tipo. Registros de uma conferência anterior,
-        não são sincronização ao vivo nem aprovam a frente automaticamente.
-      </p>
+      {!loading && !error && <p className="text-xs text-muted-foreground">
+        {records.length} evidência(s) exibida(s) neste recorte autorizado{hasMore ? " (limite de 100 atingido; há mais registros acessíveis)" : ""}.
+        Registros de uma conferência anterior, não são sincronização ao vivo nem aprovam a frente automaticamente.
+      </p>}
+      {!loading && !error && hasMore && <p role="status" className="text-xs font-medium text-amber-800 dark:text-amber-200">
+        Recorte parcial: existem mais de 100 evidências acessíveis nesta frente. A lista não representa o histórico completo.
+      </p>}
       {lastChecked && <p className="text-xs text-muted-foreground">
         Última conferência registrada: {new Date(lastChecked).toLocaleString("pt-BR")}
       </p>}
       {loading && <p role="status" className="text-xs text-muted-foreground">Consultando evidências…</p>}
       {error && <p role="status" className="text-xs text-muted-foreground">Evidências temporariamente indisponíveis.</p>}
       {!loading && !error && records.length === 0 && (
-        <p className="text-xs text-muted-foreground">Nenhuma evidência vinculada.</p>
+        <p className="text-xs text-muted-foreground">Nenhuma evidência encontrada no recorte autorizado. Isso não comprova ausência em outras fontes.</p>
       )}
       {!loading && !error && groups.map(group => {
         const open = expandedGroups.includes(group.kind);

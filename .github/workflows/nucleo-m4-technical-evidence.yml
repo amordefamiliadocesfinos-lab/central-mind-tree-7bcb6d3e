@@ -5,6 +5,8 @@ on:
       - "supabase/migrations/20261111234500_nucleo_m4_technical_evidence.sql"
       - "scripts/nucleo-m4-technical-evidence.test.sql"
       - "src/components/nucleo/NucleoTechnicalEvidence.tsx"
+      - "src/lib/nucleo/m4EvidenceWindow.ts"
+      - "scripts/nucleo-ux-nt06-m4-window.test.cjs"
       - "scripts/nucleo-m4-github-refresh.cjs"
       - "scripts/nucleo-m4-github-refresh.test.cjs"
       - "scripts/nucleo-m4-reconcile-review.cjs"
@@ -78,4 +80,5 @@ jobs:
       - run: node scripts/nucleo-m4-assignment-review.test.cjs
       - run: node scripts/nucleo-m4-prioritize-review.test.cjs
       - run: node scripts/nucleo-m4-group-ci-review.test.cjs
+      - run: node scripts/nucleo-ux-nt06-m4-window.test.cjs
       - run: npm run build
