@@ -16,13 +16,15 @@ export type Assessment = {
   training_profile: { training_level?: string; overall_data_confidence?: string } | null;
   recovery_context: { as_of_date?: string; confidence?: string; recovery_observed_days?: number; fatigue_observed_days?: number } | null;
   limitations: string[];
-  muscle_distribution?: Array<{muscle_group_id:string;muscle_name:string;planned_min_sets_per_sequence:number;recorded_work_sets:number;planned_exercises:number;note:string}>;
+  muscle_distribution?: Array<{muscle_group_id:string;muscle_name:string;planned_min_sets_per_sequence:number;recorded_work_sets:number;planned_exercises:number;note:string;observed_sets_per_7_days?:number|null;normalization_available?:boolean}>;
   frequency_context?: {completed_sessions:number;span_days:number|null;first_completed_at:string|null;last_completed_at:string|null};
   recovery_evidence_state?: "unknown" | "limited_coverage" | "observed_needs_interpretation";
   goal_specific_guidance?: Record<GuidedGoal,string>;
+  load_trends?: Array<{exercise_id:string;load_unit:string;exposures:number;recent_peak_load:number|null;prior_peak_load:number|null;recent_best_reps:number|null;prior_best_reps:number|null;recent_rir:number|null;signal:string;reason:string}>;
+  periodization_options?: Array<{stage:string;description:string}>;
 };
 const empty: Assessment = {
-  engine_version: "cch-guided-v3",source_version_id: "",completed_sessions: 0,completed_sets: 0,
+  engine_version: "cch-guided-v4",source_version_id: "",completed_sessions: 0,completed_sets: 0,
   measured_sets: 0,exercise_assessments: [],training_profile: null,recovery_context: null,limitations: [],
 };
 export const guidedGoals: Array<{ value: GuidedGoal; label: string }> = [
@@ -50,7 +52,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle_v3" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v4" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
@@ -78,7 +80,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
           "A cobertura de recuperação está ausente ou limitada; o CCH não presumirá fadiga nem reduzirá seu treino."},
       {goal:"strength" as GuidedGoal,strategy:"consolidate" as GuidedStrategy,
         label:"Considerar foco de força",
-        reason:`Analisados ${assessment.exercise_assessments.length} registros de prescrição. Comparações de cargas só são válidas no mesmo exercício; aumentos exigem revisão.`},
+        reason:`Foram avaliadas ${assessment.load_trends?.length ?? 0} tendências por exercício/unidade. Aumento de carga exige conferir equipamento, técnica e recuperação; a proposta não inventa kg.`},
       {goal:"muscle_priority" as GuidedGoal,strategy:"consolidate" as GuidedStrategy,
         label:"Reorganizar prioridades musculares",
         reason:`${trainedGroups} grupos musculares possuem distribuição observada. Escolha qual deseja priorizar antes de gerar a proposta.`},
@@ -87,13 +89,13 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
         reason:"A execução do treino não demonstra, sozinha, necessidade de perder gordura; exige escolha consciente e contexto nutricional/corporal."},
     ];
   },[assessment]);
-  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string)=>{
+  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string,allowTargetedSets=false)=>{
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v3" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v4" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
-          p_priority_muscle_id:priorityMuscleId || null} as never);
+          p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets} as never);
       if(result.error)throw new Error(result.error.message);
     }finally{setGenerating(false);}
   },[athleteId,versionId,assessment.source_version_id,error]);

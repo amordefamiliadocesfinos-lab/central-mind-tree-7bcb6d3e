@@ -40,6 +40,7 @@ export function HealthProgramPage() {
   const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
   const [priorityMuscleId, setPriorityMuscleId] = useState("");
+  const [allowTargetedSets, setAllowTargetedSets] = useState(false);
 
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -217,6 +218,17 @@ export function HealthProgramPage() {
                     </div>
                   ))}
                 </div>
+                {cycleAdvisor.assessment.load_trends?.length ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Tendência de força por exercício (observacional)</p>
+                    {cycleAdvisor.assessment.load_trends.slice(0,8).map(item => (
+                      <p key={item.exercise_id + item.load_unit} className="text-muted-foreground">
+                        {exerciseNameById.get(item.exercise_id) ?? "Exercício"} · {item.signal.replaceAll("_"," ")}
+                        · carga anterior/recente: {item.prior_peak_load ?? "—"}/{item.recent_peak_load ?? "—"} {item.load_unit}.
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
                 {cycleAdvisor.assessment.frequency_context ? (
                   <p className="text-muted-foreground">Regularidade: {cycleAdvisor.assessment.frequency_context.completed_sessions} sessões registradas no período observado de {cycleAdvisor.assessment.frequency_context.span_days ?? "—"} dia(s); não representa meta semanal.</p>
                 ) : null}
@@ -225,10 +237,18 @@ export function HealthProgramPage() {
                     <p className="font-medium">Distribuição observada de séries por grupo muscular principal</p>
                     {cycleAdvisor.assessment.muscle_distribution.map(item => (
                       <p key={item.muscle_group_id} className="text-muted-foreground">
-                        {item.muscle_name}: {item.recorded_work_sets} séries realizadas; mínimo planejado na sequência: {item.planned_min_sets_per_sequence}.
+                        {item.muscle_name}: {item.recorded_work_sets} séries realizadas; mínimo planejado na sequência: {item.planned_min_sets_per_sequence}; observadas por 7 dias: {item.normalization_available ? item.observed_sets_per_7_days : "não comparável"}.
                       </p>
                     ))}
                     <p className="text-muted-foreground">Totais da sequência, não volume semanal recomendado. Grupos secundários não são somados.</p>
+                  </div>
+                ) : null}
+                {cycleAdvisor.assessment.periodization_options?.length ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Roteiro de periodização flexível</p>
+                    {cycleAdvisor.assessment.periodization_options.map(item => (
+                      <p key={item.stage} className="text-muted-foreground">{item.description}</p>
+                    ))}
                   </div>
                 ) : null}
                 {cycleAdvisor.assessment.goal_specific_guidance?.[goalChoice === "unsure" ? "hypertrophy" : goalChoice] ? (
@@ -293,13 +313,20 @@ export function HealthProgramPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">A escolha altera a prioridade do rascunho; a distribuição de volume precisará ser revisada antes da publicação.</p>
+                {strategyChoice === "continue_progression" ? (
+                  <label className="flex gap-2 items-start text-xs">
+                    <input type="checkbox" className="mt-1" checked={allowTargetedSets}
+                      onChange={event => setAllowTargetedSets(event.target.checked)} />
+                    Propor, se houver evidências compatíveis, aumento de 1 no máximo de séries de um único exercício prioritário. Revisarei o rascunho antes de publicar.
+                  </label>
+                ) : null}
               </div>
             ) : null}
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
             <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
               !!cycleAdvisor.error || cycleAdvisor.generating || program.saving}
               onClick={() => void save("Nova versão proposta para revisão; nenhuma sessão foi publicada.", async () => {
-                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId);
+                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId,goalChoice === "muscle_priority" && strategyChoice === "continue_progression" && allowTargetedSets);
                 await program.reload();
               })}>
               {cycleAdvisor.generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
