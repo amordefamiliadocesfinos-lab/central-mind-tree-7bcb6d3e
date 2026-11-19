@@ -1,0 +1,28 @@
+name: Health CCH V9 Decision Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/**'
+      - 'scripts/health-cch-v9.test.mjs'
+      - 'supabase/migrations/*health_cch_v9*'
+      - '.github/workflows/health-cch-v9-validation.yml'
+permissions:
+  contents: read
+jobs:
+  recommendations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-health-cch-v9
+          npx tsc src/modules/health/cch/motorV9Decision.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-health-cch-v9 --skipLibCheck
+      - run: node --test scripts/health-cch-v9.test.mjs
+      - run: npx eslint src/modules/health/cch/motorV9Decision.ts src/modules/health/hooks/useCchCycleAdvisor.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build

@@ -116,7 +116,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v8" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v9" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
           p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets,
           p_recovery_report:recovery,p_symptom_report:symptoms} as never);
