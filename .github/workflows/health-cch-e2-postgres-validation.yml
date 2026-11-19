@@ -52,3 +52,18 @@ jobs:
           grep -q "CREATE OR REPLACE FUNCTION" /tmp/health_e2_f22_original.sql
           docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < /tmp/health_e2_f22_original.sql
           docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < supabase/tests/health_cch_e2_f22_original_contract.sql
+  visual-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Compile CCH E2 F22 mirror
+        run: |
+          rm -rf .tmp-health-cch-e2f22
+          npx tsc src/modules/health/cch/publicationStructure.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-health-cch-e2f22 --skipLibCheck
+      - run: node --test scripts/health-cch-e2-f22.test.mjs
+      - run: npx eslint src/modules/health/cch/publicationStructure.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build
