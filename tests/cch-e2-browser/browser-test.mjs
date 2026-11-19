@@ -93,7 +93,14 @@ try{
    "M3/F22 isolated publish did not persist the new version and queue");
  await page.reload();
  await page.getByTestId("isolation-banner").waitFor();
- await page.getByText("Versão publicada e bloqueada para edição").waitFor();
+ await page.waitForTimeout(800);
+ const publishedText=await page.locator("body").innerText();
+ if(!publishedText.includes("Versão publicada e bloqueada para edição")){
+  console.log("Synthetic published UI checkpoint",JSON.stringify({
+    body:publishedText.slice(0,1600),reactErrors:errors.slice(-3)
+  }));
+ }
+ await page.getByText("Versão publicada e bloqueada para edição").waitFor({timeout:10000});
  check(finalState.queue.some(q=>q.program_version_id==="aaaaaaaa-2000-4000-8000-aaaaaaaaaaab"&&q.n===2),
   "published queue not created exactly twice");
  check(finalState.queue.some(q=>q.program_version_id==="aaaaaaaa-2000-4000-8000-aaaaaaaaaaaa"&&q.n===1),
