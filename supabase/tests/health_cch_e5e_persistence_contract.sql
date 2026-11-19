@@ -189,7 +189,7 @@ SELECT public.e5_expect_failure($q$
 $q$,ARRAY['23514']::text[]);
 -- E5 correction uses a distinct append-only note, chaining the root UUID.
 -- Reject repeated, cross-athlete, stale predecessor and invalid payload.
-DO $
+DO $$
 DECLARE root_id uuid; correction_id uuid; payload_json jsonb;
 BEGIN
  SELECT id INTO root_id FROM public.health_workout_events
@@ -231,7 +231,7 @@ BEGIN
   WHERE session_id='ffffffff-1000-4000-8000-ffffffffffff'
    AND payload->>'contract'='cch-e5-session-review-v1')<>3 THEN
   RAISE EXCEPTION 'E5 historical correction chain not preserved'; END IF;
-END $;
+END $$;
 
 -- Regular M4 event remains writable for the owner, with M4 existing contract.
 INSERT INTO public.health_workout_events
