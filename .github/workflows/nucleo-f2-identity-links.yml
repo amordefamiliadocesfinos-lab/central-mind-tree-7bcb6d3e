@@ -1,0 +1,21 @@
+name: Núcleo F2 — prova isolada multiespecialidade
+on:
+  pull_request:
+    paths:
+      - "scripts/nucleo-f2-identity-links-model.test.cjs"
+      - ".github/workflows/nucleo-f2-identity-links.yml"
+      - "docs/architecture/NUCLEO_F2_VINCULOS_NN_CONTRAPROVA_ISOLADA_2026-11-19.md"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  functional-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Confirm isolated identity-link model
+        run: node scripts/nucleo-f2-identity-links-model.test.cjs
