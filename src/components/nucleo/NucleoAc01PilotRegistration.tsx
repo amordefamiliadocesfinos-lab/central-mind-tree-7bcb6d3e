@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import {
   NUC_MODULE_ID,PILOT_ROLE,PILOT_SOURCE,PILOT_TITLE,
@@ -11,6 +13,12 @@ import {
  * usa o JWT da sessão Supabase Auth no supabase.functions.invoke,
  * que aciona o único gateway AC-01, sob RLS e trigger existentes.
  */
+type ACDB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
+  Tables:Database["public"]["Tables"]&{nucleo_specialist_contributions:{
+    Row:PilotRecord;Insert:Partial<PilotRecord>;Update:never;Relationships:[];
+  }};
+}};
+const db=supabase as unknown as SupabaseClient<ACDB>;
 const FUNCTION_NAME = "nucleo-ac01-agent-proposal";
 const STORAGE_PREFIX = "nucleo-ac01-pilot-v11:";
 const GITHUB_SOURCE =
@@ -48,7 +56,7 @@ export default function NucleoAc01PilotRegistration(){
       }
       const uid=auth.data.user.id;
       userId.current=uid;
-      const grant=await supabase.from("app_admin_capabilities").select("auth_user_id")
+      const grant=await db.from("app_admin_capabilities").select("auth_user_id")
         .eq("auth_user_id",uid).eq("capability","nucleo_manage")
         .eq("active",true).is("revoked_at",null).limit(2);
       if(grant.error||grant.data?.length!==1){
@@ -70,7 +78,7 @@ export default function NucleoAc01PilotRegistration(){
         setStatus("unavailable");setMessage("A proteção local da tentativa não está disponível. Registro suspenso.");return;
       }
       setRequestId(attempt?.request_id??null);
-      const result=await supabase.from("nucleo_specialist_contributions")
+      const result=await db.from("nucleo_specialist_contributions")
         .select("*").eq("module_id",NUC_MODULE_ID)
         .eq("contribution_kind","mapa").eq("source_kind","github")
         .eq("source_locator",PILOT_SOURCE).limit(3);
@@ -92,7 +100,7 @@ export default function NucleoAc01PilotRegistration(){
         return;
       }
       if(attempt){
-        const byId=await supabase.from("nucleo_specialist_contributions")
+        const byId=await db.from("nucleo_specialist_contributions")
           .select("*").eq("module_id",NUC_MODULE_ID)
           .eq("request_id",attempt.request_id).limit(2);
         if(byId.error||!byId.data||byId.data.length!==1){
@@ -128,13 +136,13 @@ export default function NucleoAc01PilotRegistration(){
         setStatus("signed_out");setMessage("Sessão alterada ou expirada. Nenhuma gravação foi enviada.");return;
       }
       const uid=userId.current;
-      const grant=await supabase.from("app_admin_capabilities").select("auth_user_id")
+      const grant=await db.from("app_admin_capabilities").select("auth_user_id")
         .eq("auth_user_id",uid).eq("capability","nucleo_manage")
         .eq("active",true).is("revoked_at",null).limit(2);
       if(grant.error||grant.data?.length!==1){
         setStatus("missing_grant");setMessage("Concessão não confirmada. Nenhuma escrita foi enviada.");return;
       }
-      const existing=await supabase.from("nucleo_specialist_contributions")
+      const existing=await db.from("nucleo_specialist_contributions")
         .select("id").eq("module_id",NUC_MODULE_ID)
         .eq("specialist_role",PILOT_ROLE).eq("contribution_kind","mapa")
         .eq("source_kind","github").eq("source_locator",PILOT_SOURCE).limit(2);
@@ -151,7 +159,7 @@ export default function NucleoAc01PilotRegistration(){
       if(response.error||!response.data?.record){
         setStatus("uncertain");setMessage("Resposta não conclusiva da função; não repetir. Use Reconciliar com o Core.");return;
       }
-      const check=await supabase.from("nucleo_specialist_contributions")
+      const check=await db.from("nucleo_specialist_contributions")
         .select("*").eq("module_id",NUC_MODULE_ID)
         .eq("request_id",request_id).limit(2);
       if(check.error||!check.data||check.data.length!==1||
