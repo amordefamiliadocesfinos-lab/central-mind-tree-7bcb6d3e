@@ -36,7 +36,7 @@ export function HealthProgramPage() {
   const trainingProfile = useHealthTrainingProfileF22(athlete?.id);
   const longitudinal = useHealthLongitudinalReviewF13(athlete?.id);
   const replanning = useHealthReplanningF14(athlete?.id);
-  const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id);
+  const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id, program.program?.id);
   const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
 
@@ -205,9 +205,19 @@ export function HealthProgramPage() {
             {cycleAdvisor.error ? <p className="text-xs text-destructive">Auditoria indisponível: {cycleAdvisor.error}</p> : (
               <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-1">
                 <p className="font-medium">Evidências da auditoria</p>
-                <p>{cycleAdvisor.assessment.sessions} sessões · {cycleAdvisor.assessment.completedSets} séries · {cycleAdvisor.assessment.measuredSets} séries com carga e repetições</p>
-                <p>{cycleAdvisor.assessment.comparableExercises} exercício(s) com exposições comparáveis.</p>
-                <p className="text-muted-foreground">{cycleAdvisor.assessment.note}</p>
+                <p>{cycleAdvisor.assessment.completed_sessions} sessões · {cycleAdvisor.assessment.completed_sets} séries · {cycleAdvisor.assessment.measured_sets} séries com carga, reps e RIR</p>
+                <p>{cycleAdvisor.assessment.exercise_assessments.filter(item => item.decision === "progress_candidate").length} proposta(s) de progressão e {cycleAdvisor.assessment.exercise_assessments.filter(item => item.decision === "review").length} exercício(s) a revisar.</p>
+                <div className="mt-2 space-y-2">
+                  {cycleAdvisor.assessment.exercise_assessments.slice(0, 12).map((item) => (
+                    <div key={item.template_exercise_id} className="rounded border p-2">
+                      <p className="font-medium">{item.session_code}: {exerciseNameById.get(item.exercise_id) ?? "Exercício"} · {item.decision === "progress_candidate" ? "Proposta" : item.decision === "review" ? "Revisar" : item.decision === "maintain" ? "Manter" : "Dados insuficientes"}</p>
+                      <p className="text-muted-foreground">{item.exposures} exposição(ões) comparáveis; {item.load_value == null ? "sem carga comparable" : `${item.load_value} ${item.load_unit ?? ""}`}; reps anterior/recente: {item.previous_best_reps ?? "—"}/{item.latest_best_reps ?? "—"}</p>
+                      <p className="text-muted-foreground">{item.reason}</p>
+                    </div>
+                  ))}
+                </div>
+                {cycleAdvisor.assessment.recovery_context ? <p className="text-muted-foreground">Recuperação: existe registro recente de {cycleAdvisor.assessment.recovery_context.as_of_date}; interpretar cobertura e percepção antes de alterar estímulos.</p> : <p className="text-muted-foreground">Recuperação: sem informação recente suficiente para justificar mudanças.</p>}
+                {cycleAdvisor.assessment.limitations.map((text, index) => <p key={index} className="text-muted-foreground">{text}</p>)}
                 <p className="text-muted-foreground">Fase registrada: {phaseLabel}. Nível: {trainingProfile.profile?.training_level ?? "não informado"}.</p>
                 <p className="text-muted-foreground">
                   F13 — Revisão longitudinal: {longitudinal.run ?
