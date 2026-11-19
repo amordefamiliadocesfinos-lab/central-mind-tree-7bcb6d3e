@@ -276,7 +276,7 @@ DO $$BEGIN
  RAISE EXCEPTION 'fresh current-policy grant not recognized'; END IF;
 END $$;
 -- Query-only projection selects the final *unknown* recovery, preserving all 3 events.
-DO $
+DO $$
 DECLARE x record;
 BEGIN
  SELECT * INTO x FROM public.health_cch_e5_current_session_review(
@@ -291,7 +291,7 @@ BEGIN
  'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
   RAISE EXCEPTION 'cross-athlete session reader leaked';
  END IF;
-END $;
+END $$;
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_cch_e5_policy_registry
  (policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest)
