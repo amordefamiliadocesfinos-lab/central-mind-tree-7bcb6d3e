@@ -1,0 +1,27 @@
+name: CCH Frozen E2 Prescription Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/prescriptionE2.ts'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'src/modules/health/hooks/useHealthProgramM3.ts'
+      - 'scripts/health-cch-e2.test.mjs'
+      - '.github/workflows/health-cch-e2-validation.yml'
+permissions:
+  contents: read
+jobs:
+  proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-health-cch-e2
+          npx tsc src/modules/health/cch/prescriptionE2.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-health-cch-e2 --skipLibCheck
+      - run: node --test scripts/health-cch-e2.test.mjs
+      - run: npx eslint src/modules/health/cch/prescriptionE2.ts src/modules/health/hooks/useHealthProgramM3.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build
