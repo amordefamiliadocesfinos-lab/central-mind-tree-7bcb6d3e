@@ -29,6 +29,7 @@ import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
 import { assessDraftPublicationStructure } from "../cch/publicationStructure";
 import { cchBuildProvenance } from "../cch/buildProvenance";
 import { assessE2Preflight } from "../cch/e2Preflight";
+import { confirmedEquipmentChoices } from "../cch/equipmentChoices";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -54,9 +55,12 @@ export function HealthProgramPage() {
   const [recoveryReport, setRecoveryReport] = useState<RecoveryReport>("unknown");
   const [symptomReport, setSymptomReport] = useState<SymptomReport>("unknown");
   const [incrementExercise,setIncrementExercise]=useState("");
+  const [incrementChoiceKey,setIncrementChoiceKey]=useState("");
   const [incrementLabel,setIncrementLabel]=useState("");
   const [incrementAmount,setIncrementAmount]=useState("");
   const [incrementUnit,setIncrementUnit]=useState("kg");
+  const machineChoices=useMemo(()=>confirmedEquipmentChoices(cycleAdvisor.assessment.equipment_provenance?.evidence),
+    [cycleAdvisor.assessment.equipment_provenance?.evidence]);
   const volumeComparisons=useMemo(()=>compareVolume(cycleAdvisor.assessment.multi_cycle_volume??[]),[cycleAdvisor.assessment.multi_cycle_volume]);
   const phaseReview=useMemo(()=>reviewPhase(cycleAdvisor.assessment.multi_cycle_versions??[],
     cycleAdvisor.assessment.data_quality?.status??"limited"),
@@ -396,27 +400,42 @@ export function HealthProgramPage() {
             )}
             <div className="space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium">Incremento confirmado do equipamento (opcional)</p>
-              <Select value={incrementExercise} onValueChange={setIncrementExercise}>
-                <SelectTrigger><SelectValue placeholder="Exercício" /></SelectTrigger>
+              <Select value={incrementChoiceKey} onValueChange={key=>{
+                const choice=machineChoices.find(item=>item.key===key);
+                if(!choice)return;
+                setIncrementChoiceKey(choice.key);
+                setIncrementExercise(choice.exerciseId);
+                setIncrementLabel(choice.label);
+                setIncrementUnit(choice.unit);
+                setIncrementAmount("");
+              }} disabled={!machineChoices.length}>
+                <SelectTrigger><SelectValue placeholder="Selecione um equipamento confirmado na execução" /></SelectTrigger>
                 <SelectContent>
-                  {Array.from(new Set((cycleAdvisor.assessment.equipment_load_candidates??[]).map(v=>v.exercise_id))).map(id=>(
-                    <SelectItem key={id} value={id}>{exerciseNameById.get(id)??"Exercício"}</SelectItem>
+                  {machineChoices.map(choice=>(
+                    <SelectItem key={choice.key} value={choice.key}>
+                      {exerciseNameById.get(choice.exerciseId)??"Exercício"} · {choice.label} · {choice.unit}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Input placeholder="Identificação única da máquina" value={incrementLabel}
-                onChange={event=>setIncrementLabel(event.target.value)}/>
-              <Input inputMode="decimal" placeholder="Incremento (ex. 2,5)" value={incrementAmount}
-                onChange={event=>setIncrementAmount(event.target.value)}/>
-              <Select value={incrementUnit} onValueChange={setIncrementUnit}>
-                <SelectTrigger><SelectValue/></SelectTrigger>
-                <SelectContent><SelectItem value="kg">kg</SelectItem><SelectItem value="lb">lb</SelectItem></SelectContent>
-              </Select>
-              <Button variant="outline" disabled={!incrementExercise||!validIncrement(Number(incrementAmount.replace(",",".")),incrementLabel,incrementUnit)}
+              {machineChoices.length===0?(
+                <p className="text-xs text-muted-foreground" data-testid="cch-e2-no-confirmed-equipment">
+                  Nenhum equipamento confirmado em séries concluídas. A identidade deve ser registrada
+                  no treino em andamento antes da primeira série; não atribuir máquina aos dados antigos.
+                </p>
+              ):(
+                <p className="text-xs text-muted-foreground">
+                  Máquina e unidade obtidas da auditoria V8. Escolha apenas o incremento real
+                  do equipamento identificado; não significa progressão autorizada.
+                </p>
+              )}
+              <Input inputMode="decimal" placeholder="Incremento real (ex. 2,5)" value={incrementAmount}
+                onChange={event=>setIncrementAmount(event.target.value)} disabled={!incrementChoiceKey}/>
+              <Button variant="outline" disabled={!incrementChoiceKey||!machineChoices.some(choice=>choice.key===incrementChoiceKey)||!validIncrement(Number(incrementAmount.replace(",",".")),incrementLabel,incrementUnit)}
                 onClick={()=>void save("Incremento confirmado.",async()=>{
                   await cycleAdvisor.saveIncrement(incrementExercise,incrementLabel,incrementUnit,Number(incrementAmount.replace(",",".")));
                 })}>Registrar incremento real</Button>
-              <p className="text-xs text-muted-foreground">O motor não altera automaticamente cargas prescritas. Não cadastre vários equipamentos sob um único exercício.</p>
+              <p className="text-xs text-muted-foreground">O motor não altera automaticamente cargas prescritas. Um incremento por exercício é mantido pelo contrato atual; seleções de outra máquina exigem revisão explícita.</p>
             </div>
             <div className="space-y-2">
               <Label>Qual é seu objetivo agora?</Label>
