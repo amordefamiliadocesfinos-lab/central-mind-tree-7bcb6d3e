@@ -22,9 +22,15 @@ export type Assessment = {
   goal_specific_guidance?: Record<GuidedGoal,string>;
   load_trends?: Array<{exercise_id:string;load_unit:string;exposures:number;recent_peak_load:number|null;prior_peak_load:number|null;recent_best_reps:number|null;prior_best_reps:number|null;recent_rir:number|null;signal:string;reason:string}>;
   periodization_options?: Array<{stage:string;description:string}>;
+  data_quality?: {status:"limited"|"partial"|"reviewable";observed_sessions:number;completed_work_sets:number;
+    fully_measured_sets:number;completeness_ratio:number;comparable_exercise_units:number;
+    training_level_is_independent_of_quality:boolean};
+  data_gaps?: string[];
+  strategy_options?: Array<{goal:GuidedGoal;strategy:GuidedStrategy;reason:string}>;
+  next_review?: {after_completed_sessions:number;also_on:string;schedule_mode:string};
 };
 const empty: Assessment = {
-  engine_version: "cch-guided-v4",source_version_id: "",completed_sessions: 0,completed_sets: 0,
+  engine_version: "cch-guided-v5",source_version_id: "",completed_sessions: 0,completed_sets: 0,
   measured_sets: 0,exercise_assessments: [],training_profile: null,recovery_context: null,limitations: [],
 };
 export const guidedGoals: Array<{ value: GuidedGoal; label: string }> = [
@@ -52,7 +58,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle_v4" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v5" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
@@ -68,11 +74,13 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     const enough=assessment.completed_sessions>=2 && assessment.completed_sets>=6;
     const trainedGroups=assessment.muscle_distribution?.length ?? 0;
     const recovery=assessment.recovery_evidence_state ?? "unknown";
+    const confidence=assessment.data_quality?.status ?? "limited";
+    const gaps=assessment.data_gaps?.length ?? 0;
     return [
       {goal:"hypertrophy" as GuidedGoal,strategy:"continue_progression" as GuidedStrategy,
         label:"Continuar hipertrofia com ajustes seletivos",
-        reason:enough? `${candidates} prescrições com evidência para possível ajuste de repetições; ${reviews} pedem revisão. A escolha não altera cargas automaticamente.`:
-          "Há poucos dados válidos para propor mudanças. A continuidade pode manter o estímulo atual."},
+        reason:enough? `${candidates} propostas de repetição, ${reviews} exercícios para revisão; confiança de dados ${confidence}. Existem ${gaps} lacunas identificadas, sem alterar seu nível de experiência.`:
+          "Dados ainda limitados para progressões; o CCH preserva a prescrição como base para revisão."},
       {goal:"maintenance" as GuidedGoal,strategy:"recovery_review" as GuidedStrategy,
         label:"Consolidar resultados e observar recuperação",
         reason:recovery==="observed_needs_interpretation" ?
@@ -93,7 +101,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v4" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v5" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
           p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets} as never);
       if(result.error)throw new Error(result.error.message);

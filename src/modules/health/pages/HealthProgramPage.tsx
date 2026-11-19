@@ -208,12 +208,18 @@ export function HealthProgramPage() {
               <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-1">
                 <p className="font-medium">Evidências da auditoria</p>
                 <p>{cycleAdvisor.assessment.completed_sessions} sessões · {cycleAdvisor.assessment.completed_sets} séries · {cycleAdvisor.assessment.measured_sets} séries com carga, reps e RIR</p>
+                {cycleAdvisor.assessment.data_quality ? (
+                  <p className="font-medium">Confiança dos dados: {cycleAdvisor.assessment.data_quality.status === "reviewable" ? "revisável" : cycleAdvisor.assessment.data_quality.status === "partial" ? "parcial" : "limitada"} · cobertura: {Math.round(cycleAdvisor.assessment.data_quality.completeness_ratio * 100)}%. O nível do atleta não é rebaixado por lacunas.</p>
+                ) : null}
+                {cycleAdvisor.assessment.data_gaps?.map((gap, index) => (
+                  <p key={index} className="text-muted-foreground">Dados a complementar: {gap}</p>
+                ))}
                 <p>{cycleAdvisor.assessment.exercise_assessments.filter(item => item.decision === "progress_candidate").length} proposta(s) de progressão e {cycleAdvisor.assessment.exercise_assessments.filter(item => item.decision === "review").length} exercício(s) a revisar.</p>
                 <div className="mt-2 space-y-2">
                   {cycleAdvisor.assessment.exercise_assessments.slice(0, 12).map((item) => (
                     <div key={item.template_exercise_id} className="rounded border p-2">
                       <p className="font-medium">{item.session_code}: {exerciseNameById.get(item.exercise_id) ?? "Exercício"} · {item.decision === "progress_candidate" ? "Proposta" : item.decision === "review" ? "Revisar" : item.decision === "maintain" ? "Manter" : "Dados insuficientes"}</p>
-                      <p className="text-muted-foreground">{item.exposures} exposição(ões) comparáveis; {item.load_value == null ? "sem carga comparable" : `${item.load_value} ${item.load_unit ?? ""}`}; reps anterior/recente: {item.previous_best_reps ?? "—"}/{item.latest_best_reps ?? "—"}</p>
+                      <p className="text-muted-foreground">{item.exposures} exposição(ões) comparáveis; {item.load_value == null ? "sem carga comparável" : `${item.load_value} ${item.load_unit ?? ""}`}; reps anterior/recente: {item.previous_best_reps ?? "—"}/{item.latest_best_reps ?? "—"}</p>
                       <p className="text-muted-foreground">{item.reason}</p>
                     </div>
                   ))}
@@ -242,6 +248,9 @@ export function HealthProgramPage() {
                     ))}
                     <p className="text-muted-foreground">Totais da sequência, não volume semanal recomendado. Grupos secundários não são somados.</p>
                   </div>
+                ) : null}
+                {cycleAdvisor.assessment.next_review ? (
+                  <p className="text-muted-foreground">Próxima revisão orientada: após {cycleAdvisor.assessment.next_review.after_completed_sessions} sessões concluídas, ou quando mudar o objetivo/recuperação. A agenda continua flexível.</p>
                 ) : null}
                 {cycleAdvisor.assessment.periodization_options?.length ? (
                   <div className="space-y-1">
