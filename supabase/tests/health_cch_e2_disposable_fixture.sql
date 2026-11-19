@@ -49,13 +49,13 @@ CREATE POLICY update_e2 ON public.health_session_template_exercises FOR UPDATE T
  USING(public.health_can_write_athlete(athlete_id) AND EXISTS(
   SELECT 1 FROM public.health_session_templates t JOIN public.health_program_versions v
    ON v.id=t.program_version_id
-  WHERE t.id=session_template_id AND t.athlete_id=athlete_id
-  AND v.athlete_id=athlete_id AND v.status='draft'))
+  WHERE t.id=health_session_template_exercises.session_template_id AND t.athlete_id=health_session_template_exercises.athlete_id
+  AND v.athlete_id=health_session_template_exercises.athlete_id AND v.status='draft'))
  WITH CHECK(public.health_can_write_athlete(athlete_id) AND EXISTS(
   SELECT 1 FROM public.health_session_templates t JOIN public.health_program_versions v
    ON v.id=t.program_version_id
-  WHERE t.id=session_template_id AND t.athlete_id=athlete_id
-  AND v.athlete_id=athlete_id AND v.status='draft'));
+  WHERE t.id=health_session_template_exercises.session_template_id AND t.athlete_id=health_session_template_exercises.athlete_id
+  AND v.athlete_id=health_session_template_exercises.athlete_id AND v.status='draft'));
 GRANT EXECUTE ON FUNCTION public.health_can_write_athlete(uuid) TO authenticated;
 
 INSERT INTO auth.users VALUES
