@@ -83,3 +83,28 @@ test("no proposed version means observation only; cannot imply eligible draft",(
  assert.equal(x.readiness,"insufficient");
  assert.equal(x.alternatives.some(a=>a.strategy==="continue_progression"),false);
 });
+
+test("E3 observations are isolated to the source program version",()=>{
+ const x=assess({...base,sessions:[
+  make(0),make(1),
+  make(2,{programVersionId:"older",sessionCode:"D1",workingSets:99}),
+  make(3,{programVersionId:"newer",sessionCode:"E1",workingSets:101})
+ ]});
+ assert.equal(x.cycle.completedSessions,2);
+ assert.equal(x.cycle.comparableSessions,2);
+ assert.equal(x.cycle.observedWorkingSets,24);
+ assert.deepEqual(x.coverage.stimulusSequence.performed,["A1","B1"]);
+ assert.deepEqual(x.coverage.stimulusSequence.pending,["C1","D1","E1"]);
+ assert.equal(x.status,"eligible_for_manual_review");
+ assert.equal(x.generatesQueue,false);
+});
+
+test("unknown source version cannot borrow observations from another cycle",()=>{
+ const x=assess({...base,sourceVersionId:null,sessions:[make(0),make(1)]});
+ assert.equal(x.cycle.completedSessions,0);
+ assert.equal(x.cycle.observedWorkingSets,0);
+ assert.equal(x.coverage.plannedCompletedRatio,0);
+ assert.equal(x.publishedSourceAligned,false);
+ assert.equal(x.readiness,"insufficient");
+ assert.equal(x.manualPublicationRequired,true);
+});
