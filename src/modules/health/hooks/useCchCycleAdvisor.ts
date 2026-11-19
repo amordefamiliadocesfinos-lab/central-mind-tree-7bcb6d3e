@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
 export type GuidedGoal = "hypertrophy" | "strength" | "maintenance" | "fat_loss" | "muscle_priority";
 export type GuidedStrategy = "continue_progression" | "consolidate" | "recovery_review";
@@ -102,13 +103,14 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
       [...suggestions].sort((left,right) => Number(right.goal==="maintenance")-Number(left.goal==="maintenance")) :
       suggestions;
   },[assessment]);
-  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string,allowTargetedSets=false)=>{
+  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string,allowTargetedSets=false,recovery:RecoveryReport="unknown",symptoms:SymptomReport="unknown")=>{
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v5" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v6" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
-          p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets} as never);
+          p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets,
+          p_recovery_report:recovery,p_symptom_report:symptoms} as never);
       if(result.error)throw new Error(result.error.message);
     }finally{setGenerating(false);}
   },[athleteId,versionId,assessment.source_version_id,error]);

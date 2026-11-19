@@ -1,0 +1,35 @@
+name: Health CCH Recommendation Contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/**'
+      - 'src/modules/health/hooks/useCchCycleAdvisor.ts'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'scripts/health-cch-recommendation.test.mjs'
+      - 'supabase/migrations/*health_cch_motor_v6*'
+      - '.github/workflows/health-cch-recommendation-validation.yml'
+permissions:
+  contents: read
+jobs:
+  cch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compile CCH pure decision model
+        run: |
+          rm -rf .tmp-health-cch
+          npx tsc src/modules/health/cch/cycleDecisionModel.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-health-cch --skipLibCheck
+      - name: CCH decision contract tests
+        run: node --test scripts/health-cch-recommendation.test.mjs
+      - name: CCH lint
+        run: npx eslint src/modules/health/cch/cycleDecisionModel.ts src/modules/health/hooks/useCchCycleAdvisor.ts src/modules/health/pages/HealthProgramPage.tsx
+      - name: App build
+        run: npm run build
