@@ -28,6 +28,7 @@ import { proposePrescriptionE2 } from "../cch/prescriptionE2";
 import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
 import { assessDraftPublicationStructure } from "../cch/publicationStructure";
 import { cchBuildProvenance } from "../cch/buildProvenance";
+import { assessE2Preflight } from "../cch/e2Preflight";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -187,6 +188,16 @@ export function HealthProgramPage() {
      goal:goalChoice,strategy:strategyChoice}
   ) : [];
   const e2ById=new Map(e2Proposals.map(x=>[x.id,x]));
+  const e2Preflight = assessE2Preflight({
+    versionStatus:program.version?.status??null,
+    activeVersionId:program.version?.id??null,
+    publishedVersionId:program.program.current_version_id??null,
+    advisorSourceVersionId:cycleAdvisor.assessment.source_version_id??null,
+    advisorLoading:cycleAdvisor.loading,
+    advisorError:cycleAdvisor.error,
+    advisorQuality:cycleAdvisor.assessment.data_quality?.status??null,
+    trainingLevel:trainingProfile.profile?.training_level??null,
+  });
 
   return (
     <div className="space-y-4 pb-4">
@@ -208,6 +219,31 @@ export function HealthProgramPage() {
           </p>
         </div>
       </div>
+
+      <Card data-testid="cch-e2-readonly-preflight">
+        <CardHeader>
+          <CardTitle className="text-base">E2 · Contraprova consultiva do programa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <p data-testid="cch-e2-preflight-state">
+            Estado: {e2Preflight.state==="published_read_only"?"Publicado, somente leitura":
+              e2Preflight.state==="draft_review"?"Rascunho disponível para revisão":
+              e2Preflight.state==="draft_evidence_pending"?"Rascunho com evidências pendentes":
+              "Versão indisponível"}
+          </p>
+          <p className="text-muted-foreground">{e2Preflight.reason}</p>
+          <p className="text-xs text-muted-foreground">
+            Origem de auditoria: {e2Preflight.sourceAligned?"coincide com a versão publicada":
+              "não comprovada neste carregamento"}.
+          </p>
+          {e2Preflight.missingEvidence.map((item,index)=>
+            <p key={index} className="text-xs text-muted-foreground">Pendência: {item}</p>)}
+          <p className="text-xs text-muted-foreground">
+            A visualização não cria rascunhos, não altera carga ou volume e não comprova implantação remota.
+            Testes de publicação são realizados apenas em ambiente isolado.
+          </p>
+        </CardContent>
+      </Card>
 
       {program.error ? (
         <Card className="border-destructive/40">
