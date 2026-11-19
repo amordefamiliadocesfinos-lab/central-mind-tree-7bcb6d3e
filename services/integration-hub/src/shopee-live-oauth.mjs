@@ -1,5 +1,6 @@
 import {
   consumeLiveShopeeOauthState,
+  resolveLiveShopeeUniversalState,
   createLiveShopeeOauthState,
   sha256Hex,
   upsertLiveShopeeOauthConnection,
@@ -12,6 +13,7 @@ import {
   refreshToken,
   signPublicRequest,
 } from './connectors/shopee-protocol.mjs';
+import { validApprovedUniversalIdentity } from './shopee-oauth-universal-handoff.mjs';
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const AUTH_PATH = '/api/v2/shop/auth_partner';
@@ -178,6 +180,7 @@ export function createShopeeLiveOauthHandler({
   now = Date.now,
   createState = createLiveShopeeOauthState,
   consumeState = consumeLiveShopeeOauthState,
+  resolveUniversalState = resolveLiveShopeeUniversalState,
   persistConnection = upsertLiveShopeeOauthConnection,
   persistSnapshot = upsertLiveShopeeShopSnapshot,
   exchange = exchangeToken,
@@ -210,7 +213,13 @@ export function createShopeeLiveOauthHandler({
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
       if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START) {
-        if (Object.keys(request?.query ?? {}).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
+        // Preserve PR #911 operator bookmark: Adão console route remains a
+        // deliberate legacy UX; Celivio console bookmark goes to signed consent.
+        const parameters = request?.query ?? {};
+        const parameterCount = Object.keys(parameters).length;
+        const consoleEntry = parameterCount === 1 && parameters.via === 'console'
+          && (path === ADAO_START || path === CELIVIO_START);
+        if (parameterCount && !consoleEntry) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
         const target = path === ADAO_START ? ADAO : path === CELIVIO_START ? CELIVIO : VIVIANE;
         if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
         if (target === CELIVIO && !celivioConfigured) return html(503, 'OAuth Celivio indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
@@ -235,6 +244,16 @@ export function createShopeeLiveOauthHandler({
           redirectUri,
           sign,
         });
+        if (consoleEntry && target === ADAO) {
+          // Preserve Adão's historical operator UX from #911. The same secure
+          // state and cookie are required; this does not bypass the callback.
+          const cookie = redirect(authorizationUrl, state).headers['Set-Cookie'];
+          return {
+            status: 200,
+            headers: { ...HTML_HEADERS, 'Set-Cookie': cookie },
+            body: '<!doctype html><html lang="pt-BR"><head charset="utf-8"><title>Shopee — autorização existente</title></head><body><main><h1>Preparação segura concluída</h1><p>Na mesma aba do navegador, abra a Shopee Open Platform e use a autorização de produção do aplicativo Painel Central para a loja correta. Esta preparação expira em 10 minutos.</p><p><a href="https://open.shopee.com/">Abrir Shopee Open Platform</a></p></main></body></html>',
+          };
+        }
         return redirect(authorizationUrl, state);
       }
 
@@ -244,8 +263,14 @@ export function createShopeeLiveOauthHandler({
       const shopId = shopIdRaw === null ? null : Number(shopIdRaw);
       const mainAccountId = mainAccountIdRaw === null ? null : Number(mainAccountIdRaw);
       const state = readCookie(request?.headers, STATE_COOKIE);
+      // Universal states are processed only with an explicit, independent callback gate.
+      // Never fall back to Viviane when a universal state is present.
+      const isUniversal = state?.startsWith('universal.') === true;
+      if (isUniversal && getEnv('SHOPEE_OAUTH_UNIVERSAL_CALLBACK_ENABLED') !== 'true') {
+        return html(503, 'OAuth universal em preparação', 'Callback universal ainda não habilitado.', { 'Set-Cookie': clearStateCookie() });
+      }
       const cleared = { 'Set-Cookie': clearStateCookie() };
-      const target = state?.startsWith('adao.') ? ADAO
+      let target = state?.startsWith('adao.') ? ADAO
         : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;
       if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
       if (target === CELIVIO && !celivioConfigured) return html(409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.', cleared);
@@ -253,8 +278,11 @@ export function createShopeeLiveOauthHandler({
       if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
       if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
 
-      if (!code || (!shopId && !mainAccountId) || !state) {
-        return html(400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.', cleared);
+      if (!code || (shopIdRaw === null && mainAccountIdRaw === null)) {
+        return html(400, 'Autorização Shopee incompleta', 'O retorno não trouxe o código ou o identificador exigido pela integração.', cleared);
+      }
+      if (!state) {
+        return html(400, 'Sessão OAuth não encontrada', 'O callback não recebeu o cookie de sessão. Reinicie pelo Painel Central e conclua na mesma aba do navegador.', cleared);
       }
       if (shopId !== null && (!Number.isSafeInteger(shopId) || shopId <= 0)) {
         return html(400, 'Autorização Shopee inválida', 'O shop_id retornado é inválido.', cleared);
@@ -277,6 +305,16 @@ export function createShopeeLiveOauthHandler({
       }
 
       const canonicalAccountId = consumed.payload?.channel_account_id;
+      if (isUniversal) {
+        const resolved = await resolveUniversalState({ state_hash: sha256Hex(state) });
+        const trusted = resolved?.ok ? validApprovedUniversalIdentity(resolved.payload, partnerId) : null;
+        if (!trusted || trusted.channel_account_id !== canonicalAccountId) {
+          return html(409, 'Autorização Shopee rejeitada', 'O estado não corresponde a uma loja previamente autorizada.', cleared);
+        }
+        // The expected shop comes only from the Core's approved state binding,
+        // never from callback query, self-reported metadata or a state prefix.
+        target = { account: trusted.channel_account_id, shop: trusted.shop_id };
+      }
       if (canonicalAccountId !== target.account) {
         return html(409, 'Autorização Shopee rejeitada', 'A autorização não corresponde à conta piloto configurada.', cleared);
       }
@@ -326,7 +364,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'OAuth concluído, leitura falhou', 'Os tokens foram obtidos, mas get_shop_info não respondeu com sucesso.', cleared);
       }
 
-      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, isUniversal || target !== VIVIANE)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
       const firstObservedAt = new Date(now()).toISOString();
       const firstSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
@@ -396,7 +434,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'Renovação concluída, releitura falhou', 'O token foi renovado, mas a releitura de get_shop_info falhou.', cleared);
       }
 
-      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, isUniversal || target !== VIVIANE)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
       const refreshedObservedAt = new Date(now()).toISOString();
       const refreshedSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
@@ -439,11 +477,9 @@ export function createShopeeLiveOauthHandler({
         `OAuth Live, get_shop_info, renovação de token e releitura concluídos para shop_id ${effectiveShopId}. Nenhuma projeção em Pedido, Estoque, Financeiro ou CRM foi executada.`,
         cleared,
       );
-    } catch (error) {
-      logger({
-        event: 'shopee_live_oauth_unavailable',
-        error: error instanceof Error ? error.message : 'unknown',
-      });
+    } catch {
+      // Never surface upstream errors or secrets from OAuth exception context.
+      logger({ event: 'shopee_live_oauth_unavailable' });
       return html(503, 'Shopee Live indisponível', 'A configuração ou execução do OAuth Live está indisponível.');
     }
   };
