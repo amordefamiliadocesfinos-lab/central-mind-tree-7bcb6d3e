@@ -22,6 +22,7 @@ import { useHealthReplanningF14 } from "../hooks/useHealthReplanningF14";
 import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
+import { evaluateV9 } from "../cch/motorV9Decision";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -54,6 +55,8 @@ export function HealthProgramPage() {
   const phaseReview=useMemo(()=>reviewPhase(cycleAdvisor.assessment.multi_cycle_versions??[],
     cycleAdvisor.assessment.data_quality?.status??"limited"),
     [cycleAdvisor.assessment.multi_cycle_versions,cycleAdvisor.assessment.data_quality?.status]);
+  const decisionV9=useMemo(()=>evaluateV9(cycleAdvisor.assessment,recoveryReport,symptomReport),
+    [cycleAdvisor.assessment,recoveryReport,symptomReport]);
   const decisionBrief = useMemo(() => buildCycleDecisionBrief(
     cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice),
     [cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice]);
@@ -376,13 +379,14 @@ export function HealthProgramPage() {
             </div>
             {goalChoice === "unsure" ? (
               <div className="space-y-2">
-                <p className="text-xs font-medium">Estratégias para você avaliar</p>
-                {cycleAdvisor.recommendations.map((item) => (
+                <p className="text-xs font-medium">Estratégias com justificativa do CCH V9</p>
+                {decisionV9.options.map((item) => (
                   <button key={item.goal + item.strategy} type="button"
                     className="w-full rounded-lg border p-3 text-left hover:border-primary/50"
                     onClick={() => { setGoalChoice(item.goal); setStrategyChoice(item.strategy); }}>
                     <p className="text-sm font-medium">{item.label}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Evidência: {item.level === "supported"?"revisável":item.level==="conditional"?"condicional":"preferência do atleta"} · sem alterações automáticas</p>
                   </button>
                 ))}
               </div>
@@ -450,6 +454,12 @@ export function HealthProgramPage() {
                 O CCH não substituirá avaliação profissional quando há dor que interfere no treino; ajuste ou interrompa exercícios que agravem os sintomas.
               </p> : null}
             </div>
+            <div className="space-y-1 rounded-lg border p-3 text-xs">
+              <p className="font-medium">Auditoria multicritério V9 · {decisionV9.phase}</p>
+              <p>{decisionV9.equipmentCandidates} candidato(s) de carga por máquina identificada; {decisionV9.volumeComparableGroups} grupo(s) com histórico de volume comparável.</p>
+              {decisionV9.blockers.map((reason,index)=><p key={index} className="text-muted-foreground">{reason}</p>)}
+              <p className="text-muted-foreground">O novo ciclo será um rascunho conservador para revisão. Mesmo quando você selecionar progressão, alterações de carga, repetições e séries não serão aplicadas sem validação específica por exercício.</p>
+            </div>
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
             <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
               !!cycleAdvisor.error || cycleAdvisor.generating || program.saving ||
@@ -461,7 +471,7 @@ export function HealthProgramPage() {
                 await program.reload();
               })}>
               {cycleAdvisor.generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-              Gerar proposta de novo ciclo
+              Gerar rascunho orientado V9
             </Button>
             <p className="text-[11px] text-muted-foreground">Prescrições sem evidência suficiente serão mantidas para revisão. A publicação da nova versão é separada e não ocorre automaticamente.</p>
           </CardContent>
