@@ -26,6 +26,7 @@ import { evaluateV9 } from "../cch/motorV9Decision";
 import { interpretExecution } from "../cch/executionEvidence";
 import { proposePrescriptionE2 } from "../cch/prescriptionE2";
 import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
+import { assessDraftPublicationStructure } from "../cch/publicationStructure";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -160,37 +161,8 @@ export function HealthProgramPage() {
 
   const draft = program.isDraft;
 
-  const incompleteRequiredExercises = program.templateExercises.filter(
-    (item) =>
-      !item.is_optional &&
-      (
-        item.planned_sets_min == null ||
-        item.planned_sets_max == null ||
-        item.reps_min == null ||
-        item.reps_max == null ||
-        item.rir_target == null ||
-        item.rest_seconds == null ||
-        item.planned_sets_min < 1 ||
-        item.planned_sets_max < item.planned_sets_min ||
-        item.reps_min < 1 ||
-        item.reps_max < item.reps_min ||
-        item.rir_target < 0 ||
-        item.rir_target > 6 ||
-        item.rest_seconds <= 0
-      ),
-  );
-
-  const templatesWithoutExercises = program.templates.filter(
-    (template) =>
-      !program.templateExercises.some(
-        (item) => item.session_template_id === template.id,
-      ),
-  );
-
-  const publicationReady =
-    program.templates.length > 0 &&
-    incompleteRequiredExercises.length === 0 &&
-    templatesWithoutExercises.length === 0;
+  const {activeTemplateCount,incompleteRequiredExercises,templatesWithoutExercises,publicationReady}=
+    assessDraftPublicationStructure(program.templates,program.templateExercises);
 
   const versionParameters =
     program.version?.parameter_set &&
@@ -916,15 +888,15 @@ export function HealthProgramPage() {
           <CardContent className="space-y-3 py-4">
             <p className="text-sm font-medium">Publicar versão</p>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              O Publication Gate só libera a versão quando cada exercício obrigatório
-              possui séries, reps, RIR e descanso válidos.
+              O Publication Gate F22 só libera sessões ativas com exercícios e
+              prescrições obrigatórias completas. A checagem definitiva ocorre no banco.
             </p>
 
             {!publicationReady ? (
               <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs">
-                Publicação bloqueada: {incompleteRequiredExercises.length} exercício(s)
-                obrigatório(s) incompleto(s) e {templatesWithoutExercises.length} sessão(ões)
-                sem exercícios.
+                Publicação bloqueada: {activeTemplateCount} sessão(ões) ativa(s),
+                {incompleteRequiredExercises.length} prescrição(ões) obrigatória(s) incompleta(s) e
+                {templatesWithoutExercises.length} sessão(ões) ativa(s) sem exercícios.
               </div>
             ) : (
               <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs">

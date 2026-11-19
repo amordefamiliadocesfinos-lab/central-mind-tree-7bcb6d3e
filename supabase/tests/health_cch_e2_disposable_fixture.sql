@@ -15,7 +15,9 @@ CREATE TABLE public.health_program_versions(
  athlete_id uuid NOT NULL REFERENCES health_athletes(id),status text NOT NULL);
 CREATE TABLE public.health_session_templates(
  id uuid PRIMARY KEY,program_version_id uuid NOT NULL REFERENCES health_program_versions(id),
- athlete_id uuid NOT NULL REFERENCES health_athletes(id));
+ athlete_id uuid NOT NULL REFERENCES health_athletes(id),
+ code text NOT NULL DEFAULT 'A1',sequence_order integer NOT NULL DEFAULT 1,
+ status text NOT NULL DEFAULT 'active');
 CREATE TABLE public.health_exercises(id uuid PRIMARY KEY,is_active boolean NOT NULL);
 CREATE TABLE public.health_exercise_equivalences(
  id uuid PRIMARY KEY,source_exercise_id uuid NOT NULL REFERENCES health_exercises(id),
@@ -29,6 +31,7 @@ CREATE TABLE public.health_session_template_exercises(
  planned_sets_min smallint DEFAULT 3,planned_sets_max smallint DEFAULT 4,
  reps_min smallint DEFAULT 6,reps_max smallint DEFAULT 10,
  rir_target numeric(3,1) DEFAULT 2,rest_seconds integer DEFAULT 120,
+ is_optional boolean NOT NULL DEFAULT false,
  prescription_notes text,
  UNIQUE(session_template_id,sequence_order));
 CREATE TABLE public.health_workout_sessions(id uuid PRIMARY KEY,athlete_id uuid);
