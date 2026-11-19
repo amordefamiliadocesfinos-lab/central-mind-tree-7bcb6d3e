@@ -141,7 +141,18 @@ jobs:
             supabase/migrations/20261111175335_health_f21_void_workout_requeues_cch.sql \
             supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql
           do
-            run_sql "$f"
+            if [ "$f" = "supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql" ]; then
+              # F22 official source contains fixed real athlete IDs in DML seeds.
+              # Remap ONLY those two literals in an ephemeral copy; leave
+              # original DDL/RPC/trigger/RLS source and repository unchanged.
+              sed \
+                -e 's/08204502-2e7a-4476-a1ac-6a67b57fa35f/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/g' \
+                -e 's/671fd7a8-7f0f-4c9f-9e73-89c2caf27692/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/g' \
+                "$f" > /tmp/f22-synthetic-only.sql
+              run_sql /tmp/f22-synthetic-only.sql
+            else
+              run_sql "$f"
+            fi
           done
           run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
           run_sql supabase/tests/health_cch_e5e_official_contract.sql
