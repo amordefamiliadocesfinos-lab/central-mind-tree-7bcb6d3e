@@ -23,3 +23,38 @@ A candidata passou a utilizar trigger `BEFORE INSERT` para atribuir `occurred_at
 
 ## CI de referência antes da revisão para merge
 [Workflow E5-E #44623079233](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/44623079233): `e5-persistent-isolated=success`; `e2-f22-baseline=success`. O segundo job reaproveita as funções soberanas existentes M3/F22 e a fixture publicada E2, comprovando regressão sintética negativa. F21 não foi homologada em todos os seus fluxos nesta PR.
+
+
+## Refinamento autorizado pela Camada Mestre — PR #999 ainda draft
+
+**Deliberação 19/11/2026:** contraprova inicial E5-E aprovada; autorizou refinamento somente na PR #999, ainda sem merge, migration em produção, interface ou coleta real.
+
+### 1. Fonte soberana para versão de consentimento
+
+A candidata agora inclui **registro protegido** `health_cch_e5_policy_registry` (tabela de governança versionada proposta, não um novo motor ou tabela paralela de saúde). A criação dessa estrutura é apenas um **efeito persistente candidato** no PostgreSQL isolado; nenhuma versão de política foi aprovada para produção. Não há seed na candidata. O CI insere unicamente `e5-lab-v1` e depois `e5-lab-v2` como exemplos sintéticos no runner efêmero.
+
+A função invoker `health_cch_e5_has_explicit_consent(athlete_id)` já **não recebe uma versão do chamador**. Busca a versão com `status=active` do registro protegido e exige última decisão válida, única, `granted` e nessa versão. O CHECK/trigger de inserção também exige a versão ativa. A tabela restringe `authenticated` a SELECT; não concede escrita. Um índice único impede duas políticas simultaneamente ativas. Ausência de linha ativa bloqueia novas decisões E5 e leitura favorável.
+
+**Pendências que exigem nova deliberação:** texto integral informado, aprovação jurídica, digest do documento verdadeiro, versão e início da vigência, retenção e regras de representação. O identificador fictício do CI não pode ser usado com atletas reais. A existência de uma estrutura candidata **não aprova política alguma**.
+
+### 2. Retificação auditável, sem apagar declarações
+
+A primeira declaração é um evento M4 `note` E5 **raiz**, único por atleta/sessão. A retificação é **outro evento** com mesmo `contract=cch-e5-session-review-v1`, confirmação explícita e `replaces_event_id` contendo o UUID do evento anterior da mesma sessão e do mesmo ator autenticado. O banco verifica proveniência, autoria, estado da sessão e inexistência de uma retificação já vinculada àquele predecessor; os horários são do servidor. Índices únicos garantem uma raiz por sessão e um sucessor por evento; a cadeia é append-only.
+
+A consulta de recuperação atual no TypeScript E5-B/E5-D **não é habilitada para essa cadeia**. Uma futura integração deverá selecionar apenas a ponta vigente, identificar ambiguidades e preservar as revisões anteriores para auditoria. Não inferir diagnóstico ou progressão. Essa compatibilização pertence a etapa posterior autorizada, não está sendo simulada como aprovada.
+
+### 3. Testes com regras oficiais e limite de fidelidade
+
+O fixture E5-E incorpora a lógica das funções M0 **`health_can_read_athlete`, `health_can_write_athlete` e `health_can_manage_athlete_access`** a partir da migration `20261107144000_health_m0_foundation.sql`, preservando a separação entre sujeito, proprietário e delegados via `health_athlete_access`. O nome de argumento `p_id` foi conservado para compatibilidade com o fixture E2 original; a lógica de acesso corresponde ao M0. Cenários incluem treinador com privilégios de gestão, troca de versão oficial, ausência de `auth_user_id`, tentativas sem identidade e restrições RLS.
+
+Isso ainda é **fixture estrutural**, não a aplicação integral e sequencial de todas as migrations oficiais M0/M1/M3/M4/F21/F22. O job independente E2/M3/F22 continua cobrindo a regressão sintética de publicação; o escopo completo de F21 e papéis de representação não está homologado.
+
+### 4. Decisões ainda abertas
+
+- Aprovação do texto real de consentimento, finalidade, retenção, revogação e política de representação; menores de idade continuam desabilitados
+- Definição de quem pode criar e ativar versões na governança e do procedimento auditável de transição de políticas
+- Decisão futura sobre leitura da **última retificação válida** por sessão nos contratos E5-B/E5-D, mantendo histórico
+- Revisão de grants e roles oficiais em migração integral descartável antes de qualquer aplicação real
+- Verificação de todos os cenários F21 no seu ciclo completo antes de alegar homologação integral
+
+**Estado:** protótipo persistente E5-E somente em `supabase/candidates`, PR #999 draft, Issue #966 aberta. **NÃO MERGEAR; NÃO DEPLOYAR; NÃO ABRIR F23.**
