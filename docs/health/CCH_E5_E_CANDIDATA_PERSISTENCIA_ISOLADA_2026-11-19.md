@@ -72,3 +72,19 @@ A prova consultiva foi exercitada no PostgreSQL 17 descartável: a função `hea
 ## 9. Critério para próxima deliberação
 
 Camada Mestre deverá deliberar sobre: (i) redação integral e política de privacidade, (ii) retenção e critérios de eliminação, (iii) autoridade para aprovar/ativar políticas e sua prova documental, (iv) papéis de menores e representantes, (v) efeito persistente e migração integral em banco descartável antes de cogitar produção. **NÃO MERGEAR PR #999; NÃO DEPLOYAR; NÃO COLETAR DADOS REAIS; F23 NÃO ABERTA.**
+
+
+## 10. Fronteira de segurança E5 — leitura M4 e captura (despacho Camada Mestre)
+
+**Fonte soberana verificada:** `supabase/migrations/20261107161317_health_m4_live_workout.sql` concede `SELECT` sobre `health_workout_events` por `health_can_read_athlete(athlete_id)`. Essa expressão isoladamente também permite que um treinador delegado leia eventos contendo recuperação/sintomas. O leitor específico E5 não é suficiente enquanto a tabela original permanecer consultável.
+
+**Menor proteção candidata (não implantada):** substituir somente a política existente `health_workout_events_select` na candidata SQL. Eventos comuns M4 continuam obedecendo `health_can_read_athlete`, preservando os leitores históricos. Para `event_type=note` e `payload.contract=cch-e5-session-review-v1`, leitura direta exige adicionalmente `auth.uid()` igual ao `auth_user_id` do atleta ativo **e** `health_cch_e5_has_explicit_consent(athlete_id)` positivo. Treinador/proprietário delegado não visualiza notas E5; atleta sem consentimento vigente, ou após revogação, tampouco as visualiza via API de leitura comum. Auditoria histórica sujeita a política própria de retenção e acesso excepcional ainda não aprovada. Conceder acesso ao atleta para revisão dos próprios dados antigos após revogação é questão de governança de direitos do titular e não foi implementado implicitamente.
+
+**Três atos juridicamente e tecnicamente distintos:**
+1. **Registro da declaração:** uma nota M4 E5 é uma declaração autorrelatada, não um resultado clínico. A captura inicial ou a correção exigem identidade do próprio atleta, sessão `completed/active`, autoria não nula, confirmação expressa, payload validado no banco **e** consentimento específico E5 vigente. Sem ele, não gravar E5. Isso é uma proposta de restrição de coleta, não coleta ativada.
+2. **Consentimento da análise:** concessão/negação/revogação E5 são registros M1 append-only, versionados pela política ativa. Um consentimento genérico M1 não autoriza uso E5.
+3. **Utilização para sugerir treino:** mesmo com declaração e consentimento, a personalização fica sob os gates E5-A/B: qualidade e repetição de evidências, recuperação/sintomas, objetivo, revisão humana e impossibilidade de prescrição/publicação automática. A captura autorizada **não equivale** a permissão de aumentar carga ou volume.
+
+**Prova incremental:** [CI #44631374685](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/44631374685) terminou com `e5-persistent-isolated` e `e2-f22-baseline` aprovados. Testou bloqueio de nota E5 sem consentimento, possibilidade de nova nota após concessão explícita, impossibilidade de leitura direta por treinador delegado, ocultação de E5 após revogação em leitura comum/consultiva e preservação do evento M4 normal para treinador e atleta.
+
+**Limite de compatibilidade:** alterações de RLS em tabela compartilhada podem afetar RPCs e leitores específicos além do fixture estrutural. As funções oficiais M4 são `SECURITY INVOKER`; a revisão dos seus fluxos e a aplicação sequencial de todas as migrations M0/M1/M3/M4/F21/F22 no PostgreSQL descartável continuam necessárias antes de propor integração produtiva. Nenhuma aprovação de acesso histórico E5, privacy policy ou migração foi inferida.
