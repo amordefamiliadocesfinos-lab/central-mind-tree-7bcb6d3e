@@ -61,13 +61,10 @@ CREATE TABLE public.health_workout_events (
  client_event_id uuid NOT NULL,occurred_at timestamptz NOT NULL DEFAULT now(),
  recorded_at timestamptz NOT NULL DEFAULT now(),payload jsonb,
  created_by_auth_user_id uuid REFERENCES auth.users(id) DEFAULT auth.uid(),
- UNIQUE(athlete_id,client_event_id),
- CONSTRAINT health_workout_events_session_athlete_fkey FOREIGN KEY(session_id,athlete_id)
- REFERENCES public.health_workout_sessions(id,athlete_id));
+ UNIQUE(athlete_id,client_event_id));
 -- E2 fixture lacks a composite session uniqueness; reconstruct corresponding M4 constraint.
 ALTER TABLE public.health_workout_sessions ADD CONSTRAINT health_workout_sessions_id_athlete_unique
  UNIQUE(id,athlete_id);
-ALTER TABLE public.health_workout_events DROP CONSTRAINT health_workout_events_session_athlete_fkey;
 ALTER TABLE public.health_workout_events ADD CONSTRAINT health_workout_events_session_athlete_fkey
  FOREIGN KEY(session_id,athlete_id) REFERENCES public.health_workout_sessions(id,athlete_id);
 ALTER TABLE public.health_workout_events ENABLE ROW LEVEL SECURITY;
