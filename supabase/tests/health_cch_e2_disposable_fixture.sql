@@ -41,7 +41,22 @@ GRANT SELECT ON public.health_athletes,public.health_programs,
  public.health_program_versions,public.health_session_templates,
  public.health_exercises,public.health_exercise_equivalences,
  public.health_exercise_muscles,public.health_session_template_exercises TO authenticated;
-GRANT UPDATE ON public.health_session_template_exercises TO authenticated;
+GRANT UPDATE ON public.health_session_template_exercises,
+ public.health_session_templates,public.health_program_versions TO authenticated;
+ALTER TABLE public.health_session_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY read_template_e2 ON public.health_session_templates FOR SELECT TO authenticated
+ USING(public.health_can_write_athlete(athlete_id));
+CREATE POLICY write_template_e2 ON public.health_session_templates FOR UPDATE TO authenticated
+ USING(public.health_can_write_athlete(athlete_id) AND EXISTS (
+  SELECT 1 FROM public.health_program_versions v
+  WHERE v.id=health_session_templates.program_version_id AND v.status='draft'
+ )) WITH CHECK(public.health_can_write_athlete(athlete_id));
+ALTER TABLE public.health_program_versions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY read_version_e2 ON public.health_program_versions FOR SELECT TO authenticated
+ USING(public.health_can_write_athlete(athlete_id));
+CREATE POLICY write_version_e2 ON public.health_program_versions FOR UPDATE TO authenticated
+ USING(public.health_can_write_athlete(athlete_id) AND status='draft')
+ WITH CHECK(public.health_can_write_athlete(athlete_id) AND status='draft');
 ALTER TABLE public.health_session_template_exercises ENABLE ROW LEVEL SECURITY;
 CREATE POLICY select_e2 ON public.health_session_template_exercises FOR SELECT TO authenticated
  USING(public.health_can_write_athlete(athlete_id));
