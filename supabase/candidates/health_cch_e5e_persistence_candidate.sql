@@ -20,9 +20,31 @@ CREATE POLICY health_consents_insert ON public.health_consents FOR INSERT TO aut
   AND (consent_type<>'e5_personalized_review' OR
    EXISTS (SELECT 1 FROM public.health_athletes a WHERE a.id=athlete_id
     AND a.auth_user_id IS NOT NULL AND a.auth_user_id=auth.uid()
-    AND details->>'explicit_action'='true'
+    AND details->'explicit_action'='true'::jsonb
     AND details->>'contract'='cch-e5-consent-v1'))
  );
+
+-- Server-owned chronology and actor identity. E5 cannot be back/future-dated
+-- by an API caller to override an eventual revocation.
+CREATE OR REPLACE FUNCTION public.health_cch_e5_stamp_consent()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER
+ SET search_path=public,pg_temp AS $
+BEGIN
+ IF NEW.consent_type='e5_personalized_review' THEN
+  IF auth.uid() IS NULL OR NEW.actor_auth_user_id IS DISTINCT FROM auth.uid()
+   OR NEW.details->>'contract' IS DISTINCT FROM 'cch-e5-consent-v1'
+   OR NEW.details->'explicit_action' IS DISTINCT FROM 'true'::jsonb THEN
+   RAISE EXCEPTION 'E5 consent requires explicit authenticated action'
+    USING ERRCODE='23514';
+  END IF;
+  NEW.occurred_at:=clock_timestamp();
+  NEW.created_at:=NEW.occurred_at;
+ END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER health_cch_e5_consent_time_guard
+ BEFORE INSERT ON public.health_consents FOR EACH ROW
+ EXECUTE FUNCTION public.health_cch_e5_stamp_consent();
 
 -- Fail closed for all readers without the same athlete identity, latest decision,
 -- unambiguous timestamp and exact currently approved version passed by the caller.
@@ -78,9 +100,11 @@ BEGIN
     RAISE EXCEPTION 'E5 review only by athlete for completed/active session'
      USING ERRCODE='42501';
   END IF;
+  NEW.occurred_at:=clock_timestamp();
+  NEW.recorded_at:=NEW.occurred_at;
  END IF;
  RETURN NEW;
-END $$;
+END $;
 CREATE TRIGGER health_cch_e5_session_note_guard
  BEFORE INSERT ON public.health_workout_events FOR EACH ROW
  EXECUTE FUNCTION public.health_cch_e5_validate_session_note();
