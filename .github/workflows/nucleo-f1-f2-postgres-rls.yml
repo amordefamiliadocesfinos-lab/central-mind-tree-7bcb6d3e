@@ -1,0 +1,39 @@
+name: Núcleo F1+F2 — PostgreSQL RLS descartável
+on:
+  pull_request:
+    paths:
+      - "scripts/nucleo-f1-f2-postgres-rls-lab.sql"
+      - ".github/workflows/nucleo-f1-f2-postgres-rls.yml"
+      - "docs/architecture/NUCLEO_F1_F2_CONTRAPROVA_POSTGRESQL_DESCARTAVEL_2026-11-19.md"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-rls-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Run only in disposable CI container
+        env:
+          PGPASSWORD: disposable_only
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: psql --set=ON_ERROR_STOP=1 --file=scripts/nucleo-f1-f2-postgres-rls-lab.sql
