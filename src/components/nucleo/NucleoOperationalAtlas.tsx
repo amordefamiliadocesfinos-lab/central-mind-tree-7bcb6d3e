@@ -9,6 +9,7 @@ import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoAc02ContinuityRead from "@/components/nucleo/NucleoAc02ContinuityRead";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
+import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -834,7 +835,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                               <Badge variant="outline">{item.evidence_state.replaceAll("_", " ")}</Badge>
                             </div>
                             {item.blocker && <p className="text-xs text-muted-foreground">Bloqueio declarado: {item.blocker}</p>}
-                            <p className="text-xs">Próxima ação: {item.next_action.trim() || "Não informada"}</p>
+                            <p className="text-xs">Próxima ação: {managerActionExplanation(item) || item.next_action.trim() || "Não informada"}</p>
+                            {managerActionExplanation(item)&&<details className="text-xs"><summary className="cursor-pointer font-medium">Ver registro técnico original</summary><p className="mt-1 break-words whitespace-pre-wrap">{item.next_action}</p></details>}
                           </div>
                           <Button type="button" variant="outline" size="sm" onClick={() => onSelectWorkstream(item.id)}>
                             Abrir ficha M3
@@ -886,7 +888,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     <div className="space-y-1 min-w-0 flex-1">
                       <p className="font-medium text-sm">{front.code} · {front.title}</p>
                       <p className="text-xs text-muted-foreground">{front.status.replaceAll("_", " ")} · {front.evidence_state.replaceAll("_", " ")} · {front.specialist || "Especialista não informado"}</p>
-                      <p className="text-xs">Próxima ação: {front.next_action || "Não registrada"}</p>
+                      <p className="text-xs">Próxima ação: {managerActionExplanation(front) || front.next_action || "Não registrada"}</p>
+                      {managerActionExplanation(front)&&<details className="text-xs"><summary className="cursor-pointer font-medium">Ver registro técnico original</summary><p className="mt-1 break-words whitespace-pre-wrap">{front.next_action}</p></details>}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="outline" onClick={() => onSelectWorkstream(front.id)}>Abrir frente na Central</Button>
