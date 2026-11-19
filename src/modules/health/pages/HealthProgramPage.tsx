@@ -17,6 +17,8 @@ import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthCatalogs } from "../hooks/useHealthCatalogs";
 import { useHealthProgramM3 } from "../hooks/useHealthProgramM3";
 import { useHealthTrainingProfileF22 } from "../hooks/useHealthTrainingProfileF22";
+import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
+import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
@@ -30,6 +32,9 @@ export function HealthProgramPage() {
   const catalogs = useHealthCatalogs();
   const program = useHealthProgramM3(athlete?.id);
   const trainingProfile = useHealthTrainingProfileF22(athlete?.id);
+  const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id);
+  const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
+  const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
 
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -188,12 +193,66 @@ export function HealthProgramPage() {
       ) : null}
 
       {program.cycleComplete && !draft ? (
-        <Card><CardHeader><CardTitle className="text-base">Ciclo concluído</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm">Todas as sessões da versão publicada foram concluídas. O histórico foi preservado.</p>
-            <p className="text-xs text-muted-foreground">Prepare uma nova versão em rascunho. A prescrição anterior será apenas um ponto de partida; revise desempenho, recuperação e ajustes antes de publicar.</p>
-            <Button disabled={program.saving} className="min-h-11 w-full" onClick={() => void save("Novo ciclo preparado em rascunho.",program.prepareNextCycle)}>Preparar próximo ciclo</Button>
-          </CardContent></Card>
+        <Card className="border-primary/30">
+          <CardHeader><CardTitle className="text-base">Ciclo concluído — planejar próxima etapa</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm">O CCH utiliza os registros válidos do seu último ciclo para orientar a estratégia seguinte. Nenhuma sessão será criada antes de você escolher o objetivo.</p>
+            {cycleAdvisor.loading ? <p className="text-xs text-muted-foreground">Auditando histórico...</p> : null}
+            {cycleAdvisor.error ? <p className="text-xs text-destructive">Auditoria indisponível: {cycleAdvisor.error}</p> : (
+              <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-1">
+                <p className="font-medium">Evidências da auditoria</p>
+                <p>{cycleAdvisor.assessment.sessions} sessões · {cycleAdvisor.assessment.completedSets} séries · {cycleAdvisor.assessment.measuredSets} séries com carga e repetições</p>
+                <p>{cycleAdvisor.assessment.comparableExercises} exercício(s) com exposições comparáveis.</p>
+                <p className="text-muted-foreground">{cycleAdvisor.assessment.note}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Qual é seu objetivo agora?</Label>
+              <Select value={goalChoice} onValueChange={(value) => setGoalChoice(value as GuidedGoal | "unsure")}>
+                <SelectTrigger className="min-h-11"><SelectValue placeholder="Escolha um objetivo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unsure">Não sei — quero recomendações</SelectItem>
+                  {guidedGoals.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {goalChoice === "unsure" ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium">Estratégias para você avaliar</p>
+                {cycleAdvisor.recommendations.map((item) => (
+                  <button key={item.goal + item.strategy} type="button"
+                    className="w-full rounded-lg border p-3 text-left hover:border-primary/50"
+                    onClick={() => { setGoalChoice(item.goal); setStrategyChoice(item.strategy); }}>
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Estratégia para o próximo ciclo</Label>
+                <Select value={strategyChoice} onValueChange={(value) => setStrategyChoice(value as GuidedStrategy)}>
+                  <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>{guidedStrategies.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}</SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{guidedStrategies.find(s => s.value === strategyChoice)?.detail}</p>
+              </div>
+            )}
+            <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
+            <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || cycleAdvisor.loading ||
+              !!cycleAdvisor.error || cycleAdvisor.generating || program.saving}
+              onClick={() => void save("Nova versão proposta para revisão; nenhuma sessão foi publicada.", async () => {
+                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice);
+                await program.reload();
+              })}>
+              {cycleAdvisor.generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+              Gerar proposta de novo ciclo
+            </Button>
+            <p className="text-[11px] text-muted-foreground">Prescrições sem evidência suficiente serão mantidas para revisão. A publicação da nova versão é separada e não ocorre automaticamente.</p>
+          </CardContent>
+        </Card>
       ) : null}
       {draft && program.program.current_version_id ? (
         <Card><CardContent className="space-y-2 py-4">
