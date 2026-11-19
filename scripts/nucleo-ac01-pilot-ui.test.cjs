@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+"use strict";
+const fs=require("node:fs");
+const assert=require("node:assert/strict");
+const ts=require("typescript");
+const component=fs.readFileSync("src/components/nucleo/NucleoAc01PilotRegistration.tsx","utf8");
+const host=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+const compiled=ts.transpileModule(component,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX},reportDiagnostics:true});
+assert.equal((compiled.diagnostics??[]).filter(x=>x.category===ts.DiagnosticCategory.Error).length,0);
+assert.match(host,/selected\.code==="NUC"&&<NucleoAc01PilotRegistration\s*\/>/);
+assert.match(component,/supabase\.auth\.getUser\(\)/);
+assert.match(component,/\.eq\("capability","nucleo_manage"\)/);
+assert.match(component,/supabase\.functions\.invoke\(FUNCTION_NAME,\{body:attempt\}\)/);
+assert.match(component,/window\.localStorage\.setItem\(storageKey\.current,JSON\.stringify\(attempt\)\)/);
+assert.match(component,/\.eq\("request_id",request_id\)/);
+assert.match(component,/matchesPilotRecord\(check\.data\[0\] as PilotRecord,attempt,uid\)/);
+assert.match(component,/window\.confirm\(/);
+assert.doesNotMatch(component,/service_role|SUPABASE_SERVICE_ROLE|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+assert.match(component,/setStatus\("uncertain"\)/);
+assert.match(component,/status!=="ready"/);
+assert.match(component,/function NucleoAc01PilotRegistration|default function NucleoAc01PilotRegistration/);
+console.log("PASS UI NUC AC01: único ponto de entrada, JWT da sessão, gate, confirmação, idempotência local, readback sem writer paralelo");
