@@ -16,9 +16,13 @@ export type Assessment = {
   training_profile: { training_level?: string; overall_data_confidence?: string } | null;
   recovery_context: { as_of_date?: string; confidence?: string; recovery_observed_days?: number; fatigue_observed_days?: number } | null;
   limitations: string[];
+  muscle_distribution?: Array<{muscle_group_id:string;muscle_name:string;planned_min_sets_per_sequence:number;recorded_work_sets:number;planned_exercises:number;note:string}>;
+  frequency_context?: {completed_sessions:number;span_days:number|null;first_completed_at:string|null;last_completed_at:string|null};
+  recovery_evidence_state?: "unknown" | "limited_coverage" | "observed_needs_interpretation";
+  goal_specific_guidance?: Record<GuidedGoal,string>;
 };
 const empty: Assessment = {
-  engine_version: "cch-guided-v2",source_version_id: "",completed_sessions: 0,completed_sets: 0,
+  engine_version: "cch-guided-v3",source_version_id: "",completed_sessions: 0,completed_sets: 0,
   measured_sets: 0,exercise_assessments: [],training_profile: null,recovery_context: null,limitations: [],
 };
 export const guidedGoals: Array<{ value: GuidedGoal; label: string }> = [
@@ -46,7 +50,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v3" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
@@ -60,6 +64,8 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     const candidates=assessment.exercise_assessments.filter(e=>e.decision==="progress_candidate").length;
     const reviews=assessment.exercise_assessments.filter(e=>e.decision==="review").length;
     const enough=assessment.completed_sessions>=2 && assessment.completed_sets>=6;
+    const trainedGroups=assessment.muscle_distribution?.length ?? 0;
+    const recovery=assessment.recovery_evidence_state ?? "unknown";
     return [
       {goal:"hypertrophy" as GuidedGoal,strategy:"continue_progression" as GuidedStrategy,
         label:"Continuar hipertrofia com ajustes seletivos",
@@ -67,20 +73,27 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
           "Há poucos dados válidos para propor mudanças. A continuidade pode manter o estímulo atual."},
       {goal:"maintenance" as GuidedGoal,strategy:"recovery_review" as GuidedStrategy,
         label:"Consolidar resultados e observar recuperação",
-        reason:assessment.recovery_context ?
-          "Há contexto recente de recuperação, que precisa ser interpretado junto da sua percepção atual.":
-          "Não há contexto recente suficiente de recuperação; o CCH não presumirá fadiga."},
+        reason:recovery==="observed_needs_interpretation" ?
+          "Existem observações recentes de recuperação e fadiga; confirme como está se sentindo antes de rever estímulos." :
+          "A cobertura de recuperação está ausente ou limitada; o CCH não presumirá fadiga nem reduzirá seu treino."},
       {goal:"strength" as GuidedGoal,strategy:"consolidate" as GuidedStrategy,
-        label:"Considerar um ciclo de força",
-        reason:"Opção disponível se for a sua prioridade; nesta versão exige revisão da prescrição, sem converter automaticamente cargas."},
+        label:"Considerar foco de força",
+        reason:`Analisados ${assessment.exercise_assessments.length} registros de prescrição. Comparações de cargas só são válidas no mesmo exercício; aumentos exigem revisão.`},
+      {goal:"muscle_priority" as GuidedGoal,strategy:"consolidate" as GuidedStrategy,
+        label:"Reorganizar prioridades musculares",
+        reason:`${trainedGroups} grupos musculares possuem distribuição observada. Escolha qual deseja priorizar antes de gerar a proposta.`},
+      {goal:"fat_loss" as GuidedGoal,strategy:"consolidate" as GuidedStrategy,
+        label:"Manter musculação enquanto define objetivo corporal",
+        reason:"A execução do treino não demonstra, sozinha, necessidade de perder gordura; exige escolha consciente e contexto nutricional/corporal."},
     ];
   },[assessment]);
-  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy)=>{
+  const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string)=>{
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle" as never,
-        {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible"} as never);
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v3" as never,
+        {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
+          p_priority_muscle_id:priorityMuscleId || null} as never);
       if(result.error)throw new Error(result.error.message);
     }finally{setGenerating(false);}
   },[athleteId,versionId,assessment.source_version_id,error]);
