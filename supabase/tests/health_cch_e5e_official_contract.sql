@@ -6,6 +6,10 @@ INSERT INTO public.health_athlete_access(athlete_id,principal_auth_user_id,
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '33333333-3333-4333-8333-333333333333','coach',true,true,true,
  '11111111-1111-4111-8111-111111111111');
+-- Distinct subject and legal owner exercise M0's real owner vs athlete rules.
+UPDATE public.health_athletes SET
+ owner_auth_user_id='44444444-4444-4444-8444-444444444444'
+ WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 INSERT INTO public.health_workout_sessions(id,athlete_id,source,status,
  started_at,ended_at,start_client_event_id,created_by_auth_user_id)
  VALUES('ffffffff-1000-4000-8000-ffffffffffff',
@@ -77,8 +81,23 @@ DO $$ BEGIN
  WHERE event_type='session_completed')<>1 THEN
  RAISE EXCEPTION 'official M4 coach SELECT leak or regression'; END IF;
 END $$;
+SELECT set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
+DO $ BEGIN
+ IF NOT public.health_can_read_athlete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ OR NOT public.health_can_write_athlete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ OR (SELECT count(*) FROM public.health_workout_events
+  WHERE event_type='session_completed')<>1
+ OR (SELECT count(*) FROM public.health_workout_events
+  WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
+ RAISE EXCEPTION 'separate M0 owner had unauthorized E5 read or lost common M4'; END IF;
+END $;
+SELECT public.e5e_expect_denied($q$
+ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-integral-fixture',
+ '{"contract":"cch-e5-consent-v1","explicit_action":true}')$q$);
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $$ BEGIN
+DO $ BEGIN
  IF (SELECT count(*) FROM public.health_workout_events)<>0 THEN
  RAISE EXCEPTION 'official M4 cross-athlete leak'; END IF;
 END $$;
