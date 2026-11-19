@@ -276,10 +276,16 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     const target=state.templateExercises.find(e=>e.id===id &&
       state.templates.some(t=>t.id===e.session_template_id && t.program_version_id===state.version?.id));
     if(!target)throw new Error("Exercício não pertence ao rascunho");
-    const notes=rationale?[target.prescription_notes,"CCH E2 · revisão explícita: "+rationale].filter(Boolean).join("\n"):target.prescription_notes;
-    await mutate(async () => supabase.from("health_session_template_exercises")
-      .update({...patch,prescription_notes:notes}).eq("id",id).eq("athlete_id",athleteId)
-      .eq("session_template_id",target.session_template_id));
+    if(!rationale||rationale.trim().length<10)throw new Error("Informe o motivo da revisão (mínimo 10 caracteres)");
+    const expected={
+      planned_sets_min:target.planned_sets_min,planned_sets_max:target.planned_sets_max,
+      reps_min:target.reps_min,reps_max:target.reps_max,
+      rir_target:target.rir_target,rest_seconds:target.rest_seconds,
+    };
+    await mutate(async()=>supabase.rpc("health_cch_e2_update_draft_prescription" as never,{
+      p_template_exercise_id:id,p_expected_version_id:state.version!.id,
+      p_expected:expected,p_proposed:patch,p_reason:rationale.trim()
+    } as never));
   }, [athleteId, state.version, state.templates, state.templateExercises, mutate]);
 
   const editExerciseStructure=useCallback(async(
