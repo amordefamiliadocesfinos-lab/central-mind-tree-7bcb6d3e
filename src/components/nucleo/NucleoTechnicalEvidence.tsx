@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { NucleoDevelopmentDatabase, TechnicalEvidence } from "@/lib/nucleo/development.types";
+import { M4_EVIDENCE_VISIBLE_LIMIT, projectM4EvidenceWindow } from "@/lib/nucleo/m4EvidenceWindow";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const officialRepo = "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/";
@@ -44,12 +45,13 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
     void (async () => {
       const result = await client.from("nucleo_development_evidence")
         .select("*").eq("workstream_id", workstreamId)
-        .order("recorded_at", { ascending: false }).limit(101);
+        .order("recorded_at", { ascending: false }).limit(M4_EVIDENCE_VISIBLE_LIMIT + 1);
       if (cancelled) return;
       setError(!!result.error);
       const returned = result.error ? [] : result.data ?? [];
-      setRecords(returned.slice(0, 100));
-      setHasMore(!result.error && returned.length > 100);
+      const window = projectM4EvidenceWindow(returned);
+      setRecords(window.visible);
+      setHasMore(!result.error && window.hasMore);
       setLoading(false);
     })();
     return () => { cancelled = true; };
