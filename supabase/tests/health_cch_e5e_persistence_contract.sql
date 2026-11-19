@@ -56,12 +56,12 @@ SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'granted','e5-lab-v1',NULL)
-$q$,ARRAY['42501']::text[]);
+$q$,ARRAY['23514']::text[]);
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":"true"}')
-$q$,ARRAY['42501']::text[]);
+$q$,ARRAY['23514']::text[]);
 
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
