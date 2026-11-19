@@ -16,7 +16,12 @@ CREATE TABLE public.health_cch_e5_policy_registry(
  policy_version text PRIMARY KEY CHECK(btrim(policy_version)<>'' AND length(policy_version)<=100),
  status text NOT NULL CHECK(status IN ('active','retired')),
  approved_at timestamptz NOT NULL,
- policy_digest text NOT NULL CHECK(length(policy_digest)=64),
+ effective_at timestamptz NOT NULL CHECK(effective_at>=approved_at),
+ approved_by_auth_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+ approval_reference text NOT NULL CHECK(btrim(approval_reference)<>''), 
+ policy_document text NOT NULL CHECK(btrim(policy_document)<>''), 
+ policy_digest text NOT NULL CHECK(
+  policy_digest=encode(sha256(convert_to(policy_document,'UTF8')),'hex')),
  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 CREATE UNIQUE INDEX health_cch_e5_one_active_policy
@@ -41,7 +46,7 @@ CREATE POLICY health_consents_insert ON public.health_consents FOR INSERT TO aut
     AND a.auth_user_id IS NOT NULL AND a.auth_user_id=auth.uid()
     AND details->'explicit_action'='true'::jsonb
     AND details->>'contract'='cch-e5-consent-v1'
-    AND policy_version=(SELECT p.policy_version FROM public.health_cch_e5_policy_registry p WHERE p.status='active')))
+    AND policy_version=(SELECT p.policy_version FROM public.health_cch_e5_policy_registry p WHERE p.status='active' AND p.effective_at<=clock_timestamp())))
  );
 
 -- Server-owned chronology and actor identity. E5 cannot be back/future-dated
@@ -58,7 +63,8 @@ BEGIN
     USING ERRCODE='23514';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.health_cch_e5_policy_registry p
-   WHERE p.status='active' AND p.policy_version=NEW.policy_version) THEN
+   WHERE p.status='active' AND p.effective_at<=clock_timestamp()
+   AND p.policy_version=NEW.policy_version) THEN
    RAISE EXCEPTION 'E5 consent policy not active' USING ERRCODE='23514';
   END IF;
   NEW.occurred_at:=clock_timestamp();
@@ -82,7 +88,8 @@ BEGIN
    WHERE a.id=p_athlete_id AND a.auth_user_id=auth.uid() AND a.status='active')
  THEN RETURN false; END IF;
  SELECT p.policy_version INTO v_version
- FROM public.health_cch_e5_policy_registry p WHERE p.status='active';
+ FROM public.health_cch_e5_policy_registry p WHERE p.status='active'
+  AND p.effective_at<=clock_timestamp();
  IF v_version IS NULL THEN RETURN false; END IF;
  SELECT max(occurred_at) INTO v_latest FROM public.health_consents
  WHERE athlete_id=p_athlete_id AND consent_type='e5_personalized_review';
@@ -180,6 +187,79 @@ CREATE UNIQUE INDEX health_cch_e5_one_successor_per_event
  ON public.health_workout_events(athlete_id,session_id,(payload->>'replaces_event_id'))
  WHERE event_type='note' AND payload->>'contract'='cch-e5-session-review-v1'
   AND (payload ? 'replaces_event_id');
+
+-- Query-only projection of the single valid *tip* of a strictly linear
+-- append-only review chain. The contract is fail-closed on any ambiguity,
+-- unauthenticated identity, inactive session or absent current E5 consent.
+CREATE OR REPLACE FUNCTION public.health_cch_e5_current_session_review(
+ p_athlete_id uuid,p_session_id uuid
+) RETURNS TABLE(event_id uuid,recovery text,symptoms text,revision_count integer)
+ LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=public,pg_temp AS $
+DECLARE v_total integer;v_root_count integer;v_tip_count integer;v_chain_count integer;
+ v_bad_count integer;v_result record;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.health_cch_e5_has_explicit_consent(p_athlete_id)
+  OR NOT EXISTS (SELECT 1 FROM public.health_workout_sessions s
+    JOIN public.health_athletes a ON a.id=s.athlete_id
+    WHERE s.id=p_session_id AND s.athlete_id=p_athlete_id
+      AND s.status='completed' AND s.record_status='active'
+      AND a.auth_user_id=auth.uid() AND a.status='active')
+ THEN RETURN; END IF;
+ SELECT count(*) INTO v_total FROM public.health_workout_events e
+ WHERE e.athlete_id=p_athlete_id AND e.session_id=p_session_id
+ AND e.event_type='note' AND e.payload->>'contract'='cch-e5-session-review-v1';
+ IF v_total=0 THEN RETURN; END IF;
+ SELECT count(*) INTO v_root_count FROM public.health_workout_events e
+ WHERE e.athlete_id=p_athlete_id AND e.session_id=p_session_id
+ AND e.event_type='note' AND e.payload->>'contract'='cch-e5-session-review-v1'
+ AND NOT (e.payload ? 'replaces_event_id');
+ IF v_root_count<>1 THEN RETURN; END IF;
+ -- Any malformed/foreign-authored node invalidates the entire chain.
+ SELECT count(*) INTO v_bad_count FROM public.health_workout_events e
+ WHERE e.athlete_id=p_athlete_id AND e.session_id=p_session_id
+ AND e.event_type='note' AND e.payload->>'contract'='cch-e5-session-review-v1'
+ AND (e.created_by_auth_user_id IS DISTINCT FROM auth.uid()
+  OR e.source<>'user' OR e.payload->'explicit_confirmation' IS DISTINCT FROM 'true'::jsonb
+  OR COALESCE(e.payload->>'recovery','') NOT IN ('good','poor','unknown')
+  OR COALESCE(e.payload->>'symptoms','') NOT IN ('none','pain','unknown')
+  OR e.workout_exercise_id IS NOT NULL OR e.workout_set_id IS NOT NULL);
+ IF v_bad_count<>0 THEN RETURN; END IF;
+ WITH RECURSIVE chain AS (
+  SELECT e.id,e.payload,e.created_by_auth_user_id,
+   ARRAY[e.id]::uuid[] AS trail,1 AS depth
+  FROM public.health_workout_events e
+  WHERE e.athlete_id=p_athlete_id AND e.session_id=p_session_id
+   AND e.event_type='note' AND e.payload->>'contract'='cch-e5-session-review-v1'
+   AND NOT (e.payload ? 'replaces_event_id')
+  UNION ALL
+  SELECT nxt.id,nxt.payload,nxt.created_by_auth_user_id,
+   chain.trail||nxt.id,chain.depth+1
+  FROM chain
+  JOIN public.health_workout_events nxt ON nxt.athlete_id=p_athlete_id
+   AND nxt.session_id=p_session_id AND nxt.event_type='note'
+   AND nxt.payload->>'contract'='cch-e5-session-review-v1'
+   AND nxt.payload->>'replaces_event_id'=chain.id::text
+  WHERE NOT nxt.id=ANY(chain.trail) AND chain.depth<1000
+ ),tips AS (
+  SELECT chain.* FROM chain WHERE NOT EXISTS(
+   SELECT 1 FROM public.health_workout_events later
+   WHERE later.athlete_id=p_athlete_id AND later.session_id=p_session_id
+    AND later.event_type='note'
+    AND later.payload->>'contract'='cch-e5-session-review-v1'
+    AND later.payload->>'replaces_event_id'=chain.id::text)
+ )
+ SELECT (SELECT count(*) FROM chain),(SELECT count(*) FROM tips),
+  (SELECT row(tips.id,tips.payload) FROM tips LIMIT 1)
+ INTO v_chain_count,v_tip_count,v_result;
+ IF v_chain_count<>v_total OR v_tip_count<>1 OR v_result IS NULL THEN RETURN; END IF;
+ RETURN QUERY SELECT (v_result).f1::uuid,
+  ((v_result).f2::jsonb)->>'recovery',
+  ((v_result).f2::jsonb)->>'symptoms',v_chain_count;
+END $;
+REVOKE ALL ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
+ TO authenticated;
 
 -- Crucial: existing M4 policy is OR-capable; REPLACE rather than ADD a new
 -- policy, so broad health_can_write_athlete cannot bypass E5 owner gate.
