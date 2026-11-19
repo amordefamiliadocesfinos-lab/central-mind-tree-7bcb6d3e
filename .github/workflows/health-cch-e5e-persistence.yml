@@ -1,0 +1,45 @@
+name: CCH E5-E Disposable Persistence Candidate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/candidates/health_cch_e5e_persistence_candidate.sql'
+      - 'supabase/tests/health_cch_e5e_*'
+      - '.github/workflows/health-cch-e5e-persistence.yml'
+permissions:
+  contents: read
+jobs:
+  e5-persistent-isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e5-disposable-only
+          POSTGRES_DB: e5_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e5_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce isolated candidate and run sovereign-shape fixtures
+        env:
+          PGPASSWORD: e5-disposable-only
+          E5_DISPOSABLE_ONLY: "YES"
+        run: |
+          set -euo pipefail
+          test "$E5_DISPOSABLE_ONLY" = YES
+          test ! -e supabase/migrations/20261119230000_health_cch_e5e_persistence.sql
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e5_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/tests/health_cch_e5e_persistence_fixture.sql
+          run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
+          run_sql supabase/tests/health_cch_e5e_persistence_contract.sql
