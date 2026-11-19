@@ -43,9 +43,9 @@ function cchSourceFingerprint(): string {
     const hash = createHash("sha256");
     for (const relativePath of cchFingerprintPaths) {
       hash.update(relativePath, "utf8");
-      hash.update("\\0");
+      hash.update(Buffer.from([0]));
       hash.update(readFileSync(path.resolve(__dirname, relativePath)));
-      hash.update("\\0");
+      hash.update(Buffer.from([0]));
     }
     return hash.digest("hex");
   } catch {
