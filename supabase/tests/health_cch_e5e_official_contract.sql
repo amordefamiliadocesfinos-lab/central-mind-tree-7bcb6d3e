@@ -82,7 +82,7 @@ DO $$ BEGIN
  RAISE EXCEPTION 'official M4 coach SELECT leak or regression'; END IF;
 END $$;
 SELECT set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
-DO $ BEGIN
+DO $$ BEGIN
  IF NOT public.health_can_read_athlete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  OR NOT public.health_can_write_athlete('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  OR (SELECT count(*) FROM public.health_workout_events
@@ -90,14 +90,14 @@ DO $ BEGIN
  OR (SELECT count(*) FROM public.health_workout_events
   WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
  RAISE EXCEPTION 'separate M0 owner had unauthorized E5 read or lost common M4'; END IF;
-END $;
+END $$;
 SELECT public.e5e_expect_denied($q$
  INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'granted','e5-integral-fixture',
  '{"contract":"cch-e5-consent-v1","explicit_action":true}')$q$);
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $ BEGIN
+DO $$ BEGIN
  IF (SELECT count(*) FROM public.health_workout_events)<>0 THEN
  RAISE EXCEPTION 'official M4 cross-athlete leak'; END IF;
 END $$;
