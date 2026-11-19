@@ -29,6 +29,9 @@ const ADAO_START = '/shopee/live/oauth/adao/start';
 // verification; no OAuth path is usable without an explicit, unique server-side shop ID.
 const CELIVIO_ACCOUNT_ID = 'd26c7a30-aa4a-4441-8012-600d70453689';
 const CELIVIO_START = '/shopee/live/oauth/celivio/start';
+// Preliminary owner-confirmed Priscila identifiers; Live shop identity remains subject to official API ratification.
+const PRISCILA = Object.freeze({ account: 'f81cb160-badf-4382-863e-b8fd78bdfe7a', shop: 255964662 });
+const PRISCILA_START = '/shopee/live/oauth/priscila/start';
 
 function tokenShopIdentity(payload, expectedShop) {
   const scalar = payload?.shop_id;
@@ -191,7 +194,7 @@ export function createShopeeLiveOauthHandler({
   return async function handleShopeeLiveOauthRequest(request) {
     const path = String(request?.path ?? '/');
     const method = String(request?.method ?? 'GET').toUpperCase();
-    if (path !== '/shopee/live/oauth/start' && path !== ADAO_START && path !== CELIVIO_START && path !== '/shopee/live/oauth/callback') return null;
+    if (path !== '/shopee/live/oauth/start' && path !== ADAO_START && path !== CELIVIO_START && path !== PRISCILA_START && path !== '/shopee/live/oauth/callback') return null;
     if (method !== 'GET') return html(405, 'Método não permitido', 'Esta rota aceita somente GET.');
 
     try {
@@ -202,22 +205,32 @@ export function createShopeeLiveOauthHandler({
       if (partnerId !== 2047685 || channelAccountId !== VIVIANE.account) return html(503, 'Configuração OAuth inválida', 'O piloto não corresponde à configuração autorizada.');
       const adaoEnabled = String(getEnv('SHOPEE_LIVE_ADAO_OAUTH_ENABLED') ?? '').trim().toLowerCase() === 'true';
       const celivioEnabled = String(getEnv('SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED') ?? '').trim().toLowerCase() === 'true';
+      // Opt-in only: an unset flag never creates a state, even if a caller knows the route.
+      const priscilaEnabled = String(getEnv('SHOPEE_LIVE_PRISCILA_OAUTH_ENABLED') ?? '').trim().toLowerCase() === 'true';
+      const priscilaShopId = Number(getEnv('SHOPEE_LIVE_PRISCILA_SHOP_ID'));
+      const priscilaConfigured = priscilaEnabled && Number.isSafeInteger(priscilaShopId)
+        && priscilaShopId === PRISCILA.shop && priscilaShopId !== VIVIANE.shop
+        && priscilaShopId !== ADAO.shop;
       // Never infer a shop ID from a public callback, an account name or a legacy mapping.
       const celivioShopId = Number(getEnv('SHOPEE_LIVE_CELIVIO_SHOP_ID'));
       const celivioConfigured = celivioEnabled && Number.isSafeInteger(celivioShopId)
         && celivioShopId > 0 && celivioShopId !== VIVIANE.shop && celivioShopId !== ADAO.shop;
       const CELIVIO = Object.freeze({ account: CELIVIO_ACCOUNT_ID, shop: celivioShopId });
+      const priscilaUnique = !Number.isSafeInteger(celivioShopId) || celivioShopId !== PRISCILA.shop;
       const tokenEncryptionSecret = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
-      if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START) {
+      if (path === '/shopee/live/oauth/start' || path === ADAO_START || path === CELIVIO_START || path === PRISCILA_START) {
         if (Object.keys(request?.query ?? {}).length) return html(400, 'Destino inválido', 'A rota não aceita seleção pública de destino.');
-        const target = path === ADAO_START ? ADAO : path === CELIVIO_START ? CELIVIO : VIVIANE;
+        const target = path === ADAO_START ? ADAO
+          : path === CELIVIO_START ? CELIVIO : path === PRISCILA_START ? PRISCILA : VIVIANE;
         if (target === ADAO && !adaoEnabled) return html(503, 'OAuth Adão desabilitado', 'O destino não está habilitado no servidor.');
         if (target === CELIVIO && !celivioConfigured) return html(503, 'OAuth Celivio indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
+        if (target === PRISCILA && (!priscilaConfigured || !priscilaUnique)) return html(503, 'OAuth Priscila indisponível', 'A conta e loja precisam ser verificadas e habilitadas no servidor.');
         channelAccountId = target.account;
         // Prefix + persisted account bind the opaque state to the immutable shop/partner allowlist.
         const state = target === ADAO ? `adao.${makeState()}`
-          : target === CELIVIO ? `celivio.${makeState()}` : makeState();
+          : target === CELIVIO ? `celivio.${makeState()}`
+          : target === PRISCILA ? `priscila.${makeState()}` : makeState();
         const stateHash = sha256Hex(state);
         const expiresAt = new Date(now() + STATE_TTL_MS).toISOString();
         const persisted = await createState({
@@ -245,10 +258,16 @@ export function createShopeeLiveOauthHandler({
       const mainAccountId = mainAccountIdRaw === null ? null : Number(mainAccountIdRaw);
       const state = readCookie(request?.headers, STATE_COOKIE);
       const cleared = { 'Set-Cookie': clearStateCookie() };
+      // Unprefixed base64url state is the only valid Viviane legacy form.
+      // Never route an unknown dotted prefix to Viviane.
       const target = state?.startsWith('adao.') ? ADAO
-        : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;
+        : state?.startsWith('celivio.') ? CELIVIO
+        : state?.startsWith('priscila.') ? PRISCILA
+        : state && !state.includes('.') ? VIVIANE : null;
+      if (!target) return html(409, 'Estado incompatível', 'A autorização não corresponde a uma conta reconhecida.', cleared);
       if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
       if (target === CELIVIO && !celivioConfigured) return html(409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.', cleared);
+      if (target === PRISCILA && (!priscilaConfigured || !priscilaUnique)) return html(409, 'Destino desabilitado', 'A loja Priscila não está confirmada ou habilitada.', cleared);
       const queryState = normalizedQuery(request, 'state');
       if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
       if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
