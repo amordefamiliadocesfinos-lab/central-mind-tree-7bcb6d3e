@@ -111,7 +111,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT public.health_f21_void_workout_session(
  'ffffffff-1000-4000-8000-ffffffffffff',
  'dddddddd-0000-4000-8000-000000000099','Synthetic history correction');
-DO $ BEGIN
+DO $$ BEGIN
  IF (SELECT record_status FROM public.health_workout_sessions
  WHERE id='ffffffff-1000-4000-8000-ffffffffffff')<>'voided'
  OR (SELECT count(*) FROM public.health_workout_events
@@ -157,7 +157,7 @@ BEGIN
  THEN RAISE EXCEPTION 'official F22 manual publish regression'; END IF;
 END $$;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
-DO $ BEGIN
+DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.health_cch_queue_entries
  WHERE program_version_id='eeeeeeee-2000-4000-8000-000000000002') THEN
  RAISE EXCEPTION 'cross-athlete official F22 queue leakage'; END IF;
