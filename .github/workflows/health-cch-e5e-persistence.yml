@@ -93,3 +93,55 @@ jobs:
           run_sql /tmp/m3_publish.sql
           run_sql supabase/tests/health_cch_e2_lifecycle_fixture.sql
           run_sql supabase/tests/health_cch_e2_lifecycle_contract.sql
+
+  official-migration-chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e5-official-disposable
+          POSTGRES_DB: e5_official
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e5_official"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply official M0/M1/M2/M3/M4/F19/F20/F21/F22 migrations before E5-E candidate
+        env:
+          PGPASSWORD: e5-official-disposable
+          E5_DISPOSABLE_ONLY: "YES"
+        run: |
+          set -euo pipefail
+          test "$E5_DISPOSABLE_ONLY" = YES
+          test ! -e supabase/migrations/20261119230000_health_cch_e5e_persistence.sql
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            echo "EXECUTING_OFFICIAL_OR_ISOLATED: $1"
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e5_official < "$1"
+          }
+          run_sql supabase/tests/health_cch_e5e_official_bootstrap.sql
+          for f in \
+            supabase/migrations/20261107144000_health_m0_foundation.sql \
+            supabase/migrations/20261107151317_health_m1_profile_goals.sql \
+            supabase/migrations/20261107153621_health_m2_catalogs.sql \
+            supabase/migrations/20261107153848_health_m2_declared_equipment_catalog_fk.sql \
+            supabase/migrations/20261107155747_health_m3_program_cch.sql \
+            supabase/migrations/20261107160110_health_m3_program_rpcs.sql \
+            supabase/migrations/20261107161317_health_m4_live_workout.sql \
+            supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql \
+            supabase/migrations/20261111020500_health_m4_end_workout_anytime.sql \
+            supabase/migrations/20261111165531_health_f20_multimodal_daily_sessions.sql \
+            supabase/migrations/20261111171704_health_f21_training_history_management.sql \
+            supabase/migrations/20261111175335_health_f21_void_workout_requeues_cch.sql \
+            supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql
+          do
+            run_sql "$f"
+          done
+          run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
+          run_sql supabase/tests/health_cch_e5e_official_contract.sql
