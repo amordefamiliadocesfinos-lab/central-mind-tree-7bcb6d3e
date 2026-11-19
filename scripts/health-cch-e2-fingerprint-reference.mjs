@@ -11,8 +11,8 @@ const paths = [
 ];
 const hash=createHash("sha256");
 for(const file of paths){
- hash.update(file,"utf8");hash.update("\\0");
- hash.update(readFileSync(file));hash.update("\\0");
+ hash.update(file,"utf8");hash.update(Buffer.from([0]));
+ hash.update(readFileSync(file));hash.update(Buffer.from([0]));
 }
 const digest=hash.digest("hex");
 console.log("CCH_E2_SOURCE_FINGERPRINT_SHA256="+digest);
