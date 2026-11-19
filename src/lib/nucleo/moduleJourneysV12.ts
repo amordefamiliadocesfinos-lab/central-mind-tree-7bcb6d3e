@@ -27,6 +27,14 @@ export const MODULE_JOURNEYS_V12:Readonly<Record<string,ReadonlyArray<ModuleJour
    {screenId:"inbox",controlLabel:"Próximo atendimento",task:"Distinguir avanço da fila e registro",inspect:"Localizar Próximo atendimento e confrontar com Resultado e tarefas pendentes.",verify:"Conferir seleção ou estado da fila somente em operação real acompanhada.",limit:"Avançar não cria Resultado e não comprova atendimento finalizado."},
   ],
  },{
+  id:"crm-fila",title:"Entender saídas da fila e contato externo",
+  goal:"Distinguir preparar o WhatsApp, retirar da fila e revisão sem fato comercial novo.",
+  kind:"consulta",steps:[
+   {screenId:"contatos",controlLabel:"Preparar contato no WhatsApp",task:"Reconhecer a abertura do contato externo",inspect:"Localizar o preparo do WhatsApp na fila e verificar o telefone e o contato selecionado; não enviar mensagem nesta consulta.",verify:"A abertura externa não confirma envio de mensagem nem registro de Resultado; a consulta não deve acionar o envio.",limit:"O Núcleo não executa o atendimento ou confirma entrega no WhatsApp."},
+   {screenId:"inbox",controlLabel:"Tirar da fila",task:"Distinguir retirar da fila de concluir conversa",inspect:"Identificar a opção Tirar da fila, sua pré-condição e a possibilidade de retorno à fila.",verify:"Em operação legítima, conferir mensagem de retirada e classificação após recarga.",limit:"A retirada não arquiva a conversa, não registra Resultado e não conclui tarefa."},
+   {screenId:"inbox",controlLabel:"Sem fato novo — retirar da prioridade",task:"Identificar revisão sem fato comercial novo",inspect:"Reconhecer as condições restritas da revisão: Resultado anterior, espera pelo cliente, ausência de resposta pendente e próxima ação não vencida.",verify:"Em operação autorizada, conferir a revisão no histórico; nenhum Resultado novo deve ser criado.",limit:"Não utilizar este fluxo para ocultar resposta pendente ou inventar atendimento."},
+  ],
+ },{
   id:"crm-revisao",title:"Reconhecer adiamento e fechamento sem criar fato fictício",
   goal:"Diferenciar Adiar, Concluir e Reabrir por efeito e confirmação.",
   kind:"consulta",steps:[
