@@ -1,0 +1,41 @@
+name: CCH E2 Isolated PostgreSQL Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/*health_cch_e2b*'
+      - 'supabase/tests/health_cch_e2*'
+      - '.github/workflows/health-cch-e2-postgres-validation.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci-only
+          POSTGRES_DB: e2_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2_disposable"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute fixture, real migration and contracts inside PostgreSQL container
+        env:
+          PGPASSWORD: postgres-ci-only
+        run: |
+          set -euo pipefail
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          for file in             supabase/tests/health_cch_e2_disposable_fixture.sql             supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql             supabase/tests/health_cch_e2_disposable_contract.sql
+          do
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID"               psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$file"
+          done
