@@ -164,6 +164,27 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 
+-- F19 definer RPC must still reject cross-athlete timer actions even when
+-- executed under its definer role (SQLERRM must indicate authorization).
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $
+DECLARE v_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM public.health_f19_pause_workout(
+   'ffffffff-1000-4000-8000-ffffffffffff',
+   'dddddddd-0000-4000-8000-000000000077');
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM LIKE '%not authorized%' OR SQLERRM LIKE '%not found%' THEN
+   v_denied:=true;
+  ELSE RAISE; END IF;
+ END;
+ IF NOT v_denied THEN
+  RAISE EXCEPTION 'F19 definer RPC allowed a cross-athlete session operation';
+ END IF;
+END $;
+RESET ROLE;
 -- Alternative SQL access audit: no published view directly exposing M4 events,
 -- and no authenticated SECURITY DEFINER routine whose body reads their content.
 DO $$
@@ -172,11 +193,19 @@ BEGIN
   WHERE schemaname='public' AND definition ILIKE '%health_workout_events%') THEN
   RAISE EXCEPTION 'view referencing workout events requires human security review';
  END IF;
+ -- F19 official RPCs use SECURITY DEFINER for timer operations and refer
+ -- to M4 events for idempotency; their output is timer/set UUIDs, not E5 notes.
+ -- An *additional/unreviewed* definer touching events is a regression gate.
  IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname='public' AND p.prosecdef
    AND pg_get_functiondef(p.oid) ILIKE '%health_workout_events%'
-   AND has_function_privilege('authenticated',p.oid,'EXECUTE')) THEN
-  RAISE EXCEPTION 'executable SECURITY DEFINER RPC references M4 events';
+   AND has_function_privilege('authenticated',p.oid,'EXECUTE')
+   AND p.proname NOT IN (
+    'health_f19_pause_workout','health_f19_resume_workout',
+    'health_f19_start_work_interval','health_f19_finish_work_start_rest',
+    'health_f19_finish_rest','health_f19_cancel_interval',
+    'health_f19_close_open_timers_with_session')) THEN
+  RAISE EXCEPTION 'unreviewed SECURITY DEFINER M4-access RPC exposed';
  END IF;
 END $$;
 -- Enumerate alternative SQL objects that could affect evidence exposure;
