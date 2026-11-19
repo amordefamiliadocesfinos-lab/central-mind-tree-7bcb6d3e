@@ -196,7 +196,7 @@ CREATE OR REPLACE FUNCTION public.health_cch_e5_current_session_review(
 ) RETURNS TABLE(event_id uuid,recovery text,symptoms text,revision_count integer)
  LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=public,pg_temp AS $$
 DECLARE v_total integer;v_root_count integer;v_tip_count integer;v_chain_count integer;
- v_bad_count integer;v_result record;
+ v_bad_count integer;v_tip_id uuid;v_tip_payload jsonb;
 BEGIN
  IF auth.uid() IS NULL OR NOT public.health_cch_e5_has_explicit_consent(p_athlete_id)
   OR NOT EXISTS (SELECT 1 FROM public.health_workout_sessions s
@@ -249,12 +249,12 @@ BEGIN
     AND later.payload->>'replaces_event_id'=chain.id::text)
  )
  SELECT (SELECT count(*) FROM chain),(SELECT count(*) FROM tips),
-  (SELECT row(tips.id,tips.payload) FROM tips LIMIT 1)
- INTO v_chain_count,v_tip_count,v_result;
- IF v_chain_count<>v_total OR v_tip_count<>1 OR v_result IS NULL THEN RETURN; END IF;
- RETURN QUERY SELECT (v_result).f1::uuid,
-  ((v_result).f2::jsonb)->>'recovery',
-  ((v_result).f2::jsonb)->>'symptoms',v_chain_count;
+  (SELECT tips.id FROM tips LIMIT 1),
+  (SELECT tips.payload FROM tips LIMIT 1)
+ INTO v_chain_count,v_tip_count,v_tip_id,v_tip_payload;
+ IF v_chain_count<>v_total OR v_tip_count<>1 OR v_tip_id IS NULL THEN RETURN; END IF;
+ RETURN QUERY SELECT v_tip_id,v_tip_payload->>'recovery',
+  v_tip_payload->>'symptoms',v_chain_count;
 END $$;
 REVOKE ALL ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
  FROM PUBLIC,anon;
