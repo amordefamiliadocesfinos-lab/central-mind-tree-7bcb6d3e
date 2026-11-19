@@ -118,3 +118,38 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.health_cch_assess_equipment_history(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.health_cch_assess_equipment_history(uuid) TO authenticated;
+
+
+-- V8 draft writer uses existing guarded V7/V6 M3 process, then saves the verified
+-- equipment audit. No changes to historical sets, weights or published versions.
+CREATE OR REPLACE FUNCTION public.health_cch_generate_guided_cycle_v8(
+ p_program_id uuid,p_goal text,p_strategy text,p_availability text,
+ p_priority_muscle_id uuid DEFAULT NULL,p_allow_targeted_set_proposal boolean DEFAULT false,
+ p_recovery_report text DEFAULT 'unknown',p_symptom_report text DEFAULT 'unknown'
+) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+DECLARE v_p public.health_programs%ROWTYPE;v_draft uuid;v_equipment jsonb;
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'authentication required'; END IF;
+ SELECT * INTO v_p FROM public.health_programs WHERE id=p_program_id FOR UPDATE;
+ IF v_p.id IS NULL OR NOT public.health_can_write_athlete(v_p.athlete_id) THEN
+   RAISE EXCEPTION 'unauthorized';
+ END IF;
+ v_equipment:=public.health_cch_assess_equipment_history(p_program_id);
+ v_draft:=public.health_cch_generate_guided_cycle_v7(
+  p_program_id,p_goal,p_strategy,p_availability,
+  p_priority_muscle_id,p_allow_targeted_set_proposal,p_recovery_report,p_symptom_report);
+ UPDATE public.health_program_versions SET
+  parameter_set=coalesce(parameter_set,'{}'::jsonb) ||
+    jsonb_build_object('guided_cycle',
+      coalesce(parameter_set->'guided_cycle','{}'::jsonb) ||
+      jsonb_build_object('engine_version','cch-guided-v8',
+        'verified_equipment_snapshot',v_equipment,
+        'numeric_loads_are_advisory_only',true,
+        'publication_requires_review',true))
+ WHERE id=v_draft AND athlete_id=v_p.athlete_id AND status='draft';
+ IF NOT FOUND THEN RAISE EXCEPTION 'draft not available'; END IF;
+ RETURN v_draft;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.health_cch_generate_guided_cycle_v8(uuid,text,text,text,uuid,boolean,text,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.health_cch_generate_guided_cycle_v8(uuid,text,text,text,uuid,boolean,text,text) TO authenticated;

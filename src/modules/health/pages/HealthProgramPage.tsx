@@ -267,7 +267,7 @@ export function HealthProgramPage() {
                       ))}
                   </div>
                 ) : null}
-                {cycleAdvisor.assessment.equipment_load_candidates?.length ? <div className="space-y-1">
+                {false && cycleAdvisor.assessment.equipment_load_candidates?.length ? <div className="space-y-1">
                   <p className="font-medium">Cargas candidatas para revisão</p>
                   {cycleAdvisor.assessment.equipment_load_candidates.slice(0,10).map(v=><p key={v.exercise_id+v.unit}>
                     {exerciseNameById.get(v.exercise_id)??"Exercício"}: {v.candidate_load===null?"sem proposta numérica":`${v.candidate_load} ${v.unit} (não aplicada)`}. {v.reason}
