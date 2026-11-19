@@ -215,4 +215,35 @@ SELECT routine_name,security_type FROM information_schema.routines
  ORDER BY routine_name;
 SELECT schemaname,viewname FROM pg_views
  WHERE schemaname='public' AND definition ILIKE '%health_workout_events%';
+-- Explicit migration-chain gate on the final schema, roles and active triggers.
+DO $
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname='health_workout_events' AND c.relrowsecurity)
+ OR NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname='health_consents' AND c.relrowsecurity)
+ OR NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname='health_cch_e5_policy_registry' AND c.relrowsecurity)
+ THEN RAISE EXCEPTION 'RLS disabled on official M1/M4/E5 schema'; END IF;
+ IF (SELECT count(*) FROM pg_policies WHERE schemaname='public'
+  AND tablename='health_workout_events' AND cmd='SELECT')<>1
+ OR (SELECT count(*) FROM pg_policies WHERE schemaname='public'
+  AND tablename='health_workout_events' AND cmd='INSERT')<>1
+ THEN RAISE EXCEPTION 'M4 event policies have unexpected OR-expanded count'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+  WHERE c.relname='health_workout_events'
+  AND t.tgname='health_cch_e5_session_note_guard' AND t.tgenabled='O')
+ OR NOT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+  WHERE c.relname='health_consents'
+  AND t.tgname='health_cch_e5_consent_time_guard' AND t.tgenabled='O')
+ THEN RAISE EXCEPTION 'E5 persistent integrity trigger missing or disabled'; END IF;
+ IF has_table_privilege('authenticated','public.health_workout_events','UPDATE')
+ OR has_table_privilege('authenticated','public.health_workout_events','DELETE')
+ OR has_table_privilege('authenticated','public.health_consents','UPDATE')
+ OR has_table_privilege('authenticated','public.health_consents','DELETE')
+ OR has_table_privilege('authenticated','public.health_cch_e5_policy_registry','INSERT')
+ OR has_table_privilege('authenticated','public.health_cch_e5_policy_registry','UPDATE')
+ OR has_table_privilege('authenticated','public.health_cch_e5_policy_registry','DELETE')
+ THEN RAISE EXCEPTION 'E5/M4/M1 append-only or registry grants regressed'; END IF;
+END $;
 SELECT 'CCH_E5E_OFFICIAL_CHAIN_PASS' AS result;
