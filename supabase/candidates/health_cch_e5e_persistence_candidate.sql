@@ -194,7 +194,7 @@ CREATE UNIQUE INDEX health_cch_e5_one_successor_per_event
 CREATE OR REPLACE FUNCTION public.health_cch_e5_current_session_review(
  p_athlete_id uuid,p_session_id uuid
 ) RETURNS TABLE(event_id uuid,recovery text,symptoms text,revision_count integer)
- LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=public,pg_temp AS $
+ LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=public,pg_temp AS $$
 DECLARE v_total integer;v_root_count integer;v_tip_count integer;v_chain_count integer;
  v_bad_count integer;v_result record;
 BEGIN
@@ -255,7 +255,7 @@ BEGIN
  RETURN QUERY SELECT (v_result).f1::uuid,
   ((v_result).f2::jsonb)->>'recovery',
   ((v_result).f2::jsonb)->>'symptoms',v_chain_count;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
  FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.health_cch_e5_current_session_review(uuid,uuid)
