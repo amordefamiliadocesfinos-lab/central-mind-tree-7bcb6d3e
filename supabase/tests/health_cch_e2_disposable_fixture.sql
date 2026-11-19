@@ -114,7 +114,7 @@ INSERT INTO public.health_exercise_muscles VALUES
  ('cccccccc-1000-4000-8000-cccccccccccc','eeeeeeee-1000-4000-8000-eeeeeeeeeeee','primary'),
  ('cccccccc-2000-4000-8000-cccccccccccc','eeeeeeee-1000-4000-8000-eeeeeeeeeeee','primary'),
  ('cccccccc-3000-4000-8000-cccccccccccc','eeeeeeee-2000-4000-8000-eeeeeeeeeeee','primary');
-INSERT INTO public.health_session_template_exercises VALUES
+INSERT INTO public.health_session_template_exercises (id,session_template_id,athlete_id,exercise_id,sequence_order,prescription_notes) VALUES
  ('aaaaaaaa-4000-4000-8000-aaaaaaaaaaaa','aaaaaaaa-3000-4000-8000-aaaaaaaaaaaa','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','cccccccc-1000-4000-8000-cccccccccccc',1,NULL),
  ('aaaaaaaa-4000-4000-8000-aaaaaaaaaaab','aaaaaaaa-3000-4000-8000-aaaaaaaaaaaa','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','cccccccc-4000-4000-8000-cccccccccccc',2,NULL),
  ('aaaaaaaa-4000-4000-8000-aaaaaaaaaaac','aaaaaaaa-3000-4000-8000-aaaaaaaaaaab','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','cccccccc-1000-4000-8000-cccccccccccc',1,NULL),
