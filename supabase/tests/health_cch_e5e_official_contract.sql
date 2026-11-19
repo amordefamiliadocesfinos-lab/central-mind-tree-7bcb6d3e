@@ -216,7 +216,7 @@ SELECT routine_name,security_type FROM information_schema.routines
 SELECT schemaname,viewname FROM pg_views
  WHERE schemaname='public' AND definition ILIKE '%health_workout_events%';
 -- Explicit migration-chain gate on the final schema, roles and active triggers.
-DO $
+DO $$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relname='health_workout_events' AND c.relrowsecurity)
@@ -245,5 +245,5 @@ BEGIN
  OR has_table_privilege('authenticated','public.health_cch_e5_policy_registry','UPDATE')
  OR has_table_privilege('authenticated','public.health_cch_e5_policy_registry','DELETE')
  THEN RAISE EXCEPTION 'E5/M4/M1 append-only or registry grants regressed'; END IF;
-END $;
+END $$;
 SELECT 'CCH_E5E_OFFICIAL_CHAIN_PASS' AS result;
