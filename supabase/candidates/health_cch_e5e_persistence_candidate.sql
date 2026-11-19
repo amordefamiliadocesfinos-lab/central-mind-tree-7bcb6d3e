@@ -139,8 +139,10 @@ BEGIN
      USING ERRCODE='42501';
   END IF;
   -- Serialize corrections at the session row, including concurrent transactions.
-  PERFORM 1 FROM public.health_workout_sessions s
-   WHERE s.id=NEW.session_id AND s.athlete_id=NEW.athlete_id FOR UPDATE;
+  -- Lock by composite identity without requiring broad UPDATE privileges
+  -- on the workout session or changing the historic session record.
+  PERFORM pg_advisory_xact_lock(
+   hashtextextended(NEW.athlete_id::text||':'||NEW.session_id::text,0));
   IF v_is_correction THEN
    IF COALESCE(NEW.payload->>'replaces_event_id','') !~
     '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
