@@ -253,6 +253,20 @@ export function HealthProgramPage() {
                   <p className="font-medium">Volume observado entre ciclos</p>
                   {volumeComparisons.map(v=><p key={v.muscleId}>{muscleNameById.get(v.muscleId)??"Grupo muscular"}: {v.trend}. {v.note}</p>)}
                 </div> : null}
+                {cycleAdvisor.assessment.equipment_provenance ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Auditoria V8 — identidade real da máquina</p>
+                    {cycleAdvisor.assessment.equipment_provenance.evidence.length===0 ?
+                      <p className="text-muted-foreground">Ainda não há séries com máquina confirmada para comparação. Dados antigos permanecem preservados e não recebem identificação presumida.</p> :
+                      cycleAdvisor.assessment.equipment_provenance.evidence.slice(0,12).map(item=>(
+                        <p key={item.exercise_id+item.equipment_label+item.load_unit} className="text-muted-foreground">
+                          {exerciseNameById.get(item.exercise_id)??"Exercício"} — {item.equipment_label}:
+                          {item.candidate_load===null?"sem candidato numérico":`candidato ${item.candidate_load} ${item.load_unit} para revisão, não aplicado`};
+                          {item.exposures} exposições identificadas.
+                        </p>
+                      ))}
+                  </div>
+                ) : null}
                 {cycleAdvisor.assessment.equipment_load_candidates?.length ? <div className="space-y-1">
                   <p className="font-medium">Cargas candidatas para revisão</p>
                   {cycleAdvisor.assessment.equipment_load_candidates.slice(0,10).map(v=><p key={v.exercise_id+v.unit}>
