@@ -54,9 +54,8 @@ Deno.serve(async request=>{
     const module=await db.from("nucleo_development_workstreams")
       .select("id,kind").eq("id",NUC_MODULE_ID).eq("kind","modulo").limit(2);
     if(module.error||module.data?.length!==1)return json({error:"Módulo NUC não verificável"},503);
-    const table=db.from("nucleo_specialist_contributions");
     // Reconcilia requisição idempotente antes de qualquer INSERT.
-    const sameRequest=await table.select("*").eq("request_id",intent.request_id).limit(2);
+    const sameRequest=await db.from("nucleo_specialist_contributions").select("*").eq("request_id",intent.request_id).limit(2);
     if(sameRequest.error||!sameRequest.data)return json({error:"Leitura AC-01 indeterminada; não reenviar"},503);
     if(sameRequest.data.length){
       if(sameRequest.data.length!==1||!matchesPilotRecord(sameRequest.data[0] as PilotRecord,intent,uid))
@@ -64,12 +63,12 @@ Deno.serve(async request=>{
       return json({status:"confirmado_existente",record:visible(sameRequest.data[0] as PilotRecord)},200);
     }
     // Não criar segundo mapa sob outro request_id. Trata-se de um piloto único.
-    const already=await table.select("*").eq("module_id",NUC_MODULE_ID)
+    const already=await db.from("nucleo_specialist_contributions").select("*").eq("module_id",NUC_MODULE_ID)
       .eq("specialist_role",PILOT_ROLE).eq("contribution_kind","mapa")
       .eq("source_kind","github").eq("source_locator",PILOT_SOURCE).limit(2);
     if(already.error||!already.data)return json({error:"Pré-consulta indisponível; não reenviar"},503);
     if(already.data.length)return json({error:"Referência já cadastrada; reconciliar no Core"},409);
-    const inserted=await table.insert({
+    const inserted=await db.from("nucleo_specialist_contributions").insert({
       module_id:NUC_MODULE_ID,workstream_id:null,
       specialist_role:PILOT_ROLE,contribution_kind:"mapa",title:PILOT_TITLE,
       source_kind:"github",source_locator:PILOT_SOURCE,
@@ -77,7 +76,7 @@ Deno.serve(async request=>{
       request_id:intent.request_id,recorded_by_auth_uid:uid,
     }).select("*").maybeSingle();
     // Mesmo se INSERT der timeout, conferir pelo MESMO request_id, nunca reenviar.
-    const readback=await table.select("*").eq("request_id",intent.request_id).limit(2);
+    const readback=await db.from("nucleo_specialist_contributions").select("*").eq("request_id",intent.request_id).limit(2);
     if(readback.error||!readback.data||readback.data.length!==1)
       return json({error:"Estado da gravação indeterminado; reconciliar request_id, não repetir"},503);
     const record=readback.data[0] as PilotRecord;
