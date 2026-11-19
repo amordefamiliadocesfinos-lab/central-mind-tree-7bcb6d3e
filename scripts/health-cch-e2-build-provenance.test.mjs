@@ -19,3 +19,12 @@ test("only a full SHA is accepted",()=>{
  assert.match(build,/shortRevision: revision\?\.slice\(0,12\)/);
  assert.match(build,/known: revision !== null/);
 });
+
+test("content fingerprint can be computed without Git or deployment variables",()=>{
+ assert.match(vite,/__CCH_BUILD_FINGERPRINT__/);
+ assert.match(vite,/createHash\("sha256"\)/);
+ assert.match(vite,/readFileSync\(path\.resolve\(__dirname, relativePath\)\)/);
+ assert.match(vite,/return hash\.digest\("hex"\)/);
+ assert.match(page,/data-cch-source-fingerprint/);
+ assert.match(build,/\[0-9a-f\]\{64\}/);
+});

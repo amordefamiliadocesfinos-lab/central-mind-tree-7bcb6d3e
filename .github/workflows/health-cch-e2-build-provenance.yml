@@ -27,3 +27,5 @@ jobs:
           npx tsc --noEmit
           npx eslint src/modules/health/cch/buildProvenance.ts src/modules/health/pages/HealthProgramPage.tsx vite.config.ts
           npm run build
+      - name: Display reference SHA-256 from checkout sources
+        run: node scripts/health-cch-e2-fingerprint-reference.mjs
