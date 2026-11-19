@@ -24,6 +24,7 @@ import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
 import { evaluateV9 } from "../cch/motorV9Decision";
 import { interpretExecution } from "../cch/executionEvidence";
+import { proposePrescriptionE2 } from "../cch/prescriptionE2";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -64,6 +65,7 @@ export function HealthProgramPage() {
 
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [e2Reason,setE2Reason]=useState<{id:string;reason:string}|null>(null);
   const [edit, setEdit] = useState({setsMin:"",setsMax:"",repsMin:"",repsMax:"",rir:"",rest:""});
   const [muscleId, setMuscleId] = useState("");
   const [priorityRank, setPriorityRank] = useState("1");
@@ -197,6 +199,17 @@ export function HealthProgramPage() {
     typeof versionParameters.phase === "string"
       ? versionParameters.phase
       : "—";
+  const e2Proposals = draft ? proposePrescriptionE2(
+    program.templateExercises,
+    cycleAdvisor.assessment.execution_coverage?.exercise_metrics ?? [],
+    cycleAdvisor.assessment.equipment_provenance?.evidence ?? [],
+    {sourceMatches:cycleAdvisor.assessment.source_version_id===program.program.current_version_id,
+     quality:cycleAdvisor.assessment.data_quality?.status??"limited",
+     recovery:recoveryReport,pain:symptomReport,
+     negativeSignals:cycleAdvisor.assessment.periodization_decision?.negative_performance_signals??0,
+     goal:goalChoice,strategy:strategyChoice}
+  ) : [];
+  const e2ById=new Map(e2Proposals.map(x=>[x.id,x]));
 
   return (
     <div className="space-y-4 pb-4">
@@ -716,9 +729,30 @@ export function HealthProgramPage() {
                               {item.rir_target ?? "—"} · descanso{" "}
                               {item.rest_seconds ?? "—"}s
                             </span>
+                            {draft && program.program.current_version_id && e2ById.has(item.id) ? (() => {
+                              const candidate=e2ById.get(item.id)!;
+                              return <div className="mt-2 space-y-1 rounded-lg border p-2 text-xs">
+                                <p className="font-medium">E2 · {candidate.decision==="candidate"?"Ajuste candidato":candidate.decision==="review"?"Revisão necessária":"Manter"} · confiança {candidate.confidence==="conditional"?"condicional":"insuficiente"}</p>
+                                <p>{candidate.reason}</p>
+                                <p>Atual: {candidate.before.planned_sets_min}–{candidate.before.planned_sets_max} séries · {candidate.before.reps_min}–{candidate.before.reps_max} reps · RIR {candidate.before.rir_target} · descanso {candidate.before.rest_seconds}s</p>
+                                <p>Proposta: {candidate.after.planned_sets_min}–{candidate.after.planned_sets_max} séries · {candidate.after.reps_min}–{candidate.after.reps_max} reps · RIR {candidate.after.rir_target} · descanso {candidate.after.rest_seconds}s</p>
+                                {candidate.machine ? <p>Máquina comprovada: {candidate.machine}</p> : null}
+                                {candidate.decision==="candidate" ? <Button variant="outline" size="sm" onClick={()=>{
+                                  setEditId(item.id);
+                                  setEdit({setsMin:String(candidate.after.planned_sets_min??""),
+                                    setsMax:String(candidate.after.planned_sets_max??""),
+                                    repsMin:String(candidate.after.reps_min??""),
+                                    repsMax:String(candidate.after.reps_max??""),
+                                    rir:String(candidate.after.rir_target??""),
+                                    rest:String(candidate.after.rest_seconds??"")});
+                                  setE2Reason({id:item.id,reason:candidate.reason});
+                                }}>Levar ao editor, sem salvar</Button> : null}
+                              </div>;
+                            })() : null}
                             {draft ? <div className="mt-2 space-y-2">
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditId(item.id);
+                                setE2Reason(null);
                                 setEdit({setsMin:String(item.planned_sets_min??""),setsMax:String(item.planned_sets_max??""),
                                   repsMin:String(item.reps_min??""),repsMax:String(item.reps_max??""),
                                   rir:String(item.rir_target??""),rest:String(item.rest_seconds??"")});
@@ -733,7 +767,9 @@ export function HealthProgramPage() {
                                   await program.updatePrescription(item.id,{
                                     planned_sets_min:numberOrNull(edit.setsMin),planned_sets_max:numberOrNull(edit.setsMax),
                                     reps_min:numberOrNull(edit.repsMin),reps_max:numberOrNull(edit.repsMax),
-                                    rir_target:numberOrNull(edit.rir),rest_seconds:numberOrNull(edit.rest)});
+                                    rir_target:numberOrNull(edit.rir),rest_seconds:numberOrNull(edit.rest)},
+                                    e2Reason?.id===item.id ? e2Reason.reason : undefined);
+                                  setE2Reason(null);
                                   setEditId(null);
                                 })}>Salvar ajustes</Button>
                               </div> : null}
