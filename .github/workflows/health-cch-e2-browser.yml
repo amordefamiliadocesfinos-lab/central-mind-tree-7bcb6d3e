@@ -1,0 +1,86 @@
+name: CCH E2 Isolated React Browser Journey
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/cch-e2-browser/**'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'supabase/tests/health_cch_e2_lifecycle_fixture.sql'
+      - '.github/workflows/health-cch-e2-browser.yml'
+permissions:
+  contents: read
+jobs:
+  authenticated-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e2-local-only
+          POSTGRES_DB: e2_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    env:
+      CCH_E2_ISOLATED: "YES"
+      DATABASE_URL: postgres://postgres:e2-local-only@127.0.0.1:5432/e2_disposable
+      CCH_E2_EVIDENCE: /tmp/cch-e2-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - name: Install pinned isolated browser runner
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Prepare synthetic database and official functions
+        run: |
+          set -euo pipefail
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD=e2-local-only "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql
+          run_sql supabase/migrations/20261119112000_health_cch_e2c_guarded_prescription.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_f22_assert_program_version_structure\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/f22.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_m3_publish_program_version\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/m3_publish.sql
+          run_sql /tmp/f22.sql
+          run_sql /tmp/m3_publish.sql
+          run_sql supabase/tests/health_cch_e2_lifecycle_fixture.sql
+      - name: Launch temporary synthetic API and REAL React program page
+        run: |
+          node tests/cch-e2-browser/server.mjs >/tmp/cch-e2-api.log 2>&1 &
+          npx vite --config tests/cch-e2-browser/vite.config.ts >/tmp/cch-e2-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null && curl -fsS http://127.0.0.1:4174/api/session >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/cch-e2-api.log /tmp/cch-e2-vite.log
+          exit 1
+      - name: Browser journey with two synthetic authenticated users
+        run: node tests/cch-e2-browser/browser-test.mjs
+      - name: Server logs on failure
+        if: failure()
+        run: cat /tmp/cch-e2-api.log /tmp/cch-e2-vite.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cch-e2-isolated-browser-evidence
+          path: /tmp/cch-e2-evidence
+          if-no-files-found: ignore
+          retention-days: 7
