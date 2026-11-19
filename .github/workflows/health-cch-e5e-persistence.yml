@@ -149,6 +149,7 @@ jobs:
               sed \
                 -e 's/08204502-2e7a-4476-a1ac-6a67b57fa35f/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/g' \
                 -e 's/671fd7a8-7f0f-4c9f-9e73-89c2caf27692/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/g' \
+                -e 's/3d18b672-7c56-4c86-b8e9-2f5753a1a710/eeeeeeee-2000-4000-8000-000000000001/g' \
                 "$f" > /tmp/f22-synthetic-only.sql
               run_sql /tmp/f22-synthetic-only.sql
             else
