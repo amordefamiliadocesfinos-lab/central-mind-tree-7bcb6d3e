@@ -253,6 +253,27 @@ export function HealthProgramPage() {
                   <p className="font-medium">Volume observado entre ciclos</p>
                   {volumeComparisons.map(v=><p key={v.muscleId}>{muscleNameById.get(v.muscleId)??"Grupo muscular"}: {v.trend}. {v.note}</p>)}
                 </div> : null}
+                {cycleAdvisor.assessment.periodization_decision ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Periodização longitudinal V8</p>
+                    <p className="text-muted-foreground">Critério: {cycleAdvisor.assessment.periodization_decision.phase};
+                      {cycleAdvisor.assessment.periodization_decision.completed_versions} ciclos com sessões realizadas;
+                      revisão orientada após {cycleAdvisor.assessment.periodization_decision.review_after_completed_sessions} sessões.</p>
+                    <p className="text-muted-foreground">Recuperação suficientemente registrada: {cycleAdvisor.assessment.periodization_decision.recovery_context_sufficient?"sim":"não"};
+                      sinais globais que exigem revisão: {cycleAdvisor.assessment.periodization_decision.negative_performance_signals}.</p>
+                  </div>
+                ) : null}
+                {cycleAdvisor.assessment.muscle_volume_response_review?.length ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Volume por músculo: observação, não tolerância comprovada</p>
+                    {cycleAdvisor.assessment.muscle_volume_response_review.map(v=>(
+                      <p key={v.muscle_id} className="text-muted-foreground">
+                        {v.muscle_name}: {v.observation}; versões comparáveis {v.comparable_versions}.
+                        {v.inference}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
                 {cycleAdvisor.assessment.equipment_provenance ? (
                   <div className="space-y-1">
                     <p className="font-medium">Auditoria V8 — identidade real da máquina</p>

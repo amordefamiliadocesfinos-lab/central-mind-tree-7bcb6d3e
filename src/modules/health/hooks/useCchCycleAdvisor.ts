@@ -33,6 +33,8 @@ export type Assessment = {
   multi_cycle_versions?: Array<{version_id:string;version_number:number;sessions:number}>;
   multi_cycle_volume?: Array<{version_number:number;muscle_id:string;muscle_name:string;work_sets:number;sessions:number;observed_per_7_days:number|null;note:string}>;
   periodization_mode?: string;
+  muscle_volume_response_review?: Array<{muscle_id:string;muscle_name:string;comparable_versions:number;recent_observed_sets_per_7_days:number|null;previous_observed_sets_per_7_days:number|null;observation:string;inference:string}>;
+  periodization_decision?: {phase:string;completed_versions:number;recovery_context_sufficient:boolean;negative_performance_signals:number;review_after_completed_sessions:number};
   equipment_provenance?: {engine_version:string;historical_unidentified_sessions_are_ineligible:boolean;
     evidence:Array<{exercise_id:string;equipment_label:string;load_unit:string;exposures:number;
       recent_load:number;recent_reps:number;candidate_load:number|null;reason:string}>};
@@ -66,14 +68,11 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle_v7" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v8" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
-      const equipment=await supabase.rpc("health_cch_assess_equipment_history" as never,
-        {p_program_id:programId} as never);
-      if(equipment.error)throw new Error(equipment.error.message);
-      setAssessment({...data,equipment_provenance:equipment.data as unknown as Assessment["equipment_provenance"]});
+      setAssessment(data);
     }catch(cause){setError(cause instanceof Error?cause.message:"Auditoria indisponível");setAssessment(empty);}
     finally{setLoading(false);}
   },[athleteId,versionId,programId]);
