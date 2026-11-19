@@ -15,3 +15,11 @@ Casos positivos: legado M1 continua aceito, consentimento explícito E5, consult
 
 ## Limites de evidência
 O teste reproduz tabelas e políticas selecionadas das migrations soberanas usando fixture **estrutural**, não reconstrói integralmente o banco oficial ou permissões de compartilhamento. CI verde **não equivale** a revisão de efeitos persistentes, homologação em produção, validade jurídica de consentimento ou eficácia clínica. A PR aberta é somente material para revisão Camada Mestre. Nenhuma autorização implícita para merge, migração ou deploy.
+
+## Endurecimento posterior à primeira contraprova
+A candidata passou a utilizar trigger `BEFORE INSERT` para atribuir `occurred_at` e `created_at` ao consentimento E5 a partir de `clock_timestamp()`, e `occurred_at/recorded_at` para notas E5. Um horário futuro ou retroativo fornecido pelo cliente é ignorado. `details.explicit_action` deve ser booleano JSON `true`, e não texto `"true"`. A última decisão é examinada por versão solicitada e a ausência, revogação, negativa e empate de decisões conflitantes são rejeitados.
+
+**Limites para análise da Camada Mestre:** não há registro soberano da versão de política E5 vigente; o parâmetro da função é fornecido pelo chamador e deverá ser vinculado à política aprovada antes de uso real. O fluxo de revisão por sessão aceita somente **uma** nota E5 imutável por sessão; eventual retificação exige outra decisão contratual (não foi criada). Testes SQL usam um proxy sintético de permissões de treinador e não reproduzem integralmente o modelo real de compartilhamento. Nenhuma homologação da base produtiva foi reivindicada.
+
+## CI de referência antes da revisão para merge
+[Workflow E5-E #44623079233](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/44623079233): `e5-persistent-isolated=success`; `e2-f22-baseline=success`. O segundo job reaproveita as funções soberanas existentes M3/F22 e a fixture publicada E2, comprovando regressão sintética negativa. F21 não foi homologada em todos os seus fluxos nesta PR.
