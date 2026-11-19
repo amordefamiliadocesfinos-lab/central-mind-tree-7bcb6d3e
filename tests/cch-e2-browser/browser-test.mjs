@@ -13,6 +13,14 @@ const errors=[];
 page.on("pageerror",error=>errors.push(String(error)));
 const check=(condition,message)=>{if(!condition)throw Error(message);};
 async function audit(){const r=await page.request.get(url+"/api/audit");check(r.ok(),"audit endpoint denied");return r.json();}
+async function waitAudit(predicate,message){
+ for(let attempt=0;attempt<50;attempt++){
+  const value=await audit();
+  if(predicate(value))return value;
+  await page.waitForTimeout(200);
+ }
+ throw Error(message);
+}
 async function pick(label,option){
  const parent=page.getByText(label,{exact:true}).first().locator("..");
  await parent.getByRole("combobox").click();
@@ -49,14 +57,16 @@ try{
  await page.getByRole("button",{name:"Descer na sessão"}).first().click();
  await page.getByPlaceholder("Justificativa da troca/ordem (mín. 10 caracteres)").fill("Posição priorizada para o teste isolado");
  await page.getByRole("button",{name:"Confirmar no rascunho"}).click();
- await page.getByText("E2: ajuste de rascunho registrado.",{exact:true}).first().waitFor();
- check((await audit()).rows.find(x=>x.id===target)?.sequence_order===2,"sequence swap not persisted");
+ await waitAudit(value=>value.rows.find(x=>x.id===target)?.sequence_order===2,
+  "sequence swap not persisted");
  await snap("04-e2-ordem");
  await page.getByRole("button",{name:/Supino máquina B.*provisional/}).first().click();
  await page.getByPlaceholder("Justificativa da troca/ordem (mín. 10 caracteres)").fill("Substituição provisória aceita apenas no laboratório");
  await page.getByRole("button",{name:"Confirmar no rascunho"}).click();
- await page.getByText("E2: ajuste de rascunho registrado.",{exact:true}).first().waitFor();
- const replaced=(await audit()).rows.find(x=>x.id===target);
+ const replacedAudit=await waitAudit(value=>
+  value.rows.find(x=>x.id===target)?.exercise_id==="cccccccc-2000-4000-8000-cccccccccccc",
+  "replacement was not persisted");
+ const replaced=replacedAudit.rows.find(x=>x.id===target);
  check(replaced.exercise_id==="cccccccc-2000-4000-8000-cccccccccccc","replacement not persisted");
  check(replaced.prescription_notes.includes("provisional"),"provisional classification missing");
  await page.getByText("Estrutura pronta para publicação.").waitFor();
