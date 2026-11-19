@@ -247,6 +247,60 @@ DO $$BEGIN
  IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  THEN RAISE EXCEPTION 'anon consent bypass'; END IF; END $$;
 RESET ROLE;
+-- Governance version switch is a privileged fixture-only action, never client-selectable.
+-- First override any conflicting synthetic history with a fresh explicit grant.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":true}');
+DO $BEGIN
+ IF NOT public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') THEN
+ RAISE EXCEPTION 'fresh current-policy grant not recognized'; END IF;
+END $;
+SELECT public.e5_expect_failure($q$
+ INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,policy_digest)
+ VALUES('malicious-v1','active',now(),repeat('b',64))
+$q$,ARRAY['42501']::text[]);
+RESET ROLE;
+UPDATE public.health_cch_e5_policy_registry SET status='retired' WHERE status='active';
+INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,policy_digest)
+ VALUES('e5-lab-v2','active',clock_timestamp(),repeat('c',64));
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $BEGIN
+ IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') THEN
+ RAISE EXCEPTION 'old version consent still accepted after governance switch'; END IF;
+END $;
+SELECT public.e5_expect_failure($q$
+ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":true}')
+$q$,ARRAY['23514','42501']::text[]);
+-- Only the *new* active version can become effective after a fresh explicit action.
+INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-lab-v2','{"contract":"cch-e5-consent-v1","explicit_action":true}');
+DO $BEGIN
+ IF NOT public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') THEN
+ RAISE EXCEPTION 'new official version not recognized'; END IF;
+END $;
+RESET ROLE;
+-- Absence of an auth_user_id is never inferred from owner/coach privileges.
+UPDATE public.health_athletes SET auth_user_id=NULL
+ WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $BEGIN
+ IF public.health_cch_e5_has_explicit_consent('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') THEN
+ RAISE EXCEPTION 'unlinked athlete got E5 authorization'; END IF;
+END $;
+SELECT public.e5_expect_failure($q$
+ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','e5_personalized_review',
+ 'granted','e5-lab-v2','{"contract":"cch-e5-consent-v1","explicit_action":true}')
+$q$,ARRAY['42501']::text[]);
+RESET ROLE;
 -- M3/F21/F22 unchanged in this candidate.
 DO $$BEGIN
  IF (SELECT count(*) FROM public.health_program_versions)<>4 OR
