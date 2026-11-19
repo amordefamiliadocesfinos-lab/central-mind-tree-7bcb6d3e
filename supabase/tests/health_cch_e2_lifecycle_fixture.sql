@@ -1,4 +1,5 @@
 -- TEST ONLY: isolated F22/M3 end-to-end publication fixture (never production).
+ALTER TABLE public.health_cch_queue_entries ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.health_programs ADD COLUMN status text NOT NULL DEFAULT 'active';
 ALTER TABLE public.health_program_versions ADD COLUMN published_at timestamptz;
 ALTER TABLE public.health_cch_queue_entries
