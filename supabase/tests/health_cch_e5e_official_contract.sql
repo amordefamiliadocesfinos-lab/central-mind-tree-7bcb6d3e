@@ -119,7 +119,7 @@ DO $ BEGIN
  OR (SELECT count(*) FROM public.health_workout_events
  WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
  RAISE EXCEPTION 'official F21 voiding or E5 concealment failed'; END IF;
-END $;
+END $$;
 RESET ROLE;
 
 -- Manual F22 publish through its *actual* migrated SECURITY INVOKER RPC.
@@ -143,7 +143,7 @@ INSERT INTO public.health_session_template_exercises(
  'eeeeeeee-0000-4000-8000-000000000001',1,3,3,8,12,2,180);
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $
+DO $$
 DECLARE published_count integer;
 BEGIN
  SELECT queued_count INTO published_count FROM public.health_m3_publish_program_version(
@@ -155,18 +155,18 @@ BEGIN
  WHERE id='eeeeeeee-1000-4000-8000-000000000001')
  IS DISTINCT FROM 'eeeeeeee-2000-4000-8000-000000000002'::uuid
  THEN RAISE EXCEPTION 'official F22 manual publish regression'; END IF;
-END $;
+END $$;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 DO $ BEGIN
  IF EXISTS(SELECT 1 FROM public.health_cch_queue_entries
  WHERE program_version_id='eeeeeeee-2000-4000-8000-000000000002') THEN
  RAISE EXCEPTION 'cross-athlete official F22 queue leakage'; END IF;
-END $;
+END $$;
 RESET ROLE;
 
 -- Alternative SQL access audit: no published view directly exposing M4 events,
 -- and no authenticated SECURITY DEFINER routine whose body reads their content.
-DO $
+DO $$
 BEGIN
  IF EXISTS(SELECT 1 FROM pg_views
   WHERE schemaname='public' AND definition ILIKE '%health_workout_events%') THEN
@@ -178,7 +178,7 @@ BEGIN
    AND has_function_privilege('authenticated',p.oid,'EXECUTE')) THEN
   RAISE EXCEPTION 'executable SECURITY DEFINER RPC references M4 events';
  END IF;
-END $;
+END $$;
 -- Enumerate alternative SQL objects that could affect evidence exposure;
 -- existence alone does not establish an exploit, and auth HTTP is not emulated.
 SELECT routine_name,security_type FROM information_schema.routines
