@@ -32,6 +32,8 @@ export function HealthProgramPage() {
   const trainingProfile = useHealthTrainingProfileF22(athlete?.id);
 
   const [programName, setProgramName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({setsMin:"",setsMax:"",repsMin:"",repsMax:"",rir:"",rest:""});
   const [muscleId, setMuscleId] = useState("");
   const [priorityRank, setPriorityRank] = useState("1");
   const [emphasis, setEmphasis] = useState("priority");
@@ -185,6 +187,20 @@ export function HealthProgramPage() {
         </Card>
       ) : null}
 
+      {program.cycleComplete && !draft ? (
+        <Card><CardHeader><CardTitle className="text-base">Ciclo concluído</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm">Todas as sessões da versão publicada foram concluídas. O histórico foi preservado.</p>
+            <p className="text-xs text-muted-foreground">Prepare uma nova versão em rascunho. A prescrição anterior será apenas um ponto de partida; revise desempenho, recuperação e ajustes antes de publicar.</p>
+            <Button disabled={program.saving} className="min-h-11 w-full" onClick={() => void save("Novo ciclo preparado em rascunho.",program.prepareNextCycle)}>Preparar próximo ciclo</Button>
+          </CardContent></Card>
+      ) : null}
+      {draft && program.program.current_version_id ? (
+        <Card><CardContent className="space-y-2 py-4">
+          <p className="text-sm font-medium">Próximo ciclo em revisão</p>
+          <p className="text-xs text-muted-foreground">A versão anterior foi copiada para revisão, não é progressão automática. Confira cargas no Histórico e revise prescrições antes de publicar.</p>
+        </CardContent></Card>
+      ) : null}
       <Card className="border-primary/15">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -400,6 +416,29 @@ export function HealthProgramPage() {
                               {item.rir_target ?? "—"} · descanso{" "}
                               {item.rest_seconds ?? "—"}s
                             </span>
+                            {draft ? <div className="mt-2 space-y-2">
+                              <Button variant="outline" size="sm" onClick={() => {
+                                setEditId(item.id);
+                                setEdit({setsMin:String(item.planned_sets_min??""),setsMax:String(item.planned_sets_max??""),
+                                  repsMin:String(item.reps_min??""),repsMax:String(item.reps_max??""),
+                                  rir:String(item.rir_target??""),rest:String(item.rest_seconds??"")});
+                              }}>Revisar prescrição</Button>
+                              {editId===item.id ? <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                  {([["Séries mín.","setsMin"],["Séries máx.","setsMax"],["Reps mín.","repsMin"],["Reps máx.","repsMax"],["RIR","rir"],["Descanso (s)","rest"]] as const).map(([label,key]) =>
+                                    <label key={key} className="text-xs">{label}<Input type="number" step={key==="rir"?"0.5":"1"} value={edit[key]}
+                                      onChange={e=>setEdit(prev=>({...prev,[key]:e.target.value}))}/></label>)}
+                                </div>
+                                <Button disabled={program.saving} onClick={() => void save("Prescrição atualizada.",async () => {
+                                  await program.updatePrescription(item.id,{
+                                    planned_sets_min:numberOrNull(edit.setsMin),planned_sets_max:numberOrNull(edit.setsMax),
+                                    reps_min:numberOrNull(edit.repsMin),reps_max:numberOrNull(edit.repsMax),
+                                    rir_target:numberOrNull(edit.rir),rest_seconds:numberOrNull(edit.rest)});
+                                  setEditId(null);
+                                })}>Salvar ajustes</Button>
+                              </div> : null}
+                            </div> : null}
+
                           </div>
                         );
                       })}

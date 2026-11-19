@@ -79,8 +79,8 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     }
 
     const version =
-      versions?.find((item) => item.id === program.current_version_id) ??
       versions?.find((item) => item.status === "draft") ??
+      versions?.find((item) => item.id === program.current_version_id) ??
       versions?.[0] ??
       null;
 
@@ -256,6 +256,27 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     [athleteId, mutate, state.templateExercises],
   );
 
+  const prepareNextCycle = useCallback(async () => {
+    if (!state.program) throw new Error("Programa não disponível");
+    setSaving(true);
+    try {
+      const { error: rpcError } = await supabase.rpc("health_cch_prepare_next_cycle" as never,
+        { p_program_id: state.program.id } as never);
+      if (rpcError) throw new Error(rpcError.message);
+      await reload();
+    } finally { setSaving(false); }
+  }, [reload, state.program]);
+
+  const updatePrescription = useCallback(async (id: string, patch: {
+    planned_sets_min: number | null; planned_sets_max: number | null;
+    reps_min: number | null; reps_max: number | null;
+    rir_target: number | null; rest_seconds: number | null;
+  }) => {
+    if (!athleteId || state.version?.status !== "draft") throw new Error("Somente rascunhos podem ser editados");
+    await mutate(async () => supabase.from("health_session_template_exercises")
+      .update(patch).eq("id",id).eq("athlete_id",athleteId));
+  }, [athleteId, state.version, mutate]);
+
   const publish = useCallback(async () => {
     if (!state.version) throw new Error("Versão de programa não disponível.");
     setSaving(true);
@@ -272,6 +293,10 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
   }, [reload, state.version]);
 
   const isDraft = state.version?.status === "draft";
+  const publishedQueue = state.queue.filter(q => q.program_version_id === state.program?.current_version_id);
+  const cycleComplete = Boolean(state.program?.current_version_id && publishedQueue.length &&
+    publishedQueue.every(q => q.state === "completed") &&
+    !state.queue.some(q => ["queued","eligible","prioritized","in_progress","blocked"].includes(q.state)));
   const queueByTemplate = useMemo(
     () =>
       state.queue.map((entry) => ({
@@ -285,6 +310,9 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     ...state,
     queueByTemplate,
     isDraft,
+    cycleComplete,
+    prepareNextCycle,
+    updatePrescription,
     loading,
     saving,
     error,
