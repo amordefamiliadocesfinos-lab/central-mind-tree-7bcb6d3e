@@ -168,7 +168,7 @@ RESET ROLE;
 -- executed under its definer role (SQLERRM must indicate authorization).
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $
+DO $$
 DECLARE v_denied boolean:=false;
 BEGIN
  BEGIN
@@ -183,7 +183,7 @@ BEGIN
  IF NOT v_denied THEN
   RAISE EXCEPTION 'F19 definer RPC allowed a cross-athlete session operation';
  END IF;
-END $;
+END $$;
 RESET ROLE;
 -- Alternative SQL access audit: no published view directly exposing M4 events,
 -- and no authenticated SECURITY DEFINER routine whose body reads their content.
