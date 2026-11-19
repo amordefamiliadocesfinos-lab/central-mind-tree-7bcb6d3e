@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthCatalogs } from "../hooks/useHealthCatalogs";
 import { useHealthWorkoutM4, WorkoutExercise } from "../hooks/useHealthWorkoutM4";
+import { useHealthProgramM3 } from "../hooks/useHealthProgramM3";
 import { useHealthWorkoutTimerF19 } from "../hooks/useHealthWorkoutTimerF19";
 import { HealthWorkoutInteractiveTimerF19 } from "../components/HealthWorkoutInteractiveTimerF19";
 
@@ -337,6 +338,7 @@ export function HealthWorkoutPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
   const catalogs = useHealthCatalogs();
   const workout = useHealthWorkoutM4(athlete?.id);
+  const program = useHealthProgramM3(athlete?.id);
   const timer = useHealthWorkoutTimerF19(
     athlete?.id,
     workout.session?.id,
@@ -440,8 +442,8 @@ export function HealthWorkoutPage() {
         ) : (
           <Card>
             <CardContent className="space-y-3 py-5">
-              <p className="text-sm font-medium">Nenhum treino disponível na fila.</p>
-              <p className="text-xs text-muted-foreground">Crie ou publique um programa para gerar a fila CCH.</p>
+              <p className="text-sm font-medium">{workout.error || program.error ? "Estado do treino indeterminado" : program.cycleComplete ? "Seu ciclo foi concluído" : "Nenhum treino elegível no momento"}</p>
+              <p className="text-xs text-muted-foreground">{workout.error || program.error ? "A leitura falhou; nenhuma sessão será recriada automaticamente." : program.cycleComplete ? "Confira seu Histórico e prepare o próximo ciclo em Programa." : program.isDraft ? "Existe uma versão em rascunho. Revise e publique antes de treinar." : program.queue.some(q=>q.state==="blocked") ? "Existem sessões bloqueadas; consulte a fila e os motivos no Programa." : program.program ? "Programa cadastrado, mas sem sessão elegível. Consulte Programa para verificar a fila." : "Não há programa disponível. Abra Programa."}</p>
               <Button asChild className="min-h-11 w-full"><Link to="/saude/treino/programa">Abrir programa</Link></Button>
             </CardContent>
           </Card>
