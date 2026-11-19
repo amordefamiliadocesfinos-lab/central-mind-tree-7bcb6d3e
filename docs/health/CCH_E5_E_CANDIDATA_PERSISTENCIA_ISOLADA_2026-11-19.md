@@ -61,8 +61,14 @@ Separar registros operacionais de treino, declarações de recuperação, trilha
 
 Os testes usam fixture **estrutural** com funções de autorização M0 reproduzidas e delegação `health_athlete_access`; não são execução integral sequencial de todas as migrations oficiais ou prova do RLS produtivo. Exercitam concessão, negativa, revogação, versões, atleta sem `auth_user_id`, treinador delegado, horários do servidor, ausência de JWT, sessão elegível, rejeições de duplicidade e cadeia de retificações. O job isolado M3/F22 valida regressão sintética; o fluxo integral F21 não foi homologado.
 
-A prova consultiva de leitura da última retificação exige validação específica no PostgreSQL descartável, separada do simples fato de conseguir **gravar** correções. Sem autorização E5 vigente, a revisão não pode ser consumida. Nenhum dado sintético demonstra eficácia ou dose ótima.
+A prova consultiva foi exercitada no PostgreSQL 17 descartável: a função `health_cch_e5_current_session_review(athlete_id,session_id)` seleciona apenas a ponta da cadeia linear quando existe autorização vigente. Testes negativos comprovam revogação, acesso cruzado, sessão com `record_status=voided` e evento órfão/inconsistente (injetado exclusivamente pela fixture administradora). Sem autorização E5 vigente, a revisão retorna zero registros; não se infere recuperação. Nenhum dado sintético demonstra eficácia ou dose ótima.
 
-## 8. Critério para próxima deliberação
+## 8. Evidência final da contraprova consultiva
+
+**Run [#44629626992](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/44629626992): dois jobs concluídos com sucesso**, `e5-persistent-isolated` e `e2-f22-baseline`. O último teste de alteração funcional inclui validação do hash canônico, leitura da ponta válida, rejeição com consentimento revogado, sessão anulada e cadeia órfã. As injeções forenses são estritamente do banco sintético; as notas reais permanecem bloqueadas. **O SQL leitor em si não foi integrado à aplicação nem publicado.** A revisão de privacidade e os prazos continuam sem deliberação.
+
+**Limitação adicional:** a função consultiva controla seu próprio resultado, mas a existência de permissões gerais de SELECT sobre o histórico M4 precisa ser avaliada na revisão de governança de acesso. Não afirmar sigilo absoluto de notas antigas apenas pelo filtro do leitor E5.
+
+## 9. Critério para próxima deliberação
 
 Camada Mestre deverá deliberar sobre: (i) redação integral e política de privacidade, (ii) retenção e critérios de eliminação, (iii) autoridade para aprovar/ativar políticas e sua prova documental, (iv) papéis de menores e representantes, (v) efeito persistente e migração integral em banco descartável antes de cogitar produção. **NÃO MERGEAR PR #999; NÃO DEPLOYAR; NÃO COLETAR DADOS REAIS; F23 NÃO ABERTA.**
