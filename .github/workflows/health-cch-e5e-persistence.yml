@@ -142,6 +142,7 @@ jobs:
             supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql
           do
             if [ "$f" = "supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql" ]; then
+              run_sql supabase/tests/health_cch_e5e_official_athletes.sql
               # F22 official source contains fixed real athlete IDs in DML seeds.
               # Remap ONLY those two literals in an ephemeral copy; leave
               # original DDL/RPC/trigger/RLS source and repository unchanged.
