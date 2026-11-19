@@ -146,11 +146,11 @@ $q$,ARRAY['42501','23514']::text[]);
 INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":true}');
-DO $BEGIN
+DO $$BEGIN
  IF NOT public.health_cch_e5_has_explicit_consent(
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') THEN
  RAISE EXCEPTION 'new E5 grant was not recognized for recording'; END IF;
-END $;
+END $$;
 -- Valid M4 note for completed and non-voided A session.
 INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
@@ -263,24 +263,24 @@ END $$;
 RESET ROLE;
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_workout_events
   WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
   RAISE EXCEPTION 'delegated coach read E5 history despite not being athlete'; END IF;
-END $;
+END $$;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_workout_events
   WHERE payload->>'contract'='cch-e5-session-review-v1')<>3 THEN
   RAISE EXCEPTION 'athlete active E5 read missing'; END IF;
-END $;
+END $$;
 -- Regular M4 event remains writable for the owner, with M4 existing contract.
 INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff',
  'session_completed','user','dddddddd-6000-4000-8000-ddddddddffaa',
  '11111111-1111-4111-8111-111111111111','{}');
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_workout_events WHERE event_type='session_completed')<>1 THEN
  RAISE EXCEPTION 'ordinary M4 event regressed'; END IF;
  IF (SELECT count(*) FROM public.health_workout_events WHERE event_type='note')<>3
@@ -290,7 +290,7 @@ DO $BEGIN
 INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'revoked','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":true}');
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_workout_events
  WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 OR
  (SELECT count(*) FROM public.health_workout_events
@@ -299,7 +299,7 @@ DO $BEGIN
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
  RAISE EXCEPTION 'E5 revocation failed to isolate raw/select and consultative reads'; END IF;
-END $;
+END $$;
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
@@ -310,16 +310,16 @@ SELECT public.e5_expect_failure($q$
  "symptoms":"pain"}')
 $q$,ARRAY['42501','23514']::text[]);
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_workout_events
  WHERE event_type='session_completed')<>1 OR
  (SELECT count(*) FROM public.health_workout_events
  WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
  RAISE EXCEPTION 'coach lost ordinary M4 or gained revoked E5 access'; END IF;
-END $;
+END $$;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 SELECT set_config('request.jwt.claim.sub','',false);
-DO $BEGIN
+DO $$BEGIN
  IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  THEN RAISE EXCEPTION 'anon consent bypass'; END IF; END $$;
 RESET ROLE;
