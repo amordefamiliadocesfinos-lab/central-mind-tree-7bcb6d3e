@@ -21,6 +21,11 @@ has('onOpenWorkstream={id=>',"Executive link to same selection");
 has('onSelectWorkstream={id => {',"Atlas link to same selection");
 has('changedEditableFields(selected, edit)',"Compare dirty against source");
 has('nucleo-m3-workstream-detail',"Evidence detail kept");
+has('setAtlasNavigationRequest(value => value + 1)',"Atlas navigation waits for mounted view");
+has('workspaceView !== "frentes"',"Focus requires visible detail view");
+has('detail.focus({ preventScroll: true })',"Focus target accessible");
+has('tabIndex={-1}',"Target accepts programmatic focus");
+has('managerActionExplanation(selected)',"M3 displays explanation alongside canonical action");
 has('NucleoSupervisionPanel',"Supervisor kept");
 has('NucleoTechnicalEvidence',"M4 evidence kept");
 has('saveItem',"M3 update flow kept");
@@ -35,4 +40,10 @@ for(const key of [
   "não constituem homologação",
 ])has(key,"Missing minimal read-only M3 event detail: "+key);
 has('Histórico M3 no recorte (últimos 200 eventos globais)',"History window remains explicit");
-console.log("UX-A1/V2.3: contexts, edit protection, preserved panels and M3 event detail PASS");
+const atlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
+const helper=fs.readFileSync("src/lib/nucleo/managerActionV13.ts","utf8");
+assert(atlas.includes("managerActionExplanation(item)"),"Priority card explains action");
+assert(atlas.includes("managerActionExplanation(front)"),"Front card explains action");
+assert(atlas.includes("Ver registro técnico original"),"Original action remains accessible");
+for(const key of ['item.code !== "OPE-03"','planning_source=mrp','planning_context','não criar compra de teste'])assert(helper.includes(key),"Guarded explanatory copy: "+key);
+console.log("UX-A1/V2.3: Atlas focus, manager explanation, protections and M3 history PASS");
