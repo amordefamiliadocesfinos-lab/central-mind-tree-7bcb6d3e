@@ -475,6 +475,7 @@ export function HealthWorkoutPage() {
         exerciseNameById={exerciseNameById}
         timer={timer}
         onCompleteWorkout={workout.completeWorkout}
+        onConfirmEquipment={workout.confirmEquipment}
       />
 
       <details className="rounded-xl border bg-muted/10 p-3">
