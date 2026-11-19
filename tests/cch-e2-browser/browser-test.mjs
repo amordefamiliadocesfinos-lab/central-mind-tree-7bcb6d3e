@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 const url="http://127.0.0.1:4173";
 const output=process.env.CCH_E2_EVIDENCE??"/tmp/cch-e2-evidence";
 await fs.mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,channel:"chrome"});
 const context=await browser.newContext({viewport:{width:1365,height:850}});
 const page=await context.newPage();
 const errors=[];
