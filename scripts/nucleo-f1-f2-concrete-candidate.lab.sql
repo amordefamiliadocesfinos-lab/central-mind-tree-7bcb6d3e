@@ -186,7 +186,7 @@ CREATE TABLE f12_lab.context_cards (
  public_label text NOT NULL CHECK(length(public_label) BETWEEN 3 AND 200),
  public_source_ref text NOT NULL,
  CHECK(front_id IS NULL OR module_id IS NOT NULL),
- UNIQUE(specialty_id,module_id,front_id,card_type) NULLS NOT DISTINCT
+ UNIQUE NULLS NOT DISTINCT (specialty_id,module_id,front_id,card_type)
 );
 CREATE TRIGGER context_cards_scope BEFORE INSERT OR UPDATE OF module_id,front_id
  ON f12_lab.context_cards FOR EACH ROW EXECUTE FUNCTION f12_lab.validate_context();
