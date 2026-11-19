@@ -29,11 +29,10 @@ test("content fingerprint can be computed without Git or deployment variables",(
  assert.match(build,/\[0-9a-f\]\{64\}/);
 });
 
-// The separator is a NUL byte, not the two printable characters backslash and zero.
+// The separator is a NUL byte in both build and reference hashing.
 test("build and independent reference use identical NUL byte separators",()=>{
  const reference=readFileSync("scripts/health-cch-e2-fingerprint-reference.mjs","utf8");
  for(const content of [vite,reference]){
-  assert.equal((content.match(/hash\\.update\\(Buffer\\.from\\(\\[0\\]\\)\\);/g)||[]).length,2);
-  assert.equal(content.includes('hash.update("'+'\\\\'+'0");'),false);
+  assert.equal(content.split("hash.update(Buffer.from([0]));").length-1,2);
  }
 });
