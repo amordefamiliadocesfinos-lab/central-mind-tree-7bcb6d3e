@@ -210,6 +210,7 @@ export function HealthWorkoutInteractiveTimerF19({
   exerciseNameById,
   timer,
   onCompleteWorkout,
+  onConfirmEquipment,
 }: {
   sessionTitle: string;
   fallbackStartedAt: string;
@@ -218,9 +219,12 @@ export function HealthWorkoutInteractiveTimerF19({
   exerciseNameById: Map<string, string>;
   timer: HealthWorkoutTimerF19Controller;
   onCompleteWorkout: () => Promise<void>;
+  onConfirmEquipment: (workoutExerciseId:string,equipmentLabel:string)=>Promise<void>;
 }) {
   const { toast } = useToast();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [equipmentLabels,setEquipmentLabels] = useState<Record<string,string>>({});
+  const [equipmentConfirmed,setEquipmentConfirmed] = useState<string[]>([]);
   const [load, setLoad] = useState("");
   const [loadUnit, setLoadUnit] = useState("kg");
   const [reps, setReps] = useState("");
@@ -909,6 +913,20 @@ export function HealthWorkoutInteractiveTimerF19({
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {!timer.activeInterval && viewedSets.length===0 && !equipmentConfirmed.includes(viewedExercise.id) ? (
+              <div className="space-y-2 rounded-lg border p-3">
+                <Label>Máquina usada neste exercício (opcional)</Label>
+                <Input placeholder="Ex.: Supino máquina A" value={equipmentLabels[viewedExercise.id]??""}
+                  onChange={event=>setEquipmentLabels(prev=>({...prev,[viewedExercise.id]:event.target.value}))}/>
+                <Button className="min-h-11" variant="outline"
+                  disabled={timer.saving||(equipmentLabels[viewedExercise.id]??"").trim().length<2}
+                  onClick={()=>void run("Máquina registrada para este exercício.",async()=>{
+                    await onConfirmEquipment(viewedExercise.id,equipmentLabels[viewedExercise.id]);
+                    setEquipmentConfirmed(prev=>[...prev,viewedExercise.id]);
+                  })}>Confirmar máquina antes da primeira série</Button>
+                <p className="text-xs text-muted-foreground">O CCH só compara cargas entre execuções que tenham identificação de máquina compatível. Você pode continuar sem informar.</p>
+              </div>
+            ) : null}
             {!viewingActiveExercise ? (
               <>
                 <div className="rounded-xl border bg-muted/30 p-4">
