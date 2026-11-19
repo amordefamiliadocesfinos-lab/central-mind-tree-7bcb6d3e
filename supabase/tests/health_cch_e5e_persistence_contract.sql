@@ -59,14 +59,28 @@ SELECT public.e5_expect_failure($q$
 $q$,ARRAY['42501']::text[]);
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":"true"}')
+$q$,ARRAY['42501']::text[]);
+
+SELECT public.e5_expect_failure($q$
+ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','unknown_future_type',
  'granted','e5-lab-v1',NULL)
 $q$,ARRAY['23514']::text[]);
 -- Consent history is append-only and sensitive to the latest explicit decision.
 INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,occurred_at,details)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
- 'granted','e5-lab-v1','2026-11-19T10:00:00Z',
+ 'granted','e5-lab-v1','2035-11-19T10:00:00Z',
  '{"contract":"cch-e5-consent-v1","explicit_action":true}');
+-- The caller's future timestamp was ignored; chronology is server-owned.
+DO $$BEGIN
+ IF (SELECT count(*) FROM public.health_consents WHERE consent_type='e5_personalized_review'
+   AND occurred_at >= '2035-01-01'::timestamptz)>0 OR
+  (SELECT count(*) FROM public.health_consents WHERE consent_type='e5_personalized_review'
+   AND occurred_at=created_at)<>1 THEN
+   RAISE EXCEPTION 'E5 client timestamp spoofing was not prevented'; END IF;
+END $$;
 DO $$BEGIN
  IF NOT public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5-lab-v1')
  OR public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5-OLD')
