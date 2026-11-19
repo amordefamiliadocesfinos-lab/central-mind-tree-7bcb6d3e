@@ -265,26 +265,42 @@ export function createShopeeLiveOauthHandler({
         : state?.startsWith('priscila.') ? PRISCILA
         : state && !state.includes('.') ? VIVIANE : null;
       if (!target) return html(409, 'Estado incompatível', 'A autorização não corresponde a uma conta reconhecida.', cleared);
+      // Fixed rejection reasons for Celivio only. Never log callback query, cookie,
+      // authorization code, state, tokens, shop identity, or arbitrary error text.
+      const logCelivioRejection = (reason, status) => {
+        if (target !== CELIVIO) return;
+        // Diagnostic delivery must never change OAuth control flow or response.
+        try {
+          logger({ event: 'shopee_live_celivio_oauth_rejected', reason, status });
+        } catch {
+          // Deliberately fail closed without falling back to sensitive payload logging.
+        }
+      };
+      const rejectCallback = (reason, status, title, message) => {
+        logCelivioRejection(reason, status);
+        return html(status, title, message, cleared);
+      };
       if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
-      if (target === CELIVIO && !celivioConfigured) return html(409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.', cleared);
+      if (target === CELIVIO && !celivioConfigured) return rejectCallback('celivio_disabled', 409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.');
       if (target === PRISCILA && (!priscilaConfigured || !priscilaUnique)) return html(409, 'Destino desabilitado', 'A loja Priscila não está confirmada ou habilitada.', cleared);
       const queryState = normalizedQuery(request, 'state');
-      if (queryState !== null && queryState !== state) return html(409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.', cleared);
-      if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return html(400, 'Destino inválido', 'O destino deve ser resolvido pelo state.', cleared);
+      if (queryState !== null && queryState !== state) return rejectCallback('state_query_mismatch', 409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.');
+      if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return rejectCallback('public_target_rejected', 400, 'Destino inválido', 'O destino deve ser resolvido pelo state.');
 
       if (!code || (!shopId && !mainAccountId) || !state) {
-        return html(400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.', cleared);
+        return rejectCallback('callback_missing_required', 400, 'Autorização Shopee incompleta', 'O retorno OAuth não trouxe os dados necessários para validação.');
       }
       if (shopId !== null && (!Number.isSafeInteger(shopId) || shopId <= 0)) {
-        return html(400, 'Autorização Shopee inválida', 'O shop_id retornado é inválido.', cleared);
+        return rejectCallback('invalid_callback_shop_id', 400, 'Autorização Shopee inválida', 'O shop_id retornado é inválido.');
       }
       if (mainAccountId !== null && (!Number.isSafeInteger(mainAccountId) || mainAccountId <= 0)) {
-        return html(400, 'Autorização Shopee inválida', 'O main_account_id retornado é inválido.', cleared);
+        return rejectCallback('invalid_callback_main_account_id', 400, 'Autorização Shopee inválida', 'O main_account_id retornado é inválido.');
       }
 
       const consumed = await consumeState({ state_hash: sha256Hex(state) });
       if (!consumed?.ok) {
         const status = consumed?.status === 409 ? 409 : 503;
+        if (status === 409) logCelivioRejection('state_invalid_or_consumed', status);
         return html(
           status,
           status === 409 ? 'Autorização Shopee expirada' : 'Shopee Live indisponível',
@@ -297,11 +313,11 @@ export function createShopeeLiveOauthHandler({
 
       const canonicalAccountId = consumed.payload?.channel_account_id;
       if (canonicalAccountId !== target.account) {
-        return html(409, 'Autorização Shopee rejeitada', 'A autorização não corresponde à conta piloto configurada.', cleared);
+        return rejectCallback('state_account_mismatch', 409, 'Autorização Shopee rejeitada', 'A autorização não corresponde à conta piloto configurada.');
       }
 
       channelAccountId = canonicalAccountId;
-      if (shopId !== null && shopId !== target.shop) return html(409, 'Loja incompatível', 'O shop_id não corresponde ao destino autorizado.', cleared);
+      if (shopId !== null && shopId !== target.shop) return rejectCallback('callback_shop_mismatch', 409, 'Loja incompatível', 'O shop_id não corresponde ao destino autorizado.');
       const tokenResult = await exchange({
         apiBaseUrl: API_BASE_URL,
         tokenPath: TOKEN_PATH,
@@ -328,7 +344,7 @@ export function createShopeeLiveOauthHandler({
         ? tokenResult.payload.shop_id_list.map(Number)
         : tokenResult.payload?.shop_id != null ? [Number(tokenResult.payload.shop_id)] : [];
       const effectiveShopId = shopId ?? (tokenShopIds.length === 1 ? tokenShopIds[0] : null);
-      if (effectiveShopId !== target.shop || tokenIdentity === false) return html(409, 'Identidade incompatível', 'A resposta não identifica uma única loja autorizada.', cleared);
+      if (effectiveShopId !== target.shop || tokenIdentity === false) return rejectCallback('token_shop_identity_mismatch', 409, 'Identidade incompatível', 'A resposta não identifica uma única loja autorizada.');
       if (!accessToken || !refreshTokenValue || !effectiveShopId) {
         return html(502, 'Resposta OAuth incompleta', 'A Shopee não retornou access_token, refresh_token e shop_id suficientes.', cleared);
       }
@@ -345,7 +361,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'OAuth concluído, leitura falhou', 'Os tokens foram obtidos, mas get_shop_info não respondeu com sucesso.', cleared);
       }
 
-      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(firstRead.payload, target.shop, tokenIdentity, target !== VIVIANE)) return rejectCallback('shop_info_identity_mismatch', 409, 'Loja incompatível', 'A leitura não confirmou a identidade esperada.');
       const firstObservedAt = new Date(now()).toISOString();
       const firstSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
@@ -401,7 +417,7 @@ export function createShopeeLiveOauthHandler({
       }
 
       const refreshedIdentity = tokenShopIdentity(refreshResult.payload, target.shop);
-      if (refreshedIdentity === false) return html(409, 'Renovação incompatível', 'A renovação não identifica a loja autorizada.', cleared);
+      if (refreshedIdentity === false) return rejectCallback('refresh_shop_identity_mismatch', 409, 'Renovação incompatível', 'A renovação não identifica a loja autorizada.');
 
       const refreshedRead = await readShop({
         apiBaseUrl: API_BASE_URL,
@@ -415,7 +431,7 @@ export function createShopeeLiveOauthHandler({
         return html(502, 'Renovação concluída, releitura falhou', 'O token foi renovado, mas a releitura de get_shop_info falhou.', cleared);
       }
 
-      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, target !== VIVIANE)) return html(409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.', cleared);
+      if (!shopIdentityConfirmed(refreshedRead.payload, target.shop, refreshedIdentity, target !== VIVIANE)) return rejectCallback('refreshed_shop_info_identity_mismatch', 409, 'Loja incompatível', 'A releitura não confirmou a identidade esperada.');
       const refreshedObservedAt = new Date(now()).toISOString();
       const refreshedSnapshot = await persistSnapshot({
         channel_account_id: channelAccountId,
