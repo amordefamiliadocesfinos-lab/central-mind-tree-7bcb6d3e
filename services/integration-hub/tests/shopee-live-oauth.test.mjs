@@ -504,3 +504,31 @@ test('OAuth rejection diagnostics do not emit Celivio events for other accounts'
   assert.equal(result.status, 409);
   assert.deepEqual(events, []);
 });
+
+test('Celivio diagnostic logger failure cannot change a rejected callback response', async () => {
+  let consumed = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? '1357031949' : adaoEnv(key),
+    logger: () => { throw Error('synthetic logging outage'); },
+    consumeState: async () => {
+      consumed++;
+      return { ok: false, status: 409 };
+    },
+  });
+  const headers = { cookie: '__Host-pc_shopee_live_state=celivio.synthetic-state' };
+  const invalidState = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback', headers,
+    query: { code: 'synthetic-code', shop_id: '1357031949' },
+  });
+  assert.equal(invalidState.status, 409);
+  assert.equal(consumed, 1);
+  assert.match(invalidState.body, /Autorização Shopee expirada/);
+  const invalidRequest = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback', headers,
+    query: { shop_id: '1357031949' },
+  });
+  assert.equal(invalidRequest.status, 400);
+  assert.equal(consumed, 1);
+  assert.match(invalidRequest.body, /Autorização Shopee incompleta/);
+});
