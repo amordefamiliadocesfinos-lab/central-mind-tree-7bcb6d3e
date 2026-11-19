@@ -17,6 +17,8 @@ import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthCatalogs } from "../hooks/useHealthCatalogs";
 import { useHealthProgramM3 } from "../hooks/useHealthProgramM3";
 import { useHealthTrainingProfileF22 } from "../hooks/useHealthTrainingProfileF22";
+import { useHealthLongitudinalReviewF13 } from "../hooks/useHealthLongitudinalReviewF13";
+import { useHealthReplanningF14 } from "../hooks/useHealthReplanningF14";
 import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 
@@ -32,6 +34,8 @@ export function HealthProgramPage() {
   const catalogs = useHealthCatalogs();
   const program = useHealthProgramM3(athlete?.id);
   const trainingProfile = useHealthTrainingProfileF22(athlete?.id);
+  const longitudinal = useHealthLongitudinalReviewF13(athlete?.id);
+  const replanning = useHealthReplanningF14(athlete?.id);
   const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id);
   const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
@@ -204,6 +208,15 @@ export function HealthProgramPage() {
                 <p>{cycleAdvisor.assessment.sessions} sessões · {cycleAdvisor.assessment.completedSets} séries · {cycleAdvisor.assessment.measuredSets} séries com carga e repetições</p>
                 <p>{cycleAdvisor.assessment.comparableExercises} exercício(s) com exposições comparáveis.</p>
                 <p className="text-muted-foreground">{cycleAdvisor.assessment.note}</p>
+                <p className="text-muted-foreground">Fase registrada: {phaseLabel}. Nível: {trainingProfile.profile?.training_level ?? "não informado"}.</p>
+                <p className="text-muted-foreground">
+                  F13 — Revisão longitudinal: {longitudinal.run ?
+                    `${longitudinal.run.runStatus}, ${longitudinal.run.availableDomains.length} domínio(s) comparáveis` :
+                    "sem revisão disponível para esta decisão"}.
+                </p>
+                {replanning.currentCase ? <p className="text-muted-foreground">
+                  F14 — Caso de replanejamento: {replanning.currentCase.caseStatus}. A decisão humana continua independente da geração.
+                </p> : null}
               </div>
             )}
             <div className="space-y-2">
