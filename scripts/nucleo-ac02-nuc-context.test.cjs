@@ -7,8 +7,8 @@ const ui=fs.readFileSync("src/components/nucleo/NucleoAc02NucContextRead.tsx","u
 const host=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
 const transpiled=ts.transpileModule(contract,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
 assert.equal(transpiled.diagnostics.filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
-const exports={};vm.runInNewContext(transpiled.outputText,{exports,Object,Set});
-const api=exports;
+const moduleExports={};vm.runInNewContext(transpiled.outputText,{exports:moduleExports,Object,Set});
+const api=moduleExports;
 const ID=api.NUC_MODULE_ID,MAP=api.PILOT_CONTRIBUTION_ID;
 assert.equal(api.validRequest({module_id:ID}),true);
 for(const bad of [{},{module_id:"CRM"},{module_id:ID,include_private:true},null,[],{"__proto__":"x"},{}]){
