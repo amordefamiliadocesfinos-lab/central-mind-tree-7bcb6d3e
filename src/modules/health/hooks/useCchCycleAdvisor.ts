@@ -29,6 +29,10 @@ export type Assessment = {
   data_gaps?: string[];
   strategy_options?: Array<{goal:GuidedGoal;strategy:GuidedStrategy;reason:string}>;
   next_review?: {after_completed_sessions:number;also_on:string;schedule_mode:string};
+  equipment_load_candidates?: Array<{exercise_id:string;equipment_label:string|null;unit:string;increment:number|null;observed_load:number|null;candidate_load:number|null;reason:string}>;
+  multi_cycle_versions?: Array<{version_id:string;version_number:number;sessions:number}>;
+  multi_cycle_volume?: Array<{version_number:number;muscle_id:string;muscle_name:string;work_sets:number;sessions:number;observed_per_7_days:number|null;note:string}>;
+  periodization_mode?: string;
 };
 const empty: Assessment = {
   engine_version: "cch-guided-v5",source_version_id: "",completed_sessions: 0,completed_sets: 0,
@@ -59,7 +63,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle_v5" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v7" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
@@ -107,12 +111,20 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v6" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v7" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
           p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets,
           p_recovery_report:recovery,p_symptom_report:symptoms} as never);
       if(result.error)throw new Error(result.error.message);
     }finally{setGenerating(false);}
   },[athleteId,versionId,assessment.source_version_id,error]);
-  return {assessment,loading,error,generating,recommendations,refresh,generate};
+  const saveIncrement=useCallback(async(exerciseId:string,label:string,unit:string,increment:number)=>{
+    if(!athleteId)throw new Error("Atleta indisponível");
+    const result=await supabase.rpc("health_cch_save_load_increment" as never,
+      {p_athlete_id:athleteId,p_exercise_id:exerciseId,p_equipment_label:label,
+        p_load_unit:unit,p_increment:increment} as never);
+    if(result.error)throw new Error(result.error.message);
+    await refresh();
+  },[athleteId,refresh]);
+  return {assessment,loading,error,generating,recommendations,refresh,generate,saveIncrement};
 }

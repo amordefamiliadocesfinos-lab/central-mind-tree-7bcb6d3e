@@ -22,6 +22,7 @@ import { useHealthReplanningF14 } from "../hooks/useHealthReplanningF14";
 import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
+import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
 function numberOrNull(value: string): number | null {
@@ -45,6 +46,14 @@ export function HealthProgramPage() {
   const [allowTargetedSets, setAllowTargetedSets] = useState(false);
   const [recoveryReport, setRecoveryReport] = useState<RecoveryReport>("unknown");
   const [symptomReport, setSymptomReport] = useState<SymptomReport>("unknown");
+  const [incrementExercise,setIncrementExercise]=useState("");
+  const [incrementLabel,setIncrementLabel]=useState("");
+  const [incrementAmount,setIncrementAmount]=useState("");
+  const [incrementUnit,setIncrementUnit]=useState("kg");
+  const volumeComparisons=useMemo(()=>compareVolume(cycleAdvisor.assessment.multi_cycle_volume??[]),[cycleAdvisor.assessment.multi_cycle_volume]);
+  const phaseReview=useMemo(()=>reviewPhase(cycleAdvisor.assessment.multi_cycle_versions??[],
+    cycleAdvisor.assessment.data_quality?.status??"limited"),
+    [cycleAdvisor.assessment.multi_cycle_versions,cycleAdvisor.assessment.data_quality?.status]);
   const decisionBrief = useMemo(() => buildCycleDecisionBrief(
     cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice),
     [cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice]);
@@ -231,6 +240,25 @@ export function HealthProgramPage() {
                     </div>
                   ))}
                 </div>
+                {cycleAdvisor.assessment.multi_cycle_versions?.length ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Histórico de ciclos</p>
+                    {cycleAdvisor.assessment.multi_cycle_versions.map(v=>(
+                      <p key={v.version_id}>Versão {v.version_number}: {v.sessions} sessões concluídas.</p>
+                    ))}
+                    <p>Plano: {phaseReview.phase==="multi_cycle_review"?"revisar múltiplos ciclos":"consolidar e coletar dados"}; revisão após {phaseReview.reviewAfterSessions} sessões.</p>
+                  </div>
+                ) : null}
+                {volumeComparisons.length ? <div className="space-y-1">
+                  <p className="font-medium">Volume observado entre ciclos</p>
+                  {volumeComparisons.map(v=><p key={v.muscleId}>{muscleNameById.get(v.muscleId)??"Grupo muscular"}: {v.trend}. {v.note}</p>)}
+                </div> : null}
+                {cycleAdvisor.assessment.equipment_load_candidates?.length ? <div className="space-y-1">
+                  <p className="font-medium">Cargas candidatas para revisão</p>
+                  {cycleAdvisor.assessment.equipment_load_candidates.slice(0,10).map(v=><p key={v.exercise_id+v.unit}>
+                    {exerciseNameById.get(v.exercise_id)??"Exercício"}: {v.candidate_load===null?"sem proposta numérica":`${v.candidate_load} ${v.unit} (não aplicada)`}. {v.reason}
+                  </p>)}
+                </div> : null}
                 {cycleAdvisor.assessment.load_trends?.length ? (
                   <div className="space-y-1">
                     <p className="font-medium">Tendência de força por exercício (observacional)</p>
@@ -283,6 +311,30 @@ export function HealthProgramPage() {
                 </p> : null}
               </div>
             )}
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">Incremento confirmado do equipamento (opcional)</p>
+              <Select value={incrementExercise} onValueChange={setIncrementExercise}>
+                <SelectTrigger><SelectValue placeholder="Exercício" /></SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set((cycleAdvisor.assessment.equipment_load_candidates??[]).map(v=>v.exercise_id))).map(id=>(
+                    <SelectItem key={id} value={id}>{exerciseNameById.get(id)??"Exercício"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input placeholder="Identificação única da máquina" value={incrementLabel}
+                onChange={event=>setIncrementLabel(event.target.value)}/>
+              <Input inputMode="decimal" placeholder="Incremento (ex. 2,5)" value={incrementAmount}
+                onChange={event=>setIncrementAmount(event.target.value)}/>
+              <Select value={incrementUnit} onValueChange={setIncrementUnit}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent><SelectItem value="kg">kg</SelectItem><SelectItem value="lb">lb</SelectItem></SelectContent>
+              </Select>
+              <Button variant="outline" disabled={!incrementExercise||!validIncrement(Number(incrementAmount.replace(",",".")),incrementLabel,incrementUnit)}
+                onClick={()=>void save("Incremento confirmado.",async()=>{
+                  await cycleAdvisor.saveIncrement(incrementExercise,incrementLabel,incrementUnit,Number(incrementAmount.replace(",",".")));
+                })}>Registrar incremento real</Button>
+              <p className="text-xs text-muted-foreground">O motor não altera automaticamente cargas prescritas. Não cadastre vários equipamentos sob um único exercício.</p>
+            </div>
             <div className="space-y-2">
               <Label>Qual é seu objetivo agora?</Label>
               <Select value={goalChoice} onValueChange={(value) => setGoalChoice(value as GuidedGoal | "unsure")}>
