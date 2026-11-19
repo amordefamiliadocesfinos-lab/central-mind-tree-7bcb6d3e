@@ -44,7 +44,7 @@ jobs:
           run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
           # Lab-only fictitious policy; no policy is approved for real athletes.
           docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" psql -X -v ON_ERROR_STOP=1 \
-            -U postgres -d e5_disposable -c "INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,policy_digest) VALUES ('e5-lab-v1','active',clock_timestamp(),repeat('a',64))"
+            -U postgres -d e5_disposable -c "INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest) VALUES ('e5-lab-v1','active',clock_timestamp(),clock_timestamp(),'11111111-1111-4111-8111-111111111111','CI-SYNTHETIC-ONLY','Synthetic policy lab 1',encode(sha256(convert_to('Synthetic policy lab 1','UTF8')),'hex'))"
           run_sql supabase/tests/health_cch_e5e_persistence_contract.sql
 
   e2-f22-baseline:
