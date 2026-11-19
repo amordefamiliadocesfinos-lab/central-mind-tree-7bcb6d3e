@@ -1,60 +1,68 @@
-# CCH E5-E — Candidata de persistência: apenas PostgreSQL descartável
+# CCH E5-E — candidata de persistência e governança em laboratório isolado
 
-**Autoridade:** Deliberação Camada Mestre 19/11/2026; CCH v5.4 FROZEN e Evolução V1.0 FROZEN. **PR deve permanecer aberta sem merge.** Issue #966 aberta; F23 não aberta.
+**Autoridade:** Camada Mestre (deliberações de 19/11/2026), Mapa CCH v5.4 FROZEN e Evolução do Motor V1.0 FROZEN. **PR #999 em draft, sem merge; Issue #966 aberta; F23 não iniciada.**
 
-## Implantação estritamente bloqueada
-A candidata está em `supabase/candidates/health_cch_e5e_persistence_candidate.sql` (**fora** de `supabase/migrations`) para evitar aplicação automática por processos que detectem novas migrations. Não usar em nenhum banco Lovable/Supabase real, não copiar para pasta migrations, não criar UI e não coletar aceites reais nesta fase. Runner de PostgreSQL 17 descartável com identidades fictícias fornece a única execução permitida.
+## 1. Escopo e bloqueios
 
-## Contratos propostos
-**M1:** amplia apenas CHECK `health_consents_consent_type_check` para aceitar `e5_personalized_review`, preservando cinco tipos existentes, tabela append-only e políticas de seleção. Substitui **a** política INSERT existente, sem adicionar política OR permissiva, e condiciona E5 à identidade `health_athletes.auth_user_id=auth.uid()`, ator autenticado e payload `details.contract=cch-e5-consent-v1` com `explicit_action=true`. Delegação do treinador não autoriza E5. Função invoker `health_cch_e5_has_explicit_consent(athlete,policy_version)` devolve verdadeiro só para decisão única `granted` mais recente na versão exigida, com recusa de empates conflitantes, denied, revoked ou ausência. **A política textual final, retenção, regras de representação e versão vigente ainda não foram revisadas; não oferecer isto a usuários reais.**
+A candidata SQL está em `supabase/candidates/health_cch_e5e_persistence_candidate.sql`, **fora** de `supabase/migrations`. A única execução permitida é PostgreSQL 17 descartável com identidades e políticas fictícias. Nenhuma mudança foi autorizada no banco real, em programas de Deividi/Rafaela, na interface, nos consentimentos reais ou na prescrição automática. Um CI verde não é homologação de segurança, clínica, jurídica ou produtiva.
 
-**M4:** reaproveita `health_workout_events`, restringe via trigger + substituição da política INSERT existente somente notas com `payload.contract=cch-e5-session-review-v1`. Exige atleta vinculado por auth uid, autoria explícita não nula, mesma sessão concluída, `record_status=active`, `source=user`, `explicit_confirmation=true`, e conjuntos estritos de recovery/symptoms. Index parcial único por atleta/sessão evita múltiplos registros de revisão E5; unique `(athlete_id,client_event_id)` já impede replay por ID. Regras comuns de M4 para outros eventos permanecem. Nota de revisão não significa diagnóstico ou progressão numérica automática.
+## 2. Consentimento E5 — contrato vigente na candidata
 
-## Testes de aceite isolados
-Casos positivos: legado M1 continua aceito, consentimento explícito E5, consulta de decisão, evento M4 válido e evento legado. Negativos: treinador tentando consentir E5 mesmo com direitos de gestão, outro atleta, autor incorreto, ausência de aceite, versão antiga, denied, revoked, timestamp conflitante, sessão não concluída, evento de sistema, payload incompleto, nulidade, replay e duplicidade. Preserva 4 versões e fila sintética do fixture; migrations originais M3/F21/F22 não modificadas.
+A tabela M1 `health_consents` permanece append-only: os cinco tipos existentes são preservados e `e5_personalized_review` é aceito **somente na candidata**. A política INSERT é substituída, e não acrescentada por OR. O aceite E5 requer identidade autenticada do próprio atleta em `health_athletes.auth_user_id`, `actor_auth_user_id=auth.uid()`, `details.contract=cch-e5-consent-v1` e `details.explicit_action` como booleano JSON verdadeiro. Um proprietário de cadastro, treinador ou representante com privilégios de gestão não pode conceder E5 em nome do atleta; ausência de vínculo de login não autoriza E5. Horários são carimbados pelo servidor.
 
-## Limites de evidência
-O teste reproduz tabelas e políticas selecionadas das migrations soberanas usando fixture **estrutural**, não reconstrói integralmente o banco oficial ou permissões de compartilhamento. CI verde **não equivale** a revisão de efeitos persistentes, homologação em produção, validade jurídica de consentimento ou eficácia clínica. A PR aberta é somente material para revisão Camada Mestre. Nenhuma autorização implícita para merge, migração ou deploy.
+**Assinatura correta:** `health_cch_e5_has_explicit_consent(p_athlete_id uuid)` — **não** recebe versão arbitrária. O banco consulta exclusivamente a política com estado `active` no registro protegido `health_cch_e5_policy_registry`; só retorna verdadeiro quando a última decisão do atleta é `granted`, única, vinculada àquela versão e sem revogação/negação posterior ou empate. Sem política aprovada ativa, a leitura é negativa. `e5-lab-v1` e `e5-lab-v2` são identificadores **exclusivos dos testes**.
 
-## Endurecimento posterior à primeira contraprova
-A candidata passou a utilizar trigger `BEFORE INSERT` para atribuir `occurred_at` e `created_at` ao consentimento E5 a partir de `clock_timestamp()`, e `occurred_at/recorded_at` para notas E5. Um horário futuro ou retroativo fornecido pelo cliente é ignorado. `details.explicit_action` deve ser booleano JSON `true`, e não texto `"true"`. A última decisão é examinada por versão solicitada e a ausência, revogação, negativa e empate de decisões conflitantes são rejeitados.
+## 3. Governança documental da política ativa — proposta, não aprovação jurídica
 
-**Limites para análise da Camada Mestre:** não há registro soberano da versão de política E5 vigente; o parâmetro da função é fornecido pelo chamador e deverá ser vinculado à política aprovada antes de uso real. O fluxo de revisão por sessão aceita somente **uma** nota E5 imutável por sessão; eventual retificação exige outra decisão contratual (não foi criada). Testes SQL usam um proxy sintético de permissões de treinador e não reproduzem integralmente o modelo real de compartilhamento. Nenhuma homologação da base produtiva foi reivindicada.
+A aprovação formal exige um **documento canônico integral**, identificável por versão, conteúdo e SHA-256 calculado a partir dos bytes UTF-8 com quebras de linha LF (`\n`), sem normalização silenciosa ou texto variável. O hash é um controle de **integridade**, não prova de legalidade nem de aprovação por pessoa autorizada.
 
-## CI de referência antes da revisão para merge
-[Workflow E5-E #44623079233](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/44623079233): `e5-persistent-isolated=success`; `e2-f22-baseline=success`. O segundo job reaproveita as funções soberanas existentes M3/F22 e a fixture publicada E2, comprovando regressão sintética negativa. F21 não foi homologada em todos os seus fluxos nesta PR.
+Contrato de governança proposto:
+- `policy_version` único e imutável, `policy_document` canônico legível, `policy_digest` SHA-256 verificável do conteúdo exato
+- `approved_by_auth_user_id`, `approval_reference`, `approved_at` e `effective_at`, com aprovação e data de vigência rastreáveis
+- `status` `active` ou `retired` com **no máximo uma** política ativa; a substituição deve ser operação de autoridade controlada, transacional e auditável
+- nenhuma escrita de política concedida a `authenticated`; a existência do registro **não autoriza** quem pode criar ou ativar versões
+- uma política retirada não pode ser selecionada por parâmetro do cliente; nova política exige nova decisão explícita do atleta
 
+**Pendência de autoridade:** texto integral definitivo, aprovador legítimo, procedimento de ativação/retirada, verificabilidade externa do registro de aprovação, retenção e tratamento de menores ainda não foram homologados. O documento de proposta abaixo **não deve ser registrado como política ativa real**.
 
-## Refinamento autorizado pela Camada Mestre — PR #999 ainda draft
+## 4. Recuperação pós-sessão e retificação — contrato M4
 
-**Deliberação 19/11/2026:** contraprova inicial E5-E aprovada; autorizou refinamento somente na PR #999, ainda sem merge, migration em produção, interface ou coleta real.
+M4 usa `health_workout_events` com `event_type=note`, `source=user`, `contract=cch-e5-session-review-v1`, `explicit_confirmation=true`, recuperação `good|poor|unknown` e sintomas `none|pain|unknown`. Sessão: `completed` e `record_status=active`; ator: o próprio atleta autenticado. O banco atribui os horários de servidor, valida autoria, vínculo e payload; índice parcial impede duplicar evento raiz ou criar dois sucessores do mesmo predecessor.
 
-### 1. Fonte soberana para versão de consentimento
+**Não é mais correto dizer que existe uma única nota por sessão.** Há uma *raiz única* e uma cadeia de **retificações imutáveis** em eventos novos com `replaces_event_id` referenciando o evento imediatamente anterior. Eventos antigos permanecem para auditoria.
 
-A candidata agora inclui **registro protegido** `health_cch_e5_policy_registry` (tabela de governança versionada proposta, não um novo motor ou tabela paralela de saúde). A criação dessa estrutura é apenas um **efeito persistente candidato** no PostgreSQL isolado; nenhuma versão de política foi aprovada para produção. Não há seed na candidata. O CI insere unicamente `e5-lab-v1` e depois `e5-lab-v2` como exemplos sintéticos no runner efêmero.
+A leitura consultiva E5-E deve selecionar **somente a última ponta válida** dessa cadeia. Sem raiz, com ciclos, ramificações, elos externos, autores diferentes, payloads inválidos, estado de sessão inelegível ou consentimento E5 não vigente, deverá falhar fechada: retornar nenhuma revisão autorizada, nunca presumir recuperação boa. Leituras diretas do M4 e integrações E5-B/E5-D não são ativadas por esse contrato; uma integração futura precisa homologar as interfaces.
 
-A função invoker `health_cch_e5_has_explicit_consent(athlete_id)` já **não recebe uma versão do chamador**. Busca a versão com `status=active` do registro protegido e exige última decisão válida, única, `granted` e nessa versão. O CHECK/trigger de inserção também exige a versão ativa. A tabela restringe `authenticated` a SELECT; não concede escrita. Um índice único impede duas políticas simultaneamente ativas. Ausência de linha ativa bloqueia novas decisões E5 e leitura favorável.
+## 5. Proposta única de texto informado de consentimento E5 (ainda não aprovada)
 
-**Pendências que exigem nova deliberação:** texto integral informado, aprovação jurídica, digest do documento verdadeiro, versão e início da vigência, retenção e regras de representação. O identificador fictício do CI não pode ser usado com atletas reais. A existência de uma estrutura candidata **não aprova política alguma**.
+**Título provisório:** Consentimento para revisão individualizada de treinamento — CCH E5
 
-### 2. Retificação auditável, sem apagar declarações
+> **Para que servirá:** Ao aceitar, você autoriza o CCH a utilizar seus registros de treino e evolução, incluindo exercícios, séries, cargas, repetições, esforço percebido, histórico de sessões, equipamentos declarados e informações de recuperação ou sintomas que você informar, para preparar análises e sugestões individualizadas de treinamento, que ainda dependerão de revisão humana.
+>
+> **Quais dados:** O CCH utilizará apenas os dados relacionados a essa finalidade e vinculados ao seu perfil autorizado. Informações não registradas serão tratadas como desconhecidas. Relatos de dor e sintomas não representam diagnóstico.
+>
+> **Quem poderá acessar:** Você e os profissionais ou operadores que tiverem acesso legítimo, específico e controlado no Painel Central conforme as permissões aprovadas. O acesso de um treinador ao seu programa não autoriza o treinador a conceder este consentimento por você.
+>
+> **Sua escolha:** Você pode negar agora e continuar utilizando as funções de treinamento disponíveis que não dependam dessa revisão E5. O não consentimento impede novas análises personalizadas que dependam da autorização, sem limitar automaticamente sua classificação esportiva ou os treinos já publicados.
+>
+> **Revogação:** Você poderá retirar a autorização. A revogação deve interromper novas utilizações dependentes do consentimento E5; ela não altera retroativamente os treinos publicados. Os registros históricos e as evidências de decisão poderão ser mantidos ou eliminados conforme a política de retenção e as obrigações aplicáveis, ainda sujeitas a aprovação.
+>
+> **Limites:** A autorização não é diagnóstico, promessa de hipertrofia, garantia de resultados, permissão para progressão automática, alteração de cargas/volumes nem publicação automática de programas.
+>
+> **Representação:** O fluxo inicial é destinado exclusivamente ao atleta apto a consentir diretamente. O consentimento em nome de menores ou representantes depende de política específica ainda não habilitada.
 
-A primeira declaração é um evento M4 `note` E5 **raiz**, único por atleta/sessão. A retificação é **outro evento** com mesmo `contract=cch-e5-session-review-v1`, confirmação explícita e `replaces_event_id` contendo o UUID do evento anterior da mesma sessão e do mesmo ator autenticado. O banco verifica proveniência, autoria, estado da sessão e inexistência de uma retificação já vinculada àquele predecessor; os horários são do servidor. Índices únicos garantem uma raiz por sessão e um sucessor por evento; a cadeia é append-only.
+**Texto estritamente propositivo.** Não atribuir versão produtiva, data de vigência ou prazo de retenção antes das decisões da Camada Mestre e da revisão de privacidade.
 
-A consulta de recuperação atual no TypeScript E5-B/E5-D **não é habilitada para essa cadeia**. Uma futura integração deverá selecionar apenas a ponta vigente, identificar ambiguidades e preservar as revisões anteriores para auditoria. Não inferir diagnóstico ou progressão. Essa compatibilização pertence a etapa posterior autorizada, não está sendo simulada como aprovada.
+## 6. Retenção e revogação — proposta pendente
 
-### 3. Testes com regras oficiais e limite de fidelidade
+Separar registros operacionais de treino, declarações de recuperação, trilha de consentimento e trilha de acesso. Propor, para cada categoria: finalidade, base autorizadora, responsáveis, retenção mínima/máxima, acesso, anonimização/eliminação, restrições legais e tratamento de revogação. **Não fixar prazo arbitrário.** A revogação impede novas operações dependentes de E5, enquanto o histórico anterior deve ficar sob controle de acesso, minimização e decisões de retenção explicitamente aprovadas. Um documento aprovado deverá explicar o canal operacional de revogação antes de liberar a interface.
 
-O fixture E5-E incorpora a lógica das funções M0 **`health_can_read_athlete`, `health_can_write_athlete` e `health_can_manage_athlete_access`** a partir da migration `20261107144000_health_m0_foundation.sql`, preservando a separação entre sujeito, proprietário e delegados via `health_athlete_access`. O nome de argumento `p_id` foi conservado para compatibilidade com o fixture E2 original; a lógica de acesso corresponde ao M0. Cenários incluem treinador com privilégios de gestão, troca de versão oficial, ausência de `auth_user_id`, tentativas sem identidade e restrições RLS.
+## 7. Testes e limites
 
-Isso ainda é **fixture estrutural**, não a aplicação integral e sequencial de todas as migrations oficiais M0/M1/M3/M4/F21/F22. O job independente E2/M3/F22 continua cobrindo a regressão sintética de publicação; o escopo completo de F21 e papéis de representação não está homologado.
+Os testes usam fixture **estrutural** com funções de autorização M0 reproduzidas e delegação `health_athlete_access`; não são execução integral sequencial de todas as migrations oficiais ou prova do RLS produtivo. Exercitam concessão, negativa, revogação, versões, atleta sem `auth_user_id`, treinador delegado, horários do servidor, ausência de JWT, sessão elegível, rejeições de duplicidade e cadeia de retificações. O job isolado M3/F22 valida regressão sintética; o fluxo integral F21 não foi homologado.
 
-### 4. Decisões ainda abertas
+A prova consultiva de leitura da última retificação exige validação específica no PostgreSQL descartável, separada do simples fato de conseguir **gravar** correções. Sem autorização E5 vigente, a revisão não pode ser consumida. Nenhum dado sintético demonstra eficácia ou dose ótima.
 
-- Aprovação do texto real de consentimento, finalidade, retenção, revogação e política de representação; menores de idade continuam desabilitados
-- Definição de quem pode criar e ativar versões na governança e do procedimento auditável de transição de políticas
-- Decisão futura sobre leitura da **última retificação válida** por sessão nos contratos E5-B/E5-D, mantendo histórico
-- Revisão de grants e roles oficiais em migração integral descartável antes de qualquer aplicação real
-- Verificação de todos os cenários F21 no seu ciclo completo antes de alegar homologação integral
+## 8. Critério para próxima deliberação
 
-**Estado:** protótipo persistente E5-E somente em `supabase/candidates`, PR #999 draft, Issue #966 aberta. **NÃO MERGEAR; NÃO DEPLOYAR; NÃO ABRIR F23.**
+Camada Mestre deverá deliberar sobre: (i) redação integral e política de privacidade, (ii) retenção e critérios de eliminação, (iii) autoridade para aprovar/ativar políticas e sua prova documental, (iv) papéis de menores e representantes, (v) efeito persistente e migração integral em banco descartável antes de cogitar produção. **NÃO MERGEAR PR #999; NÃO DEPLOYAR; NÃO COLETAR DADOS REAIS; F23 NÃO ABERTA.**
