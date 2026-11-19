@@ -4452,6 +4452,48 @@ export type Database = {
           },
         ]
       }
+      health_cch_load_increments: {
+        Row: {
+          athlete_id: string
+          confirmed_at: string
+          equipment_label: string
+          exercise_id: string
+          increment_value: number
+          load_unit: string
+        }
+        Insert: {
+          athlete_id: string
+          confirmed_at?: string
+          equipment_label: string
+          exercise_id: string
+          increment_value: number
+          load_unit: string
+        }
+        Update: {
+          athlete_id?: string
+          confirmed_at?: string
+          equipment_label?: string
+          exercise_id?: string
+          increment_value?: number
+          load_unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_cch_load_increments_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_load_increments_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_cch_queue_entries: {
         Row: {
           athlete_id: string
@@ -4529,6 +4571,62 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "health_program_versions"
             referencedColumns: ["id", "athlete_id"]
+          },
+        ]
+      }
+      health_cch_workout_equipment: {
+        Row: {
+          athlete_id: string
+          confirmed_at: string
+          equipment_label: string
+          exercise_id: string
+          session_id: string
+          workout_exercise_id: string
+        }
+        Insert: {
+          athlete_id: string
+          confirmed_at?: string
+          equipment_label: string
+          exercise_id: string
+          session_id: string
+          workout_exercise_id: string
+        }
+        Update: {
+          athlete_id?: string
+          confirmed_at?: string
+          equipment_label?: string
+          exercise_id?: string
+          session_id?: string
+          workout_exercise_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_cch_workout_equipment_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "health_athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_workout_equipment_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "health_exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_workout_equipment_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "health_workout_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_cch_workout_equipment_workout_exercise_id_fkey"
+            columns: ["workout_exercise_id"]
+            isOneToOne: true
+            referencedRelation: "health_workout_exercises"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -15444,6 +15542,183 @@ export type Database = {
       health_can_write_athlete: {
         Args: { p_athlete_id: string }
         Returns: boolean
+      }
+      health_cch_assess_cycle: { Args: { p_program_id: string }; Returns: Json }
+      health_cch_assess_cycle_v10: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_cycle_v3: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_cycle_v4: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_cycle_v5: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_cycle_v7: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_cycle_v8: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_equipment_history: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_assess_execution_v10: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      health_cch_confirm_workout_equipment: {
+        Args: { p_equipment_label: string; p_workout_exercise_id: string }
+        Returns: undefined
+      }
+      health_cch_e2_edit_draft_exercise: {
+        Args: {
+          p_operation: string
+          p_other_template_exercise_id?: string
+          p_reason?: string
+          p_replacement_exercise_id?: string
+          p_template_exercise_id: string
+        }
+        Returns: Json
+      }
+      health_cch_e2_update_draft_prescription: {
+        Args: {
+          p_expected: Json
+          p_expected_version_id: string
+          p_proposed: Json
+          p_reason: string
+          p_template_exercise_id: string
+        }
+        Returns: Json
+      }
+      health_cch_generate_guided_cycle: {
+        Args: {
+          p_availability?: string
+          p_goal: string
+          p_program_id: string
+          p_strategy: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v10: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_recovery_report?: string
+          p_strategy: string
+          p_symptom_report?: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v3: {
+        Args: {
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_strategy: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v4: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_strategy: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v5: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_strategy: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v6: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_recovery_report?: string
+          p_strategy: string
+          p_symptom_report?: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v7: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_recovery_report?: string
+          p_strategy: string
+          p_symptom_report?: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v8: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_recovery_report?: string
+          p_strategy: string
+          p_symptom_report?: string
+        }
+        Returns: string
+      }
+      health_cch_generate_guided_cycle_v9: {
+        Args: {
+          p_allow_targeted_set_proposal?: boolean
+          p_availability: string
+          p_goal: string
+          p_priority_muscle_id?: string
+          p_program_id: string
+          p_recovery_report?: string
+          p_strategy: string
+          p_symptom_report?: string
+        }
+        Returns: string
+      }
+      health_cch_prepare_next_cycle: {
+        Args: { p_program_id: string }
+        Returns: string
+      }
+      health_cch_save_load_increment: {
+        Args: {
+          p_athlete_id: string
+          p_equipment_label: string
+          p_exercise_id: string
+          p_increment: number
+          p_load_unit: string
+        }
+        Returns: undefined
       }
       health_f19_cancel_interval: {
         Args: { p_client_event_id: string; p_interval_id: string }
