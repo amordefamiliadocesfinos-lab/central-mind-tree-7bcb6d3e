@@ -87,8 +87,13 @@ try{
  await pageB.close();await contextB.close();
 
  await page.getByRole("button",{name:"Publicar e gerar fila"}).click();
+ const finalState=await waitAudit(value=>
+   value.versions.some(v=>v.status==="published"&&v.n===2)
+   &&value.queue.some(q=>q.program_version_id==="aaaaaaaa-2000-4000-8000-aaaaaaaaaaab"&&q.n===2),
+   "M3/F22 isolated publish did not persist the new version and queue");
+ await page.reload();
+ await page.getByTestId("isolation-banner").waitFor();
  await page.getByText("Versão publicada e bloqueada para edição").waitFor();
- const finalState=await audit();
  check(finalState.queue.some(q=>q.program_version_id==="aaaaaaaa-2000-4000-8000-aaaaaaaaaaab"&&q.n===2),
   "published queue not created exactly twice");
  check(finalState.queue.some(q=>q.program_version_id==="aaaaaaaa-2000-4000-8000-aaaaaaaaaaaa"&&q.n===1),
