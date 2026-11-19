@@ -28,7 +28,7 @@ CREATE POLICY health_consents_insert ON public.health_consents FOR INSERT TO aut
 -- by an API caller to override an eventual revocation.
 CREATE OR REPLACE FUNCTION public.health_cch_e5_stamp_consent()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER
- SET search_path=public,pg_temp AS $
+ SET search_path=public,pg_temp AS $$
 BEGIN
  IF NEW.consent_type='e5_personalized_review' THEN
   IF auth.uid() IS NULL OR NEW.actor_auth_user_id IS DISTINCT FROM auth.uid()
@@ -41,7 +41,7 @@ BEGIN
   NEW.created_at:=NEW.occurred_at;
  END IF;
  RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER health_cch_e5_consent_time_guard
  BEFORE INSERT ON public.health_consents FOR EACH ROW
  EXECUTE FUNCTION public.health_cch_e5_stamp_consent();
@@ -104,7 +104,7 @@ BEGIN
   NEW.recorded_at:=NEW.occurred_at;
  END IF;
  RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER health_cch_e5_session_note_guard
  BEFORE INSERT ON public.health_workout_events FOR EACH ROW
  EXECUTE FUNCTION public.health_cch_e5_validate_session_note();
