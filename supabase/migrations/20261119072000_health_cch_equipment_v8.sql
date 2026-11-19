@@ -19,13 +19,13 @@ CREATE POLICY cch_workout_equipment_insert ON public.health_cch_workout_equipmen
   AND EXISTS (
     SELECT 1 FROM public.health_workout_exercises we
     JOIN public.health_workout_sessions s ON s.id=we.session_id AND s.athlete_id=we.athlete_id
-    WHERE we.id=workout_exercise_id AND we.athlete_id=athlete_id
-      AND we.session_id=session_id AND we.exercise_id=exercise_id
+    WHERE we.id=health_cch_workout_equipment.workout_exercise_id AND we.athlete_id=health_cch_workout_equipment.athlete_id
+      AND we.session_id=health_cch_workout_equipment.session_id AND we.exercise_id=health_cch_workout_equipment.exercise_id
       AND s.status IN ('active','paused') AND s.record_status='active'
   )
   AND NOT EXISTS (
     SELECT 1 FROM public.health_workout_sets ws
-    WHERE ws.workout_exercise_id=workout_exercise_id
+    WHERE ws.workout_exercise_id=health_cch_workout_equipment.workout_exercise_id
   )
 );
 -- No direct updates/deletes. RPC validates matching exercise, athlete, and active session.
