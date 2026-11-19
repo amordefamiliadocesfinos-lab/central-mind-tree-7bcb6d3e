@@ -37,10 +37,11 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
      .select("session_id,status,set_type,reps,rir,load_value,load_unit")
      .eq("athlete_id",athleteId).in("session_id",sessionIds)
      .eq("status","completed").eq("set_type","working")
-     .limit(10001):null;
+     .limit(1000):null;
    if(rows?.error)throw new Error(rows.error.message);
-   const setTruncated=(rows?.data?.length??0)>10000;
-   const mapped=mapM3M4F21Observations(scoped,(rows?.data??[]).slice(0,10000),
+   // Be conservative: Supabase APIs can cap result sets at 1000 rows.
+   const setTruncated=(rows?.data?.length??0)>=1000;
+   const mapped=mapM3M4F21Observations(scoped,(rows?.data??[]),
     templates.data??[],ids,truncated||setTruncated);
    setData(mapped);
   }catch(cause){setError(cause instanceof Error?cause.message:"E3 sem leitura disponível");setData(empty);}

@@ -30,6 +30,7 @@ test("sets must be working completed; incomplete reps or RIR are not comparable"
 test("absence of sets does not infer comparable workout",()=>{
  const v=map([s("a")],[],t,["va"]);
  assert.equal(v.missingWorkingSetData,1);
+ assert.equal(v.observations[0].workingSets,null);
  assert.equal(v.observations[0].exerciseDataComparable,false);
 });
 test("different template version cannot relabel a completed session",()=>{

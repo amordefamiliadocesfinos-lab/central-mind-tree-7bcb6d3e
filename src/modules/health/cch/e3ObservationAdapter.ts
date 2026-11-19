@@ -47,11 +47,11 @@ export function mapM3M4F21Observations(
    ["kg","lb"].includes(set.load_unit??""));
   return {id:s.id,occurredAt:s.started_at,programVersionId:s.program_version_id!,
    sessionCode:matchingTemplate?ownedTemplate.code:"",
-   status:"completed",valid:true,workingSets:working.length,
+   status:"completed",valid:true,workingSets:working.length?working.length:null,
    exerciseDataComparable:comparable,recoveryObserved:false};
  });
  return {observations,totalValidSessions:valid.length,
   uncategorizedSessions:observations.filter(x=>!x.sessionCode).length,
-  missingWorkingSetData:observations.filter(x=>x.workingSets===0).length,
+  missingWorkingSetData:observations.filter(x=>x.workingSets===null).length,
   sourceTruncated};
 }
