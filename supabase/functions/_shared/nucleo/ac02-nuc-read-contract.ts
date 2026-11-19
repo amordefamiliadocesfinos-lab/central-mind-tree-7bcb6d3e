@@ -8,7 +8,8 @@ export type NucContribution={id:string;module_id:string;specialist_role:string;c
 export const validRequest=(value:unknown):boolean=>{
  if(!value||typeof value!=="object"||Array.isArray(value))return false;
  const obj=value as Record<string,unknown>;
- return Object.keys(obj).length===1&&obj.module_id===NUC_MODULE_ID;
+ return obj.module_id===NUC_MODULE_ID&&Object.keys(obj).every(k=>k==="module_id"||k==="include_checkpoint")&&
+  (obj.include_checkpoint===undefined||typeof obj.include_checkpoint==="boolean");
 };
 export const validateFronts=(rows:NucFront[]):boolean=>{
  if(rows.length!==6)return false;

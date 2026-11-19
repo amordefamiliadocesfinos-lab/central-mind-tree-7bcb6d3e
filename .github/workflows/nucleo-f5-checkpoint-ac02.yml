@@ -1,0 +1,28 @@
+name: Núcleo F5 — Checkpoint consultivo AC02
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/nucleo/ac02-f5-checkpoint-contract.ts"
+      - "supabase/functions/_shared/nucleo/ac02-nuc-read-contract.ts"
+      - "supabase/functions/nucleo-ac02-context-read/index.ts"
+      - "src/components/nucleo/NucleoAc02NucContextRead.tsx"
+      - "scripts/nucleo-f5-checkpoint-ac02.test.cjs"
+      - ".github/workflows/nucleo-f5-checkpoint-ac02.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checkpoint-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/nucleo-f5-checkpoint-ac02.test.cjs
+      - run: node scripts/nucleo-ac02-nuc-context.test.cjs
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm run build
