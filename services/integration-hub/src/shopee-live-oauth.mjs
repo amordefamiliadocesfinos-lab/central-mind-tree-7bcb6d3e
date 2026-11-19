@@ -247,8 +247,6 @@ export function createShopeeLiveOauthHandler({
       const cleared = { 'Set-Cookie': clearStateCookie() };
       const target = state?.startsWith('adao.') ? ADAO
         : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;
-      if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
-      if (target === CELIVIO && !celivioConfigured) return rejectCallback('celivio_disabled', 409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.');
       // Fixed rejection reasons for Celivio only. Never log callback query, cookie,
       // authorization code, state, tokens, shop identity, or arbitrary error text.
       const rejectCallback = (reason, status, title, message) => {
@@ -259,6 +257,8 @@ export function createShopeeLiveOauthHandler({
         });
         return html(status, title, message, cleared);
       };
+      if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
+      if (target === CELIVIO && !celivioConfigured) return rejectCallback('celivio_disabled', 409, 'Destino desabilitado', 'A loja Celivio não está confirmada ou habilitada.');
       const queryState = normalizedQuery(request, 'state');
       if (queryState !== null && queryState !== state) return rejectCallback('state_query_mismatch', 409, 'Estado incompatível', 'O callback não corresponde ao navegador que iniciou a autorização.');
       if (['channel_account_id', 'account', 'target', 'partner_id'].some(key => Object.hasOwn(request?.query ?? {}, key))) return rejectCallback('public_target_rejected', 400, 'Destino inválido', 'O destino deve ser resolvido pelo state.');
