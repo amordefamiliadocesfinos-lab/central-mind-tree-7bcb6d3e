@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+"use strict";
+const fs=require("node:fs"),assert=require("node:assert/strict"),ts=require("typescript"),vm=require("node:vm");
+const contract=fs.readFileSync("supabase/functions/_shared/nucleo/ac02-nuc-read-contract.ts","utf8");
+const endpoint=fs.readFileSync("supabase/functions/nucleo-ac02-context-read/index.ts","utf8");
+const ui=fs.readFileSync("src/components/nucleo/NucleoAc02NucContextRead.tsx","utf8");
+const host=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+const transpiled=ts.transpileModule(contract,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(transpiled.diagnostics.filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const moduleExports={};vm.runInNewContext(transpiled.outputText,{exports:moduleExports,Object,Set});
+const api=moduleExports;
+const ID=api.NUC_MODULE_ID,MAP=api.PILOT_CONTRIBUTION_ID;
+assert.equal(api.validRequest({module_id:ID}),true);
+for(const bad of [{},{module_id:"CRM"},{module_id:ID,include_private:true},null,[],{"__proto__":"x"},{}]){
+ if(bad!==null&&Object.keys(bad).length===0||bad===null||Array.isArray(bad)||bad.module_id!==ID)
+  assert.equal(api.validRequest(bad),false);
+}
+const fronts=[0,1,2,3,4,5].map(n=>({id:"front-"+n,code:"NUC-M"+n,kind:"frente",parent_id:ID,title:"Frente",status:"em_validacao",next_action:"Conferir",evidence_state:"comprovada"}));
+assert.equal(api.validateFronts(fronts),true);
+assert.equal(api.validateFronts(fronts.slice(1)),false);
+assert.equal(api.validateFronts([...fronts.slice(0,5),fronts[0]]),false);
+assert.equal(api.validateFronts(fronts.map((x,i)=>i?x:{...x,parent_id:"other"})),false);
+const record={id:MAP,module_id:ID,specialist_role:"Especialista Núcleo 2.0",contribution_kind:"mapa",title:"Mapa",source_kind:"github",source_locator:api.PILOT_MAP_SOURCE,version_no:1,authority_state:"proposta"};
+assert.equal(api.validContribution(record),true);
+assert.equal(api.validContribution({...record,authority_state:"homologado"}),false);
+assert.equal(api.validContribution({...record,source_kind:"referencia_privada"}),false);
+assert.match(endpoint,/db\.auth\.getUser\(token\)/);
+assert.match(endpoint,/\.eq\("capability","nucleo_manage"\)/);
+assert.match(endpoint,/\.is\("revoked_at",null\)/);
+assert.match(endpoint,/\.eq\("module_id",NUC_MODULE_ID\)/);
+assert.match(endpoint,/\.eq\("parent_id",NUC_MODULE_ID\)/);
+assert.match(endpoint,/validateFronts\(/);
+assert.match(endpoint,/validContribution\(/);
+assert.match(endpoint,/count:"exact",head:true/);
+assert.match(endpoint,/status:"consultivo_nao_homologado"/);
+const executable=endpoint.replace(/\/\*[\s\S]*?\*\//g,"").replace(/^\s*\/\/.*$/gm,"");
+assert.doesNotMatch(executable,/service.role|SUPABASE_SERVICE_ROLE|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
+assert.doesNotMatch(executable,/snapshot|source_reference|evidence_note/);
+assert.match(host,/selected\.code==="NUC"&&<NucleoAc02NucContextRead\s*\/>/);
+assert.match(ui,/supabase\.functions\.invoke\("nucleo-ac02-context-read"/);
+assert.match(ui,/getUser\(\)/);
+assert.match(ui,/status==="consultivo_nao_homologado"/);
+console.log("PASS AC02 NUC: contrato fechado, filtros de escopo, JWT, grant, RLS, leitura mínima, negativa de homologação e UI");
