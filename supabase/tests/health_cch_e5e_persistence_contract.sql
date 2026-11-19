@@ -102,7 +102,13 @@ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_versi
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'revoked','e5-lab-v1','2026-11-19T13:00:00Z',
  '{"contract":"cch-e5-consent-v1","explicit_action":true}');
-DO $$BEGIN
+DO $BEGIN
+ IF (SELECT count(*) FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
+  RAISE EXCEPTION 'revoked E5 session review still exposed'; END IF;
+END $;
+DO $BEGIN
  IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  THEN RAISE EXCEPTION 'revocation did not block E5'; END IF;
  IF (SELECT count(*) FROM public.health_consents WHERE consent_type='e5_personalized_review')<>4
@@ -233,6 +239,23 @@ BEGIN
   RAISE EXCEPTION 'E5 historical correction chain not preserved'; END IF;
 END $$;
 
+-- Query-only projection selects the final *unknown* recovery, preserving all 3 events.
+DO $
+DECLARE x record;
+BEGIN
+ SELECT * INTO x FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 'ffffffff-1000-4000-8000-ffffffffffff');
+ IF x.event_id IS NULL OR x.recovery IS DISTINCT FROM 'unknown'
+ OR x.symptoms IS DISTINCT FROM 'unknown' OR x.revision_count<>3 THEN
+  RAISE EXCEPTION 'E5 did not read the latest valid revision';
+ END IF;
+ IF (SELECT count(*) FROM public.health_cch_e5_current_session_review(
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ 'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
+  RAISE EXCEPTION 'cross-athlete session reader leaked';
+ END IF;
+END $;
 -- Regular M4 event remains writable for the owner, with M4 existing contract.
 INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
@@ -247,6 +270,17 @@ DO $$BEGIN
  IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  THEN RAISE EXCEPTION 'anon consent bypass'; END IF; END $$;
 RESET ROLE;
+-- Canonical document digest is checked by PostgreSQL, not just its length.
+DO $BEGIN
+ IF (SELECT policy_digest <> encode(sha256(convert_to(policy_document,'UTF8')),'hex')
+     FROM public.health_cch_e5_policy_registry WHERE status='active') THEN
+   RAISE EXCEPTION 'policy digest does not match canonical bytes';
+ END IF;
+END $;
+SELECT public.e5_expect_failure($q$
+ UPDATE public.health_cch_e5_policy_registry
+ SET policy_document='tampered' WHERE status='active'
+$q$,ARRAY['23514']::text[]);
 -- Governance version switch is a privileged fixture-only action, never client-selectable.
 -- First override any conflicting synthetic history with a fresh explicit grant.
 SET ROLE authenticated;
@@ -259,13 +293,18 @@ DO $$BEGIN
  RAISE EXCEPTION 'fresh current-policy grant not recognized'; END IF;
 END $$;
 SELECT public.e5_expect_failure($q$
- INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,policy_digest)
- VALUES('malicious-v1','active',now(),repeat('b',64))
+ INSERT INTO public.health_cch_e5_policy_registry
+ (policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest)
+ VALUES('malicious-v1','active',now(),now(),
+ '11111111-1111-4111-8111-111111111111','INVALID','Fake',repeat('b',64))
 $q$,ARRAY['42501']::text[]);
 RESET ROLE;
 UPDATE public.health_cch_e5_policy_registry SET status='retired' WHERE status='active';
-INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,policy_digest)
- VALUES('e5-lab-v2','active',clock_timestamp(),repeat('c',64));
+INSERT INTO public.health_cch_e5_policy_registry
+ (policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest)
+ VALUES('e5-lab-v2','active',clock_timestamp(),clock_timestamp(),
+ '11111111-1111-4111-8111-111111111111','CI-SYNTHETIC-ONLY',
+ 'Synthetic policy lab 2',encode(sha256(convert_to('Synthetic policy lab 2','UTF8')),'hex'));
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 DO $$BEGIN
