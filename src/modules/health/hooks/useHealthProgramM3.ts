@@ -271,11 +271,16 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     planned_sets_min: number | null; planned_sets_max: number | null;
     reps_min: number | null; reps_max: number | null;
     rir_target: number | null; rest_seconds: number | null;
-  }) => {
+  }, rationale?: string) => {
     if (!athleteId || state.version?.status !== "draft") throw new Error("Somente rascunhos podem ser editados");
+    const target=state.templateExercises.find(e=>e.id===id &&
+      state.templates.some(t=>t.id===e.session_template_id && t.program_version_id===state.version?.id));
+    if(!target)throw new Error("Exercício não pertence ao rascunho");
+    const notes=rationale?[target.prescription_notes,"CCH E2 · revisão explícita: "+rationale].filter(Boolean).join("\n"):target.prescription_notes;
     await mutate(async () => supabase.from("health_session_template_exercises")
-      .update(patch).eq("id",id).eq("athlete_id",athleteId));
-  }, [athleteId, state.version, mutate]);
+      .update({...patch,prescription_notes:notes}).eq("id",id).eq("athlete_id",athleteId)
+      .eq("session_template_id",target.session_template_id));
+  }, [athleteId, state.version, state.templates, state.templateExercises, mutate]);
 
   const publish = useCallback(async () => {
     if (!state.version) throw new Error("Versão de programa não disponível.");

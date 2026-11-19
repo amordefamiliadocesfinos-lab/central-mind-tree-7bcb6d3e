@@ -1,0 +1,18 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {proposePrescriptionE2} from "../.tmp-health-cch-e2/prescriptionE2.js";
+const item={id:"a",exercise_id:"ex",session_template_id:"t",planned_sets_min:3,planned_sets_max:4,reps_min:6,reps_max:10,rir_target:2,rest_seconds:120};
+const metric={exercise_id:"ex",exposures:4,completed_sets:12,sets_with_rir:11,reps_comparable:12,reps_in_range:11,reps_below_range:0};
+const machine={exercise_id:"ex",equipment_label:"Supino A",load_unit:"kg",exposures:4,candidate_load:82.5};
+const ctx={sourceMatches:true,quality:"reviewable",recovery:"good",pain:"none",negativeSignals:0,goal:"hypertrophy",strategy:"continue_progression"};
+const get=(c=ctx,m=[metric],e=[machine],p=item)=>proposePrescriptionE2([p],m,e,c)[0];
+test("good matching evidence creates a proposal, never a publication",()=>{const a=get();assert.equal(a.decision,"candidate");assert.equal(a.after.reps_max,11);assert.equal(a.before.reps_max,10);assert.equal(a.canPublish,false)});
+test("missing machine never invents a change",()=>assert.equal(get(ctx,[metric],[]).after.reps_max,10));
+test("mixed machines are incomparable",()=>assert.equal(get(ctx,[metric],[machine,{...machine,equipment_label:"Supino B"}]).after.reps_max,10));
+test("recovery unknown prevents progression",()=>assert.equal(get({...ctx,recovery:"unknown"}).decision,"review"));
+test("pain prevents progression",()=>assert.equal(get({...ctx,pain:"pain"}).decision,"review"));
+test("negative trend prevents progression",()=>assert.equal(get({...ctx,negativeSignals:1}).after.reps_max,10));
+test("low confidence conserves advanced training prescription",()=>assert.equal(get({...ctx,quality:"limited"}).after.planned_sets_max,4));
+test("invalid draft prescription needs review",()=>assert.equal(get(ctx,[metric],[machine],{...item,reps_min:12}).decision,"review"));
+test("missing RIR prevents progression",()=>assert.equal(get(ctx,[{...metric,sets_with_rir:1}]).after.reps_max,10));
+test("another goal cannot inherit progression",()=>assert.equal(get({...ctx,goal:"strength"}).after.reps_max,10));
+test("audit source mismatch prevents progression",()=>assert.equal(get({...ctx,sourceMatches:false}).decision,"review"));
