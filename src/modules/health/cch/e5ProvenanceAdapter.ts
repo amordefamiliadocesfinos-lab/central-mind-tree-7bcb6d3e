@@ -50,7 +50,6 @@ export type E5ProvenanceResult={
 
 const isDate=(value:string|null)=>!!value&&!Number.isNaN(Date.parse(value));
 const measured=(value:number|null)=>value!==null&&Number.isFinite(value)&&value>=0;
-const nonempty=(s:string|null)=>typeof s==="string"&&s.trim().length>=2;
 const decisionType="e5_personalized_review";
 
 /** Most recent explicit E5 decision only. Missing, invalid or tied/conflicting
