@@ -21,6 +21,8 @@ import { useHealthLongitudinalReviewF13 } from "../hooks/useHealthLongitudinalRe
 import { useHealthReplanningF14 } from "../hooks/useHealthReplanningF14";
 import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
+import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
+import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
@@ -41,6 +43,11 @@ export function HealthProgramPage() {
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
   const [priorityMuscleId, setPriorityMuscleId] = useState("");
   const [allowTargetedSets, setAllowTargetedSets] = useState(false);
+  const [recoveryReport, setRecoveryReport] = useState<RecoveryReport>("unknown");
+  const [symptomReport, setSymptomReport] = useState<SymptomReport>("unknown");
+  const decisionBrief = useMemo(() => buildCycleDecisionBrief(
+    cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice),
+    [cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice]);
 
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -331,11 +338,45 @@ export function HealthProgramPage() {
                 ) : null}
               </div>
             ) : null}
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">Antes de gerar: como você está agora?</p>
+              <Label>Recuperação recente</Label>
+              <Select value={recoveryReport} onValueChange={value => setRecoveryReport(value as RecoveryReport)}>
+                <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">Não sei / não avaliei</SelectItem>
+                  <SelectItem value="good">Sinto recuperação adequada</SelectItem>
+                  <SelectItem value="poor">Sinto recuperação insuficiente</SelectItem>
+                </SelectContent>
+              </Select>
+              <Label>Dor ou desconforto que interfere no treino</Label>
+              <Select value={symptomReport} onValueChange={value => setSymptomReport(value as SymptomReport)}>
+                <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">Prefiro não informar / não sei</SelectItem>
+                  <SelectItem value="none">Não</SelectItem>
+                  <SelectItem value="pain">Sim</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Estratégia sugerida com essas respostas: {decisionBrief.recommendation === "continue_progression" ? "progressão seletiva" :
+                  decisionBrief.recommendation === "recovery_review" ? "revisão da recuperação" : "consolidação"}.
+              </p>
+              {decisionBrief.reasons.map((reason,index) => (
+                <p className="text-xs text-muted-foreground" key={index}>{reason}</p>
+              ))}
+              {symptomReport === "pain" ? <p className="text-xs text-destructive">
+                O CCH não substituirá avaliação profissional quando há dor que interfere no treino; ajuste ou interrompa exercícios que agravem os sintomas.
+              </p> : null}
+            </div>
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
             <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
-              !!cycleAdvisor.error || cycleAdvisor.generating || program.saving}
+              !!cycleAdvisor.error || cycleAdvisor.generating || program.saving ||
+              ((strategyChoice === "continue_progression" || (goalChoice === "muscle_priority" && allowTargetedSets)) &&
+                (symptomReport !== "none" || recoveryReport !== "good"))}
               onClick={() => void save("Nova versão proposta para revisão; nenhuma sessão foi publicada.", async () => {
-                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId,goalChoice === "muscle_priority" && strategyChoice === "continue_progression" && allowTargetedSets);
+                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId,goalChoice === "muscle_priority" && strategyChoice === "continue_progression" && allowTargetedSets,
+                  recoveryReport,symptomReport);
                 await program.reload();
               })}>
               {cycleAdvisor.generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
