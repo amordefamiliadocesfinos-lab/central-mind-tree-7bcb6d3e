@@ -72,6 +72,8 @@ CREATE POLICY update_e2 ON public.health_session_template_exercises FOR UPDATE T
   WHERE t.id=health_session_template_exercises.session_template_id AND t.athlete_id=health_session_template_exercises.athlete_id
   AND v.athlete_id=health_session_template_exercises.athlete_id AND v.status='draft'));
 GRANT EXECUTE ON FUNCTION public.health_can_write_athlete(uuid) TO authenticated;
+-- Read-only synthetic historical assertions; no write grants.
+GRANT SELECT ON public.health_workout_sessions,public.health_cch_queue_entries TO authenticated;
 
 INSERT INTO auth.users VALUES
  ('11111111-1111-4111-8111-111111111111'),
