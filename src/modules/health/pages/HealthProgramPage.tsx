@@ -39,6 +39,7 @@ export function HealthProgramPage() {
   const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id, program.program?.id);
   const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
+  const [priorityMuscleId, setPriorityMuscleId] = useState("");
 
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -216,6 +217,23 @@ export function HealthProgramPage() {
                     </div>
                   ))}
                 </div>
+                {cycleAdvisor.assessment.frequency_context ? (
+                  <p className="text-muted-foreground">Regularidade: {cycleAdvisor.assessment.frequency_context.completed_sessions} sessões registradas no período observado de {cycleAdvisor.assessment.frequency_context.span_days ?? "—"} dia(s); não representa meta semanal.</p>
+                ) : null}
+                {cycleAdvisor.assessment.muscle_distribution?.length ? (
+                  <div className="space-y-1">
+                    <p className="font-medium">Distribuição observada de séries por grupo muscular principal</p>
+                    {cycleAdvisor.assessment.muscle_distribution.map(item => (
+                      <p key={item.muscle_group_id} className="text-muted-foreground">
+                        {item.muscle_name}: {item.recorded_work_sets} séries realizadas; mínimo planejado na sequência: {item.planned_min_sets_per_sequence}.
+                      </p>
+                    ))}
+                    <p className="text-muted-foreground">Totais da sequência, não volume semanal recomendado. Grupos secundários não são somados.</p>
+                  </div>
+                ) : null}
+                {cycleAdvisor.assessment.goal_specific_guidance?.[goalChoice === "unsure" ? "hypertrophy" : goalChoice] ? (
+                  <p className="text-muted-foreground">{cycleAdvisor.assessment.goal_specific_guidance[goalChoice === "unsure" ? "hypertrophy" : goalChoice]}</p>
+                ) : null}
                 {cycleAdvisor.assessment.recovery_context ? <p className="text-muted-foreground">Recuperação: existe registro recente de {cycleAdvisor.assessment.recovery_context.as_of_date}; interpretar cobertura e percepção antes de alterar estímulos.</p> : <p className="text-muted-foreground">Recuperação: sem informação recente suficiente para justificar mudanças.</p>}
                 {cycleAdvisor.assessment.limitations.map((text, index) => <p key={index} className="text-muted-foreground">{text}</p>)}
                 <p className="text-muted-foreground">Fase registrada: {phaseLabel}. Nível: {trainingProfile.profile?.training_level ?? "não informado"}.</p>
@@ -263,11 +281,25 @@ export function HealthProgramPage() {
                 <p className="text-xs text-muted-foreground">{guidedStrategies.find(s => s.value === strategyChoice)?.detail}</p>
               </div>
             )}
+            {goalChoice === "muscle_priority" ? (
+              <div className="space-y-2">
+                <Label>Qual grupo muscular deseja priorizar?</Label>
+                <Select value={priorityMuscleId} onValueChange={setPriorityMuscleId}>
+                  <SelectTrigger className="min-h-11"><SelectValue placeholder="Selecione um grupo do programa"/></SelectTrigger>
+                  <SelectContent>
+                    {cycleAdvisor.assessment.muscle_distribution?.map(item => (
+                      <SelectItem key={item.muscle_group_id} value={item.muscle_group_id}>{item.muscle_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">A escolha altera a prioridade do rascunho; a distribuição de volume precisará ser revisada antes da publicação.</p>
+              </div>
+            ) : null}
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
-            <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || cycleAdvisor.loading ||
+            <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
               !!cycleAdvisor.error || cycleAdvisor.generating || program.saving}
               onClick={() => void save("Nova versão proposta para revisão; nenhuma sessão foi publicada.", async () => {
-                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice);
+                await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId);
                 await program.reload();
               })}>
               {cycleAdvisor.generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
