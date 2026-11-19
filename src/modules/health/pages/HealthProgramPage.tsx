@@ -23,6 +23,7 @@ import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useC
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
 import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
 import { evaluateV9 } from "../cch/motorV9Decision";
+import { interpretExecution } from "../cch/executionEvidence";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -275,6 +276,23 @@ export function HealthProgramPage() {
                         {v.inference}
                       </p>
                     ))}
+                  </div>
+                ) : null}
+                {cycleAdvisor.assessment.execution_coverage ? (
+                  <div className="space-y-2">
+                    <p className="font-medium">Execução real — evidência M4 (V10)</p>
+                    {cycleAdvisor.assessment.execution_coverage.exercise_metrics.length===0 ?
+                      <p className="text-muted-foreground">Não há séries válidas comparáveis neste programa.</p> :
+                      cycleAdvisor.assessment.execution_coverage.exercise_metrics.slice(0,12).map(item=>{
+                        const view=interpretExecution(item);
+                        return <p key={item.exercise_id} className="text-muted-foreground">
+                          {exerciseNameById.get(item.exercise_id)??"Exercício"}: {item.exposures} sessão(ões),
+                          {item.completed_sets} séries; reps registradas {Math.round(view.repsCoverage*100)}%;
+                          RIR registrado {Math.round(view.rirCoverage*100)}%;
+                          {view.rangeAdherence===null?" sem faixa prescrita comparável":` ${Math.round(view.rangeAdherence*100)}% das séries comparáveis na faixa`};
+                          classificação {view.signal}. Não equivale a recuperação ou técnica comprovada.
+                        </p>;
+                      })}
                   </div>
                 ) : null}
                 {cycleAdvisor.assessment.equipment_provenance ? (

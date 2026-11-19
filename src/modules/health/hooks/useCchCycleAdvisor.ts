@@ -33,6 +33,7 @@ export type Assessment = {
   multi_cycle_versions?: Array<{version_id:string;version_number:number;sessions:number}>;
   multi_cycle_volume?: Array<{version_number:number;muscle_id:string;muscle_name:string;work_sets:number;sessions:number;observed_per_7_days:number|null;note:string}>;
   periodization_mode?: string;
+  execution_coverage?: {engine_version:string;exercise_metrics:Array<{exercise_id:string;exposures:number;completed_sets:number;sets_with_reps:number;sets_with_rir:number;reps_comparable:number;reps_in_range:number;reps_below_range:number;reps_above_range:number;rir_comparable:number;rir_below_plan:number;rir_at_or_above_plan:number;interpretation:string}>};
   muscle_volume_response_review?: Array<{muscle_id:string;muscle_name:string;comparable_versions:number;recent_observed_sets_per_7_days:number|null;previous_observed_sets_per_7_days:number|null;observation:string;inference:string}>;
   periodization_decision?: {phase:string;completed_versions:number;recovery_context_sufficient:boolean;negative_performance_signals:number;review_after_completed_sessions:number};
   equipment_provenance?: {engine_version:string;historical_unidentified_sessions_are_ineligible:boolean;
@@ -68,7 +69,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
     setLoading(true);setError(null);
     try{
-      const result=await supabase.rpc("health_cch_assess_cycle_v8" as never, {p_program_id:programId} as never);
+      const result=await supabase.rpc("health_cch_assess_cycle_v10" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
@@ -116,7 +117,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v9" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v10" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
           p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets,
           p_recovery_report:recovery,p_symptom_report:symptoms} as never);
