@@ -417,3 +417,119 @@ test('Celivio callback rejects another shop ID before token exchange', async () 
   assert.equal(f.connections.length, 0);
   assert.equal(f.snapshots.length, 0);
 });
+
+// PR #951 compatibility: sanitized Celivio rejection diagnostics preserved verbatim.
+test('Celivio callback rejection logs fixed reason without secrets or identifiers', async () => {
+  const getEnv = key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+    : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? '1357031949' : adaoEnv(key);
+  const events = [];
+  const seen = [];
+  const handler = createShopeeLiveOauthHandler({
+    getEnv,
+    logger: value => events.push(value),
+    consumeState: async () => {
+      seen.push('consumed');
+      return { ok: true, payload: { channel_account_id: 'd26c7a30-aa4a-4441-8012-600d70453689' } };
+    },
+    exchange: async () => { seen.push('exchanged'); throw Error('exchange must not run'); },
+  });
+  const cookie = '__Host-pc_shopee_live_state=celivio.sensitive-state-value';
+  const wrongShop = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback',
+    headers: { cookie },
+    query: { code: 'sensitive-oauth-code', shop_id: '1156446003' },
+  });
+  assert.equal(wrongShop.status, 409);
+  assert.deepEqual(seen, ['consumed']);
+  assert.deepEqual(events, [{
+    event: 'shopee_live_celivio_oauth_rejected',
+    reason: 'callback_shop_mismatch',
+    status: 409,
+  }]);
+  assert.doesNotMatch(JSON.stringify(events), /sensitive|1156446003|1357031949|d26c7a30/);
+});
+
+test('Celivio callback distinguishes 400 missing fields, 409 state mismatch and disabled gate', async () => {
+  const events = [];
+  let consumed = 0;
+  const getEnv = key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+    : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? '1357031949' : adaoEnv(key);
+  const handler = createShopeeLiveOauthHandler({
+    getEnv, logger: value => events.push(value),
+    consumeState: async () => { consumed++; return { ok: false, status: 409 }; },
+  });
+  const cookie = '__Host-pc_shopee_live_state=celivio.sensitive-state-value';
+  const call = query => handler({
+    method: 'GET', path: '/shopee/live/oauth/callback', headers: { cookie }, query,
+  });
+  assert.equal((await call({ shop_id: '1357031949' })).status, 400);
+  assert.equal((await call({ code: 'sensitive-oauth-code', shop_id: '1357031949', state: 'different-state' })).status, 409);
+  assert.equal((await call({ code: 'sensitive-oauth-code', shop_id: '1357031949' })).status, 409);
+  assert.equal(consumed, 1);
+  assert.deepEqual(events.map(x => x.reason), [
+    'callback_missing_required',
+    'state_query_mismatch',
+    'state_invalid_or_consumed',
+  ]);
+  assert.ok(events.every(x => Object.keys(x).sort().join(',') === 'event,reason,status'));
+  assert.doesNotMatch(JSON.stringify(events), /sensitive|1357031949/);
+
+  const disabledEvents = [];
+  const disabled = createShopeeLiveOauthHandler({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'false' : getEnv(key),
+    logger: value => disabledEvents.push(value),
+    consumeState: async () => { throw Error('must not consume disabled destination'); },
+  });
+  const disabledResult = await disabled({
+    method: 'GET', path: '/shopee/live/oauth/callback',
+    headers: { cookie }, query: { code: 'sensitive-oauth-code', shop_id: '1357031949' },
+  });
+  assert.equal(disabledResult.status, 409);
+  assert.deepEqual(disabledEvents, [{
+    event: 'shopee_live_celivio_oauth_rejected', reason: 'celivio_disabled', status: 409,
+  }]);
+});
+
+test('OAuth rejection diagnostics do not emit Celivio events for other accounts', async () => {
+  const events = [];
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: adaoEnv,
+    logger: value => events.push(value),
+    consumeState: async () => ({ ok: false, status: 409 }),
+  });
+  const result = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback',
+    headers: { cookie: '__Host-pc_shopee_live_state=adao.some-state' },
+    query: { code: 'non-sensitive-example', shop_id: '1156446003' },
+  });
+  assert.equal(result.status, 409);
+  assert.deepEqual(events, []);
+});
+
+test('Celivio diagnostic logger failure cannot change a rejected callback response', async () => {
+  let consumed = 0;
+  const handler = createShopeeLiveOauthHandler({
+    getEnv: key => key === 'SHOPEE_LIVE_CELIVIO_OAUTH_ENABLED' ? 'true'
+      : key === 'SHOPEE_LIVE_CELIVIO_SHOP_ID' ? '1357031949' : adaoEnv(key),
+    logger: () => { throw Error('synthetic logging outage'); },
+    consumeState: async () => {
+      consumed++;
+      return { ok: false, status: 409 };
+    },
+  });
+  const headers = { cookie: '__Host-pc_shopee_live_state=celivio.synthetic-state' };
+  const invalidState = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback', headers,
+    query: { code: 'synthetic-code', shop_id: '1357031949' },
+  });
+  assert.equal(invalidState.status, 409);
+  assert.equal(consumed, 1);
+  assert.match(invalidState.body, /Autorização Shopee expirada/);
+  const invalidRequest = await handler({
+    method: 'GET', path: '/shopee/live/oauth/callback', headers,
+    query: { shop_id: '1357031949' },
+  });
+  assert.equal(invalidRequest.status, 400);
+  assert.equal(consumed, 1);
+  assert.match(invalidRequest.body, /Autorização Shopee incompleta/);
+});
