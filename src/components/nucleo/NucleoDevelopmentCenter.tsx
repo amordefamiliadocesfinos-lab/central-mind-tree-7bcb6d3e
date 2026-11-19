@@ -16,6 +16,7 @@ import NucleoPanoramaDinV30, { moduleIdForWorkstream } from "@/components/nucleo
 import NucleoFocusPreviewV30 from "@/components/nucleo/NucleoFocusPreviewV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
+import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -91,6 +92,7 @@ export default function NucleoDevelopmentCenter() {
   const [atlasExpanded,setAtlasExpanded] = useState(false);
   const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0);
   const [returnToAtlas,setReturnToAtlas] = useState(false);
+  const [atlasNavigationRequest,setAtlasNavigationRequest] = useState(0);
   const [lastOpenedId,setLastOpenedId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
@@ -213,6 +215,18 @@ export default function NucleoDevelopmentCenter() {
       priorityRank[a.priority] - priorityRank[b.priority] ||
       a.code.localeCompare(b.code, "pt-BR"));
   }, [visible,attentionStatus,moduleFocusId,specialistFocus]);
+
+  // Focar após montagem da ficha; o contador atende inclusive um segundo clique na mesma frente.
+  useEffect(() => {
+    if (!atlasNavigationRequest || workspaceView !== "frentes") return;
+    const frame = requestAnimationFrame(() => {
+      const detail = document.getElementById("nucleo-m3-workstream-detail");
+      if (!detail) return;
+      detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      detail.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [atlasNavigationRequest, workspaceView, selectedId]);
 
   const choose = (id: string): boolean => {
     if (id === selectedId) { setReturnToAtlas(false); return true; }
@@ -545,7 +559,7 @@ export default function NucleoDevelopmentCenter() {
               if (!choose(id)) return;
               setReturnToAtlas(true);
               setWorkspaceView("frentes");
-              requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));
+              setAtlasNavigationRequest(value => value + 1);
             }}/>}
         </div>
       </div>
@@ -891,7 +905,7 @@ export default function NucleoDevelopmentCenter() {
           })}
         </div>
       </section>}
-        <Card id="nucleo-m3-workstream-detail" className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
+        <Card id="nucleo-m3-workstream-detail" tabIndex={-1} className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
@@ -937,6 +951,8 @@ export default function NucleoDevelopmentCenter() {
               </p>}
               <div className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-xs font-semibold text-[#174ea6] dark:text-blue-200">PRÓXIMA AÇÃO · EDITÁVEL</p>
+                {managerActionExplanation(selected)&&<p className="text-sm leading-relaxed"><strong>O que verificar:</strong> {managerActionExplanation(selected)}</p>}
+                {managerActionExplanation(selected)&&<p className="text-xs text-muted-foreground">Registro técnico original preservado abaixo:</p>}
                 <p className="whitespace-pre-wrap break-words text-sm">
                   {(edit.next_action||"").trim()||"Nenhuma próxima ação registrada nesta frente."}
                 </p>
