@@ -239,23 +239,6 @@ BEGIN
   RAISE EXCEPTION 'E5 historical correction chain not preserved'; END IF;
 END $$;
 
--- Query-only projection selects the final *unknown* recovery, preserving all 3 events.
-DO $$
-DECLARE x record;
-BEGIN
- SELECT * INTO x FROM public.health_cch_e5_current_session_review(
- 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
- 'ffffffff-1000-4000-8000-ffffffffffff');
- IF x.event_id IS NULL OR x.recovery IS DISTINCT FROM 'unknown'
- OR x.symptoms IS DISTINCT FROM 'unknown' OR x.revision_count<>3 THEN
-  RAISE EXCEPTION 'E5 did not read the latest valid revision';
- END IF;
- IF (SELECT count(*) FROM public.health_cch_e5_current_session_review(
- 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
- 'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
-  RAISE EXCEPTION 'cross-athlete session reader leaked';
- END IF;
-END $$;
 -- Regular M4 event remains writable for the owner, with M4 existing contract.
 INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
@@ -292,6 +275,23 @@ DO $$BEGIN
  IF NOT public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') THEN
  RAISE EXCEPTION 'fresh current-policy grant not recognized'; END IF;
 END $$;
+-- Query-only projection selects the final *unknown* recovery, preserving all 3 events.
+DO $
+DECLARE x record;
+BEGIN
+ SELECT * INTO x FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 'ffffffff-1000-4000-8000-ffffffffffff');
+ IF x.event_id IS NULL OR x.recovery IS DISTINCT FROM 'unknown'
+ OR x.symptoms IS DISTINCT FROM 'unknown' OR x.revision_count<>3 THEN
+  RAISE EXCEPTION 'E5 did not read the latest valid revision';
+ END IF;
+ IF (SELECT count(*) FROM public.health_cch_e5_current_session_review(
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ 'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
+  RAISE EXCEPTION 'cross-athlete session reader leaked';
+ END IF;
+END $;
 SELECT public.e5_expect_failure($q$
  INSERT INTO public.health_cch_e5_policy_registry
  (policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest)
