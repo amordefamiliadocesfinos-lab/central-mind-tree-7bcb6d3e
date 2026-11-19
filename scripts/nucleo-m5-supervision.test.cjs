@@ -536,7 +536,14 @@ assert.match(ac01UI,/Não repetir sem reconciliação|Não repita a proposta/);
 // AC-01: contribuição inicial requer proposta; revisão vinculada requer
 // em_evolucao. O teste antigo checava apenas o literal da proposta e rejeitava
 // indevidamente o readback condicional já contratado na main.
-assert.ok(ac01UI.includes('check.data.authority_state!==(parent?"em_evolucao":"proposta")'));
+// O readback vigente compara o snapshot completo da tentativa (incluindo
+// "proposta" para inicial e "em_evolucao" para revisão), não apenas o estado.
+assert.match(ac01UI,/authorityState:parent\?"em_evolucao":"proposta"/);
+assert.match(ac01UI,/row\.authority_state===attempt\.authorityState/);
+for(const key of ["request_id","module_id","specialist_role","contribution_kind","title","source_kind","source_locator","source_checksum_sha256","note","parent_revision_id","version_no"]){
+  assert.ok(ac01UI.includes("row."+key+"===attempt."), "Readback AC-01 deve conferir "+key);
+}
+assert.match(ac01UI,/!isMatchingPendingAttempt\(check\.data,attempt\)/);
 assert.ok(!ac01UI.includes('check.data.authority_state!=="proposta"'));
 assert.doesNotMatch(ac01UI,/\.update\(|\.delete\(|\.upsert\(/);
 const ac01MainAtlas=fs.readFileSync("src/components/nucleo/NucleoOperationalAtlas.tsx","utf8");
