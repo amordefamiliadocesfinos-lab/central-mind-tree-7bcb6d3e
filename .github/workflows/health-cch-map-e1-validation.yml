@@ -1,0 +1,28 @@
+name: CCH Frozen Map E1 Simulator
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/cchScopeSimulator.ts'
+      - 'scripts/health-cch-map-e1.test.mjs'
+      - '.github/workflows/health-cch-map-e1-validation.yml'
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compile isolated CCH simulator
+        run: |
+          rm -rf .tmp-cch-map-frozen
+          npx tsc src/modules/health/cch/cchScopeSimulator.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-map-frozen --skipLibCheck
+      - run: node --test scripts/health-cch-map-e1.test.mjs
+      - run: npx eslint src/modules/health/cch/cchScopeSimulator.ts
+      - run: npm run build
