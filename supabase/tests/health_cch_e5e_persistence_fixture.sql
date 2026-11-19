@@ -2,27 +2,111 @@
 ALTER TABLE public.health_athletes ADD COLUMN auth_user_id uuid REFERENCES auth.users(id);
 UPDATE public.health_athletes SET auth_user_id=owner_auth_user_id;
 INSERT INTO auth.users VALUES ('33333333-3333-4333-8333-333333333333');
--- Coach has delegated management/write permissions to A only. Is NOT athlete A.
-CREATE OR REPLACE FUNCTION public.health_can_manage_athlete_access(p_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
- SELECT public.health_can_write_athlete(p_id) OR
-  (auth.uid()='33333333-3333-4333-8333-333333333333'::uuid AND
-   p_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)
+-- Faithful copied M0 permission functions; no synthetic 'coach bypass' shortcut.
+ALTER TABLE public.health_athletes ADD COLUMN status text NOT NULL DEFAULT 'active';
+CREATE TABLE public.health_athlete_access(
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ athlete_id uuid NOT NULL REFERENCES public.health_athletes(id),
+ principal_auth_user_id uuid NOT NULL REFERENCES auth.users(id),
+ access_role text NOT NULL CHECK(access_role IN('athlete','owner','coach','guardian')),
+ can_read boolean NOT NULL DEFAULT true,can_write boolean NOT NULL DEFAULT false,
+ can_manage_access boolean NOT NULL DEFAULT false,
+ revoked_at timestamptz
+);
+-- Delegation to coach has all three permissions, but never equals subject identity.
+INSERT INTO public.health_athlete_access(athlete_id,principal_auth_user_id,access_role,
+ can_read,can_write,can_manage_access)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ '33333333-3333-4333-8333-333333333333','coach',true,true,true);
+-- Official M0 helper bodies (read/write/manage).
+CREATE OR REPLACE FUNCTION public.health_can_read_athlete(p_athlete_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.health_athletes ha
+        WHERE ha.id = p_athlete_id
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
+          AND ha.status <> 'archived'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.health_athlete_access haa
+        WHERE haa.athlete_id = p_athlete_id
+          AND haa.principal_auth_user_id = auth.uid()
+          AND haa.revoked_at IS NULL
+          AND haa.can_read = true
+      )
+    );
 $$;
-CREATE OR REPLACE FUNCTION public.health_can_write_athlete(p_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
- SELECT auth.uid() IS NOT NULL AND (EXISTS
-  (SELECT 1 FROM public.health_athletes a WHERE a.id=p_id
-   AND a.owner_auth_user_id=auth.uid()) OR
-  (auth.uid()='33333333-3333-4333-8333-333333333333'::uuid
-   AND p_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))
+
+CREATE OR REPLACE FUNCTION public.health_can_write_athlete(p_athlete_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.health_athletes ha
+        WHERE ha.id = p_athlete_id
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
+          AND ha.status <> 'archived'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.health_athlete_access haa
+        WHERE haa.athlete_id = p_athlete_id
+          AND haa.principal_auth_user_id = auth.uid()
+          AND haa.revoked_at IS NULL
+          AND haa.can_write = true
+      )
+    );
 $$;
-CREATE OR REPLACE FUNCTION public.health_can_read_athlete(p_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
- SELECT public.health_can_write_athlete(p_id)
+
+CREATE OR REPLACE FUNCTION public.health_can_manage_athlete_access(p_athlete_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.health_athletes ha
+        WHERE ha.id = p_athlete_id
+          AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
+          AND ha.status <> 'archived'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.health_athlete_access haa
+        WHERE haa.athlete_id = p_athlete_id
+          AND haa.principal_auth_user_id = auth.uid()
+          AND haa.revoked_at IS NULL
+          AND haa.can_manage_access = true
+      )
+    );
 $$;
-GRANT EXECUTE ON FUNCTION public.health_can_manage_athlete_access(uuid),
- public.health_can_read_athlete(uuid),public.health_can_write_athlete(uuid) TO authenticated;
+
+
+GRANT EXECUTE ON FUNCTION public.health_can_read_athlete(uuid),
+ public.health_can_write_athlete(uuid),
+ public.health_can_manage_athlete_access(uuid) TO authenticated;
 
 CREATE TABLE public.health_consents(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
