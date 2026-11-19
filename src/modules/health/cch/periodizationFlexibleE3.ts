@@ -75,7 +75,10 @@ function positiveInteger(value:number|null):value is number {
  return typeof value==="number"&&Number.isInteger(value)&&value>=0;
 }
 export function assessFlexiblePeriodizationE3(input:FlexibleContext):E3Result {
- const valid=input.sessions.filter(s=>s.valid&&s.status==="completed"&&!!s.programVersionId);
+ // Observe only sessions belonging to the version under review. A later or
+ // earlier published cycle must never inflate coverage, volume, or readiness.
+ const valid=input.sessions.filter(s=>s.valid&&s.status==="completed"&&
+   !!input.sourceVersionId&&s.programVersionId===input.sourceVersionId);
  const uniqueIds=new Map<string,SessionObservation>();
  for(const session of valid) if(!uniqueIds.has(session.id))uniqueIds.set(session.id,session);
  const completed=[...uniqueIds.values()];
