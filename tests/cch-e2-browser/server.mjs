@@ -84,9 +84,9 @@ const httpServer=http.createServer(async(req,res)=>{
     beforeKeys:Object.keys(input.before??{}),afterKeys:Object.keys(input.after??{}),
     before:input.before,after:input.after
    }));
-   const value=await asAthlete(user,async tx=>tx.unsafe(
-    "SELECT public.health_cch_e2_update_draft_prescription($1::uuid,$2::uuid,$3::jsonb,$4::jsonb,$5::text) AS result",
-    [input.id,input.versionId,JSON.stringify(input.before),JSON.stringify(input.after),input.reason]));
+   const value=await asAthlete(user,async tx=>tx`SELECT public.health_cch_e2_update_draft_prescription(
+     ${input.id}::uuid,${input.versionId}::uuid,${tx.json(input.before)},${tx.json(input.after)},${input.reason}
+   ) AS result`);
    return respond(res,200,value[0]?.result??{});
   }
   if(pathname==="/api/structure"){

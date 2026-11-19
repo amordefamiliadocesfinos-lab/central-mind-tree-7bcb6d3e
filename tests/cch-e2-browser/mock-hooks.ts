@@ -62,7 +62,8 @@ export function useHealthProgramM3(athleteId?:string|null){
    const current=state.templateExercises.find(x=>x.id===id);
    if(!current||state.version?.status!=="draft")throw new Error("Somente rascunho ativo");
    const keys=["planned_sets_min","planned_sets_max","reps_min","reps_max","rir_target","rest_seconds"];
-   const before=Object.fromEntries(keys.map(key=>[key,current[key]??null]));
+   const before=Object.fromEntries(keys.map(key=>[key,
+     current[key]===undefined||current[key]===null?null:Number(current[key])]));
    await mutate("edit",{id,versionId:state.version.id,before,after:patch,reason});
  },[state,mutate]);
  const editExerciseStructure=useCallback(async(id:string,operation:"replace"|"swap",reason:string,other?:string,replacement?:string)=>{
