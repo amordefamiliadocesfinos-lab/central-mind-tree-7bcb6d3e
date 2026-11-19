@@ -1,0 +1,25 @@
+name: CCH E5 Longitudinal Evidence Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/longitudinalEvidenceE5.ts'
+      - 'scripts/health-cch-e5-evidence.test.mjs'
+      - '.github/workflows/health-cch-e5-evidence.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-cch-e5
+          npx tsc src/modules/health/cch/longitudinalEvidenceE5.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e5 --skipLibCheck
+      - run: node --test scripts/health-cch-e5-evidence.test.mjs
+      - run: npx eslint src/modules/health/cch/longitudinalEvidenceE5.ts
+      - run: npm run build
