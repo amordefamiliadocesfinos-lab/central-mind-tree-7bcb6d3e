@@ -11,6 +11,10 @@ DECLARE
   v_program public.health_programs%ROWTYPE;
   v_draft uuid;
   v_guarded boolean;
+  v_assessment jsonb;
+  v_negative integer;
+  v_candidates integer;
+  v_repeated integer;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'authentication required'; END IF;
   IF p_recovery_report IS NULL OR p_recovery_report NOT IN ('good','poor','unknown')
@@ -24,6 +28,23 @@ BEGIN
   v_guarded := p_recovery_report<>'good' OR p_symptom_report<>'none';
   IF v_guarded AND (p_strategy='continue_progression' OR coalesce(p_allow_targeted_set_proposal,false)) THEN
     RAISE EXCEPTION 'current recovery or symptoms require conservative strategy; choose consolidate/recovery review';
+  END IF;
+  v_assessment := public.health_cch_assess_cycle_v5(p_program_id);
+  SELECT count(*) INTO v_negative FROM jsonb_array_elements(
+    coalesce(v_assessment->'load_trends','[]'::jsonb)) e
+    WHERE e->>'signal' IN ('review','load_decreased_observed');
+  SELECT count(*) INTO v_candidates FROM jsonb_array_elements(
+    coalesce(v_assessment->'exercise_assessments','[]'::jsonb)) e
+    WHERE e->>'decision'='progress_candidate';
+  v_repeated:=coalesce((v_assessment->'data_quality'->>'comparable_exercise_units')::integer,0);
+  IF p_strategy='continue_progression' AND (
+    v_assessment->'data_quality'->>'status' IS DISTINCT FROM 'reviewable'
+    OR v_negative>0 OR (v_candidates=0 AND v_repeated<2)
+  ) THEN
+    RAISE EXCEPTION 'insufficient or conflicting evidence for automated progression; choose consolidation/review';
+  END IF;
+  IF coalesce(p_allow_targeted_set_proposal,false) AND v_candidates=0 THEN
+    RAISE EXCEPTION 'no evidence-based exercise eligible for a volume progression proposal';
   END IF;
   -- Existing V5 owns program, queue, version and audit constraints; a guarded selection
   -- never calls the V2 automatic rep progression branch.

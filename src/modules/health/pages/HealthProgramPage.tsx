@@ -372,8 +372,8 @@ export function HealthProgramPage() {
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
             <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
               !!cycleAdvisor.error || cycleAdvisor.generating || program.saving ||
-              ((strategyChoice === "continue_progression" || (goalChoice === "muscle_priority" && allowTargetedSets)) &&
-                (symptomReport !== "none" || recoveryReport !== "good"))}
+              ((strategyChoice === "continue_progression" && !decisionBrief.allowProgression) ||
+                (goalChoice === "muscle_priority" && allowTargetedSets && !decisionBrief.allowVolumeProposal))}
               onClick={() => void save("Nova versão proposta para revisão; nenhuma sessão foi publicada.", async () => {
                 await cycleAdvisor.generate(program.program!.id, goalChoice as GuidedGoal, strategyChoice, priorityMuscleId,goalChoice === "muscle_priority" && strategyChoice === "continue_progression" && allowTargetedSets,
                   recoveryReport,symptomReport);
