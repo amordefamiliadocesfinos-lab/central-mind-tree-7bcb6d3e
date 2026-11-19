@@ -49,13 +49,13 @@ try{
  await page.getByRole("button",{name:"Descer na sessão"}).first().click();
  await page.getByPlaceholder("Justificativa da troca/ordem (mín. 10 caracteres)").fill("Posição priorizada para o teste isolado");
  await page.getByRole("button",{name:"Confirmar no rascunho"}).click();
- await page.getByText("E2: ajuste de rascunho registrado.").waitFor();
+ await page.getByText("E2: ajuste de rascunho registrado.",{exact:true}).first().waitFor();
  check((await audit()).rows.find(x=>x.id===target)?.sequence_order===2,"sequence swap not persisted");
  await snap("04-e2-ordem");
  await page.getByRole("button",{name:/Supino máquina B.*provisional/}).first().click();
  await page.getByPlaceholder("Justificativa da troca/ordem (mín. 10 caracteres)").fill("Substituição provisória aceita apenas no laboratório");
  await page.getByRole("button",{name:"Confirmar no rascunho"}).click();
- await page.getByText("E2: ajuste de rascunho registrado.").waitFor();
+ await page.getByText("E2: ajuste de rascunho registrado.",{exact:true}).first().waitFor();
  const replaced=(await audit()).rows.find(x=>x.id===target);
  check(replaced.exercise_id==="cccccccc-2000-4000-8000-cccccccccccc","replacement not persisted");
  check(replaced.prescription_notes.includes("provisional"),"provisional classification missing");
