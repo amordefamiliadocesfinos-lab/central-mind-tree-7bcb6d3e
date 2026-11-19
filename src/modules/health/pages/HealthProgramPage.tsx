@@ -841,6 +841,9 @@ export function HealthProgramPage() {
                                   setEditReason("");
                                   setEditId(null);
                                 })}>Salvar ajustes</Button>
+                                <Button variant="outline" onClick={()=>{
+                                  setEditId(null);setE2Reason(null);setEditReason("");
+                                }}>Cancelar revisão sem salvar</Button>
                               </div> : null}
                             </div> : null}
 
