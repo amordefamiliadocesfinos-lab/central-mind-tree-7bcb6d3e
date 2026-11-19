@@ -23,13 +23,15 @@ INSERT INTO f12_lab.assignments VALUES
  ('40000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000003','30000000-0000-4000-8000-000000000003','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','collaborator',NULL,'synthetic://prov/assignment-c','active',now()-interval '1 day',NULL,NULL),
  ('40000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000004','30000000-0000-4000-8000-000000000004','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','collaborator',NULL,'synthetic://prov/expired','active',now()-interval '5 days',now()-interval '1 day',NULL),
  ('40000000-0000-4000-8000-000000000006','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000005','30000000-0000-4000-8000-000000000005','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','collaborator',NULL,'synthetic://prov/revoked','active',now()-interval '5 days',NULL,NULL);
-INSERT INTO f12_lab.read_grants VALUES
+INSERT INTO f12_lab.read_grants (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,revoked_at,decision_ref,granting_actor_ref) VALUES
  ('50000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','read_context',now()-interval '1 day',now()-interval '1 day',NULL,NULL,'synthetic://decision/a','synthetic://grantor/steward'),
  ('50000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001','read_context',now()-interval '1 day',now()-interval '1 day',NULL,NULL,'synthetic://decision/a-crm','synthetic://grantor/steward'),
  ('50000000-0000-4000-8000-000000000003','40000000-0000-4000-8000-000000000003','30000000-0000-4000-8000-000000000002','read_context',now()-interval '1 day',now()-interval '1 day',NULL,NULL,'synthetic://decision/b','synthetic://grantor/steward'),
  ('50000000-0000-4000-8000-000000000004','40000000-0000-4000-8000-000000000004','30000000-0000-4000-8000-000000000003','read_context',now()-interval '1 day',now()-interval '1 day',NULL,NULL,'synthetic://decision/c','synthetic://grantor/steward'),
  ('50000000-0000-4000-8000-000000000005','40000000-0000-4000-8000-000000000005','30000000-0000-4000-8000-000000000004','read_context',now()-interval '5 days',now()-interval '5 days',NULL,NULL,'synthetic://decision/expired','synthetic://grantor/steward'),
- ('50000000-0000-4000-8000-000000000006','40000000-0000-4000-8000-000000000006','30000000-0000-4000-8000-000000000005','read_context',now()-interval '5 days',now()-interval '5 days',NULL,now()-interval '1 day','synthetic://decision/revoked','synthetic://grantor/steward');
+ ('50000000-0000-4000-8000-000000000006','40000000-0000-4000-8000-000000000006','30000000-0000-4000-8000-000000000005','read_context',now()-interval '5 days',now()-interval '5 days',NULL,NULL,'synthetic://decision/revoked','synthetic://grantor/steward');
+UPDATE f12_lab.read_grants SET revoked_at=now(), revoked_by_actor_ref='synthetic://revoker/steward',revocation_decision_ref='synthetic://decision/revoke-initial'
+ WHERE id='50000000-0000-4000-8000-000000000006';
 INSERT INTO f12_lab.context_cards VALUES
  ('60000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','checkpoint','synthetic NUC governance','synthetic://source/nuc'),
  ('60000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000011','checkpoint','synthetic CRM governance','synthetic://source/crm'),
@@ -69,7 +71,7 @@ BEGIN
  RAISE EXCEPTION 'foreign front unexpectedly allowed';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='foreign front unexpectedly allowed' THEN RAISE; END IF; END;
  BEGIN
- INSERT INTO f12_lab.read_grants VALUES
+ INSERT INTO f12_lab.read_grants (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,revoked_at,decision_ref,granting_actor_ref) VALUES
  ('50000000-0000-4000-8000-000000000099','40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002','read_context',now(),now(),NULL,NULL,'synthetic://decision/other','synthetic://grantor/other');
  RAISE EXCEPTION 'cross-actor grant unexpectedly allowed';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='cross-actor grant unexpectedly allowed' THEN RAISE; END IF; END;
@@ -85,7 +87,7 @@ DO $$BEGIN
  IF (SELECT count(*) FROM f12_lab.context_cards)<>2 THEN RAISE EXCEPTION 'actor-A 2 contexts expected'; END IF;
  IF (SELECT count(*) FROM f12_lab.context_cards WHERE specialty_id='10000000-0000-4000-8000-000000000002')<>0 THEN RAISE EXCEPTION 'cross specialty leak'; END IF;
  BEGIN
-  INSERT INTO f12_lab.read_grants VALUES('50000000-0000-4000-8000-000000000098','40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','read_context',now(),now(),NULL,NULL,'synthetic://decision/forged','synthetic://grantor/forged');
+  INSERT INTO f12_lab.read_grants (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,revoked_at,decision_ref,granting_actor_ref) VALUES('50000000-0000-4000-8000-000000000098','40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','read_context',now(),now(),NULL,NULL,'synthetic://decision/forged','synthetic://grantor/forged');
   RAISE EXCEPTION 'unauthorized reader created a grant';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
@@ -115,7 +117,7 @@ DO $$BEGIN
 END $$;
 RESET ROLE;
 -- A real retraction in the disposable fixture is audited and takes effect on next read.
-UPDATE f12_lab.read_grants SET revoked_at=now()
+UPDATE f12_lab.read_grants SET revoked_at=now(),revoked_by_actor_ref='synthetic://revoker/steward',revocation_decision_ref='synthetic://decision/revoke-a'
  WHERE id='50000000-0000-4000-8000-000000000001';
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',false);
@@ -135,5 +137,9 @@ BEGIN
  UPDATE f12_lab.read_grants SET revoked_at=NULL WHERE id='50000000-0000-4000-8000-000000000001';
  RAISE EXCEPTION 'grant un-revoked';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='grant un-revoked' THEN RAISE; END IF; END;
+ IF NOT EXISTS (SELECT 1 FROM f12_lab.grant_history
+   WHERE grant_id='50000000-0000-4000-8000-000000000001' AND event_kind='revoked'
+   AND actor_ref='synthetic://revoker/steward' AND decision_ref='synthetic://decision/revoke-a')
+ THEN RAISE EXCEPTION 'revocation lacks distinct actor and decision'; END IF;
  RAISE NOTICE 'PASS concrete F1/F2 SQL lab: N:N, methods, contextual RLS, invalid front, no writer, revoked/expired, admin, history';
 END $$;
