@@ -1,0 +1,26 @@
+name: CCH E5-B Provenance Mapping Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/e5ProvenanceAdapter.ts'
+      - 'src/modules/health/cch/longitudinalEvidenceE5.ts'
+      - 'scripts/health-cch-e5b-provenance.test.mjs'
+      - '.github/workflows/health-cch-e5b-provenance.yml'
+permissions:
+  contents: read
+jobs:
+  provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-cch-e5b
+          npx tsc src/modules/health/cch/e5ProvenanceAdapter.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e5b --skipLibCheck
+      - run: node --test scripts/health-cch-e5b-provenance.test.mjs
+      - run: npx eslint src/modules/health/cch/e5ProvenanceAdapter.ts
+      - run: npm run build
