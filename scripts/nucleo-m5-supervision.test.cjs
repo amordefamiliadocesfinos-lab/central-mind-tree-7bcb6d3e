@@ -207,7 +207,8 @@ assert.equal((fichaCompiled.diagnostics??[]).filter(d=>d.category===ts.Diagnosti
 assert.match(fichaSource,/const MAX_FM_HISTORY_ROWS = 300/);
 assert.match(fichaSource,/result\.data\.length>=MAX_FM_HISTORY_ROWS/);
 assert.match(fichaSource,/setRevisions\(\[\]\);\s*setError\("Histórico da Ficha Viva atingiu o limite/);
-assert.match(fichaSource,/if\(loading\|\|error\|\|saving\) return/);
+assert.match(fichaSource,/if\(loading\|\|error\|\|saving\|\|writeUncertain\|\|!fence\.ready\|\|fence\.blocked\) return;/,
+  "Ficha Viva must block writes on loading, error, saving, uncertain write, unready fence or blocked fence");
 assert.match(fichaSource,/error \? "Cobertura indeterminada — erro de leitura"/);
 assert.match(fichaSource,/recorded_by_auth_uid\.slice\(0,8\)/);
 assert.match(fichaSource,/reviewed_by/);
