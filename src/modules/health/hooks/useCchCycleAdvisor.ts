@@ -76,7 +76,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     const recovery=assessment.recovery_evidence_state ?? "unknown";
     const confidence=assessment.data_quality?.status ?? "limited";
     const gaps=assessment.data_gaps?.length ?? 0;
-    return [
+    const suggestions = [
       {goal:"hypertrophy" as GuidedGoal,strategy:"continue_progression" as GuidedStrategy,
         label:"Continuar hipertrofia com ajustes seletivos",
         reason:enough? `${candidates} propostas de repetição, ${reviews} exercícios para revisão; confiança de dados ${confidence}. Existem ${gaps} lacunas identificadas, sem alterar seu nível de experiência.`:
@@ -96,6 +96,11 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
         label:"Manter musculação enquanto define objetivo corporal",
         reason:"A execução do treino não demonstra, sozinha, necessidade de perder gordura; exige escolha consciente e contexto nutricional/corporal."},
     ];
+    // An athlete with sparse records is not a beginner; recommend consolidation
+    // first only because prescription evidence is limited, never because of athlete level.
+    return confidence==="limited" ?
+      [...suggestions].sort((left,right) => Number(right.goal==="maintenance")-Number(left.goal==="maintenance")) :
+      suggestions;
   },[assessment]);
   const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string,allowTargetedSets=false)=>{
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
