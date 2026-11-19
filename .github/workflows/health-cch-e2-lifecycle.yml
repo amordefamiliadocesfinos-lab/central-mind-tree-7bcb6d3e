@@ -1,0 +1,57 @@
+name: CCH E2 Disposable Authenticated Lifecycle
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/tests/health_cch_e2*'
+      - 'supabase/migrations/*health_cch_e2*'
+      - '.github/workflows/health-cch-e2-lifecycle.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e2-local-only
+          POSTGRES_DB: e2_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute real E2 and original F22/M3 functions in temporary database
+        env:
+          PGPASSWORD: e2-local-only
+        run: |
+          set -euo pipefail
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql
+          run_sql supabase/migrations/20261119112000_health_cch_e2c_guarded_prescription.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_f22_assert_program_version_structure\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/f22.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_m3_publish_program_version\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/m3_publish.sql
+          test "$(grep -c 'CREATE OR REPLACE FUNCTION' /tmp/f22.sql)" -eq 1
+          test "$(grep -c 'CREATE OR REPLACE FUNCTION' /tmp/m3_publish.sql)" -eq 1
+          run_sql /tmp/f22.sql
+          run_sql /tmp/m3_publish.sql
+          run_sql supabase/tests/health_cch_e2_lifecycle_fixture.sql
+          run_sql supabase/tests/health_cch_e2_lifecycle_contract.sql
