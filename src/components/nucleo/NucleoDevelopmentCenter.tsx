@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoAc01PilotRegistration from "@/components/nucleo/NucleoAc01PilotRegistration";
+import NucleoAc02NucContextRead from "@/components/nucleo/NucleoAc02NucContextRead";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
@@ -948,6 +949,7 @@ export default function NucleoDevelopmentCenter() {
                 </div>
               </div>
               {selected.code==="NUC"&&<NucleoAc01PilotRegistration />}
+              {selected.code==="NUC"&&<NucleoAc02NucContextRead />}
               {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
                 Alterações não salvas nesta frente. Salve ou confirme descarte antes de navegar para outro registro.
               </p>}
