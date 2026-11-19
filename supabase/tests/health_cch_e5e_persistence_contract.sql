@@ -102,13 +102,13 @@ INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_versi
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
  'revoked','e5-lab-v1','2026-11-19T13:00:00Z',
  '{"contract":"cch-e5-consent-v1","explicit_action":true}');
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT count(*) FROM public.health_cch_e5_current_session_review(
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
   RAISE EXCEPTION 'revoked E5 session review still exposed'; END IF;
-END $;
-DO $BEGIN
+END $$;
+DO $$BEGIN
  IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
  THEN RAISE EXCEPTION 'revocation did not block E5'; END IF;
  IF (SELECT count(*) FROM public.health_consents WHERE consent_type='e5_personalized_review')<>4
@@ -255,7 +255,7 @@ BEGIN
  'ffffffff-1000-4000-8000-ffffffffffff'))<>0 THEN
   RAISE EXCEPTION 'cross-athlete session reader leaked';
  END IF;
-END $;
+END $$;
 -- Regular M4 event remains writable for the owner, with M4 existing contract.
 INSERT INTO public.health_workout_events
  (athlete_id,session_id,event_type,source,client_event_id,created_by_auth_user_id,payload)
@@ -271,12 +271,12 @@ DO $$BEGIN
  THEN RAISE EXCEPTION 'anon consent bypass'; END IF; END $$;
 RESET ROLE;
 -- Canonical document digest is checked by PostgreSQL, not just its length.
-DO $BEGIN
+DO $$BEGIN
  IF (SELECT policy_digest <> encode(sha256(convert_to(policy_document,'UTF8')),'hex')
      FROM public.health_cch_e5_policy_registry WHERE status='active') THEN
    RAISE EXCEPTION 'policy digest does not match canonical bytes';
  END IF;
-END $;
+END $$;
 SELECT public.e5_expect_failure($q$
  UPDATE public.health_cch_e5_policy_registry
  SET policy_document='tampered' WHERE status='active'
