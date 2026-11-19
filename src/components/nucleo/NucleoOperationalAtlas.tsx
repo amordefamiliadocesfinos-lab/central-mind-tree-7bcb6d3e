@@ -5,7 +5,6 @@ import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevel
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import NucleoSpecialistContributions from "@/components/nucleo/NucleoSpecialistContributions";
-import NucleoAc01PilotRegistration from "@/components/nucleo/NucleoAc01PilotRegistration";
 import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoAc02ContinuityRead from "@/components/nucleo/NucleoAc02ContinuityRead";
@@ -437,7 +436,6 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             <span className="inline-flex items-center gap-1.5"><GitBranch className="h-4 w-4" aria-hidden="true" /> {governanceFronts.length} frentes do Núcleo no Core</span>
             <span className="text-muted-foreground">Navegue pela árvore e pela ficha de governança abaixo, sem duplicar seus registros.</span>
           </div>
-          {governanceRoot && <NucleoAc01PilotRegistration />}
           {governanceRoot && (
             <div className="pl-12 sm:pl-0 pt-2 pb-4">
               <Button type="button" variant="outline" size="sm" className="min-h-11 px-5"
