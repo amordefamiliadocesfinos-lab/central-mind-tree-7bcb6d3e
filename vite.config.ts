@@ -5,6 +5,8 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 // A source-build fingerprint for authenticated WORK read-only deployment checks.
 // Do not invent a SHA when building from an exported tree without .git.
@@ -24,6 +26,34 @@ function cchSourceRevision(): string {
 }
 
 
+// The Lovable Cloud builder may receive source without Git metadata. This
+// deterministic file-content fingerprint is independent of env vars and .git.
+// It is a scoped content check, NOT a Git commit and NOT an all-app checksum.
+const cchFingerprintPaths = [
+  "vite.config.ts",
+  "src/modules/health/pages/HealthProgramPage.tsx",
+  "src/modules/health/cch/buildProvenance.ts",
+  "src/modules/health/cch/e2Preflight.ts",
+  "src/modules/health/cch/equipmentChoices.ts",
+  "src/modules/health/cch/prescriptionE2.ts",
+  "src/modules/health/hooks/useHealthProgramM3.ts",
+];
+function cchSourceFingerprint(): string {
+  try {
+    const hash = createHash("sha256");
+    for (const relativePath of cchFingerprintPaths) {
+      hash.update(relativePath, "utf8");
+      hash.update("\\0");
+      hash.update(readFileSync(path.resolve(__dirname, relativePath)));
+      hash.update("\\0");
+    }
+    return hash.digest("hex");
+  } catch {
+    // Never claim an identity when a source input is missing.
+    return "";
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => ({
   server: {
@@ -41,6 +71,7 @@ export default defineConfig(({ mode, command }) => ({
   },
   define: {
     __CCH_BUILD_COMMIT__: JSON.stringify(cchSourceRevision()),
+    __CCH_BUILD_FINGERPRINT__: JSON.stringify(cchSourceFingerprint()),
   },
   resolve: {
     alias: {

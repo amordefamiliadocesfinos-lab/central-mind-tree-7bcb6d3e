@@ -221,6 +221,12 @@ export function HealthProgramPage() {
             title="Revisão do código no momento da compilação. Não representa homologação do banco ou de uso real.">
             Código servido: {cchBuildProvenance().shortRevision ?? "revisão indisponível"}
           </p>
+          <p className="text-[11px] text-muted-foreground"
+            data-testid="cch-e2-source-fingerprint"
+            data-cch-source-fingerprint={cchBuildProvenance().fingerprint ?? "unknown"}
+            title="SHA-256 dos sete arquivos-fonte CCH selecionados no build; não é commit Git nem prova de toda a aplicação.">
+            Conteúdo CCH: {cchBuildProvenance().shortFingerprint ?? "impressão digital indisponível"}
+          </p>
         </div>
       </div>
 
