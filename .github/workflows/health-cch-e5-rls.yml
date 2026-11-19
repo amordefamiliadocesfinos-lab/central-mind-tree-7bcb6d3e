@@ -1,0 +1,41 @@
+name: CCH E5-C Isolated Authenticated Read Scope
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/tests/health_cch_e5_rls_contract.sql'
+      - '.github/workflows/health-cch-e5-rls.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-rls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e2-local-only
+          POSTGRES_DB: e2_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify JWT/role separation for E5 sources on disposable PostgreSQL
+        env:
+          PGPASSWORD: e2-local-only
+          CCH_E5_ISOLATED: "YES"
+        run: |
+          set -euo pipefail
+          test "$CCH_E5_ISOLATED" = YES
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/tests/health_cch_e5_rls_contract.sql
