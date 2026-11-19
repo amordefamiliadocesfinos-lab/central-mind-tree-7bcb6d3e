@@ -282,6 +282,18 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       .eq("session_template_id",target.session_template_id));
   }, [athleteId, state.version, state.templates, state.templateExercises, mutate]);
 
+  const editExerciseStructure=useCallback(async(
+    templateExerciseId:string,operation:"replace"|"swap",reason:string,
+    otherId?:string,replacementId?:string
+  )=>{
+    if(!athleteId||state.version?.status!=="draft")throw new Error("Somente rascunhos podem ser editados");
+    const source=state.templateExercises.find(x=>x.id===templateExerciseId &&
+      state.templates.some(t=>t.id===x.session_template_id && t.program_version_id===state.version?.id));
+    if(!source)throw new Error("Exercício não pertence ao rascunho");
+    await mutate(async()=>supabase.rpc("health_cch_e2_edit_draft_exercise" as never,
+      {p_template_exercise_id:templateExerciseId,p_operation:operation,p_reason:reason,
+      p_other_template_exercise_id:otherId??null,p_replacement_exercise_id:replacementId??null} as never));
+  },[athleteId,state.version,state.templateExercises,state.templates,mutate]);
   const publish = useCallback(async () => {
     if (!state.version) throw new Error("Versão de programa não disponível.");
     setSaving(true);
@@ -318,6 +330,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     cycleComplete,
     prepareNextCycle,
     updatePrescription,
+    editExerciseStructure,
     loading,
     saving,
     error,

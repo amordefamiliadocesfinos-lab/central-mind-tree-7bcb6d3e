@@ -25,6 +25,7 @@ import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
 import { evaluateV9 } from "../cch/motorV9Decision";
 import { interpretExecution } from "../cch/executionEvidence";
 import { proposePrescriptionE2 } from "../cch/prescriptionE2";
+import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -66,6 +67,8 @@ export function HealthProgramPage() {
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [e2Reason,setE2Reason]=useState<{id:string;reason:string}|null>(null);
+  const [e2Structure,setE2Structure]=useState<{id:string;operation:"swap"|"replace";targetId:string;label:string}|null>(null);
+  const [e2StructureReason,setE2StructureReason]=useState("");
   const [edit, setEdit] = useState({setsMin:"",setsMax:"",repsMin:"",repsMax:"",rir:"",rest:""});
   const [muscleId, setMuscleId] = useState("");
   const [priorityRank, setPriorityRank] = useState("1");
@@ -749,6 +752,56 @@ export function HealthProgramPage() {
                                 }}>Levar ao editor, sem salvar</Button> : null}
                               </div>;
                             })() : null}
+                            {draft ? <div className="mt-2 space-y-2 rounded-lg border p-2">
+                              <p className="font-medium text-xs">E2 · Substituir ou reorganizar (sempre com revisão)</p>
+                              <div className="flex flex-wrap gap-2">
+                                {(["up","down"] as const).map(direction=>{
+                                  const swap=adjacentSwapE2(items,item.id,direction);
+                                  return <Button key={direction} variant="outline" size="sm" disabled={!swap||program.saving}
+                                    onClick={()=>{if(!swap)return;setE2Structure({id:item.id,operation:"swap",targetId:swap.otherId,
+                                      label:`Posição ${swap.from} → ${swap.to}`});setE2StructureReason("");}}>
+                                    {direction==="up"?"Subir na sessão":"Descer na sessão"}
+                                  </Button>;
+                                })}
+                              </div>
+                              {(()=>{
+                                const catalog=catalogs.exercises.find(ex=>ex.id===item.exercise_id);
+                                if(!catalog)return null;
+                                const allMuscles=catalogs.exercises.flatMap(ex=>ex.muscles.map(m=>({
+                                  exercise_id:ex.id,muscle_group_id:m.muscle_group_id,role:m.role
+                                })));
+                                const choices=alternativesE2(item.exercise_id,catalog.equivalences.map(eq=>({
+                                  source_exercise_id:item.exercise_id,target_exercise_id:eq.target_exercise_id,
+                                  equivalence_type:eq.equivalence_type,confidence:eq.confidence
+                                })),allMuscles,catalogs.exercises.map(ex=>ex.id));
+                                if(!choices.length)return <p className="text-xs text-muted-foreground">Sem equivalência de catálogo compatível com músculo principal confirmado.</p>;
+                                return <div className="space-y-2 text-xs">
+                                  <p>Alternativas de catálogo (provisórias; confirmar técnica e equipamento):</p>
+                                  {choices.map(choice=><Button key={choice.targetId} size="sm" variant="outline"
+                                    disabled={program.saving} onClick={()=>{
+                                      setE2Structure({id:item.id,operation:"replace",targetId:choice.targetId,
+                                        label:`Trocar para ${exerciseNameById.get(choice.targetId)??"exercício"}`});
+                                      setE2StructureReason("");
+                                    }}>{exerciseNameById.get(choice.targetId)??"Exercício"} · {choice.confidence}</Button>)}
+                                </div>;
+                              })()}
+                              {e2Structure?.id===item.id ? <div className="space-y-2 rounded-lg border p-2 text-xs">
+                                <p className="font-medium">Confirmar: {e2Structure.label}</p>
+                                <p className="text-muted-foreground">Não presume equivalência funcional ou benefício. Altera exclusivamente o rascunho.</p>
+                                <Input placeholder="Justificativa da troca/ordem (mín. 10 caracteres)"
+                                  value={e2StructureReason} onChange={event=>setE2StructureReason(event.target.value)}/>
+                                <div className="flex gap-2">
+                                  <Button size="sm" disabled={program.saving||e2StructureReason.trim().length<10}
+                                    onClick={()=>void save("E2: ajuste de rascunho registrado.",async()=>{
+                                      await program.editExerciseStructure(item.id,e2Structure.operation,e2StructureReason,
+                                        e2Structure.operation==="swap"?e2Structure.targetId:undefined,
+                                        e2Structure.operation==="replace"?e2Structure.targetId:undefined);
+                                      setE2Structure(null);setE2StructureReason("");
+                                    })}>Confirmar no rascunho</Button>
+                                  <Button size="sm" variant="outline" onClick={()=>setE2Structure(null)}>Cancelar</Button>
+                                </div>
+                              </div>:null}
+                            </div>:null}
                             {draft ? <div className="mt-2 space-y-2">
                               <Button variant="outline" size="sm" onClick={() => {
                                 setEditId(item.id);

@@ -1,0 +1,30 @@
+name: CCH Frozen E2B Draft Reordering Contracts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/e2Alternatives.ts'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'src/modules/health/hooks/useHealthProgramM3.ts'
+      - 'scripts/health-cch-e2b.test.mjs'
+      - 'supabase/migrations/*health_cch_e2b*'
+      - '.github/workflows/health-cch-e2b-validation.yml'
+permissions:
+  contents: read
+jobs:
+  e2b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-cch-e2b
+          npx tsc src/modules/health/cch/e2Alternatives.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e2b --skipLibCheck
+      - run: node --test scripts/health-cch-e2b.test.mjs
+      - run: npx eslint src/modules/health/cch/e2Alternatives.ts src/modules/health/hooks/useHealthProgramM3.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build
