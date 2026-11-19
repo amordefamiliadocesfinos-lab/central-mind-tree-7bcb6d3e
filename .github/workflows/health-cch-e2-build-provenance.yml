@@ -29,3 +29,5 @@ jobs:
           npm run build
       - name: Display reference SHA-256 from checkout sources
         run: node scripts/health-cch-e2-fingerprint-reference.mjs
+      - name: Assert computed digest is embedded in compiled client output
+        run: node scripts/health-cch-e2-verify-built-fingerprint.mjs
