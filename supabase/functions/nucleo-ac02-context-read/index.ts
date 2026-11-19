@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { CHECKPOINT_EVENT_ID, CHECKPOINT_FRONT_ID, assessM4Checkpoint, fmVisibility, type HistoryEvent } from "../_shared/nucleo/ac02-f5-checkpoint-contract.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
  NUC_MODULE_ID,PILOT_CONTRIBUTION_ID,FRONT_CODES,
@@ -62,6 +63,33 @@ Deno.serve(async request=>{
     .select("id",{count:"exact",head:true}).eq("workstream_id",row.id)));
   if(counts.some(r=>r.error||r.count===null||r.count===undefined))
    return json({error:"Provas M4 parciais ou sem permissão"},503);
+  // F5 opcional: recorte fixo, já existente, da trajetória M4. Não exporta JSON bruto
+  // de auditoria, UID do ator, documento privado nem conteúdo FM.
+  let checkpoint:unknown=null;
+  if((payload as {include_checkpoint?:boolean}).include_checkpoint===true){
+   const m4=fronts.find(row=>row.code==="NUC-M4");
+   if(!m4||m4.id!==CHECKPOINT_FRONT_ID)return json({error:"Frente F5 não verificável"},503);
+   const [eventRead,fm09,fm10]=await Promise.all([
+    db.from("nucleo_development_events")
+     .select("id,workstream_id,event_type,recorded_at,before_state,after_state")
+     .eq("id",CHECKPOINT_EVENT_ID).eq("workstream_id",CHECKPOINT_FRONT_ID).limit(2),
+    db.from("nucleo_module_knowledge_revisions")
+     .select("id",{count:"exact",head:true}).eq("module_id",NUC_MODULE_ID).eq("section_code","FM-09"),
+    db.from("nucleo_module_knowledge_revisions")
+     .select("id",{count:"exact",head:true}).eq("module_id",NUC_MODULE_ID).eq("section_code","FM-10"),
+   ]);
+   if(eventRead.error||!eventRead.data||eventRead.data.length!==1)
+    return json({error:"Histórico F5 indisponível sob RLS"},503);
+   const assessed=assessM4Checkpoint(eventRead.data[0] as HistoryEvent,m4);
+   if(!assessed)return json({error:"Checkpoint F5 divergente; não certificar"},503);
+   const fm09State=fmVisibility(fm09.count,fm09.error!==null);
+   const fm10State=fmVisibility(fm10.count,fm10.error!==null);
+   if(fm09State==="indeterminado"||fm10State==="indeterminado")
+    return json({error:"Consulta FM-09/10 incompleta sob RLS"},503);
+   checkpoint={...assessed,fm09:fm09State,fm10:fm10State,
+    source_scope:"Core M3 evento auditado + referências GitHub já verificadas",
+    authority:"consultivo_nao_homologado"};
+  }
   // Expor somente o recorte permitido e contagens, nunca evidência bruta ou
   // notas, snapshots, tokens, fonte privada, identidade de terceiros.
   return json({
@@ -71,6 +99,7 @@ Deno.serve(async request=>{
    specialist:{role:"Especialista Núcleo 2.0",specialty:"Governança e Continuidade do Núcleo",
      specialty_state:"descricao_proposta",mandate:"nao_certificado",successor:"nao_certificado"},
    contribution:contributionResult.data[0],
+   ...(checkpoint?{checkpoint}:{}),
    fronts:fronts.map((row,i)=>({
      code:row.code,title:row.title,status:row.status,evidence_state:row.evidence_state,
      next_action:row.next_action,evidence_count:counts[i].count,
