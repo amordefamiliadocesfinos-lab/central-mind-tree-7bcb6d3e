@@ -33,6 +33,12 @@ try{
  await page.getByTestId("isolation-banner").waitFor();
  await page.getByText("Versão rascunho editável").waitFor();
  await page.getByText("Avançado",{exact:true}).first().waitFor();
+ // E4: verify current React includes the read-only build provenance and
+ // flexible E3 consultation, without using real-athlete data or network hooks.
+ await page.getByTestId("cch-e2-build-revision").waitFor();
+ await page.getByTestId("cch-e2-source-fingerprint").waitFor();
+ await page.getByText("E3 · Continuidade flexível — estudo consultivo").waitFor();
+
  await snap("01-e2-rascunho");
  const initial=await audit();
  const target="aaaaaaaa-4000-4000-8000-aaaaaaaaaaaa";
