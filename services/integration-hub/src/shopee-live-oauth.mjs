@@ -249,12 +249,17 @@ export function createShopeeLiveOauthHandler({
         : state?.startsWith('celivio.') ? CELIVIO : VIVIANE;
       // Fixed rejection reasons for Celivio only. Never log callback query, cookie,
       // authorization code, state, tokens, shop identity, or arbitrary error text.
+      const logCelivioRejection = (reason, status) => {
+        if (target !== CELIVIO) return;
+        // Diagnostic delivery must never change OAuth control flow or response.
+        try {
+          logger({ event: 'shopee_live_celivio_oauth_rejected', reason, status });
+        } catch {
+          // Deliberately fail closed without falling back to sensitive payload logging.
+        }
+      };
       const rejectCallback = (reason, status, title, message) => {
-        if (target === CELIVIO) logger({
-          event: 'shopee_live_celivio_oauth_rejected',
-          reason,
-          status,
-        });
+        logCelivioRejection(reason, status);
         return html(status, title, message, cleared);
       };
       if (target === ADAO && !adaoEnabled) return html(409, 'Destino desabilitado', 'A autorização não está habilitada no servidor.', cleared);
@@ -276,11 +281,7 @@ export function createShopeeLiveOauthHandler({
       const consumed = await consumeState({ state_hash: sha256Hex(state) });
       if (!consumed?.ok) {
         const status = consumed?.status === 409 ? 409 : 503;
-        if (target === CELIVIO && status === 409) logger({
-          event: 'shopee_live_celivio_oauth_rejected',
-          reason: 'state_invalid_or_consumed',
-          status,
-        });
+        if (status === 409) logCelivioRejection('state_invalid_or_consumed', status);
         return html(
           status,
           status === 409 ? 'Autorização Shopee expirada' : 'Shopee Live indisponível',
