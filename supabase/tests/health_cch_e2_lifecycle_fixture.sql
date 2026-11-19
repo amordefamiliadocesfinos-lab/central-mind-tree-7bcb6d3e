@@ -13,7 +13,8 @@ ALTER TABLE public.health_cch_queue_entries
 UPDATE public.health_cch_queue_entries SET
  program_version_id='aaaaaaaa-2000-4000-8000-aaaaaaaaaaaa',
  session_template_id='aaaaaaaa-3000-4000-8000-aaaaaaaaaaab',
- queue_position=1,state='completed',source='fixture';
+ queue_position=1,state='completed',source='fixture',
+ reason_codes=ARRAY['HISTORICAL_SYNTHETIC']::text[];
 
 GRANT SELECT,UPDATE ON public.health_programs TO authenticated;
 GRANT INSERT ON public.health_cch_queue_entries TO authenticated;
