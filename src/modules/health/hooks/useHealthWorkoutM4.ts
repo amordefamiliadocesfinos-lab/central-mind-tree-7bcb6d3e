@@ -270,6 +270,10 @@ export function useHealthWorkoutM4(athleteId: string | null | undefined) {
     [call],
   );
 
+  const confirmEquipment = useCallback(async(workoutExerciseId:string,label:string)=>{
+    await call(async()=>supabase.rpc("health_cch_confirm_workout_equipment" as never,
+      {p_workout_exercise_id:workoutExerciseId,p_equipment_label:label} as never));
+  },[call]);
   const completeWorkout = useCallback(async () => {
     if (!state.session) throw new Error("Sessão não disponível.");
     await call(async () =>
@@ -304,5 +308,6 @@ export function useHealthWorkoutM4(athleteId: string | null | undefined) {
     skipExercise,
     replaceExercise,
     completeWorkout,
+    confirmEquipment,
   };
 }

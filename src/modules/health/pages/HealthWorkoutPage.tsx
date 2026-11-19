@@ -184,6 +184,7 @@ function WorkoutExerciseCard({
   onReplace,
   lockedSetId,
   manualActionsDisabled,
+  onConfirmEquipment,
 }: {
   item: WorkoutExercise;
   name: string;
@@ -221,6 +222,7 @@ function WorkoutExerciseCard({
   onReplace: (replacementExerciseId: string) => Promise<void>;
   lockedSetId: string | null;
   manualActionsDisabled: boolean;
+  onConfirmEquipment: (label:string)=>Promise<void>;
 }) {
   const [load, setLoad] = useState("");
   const [loadUnit, setLoadUnit] = useState("kg");
@@ -228,6 +230,7 @@ function WorkoutExerciseCard({
   const [rir, setRir] = useState("");
   const [rest, setRest] = useState("");
   const [replacementId, setReplacementId] = useState("");
+  const [machineLabel, setMachineLabel] = useState("");
 
   const locked = item.status === "skipped" || item.status === "replaced";
 
@@ -245,6 +248,14 @@ function WorkoutExerciseCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!locked && performedSets.length === 0 ? <div className="space-y-2 rounded-lg border p-3">
+          <Label>Máquina utilizada (identifique antes da primeira série)</Label>
+          <Input value={machineLabel} onChange={event=>setMachineLabel(event.target.value)}
+            placeholder="Ex.: Supino máquina A"/>
+          <Button variant="outline" disabled={saving||manualActionsDisabled||machineLabel.trim().length<2}
+            onClick={()=>void onConfirmEquipment(machineLabel)}>Confirmar máquina</Button>
+          <p className="text-xs text-muted-foreground">A confirmação é opcional. Sem identificação da máquina, não haverá sugestão numérica automática para essa execução.</p>
+        </div> : null}
         {performedSets.length > 0 ? (
           <div className="space-y-2">
             {performedSets.map((set) => (
@@ -529,6 +540,7 @@ export function HealthWorkoutPage() {
                   workout.updateSet(setId, values),
                 )
               }
+              onConfirmEquipment={label=>run("Máquina confirmada.",()=>workout.confirmEquipment(item.id,label))}
               onSkip={() =>
                 run("Exercício marcado como pulado.", () =>
                   workout.skipExercise(item.id),

@@ -33,6 +33,9 @@ export type Assessment = {
   multi_cycle_versions?: Array<{version_id:string;version_number:number;sessions:number}>;
   multi_cycle_volume?: Array<{version_number:number;muscle_id:string;muscle_name:string;work_sets:number;sessions:number;observed_per_7_days:number|null;note:string}>;
   periodization_mode?: string;
+  equipment_provenance?: {engine_version:string;historical_unidentified_sessions_are_ineligible:boolean;
+    evidence:Array<{exercise_id:string;equipment_label:string;load_unit:string;exposures:number;
+      recent_load:number;recent_reps:number;candidate_load:number|null;reason:string}>};
 };
 const empty: Assessment = {
   engine_version: "cch-guided-v5",source_version_id: "",completed_sessions: 0,completed_sets: 0,
@@ -67,7 +70,10 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
-      setAssessment(data);
+      const equipment=await supabase.rpc("health_cch_assess_equipment_history" as never,
+        {p_program_id:programId} as never);
+      if(equipment.error)throw new Error(equipment.error.message);
+      setAssessment({...data,equipment_provenance:equipment.data as unknown as Assessment["equipment_provenance"]});
     }catch(cause){setError(cause instanceof Error?cause.message:"Auditoria indisponível");setAssessment(empty);}
     finally{setLoading(false);}
   },[athleteId,versionId,programId]);
@@ -111,7 +117,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
     if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
-      const result=await supabase.rpc("health_cch_generate_guided_cycle_v7" as never,
+      const result=await supabase.rpc("health_cch_generate_guided_cycle_v8" as never,
         {p_program_id:program,p_goal:goal,p_strategy:strategy,p_availability:"flexible",
           p_priority_muscle_id:priorityMuscleId || null,p_allow_targeted_set_proposal:allowTargetedSets,
           p_recovery_report:recovery,p_symptom_report:symptoms} as never);
