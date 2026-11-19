@@ -104,6 +104,81 @@ SELECT public.e5e_expect_denied($q$
  '{"contract":"cch-e5-session-review-v1","explicit_confirmation":true,"recovery":"poor","symptoms":"pain"}',
  '11111111-1111-4111-8111-111111111111')$q$);
 RESET ROLE;
+-- F21 actual RPC on the migrated schema: voiding a completed workout
+-- after revocation preserves common voiding events and hides old E5 notes.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+SELECT public.health_f21_void_workout_session(
+ 'ffffffff-1000-4000-8000-ffffffffffff',
+ 'dddddddd-0000-4000-8000-000000000099','Synthetic history correction');
+DO $ BEGIN
+ IF (SELECT record_status FROM public.health_workout_sessions
+ WHERE id='ffffffff-1000-4000-8000-ffffffffffff')<>'voided'
+ OR (SELECT count(*) FROM public.health_workout_events
+ WHERE event_type='session_voided')<>1
+ OR (SELECT count(*) FROM public.health_workout_events
+ WHERE payload->>'contract'='cch-e5-session-review-v1')<>0 THEN
+ RAISE EXCEPTION 'official F21 voiding or E5 concealment failed'; END IF;
+END $;
+RESET ROLE;
+
+-- Manual F22 publish through its *actual* migrated SECURITY INVOKER RPC.
+-- No production version or client identity participates.
+INSERT INTO public.health_program_versions(
+ id,program_id,athlete_id,version_number,status,title,created_by_auth_user_id)
+ VALUES('eeeeeeee-2000-4000-8000-000000000002',
+ 'eeeeeeee-1000-4000-8000-000000000001',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',2,'draft',
+ 'Synthetic F22 manual publish', '22222222-2222-4222-8222-222222222222');
+INSERT INTO public.health_session_templates(id,program_version_id,athlete_id,
+ code,name,sequence_order,status)
+ VALUES('eeeeeeee-3000-4000-8000-000000000002',
+ 'eeeeeeee-2000-4000-8000-000000000002',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','A2','Synthetic publication',1,'active');
+INSERT INTO public.health_session_template_exercises(
+ session_template_id,athlete_id,exercise_id,sequence_order,
+ planned_sets_min,planned_sets_max,reps_min,reps_max,rir_target,rest_seconds)
+ VALUES('eeeeeeee-3000-4000-8000-000000000002',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ 'eeeeeeee-0000-4000-8000-000000000001',1,3,3,8,12,2,180);
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $
+DECLARE published_count integer;
+BEGIN
+ SELECT queued_count INTO published_count FROM public.health_m3_publish_program_version(
+ 'eeeeeeee-2000-4000-8000-000000000002');
+ IF published_count<>1 OR
+ (SELECT status FROM public.health_program_versions
+ WHERE id='eeeeeeee-2000-4000-8000-000000000002')<>'published' OR
+ (SELECT current_version_id FROM public.health_programs
+ WHERE id='eeeeeeee-1000-4000-8000-000000000001')
+ IS DISTINCT FROM 'eeeeeeee-2000-4000-8000-000000000002'::uuid
+ THEN RAISE EXCEPTION 'official F22 manual publish regression'; END IF;
+END $;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $ BEGIN
+ IF EXISTS(SELECT 1 FROM public.health_cch_queue_entries
+ WHERE program_version_id='eeeeeeee-2000-4000-8000-000000000002') THEN
+ RAISE EXCEPTION 'cross-athlete official F22 queue leakage'; END IF;
+END $;
+RESET ROLE;
+
+-- Alternative SQL access audit: no published view directly exposing M4 events,
+-- and no authenticated SECURITY DEFINER routine whose body reads their content.
+DO $
+BEGIN
+ IF EXISTS(SELECT 1 FROM pg_views
+  WHERE schemaname='public' AND definition ILIKE '%health_workout_events%') THEN
+  RAISE EXCEPTION 'view referencing workout events requires human security review';
+ END IF;
+ IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.prosecdef
+   AND pg_get_functiondef(p.oid) ILIKE '%health_workout_events%'
+   AND has_function_privilege('authenticated',p.oid,'EXECUTE')) THEN
+  RAISE EXCEPTION 'executable SECURITY DEFINER RPC references M4 events';
+ END IF;
+END $;
 -- Enumerate alternative SQL objects that could affect evidence exposure;
 -- existence alone does not establish an exploit, and auth HTTP is not emulated.
 SELECT routine_name,security_type FROM information_schema.routines
