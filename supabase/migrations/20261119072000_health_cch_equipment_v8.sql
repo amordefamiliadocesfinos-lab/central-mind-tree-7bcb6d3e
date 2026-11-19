@@ -11,6 +11,23 @@ ALTER TABLE public.health_cch_workout_equipment ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS cch_workout_equipment_select ON public.health_cch_workout_equipment;
 CREATE POLICY cch_workout_equipment_select ON public.health_cch_workout_equipment
  FOR SELECT TO authenticated USING (public.health_can_read_athlete(athlete_id));
+-- RLS checks the ownership and matching session/exercise even for direct API writes.
+DROP POLICY IF EXISTS cch_workout_equipment_insert ON public.health_cch_workout_equipment;
+CREATE POLICY cch_workout_equipment_insert ON public.health_cch_workout_equipment
+ FOR INSERT TO authenticated WITH CHECK (
+  public.health_can_write_athlete(athlete_id)
+  AND EXISTS (
+    SELECT 1 FROM public.health_workout_exercises we
+    JOIN public.health_workout_sessions s ON s.id=we.session_id AND s.athlete_id=we.athlete_id
+    WHERE we.id=workout_exercise_id AND we.athlete_id=athlete_id
+      AND we.session_id=session_id AND we.exercise_id=exercise_id
+      AND s.status IN ('active','paused') AND s.record_status='active'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM public.health_workout_sets ws
+    WHERE ws.workout_exercise_id=workout_exercise_id
+  )
+);
 -- No direct updates/deletes. RPC validates matching exercise, athlete, and active session.
 REVOKE ALL ON public.health_cch_workout_equipment FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT ON public.health_cch_workout_equipment TO authenticated;
