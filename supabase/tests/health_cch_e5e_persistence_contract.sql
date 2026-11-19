@@ -240,7 +240,7 @@ BEGIN
 END $$;
 
 -- Query-only projection selects the final *unknown* recovery, preserving all 3 events.
-DO $
+DO $$
 DECLARE x record;
 BEGIN
  SELECT * INTO x FROM public.health_cch_e5_current_session_review(
