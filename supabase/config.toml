@@ -45,3 +45,7 @@ verify_jwt = true
 # Piloto NUC: JWT individual + RLS existente, somente proposta AC-01 de referência.
 [functions.nucleo-ac01-agent-proposal]
 verify_jwt = true
+
+# Núcleo AC-02: contexto consultivo NUC, JWT individual, grant e RLS.
+[functions.nucleo-ac02-context-read]
+verify_jwt = true
