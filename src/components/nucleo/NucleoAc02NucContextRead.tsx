@@ -3,7 +3,16 @@ import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
 type Front={code:string;title:string;status:string;evidence_state:string;next_action:string;evidence_count:number};
 type Contribution={id:string;title:string;version_no:number;authority_state:string;source_kind:string;source_locator:string};
+type Checkpoint={
+ front_code:"NUC-M4";event_id:string;recorded_at:string;
+ status_before:"em_validacao";status_after:"em_validacao";
+ decision:string;decision_source:string;checkpoint_source:string;lesson:string;
+ before_action:string;after_action:string;current_action:string;
+ learning_state:"historico_verificado_sem_fm_homologado";
+ fm09:string;fm10:string;authority:"consultivo_nao_homologado";source_scope:string;
+};
 type Context={
+ checkpoint:Checkpoint;
  contract:"nucleo_ac02_context_nuc_v1";
  status:"consultivo_nao_homologado";
  module:{id:string;code:"NUC"};
@@ -24,7 +33,13 @@ const isContext=(v:unknown):v is Context=>{
    item.contribution.version_no===1&&Array.isArray(item.fronts)&&item.fronts.length===6&&
    item.fronts.every(f=>/^NUC-M[0-5]$/.test(f.code)&&Number.isSafeInteger(f.evidence_count)&&
       typeof f.next_action==="string")&&
-   new Set(item.fronts.map(f=>f.code)).size===6&&Array.isArray(item.limitations);
+   new Set(item.fronts.map(f=>f.code)).size===6&&Array.isArray(item.limitations)&&
+   item.checkpoint?.front_code==="NUC-M4"&&item.checkpoint.event_id==="96415dff-3efb-4b09-8fb3-ac39f113fde4"&&
+   item.checkpoint.status_before==="em_validacao"&&item.checkpoint.status_after==="em_validacao"&&
+   item.checkpoint.authority==="consultivo_nao_homologado"&&
+   item.checkpoint.learning_state==="historico_verificado_sem_fm_homologado"&&
+   ["sem_revisao_visivel_sob_rls","revisao_visivel_sem_assertiva_de_vigencia"].includes(item.checkpoint.fm09)&&
+   ["sem_revisao_visivel_sob_rls","revisao_visivel_sem_assertiva_de_vigencia"].includes(item.checkpoint.fm10);
 };
 export default function NucleoAc02NucContextRead(){
  const [busy,setBusy]=useState(false);
@@ -36,7 +51,7 @@ export default function NucleoAc02NucContextRead(){
   try{
    const user=await supabase.auth.getUser();
    if(user.error||!user.data.user){setError("Sessão pessoal não comprovada. Entre na conta autorizada.");return;}
-   const response=await supabase.functions.invoke("nucleo-ac02-context-read",{body:{module_id:ID}});
+   const response=await supabase.functions.invoke("nucleo-ac02-context-read",{body:{module_id:ID,include_checkpoint:true}});
    if(response.error||!isContext(response.data)){
     setError("Consulta indisponível, negada ou incompleta. Sem pacote de assunção certificado.");return;
    }
@@ -63,6 +78,18 @@ export default function NucleoAc02NucContextRead(){
     <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
    </div>)}</div>
+   <section className="rounded-lg border p-3 text-xs space-y-2" aria-label="F5 — aprendizado e checkpoint do Núcleo">
+    <p className="font-semibold">F5 · Aprendizado recuperado da NUC-M4</p>
+    <p>Decisão: {result.checkpoint.decision}</p>
+    <p>Lição verificável: {result.checkpoint.lesson}</p>
+    <p>Histórico: antes {result.checkpoint.status_before} → depois {result.checkpoint.status_after} · Evento {result.checkpoint.event_id}</p>
+    <p>Antes: {result.checkpoint.before_action}</p>
+    <p>Depois: {result.checkpoint.after_action}</p>
+    <p>Próxima ação vigente: {result.checkpoint.current_action}</p>
+    <p>FM-09: {result.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"} · FM-10: {result.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"}</p>
+    <p>Fontes: <a className="underline" href={result.checkpoint.decision_source} target="_blank" rel="noopener noreferrer">Deliberação da Camada Mestre</a> · <a className="underline" href={result.checkpoint.checkpoint_source} target="_blank" rel="noopener noreferrer">Checkpoint F5 existente</a></p>
+    <p className="text-muted-foreground">Registro consultivo; sem FM homologado, aceite de sucessor ou alteração de autoridade.</p>
+   </section>
    <p className="text-xs text-muted-foreground">Verificado em {new Date(result.checked_at).toLocaleString("pt-BR")}. Fonte: Core, sob permissão do usuário.</p>
    <p className="text-xs text-muted-foreground">Limites: {result.limitations.join(" ")}</p>
   </div>}
