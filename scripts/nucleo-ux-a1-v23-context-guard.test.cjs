@@ -24,4 +24,15 @@ has('nucleo-m3-workstream-detail',"Evidence detail kept");
 has('NucleoSupervisionPanel',"Supervisor kept");
 has('NucleoTechnicalEvidence',"M4 evidence kept");
 has('saveItem',"M3 update flow kept");
-console.log("UX-A1/V2.3: contexts, edit protection, preserved panels and M3 controls PASS");
+// M3: expansão consultiva do evento já carregado; sem consulta adicional nem nova escrita.
+for(const key of [
+  "Ver detalhes técnicos do evento","UUID do evento","UUID da frente",
+  "UUID do módulo pai no evento","Estado inicial","Prioridade inicial",
+  "Papel funcional inicial","Alcance de evidência inicial",
+  'event.actor_auth_uid??"Não identificada no evento"',
+  'event.event_type==="criado"','event.after_state.parent_id',
+  'event.after_state.status','event.after_state.evidence_state',
+  "não constituem homologação",
+])has(key,"Missing minimal read-only M3 event detail: "+key);
+has('Histórico M3 no recorte (últimos 200 eventos globais)',"History window remains explicit");
+console.log("UX-A1/V2.3: contexts, edit protection, preserved panels and M3 event detail PASS");

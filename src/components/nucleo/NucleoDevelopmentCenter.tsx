@@ -1032,6 +1032,24 @@ export default function NucleoDevelopmentCenter() {
                   <div key={event.id} className="text-xs border-l-2 pl-2">
                     <p>{event.event_type} — {new Date(event.recorded_at).toLocaleString("pt-BR")}</p>
                     <p className="text-muted-foreground">Histórico preservado no Core</p>
+                    <details className="mt-2 rounded-md border p-2">
+                      <summary className="cursor-pointer font-medium">Ver detalhes técnicos do evento</summary>
+                      <dl className="mt-2 grid gap-2 break-all sm:grid-cols-2" aria-label={"Identificação do evento "+event.id}>
+                        <div><dt className="text-muted-foreground">UUID do evento</dt><dd>{event.id}</dd></div>
+                        <div><dt className="text-muted-foreground">UUID da frente</dt><dd>{event.workstream_id}</dd></div>
+                        <div><dt className="text-muted-foreground">Autoria registrada</dt><dd>{event.actor_auth_uid??"Não identificada no evento"}</dd></div>
+                        {event.event_type==="criado"&&<>
+                          <div><dt className="text-muted-foreground">Código inicial</dt><dd>{String(event.after_state.code??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">UUID do módulo pai no evento</dt><dd>{String(event.after_state.parent_id??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">Tipo inicial</dt><dd>{String(event.after_state.kind??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">Estado inicial</dt><dd>{String(event.after_state.status??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">Prioridade inicial</dt><dd>{String(event.after_state.priority??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">Papel funcional inicial</dt><dd>{String(event.after_state.specialist??"Não registrado")}</dd></div>
+                          <div><dt className="text-muted-foreground">Alcance de evidência inicial</dt><dd>{String(event.after_state.evidence_state??"Não registrado")}</dd></div>
+                        </>}
+                      </dl>
+                      <p className="mt-2 text-muted-foreground">Dados do evento carregado no recorte M3; não constituem homologação, mandato nominal ou histórico exaustivo.</p>
+                    </details>
                   </div>
                 ))}
                 {!selectedHistory.length&&<p className="text-xs text-muted-foreground">Nenhum evento carregado; registros anteriores podem existir.</p>}
