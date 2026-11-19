@@ -41,3 +41,7 @@ verify_jwt = true
 # Núcleo A+ consulta somente leitura; JWT válido + nucleo_manage + RLS.
 [functions.nucleo-knowledge-read]
 verify_jwt = true
+
+# Piloto NUC: JWT individual + RLS existente, somente proposta AC-01 de referência.
+[functions.nucleo-ac01-agent-proposal]
+verify_jwt = true
