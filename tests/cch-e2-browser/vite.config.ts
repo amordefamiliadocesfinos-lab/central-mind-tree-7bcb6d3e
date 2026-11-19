@@ -5,7 +5,7 @@ const root=path.resolve(process.cwd(),"tests/cch-e2-browser");
 const shared=path.join(root,"mock-hooks.ts");
 const names=["useHealthAthlete","useHealthCatalogs","useHealthProgramM3",
   "useHealthTrainingProfileF22","useHealthLongitudinalReviewF13",
-  "useHealthReplanningF14","useCchCycleAdvisor"];
+  "useHealthReplanningF14","useCchCycleAdvisor","useHealthE3ReadOnly"];
 export default defineConfig({
  root,
  plugins:[react()],

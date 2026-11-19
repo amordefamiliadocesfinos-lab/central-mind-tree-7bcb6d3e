@@ -76,3 +76,10 @@ test("planned-vs-performed compares session codes not weekly goals",()=>{
  assert.equal(x.coverage.plannedCompletedRatio,1);
  assert.match(x.coverage.comparativeCaveat,/descritiva/);
 });
+
+test("no proposed version means observation only; cannot imply eligible draft",()=>{
+ const x=assess({...base,proposedVersionId:null});
+ assert.equal(x.status,"review_evidence");
+ assert.equal(x.readiness,"insufficient");
+ assert.equal(x.alternatives.some(a=>a.strategy==="continue_progression"),false);
+});

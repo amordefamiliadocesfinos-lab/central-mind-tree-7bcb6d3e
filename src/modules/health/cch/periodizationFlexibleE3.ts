@@ -106,7 +106,7 @@ export function assessFlexiblePeriodizationE3(input:FlexibleContext):E3Result {
  if(dates.length!==completed.length)reason.push("Datas ausentes ou inválidas: janela de observação não inteiramente verificável.");
  const recoveryReview=recoveryGuard||negatives>0;
  const insufficient=input.dataQuality!=="reviewable"||!sourceAligned||comparable.length<2||
-   input.goal==="unsure"||recoveryReview;
+   input.goal==="unsure"||!input.proposedVersionId||recoveryReview;
  const status:E3Result["status"]=recoveryReview?"review_recovery":insufficient?"review_evidence":
    "eligible_for_manual_review";
  const alternatives:E3Result["alternatives"]=[

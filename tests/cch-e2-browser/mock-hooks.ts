@@ -122,3 +122,8 @@ export function useCchCycleAdvisor(){
    generate:async()=>{throw Error("Não gerar treino real em homologação");},
    refresh:async()=>{}};
 }
+
+export function useHealthE3ReadOnly(){
+ return {observations:[],totalValidSessions:0,uncategorizedSessions:0,missingWorkingSetData:0,
+ sourceTruncated:false,loading:false,error:null,reload:async()=>{}};
+}

@@ -29,6 +29,8 @@ import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
 import { assessDraftPublicationStructure } from "../cch/publicationStructure";
 import { cchBuildProvenance } from "../cch/buildProvenance";
 import { assessE2Preflight } from "../cch/e2Preflight";
+import { assessFlexiblePeriodizationE3 } from "../cch/periodizationFlexibleE3";
+import { useHealthE3ReadOnly } from "../hooks/useHealthE3ReadOnly";
 import { confirmedEquipmentChoices } from "../cch/equipmentChoices";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
@@ -48,6 +50,7 @@ export function HealthProgramPage() {
   const longitudinal = useHealthLongitudinalReviewF13(athlete?.id);
   const replanning = useHealthReplanningF14(athlete?.id);
   const cycleAdvisor = useCchCycleAdvisor(athlete?.id, program.program?.current_version_id, program.program?.id);
+  const e3Observed = useHealthE3ReadOnly(athlete?.id,program.program?.id);
   const [goalChoice, setGoalChoice] = useState<GuidedGoal | "unsure">("unsure");
   const [strategyChoice, setStrategyChoice] = useState<GuidedStrategy>("continue_progression");
   const [priorityMuscleId, setPriorityMuscleId] = useState("");
@@ -192,6 +195,23 @@ export function HealthProgramPage() {
      goal:goalChoice,strategy:strategyChoice}
   ) : [];
   const e2ById=new Map(e2Proposals.map(x=>[x.id,x]));
+  const e3Periodization = assessFlexiblePeriodizationE3({
+    goal:goalChoice,
+    trainingLevel:(trainingProfile.profile?.training_level==="advanced"||
+      trainingProfile.profile?.training_level==="intermediate"||
+      trainingProfile.profile?.training_level==="beginner")?
+      trainingProfile.profile.training_level:"unknown",
+    dataQuality:e3Observed.loading||e3Observed.error||e3Observed.sourceTruncated?
+      "limited":cycleAdvisor.assessment.data_quality?.status??"limited",
+    recovery:recoveryReport,symptoms:symptomReport,
+    adversePerformanceSignals:cycleAdvisor.assessment.periodization_decision?.negative_performance_signals??0,
+    sessions:e3Observed.observations,
+    sourceVersionId:cycleAdvisor.assessment.source_version_id??null,
+    currentPublishedVersionId:program.program.current_version_id??null,
+    proposedVersionId:draft?program.version?.id??null:null,
+    plannedStimuli:program.templates.filter(t=>t.status==="active").map(t=>t.code),
+    preferredAvailability:null,
+  });
   const e2Preflight = assessE2Preflight({
     versionStatus:program.version?.status??null,
     activeVersionId:program.version?.id??null,
@@ -252,6 +272,55 @@ export function HealthProgramPage() {
             A visualização não cria rascunhos, não altera carga ou volume e não comprova implantação remota.
             Testes de publicação são realizados apenas em ambiente isolado.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="cch-e3-consultative-plan">
+        <CardHeader>
+          <CardTitle className="text-base">E3 · Continuidade flexível — estudo consultivo</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {e3Observed.loading? <p className="text-muted-foreground">Lendo registros M3/M4/F21 existentes...</p>:null}
+          {e3Observed.error?
+            <p className="text-destructive">Leitura E3 indisponível: {e3Observed.error}</p> : null}
+          {!e3Observed.loading&&!e3Observed.error?(
+            <>
+              <p data-testid="cch-e3-state">
+                {e3Periodization.status==="review_recovery"?"Revisar recuperação e sinais de desempenho":
+                  e3Periodization.status==="eligible_for_manual_review"?"Evidências para revisão humana":
+                  "Acompanhar continuidade e completar evidências"}
+              </p>
+              <p className="text-muted-foreground">
+                Sessões válidas observadas: {e3Periodization.cycle.completedSessions};
+                comparáveis: {e3Periodization.cycle.comparableSessions};
+                séries de trabalho: {e3Periodization.cycle.observedWorkingSets??"não consolidáveis"}.
+              </p>
+              <p className="text-muted-foreground">
+                Estímulos previstos: {e3Periodization.coverage.stimulusSequence.planned.join(", ")||"não disponíveis"};
+                observados: {e3Periodization.coverage.stimulusSequence.performed.join(", ")||"não identificados"}.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ainda não identificados na observação: {e3Periodization.coverage.stimulusSequence.pending.join(", ")||"nenhum"};
+                outros estímulos observados: {e3Periodization.coverage.stimulusSequence.unplanned.join(", ")||"nenhum"}.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Próxima revisão: {e3Periodization.checkpoint.criteria.join("; ")}.
+                Sem semana obrigatória, data-limite ou contador universal de sessões.
+              </p>
+              {e3Observed.sourceTruncated?
+                <p className="text-xs text-destructive">Histórico limitado pelo máximo de consulta; não interpretar contagens como totais.</p>:null}
+              {e3Observed.uncategorizedSessions>0?
+                <p className="text-xs text-muted-foreground">Sessões sem código M3 verificável: {e3Observed.uncategorizedSessions}.</p>:null}
+              {e3Observed.missingWorkingSetData>0?
+                <p className="text-xs text-muted-foreground">Sessões sem séries completas: {e3Observed.missingWorkingSetData}; ausência não significa zero trabalho realizado.</p>:null}
+              {e3Periodization.reasons.slice(0,4).map((reason,index)=>
+                <p key={index} className="text-xs text-muted-foreground">Limite: {reason}</p>)}
+              <p className="text-xs text-muted-foreground">
+                {e3Periodization.coverage.comparativeCaveat}
+                Este estudo não edita, não gera fila e não publica versões. A publicação exige rascunho e gate F22.
+              </p>
+            </>
+          ):null}
         </CardContent>
       </Card>
 
