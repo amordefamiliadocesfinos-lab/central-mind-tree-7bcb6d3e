@@ -27,7 +27,7 @@ SQL **somente de laboratório** em `scripts/nucleo-f1-f2-concrete-candidate.lab.
 | `specialties` | ID funcional estável, método geral por referência, estado/proveniência | Não copia conteúdo ou homologa o método |
 | `instances` | Instância funcional e `auth_uid` opcional, vinculação de identidade explicitamente verificada | Chat e papel textual não geram Auth |
 | `assignments` | N:N especialidade + instância + módulo/frente opcionais, papel, fonte, vigência e estado | FK M3; anti-duplicidade ativa; fechamento preserva história |
-| `read_grants` + `grant_history` | `read_context` auditável, revogável e vinculado a `auth_uid` e assignment; eventos separados | Não equivale a mandato, `nucleo_manage` ou escrita |
+| `read_grants` + `grant_history` | `read_context` auditável, revogável e vinculado a `auth_uid` e assignment; eventos separados, com autor/decisão de revogação distintos dos da concessão | Não equivale a mandato, `nucleo_manage` ou escrita |
 | `context_cards` | **Projeção saneada** de metadados com especialidade/módulo/frente | Não consulta tabelas documentais brutas; povoamento futuro exige escritor autorizado e prova da origem |
 
 A candidata usa schemas `f12_lab` e `f12_core` sintéticos para ensaio. O esquema definitivo poderá usar outro nome/forma; não transformar esses nomes em decisão soberana.
@@ -52,7 +52,7 @@ Integridade: FKs para módulos/frentes, verificação invoker de ancestralidade 
 
 Na CI, serviço `postgres:16` descartável executa:
 - candidato físico (`...candidate.lab.sql`);
-- testes positivos/negativos (`...candidate.test.sql`): três especialistas sintéticos, uma especialidade em NUC e CRM, versões dos métodos por referência, cross-front, duplicação, identidade emprestada, nenhum Auth, expirado/revogado, administrador preservado, zero SELECT bruto, ausência de INSERT por leitor, imutabilidade e log de revogação;
+- testes positivos/negativos (`...candidate.test.sql`): três especialistas sintéticos, uma especialidade em NUC e CRM, versões dos métodos por referência, cross-front, duplicação, identidade emprestada, nenhum Auth, expirado/revogado, administrador preservado, zero SELECT bruto, ausência de INSERT por leitor, imutabilidade, revogação com identidade/decisão próprias e log auditável;
 - duas transações simultâneas (`...concurrency.cjs`) tentando criar o mesmo vínculo: exatamente um vencedor + uma rejeição por unicidade.
 
 Esses ensaios **não repetem** os modelos genéricos #1000/#1002/#1003; acrescentam prova de constraints e fluxo concreto. Resultados de CI são registrados na PR, não como homologação real do Núcleo.
