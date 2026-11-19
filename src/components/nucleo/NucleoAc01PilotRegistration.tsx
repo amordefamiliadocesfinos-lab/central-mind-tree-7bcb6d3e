@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import {
   NUC_MODULE_ID,PILOT_ROLE,PILOT_SOURCE,PILOT_TITLE,
-  matchesPilotRecord,type PilotRecord,
+  matchesPilotRecord,type PilotRecord,type PilotRequest,
 } from "../../../supabase/functions/_shared/nucleo/ac01-agent-pilot-contract";
 
 /**
@@ -24,7 +24,7 @@ const STORAGE_PREFIX = "nucleo-ac01-pilot-v11:";
 const GITHUB_SOURCE =
   "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/" + PILOT_SOURCE;
 type Status = "checking"|"ready"|"missing_grant"|"signed_out"|"uncertain"|"done"|"unavailable";
-type StoredAttempt = {request_id:string;module_id:string};
+type StoredAttempt = PilotRequest;
 const matchesSource=(r:PilotRecord)=>r.module_id===NUC_MODULE_ID &&
   r.specialist_role===PILOT_ROLE && r.contribution_kind==="mapa" &&
   r.source_kind==="github" && r.source_locator===PILOT_SOURCE;
