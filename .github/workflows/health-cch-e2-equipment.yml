@@ -1,0 +1,26 @@
+name: CCH E2 Confirmed Equipment Selection
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/cch/equipmentChoices.ts'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'scripts/health-cch-e2-equipment.test.mjs'
+      - '.github/workflows/health-cch-e2-equipment.yml'
+permissions:
+  contents: read
+jobs:
+  equipment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - run: |
+          rm -rf .tmp-cch-e2-equipment
+          npx tsc src/modules/health/cch/equipmentChoices.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e2-equipment --skipLibCheck
+      - run: node --test scripts/health-cch-e2-equipment.test.mjs
+      - run: npx eslint src/modules/health/cch/equipmentChoices.ts src/modules/health/pages/HealthProgramPage.tsx
+      - run: npm run build
