@@ -19,7 +19,7 @@ INSERT INTO public.health_athlete_access(athlete_id,principal_auth_user_id,acces
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  '33333333-3333-4333-8333-333333333333','coach',true,true,true);
 -- Official M0 helper bodies (read/write/manage).
-CREATE OR REPLACE FUNCTION public.health_can_read_athlete(p_athlete_id uuid)
+CREATE OR REPLACE FUNCTION public.health_can_read_athlete(p_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -32,14 +32,14 @@ AS $$
       EXISTS (
         SELECT 1
         FROM public.health_athletes ha
-        WHERE ha.id = p_athlete_id
+        WHERE ha.id = p_id
           AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
         SELECT 1
         FROM public.health_athlete_access haa
-        WHERE haa.athlete_id = p_athlete_id
+        WHERE haa.athlete_id = p_id
           AND haa.principal_auth_user_id = auth.uid()
           AND haa.revoked_at IS NULL
           AND haa.can_read = true
@@ -47,7 +47,7 @@ AS $$
     );
 $$;
 
-CREATE OR REPLACE FUNCTION public.health_can_write_athlete(p_athlete_id uuid)
+CREATE OR REPLACE FUNCTION public.health_can_write_athlete(p_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -60,14 +60,14 @@ AS $$
       EXISTS (
         SELECT 1
         FROM public.health_athletes ha
-        WHERE ha.id = p_athlete_id
+        WHERE ha.id = p_id
           AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
         SELECT 1
         FROM public.health_athlete_access haa
-        WHERE haa.athlete_id = p_athlete_id
+        WHERE haa.athlete_id = p_id
           AND haa.principal_auth_user_id = auth.uid()
           AND haa.revoked_at IS NULL
           AND haa.can_write = true
@@ -75,7 +75,7 @@ AS $$
     );
 $$;
 
-CREATE OR REPLACE FUNCTION public.health_can_manage_athlete_access(p_athlete_id uuid)
+CREATE OR REPLACE FUNCTION public.health_can_manage_athlete_access(p_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -88,14 +88,14 @@ AS $$
       EXISTS (
         SELECT 1
         FROM public.health_athletes ha
-        WHERE ha.id = p_athlete_id
+        WHERE ha.id = p_id
           AND (ha.auth_user_id = auth.uid() OR ha.owner_auth_user_id = auth.uid())
           AND ha.status <> 'archived'
       )
       OR EXISTS (
         SELECT 1
         FROM public.health_athlete_access haa
-        WHERE haa.athlete_id = p_athlete_id
+        WHERE haa.athlete_id = p_id
           AND haa.principal_auth_user_id = auth.uid()
           AND haa.revoked_at IS NULL
           AND haa.can_manage_access = true
