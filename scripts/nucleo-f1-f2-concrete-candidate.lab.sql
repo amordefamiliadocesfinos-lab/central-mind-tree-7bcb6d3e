@@ -105,6 +105,26 @@ END $$;
 CREATE TRIGGER assignments_context BEFORE INSERT OR UPDATE OF module_id,front_id
  ON f12_lab.assignments FOR EACH ROW EXECUTE FUNCTION f12_lab.validate_context();
 
+-- Close only: historical identity, method, context, role, source and validity are immutable.
+CREATE FUNCTION f12_lab.guard_assignment_history() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $
+BEGIN
+ IF NEW.id IS DISTINCT FROM OLD.id OR NEW.specialty_id IS DISTINCT FROM OLD.specialty_id
+    OR NEW.instance_id IS DISTINCT FROM OLD.instance_id OR NEW.auth_uid IS DISTINCT FROM OLD.auth_uid
+    OR NEW.module_id IS DISTINCT FROM OLD.module_id OR NEW.front_id IS DISTINCT FROM OLD.front_id
+    OR NEW.responsibility IS DISTINCT FROM OLD.responsibility
+    OR NEW.local_method_ref IS DISTINCT FROM OLD.local_method_ref
+    OR NEW.provenance_ref IS DISTINCT FROM OLD.provenance_ref
+    OR NEW.valid_from IS DISTINCT FROM OLD.valid_from
+    OR NEW.valid_until IS DISTINCT FROM OLD.valid_until
+    OR OLD.status <> 'active' OR NEW.status <> 'closed'
+    OR OLD.closed_at IS NOT NULL OR NEW.closed_at IS NULL THEN
+  RAISE EXCEPTION 'assignment history immutable except first closure';
+ END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER assignment_history_guard BEFORE UPDATE ON f12_lab.assignments
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.guard_assignment_history();
+
 -- Grant is independent from mandate. No escalation to nucleo_manage.
 CREATE TABLE f12_lab.read_grants (
  id uuid PRIMARY KEY,
@@ -143,6 +163,7 @@ BEGIN
   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.assignment_id IS DISTINCT FROM OLD.assignment_id
      OR NEW.auth_uid IS DISTINCT FROM OLD.auth_uid OR NEW.permission IS DISTINCT FROM OLD.permission
      OR NEW.valid_from IS DISTINCT FROM OLD.valid_from OR NEW.valid_until IS DISTINCT FROM OLD.valid_until
+     OR NEW.granted_at IS DISTINCT FROM OLD.granted_at
      OR NEW.decision_ref IS DISTINCT FROM OLD.decision_ref OR NEW.granting_actor_ref IS DISTINCT FROM OLD.granting_actor_ref
      OR OLD.revoked_at IS NOT NULL OR NEW.revoked_at IS NULL THEN
    RAISE EXCEPTION 'grant is immutable except first revocation';
