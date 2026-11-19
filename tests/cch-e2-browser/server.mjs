@@ -80,6 +80,10 @@ const httpServer=http.createServer(async(req,res)=>{
   if(req.method!=="POST")return respond(res,404,{error:"unknown fixture route"});
   const input=await readBody(req);
   if(pathname==="/api/edit"){
+   console.log("E2 synthetic edit snapshot shape",JSON.stringify({
+    beforeKeys:Object.keys(input.before??{}),afterKeys:Object.keys(input.after??{}),
+    before:input.before,after:input.after
+   }));
    const value=await asAthlete(user,async tx=>tx.unsafe(
     "SELECT public.health_cch_e2_update_draft_prescription($1::uuid,$2::uuid,$3::jsonb,$4::jsonb,$5::text) AS result",
     [input.id,input.versionId,JSON.stringify(input.before),JSON.stringify(input.after),input.reason]));
