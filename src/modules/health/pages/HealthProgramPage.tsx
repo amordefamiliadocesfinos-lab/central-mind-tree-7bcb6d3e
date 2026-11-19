@@ -27,6 +27,7 @@ import { interpretExecution } from "../cch/executionEvidence";
 import { proposePrescriptionE2 } from "../cch/prescriptionE2";
 import { alternativesE2, adjacentSwapE2 } from "../cch/e2Alternatives";
 import { assessDraftPublicationStructure } from "../cch/publicationStructure";
+import { cchBuildProvenance } from "../cch/buildProvenance";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -196,9 +197,16 @@ export function HealthProgramPage() {
             {draft ? "Versão rascunho editável" : "Versão publicada e bloqueada para edição"}
           </p>
         </div>
-        <Badge variant={draft ? "secondary" : "default"}>
-          v{program.version?.version_number ?? "—"} · {program.version?.status ?? "—"}
-        </Badge>
+        <div className="space-y-1 text-right">
+          <Badge variant={draft ? "secondary" : "default"}>
+            v{program.version?.version_number ?? "—"} · {program.version?.status ?? "—"}
+          </Badge>
+          <p className="text-[11px] text-muted-foreground" data-testid="cch-e2-build-revision"
+            data-cch-build-commit={cchBuildProvenance().revision ?? "unknown"}
+            title="Revisão do código no momento da compilação. Não representa homologação do banco ou de uso real.">
+            Código servido: {cchBuildProvenance().shortRevision ?? "revisão indisponível"}
+          </p>
+        </div>
       </div>
 
       {program.error ? (

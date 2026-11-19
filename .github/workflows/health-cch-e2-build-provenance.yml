@@ -1,0 +1,29 @@
+name: CCH E2 Build Provenance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'vite.config.ts'
+      - 'src/modules/health/cch/buildProvenance.ts'
+      - 'src/modules/health/pages/HealthProgramPage.tsx'
+      - 'scripts/health-cch-e2-build-provenance.test.mjs'
+      - '.github/workflows/health-cch-e2-build-provenance.yml'
+permissions:
+  contents: read
+jobs:
+  provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 1}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - name: Assert E2 release provenance invariants
+        run: node --test scripts/health-cch-e2-build-provenance.test.mjs
+      - name: TypeScript, ESLint and build
+        run: |
+          npx tsc --noEmit
+          npx eslint src/modules/health/cch/buildProvenance.ts src/modules/health/pages/HealthProgramPage.tsx vite.config.ts
+          npm run build
