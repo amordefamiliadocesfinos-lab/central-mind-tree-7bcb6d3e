@@ -158,3 +158,18 @@ jobs:
           done
           run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
           run_sql supabase/tests/health_cch_e5e_official_contract.sql
+
+  e5-alternative-route-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static review of alternate M4 readers and elevated RPCs
+        run: node supabase/tests/health_cch_e5e_route_audit.mjs
+      - name: Retain independent access-route inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cch-e5e-route-audit
+          path: artifacts/cch-e5e-route-audit.json
+          if-no-files-found: error
