@@ -58,6 +58,18 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='MISMATCHED_LABEL_ALLOWED' THEN RAISE; END IF; END;
  IF (SELECT count(*) FROM f12_lab.context_cards)<>4 THEN RAISE EXCEPTION 'unreviewed cards persisted'; END IF;
 END $$;
+DO $sourceimmut$
+BEGIN
+ BEGIN
+  UPDATE f12_lab.approved_card_sources
+   SET public_label='synthetic unauthorized replacement' WHERE source_ref='synthetic://source/nuc';
+  RAISE EXCEPTION 'APPROVED_SOURCE_MUTATED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='APPROVED_SOURCE_MUTATED' THEN RAISE; END IF; END;
+ BEGIN
+  DELETE FROM f12_lab.approved_card_sources WHERE source_ref='synthetic://source/nuc';
+  RAISE EXCEPTION 'APPROVED_SOURCE_DELETED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='APPROVED_SOURCE_DELETED' THEN RAISE; END IF; END;
+END $sourceimmut$;
 -- Read-only callers cannot modify approved source registry or grant decisions.
 DO $$ BEGIN
  IF has_table_privilege('authenticated','f12_lab.approved_card_sources','SELECT')
