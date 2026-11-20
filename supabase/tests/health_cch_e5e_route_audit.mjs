@@ -52,7 +52,8 @@ for(const path of files){
    strictFailures.push({file,reason:'Potential SQL view exposing M4 events; review required'});
  }
  // No client-side or edge function may directly query E5 notes outside a reviewed contract.
- if((className==='edge function'||className==='client/source')&&/health_workout_events/.test(content))
+ // Generated Supabase type declarations expose a schema label but execute no query.
+ if(file!=='src/integrations/supabase/types.ts' && (className==='edge function'||className==='client/source') && /health_workout_events/.test(content))
   strictFailures.push({file,reason:'Direct M4 table use in client/edge; review before enabling E5'});
  matches.push({file,className,locations,securityDefinerM4:definerNames});
 }
