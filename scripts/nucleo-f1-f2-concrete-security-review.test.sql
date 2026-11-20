@@ -143,7 +143,49 @@ SELECT '40000000-0000-4000-8000-000000000095',specialty_id,instance_id,auth_uid,
  module_id,front_id,responsibility,local_method_ref,
  'synthetic://prov/renewed','active',now(),NULL,NULL
 FROM f12_lab.assignments WHERE id='40000000-0000-4000-8000-000000000005';
-DO $$
+-- A new approval is required when an expired assignment is re-issued;
+-- its old grant is retained, never reused or retroactively extended.
+INSERT INTO f12_lab.approved_decisions
+ (id,action,assignment_id,grant_id,approved_actor_auth_uid,authoritative_source,approved_at,expires_at)
+VALUES
+ ('80000000-0000-4000-8000-000000000003','grant_read_context',
+  '40000000-0000-4000-8000-000000000095',NULL,'30000000-0000-4000-8000-000000000097',
+  'synthetic://master/decision-3',now()-interval '1 hour',now()+interval '1 day');
+SET ROLE f12_grant_executor;
+SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000097',false);
+INSERT INTO f12_lab.read_grants
+ (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,decision_ref,granting_actor_ref)
+VALUES
+ ('50000000-0000-4000-8000-000000000012','40000000-0000-4000-8000-000000000095',
+  '30000000-0000-4000-8000-000000000004','read_context',now(),now(),NULL,
+  '80000000-0000-4000-8000-000000000003','30000000-0000-4000-8000-000000000097');
+RESET ROLE;
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000004',false);
+DO $BEGIN
+ IF (SELECT count(*) FROM f12_lab.context_cards)<>1 THEN
+ RAISE EXCEPTION 'renewed identity must only see newly approved NUC scope'; END IF;
+END $;
+RESET ROLE;
+DO $
+BEGIN
+ IF (SELECT count(*) FROM f12_lab.read_grants
+  WHERE auth_uid='30000000-0000-4000-8000-000000000004')<>2 THEN
+  RAISE EXCEPTION 'expired grant history not retained on reissue'; END IF;
+ IF (SELECT count(*) FROM f12_lab.grant_history
+  WHERE grant_id='50000000-0000-4000-8000-000000000012' AND event_kind='granted')<>1 THEN
+  RAISE EXCEPTION 'new grant has no independent audit event'; END IF;
+ BEGIN
+  INSERT INTO f12_lab.read_grants
+  (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,decision_ref,granting_actor_ref)
+  VALUES('50000000-0000-4000-8000-000000000013',
+   '40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',
+   'read_context',now(),now(),NULL,'80000000-0000-4000-8000-000000000001',
+   '30000000-0000-4000-8000-000000000097');
+  RAISE EXCEPTION 'REPLAYED_DECISION_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='REPLAYED_DECISION_ALLOWED' THEN RAISE; END IF; END;
+END $;
+DO $
 BEGIN
  IF (SELECT count(*) FROM f12_lab.assignments
   WHERE instance_id='20000000-0000-4000-8000-000000000004')<>2 THEN RAISE EXCEPTION 'assignment history lost'; END IF;
