@@ -315,6 +315,10 @@ CREATE POLICY writer_grant_insert ON f12_lab.read_grants FOR INSERT TO f12_grant
      WHERE d.action='grant_read_context' AND d.assignment_id=read_grants.assignment_id
        AND d.id::text=read_grants.decision_ref
        AND a.auth_uid=read_grants.auth_uid AND a.status='active'
+       AND a.closed_at IS NULL AND a.valid_from<=now()
+       AND (a.valid_until IS NULL OR now()<a.valid_until)
+       AND read_grants.valid_from>=a.valid_from
+       AND (a.valid_until IS NULL OR (read_grants.valid_until IS NOT NULL AND read_grants.valid_until<=a.valid_until))
        AND d.approved_actor_auth_uid=(SELECT auth.uid())
        AND d.approved_at<=now() AND now()<d.expires_at
        AND read_grants.granting_actor_ref=d.approved_actor_auth_uid::text)
