@@ -37,6 +37,14 @@ CREATE POLICY admin_caps_own ON f12_core.admin_caps FOR SELECT TO authenticated
  USING(auth_user_id=(SELECT auth.uid()));
 GRANT USAGE ON SCHEMA f12_core TO authenticated;
 GRANT SELECT ON f12_core.admin_caps TO authenticated;
+-- Faithful M3 baseline: authenticated has table SELECT, but ONLY owner-admin
+-- may see the rows under RLS, exactly as confirmed in pg_policies.
+ALTER TABLE f12_core.workstreams ENABLE ROW LEVEL SECURITY;
+CREATE POLICY m3_existing_owner_read ON f12_core.workstreams FOR SELECT TO authenticated
+ USING(EXISTS(SELECT 1 FROM f12_core.admin_caps c
+    WHERE c.auth_user_id=(SELECT auth.uid())
+      AND c.capability='nucleo_manage' AND c.active AND c.revoked_at IS NULL));
+GRANT SELECT ON f12_core.workstreams TO authenticated;
 
 CREATE TABLE f12_lab.specialties (
  id uuid PRIMARY KEY,
