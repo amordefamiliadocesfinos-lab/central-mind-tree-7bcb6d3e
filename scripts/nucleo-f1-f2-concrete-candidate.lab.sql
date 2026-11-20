@@ -192,6 +192,19 @@ END $$;
 CREATE TRIGGER grant_insert AFTER INSERT ON f12_lab.read_grants FOR EACH ROW EXECUTE FUNCTION f12_lab.record_grant_event();
 CREATE TRIGGER grant_revoke BEFORE UPDATE ON f12_lab.read_grants FOR EACH ROW EXECUTE FUNCTION f12_lab.record_grant_event();
 
+-- Only an approved, verified, metadata-only source may generate a consultive
+-- card. Source/content approval belongs to a separate competent human process.
+CREATE TABLE f12_lab.approved_card_sources (
+ source_ref text PRIMARY KEY,
+ specialty_id uuid NOT NULL REFERENCES f12_lab.specialties(id) ON DELETE RESTRICT,
+ module_id uuid NOT NULL REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
+ front_id uuid REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
+ public_label text NOT NULL CHECK(length(public_label) BETWEEN 3 AND 200),
+ origin_kind text NOT NULL CHECK(origin_kind IN ('github_reference','m3_event_reference','drive_metadata')),
+ verified boolean NOT NULL CHECK(verified=true),
+ private_payload_included boolean NOT NULL CHECK(private_payload_included=false),
+ authorization_ref text NOT NULL CHECK(length(btrim(authorization_ref))>=8)
+);
 -- Only sanitized, explicitly projected metadata, not original M3/M4/AC-01/FM rows.
 CREATE TABLE f12_lab.context_cards (
  id uuid PRIMARY KEY,
@@ -206,6 +219,23 @@ CREATE TABLE f12_lab.context_cards (
 );
 CREATE TRIGGER context_cards_scope BEFORE INSERT OR UPDATE OF module_id,front_id
  ON f12_lab.context_cards FOR EACH ROW EXECUTE FUNCTION f12_lab.validate_context();
+-- An actual card must byte-match a curated/public metadata projection, rather
+-- than copying raw document text or trusting user-entered descriptions.
+CREATE FUNCTION f12_lab.guard_card_provenance() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $sourceguard$
+BEGIN
+ IF NOT EXISTS(
+  SELECT 1 FROM f12_lab.approved_card_sources src
+  WHERE src.source_ref=NEW.public_source_ref AND src.specialty_id=NEW.specialty_id
+    AND src.module_id=NEW.module_id AND src.front_id IS NOT DISTINCT FROM NEW.front_id
+    AND src.public_label=NEW.public_label AND src.verified AND NOT src.private_payload_included
+ ) THEN
+  RAISE EXCEPTION 'context card requires matching reviewed metadata-only source';
+ END IF;
+ RETURN NEW;
+END $sourceguard$;
+CREATE TRIGGER card_provenance BEFORE INSERT OR UPDATE ON f12_lab.context_cards
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.guard_card_provenance();
+
 
 -- M3 hierarchy hardening: conservatively refuse a reparent/kind change while any
 -- descendant or root is referenced by an assignment or consultive card.
@@ -273,6 +303,11 @@ CREATE POLICY assignments_for_executor ON f12_lab.assignments FOR SELECT TO f12_
  USING(EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
      WHERE d.assignment_id=assignments.id AND d.approved_actor_auth_uid=(SELECT auth.uid())
        AND d.approved_at<=now() AND now()<d.expires_at));
+CREATE POLICY writer_grant_select ON f12_lab.read_grants FOR SELECT TO f12_grant_executor
+ USING(EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
+  WHERE d.assignment_id=read_grants.assignment_id
+    AND d.approved_actor_auth_uid=(SELECT auth.uid())
+    AND d.approved_at<=now() AND now()<d.expires_at));
 CREATE POLICY writer_grant_insert ON f12_lab.read_grants FOR INSERT TO f12_grant_executor
  WITH CHECK(
    EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
