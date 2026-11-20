@@ -1,0 +1,51 @@
+name: Núcleo F1-F2 — engenharia concreta isolada
+on:
+  pull_request:
+    paths:
+      - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
+      - "scripts/nucleo-f1-f2-concrete-candidate.test.sql"
+      - "scripts/nucleo-f1-f2-concrete-security-review.test.sql"
+      - "scripts/nucleo-f1-f2-concrete-concurrency.cjs"
+      - ".github/workflows/nucleo-f1-f2-concrete-isolated.yml"
+      - "docs/architecture/NUCLEO_F1_F2_ENGENHARIA_CONCRETA_DRAFT_2026-11-19.md"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-16-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: disposable_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Materialize candidate only in disposable PostgreSQL
+        env: &db
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: disposable_only
+          PGDATABASE: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.lab.sql
+      - name: Positive and negative RLS tests
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.test.sql
+      - name: Focused security review - hierarchy, provenance and grant executor
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql
+      - name: Concurrent uniqueness under two transactions
+        env: *db
+        run: node scripts/nucleo-f1-f2-concrete-concurrency.cjs
