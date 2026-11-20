@@ -215,6 +215,15 @@ CREATE TABLE f12_lab.approved_card_sources (
  private_payload_included boolean NOT NULL CHECK(private_payload_included=false),
  authorization_ref text NOT NULL CHECK(length(btrim(authorization_ref))>=8)
 );
+-- Approved source metadata is immutable; corrections require a new independently
+-- reviewed reference, not silent replacement of the source or its safe label.
+CREATE FUNCTION f12_lab.preserve_approved_source() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $sourcehistory$
+BEGIN
+ RAISE EXCEPTION 'approved source metadata is immutable';
+END $sourcehistory$;
+CREATE TRIGGER preserve_source_history BEFORE UPDATE OR DELETE ON f12_lab.approved_card_sources
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.preserve_approved_source();
+
 -- Only sanitized, explicitly projected metadata, not original M3/M4/AC-01/FM rows.
 CREATE TABLE f12_lab.context_cards (
  id uuid PRIMARY KEY,
@@ -223,7 +232,7 @@ CREATE TABLE f12_lab.context_cards (
  front_id uuid REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
  card_type text NOT NULL CHECK(card_type IN ('checkpoint','method_ref','next_action')),
  public_label text NOT NULL CHECK(length(public_label) BETWEEN 3 AND 200),
- public_source_ref text NOT NULL,
+ public_source_ref text NOT NULL REFERENCES f12_lab.approved_card_sources(source_ref) ON DELETE RESTRICT,
  CHECK(front_id IS NULL OR module_id IS NOT NULL),
  UNIQUE NULLS NOT DISTINCT (specialty_id,module_id,front_id,card_type)
 );
