@@ -88,7 +88,17 @@ BEGIN
   IF root_kind IS DISTINCT FROM 'modulo' THEN RAISE EXCEPTION 'module must be an existing M3 root'; END IF;
  END IF;
  IF NEW.front_id IS NOT NULL THEN
-  SELECT kind INTO front_kind FROM f12_core.workstreams WHERE id=NEW.front_id FOR SHARE;
+  -- Lock every ancestor so a concurrent reparent cannot slip between validation
+  -- and the insert, even for nested subfronts.
+  PERFORM id FROM f12_core.workstreams
+   WHERE id IN (
+     WITH RECURSIVE ancestors AS (
+       SELECT id,parent_id FROM f12_core.workstreams WHERE id=NEW.front_id
+       UNION ALL SELECT p.id,p.parent_id FROM f12_core.workstreams p
+         JOIN ancestors a ON p.id=a.parent_id
+     ) SELECT id FROM ancestors
+   ) ORDER BY id FOR SHARE;
+  SELECT kind INTO front_kind FROM f12_core.workstreams WHERE id=NEW.front_id;
   IF front_kind NOT IN ('frente','subfrente') OR front_kind IS NULL THEN
     RAISE EXCEPTION 'front must be M3 frente/subfrente';
   END IF;
@@ -196,6 +206,110 @@ CREATE TABLE f12_lab.context_cards (
 );
 CREATE TRIGGER context_cards_scope BEFORE INSERT OR UPDATE OF module_id,front_id
  ON f12_lab.context_cards FOR EACH ROW EXECUTE FUNCTION f12_lab.validate_context();
+
+-- M3 hierarchy hardening: conservatively refuse a reparent/kind change while any
+-- descendant or root is referenced by an assignment or consultive card.
+-- This is laboratory-only; productive M3 trigger integration needs separate approval.
+CREATE FUNCTION f12_lab.prevent_reparent_with_live_references()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $m3guard$
+BEGIN
+ IF NEW.parent_id IS NOT DISTINCT FROM OLD.parent_id AND NEW.kind=OLD.kind THEN RETURN NEW; END IF;
+ IF EXISTS (
+   WITH RECURSIVE subtree AS (
+     SELECT id FROM f12_core.workstreams WHERE id=OLD.id
+     UNION ALL
+     SELECT w.id FROM f12_core.workstreams w JOIN subtree s ON w.parent_id=s.id
+   )
+   SELECT 1 FROM subtree s
+   WHERE EXISTS(SELECT 1 FROM f12_lab.assignments a
+                WHERE a.module_id=s.id OR a.front_id=s.id)
+      OR EXISTS(SELECT 1 FROM f12_lab.context_cards c
+                WHERE c.module_id=s.id OR c.front_id=s.id)
+ ) THEN
+   RAISE EXCEPTION 'M3 hierarchy protected: referenced subtree cannot be reparented';
+ END IF;
+ RETURN NEW;
+END $m3guard$;
+CREATE TRIGGER m3_reparent_reference_guard BEFORE UPDATE OF parent_id,kind
+ ON f12_core.workstreams FOR EACH ROW EXECUTE FUNCTION f12_lab.prevent_reparent_with_live_references();
+
+-- Approved decisions are imported by a distinct competent authority. The writer
+-- role cannot forge/create/modify these rows. All identities below are synthetic.
+CREATE TABLE f12_lab.approved_decisions (
+ id uuid PRIMARY KEY,
+ action text NOT NULL CHECK(action IN ('grant_read_context','revoke_read_context')),
+ assignment_id uuid NOT NULL REFERENCES f12_lab.assignments(id) ON DELETE RESTRICT,
+ grant_id uuid REFERENCES f12_lab.read_grants(id) ON DELETE RESTRICT,
+ approved_actor_auth_uid uuid NOT NULL,
+ authoritative_source text NOT NULL CHECK(length(btrim(authoritative_source))>=8),
+ approved_at timestamptz NOT NULL,
+ expires_at timestamptz NOT NULL,
+ CHECK(expires_at>approved_at),
+ CHECK((action='grant_read_context' AND grant_id IS NULL)
+    OR (action='revoke_read_context' AND grant_id IS NOT NULL)),
+ UNIQUE(id,action)
+);
+-- A writer must be a separately provisioned server-side executor. Never grant
+-- this role to 'authenticated' or expose it to the client.
+DO $writer_role$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='f12_grant_executor')
+ THEN CREATE ROLE f12_grant_executor NOLOGIN; END IF;
+END $writer_role$;
+GRANT USAGE ON SCHEMA f12_lab,auth TO f12_grant_executor;
+GRANT EXECUTE ON FUNCTION auth.uid() TO f12_grant_executor;
+GRANT SELECT ON f12_lab.assignments, f12_lab.approved_decisions TO f12_grant_executor;
+GRANT SELECT,INSERT,UPDATE (revoked_at,revoked_by_actor_ref,revocation_decision_ref)
+ ON f12_lab.read_grants TO f12_grant_executor;
+-- Invoker triggers require INSERT on the append-only audit table; RLS permits it
+-- only from a trigger and only for matching, authoritative decision provenance.
+GRANT INSERT ON f12_lab.grant_history TO f12_grant_executor;
+GRANT USAGE ON SEQUENCE f12_lab.grant_history_id_seq TO f12_grant_executor;
+ALTER TABLE f12_lab.approved_decisions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY decision_for_executor ON f12_lab.approved_decisions FOR SELECT TO f12_grant_executor
+ USING(approved_actor_auth_uid=(SELECT auth.uid())
+   AND approved_at<=now() AND now()<expires_at);
+CREATE POLICY assignments_for_executor ON f12_lab.assignments FOR SELECT TO f12_grant_executor
+ USING(EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
+     WHERE d.assignment_id=assignments.id AND d.approved_actor_auth_uid=(SELECT auth.uid())
+       AND d.approved_at<=now() AND now()<d.expires_at));
+CREATE POLICY writer_grant_insert ON f12_lab.read_grants FOR INSERT TO f12_grant_executor
+ WITH CHECK(
+   EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
+     JOIN f12_lab.assignments a ON a.id=d.assignment_id
+     WHERE d.action='grant_read_context' AND d.assignment_id=read_grants.assignment_id
+       AND d.id::text=read_grants.decision_ref
+       AND a.auth_uid=read_grants.auth_uid AND a.status='active'
+       AND d.approved_actor_auth_uid=(SELECT auth.uid())
+       AND d.approved_at<=now() AND now()<d.expires_at
+       AND read_grants.granting_actor_ref=d.approved_actor_auth_uid::text)
+ );
+CREATE POLICY writer_grant_update ON f12_lab.read_grants FOR UPDATE TO f12_grant_executor
+ USING(
+   revoked_at IS NULL AND EXISTS(
+     SELECT 1 FROM f12_lab.approved_decisions d
+     WHERE d.action='revoke_read_context' AND d.grant_id=read_grants.id
+       AND d.assignment_id=read_grants.assignment_id
+       AND d.approved_actor_auth_uid=(SELECT auth.uid())
+       AND d.approved_at<=now() AND now()<d.expires_at)
+ )
+ WITH CHECK(
+   revoked_at IS NOT NULL AND revoked_by_actor_ref=(SELECT auth.uid())::text
+   AND EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
+     WHERE d.action='revoke_read_context' AND d.grant_id=read_grants.id
+       AND d.assignment_id=read_grants.assignment_id
+       AND d.id::text=read_grants.revocation_decision_ref
+       AND d.approved_actor_auth_uid=(SELECT auth.uid())
+       AND d.approved_at<=now() AND now()<d.expires_at)
+ );
+CREATE POLICY trigger_only_history ON f12_lab.grant_history FOR INSERT TO f12_grant_executor
+ WITH CHECK(pg_trigger_depth()>0 AND actor_ref=(SELECT auth.uid())::text
+   AND EXISTS(SELECT 1 FROM f12_lab.approved_decisions d
+      WHERE d.id::text=grant_history.decision_ref AND d.approved_actor_auth_uid=(SELECT auth.uid())
+        AND d.approved_at<=now() AND now()<d.expires_at
+        AND ((d.action='grant_read_context' AND event_kind='granted')
+          OR (d.action='revoke_read_context' AND event_kind='revoked'))));
+
 
 ALTER TABLE f12_lab.assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE f12_lab.read_grants ENABLE ROW LEVEL SECURITY;
