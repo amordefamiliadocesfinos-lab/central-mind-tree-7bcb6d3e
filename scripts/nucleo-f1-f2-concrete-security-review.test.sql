@@ -75,14 +75,8 @@ INSERT INTO f12_lab.approved_decisions
 VALUES
  ('80000000-0000-4000-8000-000000000001','grant_read_context',
   '40000000-0000-4000-8000-000000000001',NULL,'30000000-0000-4000-8000-000000000097',
-  'synthetic://master/decision-1',now()-interval '1 hour',now()+interval '1 day'),
- ('80000000-0000-4000-8000-000000000002','revoke_read_context',
-  '40000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000011',
-  '30000000-0000-4000-8000-000000000097',
-  'synthetic://master/decision-2',now()-interval '1 hour',now()+interval '1 day');
--- Forward reference for the prospective grant is not possible with FK. Authorize
--- revocation only after the grant is inserted (separate approved decision).
-DELETE FROM f12_lab.approved_decisions WHERE id='80000000-0000-4000-8000-000000000002';
+  'synthetic://master/decision-1',now()-interval '1 hour',now()+interval '1 day');
+-- Revocation decision is recorded only after the targeted grant exists.
 
 SET ROLE f12_grant_executor;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000098',false);
