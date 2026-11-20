@@ -158,6 +158,8 @@ CREATE TABLE f12_lab.read_grants (
 );
 CREATE UNIQUE INDEX f12_one_unrevoked_read_grant ON f12_lab.read_grants
  (assignment_id) WHERE revoked_at IS NULL;
+-- An approved grant decision is single-use, including after revocation.
+CREATE UNIQUE INDEX f12_grant_decision_once ON f12_lab.read_grants (decision_ref);
 
 -- Append-only trail: signed decision ref + actor ref; writer credentials/authorizations
 -- must be defined and reviewed in a separate gate, NOT by authenticated SQL.
