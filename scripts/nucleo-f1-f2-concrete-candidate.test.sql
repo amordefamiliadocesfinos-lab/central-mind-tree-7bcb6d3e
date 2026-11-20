@@ -66,7 +66,7 @@ BEGIN
     has_table_privilege('authenticated','f12_lab.specialties','SELECT') OR
     has_table_privilege('authenticated','f12_lab.instances','SELECT') OR
     has_table_privilege('authenticated','f12_lab.grant_history','SELECT') OR
-    has_table_privilege('authenticated','f12_core.workstreams','SELECT') OR
+    NOT has_table_privilege('authenticated','f12_core.workstreams','SELECT') OR
     has_table_privilege('anon','f12_lab.context_cards','SELECT')
  THEN RAISE EXCEPTION 'privilege leak'; END IF;
 END $$;
@@ -93,6 +93,7 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',false);
 DO $$BEGIN
  IF (SELECT count(*) FROM f12_lab.context_cards)<>2 THEN RAISE EXCEPTION 'actor-A 2 contexts expected'; END IF;
+ IF (SELECT count(*) FROM f12_core.workstreams)<>0 THEN RAISE EXCEPTION 'scoped reader cannot see raw legacy M3'; END IF;
  IF (SELECT count(*) FROM f12_lab.context_cards WHERE specialty_id='10000000-0000-4000-8000-000000000002')<>0 THEN RAISE EXCEPTION 'cross specialty leak'; END IF;
  BEGIN
   INSERT INTO f12_lab.read_grants (id,assignment_id,auth_uid,permission,granted_at,valid_from,valid_until,revoked_at,decision_ref,granting_actor_ref) VALUES('50000000-0000-4000-8000-000000000098','40000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','read_context',now(),now(),NULL,NULL,'synthetic://decision/forged','synthetic://grantor/forged');
@@ -118,6 +119,7 @@ END $$;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000099',false);
 DO $$BEGIN
  IF (SELECT count(*) FROM f12_lab.context_cards)<>4 THEN RAISE EXCEPTION 'owner grant compatibility'; END IF;
+ IF (SELECT count(*) FROM f12_core.workstreams)<>4 THEN RAISE EXCEPTION 'legacy M3 owner SELECT under RLS must work'; END IF;
 END $$;
 SELECT set_config('request.jwt.claim.sub','',false);
 DO $$BEGIN
