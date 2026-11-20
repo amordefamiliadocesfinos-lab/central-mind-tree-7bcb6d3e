@@ -107,7 +107,7 @@ VALUES ('80000000-0000-4000-8000-000000000002','revoke_read_context',
  'synthetic://master/decision-2',now()-interval '1 hour',now()+interval '1 day');
 SET ROLE f12_grant_executor;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000098',false);
-DO $$BEGIN
+DO $revcheck$ BEGIN
  BEGIN
  UPDATE f12_lab.read_grants SET revoked_at=now(),
   revoked_by_actor_ref='30000000-0000-4000-8000-000000000098',
@@ -116,7 +116,7 @@ DO $$BEGIN
  IF FOUND THEN RAISE EXCEPTION 'UNAUTHORIZED_REVOKER_ALLOWED'; END IF;
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='UNAUTHORIZED_REVOKER_ALLOWED' THEN RAISE; END IF;
  END;
-END $;
+END $revcheck$;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000097',false);
 UPDATE f12_lab.read_grants SET revoked_at=now(),
  revoked_by_actor_ref='30000000-0000-4000-8000-000000000097',
@@ -162,12 +162,12 @@ VALUES
 RESET ROLE;
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000004',false);
-DO $BEGIN
+DO $renewcheck$ BEGIN
  IF (SELECT count(*) FROM f12_lab.context_cards)<>1 THEN
  RAISE EXCEPTION 'renewed identity must only see newly approved NUC scope'; END IF;
-END $;
+END $renewcheck$;
 RESET ROLE;
-DO $
+DO $replaycheck$
 BEGIN
  IF (SELECT count(*) FROM f12_lab.read_grants
   WHERE auth_uid='30000000-0000-4000-8000-000000000004')<>2 THEN
@@ -184,8 +184,8 @@ BEGIN
    '30000000-0000-4000-8000-000000000097');
   RAISE EXCEPTION 'REPLAYED_DECISION_ALLOWED';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='REPLAYED_DECISION_ALLOWED' THEN RAISE; END IF; END;
-END $;
-DO $
+END $replaycheck$;
+DO $historycheck$
 BEGIN
  IF (SELECT count(*) FROM f12_lab.assignments
   WHERE instance_id='20000000-0000-4000-8000-000000000004')<>2 THEN RAISE EXCEPTION 'assignment history lost'; END IF;
@@ -193,4 +193,4 @@ BEGIN
   WHERE instance_id='20000000-0000-4000-8000-000000000004' AND status='active')<>1 THEN RAISE EXCEPTION 'renewal status invalid'; END IF;
  IF (SELECT count(*) FROM f12_lab.grant_history WHERE grant_id='50000000-0000-4000-8000-000000000005')<>1 THEN RAISE EXCEPTION 'expired grant history disappeared'; END IF;
  RAISE NOTICE 'PASS security followup F1/F2: M3 reparent fail-closed, trusted executor, source approval, revocation, renewal, immutable history';
-END $$;
+END $historycheck$;
