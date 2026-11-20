@@ -4,6 +4,7 @@ on:
     paths:
       - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
       - "scripts/nucleo-f1-f2-concrete-candidate.test.sql"
+      - "scripts/nucleo-f1-f2-concrete-security-review.test.sql"
       - "scripts/nucleo-f1-f2-concrete-concurrency.cjs"
       - ".github/workflows/nucleo-f1-f2-concrete-isolated.yml"
       - "docs/architecture/NUCLEO_F1_F2_ENGENHARIA_CONCRETA_DRAFT_2026-11-19.md"
@@ -42,6 +43,9 @@ jobs:
       - name: Positive and negative RLS tests
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.test.sql
+      - name: Focused security review - hierarchy, provenance and grant executor
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql
       - name: Concurrent uniqueness under two transactions
         env: *db
         run: node scripts/nucleo-f1-f2-concrete-concurrency.cjs
