@@ -32,6 +32,14 @@ INSERT INTO f12_lab.read_grants (id,assignment_id,auth_uid,permission,granted_at
  ('50000000-0000-4000-8000-000000000006','40000000-0000-4000-8000-000000000006','30000000-0000-4000-8000-000000000005','read_context',now()-interval '5 days',now()-interval '5 days',NULL,NULL,'synthetic://decision/revoked','synthetic://grantor/steward');
 UPDATE f12_lab.read_grants SET revoked_at=now(), revoked_by_actor_ref='synthetic://revoker/steward',revocation_decision_ref='synthetic://decision/revoke-initial'
  WHERE id='50000000-0000-4000-8000-000000000006';
+-- Synthetic metadata source approvals predate cards; no original documents copied.
+INSERT INTO f12_lab.approved_card_sources
+ (source_ref,specialty_id,module_id,front_id,public_label,origin_kind,verified,private_payload_included,authorization_ref)
+ VALUES
+ ('synthetic://source/nuc','10000000-0000-4000-8000-000000000001','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','synthetic NUC governance','github_reference',true,false,'synthetic://approval/nuc'),
+ ('synthetic://source/crm','10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000011','synthetic CRM governance','github_reference',true,false,'synthetic://approval/crm'),
+ ('synthetic://source/sec','10000000-0000-4000-8000-000000000002','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','synthetic NUC security','m3_event_reference',true,false,'synthetic://approval/sec'),
+ ('synthetic://source/ux','10000000-0000-4000-8000-000000000003','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','synthetic NUC UX','drive_metadata',true,false,'synthetic://approval/ux');
 INSERT INTO f12_lab.context_cards VALUES
  ('60000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533','checkpoint','synthetic NUC governance','synthetic://source/nuc'),
  ('60000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000011','checkpoint','synthetic CRM governance','synthetic://source/crm'),
