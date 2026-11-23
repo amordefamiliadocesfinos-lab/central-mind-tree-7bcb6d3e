@@ -8,6 +8,7 @@ on:
       - 'src/modules/health/pages/HealthWorkoutPage.tsx'
       - 'src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx'
       - 'scripts/health-cch-f24-g2-history.test.mjs'
+      - 'scripts/health-cch-f24-f19-ssr-journey.test.mjs'
       - '.github/workflows/health-cch-f24-g2.yml'
 permissions:
   contents: read
@@ -25,6 +26,8 @@ jobs:
           rm -rf .tmp-cch-f24-g2
           npx tsc src/modules/health/cch/f24ComparableHistory.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-f24-g2 --skipLibCheck
           node --test scripts/health-cch-f24-g2-history.test.mjs
+      - name: F19 real React render journey (synthetic remount)
+        run: node --test scripts/health-cch-f24-f19-ssr-journey.test.mjs
       - name: Frontend TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: ESLint
