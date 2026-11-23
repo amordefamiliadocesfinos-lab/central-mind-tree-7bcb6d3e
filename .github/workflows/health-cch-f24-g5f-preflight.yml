@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -23,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main --depth=1
+          git fetch origin main
           diff="$(git diff --name-only origin/main...HEAD)"
           echo "$diff"
           if echo "$diff" | grep -Ev '^(docs/health/CCH_F24_G5F_CONTRATO_HOMOLOGACAO_AUTH_ISOLADA_2026-11-23\.md|scripts/health-cch-f24-g5f-preflight(\.test)?\.mjs|\.github/workflows/health-cch-f24-g5f-preflight\.yml)$'; then
