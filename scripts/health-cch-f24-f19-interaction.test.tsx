@@ -53,7 +53,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{}}:{
    onConfirmEquipment={async()=>{}}
  />;
 }
-const extraButton=()=>screen.getAllByRole("button",{name:/\\+ Série extra$/}).at(-1)!;
+const extraButton=()=>screen.getAllByRole("button",{name:/\+ Série extra$/}).at(-1)!;
 const nextButton=()=>screen.getAllByRole("button",{name:/^Próximo exercício$/}).at(-1)!;
 describe("CCH F24 F19 — interface real com backend sintético isolado",()=>{
  it("at 3/3 selects extra instead of next, then 4/3 → 5/3 requires another click",async()=>{
