@@ -225,10 +225,21 @@ Deno.serve(async request=>{
             evidenceRead="indeterminada";
           }else scopedEvidence=result.data;
         }
+        // AC-01: somente identificadores, versões e estado da contribuição no mesmo módulo.
+        // Não lê decisões nem infere aprovação; acesso sob o JWT/RLS já verificado.
+        const ac01Rows=await db.from("nucleo_specialist_contributions")
+          .select("id,lineage_id,version_no,authority_state")
+          .eq("module_id",module.id).limit(100);
+        if(ac01Rows.error||!ac01Rows.data||ac01Rows.data.length>=100)
+          return json({error:"Leitura AC-01 negada ou incompleta"},503);
         ac02_assumption_export=composeAc02AssumptionExport({
           projection:ac02.global,specialist:ac02.specialist,
           moduleTitle:module.title,preparedAt:readAt,
           documentaryReadComplete:true,
+          ac01:{readComplete:true,rows:ac01Rows.data.map(row=>({
+           id:row.id,lineageId:row.lineage_id,versionNo:row.version_no,
+           authorityState:row.authority_state,
+          }))},
           documentary:sections.filter(row=>["FM-03","FM-08","FM-09"].includes(row.section_code)&&row.revision!==null)
            .map(row=>({
              sectionCode:row.section_code as "FM-03"|"FM-08"|"FM-09",

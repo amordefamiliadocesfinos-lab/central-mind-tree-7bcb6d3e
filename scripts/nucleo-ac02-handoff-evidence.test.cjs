@@ -44,6 +44,22 @@ assert.ok(!draft.text.includes("hunter2")&&!draft.text.includes("secret"));
 assert.ok(!draft.text.includes("private")&&!draft.text.includes("hidden"));
 assert.ok(draft.unresolved.some(v=>v.includes("Mandato")||v.includes("mandato")));
 assert.ok(draft.unresolved.some(v=>v.includes("Método")));
+const reviewId="11111111-1111-4111-8111-111111111111";
+const reviewLineage="22222222-2222-4222-8222-222222222222";
+const reviewInput={projection,specialist,moduleTitle:"token=private",preparedAt:now,
+ ac01:{readComplete:true,rows:[{id:reviewId,lineageId:reviewLineage,versionNo:2,authorityState:"em_evolucao"}]}};
+const review=exp.composeAc02AssumptionExport(reviewInput);
+assert.match(review.text,/Revisões AC-01 e conferência de pendências/);
+assert.ok(review.text.includes(reviewId));
+assert.ok(review.text.includes("decisão e publicação NÃO verificadas"));
+assert.ok(!review.text.includes("token=private"));
+assert.ok(review.unresolved.some(x=>x.includes("AC-01")));
+const noReview=exp.composeAc02AssumptionExport({projection,specialist,moduleTitle:"",preparedAt:now});
+assert.ok(noReview.text.includes("Leitura AC-01 incompleta ou ausente"));
+const tampered=exp.composeAc02AssumptionExport({...reviewInput,ac01:{readComplete:true,rows:[{
+ id:"not-a-uuid",lineageId:reviewLineage,versionNo:2,authorityState:"em_evolucao"}]}});
+assert.ok(!tampered.text.includes("not-a-uuid"));
+assert.ok(tampered.unresolved.some(x=>x.includes("inconsistentes")));
 const noTechnical=exp.composeAc02AssumptionExport({projection,specialist,preparedAt:now,moduleTitle:"",});
 assert.ok(noTechnical.unresolved.some(v=>v.includes("Frentes e evidências")));
 const endpoint=fs.readFileSync("supabase/functions/nucleo-knowledge-read/index.ts","utf8");
@@ -53,5 +69,9 @@ const m3=endpoint.indexOf('const moduleResult=await db.from("nucleo_development_
 const exportAt=endpoint.indexOf("composeAc02AssumptionExport({");
 assert.ok(auth>=0&&grant>auth&&m3>grant&&exportAt>m3);
 assert.ok(endpoint.includes('.select("id,kind,observed_state,workstream_id")'));
+assert.ok(endpoint.includes('.select("id,lineage_id,version_no,authority_state")'));
+assert.ok(endpoint.includes(".eq(\"module_id\",module.id).limit(100)"));
+assert.ok(endpoint.includes("ac01:{readComplete:true,rows:ac01Rows.data.map"));
+
 assert.ok(!/\.insert\(|\.upsert\(|\.update\(|\.delete\(/.test(endpoint));
 console.log("PASS AC02 assuncao M3/M4: somente IDs do módulo, sem texto/segredos/ACL ampliada");
