@@ -1,0 +1,95 @@
+name: CCH F24 F19 Disposable RPC Journey and Concurrency
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/tests/health_f24_f19_disposable_*.sql'
+      - 'supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql'
+      - '.github/workflows/health-cch-f24-f19-disposable.yml'
+permissions:
+  contents: read
+jobs:
+  f19-disposable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci-only
+          POSTGRES_DB: f24_ephemeral
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f24_ephemeral"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: f24_ephemeral
+      PGUSER: postgres
+      PGPASSWORD: postgres-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL CLI
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Minimal ephemeral fixture only
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_f24_f19_disposable_fixture.sql
+      - name: Extract the exact unmodified repository RPC definitions
+        run: |
+          set -euo pipefail
+          f=supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql
+          for name in health_f19_start_work_interval health_f19_finish_rest; do
+            awk -v name="$name" '$0 ~ "^CREATE OR REPLACE FUNCTION public\\."name"\\(" {f=1} f {print} f && /^\$\$;$/ {exit}' "$f" > "/tmp/$name.sql"
+            test "$(wc -c < "/tmp/$name.sql")" -gt 1500
+            tail -1 "/tmp/$name.sql" | grep -Fx '$$;'
+            psql -X -v ON_ERROR_STOP=1 -f "/tmp/$name.sql"
+          done
+      - name: Actual original F19 RPC 3 to 4 to 5 without changing M3
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_f24_f19_disposable_journey.sql
+      - name: Two concurrent clients must not create two open work intervals
+        run: |
+          set -euo pipefail
+          (
+            psql -X -v ON_ERROR_STOP=1 -c "
+              BEGIN;
+              SELECT id FROM public.health_workout_exercises
+              WHERE id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee' FOR UPDATE;
+              SELECT pg_sleep(0.5);
+              SELECT public.health_f19_start_work_interval(
+               'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+               '50000000-0000-0000-0000-000000000001');
+              COMMIT;"
+          ) >/tmp/f24-tab-a.log 2>&1 &
+          pid_a=$!
+          sleep 0.15
+          (
+            psql -X -v ON_ERROR_STOP=1 -c "
+              SELECT public.health_f19_start_work_interval(
+               'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+               '50000000-0000-0000-0000-000000000002');"
+          ) >/tmp/f24-tab-b.log 2>&1 &
+          pid_b=$!
+          set +e
+          wait "$pid_a"; rc_a=$?
+          wait "$pid_b"; rc_b=$?
+          set -e
+          cat /tmp/f24-tab-a.log /tmp/f24-tab-b.log
+          if [ "$rc_a" -eq 0 ] && [ "$rc_b" -eq 0 ]; then
+            echo "ERROR: both clients started work"; exit 1
+          fi
+          if [ "$rc_a" -ne 0 ] && [ "$rc_b" -ne 0 ]; then
+            echo "ERROR: neither client succeeded"; exit 1
+          fi
+          psql -X -v ON_ERROR_STOP=1 -c "
+            DO \$check\$
+            DECLARE n integer;
+            BEGIN
+              SELECT count(*) INTO n FROM public.health_workout_timer_intervals
+              WHERE session_id='cccccccc-cccc-cccc-cccc-cccccccccccc'
+                AND status IN ('running','paused');
+              IF n <> 1 THEN RAISE EXCEPTION 'expected exactly one active interval, got %',n;END IF;
+            END
+            \$check\$;"
