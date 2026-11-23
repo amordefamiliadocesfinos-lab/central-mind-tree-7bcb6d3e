@@ -92,3 +92,42 @@ test("E4 rejects absent identity instead of treating it as complete history",asy
  await assert.rejects(()=>readE3BoundedPages(fake([{id:""}]),10,3,integrity),
   /identificador repetido ou ausente/);
 });
+
+
+test("E4 revalidation detects a deletion that skips an ID without duplicate or order drift",async()=>{
+ const original=source(9),changed=original.filter(x=>x.id!=="000001");
+ let calls=0;
+ const stable={...integrity,revalidatePages:true};
+ await assert.rejects(()=>readE3BoundedPages(async(from,to)=>{
+  calls++;
+  // Initial pages are sorted and internally valid but deletion before offset
+  // after first page makes the full observed sequence skip an ID.
+  const data=(calls<=1?original:changed).slice(from,to+1);
+  return {data,error:null};
+ },12,5,stable),/dados mudaram durante a leitura/);
+});
+test("E4 revalidation detects a changed value under the same stable ID",async()=>{
+ const original=source(8).map(x=>({...x,load:80}));
+ let scan=0;
+ await assert.rejects(()=>readE3BoundedPages(async(from,to)=>{
+  scan++;
+  const rows=original.slice(from,to+1).map(x=>({...x}));
+  if(scan>2)rows.forEach(x=>{x.load=82;});
+  return {data:rows,error:null};
+ },10,5,{...integrity,revalidatePages:true}),/dados mudaram durante a leitura/);
+});
+test("E4 stable multiple pages pass revalidation and do not truncate",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(9),calls),12,4,
+  {...integrity,revalidatePages:true});
+ assert.equal(result.truncated,false);
+ assert.deepEqual(result.rows,source(9));
+ assert.ok(calls.length>3);
+});
+test("E4 a single page needs no second scan for cross-page drift",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(3),calls),10,4,
+  {...integrity,revalidatePages:true});
+ assert.deepEqual(result.rows,source(3));
+ assert.equal(calls.length,1);
+});
