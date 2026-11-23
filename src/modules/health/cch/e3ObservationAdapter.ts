@@ -55,3 +55,19 @@ export function mapM3M4F21Observations(
   missingWorkingSetData:observations.filter(x=>x.workingSets===null).length,
   sourceTruncated};
 }
+
+/** A previous athlete/program snapshot must never be exposed while scope changes. */
+export type E3ReadSnapshot={
+ scopeKey:string|null;
+ data:E3Mapped;
+ loading:boolean;
+ error:string|null;
+};
+export function viewE3ReadSnapshot(requestedScope:string|null,snapshot:E3ReadSnapshot){
+ if(requestedScope!==snapshot.scopeKey){
+  return {observations:[],totalValidSessions:0,uncategorizedSessions:0,
+   missingWorkingSetData:0,sourceTruncated:false,
+   loading:requestedScope!==null,error:null};
+ }
+ return {...snapshot.data,loading:snapshot.loading,error:snapshot.error};
+}

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {mapM3M4F21Observations as map} from "../.tmp-cch-e3b/e3ObservationAdapter.js";
+import {mapM3M4F21Observations as map,viewE3ReadSnapshot} from "../.tmp-cch-e3b/e3ObservationAdapter.js";
 const s=(id,status="completed",record_status="active",template="ta",version="va")=>({
  id,program_version_id:version,session_template_id:template,started_at:"2026-11-01T12:00:00Z",
  status,record_status
@@ -44,4 +44,41 @@ test("pagination cap is reported instead of claiming full-history completeness",
 test("does not infer recovery from completed sets",()=>{
  const v=map([s("a")],[working("a")],t,["va"]);
  assert.equal(v.observations[0].recoveryObserved,false);
+});
+
+test("E3 read scope switches redact previous athlete history before new request resolves",()=>{
+ const old={scopeKey:JSON.stringify(["athlete-A","program-A"]),
+  data:map([s("secret-A")],[working("secret-A")],t,["va"]),
+  loading:false,error:null};
+ const nextScope=JSON.stringify(["athlete-B","program-B"]);
+ const masked=viewE3ReadSnapshot(nextScope,old);
+ assert.equal(masked.observations.length,0);
+ assert.equal(masked.totalValidSessions,0);
+ assert.equal(masked.loading,true);
+ assert.equal(masked.error,null);
+ assert.equal(masked.sourceTruncated,false);
+ const correct=viewE3ReadSnapshot(old.scopeKey,old);
+ assert.equal(correct.totalValidSessions,1);
+ assert.equal(correct.observations[0].id,"secret-A");
+});
+test("E3 read scope redacts previous program even for same athlete",()=>{
+ const state={scopeKey:JSON.stringify(["athlete-A","program-A"]),
+  data:map([s("record-A")],[working("record-A")],t,["va"]),
+  loading:false,error:"old error"};
+ const masked=viewE3ReadSnapshot(JSON.stringify(["athlete-A","program-B"]),state);
+ assert.deepEqual(masked.observations,[]);
+ assert.equal(masked.error,null);
+ assert.equal(masked.loading,true);
+ const loggedOut=viewE3ReadSnapshot(null,state);
+ assert.equal(loggedOut.loading,false);
+ assert.equal(loggedOut.totalValidSessions,0);
+});
+test("E3 scope cannot be confused by delimiter-containing athlete/program IDs",()=>{
+ const a=JSON.stringify(["a|b","c"]);
+ const b=JSON.stringify(["a","b|c"]);
+ assert.notEqual(a,b);
+ assert.equal(viewE3ReadSnapshot(b,{
+  scopeKey:a,data:map([s("record")],[working("record")],t,["va"]),
+  loading:false,error:null
+ }).observations.length,0);
 });
