@@ -112,3 +112,31 @@ A produção dos cartões deve ser um fluxo **fonte autorizada → metadados min
 **Pendências materiais de produção:** escrituração autenticamente competente da decisão (assinatura, auditoria, segregação de decisor/executor e idempotência); autenticidade de JWT e revogação de sessão Auth; curadoria e eventual revogação/versões de fontes de cartões; integração concreta com triggers M3 sob edição concorrente; migração/reversão em staging fiel e direitos reais do Data API; planejamento de transferência caso a tabela aprovada já tenha consumidores. Sem prova real de atores distintos nem autorização sucessória.
 
 **Parecer técnico:** o **desenho isolado está apto a ser submetido à próxima deliberação de integração**, condicionado à CI da revisão final. Isto **não significa aptidão para merge/deploy/DDL produtivo**. Antes de executar migração devem existir portão humano distinto, writer auditável verificado, revisão e readback de Auth/RLS reais e plano de rollback por estado de uso. A PR #1004 permanece **DRAFT**, sem merge, sem grants reais, sem F6/F7 e sem Entrega B.
+
+## 7. Portão de preparação de integração em staging isolado — 23/11/2026
+
+**Autorização:** autorização expressa para preparar a próxima etapa em staging isolado, após encaminhamento do portão F1/F2 na PR #1004. Esta etapa **não** autoriza merge, migration, grants reais, novos usuários no Auth, ativação do leitor ou deploy.
+
+### 7.1 Achado material do Core M3 e correção do contrato
+
+A investigação consultiva de `pg_get_functiondef`, constraints e policies do Core oficial confirmou que o trigger real `nucleo_m3_workstream_audit` proíbe `UPDATE` que modifique `id`, `code`, `kind`, `parent_id`, `created_at` ou `created_by_auth_uid`, inclusive quando a frente não possui vínculos. O reparenting de uma frente **não é ação operacional autorizada na M3 atual**; qualquer futura edição desse comportamento requer decisão separada.
+
+A candidata já possuía `m3_reparent_reference_guard` para proteger dependências. A nova reprodução de staging `scripts/nucleo-f1-f2-staging-m3-official-compat.sql` adiciona a imutabilidade de `id/code/kind/parent_id` da M3 oficial sobre a mesma árvore sintética. A suíte de segurança foi ajustada para exigir que até uma frente sem referências **não** possa mudar de pai. O teste não instala trigger no Core e não substitui os eventos/auditoria próprios da M3. A reprodução é *parcial e relevante*, não um clone integral do Core (campos de auditoria, regras de status, Data API e triggers de eventos ainda exigem ensaio dedicado se houver migration).
+
+### 7.2 Gateway e RLS sintéticos — não é Supabase Auth real
+
+`scripts/nucleo-f1-f2-staging-gateway-jwt-mock.cjs` usa uma chave aleatória efêmera, assinatura de JWT HS256 verificada, `iss/aud/sub/session_id/exp/iat` e sessão ativa em memória para simular o portão HTTP; a consulta segue como role `authenticated` contra PostgreSQL 16 descartável com RLS. **Não usa senha ou token do projeto oficial, não inicializa usuário Supabase e não publica endpoint de rede.**
+
+Casos cobertos: sem token e token inválido → **401 simulado**; token expirado, `session_id` divergente e sessão revogada → **401 simulado**; identidade autenticada sem concessão, especialidade cruzada, módulo cruzado e frente diferente da mesma especialidade/módulo → **403 simulado**; concessão `read_context` correta e acesso administrativo legado → **200 simulado**; revogação de grant mantém 403 enquanto outro módulo autorizado permanece 200. Uma fonte sintética de NUC-M5 e um cartão associado são adicionados **somente após** os testes do schema, para provar cross-front de forma não trivial.
+
+Os resultados são **classes de resposta do gateway de teste**, não respostas HTTP observadas em Edge Function publicada. A homologação de `getUser`, `auth.sessions`, assinatura/issuer JWKS, refresh, role JWT e revogação reais continua pendente para próximo portão específico. As regras de segurança relevantes foram comparadas com a documentação oficial Supabase de JWT e RLS em 23/11/2026.
+
+### 7.3 Resultado e limites da compatibilidade
+
+A CI existente continua validando schema candidato, testes positivos e negativos do escritor, revogação, reemissão, imutabilidade de fontes, integridade dos cartões, bloqueio de escrita indevida e concorrência. Os novos testes são integrados ao **mesmo workflow** (não uma nova base ou PR).
+
+**Evidência de conclusão:** registrar o HEAD e o run de CI efetivamente aprovados no comentário final da PR; *não inferir sucesso antes de completar*. A presente seção não altera o status anterior de homologação de AC-01, AC-02, FM ou M3.
+
+**Riscos residuais pré-integração produtiva:** autenticação real com provedor Supabase e usuários distintos existentes, 401/403 de um endpoint implantado em staging Auth, segregação e idempotência da origem competente das decisões, inclusão de triggers oficiais adicionais (histórico e auditoria) e regras completas das tabelas, curadoria autorizada e retenção das fontes, sem criar escritores privilegiados indevidos, controle de deadlocks, plano de migração/rollback e readback. Nenhuma dessas ressalvas é tratada como homologada pelo JWT mock.
+
+**Encaminhamento ao portão humano:** preparação de staging PostgreSQL + gateway sintético, **não** autorização para promover PR #1004 a ready/merge. Permanecer draft até deliberação formal distinta.
