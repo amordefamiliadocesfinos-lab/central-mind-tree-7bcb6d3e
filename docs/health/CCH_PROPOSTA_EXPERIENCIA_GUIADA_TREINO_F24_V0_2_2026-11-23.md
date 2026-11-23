@@ -1,8 +1,8 @@
 # CCH — PROPOSTA DE NOVA FRENTE · EXPERIÊNCIA GUIADA DO TREINO · V0.2
-**Data:** 23/11/2026 · **Revisão:** V0.2, preferências funcionais aprovadas pelo proprietário · **Status:** PROPOSTA PARA APROVAÇÃO DE ESCOPO PELA CAMADA MESTRE; NÃO FROZEN; NÃO AUTORIZA IMPLEMENTAÇÃO/PRODUÇÃO.
+**Data:** 23/11/2026 · **Revisão:** V0.2, preferências funcionais aprovadas pelo proprietário · **Status:** ESCOPO F24 APROVADO PELA CAMADA MESTRE EM 23/11/2026; V0.2 NÃO FROZEN; ENGENHARIA G1/G2 EM BRANCH AUTORIZADA; SEM AUTORIZAÇÃO DE MERGE/DEPLOY TÉCNICO.
 **Projeto:** Painel Central / Saúde CCH · **Referência:** Issue #966.
 **Autoridade superior intocada:** `CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md` e `CCH_MAPA_EVOLUCAO_MOTOR_V1_0_FROZEN_2026-11-18.md`.
-**Codinome proposto:** F24 — Experiência Guiada de Execução e Orientação Contextual. *Número sujeito à reserva/validação da Camada Mestre; F23 permanece fechada.*
+**Frente oficialmente aberta:** F24 — Experiência Guiada de Execução e Orientação Contextual. *Identificador reservado por decisão expressa da Camada Mestre em 23/11/2026; F23 permanece fechada.*
 
 ## 0. Decisões do proprietário — incorporadas à proposta em 23/11/2026
 As cinco preferências abaixo foram aprovadas **para refinamento documental**. Esta aprovação não autoriza merge, implantação, schema, Storage, alterações de dados ou ativação de funcionalidades.
@@ -19,7 +19,7 @@ As cinco preferências abaixo foram aprovadas **para refinamento documental**. E
 
 ## 1. Motivação e regra de governança
 Transformar a execução real em uma experiência **uma tela / uma próxima ação**, com demonstração do movimento, séries extras intencionais, referência sutil ao histórico e sugestões úteis, opcionais e fundamentadas na literatura. Não construir motor, fila, catálogo de exercícios ou mecanismo de publicação paralelos.
-Esta proposta **não modifica** os mapas FROZEN; expansão de escopo e eventual numeração exigem decisão explícita da Camada Mestre. Sem implantação, sem alteração de atletas, sem coleta de sintomas E5, sem prescrição automática e sem migração produtiva por inferência.
+Esta proposta **não modifica** os mapas FROZEN. A Camada Mestre aprovou a abertura e a numeração F24, com engenharia P0/P1/P2/P4 em branches e PRs pequenas, **sem merge ou deploy técnicos autorizados** por essa deliberação. Sem implantação, sem alteração de atletas, sem coleta de sintomas E5, sem prescrição automática e sem migração produtiva por inferência.
 
 ## 2. Inventário de reutilização confirmado por leitura de código
 | Patrimônio atual | Observação | Uso proposto |
@@ -108,21 +108,23 @@ Níveis de intervenção: **informativo** (dica), **sugestão** (opção), **pro
 8. Se a reserva F24 conflitar com nomenclatura existente, escolher identificador aprovado sem renumerar retrospectivamente F23 ou mapas FROZEN.
 
 ## 8. Sequência sugerida e portões
-- **G0 (agora):** cinco preferências de produto aprovadas para documentação; **ainda pendentes** aprovação integral do escopo, reserva do identificador F24 e autorização de execução pela Camada Mestre. Sem alterar congelados.
-- **G1:** P0 e P1; correção de série extra e fluxo essencial, reutilizando backend; PR mínima com CI.
-- **G2:** P2 e P4; histórico sutil e simplificação da tela, sem dados sensíveis novos.
-- **G3:** P3; contrato documental de mídia, direitos, Storage e RLS antes de implementar persistência.
-- **G4:** P5 e P6; motor consultivo com evidência e gates de E2/E3, sem ativar E5 ou F23.
-- **G5:** homologação autenticada de uso real (quando autorizada), com fingerprint de revisão servida.
+- **G0 CONCLUÍDO (23/11):** cinco preferências D1–D5 ratificadas, F24 e escopo P0–P6 aprovados pela Camada Mestre. G1/G2 autorizam engenharia e testes em branch, NÃO merge/deploy técnico. Mapas FROZEN intactos.
+- **G1 AUTORIZADO para engenharia:** P0 e P1; correção de série extra e fluxo essencial, reutilizando backend; PR mínima com CI, revisão e **portão de merge posterior**.
+- **G2 AUTORIZADO para engenharia:** P2 e P4; histórico sutil e simplificação da tela, sem dados sensíveis novos; revisão e portão de merge posterior.
+- **G3 SOMENTE desenho/protótipo:** P3; contrato documental de mídia, direitos, Storage e RLS. Sem bucket, upload ou migração antes de aprovação independente.
+- **G4 SOMENTE especificação:** P5 e P6; motor consultivo com evidência e gates de E2/E3, sem ativar E5, autopublicação ou F23.
+- **G5 CONDICIONADO:** homologação autenticada de uso real e acessibilidade, com fingerprint de revisão servida, antes de qualquer liberação aos atletas.
 
 ## 9. Decisões encerradas e pendências de aprovação
 **Encerradas pelo proprietário na revisão V0.2:** D1 ícone de mídia sob demanda; D2 duas escolhas equivalentes ao completar séries; D3 histórico preferencial do mesmo aparelho com avisos; D4 dicas curtas e silenciáveis; D5 imagem + vídeo/GIF silencioso.
 
-**Ainda sujeito a decisão específica da Camada Mestre:** aprovação da nova frente e numeração F24; direitos/licenciamento e proveniência das mídias; orçamento/arquitetura de Storage, RLS e governança de uploads; acesso e retenção de preferências; priorização de PRs, implantação e homologação de uso real. A especificação não presume que qualquer um desses portões esteja aberto.
+**Já aprovado pela Camada Mestre:** abertura da F24, número e escopo conceitual P0–P6; engenharia em branch apenas para P0/P1/P2/P4. **Ainda sujeito a decisão específica:** merge/deploy técnico; direitos/licenciamento e proveniência das mídias; orçamento/arquitetura de Storage, RLS e governança de uploads; acesso e retenção de preferências; priorização de PRs, implantação e homologação de uso real. A especificação não presume que qualquer um desses portões esteja aberto.
 
 ## 10. Definição de pronto da proposta
-Este arquivo é **proposta revisada V0.2 com preferências aprovadas**, não mapa congelado, migração, aprovação da frente F24, liberação de IA ou autorização produtiva. Após decisão explícita da Camada Mestre, publicar versão aprovada e decompor em PRs pequenos conforme os gates. Issue #966 permanece a linha de continuidade até eventual decisão de vincular outra issue.
+Este arquivo é a **proposta V0.2 com escopo F24 aprovado e gates limitados pela Camada Mestre**. Não é mapa soberano congelado, migração, liberação de IA ou autorização produtiva. A engenharia G1/G2 pode ocorrer em branches e PRs pequenas, com revisão e CI; **integração/deploy técnico necessitam autorização posterior**. Issue #966 permanece a linha de continuidade até eventual decisão de vincular outra issue.
 
 ## 11. Changelog da proposta
 - **V0.1 (23/11/2026):** inventário e proposta inicial P0–P6.
 - **V0.2 (23/11/2026):** incorporadas cinco decisões expressas do proprietário; corrigida hierarquia da ação de série extra, removida miniatura persistente, reforçada equivalência de aparelho, silêncio das dicas e mídia somente sob demanda. Mantidos escopo proposto e portões.
+
+- **Deliberação Camada Mestre (23/11/2026):** F24 oficialmente aberta, D1–D5 ratificadas, G1/G2 em branch autorizados, G3 somente protótipo e G4 somente especificação, G5 homologação obrigatória antes de uso real. Fonte: comentários oficiais da PR #1022 e Issue #966. Não autorizou merge/deploy técnico.
