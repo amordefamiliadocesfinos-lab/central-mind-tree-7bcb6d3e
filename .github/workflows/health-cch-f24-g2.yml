@@ -30,13 +30,13 @@ jobs:
           node --test scripts/health-cch-f24-g2-history.test.mjs
       - name: F19 real React render journey (synthetic remount)
         run: node --test scripts/health-cch-f24-f19-ssr-journey.test.mjs
-      - name: F19 click journey with synthetic React controller (no live data)
-        run: |
-          npm install --no-save --no-package-lock --ignore-scripts vitest@3.2.4 jsdom@26.1.0 @testing-library/react@16.3.0
-          npx vitest run --config scripts/health-cch-f24-vitest.config.ts
       - name: Frontend TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: ESLint
         run: npx eslint src/modules/health/hooks/useF24WorkoutHistory.ts src/modules/health/cch/f24ComparableHistory.ts src/modules/health/pages/HealthWorkoutPage.tsx src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx
       - name: Production build
         run: npm run build
+      - name: F19 click journey with synthetic React controller (no live data)
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts vitest@3.2.4 jsdom@26.1.0 @testing-library/react@16.3.0
+          npx vitest run --config scripts/health-cch-f24-vitest.config.ts
