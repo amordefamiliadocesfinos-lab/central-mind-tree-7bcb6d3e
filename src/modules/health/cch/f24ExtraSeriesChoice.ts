@@ -14,3 +14,16 @@ export function canOfferExtraSeries(
     completed < 100 &&
     !["completed", "skipped", "replaced"].includes(exerciseStatus);
 }
+
+/** Keep the athlete's explicit extra-set choice when re-selecting a viewed exercise. */
+export function preserveF24ExtraChoice(
+  exerciseId: string,
+  selectedExtraExerciseId: string | null,
+  completed: number,
+  plannedMaximum: number,
+  exerciseStatus: string,
+): boolean {
+  return Boolean(exerciseId) &&
+    selectedExtraExerciseId === exerciseId &&
+    canOfferExtraSeries(completed, plannedMaximum, exerciseStatus);
+}
