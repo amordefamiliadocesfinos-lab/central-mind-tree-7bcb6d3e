@@ -140,3 +140,21 @@ A CI existente continua validando schema candidato, testes positivos e negativos
 **Riscos residuais pré-integração produtiva:** autenticação real com provedor Supabase e usuários distintos existentes, 401/403 de um endpoint implantado em staging Auth, segregação e idempotência da origem competente das decisões, inclusão de triggers oficiais adicionais (histórico e auditoria) e regras completas das tabelas, curadoria autorizada e retenção das fontes, sem criar escritores privilegiados indevidos, controle de deadlocks, plano de migração/rollback e readback. Nenhuma dessas ressalvas é tratada como homologada pelo JWT mock.
 
 **Encaminhamento ao portão humano:** preparação de staging PostgreSQL + gateway sintético, **não** autorização para promover PR #1004 a ready/merge. Permanecer draft até deliberação formal distinta.
+
+## 8. Contraprova Supabase Auth real LOCAL — 23/11/2026
+
+**Proveniência e autorização:** continuação do portão F1/F2 em staging isolado, sem nova infraestrutura hospedada nem autenticação do Core. O conector Supabase mostrou apenas dois projetos hospedados disponíveis na conta, **ambos inativos**, e nenhum branch de staging ativo para a conta de testes. Não foram reativados, nem criados projetos/branches sujeitos a custo.
+
+A CI adicionou o workflow `.github/workflows/nucleo-f1-f2-auth-local.yml` com `supabase/setup-cli`, que inicializa um projeto **efêmero e local no runner GitHub Actions** (`$RUNNER_TEMP`), executa Supabase Auth (GoTrue), PostgREST e PostgreSQL, depois encerra o stack com `supabase stop --no-backup`. Não usa `supabase link`, token de Management API ou credenciais hospedadas. O schema candidato é convertido **somente na cópia temporária** para reutilizar o `auth.uid()` oficial da instalação local em vez de tentar recriar a função; a versão fonte da PR permanece intacta. O acesso de fixture `f12_grant_executor` foi concedido ao `postgres` **apenas dentro do banco local efêmero** para permitir os testes das decisões, sem qualquer alteração ao grant produtivo.
+
+### Prova com Auth real local
+
+O script `scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs` registra contas efêmeras com e-mails sintéticos dentro do **GoTrue local**, obtém JWT autêntico emitido por esse servidor, valida `/auth/v1/user` e a existência de sessão em `auth.sessions`; usa uma visão `security_invoker=true` apenas na PostgREST local, cujo `SELECT` aplica as policies F1/F2 da candidata sob o UID do JWT. Um gateway HTTP **escutando apenas 127.0.0.1 no runner** normaliza a semântica de autorização: 401 sem credencial/autenticação ou sessão ativa, 403 para JWT autenticado sem contexto autorizado, 200 para consulta concedida e com linha visível via RLS.
+
+**Negativas e positivas de escopo:** token ausente e inválido; usuário autenticado sem concessão; especialidade diferente; frente diferente dentro do mesmo módulo/especialidade; módulo CRM fora do vínculo NUC; concessão aprovada; sem exposição direta de linhas pelo PostgREST ao não autorizado; revogação do grant causando 403; `/auth/v1/logout` seguido de verificação de sessão, causando 401. Este ensaio não transfere identidade, dados, conta ou senha para o projeto hospedado.
+
+**Escopo exato da prova:** usa os serviços reais do Supabase Auth **local** e requisições HTTP reais no runner, mas **não comprova o JWT do projeto hospedado, configuração de Auth hospedada, RLS produtiva, assinatura JWKS/rotate das instalações reais, usuários existentes nem publicação de Edge Function**. O gateway é uma implementação de teste e não substitui `nucleo-ac02-context-read`, que permanece sem alterações. O estado efetivo de assinatura, revogação em múltiplas sessões e segregação de serviço/writer exigirá staging hospedado autorizado ou equivalente com contrato final.
+
+**Evidência da CI:** execução, SHA e conclusão documentados no checkpoint de fechamento da PR depois da suíte terminar; não inferir sucesso de execução antiga. Esta preparação serve à deliberação técnica, jamais como autorização de merge ou implantação.
+
+**Próximo portão:** decidir se há necessidade real de staging hospedado controlado (considerando custo, isolamento e políticas de contas), antes de eventual migration ou ativação. Preservar PR #1004 em **draft**, AC-01/AC-02/FM/M3/M4/M5, F6/F7 e Entrega B.
