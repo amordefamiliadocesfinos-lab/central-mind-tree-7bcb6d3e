@@ -37,3 +37,12 @@ Esta é a **matriz de evidência**, não um atestado de homologação, publicaç
 **Escopo técnico:** `E3PageIntegrity.revalidatePages` em `e3Pagination.ts`, habilitado nas fontes paginadas do hook `useHealthE3ReadOnly`. Revalidação acontece apenas após a leitura completa e quando há múltiplas páginas, para não duplicar a consulta de uma só página. Testes simulam salto sem duplicidade, alteração de carga em mesmo registro, fonte estável e fonte de página única. Sem SQL, novas permissões, dados reais, criação de programa ou publicação.
 
 **Limitação preservada:** duas leituras coincidentes **não garantem snapshot transacional** e não excluem alterações que ocorram entre rechecagens, mudanças reversíveis ou variações sincronizadas de tabelas relacionadas. Esta é detecção conservadora de deriva observável, não homologação de concorrência absoluta. Não reivindicar conclusão total de consistência em produção sem contrato transacional próprio e decisão de governança. Homologação visual segue adiada.
+
+## Fechamento E4 — SQL/RLS descartável integrado ao gate de CI (23/11/2026)
+
+**Lacuna fechada no fluxo de testes:** o workflow E4 de fechamento não invocava contratos SQL/RLS, embora já existissem duas suites descartáveis separadas. A validação E4 passa a executar, sem duplicar os scripts SQL originais:
+
+- `e4-draft-rls-f22`: fixture sintética E2, migrações reais E2B/E2C, contratos de permissão e edição de rascunho, e função F22 original extraída da migração soberana com seu teste de bloqueio.
+- `e4-manual-lifecycle`: fixture sintética, migrações E2B/E2C, função F22 original e função de publicação M3 original extraídas da migração soberana, teste descartável de ciclo de publicação manual.
+
+Ambos os jobs usam PostgreSQL 17 temporário na CI. Não executam RPC no banco oficial, não alteram RLS real, usuários ou histórico dos atletas. São **provas em ambiente isolado**, não homologação autenticada, implantação, nem substitutos de snapshot transacional E3. Os workflows anteriores permanecem disponíveis e os contratos não são reconstruídos. O gate E4 agora também é acionado por alterações nas migrações e testes E2 pertinentes.
