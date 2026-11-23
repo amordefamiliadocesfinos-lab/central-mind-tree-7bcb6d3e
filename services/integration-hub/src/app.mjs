@@ -21,6 +21,7 @@ import {
   summarizeShopeeControlledRound,
 } from './shopee-intake-policy.mjs';
 import { randomUUID } from 'node:crypto';
+import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -51,6 +52,7 @@ export async function handleRequest(
     runShopeeCommit = runShopeeControlledAutoIntake,
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
+    readCelivioC4B = readCelivioC4BReadOnly,
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
     shipShopeeOrderOnce = guardedShopeeShipOrder,
@@ -260,6 +262,30 @@ export async function handleRequest(
         document_id: result?.ok === true ? result.document_id ?? null : null,
       });
     } catch { return json(503, { error: 'label_preparation_unavailable' }); }
+  }
+
+  // C4-B Celivio-only: isolated GETs to Shopee, zero Core writes.
+  // Default OFF, IAM-protected internal route; no caller-selected account/order.
+  if (normalizedPath === '/internal/shopee/celivio/c4b/read-only') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length > 0
+      || request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined
+        && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) {
+      return json(400, { error: 'query_or_body_not_allowed' });
+    }
+    if (String(getEnv('SHOPEE_CELIVIO_C4B_READONLY_ENABLED') ?? '').toLowerCase() !== 'true') {
+      return json(503, { status: 'blocked', code: 'c4b_not_enabled', written: 0 });
+    }
+    try {
+      const result = await readCelivioC4B();
+      return json(result?.ok ? 200 : 503, result?.ok
+        ? { status: 'ok', ...result }
+        : { status: 'blocked', code: result?.code ?? 'c4b_unavailable', written: 0 });
+    } catch {
+      return json(503, { status: 'blocked', code: 'c4b_unavailable', written: 0 });
+    }
   }
 
   if (normalizedPath === '/internal/shopee/live/oauth/refresh-once') {
