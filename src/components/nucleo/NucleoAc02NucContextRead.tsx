@@ -1,4 +1,5 @@
-import {useState} from "react";
+import {useEffect,useRef,useState} from "react";
+import {useAuth} from "@/contexts/AuthContext";
 import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
 type Front={code:string;title:string;status:string;evidence_state:string;next_action:string;evidence_count:number};
@@ -90,23 +91,40 @@ function buildConsultiveDecisionSummary(context:Context):string{
  ].join("\n");
 }
 export default function NucleoAc02NucContextRead(){
+ const {session,loading}=useAuth();
+ const sessionUid=loading?null:session?.user?.id??null;
+ // A identidade corrente é lida também após respostas assíncronas.
+ const identityRef=useRef<string|null>(sessionUid);
+ identityRef.current=sessionUid;
+ const [resultOwner,setResultOwner]=useState<string|null>(null);
  const [busy,setBusy]=useState(false);
  const [result,setResult]=useState<Context|null>(null);
  const [error,setError]=useState("");
  const [copyStatus,setCopyStatus]=useState<"idle"|"copied"|"failed">("idle");
  const [focusedFront,setFocusedFront]=useState("NUC-M4");
- const decisionSummary=result?buildConsultiveDecisionSummary(result):null;
+ const visibleResult=sessionUid&&resultOwner===sessionUid?result:null;
+ const decisionSummary=visibleResult?buildConsultiveDecisionSummary(visibleResult):null;
+ useEffect(()=>{
+  // Apenas mudança de identidade encerra o contexto, nunca refresh do token.
+  setResult(null);setResultOwner(null);setError("");setCopyStatus("idle");
+ },[sessionUid]);
  async function read(){
   if(busy)return;
-  setBusy(true);setError("");setResult(null);setCopyStatus("idle");
+  setBusy(true);setError("");setResult(null);setResultOwner(null);setCopyStatus("idle");
   try{
    const user=await supabase.auth.getUser();
-   if(user.error||!user.data.user){setError("Sessão pessoal não comprovada. Entre na conta autorizada.");return;}
+   if(user.error||!user.data.user||user.data.user.id!==sessionUid){setError("Sessão pessoal não comprovada. Entre na conta autorizada.");return;}
+   const requestUid=user.data.user.id;
    const response=await supabase.functions.invoke("nucleo-ac02-context-read",{body:{module_id:ID,include_checkpoint:true}});
    if(response.error||!isContext(response.data)){
     setError("Consulta indisponível, negada ou incompleta. Sem pacote de assunção certificado.");return;
    }
-   setResult(response.data);
+   // Descartar resposta antiga se houve troca de usuário durante a consulta.
+   if(identityRef.current!==requestUid)return;
+   const current=await supabase.auth.getUser();
+   if(current.error||current.data.user?.id!==requestUid)return;
+   if(identityRef.current!==requestUid)return;
+   setResultOwner(requestUid);setResult(response.data);
   }catch{setError("Falha ao consultar o contexto protegido; nenhum estado foi alterado.");}
   finally{setBusy(false);}
  }
@@ -119,11 +137,11 @@ export default function NucleoAc02NucContextRead(){
    {busy?"Consultando Core…":"Preparar contexto NUC para continuidade"}
   </Button>
   {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
-  {result&&<div className="space-y-2">
+  {visibleResult&&<div className="space-y-2">
    <p role="status" className="text-xs font-medium">Contexto consultivo confirmado pela leitura autenticada. Nenhum sucessor ou mandato foi certificado.</p>
-   <p className="text-xs">Mapa: {result.contribution.title} · v{result.contribution.version_no} · {result.contribution.authority_state}</p>
-   <p className="text-xs break-all">Contribuição AC-01: {result.contribution.id}</p>
-   <p className="text-xs">Especialidade descritiva: {result.specialist.specialty} — não homologada</p>
+   <p className="text-xs">Mapa: {visibleResult.contribution.title} · v{visibleResult.contribution.version_no} · {visibleResult.contribution.authority_state}</p>
+   <p className="text-xs break-all">Contribuição AC-01: {visibleResult.contribution.id}</p>
+   <p className="text-xs">Especialidade descritiva: {visibleResult.specialist.specialty} — não homologada</p>
    <section className="rounded-lg border p-3 space-y-3" aria-label="Painel de próximas ações das frentes NUC">
     <div className="space-y-1">
      <h5 className="font-semibold text-sm">Próximas ações · consulta do Core</h5>
@@ -133,7 +151,7 @@ export default function NucleoAc02NucContextRead(){
      </p>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Selecionar frente NUC">
-     {result.fronts.map(front=><Button key={front.code} type="button" size="sm"
+     {visibleResult.fronts.map(front=><Button key={front.code} type="button" size="sm"
       className="h-auto min-h-11 whitespace-normal justify-start text-left"
       variant={focusedFront===front.code?"secondary":"outline"}
       aria-pressed={focusedFront===front.code}
@@ -141,7 +159,7 @@ export default function NucleoAc02NucContextRead(){
       {front.code} · {front.status.replaceAll("_"," ")}
      </Button>)}
     </div>
-    {result.fronts.filter(front=>front.code===focusedFront).map(front=><article key={front.code}
+    {visibleResult.fronts.filter(front=>front.code===focusedFront).map(front=><article key={front.code}
       className="rounded-md border p-3 space-y-2 text-xs" aria-live="polite">
      <h6 className="font-semibold text-sm">{front.code} · {front.title}</h6>
      <p>Estado no Core: <strong>{front.status}</strong> · Evidência: {front.evidence_state} · Registros M4 visíveis: {front.evidence_count}</p>
@@ -158,7 +176,7 @@ export default function NucleoAc02NucContextRead(){
      Testes e homologações adiados permanecem pendentes, sem bloquear consultas e avanços independentes.
     </p>
    </section>
-   <div className="space-y-2">{result.fronts.map(front=><div key={front.code} id={"nucleo-ac02-front-"+front.code} tabIndex={-1} className="scroll-mt-28 rounded-md border p-2 text-xs space-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+   <div className="space-y-2">{visibleResult.fronts.map(front=><div key={front.code} id={"nucleo-ac02-front-"+front.code} tabIndex={-1} className="scroll-mt-28 rounded-md border p-2 text-xs space-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <p className="font-semibold">{front.code} · {front.title}</p>
     <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
@@ -174,30 +192,30 @@ export default function NucleoAc02NucContextRead(){
     <div className="grid gap-2 md:grid-cols-3">
      <article className="rounded-md border p-3 space-y-1 text-xs">
       <h6 className="font-semibold">1 · Proposta documental</h6>
-      <p>AC-01 v{result.contribution.version_no} · estado informado pelo Core: <strong>{result.contribution.authority_state}</strong></p>
-      <p className="text-muted-foreground">Fonte de origem: {result.contribution.source_kind} · {result.contribution.source_locator}</p>
+      <p>AC-01 v{visibleResult.contribution.version_no} · estado informado pelo Core: <strong>{visibleResult.contribution.authority_state}</strong></p>
+      <p className="text-muted-foreground">Fonte de origem: {visibleResult.contribution.source_kind} · {visibleResult.contribution.source_locator}</p>
       <p className="text-muted-foreground">Próximo movimento: manter a proposta e a linhagem até decisão documental competente.</p>
      </article>
      <article className="rounded-md border p-3 space-y-1 text-xs">
       <h6 className="font-semibold">2 · Evidência operacional</h6>
-      <p>NUC-M4 · antes {result.checkpoint.status_before} / depois {result.checkpoint.status_after}</p>
-      <p>Frente atual: <strong>{result.fronts.find(front=>front.code==="NUC-M4")?.status??"não informada"}</strong></p>
+      <p>NUC-M4 · antes {visibleResult.checkpoint.status_before} / depois {visibleResult.checkpoint.status_after}</p>
+      <p>Frente atual: <strong>{visibleResult.fronts.find(front=>front.code==="NUC-M4")?.status??"não informada"}</strong></p>
       <p className="text-muted-foreground">Aceite técnico restrito não substitui conclusão operacional nem vigência documental.</p>
      </article>
      <article className="rounded-md border p-3 space-y-1 text-xs">
       <h6 className="font-semibold">3 · Autoridade ainda separada</h6>
-      <p>Especialidade: {result.specialist.specialty_state}</p>
-      <p>Mandato: {result.specialist.mandate} · Sucessor: {result.specialist.successor}</p>
+      <p>Especialidade: {visibleResult.specialist.specialty_state}</p>
+      <p>Mandato: {visibleResult.specialist.mandate} · Sucessor: {visibleResult.specialist.successor}</p>
       <p className="text-muted-foreground">Homologação, publicação, mandato, entrega e recebimento exigem atos próprios.</p>
      </article>
     </div>
     <details className="rounded-md border p-3 text-xs">
      <summary className="cursor-pointer font-medium">Fontes e pontos para futura deliberação</summary>
      <div className="mt-2 space-y-2">
-      <p>Contribuição AC-01: <span className="break-all">{result.contribution.id}</span>.</p>
-      <p>Evento de checkpoint M4: <span className="break-all">{result.checkpoint.event_id}</span>.</p>
-      <p>FM-09: {result.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.
-       FM-10: {result.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.</p>
+      <p>Contribuição AC-01: <span className="break-all">{visibleResult.contribution.id}</span>.</p>
+      <p>Evento de checkpoint M4: <span className="break-all">{visibleResult.checkpoint.event_id}</span>.</p>
+      <p>FM-09: {visibleResult.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.
+       FM-10: {visibleResult.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.</p>
       <p className="text-muted-foreground">Para decisão posterior, conferir fonte, conteúdo, versão, competência e efeito do ato.
        A ausência de revisão visível sob RLS não certifica inexistência global.</p>
      </div>
@@ -239,18 +257,18 @@ export default function NucleoAc02NucContextRead(){
    </section>
    <section className="rounded-lg border p-3 text-xs space-y-2" aria-label="F5 — aprendizado e checkpoint do Núcleo">
     <p className="font-semibold">F5 · Aprendizado recuperado da NUC-M4</p>
-    <p>Decisão: {result.checkpoint.decision}</p>
-    <p>Lição verificável: {result.checkpoint.lesson}</p>
-    <p>Histórico: antes {result.checkpoint.status_before} → depois {result.checkpoint.status_after} · Evento {result.checkpoint.event_id}</p>
-    <p>Antes: {result.checkpoint.before_action}</p>
-    <p>Depois: {result.checkpoint.after_action}</p>
-    <p>Próxima ação vigente: {result.checkpoint.current_action}</p>
-    <p>FM-09: {result.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"} · FM-10: {result.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"}</p>
-    <p>Fontes: <a className="underline" href={result.checkpoint.decision_source} target="_blank" rel="noopener noreferrer">Deliberação da Camada Mestre</a> · <a className="underline" href={result.checkpoint.checkpoint_source} target="_blank" rel="noopener noreferrer">Checkpoint F5 existente</a></p>
+    <p>Decisão: {visibleResult.checkpoint.decision}</p>
+    <p>Lição verificável: {visibleResult.checkpoint.lesson}</p>
+    <p>Histórico: antes {visibleResult.checkpoint.status_before} → depois {visibleResult.checkpoint.status_after} · Evento {visibleResult.checkpoint.event_id}</p>
+    <p>Antes: {visibleResult.checkpoint.before_action}</p>
+    <p>Depois: {visibleResult.checkpoint.after_action}</p>
+    <p>Próxima ação vigente: {visibleResult.checkpoint.current_action}</p>
+    <p>FM-09: {visibleResult.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"} · FM-10: {visibleResult.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"Nenhuma revisão visível sob a permissão atual":"Há revisão visível, sem vigência certificada"}</p>
+    <p>Fontes: <a className="underline" href={visibleResult.checkpoint.decision_source} target="_blank" rel="noopener noreferrer">Deliberação da Camada Mestre</a> · <a className="underline" href={visibleResult.checkpoint.checkpoint_source} target="_blank" rel="noopener noreferrer">Checkpoint F5 existente</a></p>
     <p className="text-muted-foreground">Registro consultivo; sem FM homologado, aceite de sucessor ou alteração de autoridade.</p>
    </section>
-   <p className="text-xs text-muted-foreground">Verificado em {new Date(result.checked_at).toLocaleString("pt-BR")}. Fonte: Core, sob permissão do usuário.</p>
-   <p className="text-xs text-muted-foreground">Limites: {result.limitations.join(" ")}</p>
+   <p className="text-xs text-muted-foreground">Verificado em {new Date(visibleResult.checked_at).toLocaleString("pt-BR")}. Fonte: Core, sob permissão do usuário.</p>
+   <p className="text-xs text-muted-foreground">Limites: {visibleResult.limitations.join(" ")}</p>
   </div>}
  </section>;
 }
