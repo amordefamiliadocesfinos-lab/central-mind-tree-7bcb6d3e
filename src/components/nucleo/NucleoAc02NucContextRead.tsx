@@ -59,7 +59,7 @@ export default function NucleoAc02NucContextRead(){
   }catch{setError("Falha ao consultar o contexto protegido; nenhum estado foi alterado.");}
   finally{setBusy(false);}
  }
- return <section className="rounded-xl border p-3 space-y-3" aria-label="Assunção consultiva do Núcleo AC-02">
+ return <section id="nucleo-ac02-consulta" tabIndex={-1} className="scroll-mt-28 rounded-xl border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Assunção consultiva do Núcleo AC-02">
   <div className="space-y-1">
    <h4 className="text-sm font-semibold">Continuidade do Especialista Núcleo · AC-02</h4>
    <p className="text-xs text-muted-foreground">Consulta restrita por sessão e permissão. Não concede mandato, não homologa mapa nem entrega contexto a outro usuário.</p>
@@ -78,7 +78,7 @@ export default function NucleoAc02NucContextRead(){
     <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
    </div>)}</div>
-   <section className="rounded-lg border p-3 space-y-3" aria-label="Quadro consultivo para preparar decisão documental">
+   <section id="nucleo-ac02-quadro-decisao" tabIndex={-1} className="scroll-mt-28 rounded-lg border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Quadro consultivo para preparar decisão documental">
     <div className="space-y-1">
      <h5 className="font-semibold text-sm">Quadro de preparação para decisão · sem homologação</h5>
      <p className="text-xs text-muted-foreground">
@@ -117,6 +117,18 @@ export default function NucleoAc02NucContextRead(){
        A ausência de revisão visível sob RLS não certifica inexistência global.</p>
      </div>
     </details>
+    <nav aria-label="Navegação entre origem documental e preparação de continuidade" className="flex flex-wrap gap-2">
+     <Button type="button" size="sm" variant="outline" onClick={()=>{
+      const target=document.getElementById("nucleo-ac01-piloto");
+      target?.scrollIntoView({behavior:"smooth",block:"start"});
+      target?.focus({preventScroll:true});
+     }}>Voltar à origem AC-01</Button>
+     <Button type="button" size="sm" variant="outline" onClick={()=>{
+      const target=document.getElementById("nucleo-ac02-consulta");
+      target?.scrollIntoView({behavior:"smooth",block:"start"});
+      target?.focus({preventScroll:true});
+     }}>Voltar ao contexto AC-02</Button>
+    </nav>
     <p className="text-xs text-muted-foreground">Próximo avanço consultivo: organizar as evidências para a Camada Mestre,
      sem simular aceite ou alterar o Core. Testes adicionais e homologação foram adiados pelo proprietário.</p>
    </section>
