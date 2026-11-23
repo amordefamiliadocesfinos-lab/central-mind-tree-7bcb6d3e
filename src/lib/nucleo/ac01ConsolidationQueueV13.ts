@@ -35,7 +35,10 @@ export function buildAc01ConsolidationQueue(
   const matchedFm=track.fmCandidates.filter(x=>x.match==="localizador_identico").length;
   if(track.fmCandidates.length===0)issues.add("origem_sem_fm");
   else if(!matchedFm)issues.add("divergencia_de_origem");
-  if(!allEntries.some(entry=>entry.decisions.some(dec=>dec.outcome==="aprovada")))
+  // Aprovação de uma revisão anterior não autoriza a versão mais recente.
+  // Cada nova versão precisa de decisão própria e vinculada por ID.
+  const currentEntry=allEntries.find(entry=>entry.id===c.id);
+  if(!currentEntry?.decisions.some(dec=>dec.outcome==="aprovada"))
    issues.add("sem_decisao_aprovada");
   const list=[...issues];
   return {
