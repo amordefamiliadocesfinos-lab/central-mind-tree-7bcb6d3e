@@ -5,6 +5,7 @@ on:
       - "scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs"
       - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
       - "scripts/nucleo-f1-f2-g1-scope.test.sql"
+      - "scripts/nucleo-f1-f2-writer-audit.test.sql"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
   workflow_dispatch:
 permissions:
@@ -69,6 +70,9 @@ jobs:
       - name: G1 explicit scope RLS regression on local Auth stack
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g1-scope.test.sql
+      - name: Audit writer contract on disposable Auth stack
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-writer-audit.test.sql
       - name: Stop local-only stack
         if: always()
         shell: bash
