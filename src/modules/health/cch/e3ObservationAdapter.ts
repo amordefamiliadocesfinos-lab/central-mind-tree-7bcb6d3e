@@ -40,14 +40,18 @@ export function mapM3M4F21Observations(
   const ownedTemplate=s.session_template_id?byTemplate.get(s.session_template_id):null;
   const matchingTemplate=ownedTemplate?.program_version_id===s.program_version_id;
   const working=setsBySession.get(s.id)??[];
-  const comparable=working.length>0&&working.every(set=>
+  // Incomplete API coverage or an unverified M3 source cannot substantiate
+  // a comparable exercise session, even if returned set numbers look valid.
+  const comparable=!sourceTruncated&&matchingTemplate&&
+   working.length>0&&working.every(set=>
    typeof set.reps==="number"&&Number.isFinite(set.reps)&&set.reps>0&&
    typeof set.rir==="number"&&Number.isFinite(set.rir)&&set.rir>=0&&
    typeof set.load_value==="number"&&Number.isFinite(set.load_value)&&set.load_value>=0&&
    ["kg","lb"].includes(set.load_unit??""));
   return {id:s.id,occurredAt:s.started_at,programVersionId:s.program_version_id!,
    sessionCode:matchingTemplate?ownedTemplate.code:"",
-   status:"completed",valid:true,workingSets:working.length?working.length:null,
+   status:"completed",valid:true,
+   workingSets:!sourceTruncated&&working.length?working.length:null,
    exerciseDataComparable:comparable,recoveryObserved:false};
  });
  return {observations,totalValidSessions:valid.length,
