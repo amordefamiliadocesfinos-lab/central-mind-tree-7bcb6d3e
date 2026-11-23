@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { exportLegacyNucleo } from "@/lib/nucleo/exportLegacyNucleo";
 import NucleoDriveReferences from "@/components/nucleo/NucleoDriveReferences";
+import NucleoIndexSourceTraceability from "@/components/nucleo/NucleoIndexSourceTraceability";
 import NucleoDevelopmentCenter from "@/components/nucleo/NucleoDevelopmentCenter";
 
 // ---------- Types ----------
@@ -4311,7 +4312,7 @@ export default function Nucleo() {
               </div>
             </section>
 
-            {activeArea === "biblioteca" && <div className="mt-5"><NucleoDriveReferences /></div>}
+            {activeArea === "biblioteca" && <><NucleoIndexSourceTraceability localPageCount={localPageCount} /><div className="mt-5"><NucleoDriveReferences /></div></>}
 
             {/* Lista compacta no padrão da referência, com seleção por teclado. */}
             <section className="mt-3 overflow-hidden rounded-2xl border border-[#dfe4ec]" aria-label="Páginas da área selecionada">
