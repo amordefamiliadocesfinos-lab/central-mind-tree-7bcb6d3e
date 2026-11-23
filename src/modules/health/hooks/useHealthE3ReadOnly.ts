@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {supabase} from "@/integrations/supabase/client";
 import {mapM3M4F21Observations,viewE3ReadSnapshot} from "../cch/e3ObservationAdapter";
-import type {E3Mapped,E3ReadSnapshot,M4SetRow} from "../cch/e3ObservationAdapter";
+import type {E3Mapped,E3ReadSnapshot,M3TemplateRow,M4SessionRow,M4SetRow} from "../cch/e3ObservationAdapter";
 import {readE3BoundedPages} from "../cch/e3Pagination";
 const byId={revalidatePages:true,identity:(row:{id:string})=>row.id,
  ordered:(a:{id:string},b:{id:string})=>a.id<b.id};
@@ -38,7 +38,7 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
   try{
    // Stable ordering and a (limit+1) sentinel prove whether the selected
    // history is complete. Do not treat the API's default 1000-row cap as EOF.
-   const versions=await readE3BoundedPages((from,to)=>supabase
+   const versions=await readE3BoundedPages<{id:string}>((from,to)=>supabase
     .from("health_program_versions").select("id")
     .eq("athlete_id",athleteId).eq("program_id",programId)
     .order("id",{ascending:true}).range(from,to),1000,400,byId);
@@ -54,13 +54,13 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
     return;
    }
    const [sessions,templates]=await Promise.all([
-    readE3BoundedPages((from,to)=>supabase.from("health_workout_sessions")
+    readE3BoundedPages<M4SessionRow>((from,to)=>supabase.from("health_workout_sessions")
      .select("id,program_version_id,session_template_id,started_at,status,record_status")
      .eq("athlete_id",athleteId).in("program_version_id",ids)
      .eq("record_status","active").eq("status","completed")
      .order("started_at",{ascending:false,nullsFirst:false}).order("id",{ascending:true})
      .range(from,to),300,400,bySession),
-    readE3BoundedPages((from,to)=>supabase.from("health_session_templates")
+    readE3BoundedPages<M3TemplateRow>((from,to)=>supabase.from("health_session_templates")
      .select("id,program_version_id,code,status").eq("athlete_id",athleteId)
      .in("program_version_id",ids).order("id",{ascending:true})
      .range(from,to),3000,400,byId)
@@ -73,7 +73,7 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
    for(let offset=0;offset<sessionIds.length;offset+=25){
     if(sets.length>=10000){setTruncated=true;break;}
     const chunk=sessionIds.slice(offset,offset+25);
-    const page=await readE3BoundedPages((from,to)=>supabase
+    const page=await readE3BoundedPages<M4SetRow & {id:string}>((from,to)=>supabase
      .from("health_workout_sets")
      .select("id,session_id,status,set_type,reps,rir,load_value,load_unit")
      .eq("athlete_id",athleteId).in("session_id",chunk)
