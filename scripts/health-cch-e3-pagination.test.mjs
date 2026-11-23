@@ -1,0 +1,64 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readE3BoundedPages} from "../.tmp-cch-e3b/e3Pagination.js";
+
+const source=(count)=>Array.from({length:count},(_,i)=>({id:String(i).padStart(6,"0")}));
+const fake=(rows,calls=[])=>async(from,to)=>{
+ calls.push([from,to]);
+ return {data:rows.slice(from,to+1),error:null};
+};
+
+test("paginated E3 read joins multiple API pages without losing or duplicating rows",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(850),calls),1000);
+ assert.equal(result.rows.length,850);
+ assert.equal(result.truncated,false);
+ assert.equal(new Set(result.rows.map(x=>x.id)).size,850);
+ assert.deepEqual(calls,[[0,399],[400,799],[800,1000]]);
+});
+test("exact page boundary is confirmed by an explicit empty look-ahead",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(800),calls),1000);
+ assert.equal(result.rows.length,800);
+ assert.equal(result.truncated,false);
+ assert.deepEqual(calls,[[0,399],[400,799],[800,1000]]);
+});
+test("the exact configured maximum is complete only after an empty sentinel",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(1000),calls),1000);
+ assert.equal(result.rows.length,1000);
+ assert.equal(result.truncated,false);
+ assert.deepEqual(calls.at(-1),[800,1000]);
+});
+test("one extra row beyond the cap fails closed",async()=>{
+ const calls=[];
+ const result=await readE3BoundedPages(fake(source(1001),calls),1000);
+ assert.equal(result.rows.length,1000);
+ assert.equal(result.truncated,true);
+ assert.deepEqual(calls.at(-1),[800,1000]);
+});
+test("session cap 300 detects overflow regardless of default server cap",async()=>{
+ const one=await readE3BoundedPages(fake(source(300)),300);
+ const two=await readE3BoundedPages(fake(source(301)),300);
+ assert.equal(one.truncated,false);
+ assert.equal(two.truncated,true);
+ assert.equal(two.rows.length,300);
+});
+test("page errors never become partial successful histories",async()=>{
+ let n=0;
+ await assert.rejects(()=>readE3BoundedPages(async(from,to)=>{
+  n++;
+  return n===2?{data:null,error:{message:"RLS refused"}}:
+    {data:source(400),error:null};
+ },1000),/RLS refused/);
+});
+test("unexpected null or oversized responses fail rather than silently truncate",async()=>{
+ await assert.rejects(()=>readE3BoundedPages(async()=>({data:null,error:null}),100),/indisponível/);
+ await assert.rejects(()=>readE3BoundedPages(async()=>({data:source(401),error:null}),1000),
+  /excedeu/);
+});
+test("invalid bounds and page-size over provider cap are refused",async()=>{
+ for(const [limit,page] of [[0,400],[100,1001],[NaN,100],[-1,50]]){
+  await assert.rejects(()=>readE3BoundedPages(fake([]),limit,page),/inválidos/);
+ }
+});

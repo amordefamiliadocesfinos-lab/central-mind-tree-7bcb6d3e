@@ -4,8 +4,10 @@ on:
     branches: [main]
     paths:
       - 'src/modules/health/cch/e3ObservationAdapter.ts'
+      - 'src/modules/health/cch/e3Pagination.ts'
       - 'src/modules/health/hooks/useHealthE3ReadOnly.ts'
       - 'scripts/health-cch-e3-observation.test.mjs'
+      - 'scripts/health-cch-e3-pagination.test.mjs'
       - '.github/workflows/health-cch-e3-observation.yml'
 permissions:
   contents: read
@@ -20,7 +22,7 @@ jobs:
       - run: npm ci
       - run: |
           rm -rf .tmp-cch-e3b
-          npx tsc src/modules/health/cch/e3ObservationAdapter.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e3b --skipLibCheck
-      - run: node --test scripts/health-cch-e3-observation.test.mjs
-      - run: npx eslint src/modules/health/cch/e3ObservationAdapter.ts src/modules/health/hooks/useHealthE3ReadOnly.ts
+          npx tsc src/modules/health/cch/e3ObservationAdapter.ts src/modules/health/cch/e3Pagination.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-e3b --skipLibCheck
+      - run: node --test scripts/health-cch-e3-observation.test.mjs scripts/health-cch-e3-pagination.test.mjs
+      - run: npx eslint src/modules/health/cch/e3ObservationAdapter.ts src/modules/health/cch/e3Pagination.ts src/modules/health/hooks/useHealthE3ReadOnly.ts
       - run: npm run build
