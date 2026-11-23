@@ -2,7 +2,7 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const React=require("react"),ts=require("typescript"),{JSDOM}=require("jsdom");
 const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:"http://localhost/"});
-Object.assign(global,{window:dom.window,document:dom.window.document,navigator:dom.window.navigator,HTMLElement:dom.window.HTMLElement,IS_REACT_ACT_ENVIRONMENT:true});
+Object.assign(global,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement,IS_REACT_ACT_ENVIRONMENT:true});
 const {createRoot}=require("react-dom/client"),{act:domAct}=require("react-dom/test-utils");
 const act=React.act||domAct;
 const root=path.resolve(__dirname,"..");
