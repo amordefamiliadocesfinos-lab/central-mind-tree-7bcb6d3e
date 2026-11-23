@@ -14,6 +14,7 @@ import { useHealthWorkoutM4, WorkoutExercise } from "../hooks/useHealthWorkoutM4
 import { useHealthProgramM3 } from "../hooks/useHealthProgramM3";
 import { useHealthWorkoutTimerF19 } from "../hooks/useHealthWorkoutTimerF19";
 import { HealthWorkoutInteractiveTimerF19 } from "../components/HealthWorkoutInteractiveTimerF19";
+import { useF24WorkoutHistory } from "../hooks/useF24WorkoutHistory";
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) return null;
@@ -356,6 +357,7 @@ export function HealthWorkoutPage() {
     workout.reload,
   );
   const [extraExerciseId, setExtraExerciseId] = useState("");
+  const history = useF24WorkoutHistory(athlete?.id,workout.session?.id,workout.exercises);
 
   const exerciseNameById = useMemo(
     () => new Map(catalogs.exercises.map((item) => [item.id, item.name])),
@@ -473,6 +475,8 @@ export function HealthWorkoutPage() {
         exercises={workout.exercises}
         setsByExercise={workout.setsByExercise}
         exerciseNameById={exerciseNameById}
+        historicalReferences={history.records}
+        historyLoading={history.loading}
         timer={timer}
         onCompleteWorkout={workout.completeWorkout}
         onConfirmEquipment={workout.confirmEquipment}
