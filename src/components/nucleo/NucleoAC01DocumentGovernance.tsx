@@ -429,8 +429,13 @@ export default function NucleoAC01DocumentGovernance({
        </div>
        <div className="space-y-2">
          <p className="font-semibold">Diferenças de metadados AC-01 · anterior versus atual</p>
+         <p role="status" className="text-xs text-muted-foreground">
+           Metadados comparados: {assisted.summary.included} inclusão(ões), {assisted.summary.removed} remoção(ões),
+           {" "}{assisted.summary.changed} alteração(ões), {assisted.summary.maintained} mantido(s) e
+           {" "}{assisted.summary.indeterminate} indeterminado(s). Não representa diferenças de texto dos documentos.
+         </p>
          {assisted.differences.map(diff=><div key={diff.label} className="rounded border p-2 space-y-1">
-           <p className="font-medium">{diff.label} · {assisted.previous?(diff.changed?"alterado":"mantido"):"sem anterior comparável"}</p>
+           <p className="font-medium">{diff.label} · {diff.kind==="indeterminado"?"sem anterior comparável":diff.kind}</p>
            <div className="grid gap-2 md:grid-cols-2">
              <p className="break-all">Anterior: {diff.previous}</p>
              <p className="break-all">Atual: {diff.current}</p>
