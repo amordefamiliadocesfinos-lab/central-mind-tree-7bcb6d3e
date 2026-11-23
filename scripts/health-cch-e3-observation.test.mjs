@@ -36,6 +36,7 @@ test("absence of sets does not infer comparable workout",()=>{
 test("different template version cannot relabel a completed session",()=>{
  const v=map([s("a","completed","active","tb","va")],[working("a")],t,["va","vb"]);
  assert.equal(v.uncategorizedSessions,1);
+ assert.equal(v.observations[0].exerciseDataComparable,false);
 });
 test("pagination cap is reported instead of claiming full-history completeness",()=>{
  const v=map([s("a")],[working("a")],t,["va"],true);
@@ -81,4 +82,26 @@ test("E3 scope cannot be confused by delimiter-containing athlete/program IDs",(
   scopeKey:a,data:map([s("record")],[working("record")],t,["va"]),
   loading:false,error:null
  }).observations.length,0);
+});
+
+
+test("incomplete page cannot certify comparable session or complete set counts",()=>{
+ const v=map([s("a"),s("b")],[working("a"),working("b")],t,["va"],true);
+ assert.equal(v.sourceTruncated,true);
+ assert.equal(v.totalValidSessions,2);
+ assert.equal(v.observations.every(x=>x.exerciseDataComparable===false),true);
+ assert.equal(v.observations.every(x=>x.workingSets===null),true);
+ assert.equal(v.missingWorkingSetData,2);
+});
+test("unknown template cannot certify comparison despite numerically complete sets",()=>{
+ const v=map([s("a","completed","active","missing")],[working("a")],t,["va"]);
+ assert.equal(v.uncategorizedSessions,1);
+ assert.equal(v.observations[0].exerciseDataComparable,false);
+ assert.equal(v.observations[0].workingSets,1);
+});
+test("matching template and complete API preserve valid comparative observations",()=>{
+ const v=map([s("a")],[working("a")],t,["va"],false);
+ assert.equal(v.observations[0].sessionCode,"A1");
+ assert.equal(v.observations[0].exerciseDataComparable,true);
+ assert.equal(v.observations[0].workingSets,1);
 });
