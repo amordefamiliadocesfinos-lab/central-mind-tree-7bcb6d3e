@@ -40,7 +40,7 @@ function queryRls(uid,moduleId,specialtyId,frontId){
  const sql=`SET ROLE authenticated;
  SELECT set_config('request.jwt.claim.sub','${uid}',false);
  SELECT count(*)::int FROM f12_lab.context_cards
- WHERE module_id='${moduleId}' AND specialty_id='${specialtyId}';
+ WHERE module_id='${moduleId}' AND specialty_id='${specialtyId}' AND front_id='${frontId}';
  `;
  const output=execFileSync("psql",["-X","-qAt","-v","ON_ERROR_STOP=1","-c",sql],{env:process.env,encoding:"utf8"}).trim();
  const n=Number(output.split("\n").at(-1));
