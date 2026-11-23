@@ -19,7 +19,7 @@ jobs:
       - name: Setup Supabase CLI (local only)
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.79.0
       - name: Create isolated ephemeral local project
         shell: bash
         run: |
