@@ -63,6 +63,7 @@ jobs:
       - name: G1 explicit front/module scope and fail-closed regressions
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g1-scope.test.sql
+      # G2: test only the disposable database. No hosted Supabase connection.
       - name: Audit writer: authorization, rollback, replay and revocation
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-writer-audit.test.sql
