@@ -1,0 +1,25 @@
+name: Nucleo UX NT-06 React isolated
+on:
+  pull_request:
+    paths:
+      - 'scripts/nucleo-nt06-react-isolated.test.cjs'
+      - '.github/workflows/nucleo-nt06-react-isolated.yml'
+      - 'src/components/nucleo/NucleoTechnicalEvidence.tsx'
+      - 'src/lib/nucleo/m4EvidenceWindow.ts'
+  workflow_dispatch:
+jobs:
+  isolated-react:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install isolated DOM harness (not persisted)
+        run: npm install --no-save --no-package-lock --ignore-scripts jsdom@24
+      - name: Exercise original React component with mocked data
+        run: node scripts/nucleo-nt06-react-isolated.test.cjs
