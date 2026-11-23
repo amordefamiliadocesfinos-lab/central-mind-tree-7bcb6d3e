@@ -38,6 +38,8 @@ export type E5ProvenanceInput={
  adverseSignals:number;goalChosenInCurrentReview:boolean;
  sessions:E5SessionRow[];exercises:E5WorkoutExerciseRow[];
  sets:E5SetRow[];equipment:E5EquipmentRow[];consents:E5ConsentRow[];
+ /** Supplied only from a validated active-policy registry, never athlete input. */
+ activePolicyVersion:string|null;
  sessionReviews:E5SessionReview[];
 };
 export type E5ProvenanceResult={
@@ -55,14 +57,21 @@ const decisionType="e5_personalized_review";
 /** Most recent explicit E5 decision only. Missing, invalid or tied/conflicting
  * events cannot silently become consent. General M1 processing is NOT E5 consent.
  */
-export function hasCurrentE5Consent(rows:E5ConsentRow[],athleteId:string):boolean{
- const events=rows.filter(r=>r.athlete_id===athleteId&&r.consent_type===decisionType&&
-  isDate(r.occurred_at)&&!!r.policy_version.trim()).sort((a,b)=>
-  Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
+export function hasCurrentE5Consent(
+ rows:E5ConsentRow[],athleteId:string,activePolicyVersion:string|null
+):boolean{
+ // Offline review cannot infer a registry version. With no explicitly
+ // verified active policy, fail closed exactly like the candidate SQL.
+ if(!activePolicyVersion||!activePolicyVersion.trim())return false;
+ const events=rows.filter(r=>r.athlete_id===athleteId&&
+  r.consent_type===decisionType&&isDate(r.occurred_at))
+  .sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
  if(!events.length)return false;
  const top=Date.parse(events[0].occurred_at);
  const tied=events.filter(r=>Date.parse(r.occurred_at)===top);
- return tied.length>0&&tied.every(r=>r.decision==="granted");
+ // Two decisions at the same timestamp are ambiguous, even if both granted.
+ return tied.length===1&&tied[0].decision==="granted"&&
+  tied[0].policy_version===activePolicyVersion;
 }
 export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
  const missing=new Set<string>();
@@ -127,7 +136,8 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   });
  }
  if(results.length<2)missing.add("repeated_comparable_sessions_missing");
- const consent=hasCurrentE5Consent(input.consents,input.athleteId);
+ const consent=hasCurrentE5Consent(input.consents,input.athleteId,input.activePolicyVersion);
+ if(!input.activePolicyVersion?.trim())missing.add("active_e5_policy_version_missing");
  if(!consent)missing.add("explicit_e5_consent_missing");
  if(!input.goalChosenInCurrentReview)missing.add("current_goal_confirmation_missing");
  const context:E5Context={

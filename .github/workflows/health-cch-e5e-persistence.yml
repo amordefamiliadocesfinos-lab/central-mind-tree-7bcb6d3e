@@ -1,0 +1,188 @@
+name: CCH E5-E Disposable Persistence Candidate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/candidates/health_cch_e5e_persistence_candidate.sql'
+      - 'supabase/tests/health_cch_e5e_*'
+      - '.github/workflows/health-cch-e5e-persistence.yml'
+permissions:
+  contents: read
+jobs:
+  e5-persistent-isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e5-disposable-only
+          POSTGRES_DB: e5_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e5_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce isolated candidate and run sovereign-shape fixtures
+        env:
+          PGPASSWORD: e5-disposable-only
+          E5_DISPOSABLE_ONLY: "YES"
+        run: |
+          set -euo pipefail
+          test "$E5_DISPOSABLE_ONLY" = YES
+          test ! -e supabase/migrations/20261119230000_health_cch_e5e_persistence.sql
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e5_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/tests/health_cch_e5e_persistence_fixture.sql
+          run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
+          # Lab-only fictitious policy; no policy is approved for real athletes.
+          docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d e5_disposable -c "INSERT INTO public.health_cch_e5_policy_registry(policy_version,status,approved_at,effective_at,approved_by_auth_user_id,approval_reference,policy_document,policy_digest) VALUES ('e5-lab-v1','active',clock_timestamp(),clock_timestamp(),'11111111-1111-4111-8111-111111111111','CI-SYNTHETIC-ONLY','Synthetic policy lab 1',encode(sha256(convert_to('Synthetic policy lab 1','UTF8')),'hex'))"
+          run_sql supabase/tests/health_cch_e5e_persistence_contract.sql
+
+  e2-f22-baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e2-local-only
+          POSTGRES_DB: e2_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Re-run existing sovereign E2/F22/M3 synthetic publication baseline
+        env:
+          PGPASSWORD: e2-local-only
+        run: |
+          set -euo pipefail
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e2_disposable < "$1"
+          }
+          run_sql supabase/tests/health_cch_e2_disposable_fixture.sql
+          run_sql supabase/migrations/20261119094000_health_cch_e2b_draft_structure.sql
+          run_sql supabase/migrations/20261119112000_health_cch_e2c_guarded_prescription.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_f22_assert_program_version_structure\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/f22.sql
+          awk '
+            /^CREATE OR REPLACE FUNCTION public.health_m3_publish_program_version\(/ {copy=1}
+            copy {print}
+            copy && /^TO authenticated;/ {exit}
+          ' supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql > /tmp/m3_publish.sql
+          test "$(grep -c 'CREATE OR REPLACE FUNCTION' /tmp/f22.sql)" -eq 1
+          test "$(grep -c 'CREATE OR REPLACE FUNCTION' /tmp/m3_publish.sql)" -eq 1
+          run_sql /tmp/f22.sql
+          run_sql /tmp/m3_publish.sql
+          run_sql supabase/tests/health_cch_e2_lifecycle_fixture.sql
+          run_sql supabase/tests/health_cch_e2_lifecycle_contract.sql
+
+  official-migration-chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e5-official-disposable
+          POSTGRES_DB: e5_official
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e5_official"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply official M0/M1/M2/M3/M4/F19/F20/F21/F22 migrations before E5-E candidate
+        env:
+          PGPASSWORD: e5-official-disposable
+          E5_DISPOSABLE_ONLY: "YES"
+        run: |
+          set -euo pipefail
+          test "$E5_DISPOSABLE_ONLY" = YES
+          test ! -e supabase/migrations/20261119230000_health_cch_e5e_persistence.sql
+          ID=$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n 1)
+          test -n "$ID"
+          run_sql() {
+            echo "EXECUTING_OFFICIAL_OR_ISOLATED: $1"
+            docker exec -i -e PGPASSWORD="$PGPASSWORD" "$ID" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d e5_official < "$1"
+          }
+          run_sql supabase/tests/health_cch_e5e_official_bootstrap.sql
+          for f in \
+            supabase/migrations/20261107144000_health_m0_foundation.sql \
+            supabase/migrations/20261107151317_health_m1_profile_goals.sql \
+            supabase/migrations/20261107153621_health_m2_catalogs.sql \
+            supabase/migrations/20261107153848_health_m2_declared_equipment_catalog_fk.sql \
+            supabase/migrations/20261107155747_health_m3_program_cch.sql \
+            supabase/migrations/20261107160110_health_m3_program_rpcs.sql \
+            supabase/migrations/20261107161317_health_m4_live_workout.sql \
+            supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql \
+            supabase/migrations/20261111020500_health_m4_end_workout_anytime.sql \
+            supabase/migrations/20261111165531_health_f20_multimodal_daily_sessions.sql \
+            supabase/migrations/20261111171704_health_f21_training_history_management.sql \
+            supabase/migrations/20261111175335_health_f21_void_workout_requeues_cch.sql \
+            supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql
+          do
+            if [ "$f" = "supabase/migrations/20261112175528_health_f22_adaptive_training_maturity.sql" ]; then
+              run_sql supabase/tests/health_cch_e5e_official_athletes.sql
+              # F22 official source contains fixed real athlete IDs in DML seeds.
+              # Remap ONLY those two literals in an ephemeral copy; leave
+              # original DDL/RPC/trigger/RLS source and repository unchanged.
+              sed \
+                -e 's/08204502-2e7a-4476-a1ac-6a67b57fa35f/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/g' \
+                -e 's/671fd7a8-7f0f-4c9f-9e73-89c2caf27692/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/g' \
+                -e 's/3d18b672-7c56-4c86-b8e9-2f5753a1a710/eeeeeeee-2000-4000-8000-000000000001/g' \
+                "$f" > /tmp/f22-synthetic-only.sql
+              run_sql /tmp/f22-synthetic-only.sql
+            else
+              run_sql "$f"
+            fi
+          done
+          run_sql supabase/candidates/health_cch_e5e_persistence_candidate.sql
+          run_sql supabase/tests/health_cch_e5e_official_contract.sql
+
+  e5-alternative-route-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static review of alternate M4 readers and elevated RPCs
+        run: node supabase/tests/health_cch_e5e_route_audit.mjs
+      - name: Retain independent access-route inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cch-e5e-route-audit
+          path: artifacts/cch-e5e-route-audit.json
+          if-no-files-found: error
+
+  e5-full-supabase-disposable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    env:
+      E5_DISPOSABLE_ONLY: "YES"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+      - name: Real local Supabase Auth/PostgREST/Storage startup without remote credentials
+        run: bash supabase/tests/health_cch_e5e_fullstack_smoke.sh
