@@ -28,6 +28,18 @@ assert(out[0].issues.includes("origem_sem_fm"));
 const publication={id:"pub",contribution_id:"c2",decision_act_id:"missing",recorded_at:"2026-11-05"};
 out=queue.buildAc01ConsolidationQueue([c,c2],[request],[decision],[publication],[fm]);
 assert(out[0].issues.includes("publicacao_sem_decisao_no_recorte"));
+// Aprovação histórica não torna uma proposta posterior pronta para revisão.
+const c3={...c2,id:"c3",version_no:3,parent_revision_id:"c2",recorded_at:"2026-11-06",authority_state:"proposta"};
+out=queue.buildAc01ConsolidationQueue([c,c2,c3],[request],[decision],[],[fm]);
+assert.equal(out.length,1);
+assert.equal(out[0].version,3);
+assert(out[0].issues.includes("sem_decisao_aprovada"));
+assert.equal(out[0].status,"exige_conciliacao");
+// A decisão vinculada à versão atual é reconhecida somente nela.
+const request3={...request,id:"req3",contribution_id:"c3",recorded_at:"2026-11-07"};
+const decision3={...decision,id:"dec3",contribution_id:"c3",decision_request_id:"req3",recorded_at:"2026-11-08"};
+out=queue.buildAc01ConsolidationQueue([c,c2,c3],[request,request3],[decision,decision3],[],[fm]);
+assert(!out[0].issues.includes("sem_decisao_aprovada"));
 out=queue.buildAc01ConsolidationQueue([c2],[request],[decision],[],[fm]);
 assert(out[0].issues.includes("historico_incompleto"));
 const ui=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
