@@ -324,3 +324,11 @@ Qualquer futura ampliação requer projeto e aprovação próprios, com verifica
 ### Resultado do despacho de 23/11/2026
 
 **Pacote G1–G5 preparado para deliberação superior, com minuta e matriz propostas, e evidências técnicas previamente aprovadas preservadas.** Não há versão de política vigente, prazo aprovado, responsável designado, aceite de atletas, migração ou comando produtivo nesta entrega. **A etapa de laboratório está encerrada; PR #999 segue draft/sem merge; Issue #966 aberta; F23 não iniciada.**
+
+### 13.1 Continuidade técnica sem designação imediata — decisão do proprietário (23/11/2026)
+
+O proprietário autorizou **prosseguir com a implementação técnica isolada** sem exigir identificação imediata de um responsável jurídico/privacidade/segurança como bloqueio administrativo de cada pequena alteração. Isso **não equivale** a parecer jurídico, nomeação de autoridade decisória, versão vigente de política, aprovação de retenção, liberação de captura E5, merge ou implantação. Os portões G1–G3/G5 permanecem exigíveis **antes de qualquer uso real**; G4 mantém bloqueio de menores e representantes. O marco D0 na Issue #966 fica **adiado, não concluído**.
+
+**Melhoria técnica implementada na PR #999:** o adaptador puro `src/modules/health/cch/e5ProvenanceAdapter.ts` agora exige `activePolicyVersion` proveniente de versão ativa confiável, compara estritamente com a decisão E5 mais recente, rejeita empate/duplicidade e bloqueia quando não existe versão confiável ou a última decisão se refere a outra versão. Esse ajuste elimina uma diferença entre o consumo consultivo E5-B e `health_cch_e5_has_explicit_consent(uuid)` da candidata E5-E, sem acesso a banco, novas permissões ou implantação. Testes unitários específicos e build validam as negativas com versão ausente, obsoleta, ambígua ou revogada. **O parâmetro deve vir de fonte autorizada; não pode ser fornecido pelo próprio atleta.** Captura real, ativação e adaptação automática permanecem bloqueadas.
+
+**Evidência:** [GitHub Actions #45203617292](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/45203617292), workflow E5-B provenance `success` (TypeScript, testes, lint e build). Não reexecutar o laboratório persistente sem nova alteração do SQL candidata ou risco material.
