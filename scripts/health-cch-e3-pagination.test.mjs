@@ -62,3 +62,33 @@ test("invalid bounds and page-size over provider cap are refused",async()=>{
   await assert.rejects(()=>readE3BoundedPages(fake([]),limit,page),/inválidos/);
  }
 });
+
+
+const integrity={identity:row=>row.id,ordered:(a,b)=>a.id<b.id};
+test("E4 detects offset shift when a new row duplicates an ID across pages",async()=>{
+ const rows=source(9);
+ let page=0;
+ await assert.rejects(()=>readE3BoundedPages(async(from,to)=>{
+  page++;
+  if(page===1)return {data:rows.slice(from,to+1),error:null};
+  const shifted=[{id:"000000"},...rows];
+  return {data:shifted.slice(from,to+1),error:null};
+ },12,5,integrity),/identificador repetido/);
+});
+test("E4 rejects an out-of-order row from a concurrent edit",async()=>{
+ const rows=source(9);let page=0;
+ await assert.rejects(()=>readE3BoundedPages(async(from,to)=>{
+  page++;
+  const data=rows.slice(from,to+1);
+  if(page===2)data[0]={id:"000002"};
+  return {data,error:null};
+ },12,5,integrity),/identificador repetido|ordem das páginas/);
+});
+test("E4 stable records pass identity and order validation",async()=>{
+ const result=await readE3BoundedPages(fake(source(8)),10,3,integrity);
+ assert.equal(result.truncated,false);assert.equal(result.rows.length,8);
+});
+test("E4 rejects absent identity instead of treating it as complete history",async()=>{
+ await assert.rejects(()=>readE3BoundedPages(fake([{id:""}]),10,3,integrity),
+  /identificador repetido ou ausente/);
+});
