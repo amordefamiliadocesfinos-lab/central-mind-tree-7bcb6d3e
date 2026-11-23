@@ -4312,7 +4312,7 @@ export default function Nucleo() {
               </div>
             </section>
 
-            {activeArea === "biblioteca" && <><NucleoIndexSourceTraceability localPageCount={localPageCount} /><div className="mt-5"><NucleoDriveReferences /></div></>}
+            {activeArea === "biblioteca" && <><NucleoIndexSourceTraceability localPageCount={countByArea.get("biblioteca") || 0} /><div className="mt-5"><NucleoDriveReferences /></div></>}
 
             {/* Lista compacta no padrão da referência, com seleção por teclado. */}
             <section className="mt-3 overflow-hidden rounded-2xl border border-[#dfe4ec]" aria-label="Páginas da área selecionada">
