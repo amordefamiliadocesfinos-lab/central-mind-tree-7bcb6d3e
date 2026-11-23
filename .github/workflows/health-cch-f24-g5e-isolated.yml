@@ -1,0 +1,45 @@
+name: CCH F24 G5-E Isolated Browser Homologation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/health-cch-f24-g5e/**'
+      - '.github/workflows/health-cch-f24-g5e-isolated.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-browser:
+    name: Local browser synthetic F19 (no production access)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Use repository-pinned dependencies
+        run: npm ci
+      - name: TypeScript app baseline without test-only packages
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build existing application (no publish)
+        run: npm run build
+      - name: Install ephemeral browser runner only
+        run: npm install --no-save --no-package-lock --ignore-scripts @playwright/test@1.56.1
+      - name: Install local Chromium for CI
+        run: npx playwright install chromium --with-deps
+      - name: Browser journey and mobile screenshots, localhost only
+        run: npx playwright test --config scripts/health-cch-f24-g5e/playwright.config.mjs
+      - name: Upload synthetic visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cch-f24-g5e-synthetic-browser-evidence
+          path: |
+            test-results/g5e-*.png
+            test-results/g5e-results.json
+            test-results/g5e-traces/
+          retention-days: 7
+          if-no-files-found: warn
