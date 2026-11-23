@@ -149,6 +149,8 @@ CREATE TABLE f12_lab.read_grants (
  assignment_id uuid NOT NULL,
  auth_uid uuid NOT NULL,
  permission text NOT NULL DEFAULT 'read_context' CHECK(permission='read_context'),
+ -- G1: module scope is NEVER inferred from a missing front; explicit grant only.
+ scope_kind text NOT NULL DEFAULT 'front' CHECK(scope_kind IN ('front','module')),
  granted_at timestamptz NOT NULL,
  valid_from timestamptz NOT NULL,
  valid_until timestamptz,
@@ -158,6 +160,7 @@ CREATE TABLE f12_lab.read_grants (
  decision_ref text NOT NULL CHECK(length(btrim(decision_ref))>=8),
  granting_actor_ref text NOT NULL CHECK(length(btrim(granting_actor_ref))>=8),
  CHECK(valid_until IS NULL OR valid_until>valid_from),
+ CHECK(scope_kind <> 'module' OR valid_until IS NOT NULL),
  CHECK(revoked_at IS NULL OR revoked_at>=granted_at),
  CHECK((revoked_at IS NULL AND revoked_by_actor_ref IS NULL AND revocation_decision_ref IS NULL)
     OR (revoked_at IS NOT NULL AND length(btrim(coalesce(revoked_by_actor_ref,'')))>=8
@@ -187,6 +190,7 @@ BEGIN
  ELSE
   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.assignment_id IS DISTINCT FROM OLD.assignment_id
      OR NEW.auth_uid IS DISTINCT FROM OLD.auth_uid OR NEW.permission IS DISTINCT FROM OLD.permission
+     OR NEW.scope_kind IS DISTINCT FROM OLD.scope_kind
      OR NEW.valid_from IS DISTINCT FROM OLD.valid_from OR NEW.valid_until IS DISTINCT FROM OLD.valid_until
      OR NEW.granted_at IS DISTINCT FROM OLD.granted_at
      OR (OLD.revoked_by_actor_ref IS NOT NULL OR OLD.revocation_decision_ref IS NOT NULL)
@@ -290,6 +294,8 @@ CREATE TABLE f12_lab.approved_decisions (
  assignment_id uuid NOT NULL REFERENCES f12_lab.assignments(id) ON DELETE RESTRICT,
  grant_id uuid REFERENCES f12_lab.read_grants(id) ON DELETE RESTRICT,
  approved_actor_auth_uid uuid NOT NULL,
+ -- G1: approval states the exact scope, not a NULL-driven wildcard.
+ scope_kind text NOT NULL DEFAULT 'front' CHECK(scope_kind IN ('front','module')),
  authoritative_source text NOT NULL CHECK(length(btrim(authoritative_source))>=8),
  approved_at timestamptz NOT NULL,
  expires_at timestamptz NOT NULL,
@@ -334,6 +340,10 @@ CREATE POLICY writer_grant_insert ON f12_lab.read_grants FOR INSERT TO f12_grant
      WHERE d.action='grant_read_context' AND d.assignment_id=read_grants.assignment_id
        AND d.id::text=read_grants.decision_ref
        AND a.auth_uid=read_grants.auth_uid AND a.status='active'
+       AND d.scope_kind=read_grants.scope_kind
+       AND ((read_grants.scope_kind='front' AND a.front_id IS NOT NULL)
+         OR (read_grants.scope_kind='module' AND a.front_id IS NULL
+           AND read_grants.valid_until IS NOT NULL))
        AND a.closed_at IS NULL AND a.valid_from<=now()
        AND (a.valid_until IS NULL OR now()<a.valid_until)
        AND read_grants.valid_from>=a.valid_from
@@ -389,10 +399,13 @@ CREATE POLICY scoped_context ON f12_lab.context_cards FOR SELECT TO authenticate
    JOIN f12_lab.assignments a ON a.id=g.assignment_id AND a.auth_uid=g.auth_uid
    WHERE g.auth_uid=(SELECT auth.uid())
     AND a.specialty_id=context_cards.specialty_id AND a.module_id=context_cards.module_id
-    AND (a.front_id IS NULL OR a.front_id=context_cards.front_id)
     AND a.status='active' AND a.closed_at IS NULL
     AND a.valid_from<=now() AND (a.valid_until IS NULL OR now()<a.valid_until)
     AND g.permission='read_context' AND g.revoked_at IS NULL
+    AND ((g.scope_kind='front' AND a.front_id IS NOT NULL
+          AND a.front_id=context_cards.front_id)
+      OR (g.scope_kind='module' AND a.front_id IS NULL
+          AND g.valid_until IS NOT NULL))
     AND g.valid_from<=now() AND (g.valid_until IS NULL OR now()<g.valid_until)
   )
  );
