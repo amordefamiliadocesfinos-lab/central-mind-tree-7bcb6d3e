@@ -139,3 +139,15 @@ test("identical duplicate ids are deduplicated without blocking a legitimate rev
  assert.equal(x.cycle.completedSessions,3);
  assert.equal(x.cycle.observedWorkingSets,36);
 });
+
+test("impossible calendar dates fail closed instead of being normalized by JavaScript",()=>{
+ for(const occurredAt of ["2026-02-30T12:00:00Z","2026-13-01T12:00:00Z","2026-11-31","not-a-date"]){
+  const x=assess({...base,sessions:[make(0),make(1),make(2,{occurredAt})]});
+  assert.equal(x.status,"review_evidence",occurredAt);
+  assert.equal(x.readiness,"insufficient",occurredAt);
+  assert.equal(x.cycle.observedSpanDays,null,occurredAt);
+  assert.equal(x.alternatives.some(a=>a.strategy==="continue_progression"),false);
+  assert.equal(x.levelPreserved,"advanced");
+  assert.equal(x.generatesQueue,false);
+ }
+});
