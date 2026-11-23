@@ -26,8 +26,18 @@ export function mapM3M4F21Observations(
  versionIds:string[],sourceTruncated=false
 ):E3Mapped{
  const allowed=new Set(versionIds);
- const byTemplate=new Map(templates.filter(t=>allowed.has(t.program_version_id))
-  .map(t=>[t.id,t]));
+ // A conflicting duplicate template ID must not silently select whichever
+ // REST row arrived last. Preserve no attribution until origin is unambiguous.
+ const byTemplate=new Map<string,M3TemplateRow>();
+ const ambiguousTemplates=new Set<string>();
+ for(const template of templates.filter(t=>allowed.has(t.program_version_id))){
+  if(ambiguousTemplates.has(template.id))continue;
+  const previous=byTemplate.get(template.id);
+  if(previous&&JSON.stringify(previous)!==JSON.stringify(template)){
+   byTemplate.delete(template.id);
+   ambiguousTemplates.add(template.id);
+  }else if(!previous)byTemplate.set(template.id,template);
+ }
  const setsBySession=new Map<string,M4SetRow[]>();
  for(const set of sets){
   if(set.status!=="completed"||set.set_type!=="working")continue;
