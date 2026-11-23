@@ -6,6 +6,7 @@ on:
       - "scripts/nucleo-f1-f2-concrete-candidate.test.sql"
       - "scripts/nucleo-f1-f2-concrete-security-review.test.sql"
       - "scripts/nucleo-f1-f2-staging-m3-official-compat.sql"
+      - "scripts/nucleo-f1-f2-staging-cross-front-fixture.sql"
       - "scripts/nucleo-f1-f2-staging-gateway-jwt-mock.cjs"
       - "scripts/nucleo-f1-f2-concrete-concurrency.cjs"
       - ".github/workflows/nucleo-f1-f2-concrete-isolated.yml"
@@ -51,6 +52,9 @@ jobs:
       - name: Focused security review - hierarchy, provenance and grant executor
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql
+      - name: Add isolated same-specialty cross-front scenario
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-cross-front-fixture.sql
       - name: Synthetic JWT, session and RLS gateway classification
         env: *db
         run: node scripts/nucleo-f1-f2-staging-gateway-jwt-mock.cjs
