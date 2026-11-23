@@ -81,7 +81,7 @@ export default function NucleoIndexSourceTraceability({ localPageCount }: { loca
   return () => { cancelled = true; };
  }, [session?.user?.id, reload]);
 
- if (state === "unauthorized") return null;
+ if (!session?.user?.id || state === "unauthorized") return null;
  return <section className="mt-5 rounded-xl border border-border bg-card p-4 space-y-3" aria-label="Rastreabilidade da fonte do Índice Mestre">
   <div className="flex flex-wrap items-center justify-between gap-2">
    <h2 className="text-sm font-semibold">M0 · De onde vem o Índice Mestre?</h2>
