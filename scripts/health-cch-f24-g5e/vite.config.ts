@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "node:path";
-const repo = path.resolve(__dirname, "../../..");
+const repo = path.resolve(__dirname, "../..");
 export default defineConfig({
  root:__dirname, plugins:[react()],
  resolve:{alias:{"@":path.join(repo,"src")}},
