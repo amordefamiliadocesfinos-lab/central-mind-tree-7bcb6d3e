@@ -57,13 +57,16 @@ export function createCelivioC4BReadOnly({
     }
     const entries = list.payload?.response?.order_list;
     if (!Array.isArray(entries)) return { ok: false, code: 'order_list_invalid' };
-    const orderSn = entries.map((entry) => entry?.order_sn)
-      .find((value) => typeof value === 'string' && /^[a-zA-Z0-9]{8,40}$/.test(value));
-    if (!orderSn) return {
+    // Empty list is evidence only about this bounded page/window. A nonempty
+    // list with unusable identities is an error, never proof of no orders.
+    if (entries.length === 0) return {
       ok: true, account: 'celivio', shop_id: CELIVIO_C4B_SHOP_ID,
       found: false, written: 0, raw_written: 0,
       inspected_window_days: 14, more_available: list.payload?.response?.more === true,
     };
+    const orderSn = entries.map((entry) => entry?.order_sn)
+      .find((value) => typeof value === 'string' && /^[a-zA-Z0-9]{8,40}$/.test(value));
+    if (!orderSn) return { ok: false, code: 'order_list_identity_invalid' };
 
     const detail = await detailOrders({
       ...common, orderDetailPath: '/api/v2/order/get_order_detail',
