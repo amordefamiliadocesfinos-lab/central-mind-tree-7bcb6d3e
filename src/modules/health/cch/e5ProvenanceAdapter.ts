@@ -38,6 +38,8 @@ export type E5ProvenanceInput={
  adverseSignals:number;goalChosenInCurrentReview:boolean;
  sessions:E5SessionRow[];exercises:E5WorkoutExerciseRow[];
  sets:E5SetRow[];equipment:E5EquipmentRow[];consents:E5ConsentRow[];
+ /** Supplied only from a validated active-policy registry, never athlete input. */
+ activePolicyVersion:string|null;
  sessionReviews:E5SessionReview[];
 };
 export type E5ProvenanceResult={
