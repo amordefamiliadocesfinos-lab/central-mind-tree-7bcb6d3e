@@ -32,12 +32,19 @@ BEGIN
  RAISE EXCEPTION 'DESCENDANT_UNEXPECTED_SUCCESS';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM='DESCENDANT_UNEXPECTED_SUCCESS' THEN RAISE; END IF; END;
 END $$;
-UPDATE f12_core.workstreams SET parent_id='00000000-0000-4000-8000-000000000010'
- WHERE id='00000000-0000-4000-8000-000000000022';
-DO $$BEGIN
+-- The REAL M3 contract does not allow even an unreferenced front to move:
+-- identity/kind/parent_id are immutable. Do not silently relax this.
+DO $identityguard$
+BEGIN
+ BEGIN
+  UPDATE f12_core.workstreams SET parent_id='00000000-0000-4000-8000-000000000010'
+  WHERE id='00000000-0000-4000-8000-000000000022';
+  RAISE EXCEPTION 'UNREFERENCED_REPARENT_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='UNREFERENCED_REPARENT_ALLOWED' THEN RAISE; END IF; END;
  IF (SELECT parent_id FROM f12_core.workstreams WHERE id='00000000-0000-4000-8000-000000000022')
-   <>'00000000-0000-4000-8000-000000000010' THEN RAISE EXCEPTION 'unreferenced front move must remain possible'; END IF;
-END $$;
+   <>'636768e6-e782-4c7d-8132-e7381621be12' THEN
+   RAISE EXCEPTION 'official M3 immutability violated'; END IF;
+END $identityguard$;
 
 -- Provenance: raw private text and unapproved source must never become a card.
 DO $$
