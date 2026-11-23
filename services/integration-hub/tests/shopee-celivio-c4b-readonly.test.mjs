@@ -7,9 +7,9 @@ const NOW = Date.parse('2026-11-23T20:00:00Z');
 const connection = (overrides = {}) => ({
   ok: true,
   payload: {
-    channel_account_id: CELIVIO_C4B_ACCOUNT_ID,
+    // Exact successful shopee.oauth_connection.read payload: account scope
+    // and live environment are enforced by Core Bridge, not returned.
     shop_id: CELIVIO_C4B_SHOP_ID, partner_id: 2047685,
-    environment: 'live',
     access_token_expires_at: new Date(NOW + 3600000).toISOString(),
     access_token_ciphertext: 'opaque-encrypted', ...overrides,
   },
@@ -39,6 +39,23 @@ test('C4B rejects cross-account identity before Shopee access', async () => {
     decryptToken: async () => { throw Error('must not decrypt'); },
   });
   assert.equal((await run()).code, 'identity_mismatch');
+});
+
+test('C4B rejects a mismatched partner with the actual Core Bridge payload', async () => {
+  let decrypted = false;
+  let listed = false;
+  const run = createCelivioC4BReadOnly({
+    now: () => NOW, getEnv: env,
+    readConnection: async ({channel_account_id}) => {
+      assert.equal(channel_account_id, CELIVIO_C4B_ACCOUNT_ID);
+      return connection({ partner_id: 9999999 });
+    },
+    decryptToken: async () => { decrypted = true; throw Error('must not decrypt'); },
+    listOrders: async () => { listed = true; throw Error('must not call'); },
+  });
+  assert.equal((await run()).code, 'identity_mismatch');
+  assert.equal(decrypted, false);
+  assert.equal(listed, false);
 });
 
 test('C4B performs one list and one detail GET; emits only Item/Model and quantity', async () => {
@@ -71,6 +88,8 @@ test('C4B performs one list and one detail GET; emits only Item/Model and quanti
     },
   });
   const result=await run();
+  // This successful fixture contains no channel_account_id or environment,
+  // exactly as the production Core Bridge read response.
   assert.equal(result.ok,true);
   assert.equal(result.written,0);
   assert.equal(result.raw_written,0);
