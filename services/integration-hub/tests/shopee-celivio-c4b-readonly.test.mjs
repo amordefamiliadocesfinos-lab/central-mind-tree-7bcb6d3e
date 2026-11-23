@@ -114,6 +114,20 @@ test('C4B returns no-order evidence without detail request', async () => {
   assert.equal(r.written,0);
 });
 
+test('C4B does not label an invalid nonempty list as no orders', async () => {
+  const run = createCelivioC4BReadOnly({
+    now: () => NOW, getEnv: env,
+    readConnection: async () => connection(),
+    decryptToken: async () => 'access-secret',
+    listOrders: async () => ({ response: { ok: true },
+      payload: { response: { order_list: [{ order_sn: '' }], more: true } } }),
+    detailOrders: async () => { throw Error('must not request details'); },
+  });
+  const result = await run();
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'order_list_identity_invalid');
+});
+
 test('C4B route is default OFF and rejects bodies/queries', async () => {
   const base={method:'POST',path:'/internal/shopee/celivio/c4b/read-only',headers:{}};
   const opts={handleShopeeLive:async()=>null,readCelivioC4B:async()=>{throw Error('disabled');},
