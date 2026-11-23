@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs"
+      - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
+      - "scripts/nucleo-f1-f2-g1-scope.test.sql"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
   workflow_dispatch:
 permissions:
@@ -64,6 +66,9 @@ jobs:
       - name: Actual local Auth signup/login and HTTP 401/403/200
         env: *db
         run: node scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs
+      - name: G1 explicit scope RLS regression on local Auth stack
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g1-scope.test.sql
       - name: Stop local-only stack
         if: always()
         shell: bash
