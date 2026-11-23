@@ -1,7 +1,8 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {supabase} from "@/integrations/supabase/client";
 import {mapM3M4F21Observations,viewE3ReadSnapshot} from "../cch/e3ObservationAdapter";
-import type {E3Mapped,E3ReadSnapshot} from "../cch/e3ObservationAdapter";
+import type {E3Mapped,E3ReadSnapshot,M4SetRow} from "../cch/e3ObservationAdapter";
+import {readE3BoundedPages} from "../cch/e3Pagination";
 
 const empty:E3Mapped={observations:[],totalValidSessions:0,uncategorizedSessions:0,
  missingWorkingSetData:0,sourceTruncated:false};
@@ -23,40 +24,55 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
   // data while requests for the new athlete/program are in flight.
   setSnapshot({scopeKey,data:empty,loading:true,error:null});
   try{
-   const versions=await supabase.from("health_program_versions")
-    .select("id").eq("athlete_id",athleteId).eq("program_id",programId);
-   if(versions.error)throw new Error(versions.error.message);
-   const ids=(versions.data??[]).map(x=>x.id);
+   // Stable ordering and a (limit+1) sentinel prove whether the selected
+   // history is complete. Do not treat the API's default 1000-row cap as EOF.
+   const versions=await readE3BoundedPages((from,to)=>supabase
+    .from("health_program_versions").select("id")
+    .eq("athlete_id",athleteId).eq("program_id",programId)
+    .order("id",{ascending:true}).range(from,to),1000);
+   if(versions.truncated){
+    if(generation===requestGeneration.current)
+     setSnapshot({scopeKey,data:{...empty,sourceTruncated:true},loading:false,error:null});
+    return;
+   }
+   const ids=versions.rows.map(x=>x.id);
    if(!ids.length){
     if(generation===requestGeneration.current)
      setSnapshot({scopeKey,data:empty,loading:false,error:null});
     return;
    }
    const [sessions,templates]=await Promise.all([
-    supabase.from("health_workout_sessions")
+    readE3BoundedPages((from,to)=>supabase.from("health_workout_sessions")
      .select("id,program_version_id,session_template_id,started_at,status,record_status")
      .eq("athlete_id",athleteId).in("program_version_id",ids)
      .eq("record_status","active").eq("status","completed")
-     .order("started_at",{ascending:false}).limit(301),
-    supabase.from("health_session_templates")
+     .order("started_at",{ascending:false}).order("id",{ascending:true})
+     .range(from,to),300),
+    readE3BoundedPages((from,to)=>supabase.from("health_session_templates")
      .select("id,program_version_id,code,status").eq("athlete_id",athleteId)
-     .in("program_version_id",ids),
+     .in("program_version_id",ids).order("id",{ascending:true})
+     .range(from,to),3000)
    ]);
-   if(sessions.error)throw new Error(sessions.error.message);
-   if(templates.error)throw new Error(templates.error.message);
-   const truncated=(sessions.data??[]).length>300;
-   const scoped=(sessions.data??[]).slice(0,300);
-   const sessionIds=scoped.map(x=>x.id);
-   const rows=sessionIds.length?await supabase.from("health_workout_sets")
+   const sessionIds=sessions.rows.map(x=>x.id);
+   const sets:M4SetRow[]=[];
+   let setTruncated=false;
+   // Bounded IN groups avoid URL limits. Each group is paginated with a
+   // stable set ID ordering, and one shared budget across every group.
+   for(let offset=0;offset<sessionIds.length;offset+=25){
+    if(sets.length>=10000){setTruncated=true;break;}
+    const chunk=sessionIds.slice(offset,offset+25);
+    const page=await readE3BoundedPages((from,to)=>supabase
+     .from("health_workout_sets")
      .select("session_id,status,set_type,reps,rir,load_value,load_unit")
-     .eq("athlete_id",athleteId).in("session_id",sessionIds)
+     .eq("athlete_id",athleteId).in("session_id",chunk)
      .eq("status","completed").eq("set_type","working")
-     .limit(1000):null;
-   if(rows?.error)throw new Error(rows.error.message);
-   // Conservative default: a capped response cannot prove total coverage.
-   const setTruncated=(rows?.data?.length??0)>=1000;
-   const mapped=mapM3M4F21Observations(scoped,(rows?.data??[]),
-    templates.data??[],ids,truncated||setTruncated);
+     .order("id",{ascending:true}).range(from,to),10000-sets.length);
+    sets.push(...page.rows);
+    if(page.truncated){setTruncated=true;break;}
+   }
+   const sourceTruncated=sessions.truncated||templates.truncated||setTruncated;
+   const mapped=mapM3M4F21Observations(sessions.rows,sets,
+    templates.rows,ids,sourceTruncated);
    if(generation===requestGeneration.current)
     setSnapshot({scopeKey,data:mapped,loading:false,error:null});
   }catch(cause){
