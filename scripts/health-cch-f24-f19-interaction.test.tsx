@@ -53,29 +53,31 @@ function ExerciseHarness({initialCount=3,onStart=()=>{}}:{
    onConfirmEquipment={async()=>{}}
  />;
 }
+const extraButton=()=>screen.getAllByRole("button",{name:/\\+ Série extra$/}).at(-1)!;
+const nextButton=()=>screen.getAllByRole("button",{name:/^Próximo exercício$/}).at(-1)!;
 describe("CCH F24 F19 — interface real com backend sintético isolado",()=>{
  it("at 3/3 selects extra instead of next, then 4/3 → 5/3 requires another click",async()=>{
   const selections:string[]=[];
   render(<ExerciseHarness onStart={id=>selections.push(id)}/>);
-  expect(screen.getByRole("button",{name:/\+ Série extra$/})).toBeTruthy();
-  expect(screen.getByRole("button",{name:/^Próximo exercício$/})).toBeTruthy();
-  fireEvent.click(screen.getByRole("button",{name:/\+ Série extra$/}));
+  expect(extraButton()).toBeTruthy();
+  expect(nextButton()).toBeTruthy();
+  fireEvent.click(extraButton());
   await waitFor(()=>expect(screen.getByRole("button",{name:/Iniciar Supino máquina/i})).toBeTruthy());
   fireEvent.click(screen.getByRole("button",{name:/Iniciar Supino máquina/i}));
   await waitFor(()=>expect(selections).toEqual(["ex1"]));
   await waitFor(()=>expect(screen.getByText(/Série 4 concluída/)).toBeTruthy());
-  expect(screen.getByRole("button",{name:/\+ Série extra$/})).toBeTruthy();
+  expect(extraButton()).toBeTruthy();
   // No automatic 5th until athlete explicitly chooses it again.
   expect(selections.length).toBe(1);
-  fireEvent.click(screen.getByRole("button",{name:/\+ Série extra$/}));
+  fireEvent.click(extraButton());
   fireEvent.click(screen.getByRole("button",{name:/Iniciar Supino máquina/i}));
   await waitFor(()=>expect(selections).toEqual(["ex1","ex1"]));
   cleanup();
  });
  it("fresh mount at 4/3 rest has both choices but does not pick extra without a click",()=>{
   render(<ExerciseHarness initialCount={4}/>);
-  expect(screen.getByRole("button",{name:/\+ Série extra$/}).getAttribute("aria-pressed")).toBe("false");
-  expect(screen.getByRole("button",{name:/^Próximo exercício$/}).getAttribute("aria-pressed")).toBe("false");
+  expect(extraButton().getAttribute("aria-pressed")).toBe("false");
+  expect(nextButton().getAttribute("aria-pressed")).toBe("false");
   cleanup();
  });
 });
