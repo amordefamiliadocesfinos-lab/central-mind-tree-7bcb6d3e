@@ -108,3 +108,34 @@ test("unknown source version cannot borrow observations from another cycle",()=>
  assert.equal(x.readiness,"insufficient");
  assert.equal(x.manualPublicationRequired,true);
 });
+
+
+test("missing dates do not qualify for manual review even with two comparable sessions",()=>{
+ const x=assess({...base,sessions:[make(0),make(1),make(2,{occurredAt:null})]});
+ assert.equal(x.status,"review_evidence");
+ assert.equal(x.readiness,"insufficient");
+ assert.equal(x.cycle.observedSpanDays,null);
+ assert.equal(x.alternatives.some(a=>a.strategy==="continue_progression"),false);
+ assert.ok(x.reasons.some(r=>r.includes("Datas ausentes")));
+ assert.equal(x.levelPreserved,"advanced");
+ assert.equal(x.generatesQueue,false);
+});
+test("conflicting duplicate ids are excluded irrespective of arrival order",()=>{
+ const first=make(0),contradiction=make(0,{sessionCode:"E2",workingSets:800});
+ for(const rows of [[first,contradiction,make(1),make(2)],
+                    [contradiction,first,make(1),make(2)]]){
+  const x=assess({...base,sessions:rows});
+  assert.equal(x.status,"review_evidence");
+  assert.equal(x.cycle.completedSessions,2);
+  assert.equal(x.cycle.observedWorkingSets,24);
+  assert.deepEqual(x.coverage.stimulusSequence.performed,["B1","C1"]);
+  assert.ok(x.reasons.some(r=>r.includes("duplicada")));
+  assert.equal(x.generatesQueue,false);
+ }
+});
+test("identical duplicate ids are deduplicated without blocking a legitimate review",()=>{
+ const x=assess({...base,sessions:[make(0),make(0),make(1),make(2)]});
+ assert.equal(x.status,"eligible_for_manual_review");
+ assert.equal(x.cycle.completedSessions,3);
+ assert.equal(x.cycle.observedWorkingSets,36);
+});
