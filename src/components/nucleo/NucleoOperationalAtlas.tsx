@@ -631,6 +631,34 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   registrado no Core são evidências diferentes. Nenhuma é promovida automaticamente.
                 </p>
               </div>
+              {selectedRecord.code==="CRM"&&<section aria-label="Atalho de continuidade documental CRM" className="rounded-lg border p-3 space-y-2">
+                <p className="text-sm font-semibold">Jornada do CRM · Especialista → AC-01 → AC-02</p>
+                <p className="text-xs text-muted-foreground">
+                  Use os registros e componentes já existentes, sem iniciar gravações.
+                  Uma proposta AC-01 não equivale a versão vigente, e preparar AC-02 não constitui entrega ou mandato.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={()=>openSpecialistPanel("papel")}>
+                    1 · Papel e fontes
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={()=>{
+                    openSpecialistPanel("documentos");
+                    setAc01Request(previous=>({stage:"versoes",seq:(previous?.seq??0)+1}));
+                  }}>
+                    2 · Documentos e versões AC-01
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={()=>openSpecialistPanel("continuidade")}>
+                    3 · Contexto e continuidade AC-02
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={()=>openSpecialistPanel("mandato")}>
+                    Consultar limites de mandato
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  O conteúdo permanece no painel selecionado abaixo. Consultas AC-02 continuam sob autenticação e permissão atual;
+                  esta navegação não confirma teste, publicação ou homologação.
+                </p>
+              </section>}
               <nav aria-label="Consultar aspectos do especialista" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {([
                   {id:"papel",label:"Papel e método"},

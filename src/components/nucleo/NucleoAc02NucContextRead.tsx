@@ -59,7 +59,7 @@ export default function NucleoAc02NucContextRead(){
   }catch{setError("Falha ao consultar o contexto protegido; nenhum estado foi alterado.");}
   finally{setBusy(false);}
  }
- return <section className="rounded-xl border p-3 space-y-3" aria-label="Assunção consultiva do Núcleo AC-02">
+ return <section id="nucleo-ac02-consulta" tabIndex={-1} className="scroll-mt-28 rounded-xl border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Assunção consultiva do Núcleo AC-02">
   <div className="space-y-1">
    <h4 className="text-sm font-semibold">Continuidade do Especialista Núcleo · AC-02</h4>
    <p className="text-xs text-muted-foreground">Consulta restrita por sessão e permissão. Não concede mandato, não homologa mapa nem entrega contexto a outro usuário.</p>
@@ -78,6 +78,60 @@ export default function NucleoAc02NucContextRead(){
     <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
    </div>)}</div>
+   <section id="nucleo-ac02-quadro-decisao" tabIndex={-1} className="scroll-mt-28 rounded-lg border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Quadro consultivo para preparar decisão documental">
+    <div className="space-y-1">
+     <h5 className="font-semibold text-sm">Quadro de preparação para decisão · sem homologação</h5>
+     <p className="text-xs text-muted-foreground">
+      Organiza somente o contexto recebido nesta consulta AC-02. Não inicia F6, não cria ato da Camada Mestre,
+      não homologa conteúdo e não altera o estado de qualquer frente.
+     </p>
+    </div>
+    <div className="grid gap-2 md:grid-cols-3">
+     <article className="rounded-md border p-3 space-y-1 text-xs">
+      <h6 className="font-semibold">1 · Proposta documental</h6>
+      <p>AC-01 v{result.contribution.version_no} · estado informado pelo Core: <strong>{result.contribution.authority_state}</strong></p>
+      <p className="text-muted-foreground">Fonte de origem: {result.contribution.source_kind} · {result.contribution.source_locator}</p>
+      <p className="text-muted-foreground">Próximo movimento: manter a proposta e a linhagem até decisão documental competente.</p>
+     </article>
+     <article className="rounded-md border p-3 space-y-1 text-xs">
+      <h6 className="font-semibold">2 · Evidência operacional</h6>
+      <p>NUC-M4 · antes {result.checkpoint.status_before} / depois {result.checkpoint.status_after}</p>
+      <p>Frente atual: <strong>{result.fronts.find(front=>front.code==="NUC-M4")?.status??"não informada"}</strong></p>
+      <p className="text-muted-foreground">Aceite técnico restrito não substitui conclusão operacional nem vigência documental.</p>
+     </article>
+     <article className="rounded-md border p-3 space-y-1 text-xs">
+      <h6 className="font-semibold">3 · Autoridade ainda separada</h6>
+      <p>Especialidade: {result.specialist.specialty_state}</p>
+      <p>Mandato: {result.specialist.mandate} · Sucessor: {result.specialist.successor}</p>
+      <p className="text-muted-foreground">Homologação, publicação, mandato, entrega e recebimento exigem atos próprios.</p>
+     </article>
+    </div>
+    <details className="rounded-md border p-3 text-xs">
+     <summary className="cursor-pointer font-medium">Fontes e pontos para futura deliberação</summary>
+     <div className="mt-2 space-y-2">
+      <p>Contribuição AC-01: <span className="break-all">{result.contribution.id}</span>.</p>
+      <p>Evento de checkpoint M4: <span className="break-all">{result.checkpoint.event_id}</span>.</p>
+      <p>FM-09: {result.checkpoint.fm09==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.
+       FM-10: {result.checkpoint.fm10==="sem_revisao_visivel_sob_rls"?"sem revisão visível sob a permissão atual":"revisão visível sem vigência certificada"}.</p>
+      <p className="text-muted-foreground">Para decisão posterior, conferir fonte, conteúdo, versão, competência e efeito do ato.
+       A ausência de revisão visível sob RLS não certifica inexistência global.</p>
+     </div>
+    </details>
+    <nav aria-label="Navegação entre origem documental e preparação de continuidade" className="flex flex-wrap gap-2">
+     <Button type="button" size="sm" variant="outline" onClick={()=>{
+      const target=document.getElementById("nucleo-ac01-piloto");
+      target?.scrollIntoView({behavior:"smooth",block:"start"});
+      target?.focus({preventScroll:true});
+     }}>Voltar à origem AC-01</Button>
+     <Button type="button" size="sm" variant="outline" onClick={()=>{
+      const target=document.getElementById("nucleo-ac02-consulta");
+      target?.scrollIntoView({behavior:"smooth",block:"start"});
+      target?.focus({preventScroll:true});
+     }}>Voltar ao contexto AC-02</Button>
+    </nav>
+    <p className="text-xs text-muted-foreground">Próximo avanço consultivo: organizar as evidências para a Camada Mestre,
+     sem simular aceite ou alterar o Core. Testes adicionais e homologação foram adiados pelo proprietário.</p>
+   </section>
    <section className="rounded-lg border p-3 text-xs space-y-2" aria-label="F5 — aprendizado e checkpoint do Núcleo">
     <p className="font-semibold">F5 · Aprendizado recuperado da NUC-M4</p>
     <p>Decisão: {result.checkpoint.decision}</p>
