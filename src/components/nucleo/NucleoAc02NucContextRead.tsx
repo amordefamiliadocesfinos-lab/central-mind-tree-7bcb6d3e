@@ -41,13 +41,63 @@ const isContext=(v:unknown):v is Context=>{
    ["sem_revisao_visivel_sob_rls","revisao_visivel_sem_assertiva_de_vigencia"].includes(item.checkpoint.fm09)&&
    ["sem_revisao_visivel_sob_rls","revisao_visivel_sem_assertiva_de_vigencia"].includes(item.checkpoint.fm10);
 };
+/**
+ * Resumo de DELIBERAÇÃO FUTURA construído somente com a projeção AC-02
+ * autenticada, sem consultar documentos privados ou escrever no Core.
+ * Texto copiável exige ação explícita e nunca equivale a aceite/homologação.
+ */
+function buildConsultiveDecisionSummary(context:Context):string{
+ const m4=context.fronts.find(front=>front.code==="NUC-M4");
+ const fm=(value:string)=>value==="sem_revisao_visivel_sob_rls"
+   ?"sem revisão visível sob a permissão da consulta"
+   :"revisão visível sem vigência certificada";
+ const recordedAt=Number.isNaN(Date.parse(context.checked_at))
+   ?context.checked_at:new Date(context.checked_at).toLocaleString("pt-BR");
+ return [
+  "NÚCLEO 2.0 — SUBSÍDIO CONSULTIVO À CAMADA MESTRE",
+  "Natureza: preparação de leitura; NÃO é decisão, homologação, mandato nem pacote de assunção.",
+  `Consulta AC-02: ${recordedAt} · contrato ${context.contract} · ${context.status}`,
+  "",
+  "1. ORIGEM DOCUMENTAL AC-01",
+  `Título: ${context.contribution.title}`,
+  `Contribuição: ${context.contribution.id} · versão ${context.contribution.version_no} · estado ${context.contribution.authority_state}`,
+  `Origem: ${context.contribution.source_kind} · ${context.contribution.source_locator}`,
+  "A proposta preserva sua versão e origem; não é método homologado ou vigente.",
+  "",
+  "2. F5 — CHECKPOINT OPERACIONAL NUC-M4",
+  `Frente M3: NUC-M4 · estado lido: ${m4?.status??"não informado"}`,
+  `Evento: ${context.checkpoint.event_id} · antes ${context.checkpoint.status_before} → depois ${context.checkpoint.status_after}`,
+  `Decisão registrada: ${context.checkpoint.decision}`,
+  `Lição: ${context.checkpoint.lesson}`,
+  `Próxima ação M3: ${context.checkpoint.current_action}`,
+  `Origem da decisão: ${context.checkpoint.decision_source}`,
+  `Origem do checkpoint: ${context.checkpoint.checkpoint_source}`,
+  `FM-09: ${fm(context.checkpoint.fm09)}; FM-10: ${fm(context.checkpoint.fm10)}.`,
+  "Aceite técnico não equivale a encerramento operacional ou vigência documental.",
+  "",
+  "3. FRONTEIRAS DE AUTORIDADE",
+  `Especialidade: ${context.specialist.specialty} (${context.specialist.specialty_state})`,
+  `Mandato: ${context.specialist.mandate} · sucessor: ${context.specialist.successor}`,
+  "Qualquer decisão de conteúdo/vigência, publicação, mandato, entrega e sucessão exige ato competente separado.",
+  "",
+  "4. PONTOS PARA DELIBERAÇÃO FUTURA — NÃO APROVADOS",
+  "Conferir a origem e a versão da contribuição AC-01 e a evidência F5 no Core.",
+  "Distinguir proposta documental, aceite técnico M4 e conclusão operacional.",
+  "Não presumir F6/F7, sucessor, nem autorização de escrita ou migração F1/F2.",
+  `Restrições informadas pelo Core: ${context.limitations.join(" ")}`,
+  "",
+  "FIM DO SUBSÍDIO CONSULTIVO — nenhuma alteração ou decisão foi realizada."
+ ].join("\n");
+}
 export default function NucleoAc02NucContextRead(){
  const [busy,setBusy]=useState(false);
  const [result,setResult]=useState<Context|null>(null);
  const [error,setError]=useState("");
+ const [copyStatus,setCopyStatus]=useState<"idle"|"copied"|"failed">("idle");
+ const decisionSummary=result?buildConsultiveDecisionSummary(result):null;
  async function read(){
   if(busy)return;
-  setBusy(true);setError("");setResult(null);
+  setBusy(true);setError("");setResult(null);setCopyStatus("idle");
   try{
    const user=await supabase.auth.getUser();
    if(user.error||!user.data.user){setError("Sessão pessoal não comprovada. Entre na conta autorizada.");return;}
@@ -117,6 +167,26 @@ export default function NucleoAc02NucContextRead(){
        A ausência de revisão visível sob RLS não certifica inexistência global.</p>
      </div>
     </details>
+    {decisionSummary&&<details className="rounded-md border p-3 text-xs space-y-2">
+     <summary className="cursor-pointer font-medium">Preparar subsídio consultivo para a Camada Mestre</summary>
+     <p className="mt-2 text-muted-foreground">
+      Gerado exclusivamente com os campos da leitura AC-02 acima. Nenhuma decisão, homologação ou gravação é criada.
+      Antes de encaminhar a outra pessoa, confira se ela possui autorização para acessar o contexto.
+     </p>
+     <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-sans text-xs" aria-label="Prévia do subsídio consultivo">{decisionSummary}</pre>
+     <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" size="sm" variant="outline" onClick={()=>void (async()=>{
+       try{
+        await navigator.clipboard.writeText(decisionSummary);
+        setCopyStatus("copied");
+       }catch{setCopyStatus("failed");}
+      })()}>Copiar subsídio consultivo</Button>
+      <span role="status" className="text-xs text-muted-foreground">
+       {copyStatus==="copied"?"Texto copiado; nenhuma alteração foi realizada.":copyStatus==="failed"
+        ?"Cópia indisponível; selecione o texto da prévia.":""}
+      </span>
+     </div>
+    </details>}
     <nav aria-label="Navegação entre origem documental e preparação de continuidade" className="flex flex-wrap gap-2">
      <Button type="button" size="sm" variant="outline" onClick={()=>{
       const target=document.getElementById("nucleo-ac01-piloto");
