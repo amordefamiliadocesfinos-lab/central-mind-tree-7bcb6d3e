@@ -105,3 +105,20 @@ test("matching template and complete API preserve valid comparative observations
  assert.equal(v.observations[0].exerciseDataComparable,true);
  assert.equal(v.observations[0].workingSets,1);
 });
+
+test("conflicting M3 template identities cannot invent session comparability",()=>{
+ const a={id:"ta",program_version_id:"va",code:"A1",status:"active"};
+ const b={id:"ta",program_version_id:"va",code:"E2",status:"active"};
+ for(const rows of [[a,b],[b,a]]){
+  const v=map([s("session-a")],[working("session-a")],rows,["va"]);
+  assert.equal(v.uncategorizedSessions,1);
+  assert.equal(v.observations[0].sessionCode,"");
+  assert.equal(v.observations[0].exerciseDataComparable,false);
+  assert.equal(v.observations[0].workingSets,1);
+ }
+});
+test("identical repeated M3 template records do not invalidate a valid source",()=>{
+ const v=map([s("session-a")],[working("session-a")],[t[0],{...t[0]}],["va"]);
+ assert.equal(v.observations[0].sessionCode,"A1");
+ assert.equal(v.observations[0].exerciseDataComparable,true);
+});
