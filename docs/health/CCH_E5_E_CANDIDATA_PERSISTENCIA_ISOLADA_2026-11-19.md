@@ -195,3 +195,36 @@ O inventário localizou referências literais M4/E5 em oito arquivos relevantes:
 **Limite:** descoberta por identificadores literais e extração textual de funções não exclui SQL construído dinamicamente, aliases/joins indiretos, funções de outras schemas, dependências implantadas fora do repositório, `service_role`, respostas HTTP, autenticação real do Supabase ou exposição em logs. O conjunto F19 constitui **exceção conhecida, não homologação funcional completa**. O teste não substitui o ensaio com Auth/PostgREST/Storage reais em stack integral descartável descrito no item 12.2, que **permanece não executado**. Nenhuma nova permissão, política, migration ou rota produtiva foi habilitada por esta auditoria.
 
 **Próximo portão material:** contraprova HTTP com tokens sintéticos e stack Supabase integral isolado; decisão da Camada Mestre quanto à política final, retenção, direitos do titular e autoridade. PR #999 draft sem merge, Issue #966 aberta, F23 bloqueada.
+
+
+### 12.5 Contraprova HTTP em Supabase integral descartável — realizada em 23/11/2026
+
+**Evidência nova:** [GitHub Actions #45188567320](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/45188567320), commit funcional `856f009cd9452128882f39b437858c477d38f4fe`, **5/5 jobs `completed/success`**, incluindo `e5-full-supabase-disposable`. O marcador de êxito específico é `CCH_E5E_REAL_AUTH_POSTGREST_STORAGE_HTTP_PASS`; a inicialização registra `CCH_E5E_FULLSTACK_SMOKE_PASS`.
+
+**Ambiente:** runner GitHub Ubuntu efêmero, Supabase CLI fixada em `2.122.0`, projeto local `cch-e5e-isolated-lab`, Docker e `supabase start` em diretório temporário. Auth, PostgREST/Data API e Storage foram de fato iniciados, com endpoints locais respondendo HTTP 200. Não houve `supabase link`, projeto remoto, variáveis de credencial produtiva, migrations em produção, keys reais ou deploy. Segredos do stack foram mantidos em arquivo temporário com permissão 0600 e não publicados nos logs; o `trap` executa `supabase stop --no-backup` e descarta o diretório.
+
+**Schemas e dados:** foi aplicada a sequência de 13 migrations oficiais relevantes M0/M1/M2/M3/M4/F19/F20/F21/F22 no banco local do stack, seguida **somente ali** da candidata E5-E. A F22 tem DML/asserções com UUIDs históricos: as três referências foram remapeadas unicamente na cópia em memória e usadas com atletas/versão de treino inteiramente sintéticos. Uma função auxiliar global `public.update_updated_at_column`, existente como dependência fora das migrations Health, foi criada no bootstrap descartável para compatibilidade com a M1; não se alteraram as migrations do repositório. Quatro identidades foram criadas pela **API Auth real** (atleta A, atleta B, treinador e proprietário distinto); JWTs reais do stack local foram obtidos pelo fluxo de senha e utilizados em todas as requisições da Data API. Credenciais/IDs temporários não são persistidos em artefato ou relatório.
+
+**Matriz de respostas HTTP verificada:**
+
+| Situação exercitada na API real local | Resultado comprovado |
+|---|---|
+| Auth /auth/v1/health, /rest/v1/, /storage/v1/status | HTTP 200 |
+| Auth: criação + login dos quatro usuários sintéticos | HTTP 200 |
+| INSERT de nota E5 sem consentimento | HTTP 403; negado |
+| INSERT de evento comum M4 sem E5 | HTTP 201; preservado |
+| Tentativa de treinador, proprietário e atleta B concederem E5 a A | HTTP 400; negadas |
+| Atleta A concede consentimento específico da versão sintética vigente | HTTP 201 |
+| Atleta A registra nota E5 após concessão | HTTP 201 |
+| SELECT de M4: atleta A, treinador, proprietário, atleta B | HTTP 200, com contagem conferida: só A viu nota E5, treinador/proprietário viram evento comum, B não viu A |
+| POST RPC `health_cch_e5_current_session_review` com JWT de A | HTTP 200, retorno de revisão autorizada |
+| Atleta A revoga consentimento | HTTP 201; nova decisão histórica |
+| SELECT M4 e RPC após revogação | HTTP 200, sem nota E5 nem revisão consultiva; evento comum permaneceu |
+| Nova tentativa de captura E5 após revogação | HTTP 403; negada |
+| RPC F19 `health_f19_pause_workout` por atleta B usando sessão de A | HTTP 400; negada |
+| Leitura anônima de eventos M4 | HTTP 401; negada |
+| Storage real: enumeração de buckets via identidade administrativa **local** | HTTP 200; nenhum objeto E5 criado (verificação SQL) |
+
+**Alcance correto:** esta execução comprova tráfego HTTP real com tokens Auth sintéticos, RLS/PostgREST e Storage local, somando-se à contraprova anterior de grants, triggers, F21 e F22 em PostgreSQL descartável. Não comprova segurança do Supabase produtivo, todos os RPCs F19, todas as Edge Functions, todos os endpoints de Storage, policies externas ao conjunto de migrations, logs de serviços externos ou fluxos clínicos. A chave `service_role` foi utilizada **apenas no provisionamento de usuários fictícios e na enumeração administrativa do Storage local**, nunca para simular acesso de treinador ou atleta; as provas de RLS foram feitas com JWTs das respectivas identidades. A candidata SQL continua fora de `supabase/migrations`.
+
+**Conclusão desta frente:** o portão técnico previamente pendente de **Auth + PostgREST + Storage reais em Supabase integral descartável, com testes HTTP de consentimento/revogação, RLS e RPC F19 negativo**, está **satisfeito no escopo testado**. **Não** significa autorização de merge, migração ou coleta real. A Camada Mestre continua responsável pelas decisões sobre texto e versão oficiais do consentimento, base e revisão de privacidade, retenção e eliminação, direitos do titular após revogação, autoridade aprovadora/ativadora e menores/representação. Uma revisão de impacto de segurança e plano reversível ainda antecede qualquer liberação produtiva. PR #999 deve continuar **draft, sem merge**; Issue #966 **aberta**; F23 **não iniciada**.
