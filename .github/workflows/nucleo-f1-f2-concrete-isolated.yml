@@ -5,6 +5,7 @@ on:
       - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
       - "scripts/nucleo-f1-f2-concrete-candidate.test.sql"
       - "scripts/nucleo-f1-f2-concrete-security-review.test.sql"
+      - "scripts/nucleo-f1-f2-g1-scope.test.sql"
       - "scripts/nucleo-f1-f2-staging-m3-official-compat.sql"
       - "scripts/nucleo-f1-f2-staging-cross-front-fixture.sql"
       - "scripts/nucleo-f1-f2-staging-gateway-jwt-mock.cjs"
@@ -58,6 +59,9 @@ jobs:
       - name: Synthetic JWT, session and RLS gateway classification
         env: *db
         run: node scripts/nucleo-f1-f2-staging-gateway-jwt-mock.cjs
+      - name: G1 explicit front/module scope and fail-closed regressions
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g1-scope.test.sql
       - name: Concurrent uniqueness under two transactions
         env: *db
         run: node scripts/nucleo-f1-f2-concrete-concurrency.cjs
