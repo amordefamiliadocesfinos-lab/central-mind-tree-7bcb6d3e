@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { canOfferExtraSeries } from "../cch/f24ExtraSeriesChoice";
 import type {
   WorkoutExercise,
   WorkoutSet,
@@ -234,6 +235,8 @@ export function HealthWorkoutInteractiveTimerF19({
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const [plannedNextExerciseId, setPlannedNextExerciseId] = useState<string | null>(null);
+  const [extraExerciseId, setExtraExerciseId] = useState<string | null>(null);
+  const actionPending = useRef(false);
   const alertedRestId = useRef<string | null>(null);
   const previousActiveExerciseId = useRef<string | null>(null);
 
@@ -267,7 +270,9 @@ export function HealthWorkoutInteractiveTimerF19({
           (item) =>
             item.id === selectedExerciseId &&
             isExecutable(item) &&
-            performedCount(item.id) < plannedMax(item),
+            (performedCount(item.id) < plannedMax(item) ||
+              (extraExerciseId === item.id &&
+                canOfferExtraSeries(performedCount(item.id), plannedMax(item), item.status))),
         ) ?? null;
 
       if (selected) return selected;
@@ -292,6 +297,7 @@ export function HealthWorkoutInteractiveTimerF19({
   }, [
     orderedExercises,
     selectedExerciseId,
+    extraExerciseId,
     setsByExercise,
     timer.activeInterval,
   ]);
@@ -423,12 +429,19 @@ export function HealthWorkoutInteractiveTimerF19({
       ? timer.activeInterval
       : null;
 
+  // Consumes the permission to run a single extra series. Never auto-repeat.
+  useEffect(() => {
+    if (activeWork) setExtraExerciseId(null);
+  }, [activeWork?.id]);
+
   const plannedNextExercise =
     orderedExercises.find(
       (item) =>
         item.id === plannedNextExerciseId &&
         isExecutable(item) &&
-        performedCount(item.id) < plannedMax(item),
+        (performedCount(item.id) < plannedMax(item) ||
+         (extraExerciseId === item.id &&
+          canOfferExtraSeries(performedCount(item.id), plannedMax(item), item.status))),
     ) ?? null;
 
   const recommendedNextExercise =
@@ -515,6 +528,9 @@ export function HealthWorkoutInteractiveTimerF19({
   }, [activeRest, restReached]);
 
   const run = async (label: string, action: () => Promise<void>) => {
+    // Block synchronous duplicate taps before React reflects saving=true.
+    if (actionPending.current) return;
+    actionPending.current = true;
     try {
       await action();
       toast({ title: "Treino atualizado", description: label });
@@ -525,15 +541,27 @@ export function HealthWorkoutInteractiveTimerF19({
         description:
           cause instanceof Error ? cause.message : "Tente novamente.",
       });
+    } finally {
+      actionPending.current = false;
     }
   };
 
   const chooseNextExercise = (exercise: WorkoutExercise) => {
+    setExtraExerciseId(null);
     setPlannedNextExerciseId(exercise.id);
     toast({
       title: "Próxima ação escolhida",
       description: `${exerciseNameById.get(exercise.exercise_id) ?? "Exercício"} foi preparado. O cronômetro ainda não iniciou.`,
     });
+  };
+
+  const chooseExtraSeries = (exercise: WorkoutExercise) => {
+    if (!canOfferExtraSeries(performedCount(exercise.id), plannedMax(exercise), exercise.status)) return;
+    setExtraExerciseId(exercise.id);
+    setSelectedExerciseId(exercise.id);
+    setViewedExerciseId(exercise.id);
+    if (activeRest) setPlannedNextExerciseId(exercise.id);
+    toast({ title: "Série extra escolhida", description: "A próxima série permanece aqui; o plano publicado não muda." });
   };
 
   const sessionPaused = timer.sessionTiming?.status === "paused";
@@ -600,7 +628,9 @@ export function HealthWorkoutInteractiveTimerF19({
   const viewedExerciseSelectable =
     viewedExercise != null &&
     isExecutable(viewedExercise) &&
-    performedCount(viewedExercise.id) < plannedMax(viewedExercise);
+    (performedCount(viewedExercise.id) < plannedMax(viewedExercise) ||
+      (extraExerciseId === viewedExercise.id &&
+       canOfferExtraSeries(performedCount(viewedExercise.id), plannedMax(viewedExercise), viewedExercise.status)));
 
   const canChooseViewedExercise =
     viewedExerciseSelectable &&
@@ -971,6 +1001,16 @@ export function HealthWorkoutInteractiveTimerF19({
                   </Button>
                 ) : null}
 
+                {!timer.activeInterval &&
+                 canOfferExtraSeries(performedCount(viewedExercise.id), plannedMax(viewedExercise), viewedExercise.status) &&
+                 extraExerciseId !== viewedExercise.id ? (
+                  <Button className="min-h-12 w-full" variant="outline"
+                    disabled={timer.saving}
+                    onClick={() => chooseExtraSeries(viewedExercise)}>
+                    + Série extra neste exercício
+                  </Button>
+                ) : null}
+
                 {viewedSets.filter((item) => item.status === "completed")
                   .length ? (
                   <div className="space-y-2">
@@ -1130,6 +1170,19 @@ export function HealthWorkoutInteractiveTimerF19({
                           </Button>
                         ) : null}
 
+                        {activeExercise &&
+                          canOfferExtraSeries(completedOnActive, maxSets, activeExercise.status) ? (
+                          <Button
+                            type="button"
+                            variant={plannedNextExerciseId === activeExercise.id ? "default" : "outline"}
+                            className="min-h-11 w-full"
+                            disabled={timer.saving}
+                            aria-pressed={plannedNextExerciseId === activeExercise.id}
+                            onClick={() => chooseExtraSeries(activeExercise)}>
+                            + Série extra
+                          </Button>
+                        ) : null}
+
                         {nextDifferentExercise ? (
                           <Button
                             type="button"
@@ -1138,7 +1191,7 @@ export function HealthWorkoutInteractiveTimerF19({
                                 ? "default"
                                 : "outline"
                             }
-                            className="min-h-11"
+                            className="min-h-11 w-full"
                             disabled={timer.saving}
                             aria-pressed={
                               plannedNextExerciseId === nextDifferentExercise.id
@@ -1154,7 +1207,9 @@ export function HealthWorkoutInteractiveTimerF19({
                             )}
                             {plannedNextExerciseId === nextDifferentExercise.id
                               ? "Selecionado: próximo da grade"
-                              : "Escolher próximo da grade"}
+                              : completedOnActive >= maxSets
+                                ? "Próximo exercício"
+                                : "Escolher próximo da grade"}
                           </Button>
                         ) : null}
                       </div>
