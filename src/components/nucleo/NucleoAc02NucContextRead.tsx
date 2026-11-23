@@ -94,6 +94,7 @@ export default function NucleoAc02NucContextRead(){
  const [result,setResult]=useState<Context|null>(null);
  const [error,setError]=useState("");
  const [copyStatus,setCopyStatus]=useState<"idle"|"copied"|"failed">("idle");
+ const [focusedFront,setFocusedFront]=useState("NUC-M4");
  const decisionSummary=result?buildConsultiveDecisionSummary(result):null;
  async function read(){
   if(busy)return;
@@ -123,7 +124,41 @@ export default function NucleoAc02NucContextRead(){
    <p className="text-xs">Mapa: {result.contribution.title} · v{result.contribution.version_no} · {result.contribution.authority_state}</p>
    <p className="text-xs break-all">Contribuição AC-01: {result.contribution.id}</p>
    <p className="text-xs">Especialidade descritiva: {result.specialist.specialty} — não homologada</p>
-   <div className="space-y-2">{result.fronts.map(front=><div key={front.code} className="rounded-md border p-2 text-xs space-y-1">
+   <section className="rounded-lg border p-3 space-y-3" aria-label="Painel de próximas ações das frentes NUC">
+    <div className="space-y-1">
+     <h5 className="font-semibold text-sm">Próximas ações · consulta do Core</h5>
+     <p className="text-xs text-muted-foreground">
+      Selecione uma frente para ler sua próxima ação original. A seleção só organiza a consulta:
+      não muda prioridade, responsável, estado ou permissão.
+     </p>
+    </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Selecionar frente NUC">
+     {result.fronts.map(front=><Button key={front.code} type="button" size="sm"
+      className="h-auto min-h-11 whitespace-normal justify-start text-left"
+      variant={focusedFront===front.code?"secondary":"outline"}
+      aria-pressed={focusedFront===front.code}
+      onClick={()=>setFocusedFront(front.code)}>
+      {front.code} · {front.status.replaceAll("_"," ")}
+     </Button>)}
+    </div>
+    {result.fronts.filter(front=>front.code===focusedFront).map(front=><article key={front.code}
+      className="rounded-md border p-3 space-y-2 text-xs" aria-live="polite">
+     <h6 className="font-semibold text-sm">{front.code} · {front.title}</h6>
+     <p>Estado no Core: <strong>{front.status}</strong> · Evidência: {front.evidence_state} · Registros M4 visíveis: {front.evidence_count}</p>
+     <p className="font-medium">Próxima ação registrada:</p>
+     <p className="whitespace-pre-wrap break-words">{front.next_action||"Sem próxima ação informada."}</p>
+     <Button type="button" size="sm" variant="outline" onClick={()=>{
+      const item=document.getElementById("nucleo-ac02-front-"+front.code);
+      item?.scrollIntoView({behavior:"smooth",block:"start"});
+      item?.focus({preventScroll:true});
+     }}>Ver ficha completa da frente</Button>
+    </article>)}
+    <p className="text-xs text-muted-foreground">
+     Este painel não atribui prioridade nova nem altera o planejamento M3.
+     Testes e homologações adiados permanecem pendentes, sem bloquear consultas e avanços independentes.
+    </p>
+   </section>
+   <div className="space-y-2">{result.fronts.map(front=><div key={front.code} id={"nucleo-ac02-front-"+front.code} tabIndex={-1} className="scroll-mt-28 rounded-md border p-2 text-xs space-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <p className="font-semibold">{front.code} · {front.title}</p>
     <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
