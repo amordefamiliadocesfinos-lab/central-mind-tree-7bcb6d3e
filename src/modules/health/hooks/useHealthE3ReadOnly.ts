@@ -3,9 +3,10 @@ import {supabase} from "@/integrations/supabase/client";
 import {mapM3M4F21Observations,viewE3ReadSnapshot} from "../cch/e3ObservationAdapter";
 import type {E3Mapped,E3ReadSnapshot,M4SetRow} from "../cch/e3ObservationAdapter";
 import {readE3BoundedPages} from "../cch/e3Pagination";
-const byId={identity:(row:{id:string})=>row.id,
+const byId={revalidatePages:true,identity:(row:{id:string})=>row.id,
  ordered:(a:{id:string},b:{id:string})=>a.id<b.id};
 const bySession={
+ revalidatePages:true,
  identity:(row:{id:string})=>row.id,
  ordered:(a:{id:string;started_at:string|null},b:{id:string;started_at:string|null})=>{
   if(!a.started_at)return !b.started_at&&a.id<b.id;
