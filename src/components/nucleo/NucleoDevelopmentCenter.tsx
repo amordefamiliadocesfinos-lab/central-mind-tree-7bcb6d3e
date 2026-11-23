@@ -948,6 +948,22 @@ export default function NucleoDevelopmentCenter() {
                   </Button>
                 </div>
               </div>
+              {selected.code==="NUC"&&<nav aria-label="Jornada de continuidade documental do Núcleo" className="rounded-xl border p-3 space-y-2">
+                <p className="text-sm font-semibold">Jornada de continuidade · Núcleo → Especialista → AC-01 → AC-02</p>
+                <p className="text-xs text-muted-foreground">Acesso às áreas já existentes nesta ficha. Navegar não grava, não concede autoridade e não comprova homologação.</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ["nucleo-ac01-piloto","1 · Origem AC-01"],
+                    ["nucleo-ac02-consulta","2 · Contexto AC-02"],
+                  ] as const).map(([target,label])=><Button key={target} type="button" variant="outline" size="sm"
+                    onClick={()=>{
+                      const element=document.getElementById(target);
+                      element?.scrollIntoView({behavior:"smooth",block:"start"});
+                      element?.focus({preventScroll:true});
+                    }}>{label}</Button>)}
+                </div>
+                <p className="text-xs text-muted-foreground">Após consultar AC-02 com a sessão autorizada, utilize o quadro de preparação para decisão apresentado na mesma seção. Sem nova consulta automática.</p>
+              </nav>}
               {selected.code==="NUC"&&<NucleoAc01PilotRegistration />}
               {selected.code==="NUC"&&<NucleoAc02NucContextRead />}
               {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
