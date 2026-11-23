@@ -22,10 +22,11 @@ export function createCelivioC4BReadOnly({
     const connection = await readConnection({ channel_account_id: CELIVIO_C4B_ACCOUNT_ID });
     const c = connection?.payload;
     if (!connection?.ok || !c) return { ok: false, code: 'connection_unavailable' };
-    if (c.channel_account_id !== CELIVIO_C4B_ACCOUNT_ID
-      || Number(c.shop_id) !== CELIVIO_C4B_SHOP_ID
-      || Number(c.partner_id) !== PARTNER_ID
-      || c.environment !== 'live') {
+    // Core Bridge already scopes its successful read to the fixed account ID,
+    // requires an active account and filters environment='live'. Its payload
+    // intentionally omits channel_account_id and environment.
+    if (Number(c.shop_id) !== CELIVIO_C4B_SHOP_ID
+      || Number(c.partner_id) !== PARTNER_ID) {
       return { ok: false, code: 'identity_mismatch' };
     }
 
