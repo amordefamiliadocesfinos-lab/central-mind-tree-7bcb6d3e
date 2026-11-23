@@ -1,0 +1,37 @@
+name: CCH F24 G1 G2 Integration Preview
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx'
+      - 'src/modules/health/pages/HealthWorkoutPage.tsx'
+      - 'src/modules/health/hooks/useF24WorkoutHistory.ts'
+      - 'src/modules/health/cch/f24ExtraSeriesChoice.ts'
+      - 'src/modules/health/cch/f24ComparableHistory.ts'
+      - 'scripts/health-cch-f24-p0-p1.test.mjs'
+      - 'scripts/health-cch-f24-g2-history.test.mjs'
+      - '.github/workflows/health-cch-f24-g1-g2-integration.yml'
+permissions:
+  contents: read
+jobs:
+  integration-static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - name: Run both contracts in combined code
+        run: |
+          rm -rf .tmp-cch-f24 .tmp-cch-f24-g2
+          npx tsc src/modules/health/cch/f24ExtraSeriesChoice.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-f24 --skipLibCheck
+          node --test scripts/health-cch-f24-p0-p1.test.mjs
+          npx tsc src/modules/health/cch/f24ComparableHistory.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-f24-g2 --skipLibCheck
+          node --test scripts/health-cch-f24-g2-history.test.mjs
+      - name: Frontend TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: ESLint
+        run: npx eslint src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx src/modules/health/pages/HealthWorkoutPage.tsx src/modules/health/hooks/useF24WorkoutHistory.ts src/modules/health/cch/f24ExtraSeriesChoice.ts src/modules/health/cch/f24ComparableHistory.ts
+      - name: Production build
+        run: npm run build
