@@ -85,6 +85,12 @@ migrations=[
  "20261111175335_health_f21_void_workout_requeues_cch.sql",
  "20261112175528_health_f22_adaptive_training_maturity.sql",
 ]
+# This shared trigger helper belongs to the application's broader baseline,
+# not the Health migrations. Create it ONLY in this disposable local project.
+sql("""CREATE FUNCTION public.update_updated_at_column()
+ RETURNS trigger LANGUAGE plpgsql AS $fn$
+ BEGIN NEW.updated_at=now(); RETURN NEW; END $fn$;""",
+ "Synthetic shared updated_at dependency")
 for m in migrations:
     if m.startswith("20261112175528"):
         apply("supabase/tests/health_cch_e5e_official_athletes.sql","Synthetic F22 prerequisites")
