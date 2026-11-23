@@ -177,7 +177,7 @@ export default function NucleoAc01PilotRegistration(){
         :"Não foi possível proteger a tentativa local. Nenhuma gravação enviada.");
     }finally{busyRef.current=false;setBusy(false);}
   };
-  return <section className="rounded-xl border p-3 space-y-3" aria-label="Piloto de registro do Mapa V1.1 no AC-01">
+  return <section id="nucleo-ac01-piloto" tabIndex={-1} className="scroll-mt-28 rounded-xl border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Piloto de registro do Mapa V1.1 no AC-01">
     <div className="space-y-1">
       <p className="text-sm font-semibold">Governança documental — registro do Mapa V1.1</p>
       <p className="text-xs text-muted-foreground">Somente proposta por referência. O registro não homologa, não altera o método vigente e não cria especialista ou módulo.</p>
