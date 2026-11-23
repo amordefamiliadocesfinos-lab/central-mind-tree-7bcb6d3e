@@ -54,6 +54,9 @@ jobs:
               scripts/nucleo-f1-f2-concrete-candidate.lab.sql > "$RUNNER_TEMP/f12-candidate-local.sql"
           psql -X -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/f12-candidate-local.sql" >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-m3-official-compat.sql >/dev/null
+          # Local Supabase postgres role is not SUPERUSER; allow this fixture to impersonate its NOLOGIN executor.
+          # Never apply this role membership in hosted Supabase.
+          psql -X -v ON_ERROR_STOP=1 -c 'GRANT f12_grant_executor TO postgres;' >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.test.sql >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-cross-front-fixture.sql >/dev/null
