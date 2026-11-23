@@ -2,13 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {createServer} from "vite";
 import React from "react";
+import path from "node:path";
 import {renderToStaticMarkup} from "react-dom/server";
 
 /** SSR contract of the REAL F19 React tree (not the production database).
  * No athlete data, no Supabase, no UI event, no browser claim.
  * Exercises are fixtures. Remounting replays a server-persisted rest snapshot.
  */
-const vite=await createServer({server:{middlewareMode:true},appType:"custom",logLevel:"error"});
+const vite=await createServer({configFile:false,root:process.cwd(),
+  resolve:{alias:{"@":path.resolve("src")}},
+  esbuild:{jsx:"automatic"},optimizeDeps:{noDiscovery:true},
+  server:{middlewareMode:true},appType:"custom",logLevel:"silent"});
 let Workout;
 try {
  ({HealthWorkoutInteractiveTimerF19:Workout}=
@@ -31,7 +35,7 @@ const makeProps=(count)=>{
   workout_set_id:"set-"+count,session_id:"session-1",athlete_id:"athlete-synthetic",
   set_number:count,status:"running",started_at:"2026-11-23T21:00:00Z",target_seconds:90,
   pause_accumulated_seconds:0,paused_at:null,ended_at:null};
- const timer={loading:false,saving:false,activeInterval:rest,intervals:[rest],
+ const timer={loading:false,saving:false,available:true,activeInterval:rest,intervals:[rest],
   sessionTiming:{id:"timer-session",status:"active",started_at:"2026-11-23T19:00:00Z",
    pause_accumulated_seconds:0,timer_paused_at:null,ended_at:null},
   startWorkInterval:async()=>{},finishRest:async()=>{},updateSetExecution:async()=>{},
