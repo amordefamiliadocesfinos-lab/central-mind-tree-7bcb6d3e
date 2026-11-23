@@ -11,6 +11,7 @@ const KEY=process.env.ANON_KEY;
 assert(KEY&&KEY.length>20,"Local-only ANON_KEY required");
 const NUC="636768e6-e782-4c7d-8132-e7381621be12",M4="95833fbd-38b5-4a0a-abea-45f74214d533";
 const GOV="10000000-0000-4000-8000-000000000001",SEC="10000000-0000-4000-8000-000000000002";
+const M5="00000000-0000-4000-8000-000000000020",CRM="00000000-0000-4000-8000-000000000010",CRMFRONT="00000000-0000-4000-8000-000000000011";
 const E2E_INSTANCE="20000000-0000-4000-8000-000000000081";
 const E2E_ASSIGNMENT="40000000-0000-4000-8000-000000000081";
 const E2E_GRANT="50000000-0000-4000-8000-000000000081";
@@ -97,6 +98,9 @@ async function main(){
   assert.equal(await code(endpoint(),"invalid"),401,"HTTP 401 invalid credential");
   assert.equal(await code(endpoint(),users[1].token),403,"HTTP 403 authenticated, ungranted");
   assert.equal(await code(endpoint(M4,SEC),users[0].token),403,"HTTP 403 another specialty");
+  assert.equal(await code(endpoint(M5,GOV),users[0].token),403,"HTTP 403 different front same module and specialty");
+  const crmUrl=`http://127.0.0.1:${port}/f12/read?module_id=${CRM}&specialty_id=${GOV}&front_id=${CRMFRONT}`;
+  assert.equal(await code(crmUrl,users[0].token),403,"HTTP 403 another module");
   assert.equal(await code(endpoint(),users[0].token),200,"HTTP 200 approved scoped reader");
   const direct=await request("/rest/v1/f12_read_context?select=id",{headers:{Authorization:"Bearer "+users[1].token}});
   assert.equal(direct.status,200,"PostgREST selects must honor RLS");
