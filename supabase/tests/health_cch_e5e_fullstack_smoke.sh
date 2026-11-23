@@ -42,3 +42,6 @@ for endpoint in ["/auth/v1/health", "/rest/v1/", "/storage/v1/status"]:
     print(f"E5_FULLSTACK_SERVICE {endpoint} HTTP={code}")
 print("CCH_E5E_FULLSTACK_SMOKE_PASS")
 PY
+
+# Full HTTP contract uses real local Auth JWTs and actual PostgREST RLS.
+python3 "$GITHUB_WORKSPACE/supabase/tests/health_cch_e5e_fullstack_http.py"
