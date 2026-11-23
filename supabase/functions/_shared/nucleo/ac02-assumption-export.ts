@@ -19,6 +19,7 @@ export type Ac02HandoffTechnicalContext=Readonly<{
  evidenceRead:"completa"|"indeterminada";
 }>;
 
+export type Ac02Ac01Status=Readonly<{id:string;lineageId:string;versionNo:number;authorityState:string}>;
 export type Ac02AssumptionInput=Readonly<{
  projection:Ac02Projection;
  specialist:Ac02SpecialistContext;
@@ -27,6 +28,7 @@ export type Ac02AssumptionInput=Readonly<{
  technical?:Ac02HandoffTechnicalContext;
  documentary?:readonly Ac02DocumentaryRevision[];
  documentaryReadComplete?:boolean;
+ ac01?:Readonly<{rows:readonly Ac02Ac01Status[];readComplete:boolean}>;
 }>;
 export type Ac02AssumptionExport=Readonly<{
  kind:"nucleo_ac02_pacote_oficial_assuncao_rascunho";
@@ -108,6 +110,34 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  if(frontList.length===0)unresolved.push("Frentes M3: nenhuma referência estruturada recuperada");
  if(evidenceList.length===0)unresolved.push("Provas M4: nenhuma referência estruturada autorizada recuperada");
 
+ const ac01Lines:string[]=[];
+ const ac01=input.ac01;
+ if(!ac01||!ac01.readComplete){
+  unresolved.push("AC-01: recorte de revisões não confirmado; consultar propostas e decisões no Core");
+  ac01Lines.push("- Leitura AC-01 incompleta ou ausente; nenhuma conclusão sobre decisões.");
+ }else{
+  const latest=new Map<string,Ac02Ac01Status>();
+  let invalid=false;
+  for(const r of ac01.rows){
+   if(!isUuid(r.id)||!isUuid(r.lineageId)||!Number.isSafeInteger(r.versionNo)||r.versionNo<1||
+    !["proposta","em_evolucao"].includes(r.authorityState)){invalid=true;break;}
+   const prior=latest.get(r.lineageId);
+   if(!prior||r.versionNo>prior.versionNo)latest.set(r.lineageId,r);
+   else if(prior.versionNo===r.versionNo&&prior.id!==r.id)invalid=true;
+  }
+  if(invalid||latest.size>40){
+   unresolved.push("AC-01: registros inconsistentes ou recorte amplo demais; consultar Core");
+   ac01Lines.push("- Identificadores AC-01 indeterminados; exportação de linhas bloqueada.");
+  }else if(!latest.size){
+   ac01Lines.push("- Nenhuma contribuição AC-01 retornada no módulo; outras fontes não examinadas.");
+  }else{
+   for(const r of [...latest.values()].sort((a,b)=>a.lineageId.localeCompare(b.lineageId))){
+    ac01Lines.push("- Linhagem "+r.lineageId+" / contribuição "+r.id+" / v"+r.versionNo+
+     " / estado declarado "+r.authorityState+" / decisão e publicação NÃO verificadas neste pacote.");
+   }
+   unresolved.push("AC-01: conferir decisões, revisões pendentes e comparação na origem; estados de contribuição não comprovam aprovação");
+  }
+ }
  const continuity=technical?summarizeAc02Continuity(technical.fronts.slice(0,50),technical.evidence.slice(0,80),technical.fronts.length>50||technical.evidence.length>80?"indeterminada":technical.evidenceRead):null;
  if(continuity?.completeness==="recorte_incompleto")
   unresolved.push("Resumo de continuidade M3/M4: recorte incompleto");
@@ -214,6 +244,10 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
   "",
   "## 6. Cobertura documental e checkpoint",
   ...coverageLines,
+  "",
+  "## 6A. Revisões AC-01 e conferência de pendências",
+  "- Somente metadados sob JWT/RLS. Consultar as pendências e atos reais na área AC-01; não inferir decisão.",
+  ...ac01Lines,
   "",
   "## 7. Estado de verificação",
   "- Identidade global: aprovada como diretriz; não equivale a deploy/CI atual.",
