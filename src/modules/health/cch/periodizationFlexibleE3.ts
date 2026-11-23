@@ -68,6 +68,14 @@ export type E3Result={
 
 function dateDay(value:string|null):string|null {
  if(!value)return null;
+ // Date.parse normalizes impossible calendar days (e.g. Feb 30); never
+ // treat that repaired value as a verified training-session timestamp.
+ const match=/^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(value);
+ if(!match)return null;
+ const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
+ const calendar=new Date(Date.UTC(year,month-1,day));
+ if(calendar.getUTCFullYear()!==year||calendar.getUTCMonth()!==month-1||
+    calendar.getUTCDate()!==day)return null;
  const date=new Date(value);
  return Number.isNaN(date.getTime())?null:date.toISOString().slice(0,10);
 }
