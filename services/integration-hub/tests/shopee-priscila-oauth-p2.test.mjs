@@ -107,8 +107,29 @@ test('Priscila synthetic start binds immutable identity and secure 10-minute sta
   assert.match(response.headers['Set-Cookie'], /Path=\/; Max-Age=600; HttpOnly; Secure; SameSite=Lax/);
   assert.equal(f.states.get(sha256Hex(state)).channel_account_id, accounts.priscila.account);
   assert.equal(f.states.get(sha256Hex(state)).expires_at, new Date(1700000600000).toISOString());
-  assert.equal(new URL(response.headers.Location).searchParams.get('redirect'), baseEnv.SHOPEE_LIVE_REDIRECT_URI);
+  const authorization = new URL(response.headers.Location);
+  assert.equal(authorization.origin, 'https://open.shopee.com.br');
+  assert.equal(authorization.pathname, '/auth');
+  assert.equal(authorization.searchParams.get('partner_id'), '2047685');
+  assert.equal(authorization.searchParams.get('auth_type'), 'seller');
+  assert.equal(authorization.searchParams.get('redirect_uri'), baseEnv.SHOPEE_LIVE_REDIRECT_URI);
+  assert.equal(authorization.searchParams.get('response_type'), 'code');
+  assert.equal(authorization.searchParams.get('state'), state);
   assert.match(cookie, /^__Host-pc_shopee_live_state=/);
+});
+
+test('Legacy account entrypoints remain on signed partner path, without changing their callback contract', async () => {
+  const f = fixture();
+  for (const key of ['viviane', 'adao', 'celivio']) {
+    const { response, state } = await f.start(key);
+    assert.equal(response.status, 302);
+    const url = new URL(response.headers.Location);
+    assert.equal(url.origin, 'https://partner.shopeemobile.com');
+    assert.equal(url.pathname, '/api/v2/shop/auth_partner');
+    assert.equal(url.searchParams.get('redirect'), baseEnv.SHOPEE_LIVE_REDIRECT_URI);
+    assert.equal(url.searchParams.get('sign'), 'synthetic-sign');
+    assert.ok(state);
+  }
 });
 
 test('Priscila synthetic callback produces isolated encrypted writes and never selects other accounts', async () => {
