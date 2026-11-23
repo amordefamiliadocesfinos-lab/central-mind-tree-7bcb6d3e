@@ -1,0 +1,31 @@
+name: CCH F24 G1 P0 P1 Explicit Extra Series
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx'
+      - 'src/modules/health/cch/f24ExtraSeriesChoice.ts'
+      - 'scripts/health-cch-f24-p0-p1.test.mjs'
+      - '.github/workflows/health-cch-f24-g1.yml'
+permissions:
+  contents: read
+jobs:
+  f24-g1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - name: Pure F24 extra choice contracts
+        run: |
+          rm -rf .tmp-cch-f24
+          npx tsc src/modules/health/cch/f24ExtraSeriesChoice.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-f24 --skipLibCheck
+          node --test scripts/health-cch-f24-p0-p1.test.mjs
+      - name: Frontend TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: ESLint
+        run: npx eslint src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx src/modules/health/cch/f24ExtraSeriesChoice.ts
+      - name: Production build
+        run: npm run build
