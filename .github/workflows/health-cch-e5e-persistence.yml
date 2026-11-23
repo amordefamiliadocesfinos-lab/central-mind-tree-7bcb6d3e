@@ -173,3 +173,16 @@ jobs:
           name: cch-e5e-route-audit
           path: artifacts/cch-e5e-route-audit.json
           if-no-files-found: error
+
+  e5-full-supabase-disposable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    env:
+      E5_DISPOSABLE_ONLY: "YES"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+      - name: Real local Supabase Auth/PostgREST/Storage startup without remote credentials
+        run: bash supabase/tests/health_cch_e5e_fullstack_smoke.sh
