@@ -15,6 +15,7 @@ import {
 
 const API_BASE_URL = 'https://partner.shopeemobile.com';
 const AUTH_PATH = '/api/v2/shop/auth_partner';
+const SELLER_AUTH_URL = 'https://open.shopee.com.br/auth';
 const TOKEN_PATH = '/api/v2/auth/token/get';
 const REFRESH_PATH = '/api/v2/auth/access_token/get';
 const SHOP_INFO_PATH = '/api/v2/shop/get_shop_info';
@@ -176,6 +177,19 @@ async function buildLiveAuthorizeUrl({ partnerId, partnerKey, redirectUri, sign 
   return url.toString();
 }
 
+// Shopee's seller authorization endpoint returns the opaque state unchanged on the
+// registered redirect. Keep the fixed Priscila target and Hub-owned state/cookie;
+// existing accounts continue to use their proven signed legacy entry point.
+function buildPriscilaSellerAuthorizationUrl({ partnerId, redirectUri, state }) {
+  const url = new URL(SELLER_AUTH_URL);
+  url.searchParams.set('partner_id', String(partnerId));
+  url.searchParams.set('auth_type', 'seller');
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('state', state);
+  return url.toString();
+}
+
 export function createShopeeLiveOauthHandler({
   getEnv = (name) => process.env[name],
   now = Date.now,
@@ -242,12 +256,9 @@ export function createShopeeLiveOauthHandler({
           return html(503, 'Shopee Live indisponível', 'Não foi possível iniciar a autorização com segurança.');
         }
 
-        const authorizationUrl = await buildLiveAuthorizeUrl({
-          partnerId,
-          partnerKey,
-          redirectUri,
-          sign,
-        });
+        const authorizationUrl = target === PRISCILA
+          ? buildPriscilaSellerAuthorizationUrl({ partnerId, redirectUri, state })
+          : await buildLiveAuthorizeUrl({ partnerId, partnerKey, redirectUri, sign });
         return redirect(authorizationUrl, state);
       }
 
