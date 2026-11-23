@@ -172,6 +172,24 @@ for role in ("coach","owner","athlete_b"):
     code,data=get_as(role,"/rest/v1/health_workout_events?select=event_type,payload")
     assert_status(code,{200},f"M4 after revoke {role}")
     assert all(x.get("payload",{}).get("contract")!="cch-e5-session-review-v1" for x in data)
+# Even a real JWT for athlete B must be denied by an existing F19
+# SECURITY DEFINER RPC when referencing athlete A's M4 session.
+code,_=post_as("athlete_b","/rest/v1/rpc/health_f19_pause_workout",
+                {"p_session_id":SESSION,
+                 "p_client_event_id":"dddddddd-0000-4000-8000-000000000014"})
+assert_status(code,{400,401,403}, "F19 SECURITY DEFINER cross-athlete RPC refused")
+# An anonymous caller cannot enumerate athlete evidence through the Data API.
+code,anon_data=request("GET","/rest/v1/health_workout_events?select=id,event_type,payload")
+assert_status(code,{200,401,403}, "Anonymous M4 Data API")
+if code==200: assert anon_data==[], "Anonymous M4 records leaked"
+# Synthetic E5 must not mutate Storage, regardless of service/account access.
+def db_count(query):
+    cp=subprocess.run(["docker","exec",DB,"psql","-X","-A","-t","-v","ON_ERROR_STOP=1",
+                       "-U","postgres","-d","postgres","-c",query],capture_output=True,text=True,timeout=15)
+    assert cp.returncode==0,"Local Storage count unavailable"
+    return int(cp.stdout.strip())
+assert db_count("SELECT count(*) FROM storage.objects WHERE bucket_id ILIKE '%e5%'") == 0, \
+ "E5 created unexpected Storage objects"
 # Storage is real, but the tested E5 flow creates no buckets/objects.
 code,data=request("GET","/storage/v1/bucket",admin=True)
 assert_status(code,{200},"Actual Storage API bucket enumeration")
