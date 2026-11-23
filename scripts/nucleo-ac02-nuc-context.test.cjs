@@ -39,6 +39,12 @@ assert.doesNotMatch(executable,/snapshot|source_reference|evidence_note/);
 assert.match(host,/selected\.code==="NUC"&&<NucleoAc02NucContextRead\s*\/>/);
 assert.match(ui,/supabase\.functions\.invoke\("nucleo-ac02-context-read"/);
 assert.match(ui,/getUser\(\)/);
+// F3: navegar à fonte declarada sem aceitar URL/locator arbitrário do Core.
+assert.match(ui,/const PILOT_MAP_SOURCE="docs\/architecture\/MAPA_CONTINUIDADE_CANONICA_ESPECIALISTAS_NUCLEO20_V1_1_CONGELADO_PLANEJAMENTO_2026-11-19\.md"/);
+assert.match(ui,/visibleResult\.contribution\.source_kind==="github"&&visibleResult\.contribution\.source_locator===PILOT_MAP_SOURCE/);
+assert.match(ui,/href=\{PILOT_MAP_URL\}/);
+assert.match(ui,/não certifica SHA-256, versão vigente ou homologação/);
+
 // Continuidade protegida: contexto consultivo não pode sobreviver à troca de usuário.
 assert.match(ui,/const \{session,loading\}=useAuth\(\)/);
 assert.match(ui,/const visibleResult=sessionUid&&resultOwner===sessionUid\?result:null/);

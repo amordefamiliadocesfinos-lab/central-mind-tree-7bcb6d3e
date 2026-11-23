@@ -25,6 +25,12 @@ type Context={
 };
 const ID="636768e6-e782-4c7d-8132-e7381621be12";
 const CONTRIBUTION_ID="80f64bfb-cfa0-4012-a2ad-b75226881c2d";
+// Link fixo para a origem já referenciada pelo contrato AC-01 do piloto NUC.
+// Um locator vindo do Core nunca é usado diretamente como URL.
+// `main` mostra a fonte atual: não certifica os bytes da proposta registrada.
+const PILOT_MAP_SOURCE="docs/architecture/MAPA_CONTINUIDADE_CANONICA_ESPECIALISTAS_NUCLEO20_V1_1_CONGELADO_PLANEJAMENTO_2026-11-19.md";
+const PILOT_MAP_URL="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/"+PILOT_MAP_SOURCE;
+
 const isContext=(v:unknown):v is Context=>{
  if(!v||typeof v!=="object")return false;
  const item=v as Partial<Context>;
@@ -194,6 +200,10 @@ export default function NucleoAc02NucContextRead(){
       <h6 className="font-semibold">1 · Proposta documental</h6>
       <p>AC-01 v{visibleResult.contribution.version_no} · estado informado pelo Core: <strong>{visibleResult.contribution.authority_state}</strong></p>
       <p className="text-muted-foreground">Fonte de origem: {visibleResult.contribution.source_kind} · {visibleResult.contribution.source_locator}</p>
+      {visibleResult.contribution.source_kind==="github"&&visibleResult.contribution.source_locator===PILOT_MAP_SOURCE&&
+       <p><a href={PILOT_MAP_URL} target="_blank" rel="noopener noreferrer"
+        className="underline underline-offset-2">Abrir mapa na origem GitHub</a>
+        <span className="block text-muted-foreground">Consulta ao arquivo atual da branch main; não certifica SHA-256, versão vigente ou homologação.</span></p>}
       <p className="text-muted-foreground">Próximo movimento: manter a proposta e a linhagem até decisão documental competente.</p>
      </article>
      <article className="rounded-md border p-3 space-y-1 text-xs">
