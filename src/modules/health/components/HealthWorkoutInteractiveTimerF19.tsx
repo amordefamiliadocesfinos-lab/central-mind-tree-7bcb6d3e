@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { canOfferExtraSeries } from "../cch/f24ExtraSeriesChoice";
+import { canOfferExtraSeries, preserveF24ExtraChoice } from "../cch/f24ExtraSeriesChoice";
 import type {
   WorkoutExercise,
   WorkoutSet,
@@ -642,8 +642,8 @@ export function HealthWorkoutInteractiveTimerF19({
 
     if (activeRest) {
       // An explicitly chosen extra series must not turn into "next exercise".
-      if (extraExerciseId === viewedExercise.id &&
-          canOfferExtraSeries(performedCount(viewedExercise.id), plannedMax(viewedExercise), viewedExercise.status)) {
+      if (preserveF24ExtraChoice(viewedExercise.id, extraExerciseId,
+          performedCount(viewedExercise.id), plannedMax(viewedExercise), viewedExercise.status)) {
         chooseExtraSeries(viewedExercise);
       } else {
         chooseNextExercise(viewedExercise);
