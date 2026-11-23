@@ -62,6 +62,9 @@ describe("CCH F24 F19 — interface real com backend sintético isolado",()=>{
   expect(extraButton()).toBeTruthy();
   expect(nextButton()).toBeTruthy();
   fireEvent.click(extraButton());
+  // Navigate to another exercise and return without losing the explicit extra choice.
+  fireEvent.click(screen.getByLabelText("Próximo exercício"));
+  fireEvent.click(screen.getByLabelText("Exercício anterior"));
   await waitFor(()=>expect(screen.getByRole("button",{name:/Iniciar Supino máquina/i})).toBeTruthy());
   fireEvent.click(screen.getByRole("button",{name:/Iniciar Supino máquina/i}));
   await waitFor(()=>expect(selections).toEqual(["ex1"]));
