@@ -22,7 +22,7 @@ const Icon=()=>React.createElement("span",{"aria-hidden":true},"•");
 const Button=({children,...props})=>React.createElement("button",props,children);
 const helper=loadTS(fs.readFileSync(path.join(root,"src/lib/nucleo/m4EvidenceWindow.ts"),"utf8"));
 assert.equal(helper.M4_EVIDENCE_VISIBLE_LIMIT,100);
-const source=fs.readFileSync(path.join(root,"src/components/nucleo/NucleoTechnicalEvidence.tsx"),"utf8").replace(/^import\\s.*?;\\s*$/gm,"");
+const source=fs.readFileSync(path.join(root,"src/components/nucleo/NucleoTechnicalEvidence.tsx"),"utf8").split("\n").filter(line=>!line.startsWith("import ")).join("\n");
 const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React}}).outputText;
 const mod={exports:{}};
 vm.runInNewContext(js,{module:mod,exports:mod.exports,React,URL,console,
