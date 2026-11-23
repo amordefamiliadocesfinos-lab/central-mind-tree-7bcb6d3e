@@ -3,6 +3,17 @@ import {supabase} from "@/integrations/supabase/client";
 import {mapM3M4F21Observations,viewE3ReadSnapshot} from "../cch/e3ObservationAdapter";
 import type {E3Mapped,E3ReadSnapshot,M4SetRow} from "../cch/e3ObservationAdapter";
 import {readE3BoundedPages} from "../cch/e3Pagination";
+const byId={identity:(row:{id:string})=>row.id,
+ ordered:(a:{id:string},b:{id:string})=>a.id<b.id};
+const bySession={
+ identity:(row:{id:string})=>row.id,
+ ordered:(a:{id:string;started_at:string|null},b:{id:string;started_at:string|null})=>{
+  if(!a.started_at)return !b.started_at&&a.id<b.id;
+  if(!b.started_at)return true;
+  return a.started_at>b.started_at||
+   (a.started_at===b.started_at&&a.id<b.id);
+ }
+};
 
 const empty:E3Mapped={observations:[],totalValidSessions:0,uncategorizedSessions:0,
  missingWorkingSetData:0,sourceTruncated:false};
@@ -29,7 +40,7 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
    const versions=await readE3BoundedPages((from,to)=>supabase
     .from("health_program_versions").select("id")
     .eq("athlete_id",athleteId).eq("program_id",programId)
-    .order("id",{ascending:true}).range(from,to),1000);
+    .order("id",{ascending:true}).range(from,to),1000,400,byId);
    if(versions.truncated){
     if(generation===requestGeneration.current)
      setSnapshot({scopeKey,data:{...empty,sourceTruncated:true},loading:false,error:null});
@@ -46,12 +57,12 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
      .select("id,program_version_id,session_template_id,started_at,status,record_status")
      .eq("athlete_id",athleteId).in("program_version_id",ids)
      .eq("record_status","active").eq("status","completed")
-     .order("started_at",{ascending:false}).order("id",{ascending:true})
-     .range(from,to),300),
+     .order("started_at",{ascending:false,nullsFirst:false}).order("id",{ascending:true})
+     .range(from,to),300,400,bySession),
     readE3BoundedPages((from,to)=>supabase.from("health_session_templates")
      .select("id,program_version_id,code,status").eq("athlete_id",athleteId)
      .in("program_version_id",ids).order("id",{ascending:true})
-     .range(from,to),3000)
+     .range(from,to),3000,400,byId)
    ]);
    const sessionIds=sessions.rows.map(x=>x.id);
    const sets:M4SetRow[]=[];
@@ -63,10 +74,10 @@ export function useHealthE3ReadOnly(athleteId:string|null|undefined,programId:st
     const chunk=sessionIds.slice(offset,offset+25);
     const page=await readE3BoundedPages((from,to)=>supabase
      .from("health_workout_sets")
-     .select("session_id,status,set_type,reps,rir,load_value,load_unit")
+     .select("id,session_id,status,set_type,reps,rir,load_value,load_unit")
      .eq("athlete_id",athleteId).in("session_id",chunk)
      .eq("status","completed").eq("set_type","working")
-     .order("id",{ascending:true}).range(from,to),10000-sets.length);
+     .order("id",{ascending:true}).range(from,to),10000-sets.length,400,byId);
     sets.push(...page.rows);
     if(page.truncated){setTruncated=true;break;}
    }
