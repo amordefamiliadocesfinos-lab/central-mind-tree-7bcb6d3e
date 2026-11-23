@@ -39,5 +39,13 @@ assert.doesNotMatch(executable,/snapshot|source_reference|evidence_note/);
 assert.match(host,/selected\.code==="NUC"&&<NucleoAc02NucContextRead\s*\/>/);
 assert.match(ui,/supabase\.functions\.invoke\("nucleo-ac02-context-read"/);
 assert.match(ui,/getUser\(\)/);
+// Continuidade protegida: contexto consultivo não pode sobreviver à troca de usuário.
+assert.match(ui,/const \{session,loading\}=useAuth\(\)/);
+assert.match(ui,/const visibleResult=sessionUid&&resultOwner===sessionUid\?result:null/);
+assert.match(ui,/setResult\(null\);setResultOwner\(null\);setError\(""\);setCopyStatus\("idle"\)/);
+assert.match(ui,/identityRef\.current!==requestUid/);
+assert.match(ui,/current\.data\.user\?\.id!==requestUid/);
+assert.match(ui,/\{visibleResult&&<div/);
+
 assert.match(ui,/status==="consultivo_nao_homologado"/);
 console.log("PASS AC02 NUC: contrato fechado, filtros de escopo, JWT, grant, RLS, leitura mínima, negativa de homologação e UI");
