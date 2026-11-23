@@ -32,3 +32,10 @@ A branch #1031 foi derivada do HEAD de G1, complementada pelos componentes de le
 
 ## 5. Não regressão
 Nenhuma migration, SQL, RLS, upload, bucket, alteração dos programas ou dados reais de Deividi/Rafaela, publicação M3/F22, E5 real, F23 ou edição de mapas FROZEN foi autorizada ou executada nesta contraprova.
+
+## 6. Contraprova de transição no descanso — revisão técnica complementar (23/11/2026)
+**Achado F24-R07 / severidade MÉDIA:** no componente F19, `chooseViewedExercise` chamava `chooseNextExercise` indiscriminadamente ao selecionar um exercício durante descanso. Como `chooseNextExercise` limpa `extraExerciseId`, uma série extra explicitamente escolhida podia ser desfeita sem que o atleta solicitasse troca de exercício. O erro não era coberto pela suíte inicial que verificava apenas `canOfferExtraSeries`.
+
+**Correção cirúrgica** nas branches G1 #1025 e prévia conjunta #1031: se a seleção visual corresponde ao exercício extra já escolhido e ainda elegível, preservar essa escolha por `preserveF24ExtraChoice`; outras seleções continuam a transição convencional. Adicionado teste puro de re-seleção, seleção diferente, ausência de opção explícita, antes de 3/3, limite 100 e exercício pulado. Nenhum SQL, RPC ou plano M3 alterado.
+
+**Evidência:** CI reexecutada nos commits atualizados, incluindo workflow conjunto; estado final deve ser lido dos runs correspondentes (não herdar os 10/10 verdes do HEAD anterior). Teste puro não prova renderização real, RLS, concorrência entre abas ou retomada persistida. O portão de merge continua fechado.
