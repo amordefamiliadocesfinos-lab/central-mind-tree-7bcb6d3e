@@ -1,0 +1,31 @@
+name: CCH F24 G3 Media Contract Prototype
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/health/CCH_F24_P3_BIBLIOTECA_VISUAL_CONTRATO_E_PROTOTIPO_V0_1_2026-11-23.md'
+      - 'src/modules/health/cch/f24MediaPrototype.ts'
+      - 'scripts/health-cch-f24-p3-prototype.test.mjs'
+      - '.github/workflows/health-cch-f24-g3-prototype.yml'
+permissions:
+  contents: read
+jobs:
+  f24-g3-prototype:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - name: Isolated pure contract
+        run: |
+          rm -rf .tmp-cch-f24-p3
+          npx tsc src/modules/health/cch/f24MediaPrototype.ts --target ES2022 --module ES2022 --moduleResolution bundler --rootDir src/modules/health/cch --outDir .tmp-cch-f24-p3 --skipLibCheck
+          node --test scripts/health-cch-f24-p3-prototype.test.mjs
+      - name: Frontend TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: ESLint
+        run: npx eslint src/modules/health/cch/f24MediaPrototype.ts
+      - name: Production build
+        run: npm run build
