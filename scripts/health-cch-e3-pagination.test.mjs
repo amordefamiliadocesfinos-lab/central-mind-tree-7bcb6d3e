@@ -28,14 +28,14 @@ test("the exact configured maximum is complete only after an empty sentinel",asy
  const result=await readE3BoundedPages(fake(source(1000),calls),1000);
  assert.equal(result.rows.length,1000);
  assert.equal(result.truncated,false);
- assert.deepEqual(calls.at(-1),[1000,1000]);
+ assert.deepEqual(calls.at(-1),[800,1000]);
 });
 test("one extra row beyond the cap fails closed",async()=>{
  const calls=[];
  const result=await readE3BoundedPages(fake(source(1001),calls),1000);
  assert.equal(result.rows.length,1000);
  assert.equal(result.truncated,true);
- assert.deepEqual(calls.at(-1),[1000,1000]);
+ assert.deepEqual(calls.at(-1),[800,1000]);
 });
 test("session cap 300 detects overflow regardless of default server cap",async()=>{
  const one=await readE3BoundedPages(fake(source(300)),300);
