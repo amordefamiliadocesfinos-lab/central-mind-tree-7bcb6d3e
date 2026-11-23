@@ -80,7 +80,19 @@ export function assessFlexiblePeriodizationE3(input:FlexibleContext):E3Result {
  const valid=input.sessions.filter(s=>s.valid&&s.status==="completed"&&
    !!input.sourceVersionId&&s.programVersionId===input.sourceVersionId);
  const uniqueIds=new Map<string,SessionObservation>();
- for(const session of valid) if(!uniqueIds.has(session.id))uniqueIds.set(session.id,session);
+ const conflictingIds=new Set<string>();
+ for(const session of valid){
+  if(!session.id){conflictingIds.add("(missing_id)");continue;}
+  if(conflictingIds.has(session.id))continue;
+  const previous=uniqueIds.get(session.id);
+  if(!previous){uniqueIds.set(session.id,session);continue;}
+  // Repeated identical records can be deduplicated. Contradictory rows with
+  // one ID must be excluded, regardless of which row arrived first.
+  if(JSON.stringify(previous)!==JSON.stringify(session)){
+   uniqueIds.delete(session.id);
+   conflictingIds.add(session.id);
+  }
+ }
  const completed=[...uniqueIds.values()];
  const comparable=completed.filter(s=>s.exerciseDataComparable);
  const knownSets=completed.filter(s=>positiveInteger(s.workingSets));
@@ -106,10 +118,13 @@ export function assessFlexiblePeriodizationE3(input:FlexibleContext):E3Result {
  if(comparable.length<2)reason.push("Menos de duas sessões com medições comparáveis: observar continuidade sem extrapolar dose.");
  if(input.goal==="unsure")reason.push("Atleta ainda não escolheu um objetivo atual.");
  if(!input.proposedVersionId)reason.push("Sem versão proposta para comparação; nada será criado automaticamente.");
- if(dates.length!==completed.length)reason.push("Datas ausentes ou inválidas: janela de observação não inteiramente verificável.");
+ const dateIncomplete=dates.length!==completed.length;
+ if(dateIncomplete)reason.push("Datas ausentes ou inválidas: janela de observação não inteiramente verificável.");
+ if(conflictingIds.size)reason.push("Sessões com identidade duplicada e dados divergentes: revisão de origem necessária.");
  const recoveryReview=recoveryGuard||negatives>0;
  const insufficient=input.dataQuality!=="reviewable"||!sourceAligned||comparable.length<2||
-   input.goal==="unsure"||!input.proposedVersionId||recoveryReview;
+   input.goal==="unsure"||!input.proposedVersionId||recoveryReview||
+   dateIncomplete||conflictingIds.size>0;
  const status:E3Result["status"]=recoveryReview?"review_recovery":insufficient?"review_evidence":
    "eligible_for_manual_review";
  const alternatives:E3Result["alternatives"]=[
@@ -146,6 +161,7 @@ export function assessFlexiblePeriodizationE3(input:FlexibleContext):E3Result {
   alternatives,reasons:reason,
   limitations:["Sem modelo semanal fixo: pausas e 3, 4, 5 ou outros dias reais são tratados como observações.",
     "Uma mesma sessão realizada múltiplas vezes não é deduzida da lista de códigos sem dados reais.",
+    "Identificadores de sessão duplicados e contraditórios são excluídos até revisão, sem inventar histórico.",
     "Volume observado não demonstra tolerância ou resposta muscular individual.",
     "Mudança de equipamento e unidade exige confirmação por exercício na E2.",
     "Nenhuma proposta modifica M3, M4, F21, F22 ou fila."],
