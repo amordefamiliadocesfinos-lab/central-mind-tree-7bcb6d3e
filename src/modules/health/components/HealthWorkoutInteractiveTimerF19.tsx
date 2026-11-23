@@ -899,8 +899,8 @@ export function HealthWorkoutInteractiveTimerF19({
                 {historyLoading ? (
                   <p className="mt-1 text-xs text-muted-foreground">Consultando referência anterior…</p>
                 ) : historicalReferences.get(viewedExercise.id)?.reference ? (
-                  <p className="mt-1 text-xs text-muted-foreground" aria-label="Histórico comparável da última sessão no mesmo aparelho">
-                    Última vez no mesmo aparelho ·{" "}
+                  <p className="mt-1 text-xs text-muted-foreground" aria-label="Histórico anterior com o mesmo rótulo de aparelho informado pelo atleta; identidade física não certificada">
+                    Último registro com mesmo rótulo ·{" "}
                     {historicalReferences.get(viewedExercise.id)!.reference!.loadValue}{" "}
                     {historicalReferences.get(viewedExercise.id)!.reference!.loadUnit}
                     {" × "}{historicalReferences.get(viewedExercise.id)!.reference!.reps} reps
@@ -913,7 +913,7 @@ export function HealthWorkoutInteractiveTimerF19({
                       ? "Histórico: confirme o aparelho para comparar"
                       : historicalReferences.get(viewedExercise.id)?.reason === "unavailable"
                         ? "Histórico não disponível no momento"
-                        : "Sem referência recente no mesmo aparelho"}
+                        : "Sem referência anterior com o mesmo rótulo"}
                   </p>
                 )}
                 <p className="mt-1 text-sm text-muted-foreground">
