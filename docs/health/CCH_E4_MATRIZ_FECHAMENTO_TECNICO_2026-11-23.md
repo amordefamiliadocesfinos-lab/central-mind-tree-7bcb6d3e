@@ -29,3 +29,11 @@ Esta é a **matriz de evidência**, não um atestado de homologação, publicaç
 3. Homologação E5 G1–G5, retenção, consentimento, segurança e ativação em momento próprio. Não tratar merge de SQL candidata como deployment.
 
 **Regra de encerramento:** somente considerar o mapa concluído após distinguir evidência de CI, teste RLS/SQL, homologação autenticada e publicação real. Manter Issue #966 aberta até decisão competente.
+
+## Continuidade E4 — revalidação de faixas paginadas (23/11/2026)
+
+**Lacuna identificada:** a verificação de identificadores únicos e ordem monotônica não identifica sozinha exclusão de linha antes do offset (salto ordenado) nem alteração de valores sob o mesmo ID. Em leituras com várias páginas o adaptador E3 passa a requisitar novamente cada faixa previamente consultada e comparar o conteúdo exato. Desvio, erro ou remoção gera falha da leitura e impede exposição de histórico parcial como confiável.
+
+**Escopo técnico:** `E3PageIntegrity.revalidatePages` em `e3Pagination.ts`, habilitado nas fontes paginadas do hook `useHealthE3ReadOnly`. Revalidação acontece apenas após a leitura completa e quando há múltiplas páginas, para não duplicar a consulta de uma só página. Testes simulam salto sem duplicidade, alteração de carga em mesmo registro, fonte estável e fonte de página única. Sem SQL, novas permissões, dados reais, criação de programa ou publicação.
+
+**Limitação preservada:** duas leituras coincidentes **não garantem snapshot transacional** e não excluem alterações que ocorram entre rechecagens, mudanças reversíveis ou variações sincronizadas de tabelas relacionadas. Esta é detecção conservadora de deriva observável, não homologação de concorrência absoluta. Não reivindicar conclusão total de consistência em produção sem contrato transacional próprio e decisão de governança. Homologação visual segue adiada.
