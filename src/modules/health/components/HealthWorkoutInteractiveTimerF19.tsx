@@ -641,7 +641,13 @@ export function HealthWorkoutInteractiveTimerF19({
     if (!viewedExercise || !viewedExerciseSelectable) return;
 
     if (activeRest) {
-      chooseNextExercise(viewedExercise);
+      // An explicitly chosen extra series must not turn into "next exercise".
+      if (extraExerciseId === viewedExercise.id &&
+          canOfferExtraSeries(performedCount(viewedExercise.id), plannedMax(viewedExercise), viewedExercise.status)) {
+        chooseExtraSeries(viewedExercise);
+      } else {
+        chooseNextExercise(viewedExercise);
+      }
       return;
     }
 
