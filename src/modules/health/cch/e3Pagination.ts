@@ -5,7 +5,7 @@
 export type E3PageResult<T>={data:T[]|null;error:{message:string}|null};
 export type E3BoundedResult<T>={rows:T[];truncated:boolean};
 export async function readE3BoundedPages<T>(
- fetchPage:(start:number,end:number)=>Promise<E3PageResult<T>>,
+ fetchPage:(start:number,end:number)=>PromiseLike<E3PageResult<T>>,
  limit:number,pageSize=400
 ):Promise<E3BoundedResult<T>>{
  if(!Number.isSafeInteger(limit)||limit<1||
