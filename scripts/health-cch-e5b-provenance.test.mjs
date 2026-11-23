@@ -22,7 +22,7 @@ const base={athleteId:"a",sourceVersionId:"v1",exerciseId:"bench",equipmentLabel
  sessions:[session(1),session(2)],exercises:[exercise(1),exercise(2)],
  sets:[set(1,1),set(1,2),set(2,1),set(2,2)],
  equipment:[equipment(1),equipment(2)],sessionReviews:[review(1),review(2)],
- consents:[consent]};
+ consents:[consent],activePolicyVersion:"e5-v1"};
 test("confirmed label yields provenance key, not invented physical UUID",()=>{
  const r=map(base),gate=assess(r.context);
  assert.equal(r.provenance.equipmentBasis,"confirmed_execution_label");
@@ -63,10 +63,27 @@ test("M1 generic processing and revoked or ambiguous E5 consent cannot authorize
  const generic={...consent,consent_type:"health_data_processing"};
  for(const consents of [[generic],[consent,{...consent,decision:"revoked",occurred_at:"2026-11-05T10:00:00Z"}],
   [consent,{...consent,decision:"revoked"}]]){
-  assert.equal(hasCurrentE5Consent(consents,"a"),false);
+  assert.equal(hasCurrentE5Consent(consents,"a","e5-v1"),false);
   assert.equal(assess(map({...base,consents}).context).state,"blocked");
  }
- assert.equal(hasCurrentE5Consent([consent],"b"),false);
+ assert.equal(hasCurrentE5Consent([consent],"b","e5-v1"),false);
+});
+test("E5 offline review requires a trusted current policy version, not arbitrary historical consent",()=>{
+ assert.equal(hasCurrentE5Consent([consent],"a",null),false);
+ assert.equal(hasCurrentE5Consent([consent],"a",""),false);
+ assert.equal(hasCurrentE5Consent([consent],"a","e5-v2"),false);
+ assert.equal(hasCurrentE5Consent([consent],"a","e5-v1"),true);
+ for(const version of [null,"","e5-v2"]){
+  const r=map({...base,activePolicyVersion:version});
+  assert.equal(r.context.consentToPersonalizedReview,false);
+  assert.equal(assess(r.context).state,"blocked");
+ }
+ const conflicting=[consent,{...consent}];
+ assert.equal(hasCurrentE5Consent(conflicting,"a","e5-v1"),false);
+ assert.equal(assess(map({...base,consents:conflicting}).context).state,"blocked");
+ const outdated=[consent,{...consent,decision:"granted",
+  policy_version:"e5-v0",occurred_at:"2026-11-06T10:00:00Z"}];
+ assert.equal(hasCurrentE5Consent(outdated,"a","e5-v1"),false);
 });
 test("goal registry alone is not an explicit current choice",()=>{
  const r=map({...base,goalChosenInCurrentReview:false});
