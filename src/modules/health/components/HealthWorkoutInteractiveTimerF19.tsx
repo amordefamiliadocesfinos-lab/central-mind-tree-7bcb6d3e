@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { canOfferExtraSeries } from "../cch/f24ExtraSeriesChoice";
+import type {F24ExerciseHistoryStatus} from "../hooks/useF24WorkoutHistory";
 import type {
   WorkoutExercise,
   WorkoutSet,
@@ -209,6 +210,8 @@ export function HealthWorkoutInteractiveTimerF19({
   exercises,
   setsByExercise,
   exerciseNameById,
+  historicalReferences,
+  historyLoading,
   timer,
   onCompleteWorkout,
   onConfirmEquipment,
@@ -218,6 +221,8 @@ export function HealthWorkoutInteractiveTimerF19({
   exercises: WorkoutExercise[];
   setsByExercise: Map<string, WorkoutSet[]>;
   exerciseNameById: Map<string, string>;
+  historicalReferences: Map<string,F24ExerciseHistoryStatus>;
+  historyLoading: boolean;
   timer: HealthWorkoutTimerF19Controller;
   onCompleteWorkout: () => Promise<void>;
   onConfirmEquipment: (workoutExerciseId:string,equipmentLabel:string)=>Promise<void>;
@@ -921,6 +926,26 @@ export function HealthWorkoutInteractiveTimerF19({
                   {exerciseNameById.get(viewedExercise.exercise_id) ??
                     "Exercício"}
                 </CardTitle>
+                {historyLoading ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Consultando referência anterior…</p>
+                ) : historicalReferences.get(viewedExercise.id)?.reference ? (
+                  <p className="mt-1 text-xs text-muted-foreground" aria-label="Histórico anterior com o mesmo rótulo de aparelho informado pelo atleta; identidade física não certificada">
+                    Último registro com mesmo rótulo ·{" "}
+                    {historicalReferences.get(viewedExercise.id)!.reference!.loadValue}{" "}
+                    {historicalReferences.get(viewedExercise.id)!.reference!.loadUnit}
+                    {" × "}{historicalReferences.get(viewedExercise.id)!.reference!.reps} reps
+                    {" · "}{historicalReferences.get(viewedExercise.id)!.reference!.equipmentLabel}
+                    {" · "}{new Date(historicalReferences.get(viewedExercise.id)!.reference!.occurredAt).toLocaleDateString("pt-BR")}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {historicalReferences.get(viewedExercise.id)?.reason === "equipment_unconfirmed"
+                      ? "Histórico: confirme o aparelho para comparar"
+                      : historicalReferences.get(viewedExercise.id)?.reason === "unavailable"
+                        ? "Histórico não disponível no momento"
+                        : "Sem referência anterior com o mesmo rótulo"}
+                  </p>
+                )}
                 <p className="mt-1 text-sm text-muted-foreground">
                   {viewingActiveExercise
                     ? timer.activeInterval
@@ -961,12 +986,10 @@ export function HealthWorkoutInteractiveTimerF19({
               <>
                 <div className="rounded-xl border bg-muted/30 p-4">
                   <p className="text-sm font-semibold">
-                    Escolha livre da sequência
+                    Ordem flexível
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Você pode fazer os exercícios na ordem que estiver disponível
-                    na academia. A programação continua a mesma; muda apenas a
-                    sequência real de execução.
+                    Escolha outro exercício sem modificar o programa publicado.
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     RIR alvo {viewedExercise.planned_rir_target ?? "—"} ·
@@ -1215,10 +1238,7 @@ export function HealthWorkoutInteractiveTimerF19({
                       </div>
 
                       <p className="text-[11px] text-muted-foreground">
-                        Estes botões apenas escolhem o destino e nunca iniciam a série.
-                        Ao tocar, a escolha fica marcada e você recebe uma confirmação.
-                        Depois salve o resultado abaixo; o único botão que inicia o
-                        cronômetro é “Iniciar”. Para outro aparelho, use as setas acima.
+                        Escolher não inicia o cronômetro. Salve o resultado e depois toque em iniciar.
                       </p>
                     </div>
 
@@ -1346,10 +1366,9 @@ export function HealthWorkoutInteractiveTimerF19({
                       </Button>
 
                       <p className="text-xs text-muted-foreground">
-                        Salvar não inicia a próxima série e não encerra o descanso.
                         {resultSaved
-                          ? " Resultado salvo — escolha abaixo quando deseja avançar."
-                          : " Salve o resultado para liberar os botões de avanço."}
+                          ? "Resultado salvo. Continue quando estiver pronto."
+                          : "Salve para liberar o próximo passo."}
                       </p>
                     </div>
 
@@ -1400,8 +1419,7 @@ export function HealthWorkoutInteractiveTimerF19({
                       )}
 
                       <p className="text-[11px] text-muted-foreground">
-                        O cronômetro da próxima série começa somente neste botão.
-                        Até lá, você pode mudar sua escolha quantas vezes precisar.
+                        O cronômetro só inicia quando você confirmar.
                       </p>
                     </div>
                   </>
