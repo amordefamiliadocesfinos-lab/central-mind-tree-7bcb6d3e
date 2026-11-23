@@ -8,6 +8,8 @@ export type E3PageIntegrity<T>={
  identity:(row:T)=>string;
  /** True only when the previous row must precede the next in the query order. */
  ordered:(previous:T,next:T)=>boolean;
+ /** Detect page-content drift after a multi-page read; not a DB transaction. */
+ revalidatePages?:boolean;
 };
 export async function readE3BoundedPages<T>(
  fetchPage:(start:number,end:number)=>PromiseLike<E3PageResult<T>>,
@@ -18,13 +20,17 @@ export async function readE3BoundedPages<T>(
   throw new Error("Limites de paginação E3 inválidos.");
  const rows:T[]=[];
  const seen=new Set<string>();
+ const pages:{from:number;to:number;snapshot:string}[]=[];
  while(rows.length<=limit){
   const requested=Math.min(pageSize,limit+1-rows.length);
-  const result=await fetchPage(rows.length,rows.length+requested-1);
+  const from=rows.length,to=from+requested-1;
+  const result=await fetchPage(from,to);
   if(result.error)throw new Error(result.error.message);
   if(!Array.isArray(result.data))throw new Error("Resposta de paginação E3 indisponível.");
   if(result.data.length>requested)
    throw new Error("Resposta E3 excedeu o tamanho solicitado.");
+  if(integrity?.revalidatePages)
+   pages.push({from,to,snapshot:JSON.stringify(result.data)});
   if(integrity){
    for(const item of result.data){
     const id=integrity.identity(item);
@@ -38,7 +44,21 @@ export async function readE3BoundedPages<T>(
    }
   }else rows.push(...result.data);
   if(rows.length>limit)return {rows:rows.slice(0,limit),truncated:true};
-  if(result.data.length<requested)return {rows,truncated:false};
+  if(result.data.length<requested){
+   // A stable sort cannot detect an offset shift that skips a row. Re-read
+   // all ranges after collecting them, and reject any observed drift.
+   // This is deliberately not described as transactional consistency.
+   if(integrity?.revalidatePages&&pages.length>1){
+    for(const page of pages){
+     const check=await fetchPage(page.from,page.to);
+     if(check.error)throw new Error(check.error.message);
+     if(!Array.isArray(check.data)||
+        JSON.stringify(check.data)!==page.snapshot)
+      throw new Error("Paginação E3 instável: dados mudaram durante a leitura.");
+    }
+   }
+   return {rows,truncated:false};
+  }
  }
  return {rows:rows.slice(0,limit),truncated:true};
 }
