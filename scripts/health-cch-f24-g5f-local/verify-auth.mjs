@@ -176,6 +176,21 @@ pgsql(`
  '${uniq()}',now()-interval '120 seconds',90,'${a.userId}'
  FROM public.health_workout_sets WHERE workout_exercise_id='${UI_EX1}' AND set_number=3;
 `);
+// Independent verification of the genuine M4 owner PATCH path needed for the
+// F19 'Salvar resultado' gate. A positive row count is mandatory.
+const {data:probeSet,error:probeReadError}=await a.client
+ .from("health_workout_sets").select("id,updated_at")
+ .eq("workout_exercise_id",UI_EX1).eq("set_number",3).single();
+if(probeReadError || !probeSet) throw Error("G5F owner set read denied: "+probeReadError?.message);
+const {data:updatedProbe,error:updateProbeError}=await a.client
+ .from("health_workout_sets")
+ .update({load_value:80,reps:8,rir:2})
+ .eq("id",probeSet.id).eq("athlete_id",ATH_A)
+ .select("id,updated_at");
+if(updateProbeError) throw Error("G5F owner set PATCH denied: "+updateProbeError.message);
+assert.equal(updatedProbe?.length,1,"G5F owner set PATCH must modify one row");
+assert.ok(new Date(updatedProbe[0].updated_at)>new Date(probeSet.updated_at));
+console.log("PASS G5F M4: authenticated owner PATCH updates one set and updated_at");
 if(!process.env.G5F_LOGIN_JSON) throw Error("missing ephemeral browser login path");
 fs.writeFileSync(process.env.G5F_LOGIN_JSON,JSON.stringify({email:a.email,password:a.password,athleteId:ATH_A,sessionId:UI_SESSION}),{mode:0o600});
 console.log("G5-F browser fixture prepared with genuine local Auth A; credentials not logged");
