@@ -7,7 +7,6 @@ import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { MODULE_PROVENANCE } from "@/lib/nucleo/operationalProvenanceV12";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
 import { preparedReferences } from "@/lib/nucleo/preparedReferences";
-import { COVERAGE_SOURCES, prepareCoverageBatch } from "@/lib/nucleo/coveragePreparation";
 
 type Filter = "todos" | "precisa_reconciliar" | "somente_catalogo" | "sem_frente" | "com_frente";
 
@@ -27,11 +26,15 @@ export default function NucleoCrossModuleCoverage({
 }) {
   const [filter,setFilter]=useState<Filter>("todos");
   const [preparation,setPreparation]=useState("");
-  async function prepareReferences(code:string,id:string,role:string){
+  async function prepareReferences(code:string,id:string){
     try{
-      const batch=await prepareCoverageBatch(code,id,role);
+      const references=preparedReferences.filter(p=>p.moduleId===id);
+      if(!references.length)throw new Error("Sem referências preparadas.");
+      const batch={contract:"nucleo_assisted_reference_review_v1",moduleCode:code,moduleId:id,
+        state:"revisao_sem_escrita",references:references.map(p=>({...p,
+          action:p.retained?"conciliar_existente":"revisar_no_ac01"}))};
       await navigator.clipboard.writeText(JSON.stringify(batch,null,2));
-      setPreparation(`Lote ${code} copiado para revisão: ${batch.proposals.length} referência(s). Nenhum registro foi gravado.`);
+      setPreparation(`Inventário ${code} copiado: ${references.length} referência(s), incluindo retidas. Nenhum registro foi gravado.`);
     }catch{setPreparation("Não foi possível preparar ou copiar o lote. Nenhum registro foi gravado.");}
   }
   const rows=modules.map(module => {
@@ -188,9 +191,9 @@ export default function NucleoCrossModuleCoverage({
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3
               </Button>}
-              {record&&COVERAGE_SOURCES.some(source=>source.moduleCode===module.id)&&
+              {record&&preparedReferences.some(source=>source.moduleId===record.id)&&
                 <Button type="button" size="sm" variant="outline"
-                  onClick={()=>void prepareReferences(module.id,record.id,record.specialist)}>
+                  onClick={()=>void prepareReferences(module.id,record.id)}>
                   Preparar referências AC-01
                 </Button>}
             </div>
