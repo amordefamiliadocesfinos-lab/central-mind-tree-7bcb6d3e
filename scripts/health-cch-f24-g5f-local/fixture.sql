@@ -27,6 +27,7 @@ CREATE TABLE public.health_workout_sessions (
 CREATE TABLE public.health_workout_exercises (
  id uuid PRIMARY KEY, athlete_id uuid NOT NULL,
  session_id uuid NOT NULL, status text NOT NULL,exercise_id text,
+ sequence_order integer NOT NULL DEFAULT 1,
  planned_sets_min int,planned_sets_max int,planned_rest_seconds integer DEFAULT 90,
  planned_reps_min int,planned_reps_max int,planned_rir_target numeric,
  started_at timestamptz NOT NULL DEFAULT now(),
