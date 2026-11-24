@@ -22,10 +22,12 @@ const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
 
 export default function NucleoSupervisionPanel({
-  workstreams, dependencies,
+  workstreams, dependencies, focusModuleId, onOpenWorkstream,
 }: {
   workstreams: DevelopmentWorkstream[];
   dependencies: DevelopmentDependency[];
+  focusModuleId?: string;
+  onOpenWorkstream?: (id: string) => void;
 }) {
   const [evidence, setEvidence] = useState<TechnicalEvidence[]>([]);
   const [latestFronts, setLatestFronts] = useState<DevelopmentWorkstream[]>([]);
@@ -140,6 +142,27 @@ export default function NucleoSupervisionPanel({
     () => complete ? inspectNucleoSupervision(latestFronts, evidence, latestDependencies) : null,
     [complete, latestFronts, evidence, latestDependencies],
   );
+  // O recorte é aplicado SOMENTE após a leitura M5 autenticada e completa.
+  // Nunca transforma falta de prova M4 em "zero alertas".
+  const focusedModule = focusModuleId
+    ? latestFronts.find(front=>front.id===focusModuleId&&front.kind==="modulo")
+    : undefined;
+  const scopedIds = new Set<string>();
+  if (focusedModule) {
+    scopedIds.add(focusedModule.id);
+    for(const front of latestFronts.filter(item=>item.parent_id===focusedModule.id)) {
+      scopedIds.add(front.id);
+      for(const sub of latestFronts.filter(item=>item.parent_id===front.id))scopedIds.add(sub.id);
+    }
+  }
+  const scopedCodes = new Set(latestFronts.filter(item=>scopedIds.has(item.id)).map(item=>item.code));
+  const findingsShown = snapshot
+    ? (focusModuleId ? snapshot.findings.filter(finding=>scopedCodes.has(finding.workstreamCode)) : snapshot.findings)
+    : [];
+  const focusedFronts = focusedModule
+    ? latestFronts.filter(item=>scopedIds.has(item.id)&&item.kind!=="modulo").length
+    : 0;
+
   return (
     <Card className="p-4 space-y-3" aria-label="Supervisão assistida M5">
       <div className="flex flex-wrap gap-2 items-start justify-between">
@@ -180,8 +203,17 @@ export default function NucleoSupervisionPanel({
           )}
           <p className="text-xs text-muted-foreground">
             {snapshot.workstreamCount} registros M3 · {snapshot.evidenceCount} evidências consultadas ·{" "}
-            {snapshot.declaredDependencies} dependências explícitas · {snapshot.findings.length} alertas.
+            {snapshot.declaredDependencies} dependências explícitas · {snapshot.findings.length} alertas no conjunto.
           </p>
+          {focusModuleId&&<section className="rounded-xl border p-3 space-y-1" aria-label="Recorte de supervisão do módulo">
+            <p className="text-sm font-semibold">Foco operacional: {focusedModule?.code||"módulo não localizado na leitura M5"}</p>
+            <p className="text-xs text-muted-foreground">
+              {focusedModule
+                ? `${focusedFronts} frente(s)/subfrente(s) no recorte M5 · ${findingsShown.length} alerta(s) encontrados pelas regras atuais.`
+                : "O módulo não foi localizado no snapshot M5 completo. Nenhuma conclusão sobre suas frentes pode ser feita."}
+            </p>
+            <p className="text-xs text-muted-foreground">Os demais painéis abaixo continuam globais. Este foco filtra somente a lista de alertas, não a autorização de leitura.</p>
+          </section>}
           <NucleoM2M4Reconciliation workstreams={latestFronts} evidence={evidence} />
           <NucleoKnowledgeReviewConsole workstreams={latestFronts} evidence={evidence} />
           <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
@@ -193,11 +225,13 @@ export default function NucleoSupervisionPanel({
               Não há dependências explícitas cadastradas. O mapa arquitetural não foi convertido em vínculos por inferência.
             </p>
           )}
-          {snapshot.findings.length === 0 && <p className="text-xs text-muted-foreground">
-            Nenhum alerta identificado pelas regras iniciais. Isso não comprova que as frentes estejam concluídas.
+          {findingsShown.length === 0 && <p className="text-xs text-muted-foreground">
+            {focusModuleId
+              ? "Nenhum alerta retornado para este módulo pelas regras atuais, nesta leitura completa. Isso não comprova conclusão."
+              : "Nenhum alerta identificado pelas regras iniciais. Isso não comprova que as frentes estejam concluídas."}
           </p>}
           <div className="space-y-2">
-            {snapshot.findings.map(finding => (
+            {findingsShown.map(finding => (
               <div className="rounded-md border p-3 space-y-1" key={finding.id}>
                 <p className="text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
@@ -205,6 +239,12 @@ export default function NucleoSupervisionPanel({
                 </p>
                 <p className="text-xs text-muted-foreground">{finding.explanation}</p>
                 <p className="text-xs"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
+                {onOpenWorkstream&&latestFronts.some(front=>front.code===finding.workstreamCode)&&
+                  <Button type="button" variant="outline" size="sm" className="min-h-9"
+                    onClick={()=>{
+                      const front=latestFronts.find(item=>item.code===finding.workstreamCode);
+                      if(front)onOpenWorkstream(front.id);
+                    }}>Abrir ficha M3 da frente</Button>}
                 {finding.evidenceIds.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">
                     {finding.evidenceIds.length} evidência(s) associada(s), com origem verificável:
