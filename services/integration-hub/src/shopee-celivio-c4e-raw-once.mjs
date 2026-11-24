@@ -6,6 +6,9 @@ import { getOrderList, getOrderDetail, parseShopeeError } from './connectors/sho
 // NO order writer, mapping mutation, inventory, OAuth refresh, or scheduler.
 export const CELIVIO_C4E_ACCOUNT = 'd26c7a30-aa4a-4441-8012-600d70453689';
 export const CELIVIO_C4E_SHOP = 1357031949;
+// Pilot selected by owner from authenticated Shopee seller screenshot.
+// Never accept caller-provided Order SN or silently switch to another order.
+export const CELIVIO_C4E_TARGET_ORDER_SN = '261121TBS6BHE6';
 const PARTNER = 2047685;
 const API = 'https://partner.shopeemobile.com';
 const ELIGIBLE = new Set(['PROCESSED', 'READY_TO_SHIP']);
@@ -69,16 +72,8 @@ export function createCelivioC4ERawOnce({
     if(!partnerKey || !cryptoKey) return {ok:false,code:'runtime_not_configured'};
     const accessToken=await decryptToken(c.access_token_ciphertext,cryptoKey);
     const common={apiBaseUrl:API,partnerId:PARTNER,partnerKey,accessToken,shopId:CELIVIO_C4E_SHOP};
-    const list=await listOrders({...common,
-      orderListPath:'/api/v2/order/get_order_list',
-      timeRangeField:'create_time',
-      timeFrom:Math.floor(nowMs/1000)-14*24*3600,
-      timeTo:Math.floor(nowMs/1000),pageSize:5,
-    });
-    if(!list?.response?.ok || parseShopeeError(list.payload))
-      return {ok:false,code:'order_list_unavailable'};
-    const selected=selectCelivioEligibleOrder(list.payload);
-    if(!selected.ok) return {ok:false,code:selected.code};
+    // Exact pilot only; skip order-list discovery. Any failure blocks closed.
+    const selected={ok:true,orderSn:CELIVIO_C4E_TARGET_ORDER_SN};
     const detail=await detailOrders({...common,
       orderDetailPath:'/api/v2/order/get_order_detail',
       orderSnList:[selected.orderSn],responseOptionalFields:['item_list'],
