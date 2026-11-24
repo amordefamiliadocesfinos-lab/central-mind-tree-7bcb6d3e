@@ -65,7 +65,7 @@ interface Props {
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // P3: recorte consultivo, sem modificar cadastro nem fonte.
-  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel">("todas");
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel"|"aceite">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -197,15 +197,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const inventoryGaps=catalog.map(module=>{
     const core=registeredModules.find(item=>item.code===module.id);
     const provenance=MODULE_PROVENANCE[module.id];
-    const sources=provenance?.sources.length??0;
+    const sourceEntries=provenance?.sources??[];
+    const sources=sourceEntries.length;
     // Ter referências históricas/código não equivale a possuir fonte vigente.
     const hasDeclaredCurrentSource=Boolean(provenance?.sources.some(source=>source.authority==="vigente_declarada"));
     const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
     const descendants=fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
     const pendingWithoutAction=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.next_action.trim());
     const withoutOwner=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.specialist.trim());
-    return {module,core,sources,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner};
-  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0)
+    const withoutAcceptance=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.acceptance_criteria.trim());
+    return {module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance};
+  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0||item.withoutAcceptance.length>0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const visibleInventoryGaps=inventoryGaps.filter(item=>
     inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
@@ -213,7 +215,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     (inventoryFilter==="vigencia"&&!item.hasDeclaredCurrentSource) ||
     (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
     (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0) ||
-    (inventoryFilter==="responsavel"&&item.withoutOwner.length>0));
+    (inventoryFilter==="responsavel"&&item.withoutOwner.length>0) ||
+    (inventoryFilter==="aceite"&&item.withoutAcceptance.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -552,6 +555,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               ["frentes","Frentes M3"],
               ["acoes","Sem próxima ação"],
               ["responsavel","Sem responsável"],
+              ["aceite","Sem critério de aceite"],
             ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
               variant={inventoryFilter===key?"default":"outline"}
               aria-pressed={inventoryFilter===key}
@@ -562,11 +566,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleInventoryGaps.map(({module,core,sources,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner})=>
+                {visibleInventoryGaps.map(({module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length}
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length} · sem aceite: {withoutAcceptance.length}
                     </p>
                     <p className="text-xs">
                       {[
@@ -576,9 +580,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                         core&&fronts.length===0?"Sem frente direta nesta leitura":null,
                         pendingWithoutAction.length>0?`${pendingWithoutAction.length} item(ns) pendente(s) sem próxima ação`:null,
                         withoutOwner.length>0?`${withoutOwner.length} item(ns) pendente(s) sem responsável declarado`:null,
+                        withoutAcceptance.length>0?`${withoutAcceptance.length} item(ns) pendente(s) sem critério de aceite`:null,
                       ].filter(Boolean).join(" · ")}
                     </p>
-                    {(pendingWithoutAction.length>0||withoutOwner.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
+                    {(pendingWithoutAction.length>0||withoutOwner.length>0||withoutAcceptance.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
                       aria-label="Lacunas de acompanhamento das frentes">
                       {pendingWithoutAction.slice(0,3).map(front=><div key={front.id} className="flex flex-wrap items-center justify-between gap-2">
                         <p><strong>{front.code}</strong> · {front.title} · sem próxima ação</p>
@@ -596,7 +601,32 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       {withoutOwner.length>3&&<p className="text-muted-foreground">
                         Mais {withoutOwner.length-3} item(ns) sem responsável no recorte.
                       </p>}
+                      {withoutAcceptance.slice(0,3).map(item=><div key={"aceite-"+item.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · sem critério de aceite · {item.title}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha M3</Button>
+                      </div>)}
+                      {withoutAcceptance.length>3&&<p className="text-muted-foreground">
+                        Mais {withoutAcceptance.length-3} item(ns) sem critério no recorte.
+                      </p>}
                     </div>}
+                    {sourceEntries.length>0&&<details className="rounded-lg border p-2 text-xs">
+                      <summary className="cursor-pointer font-medium">
+                        Referências M2 identificadas · {sourceEntries.length} fonte(s) no catálogo
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {sourceEntries.map(source=><div key={source.path} className="space-y-1">
+                          <p>{source.label} · {SOURCE_AUTHORITY_LABELS[source.authority]}</p>
+                          <a href={source.path} target="_blank" rel="noopener noreferrer"
+                            className="underline underline-offset-2 break-all">
+                            Abrir referência catalogada
+                          </a>
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Referências versionadas no código; validade e existência atual não verificadas nesta sessão.
+                      </p>
+                    </details>}
                     <p className="text-xs text-muted-foreground">
                       Origem: cadastro, hierarquia, ações e responsáveis da leitura Core M3; referências documentais do catálogo versionado em código.
                       Fontes classificadas como vigentes são apenas declarações documentais, não certificação independente de vigência ou mandato.
