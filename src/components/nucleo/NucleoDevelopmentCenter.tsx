@@ -209,6 +209,25 @@ export default function NucleoDevelopmentCenter() {
   });
   const crmAttention=crmQueue[0];
   const crmSelectedPosition=crmQueue.findIndex(item=>item.id===selectedId);
+  // P2/P4: a mesma navegação M3/M4/M5/AC-01/AC-02 pode servir qualquer
+  // módulo operacional cadastrado. CRM mantém o atalho do piloto original.
+  const selectedOperationalModule=selected
+    ? moduleOptions.find(module=>module.id===moduleIdForWorkstream(selected,byId))
+    : undefined;
+  const selectedModuleFronts=selectedOperationalModule
+    ? items.filter(item=>item.kind==="frente"&&item.parent_id===selectedOperationalModule.id)
+    : [];
+  const selectedModuleQueue=[...selectedModuleFronts].sort((a,b)=>{
+    const rank=(item:DevelopmentWorkstream)=>item.status==="bloqueado"?0
+      :item.priority==="critica"?1:item.priority==="alta"?2
+      :item.status==="em_andamento"?3:4;
+    return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
+  });
+  const selectedModulePosition=selectedModuleQueue.findIndex(item=>item.id===selectedId);
+  const selectedModuleLastEvent=selected
+    ? history.filter(event=>event.workstream_id===selected.id)
+      .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0]
+    : undefined;
   const specialistOptions=Array.from(new Set(
     items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
       .map(item=>item.specialist.trim()).filter(Boolean)
@@ -391,6 +410,19 @@ export default function NucleoDevelopmentCenter() {
     </Card>
   );
 
+  const focusModule=(module:DevelopmentWorkstream)=>{
+    const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
+    const ranked=[...fronts].sort((a,b)=>
+      Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
+      ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
+       {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
+      a.code.localeCompare(b.code,"pt-BR"));
+    if(ranked[0]&&!choose(ranked[0].id))return;
+    setFilter("");setAttentionStatus(null);setSpecialistFocus("");
+    setModuleFocusId(module.id);setWorkspaceView("frentes");
+    requestAnimationFrame(()=>document.getElementById("nucleo-din-focus")
+      ?.scrollIntoView({behavior:"smooth",block:"start"}));
+  };
   const focusCrm=()=>{
     if(!crmModule){openModuleSearch();return;}
     // Não perder edições: choose() faz o mesmo controle das fichas existentes.
@@ -511,6 +543,40 @@ export default function NucleoDevelopmentCenter() {
               </Button>
             </div>
           </Card>
+          <section className="rounded-2xl border border-[#dce5f1] p-4 space-y-3 dark:border-slate-700"
+            aria-label="Acompanhamento transversal dos módulos no Core M3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-semibold">Acompanhar outros módulos</h4>
+                <p className="text-xs text-muted-foreground">
+                  {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM").length} módulo(s) além do CRM nesta leitura M3.
+                  A lista não representa inventário completo dos sistemas externos.
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={openModuleSearch}>
+                Consultar catálogo
+              </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM")
+                .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR")).map(module=>{
+                  const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
+                  const pending=fronts.filter(item=>item.status!=="concluido");
+                  return <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
+                    <p className="font-semibold text-sm break-words">{module.code} · {module.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fronts.length} frente(s) diretas · {pending.length} sem conclusão declarada
+                    </p>
+                    <Button type="button" size="sm" variant="outline" className="min-h-10"
+                      onClick={()=>focusModule(module)}>Acompanhar módulo</Button>
+                  </div>;
+                })}
+              {moduleOptions.every(module=>module.code.toUpperCase()==="CRM")&&
+                <p className="text-xs text-muted-foreground">
+                  Nenhum outro módulo operacional encontrado neste recorte M3; consulte o Atlas antes de concluir ausência de cadastro.
+                </p>}
+            </div>
+          </section>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
               <h4 className="text-sm font-semibold">De onde continuar</h4>
@@ -1086,6 +1152,71 @@ export default function NucleoDevelopmentCenter() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     As trocas respeitam o aviso de alterações não salvas. A navegação não grava nem altera prioridades.
+                  </p>
+                </section>}
+              {selectedOperationalModule && selectedOperationalModule.code.toUpperCase()!=="CRM" &&
+                <section className="rounded-xl border border-[#c6dcfb] bg-[#f5f9ff] p-3 space-y-3 dark:border-blue-900 dark:bg-blue-950/20"
+                  aria-label={"Acompanhamento transversal do módulo "+selectedOperationalModule.code}>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">{selectedOperationalModule.code} · desenvolvimento e continuidade</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedModuleQueue.length} frente(s) diretas cadastradas no Core M3.
+                      Vínculos, checkpoints e prioridades são declarados, não homologados.
+                    </p>
+                    <p className="text-xs">
+                      <strong>Próxima ação da ficha:</strong> {selected.next_action.trim()||"Não registrada no M3."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Checkpoint desta frente: {selectedModuleLastEvent
+                        ? new Date(selectedModuleLastEvent.recorded_at).toLocaleString("pt-BR")+" · "+selectedModuleLastEvent.event_type+" (evento administrativo)"
+                        : "não localizado nos últimos 200 eventos globais carregados"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={()=>{
+                      setFilter("");setAttentionStatus(null);setSpecialistFocus("");
+                      setModuleFocusId(selectedOperationalModule.id);
+                      document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"});
+                    }}>Ver frentes do módulo</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={()=>{
+                      setExpandedEvidenceFor(selected.id);
+                      requestAnimationFrame(()=>document.getElementById("nucleo-m3-technical-evidence")
+                        ?.scrollIntoView({behavior:"smooth",block:"start"}));
+                    }}>Evidências M4</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={()=>{
+                      setSupervisionFocusModuleId(selectedOperationalModule.id);
+                      setSupervisionVisited(true);setSupervisionExpanded(true);
+                      requestAnimationFrame(()=>document.getElementById("nucleo-din-supervision")
+                        ?.scrollIntoView({behavior:"smooth",block:"start"}));
+                    }}>Alertas M5</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={()=>{
+                      setWorkspaceView("geral");setAtlasVisited(true);setAtlasExpanded(true);
+                      setAc01Jump(prev=>({moduleCode:selectedOperationalModule.code,stage:"versoes",seq:(prev?.seq??0)+1}));
+                    }}>Versões AC-01</Button>
+                    <Button type="button" variant="outline" size="sm"
+                      disabled={!/^[A-Z]{3}$/.test(selectedOperationalModule.code)}
+                      title={/^[A-Z]{3}$/.test(selectedOperationalModule.code)
+                        ?"Abre consulta protegida apenas por ação posterior":"Contrato AC-02 exige código de módulo com três letras"}
+                      onClick={()=>{
+                        setWorkspaceView("geral");setAtlasVisited(true);setAtlasExpanded(true);
+                        setAc02Jump(prev=>({moduleCode:selectedOperationalModule.code,seq:(prev?.seq??0)+1}));
+                      }}>Continuidade AC-02/F5</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2" aria-label="Percorrer frentes deste módulo">
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={selectedModulePosition<=0}
+                      onClick={()=>{const prior=selectedModuleQueue[selectedModulePosition-1];if(prior)choose(prior.id);}}>
+                      Frente anterior
+                    </Button>
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={selectedModulePosition<0||selectedModulePosition>=selectedModuleQueue.length-1}
+                      onClick={()=>{const next=selectedModuleQueue[selectedModulePosition+1];if(next)choose(next.id);}}>
+                      Próxima frente
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    AC-01 e AC-02 reutilizam o Atlas com suas permissões e ressalvas existentes.
+                    Nenhum pacote é preparado automaticamente; rascunhos M3 permanecem nesta sessão.
                   </p>
                 </section>}
               {selected.code==="NUC"&&<nav aria-label="Jornada de continuidade documental do Núcleo" className="rounded-xl border p-3 space-y-2">
