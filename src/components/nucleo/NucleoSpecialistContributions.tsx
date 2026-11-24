@@ -136,6 +136,12 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
     });
    return()=>{mounted=false};
  },[moduleId,refresh]);
+ const candidates=preparedReferences.filter(p=>p.moduleId===moduleId);
+ const loadPrepared=(p:PreparedReference)=>{
+   if(p.moduleId!==moduleId||saving||reading||readError||uncertainRef.current||!fence.ready||fence.blocked||isPreparedDuplicate(p,rows))return;
+   if(draftDirty&&!window.confirm("Substituir a minuta não salva pela referência preparada?"))return;
+   setParentId("");setTitle(p.title);setKind(p.kind);setSourceKind("github");setLocator(p.locator);setChecksum(p.checksum);setNote(p.note);setRole("");setFeedback("Minuta preparada. Confirme o papel funcional real e revise a origem antes de registrar.");
+ };
  const chooseReference=(id:string)=>{
    if(id===parentId||saving||reading||Boolean(readError)||uncertainRef.current||fence.blocked)return;
    // A escolha de outra origem pode substituir uma minuta; cancelamento preserva
@@ -153,12 +159,6 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setSourceKind("referencia_privada");setLocator("");setNote("");setChecksum("");
    }
    setFeedback("");
- };
- const candidates=preparedReferences.filter(p=>p.moduleId===moduleId);
- const loadPrepared=(p:PreparedReference)=>{
-   if(p.moduleId!==moduleId||saving||reading||readError||uncertainRef.current||!fence.ready||fence.blocked||isPreparedDuplicate(p,rows))return;
-   if(draftDirty&&!window.confirm("Substituir a minuta não salva pela referência preparada?"))return;
-   setParentId("");setTitle(p.title);setKind(p.kind);setSourceKind("github");setLocator(p.locator);setChecksum(p.checksum);setNote(p.note);setRole("");setFeedback("Minuta preparada. Confirme o papel funcional real e revise a origem antes de registrar.");
  };
  const parent=rows.find(item=>item.id===parentId);
  const visibleVersions=rows.filter(item=>{
