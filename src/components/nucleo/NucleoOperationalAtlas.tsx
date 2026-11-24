@@ -65,7 +65,7 @@ interface Props {
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // P3: recorte consultivo, sem modificar cadastro nem fonte.
-  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes"|"acoes">("todas");
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes"|"acoes"|"responsavel">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -198,15 +198,18 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const core=registeredModules.find(item=>item.code===module.id);
     const sources=MODULE_PROVENANCE[module.id]?.sources.length??0;
     const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
-    const pendingWithoutAction=fronts.filter(front=>front.status!=="concluido"&&!front.next_action.trim());
-    return {module,core,sources,fronts,pendingWithoutAction};
-  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0||item.pendingWithoutAction.length>0)
+    const descendants=fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+    const pendingWithoutAction=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.next_action.trim());
+    const withoutOwner=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.specialist.trim());
+    return {module,core,sources,fronts,descendants,pendingWithoutAction,withoutOwner};
+  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const visibleInventoryGaps=inventoryGaps.filter(item=>
     inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
     (inventoryFilter==="fontes"&&item.sources===0) ||
     (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
-    (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0));
+    (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0) ||
+    (inventoryFilter==="responsavel"&&item.withoutOwner.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -515,6 +518,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               ["fontes","Fontes M2"],
               ["frentes","Frentes M3"],
               ["acoes","Sem próxima ação"],
+              ["responsavel","Sem responsável"],
             ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
               variant={inventoryFilter===key?"default":"outline"}
               aria-pressed={inventoryFilter===key}
@@ -525,29 +529,40 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleInventoryGaps.map(({module,core,sources,fronts,pendingWithoutAction})=>
+                {visibleInventoryGaps.map(({module,core,sources,fronts,descendants,pendingWithoutAction,withoutOwner})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes diretas: {fronts.length} · pendentes sem ação: {pendingWithoutAction.length}
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length}
                     </p>
                     <p className="text-xs">
                       {[
                         !core?"Cadastro do módulo não localizado no Core":null,
                         sources===0?"Proveniência ainda sem fonte catalogada":null,
                         core&&fronts.length===0?"Sem frente direta nesta leitura":null,
-                        pendingWithoutAction.length>0?`${pendingWithoutAction.length} frente(s) pendente(s) sem próxima ação`:null,
+                        pendingWithoutAction.length>0?`${pendingWithoutAction.length} item(ns) pendente(s) sem próxima ação`:null,
+                        withoutOwner.length>0?`${withoutOwner.length} item(ns) pendente(s) sem responsável declarado`:null,
                       ].filter(Boolean).join(" · ")}
                     </p>
-                    {pendingWithoutAction.length>0&&<div className="space-y-1 rounded-lg border p-2 text-xs"
-                      aria-label="Frentes sem próxima ação">
+                    {(pendingWithoutAction.length>0||withoutOwner.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
+                      aria-label="Lacunas de acompanhamento das frentes">
                       {pendingWithoutAction.slice(0,3).map(front=><p key={front.id}>
                         <strong>{front.code}</strong> · {front.title}
                       </p>)}
                       {pendingWithoutAction.length>3&&<p className="text-muted-foreground">
-                        Mais {pendingWithoutAction.length-3} frente(s) sem ação neste recorte.
+                        Mais {pendingWithoutAction.length-3} item(ns) sem ação neste recorte.
+                      </p>}
+                      {withoutOwner.slice(0,3).map(item=><p key={"responsavel-"+item.id}>
+                        <strong>{item.code}</strong> · sem responsável declarado · {item.title}
+                      </p>)}
+                      {withoutOwner.length>3&&<p className="text-muted-foreground">
+                        Mais {withoutOwner.length-3} item(ns) sem responsável no recorte.
                       </p>}
                     </div>}
+                    <p className="text-xs text-muted-foreground">
+                      Origem: cadastro, hierarquia, ações e responsáveis da leitura Core M3; referências documentais do catálogo versionado em código.
+                      Nenhuma dessas fontes, isoladamente, comprova vigência ou mandato.
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm"
                         onClick={()=>investigateGap(module,"fontes")}>Fontes e método</Button>
@@ -918,6 +933,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       {moduleWork.length} frente(s)/subfrente(s) vinculada(s) ao módulo; {modulePending.length} sem conclusão declarada.
                       Recorte M3 desta sessão, não inventário de todas as fontes.
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      Origem: ações, critérios, estado e responsável da ficha Core M3; eventos da janela M3 carregada.
+                      Métodos e versões AC-01 têm fontes próprias e não são certificados por este resumo.
+                    </p>
                     {moduleLatestEvent
                       ? <p className="text-xs">Último evento M3 localizado: {moduleLatestEvent.event_type} · {new Date(moduleLatestEvent.recorded_at).toLocaleString("pt-BR")}
                           {" · "}{workstreams.find(item=>item.id===moduleLatestEvent.workstream_id)?.code||"Frente não identificada"}.
@@ -950,6 +969,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                             <p>Estado declarado: {item.status.replaceAll("_"," ")} · responsável: {item.specialist.trim()||"não informado"}</p>
                             <p className="break-words"><strong>Próxima ação:</strong> {item.next_action.trim()||"Não registrada no Core M3."}</p>
                             {item.blocker.trim()&&<p className="break-words">Bloqueio: {item.blocker}</p>}
+                            <p className="text-muted-foreground">
+                              Critério de aceite M3: {item.acceptance_criteria.trim()||"Não registrado"}
+                              {" · "}Evidência declarada: {item.evidence_state.replaceAll("_"," ")}
+                            </p>
+                            <p className="text-muted-foreground">Atualização da ficha: {new Date(item.updated_at).toLocaleString("pt-BR")}</p>
                             <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(item.id)}>
                               Abrir ficha da frente
                             </Button>
