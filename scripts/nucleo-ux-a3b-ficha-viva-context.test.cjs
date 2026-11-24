@@ -82,7 +82,7 @@ assert(fm.indexOf('Rascunho não salvo em {section}.')<fm.indexOf('<section aria
 // UX-01: o cartão executivo acompanha a frente que motivou o destaque.
 for(const token of [
  'const pendingItems = [...fronts,...subfronts].filter(item=>item.status!=="concluido");',
- 'const focusFront = pendingItems.find(item=>item.status==="bloqueado")',
+ 'const focusFront = selectAttention(pendingItems);',
  'const actionOwner = focusFront ?? record;',
  'focusFront.kind==="subfrente"?"Subfrente":"Frente"',
  'Bloqueio declarado:',
@@ -94,9 +94,7 @@ assert(!text.includes('Próxima ação: {record?.next_action.trim()'),"Não atri
 const coverage=fs.readFileSync("src/components/nucleo/NucleoCrossModuleCoverage.tsx","utf8");
 for(const token of [
  'const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");',
- 'const attentionFront=pendingFronts.find(front=>front.status==="bloqueado")',
- 'pendingFronts.find(front=>front.priority==="critica")',
- 'pendingFronts.find(front=>front.next_action.trim())',
+ 'const attentionFront=selectAttention(pendingFronts);',
  'attentionFront.kind==="subfrente"?"Subfrente":"Frente"',
  'em atenção: {attentionFront.code} · {attentionFront.title}',
  'Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:',
@@ -108,6 +106,11 @@ for(const token of [
 ])assert(coverage.includes(token),"UX-01 cobertura transversal: "+token);
 assert(!coverage.includes('Próxima ação declarada: {record?.next_action.trim()'),"Não confundir ação do módulo com frente de atenção");
 // Executar as expressões reais de seleção em ambas as superfícies.
+const ts=require("typescript");
+const prioritySource=fs.readFileSync("src/lib/nucleo/workstreamPriority.ts","utf8");
+const priorityModule={exports:{}};
+vm.runInNewContext(ts.transpileModule(prioritySource,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:priorityModule.exports});
+const {selectAttention,orderPending}=priorityModule.exports;
 const selectors=[
  [text,'const pendingItems =','const actionOwner =','focusFront'],
  [coverage,'const pendingFronts=','return {module,record,fronts,subfronts','attentionFront'],
@@ -125,10 +128,13 @@ for(const [source,start,end,result] of selectors){
    [[critical],[blocked],"blocked"],[[normal],[critical],"critical"],
    [[normal],[high],"high"],[[],[],null],
  ]){
-   const actual=vm.runInNewContext(code+"; "+result,{fronts,subfronts});
+   const actual=vm.runInNewContext(code+"; "+result,{fronts,subfronts,selectAttention});
    assert.equal(actual?.id??null,expected,"Atenção M3: "+result);
  }
 }
+assert.deepEqual(Array.from(orderPending([done,normal,high,critical,blocked].map(x=>({...x,code:x.id}))),x=>x.id),["blocked","critical","high","normal"]);
+assert.equal(selectAttention([done]),null);
+assert.equal(selectAttention([normal,{...normal,id:"later",next_action:""}]).id,"normal");
 // A matriz preserva a identidade visual herdada, sem introduzir paleta paralela.
 assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"'));
 assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));

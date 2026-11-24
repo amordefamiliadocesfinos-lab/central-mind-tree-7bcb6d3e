@@ -11,6 +11,7 @@ import NucleoAc02ContinuityRead from "@/components/nucleo/NucleoAc02ContinuityRe
 import NucleoContinuityTimeline from "@/components/nucleo/NucleoContinuityTimeline";
 import NucleoResumeBrief from "@/components/nucleo/NucleoResumeBrief";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
+import { selectAttention, orderPending } from "@/lib/nucleo/workstreamPriority";
 import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
 import { BookOpen, ExternalLink, Layers, Search, ShieldCheck, GitBranch, FolderTree, Activity, Clock3 } from "lucide-react";
@@ -182,11 +183,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const pendingItems = [...fronts,...subfronts].filter(item=>item.status!=="concluido");
     const critical = pendingItems.filter(item=>item.status==="bloqueado"||item.priority==="critica");
     // Mostrar a ação do registro pendente que gerou atenção, sem substituir pela ação do módulo.
-    const focusFront = pendingItems.find(item=>item.status==="bloqueado")
-      ?? pendingItems.find(item=>item.priority==="critica")
-      ?? pendingItems.find(item=>item.priority==="alta")
-      ?? pendingItems.find(item=>item.next_action.trim())
-      ?? pendingItems[0] ?? null;
+    const focusFront = selectAttention(pendingItems);
     const actionOwner = focusFront ?? record;
     const pending=pendingItems.length>0;
     return {module,record,fronts,critical,focusFront,actionOwner,
@@ -317,11 +314,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     ? moduleWork.filter(item => item.specialist.trim() === specialistRole)
     : [];
   const specialistPending = specialistWork.filter(item => item.status !== "concluido");
-  const specialistPriority = [...specialistPending].sort((a,b) =>
-    Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
-    ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
-     {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
-    a.code.localeCompare(b.code,"pt-BR")).slice(0,3);
+  const specialistPriority = orderPending(specialistPending).slice(0,3);
   const specialistLatestEvent = events
     .filter(event => specialistWork.some(item => item.id === event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
@@ -358,11 +351,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         before:before.trim(),after:after.trim(),at:event.recorded_at}];
     });
   }).slice(0,8);
-  const handoffPriority=[...modulePending].sort((a,b)=>
-    Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
-    ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
-     {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
-    a.code.localeCompare(b.code,"pt-BR")).slice(0,3);
+  const handoffPriority = orderPending(modulePending).slice(0,3);
 
   const moduleStatusCounts = {
     andamento: moduleWork.filter(item => item.status === "em_andamento").length,
@@ -371,12 +360,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     concluidasComProvaDeclarada: moduleWork.filter(item =>
       item.status === "concluido" && item.evidence_state === "comprovada").length,
   };
-  const priorityRank = { critica: 0, alta: 1, normal: 2, baixa: 3 };
-  const attentionItems = [...modulePending]
-    .sort((a,b) => Number(b.status === "bloqueado") - Number(a.status === "bloqueado") ||
-      priorityRank[a.priority] - priorityRank[b.priority] ||
-      a.code.localeCompare(b.code, "pt-BR"))
-    .slice(0, 8);
+  const attentionItems = orderPending(modulePending).slice(0, 8);
   const actions = useMemo(() => {
     const term = actionSearch.trim().toLocaleLowerCase("pt-BR");
     return CRM_ACTIONS.filter(action => !term ||

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { selectAttention } from "@/lib/nucleo/workstreamPriority";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
@@ -35,11 +36,7 @@ export default function NucleoCrossModuleCoverage({
     // Evidência transversal: destacar uma frente real, nunca substituir
     // sua próxima ação pela declaração genérica do cadastro do módulo.
     const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");
-    const attentionFront=pendingFronts.find(front=>front.status==="bloqueado")
-      ?? pendingFronts.find(front=>front.priority==="critica")
-      ?? pendingFronts.find(front=>front.priority==="alta")
-      ?? pendingFronts.find(front=>front.next_action.trim())
-      ?? pendingFronts[0] ?? null;
+    const attentionFront=selectAttention(pendingFronts);
     return {module,record,fronts,subfronts,provenance,candidates,attentionFront};
   });
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
