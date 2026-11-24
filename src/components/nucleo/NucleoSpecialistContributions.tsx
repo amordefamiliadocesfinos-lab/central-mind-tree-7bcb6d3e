@@ -70,6 +70,9 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  const targetCounter=useRef(0);
  const areaId=useId();
  const [rows,setRows]=useState<RecordRow[]>([]);
+ // D5: filtros somente de apresentação, aplicados às versões já autorizadas.
+ const [versionQuery,setVersionQuery]=useState("");
+ const [versionView,setVersionView]=useState<"todas"|"revisoes"|"propostas">("todas");
  const [reading,setReading]=useState(true);
  const [readError,setReadError]=useState("");
  const [refresh,setRefresh]=useState(0);
@@ -150,6 +153,17 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    }
    setFeedback("");
  };
+ const visibleVersions=useMemo(()=>{
+   const q=versionQuery.trim().toLocaleLowerCase("pt-BR");
+   return rows.filter(item=>{
+     const text=[item.title,item.specialist_role,item.contribution_kind,item.source_kind,item.source_locator]
+       .some(value=>value.toLocaleLowerCase("pt-BR").includes(q));
+     if(!text)return false;
+     if(versionView==="revisoes")return Boolean(item.parent_revision_id);
+     if(versionView==="propostas")return item.authority_state==="proposta"||item.authority_state==="em_evolucao";
+     return true;
+   });
+ },[rows,versionQuery,versionView]);
  const parent=rows.find(item=>item.id===parentId);
  // O ID da versão escolhida pode deixar de constar no recorte após reconsulta.
  // Não inferir que a ausência é exclusão, nem permitir registro pela origem antiga.
@@ -374,11 +388,37 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        : <p className="rounded-md border p-3 text-sm text-muted-foreground">Estados, decisões e competências requerem leitura confirmada. Nenhum ato decisório ou publicação está habilitado nesta interface.</p>}
    </div>
    <div id={areaId+"-contribuicoes"} hidden={area!=="contribuicoes"} className="space-y-3">
-   {!reading&&!readError&&<div id="nucleo-ac01-source-versions" className="scroll-mt-28 space-y-2">
+   {!reading&&!readError&&<div id="nucleo-ac01-source-versions" className="scroll-mt-28 space-y-3">
+     <div className="rounded-xl border p-3 space-y-2" aria-label="Localizar e filtrar versões AC-01">
+       <div className="flex flex-wrap items-center justify-between gap-2">
+         <h5 className="text-sm font-semibold">Versões e comparações disponíveis</h5>
+         <Badge variant="outline">{visibleVersions.length} de {rows.length} registro(s) consultados</Badge>
+       </div>
+       <Input value={versionQuery} onChange={event=>setVersionQuery(event.target.value)}
+         aria-label="Buscar contribuição, especialista ou origem AC-01"
+         placeholder="Buscar título, especialista, tipo ou origem" className="min-h-11"/>
+       <div className="flex flex-wrap gap-2" aria-label="Filtrar versões">
+         {([
+           ["todas","Todas"],
+           ["revisoes","Com versão anterior"],
+           ["propostas","Propostas e em evolução"],
+         ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
+           variant={versionView===key?"default":"outline"}
+           aria-pressed={versionView===key} onClick={()=>setVersionView(key)}>
+           {label}
+         </Button>)}
+       </div>
+       <p className="text-xs text-muted-foreground">
+         Comparação apenas de metadados das revisões disponíveis nesta leitura. Nenhuma fonte privada é acessada automaticamente.
+       </p>
+     </div>
+     {rows.length>0&&visibleVersions.length===0&&<p className="rounded-md border p-3 text-sm text-muted-foreground" role="status">
+       Nenhuma versão corresponde ao filtro; os registros originais permanecem disponíveis ao limpar a busca.
+     </p>}
      {rows.length===0&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
        Nenhuma contribuição AC-01 persistida neste módulo. Isso não significa ausência de métodos nas fontes externas.
      </p>}
-     {rows.map(item=><details key={item.id} className="nucleo-v22-card-hover p-3 text-xs">
+     {visibleVersions.map(item=><details key={item.id} className="nucleo-v22-card-hover p-3 text-xs">
        <summary className="cursor-pointer font-semibold">
          {item.title} · {item.contribution_kind} · v{item.version_no}
        </summary>
