@@ -1,5 +1,5 @@
 -- NUCLEO F1/F2 G2: ONLY disposable PostgreSQL, after authority+race fixture.
--- Gate is limited to decisions whose source begins synthetic://g2/atomic/.
+-- Final G2 grant gate applies to every new grant after laboratory activation.
 -- No hosted Auth, no production schema changes; auth.uid() is lab-only here.
 \set ON_ERROR_STOP on
 
@@ -60,15 +60,14 @@ CREATE TRIGGER g2_receipt_immutable BEFORE UPDATE OR DELETE
 
 -- The approval must be independently recorded and attributed BEFORE execution.
 -- Missing attestation, expired/revoked competence, role/actor or scope mismatch fail closed.
--- Applied only to the explicitly-versioned new G2 atomic lab source; old G1/G2
--- contracts remain unmodified and their earlier regressions are not reinterpreted.
+-- Earlier G1/G2 fixtures execute before activation; after activation there is
+-- no legacy source exemption for any new grant.
 CREATE FUNCTION f12_lab.g2_guard_atomic_grant() RETURNS trigger
  LANGUAGE plpgsql SECURITY INVOKER AS $body$
 DECLARE d f12_lab.approved_decisions%ROWTYPE;
 BEGIN
  SELECT * INTO d FROM f12_lab.approved_decisions WHERE id::text=NEW.decision_ref;
- IF NOT FOUND THEN RETURN NEW; END IF;
- IF d.authoritative_source NOT LIKE 'synthetic://g2/atomic/%' THEN RETURN NEW; END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'G2_UNATTESTED_OR_UNAUTHORIZED_DECISION'; END IF;
  IF NOT EXISTS (
   SELECT 1
   FROM f12_lab.g2_decision_attestations a
@@ -95,6 +94,28 @@ BEGIN
 END $body$;
 CREATE TRIGGER g2_atomic_grant_gate BEFORE INSERT ON f12_lab.read_grants
  FOR EACH ROW EXECUTE FUNCTION f12_lab.g2_guard_atomic_grant();
+
+-- A grant and its receipt must commit together. A deferred constraint trigger
+-- permits the legitimate two-statement transaction but rejects a bare grant
+-- at commit (or SET CONSTRAINTS IMMEDIATE). No source-prefix exception.
+CREATE FUNCTION f12_lab.g2_require_execution_receipt() RETURNS trigger
+ LANGUAGE plpgsql SECURITY INVOKER AS $receipt_guard$
+BEGIN
+ IF NOT EXISTS (
+  SELECT 1 FROM f12_lab.g2_execution_receipts r
+  JOIN f12_lab.g2_decision_attestations a ON a.decision_id=r.decision_id
+  WHERE r.grant_id=NEW.id AND r.decision_id::text=NEW.decision_ref
+    AND r.request_id=a.request_id AND r.committed_actor_uid=a.executor_auth_uid
+    AND a.assignment_id=NEW.assignment_id AND a.beneficiary_auth_uid=NEW.auth_uid
+    AND a.scope_kind=NEW.scope_kind AND a.action='grant_read_context'
+    AND r.committed_actor_uid::text=NEW.granting_actor_ref
+    AND r.result_kind='granted'
+ ) THEN RAISE EXCEPTION 'G2_EXECUTION_RECEIPT_REQUIRED'; END IF;
+ RETURN NULL;
+END $receipt_guard$;
+CREATE CONSTRAINT TRIGGER g2_grant_receipt_required
+ AFTER INSERT ON f12_lab.read_grants DEFERRABLE INITIALLY DEFERRED
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.g2_require_execution_receipt();
 
 -- Dedicated beneficiary and assignment, not shared with the prior G2 race.
 INSERT INTO f12_lab.instances(id,auth_uid,identity_source,functional_label)
