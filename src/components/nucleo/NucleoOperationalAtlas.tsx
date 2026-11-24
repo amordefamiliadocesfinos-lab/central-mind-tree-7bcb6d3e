@@ -64,6 +64,8 @@ interface Props {
 
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
+  // P3: recorte consultivo, sem modificar cadastro nem fonte.
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -199,6 +201,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     return {module,core,sources,fronts};
   }).filter(item=>!item.core||item.sources===0||item.fronts.length===0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
+  const visibleInventoryGaps=inventoryGaps.filter(item=>
+    inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
+    (inventoryFilter==="fontes"&&item.sources===0) ||
+    (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -302,6 +308,19 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     }));
   };
 
+  // P3/P4: da lacuna para o painel existente. A seleção respeita rascunhos
+  // e nunca cria fonte, contribuição ou mandato automaticamente.
+  const investigateGap=(module:KnowledgeModule,area:"fontes"|"frentes"|"ac01"|"ac02")=>{
+    if(choose(module)===false)return;
+    if(area==="fontes"){openSpecialistPanel("papel");selectModuleArea("especialista");return;}
+    if(area==="frentes"){selectModuleArea("desenvolvimento");return;}
+    if(area==="ac01"){
+      openSpecialistPanel("documentos");
+      setAc01Request(prev=>({stage:"versoes",seq:(prev?.seq??0)+1}));
+      selectModuleArea("especialista");return;
+    }
+    openSpecialistPanel("continuidade");selectModuleArea("especialista");
+  };
   const openFm09Continuity=()=>{
     // A solicitação FM-09 muda a seção ativa: não remapear um rascunho local
     // para outra seção nem navegar durante uma gravação indeterminada.
@@ -479,12 +498,23 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             </div>
             <Badge variant="outline">{inventoryGaps.length} módulo(s) com lacuna catalogada</Badge>
           </div>
-          {inventoryGaps.length===0
+          <nav className="flex flex-wrap gap-2" aria-label="Filtrar pendências de inventário">
+            {([
+              ["todas","Todas as lacunas"],
+              ["cadastro","Cadastro M3"],
+              ["fontes","Fontes M2"],
+              ["frentes","Frentes M3"],
+            ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
+              variant={inventoryFilter===key?"default":"outline"}
+              aria-pressed={inventoryFilter===key}
+              onClick={()=>setInventoryFilter(key)}>{label}</Button>)}
+          </nav>
+          {visibleInventoryGaps.length===0
             ? <p className="text-sm text-muted-foreground">
-                Nenhuma lacuna dessas três categorias foi identificada no recorte. Isso não comprova inventário integral.
+                Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {inventoryGaps.map(({module,core,sources,fronts})=>
+                {visibleInventoryGaps.map(({module,core,sources,fronts})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -497,8 +527,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                         core&&fronts.length===0?"Sem frente direta nesta leitura":null,
                       ].filter(Boolean).join(" · ")}
                     </p>
-                    <Button type="button" variant="outline" size="sm"
-                      onClick={()=>choose(module)}>Investigar no módulo</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"fontes")}>Fontes e método</Button>
+                      {core&&<Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"frentes")}>Frentes M3</Button>}
+                      {core&&<Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"ac01")}>Versões AC-01</Button>}
+                      {core&&/^[A-Z]{3}$/.test(module.id)&&
+                        <Button type="button" variant="outline" size="sm"
+                          onClick={()=>investigateGap(module,"ac02")}>Continuidade AC-02</Button>}
+                    </div>
                   </div>)}
               </div>}
           <p className="text-xs text-muted-foreground">
