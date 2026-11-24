@@ -58,9 +58,10 @@ interface Props {
   onSelectWorkstream: (id: string) => void;
   onPrepareModule: (module: KnowledgeModule) => void;
   searchRequestSeq?: number;
+  requestedAc01?: {moduleCode:string;stage:"versoes"|"refinar"|"historico";seq:number}|null;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0 }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01 }: Props) {
   const [search, setSearch] = useState("");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
@@ -239,11 +240,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     if (item.id !== selectedId) {
       if (fmDraftState.busy || specialistDraftState.busy) {
         window.alert("Gravação em andamento ou registro indeterminado. Reconcilie antes de mudar de módulo.");
-        return;
+        return false;
       }
       if ((fmDraftState.dirty || specialistDraftState.dirty) && !window.confirm(
         "Existem rascunhos não salvos na Ficha Viva ou no especialista. Descartá-los e abrir outro módulo?"
-      )) return;
+      )) return false;
       setFmDraftState({dirty:false,busy:false});
       setSpecialistDraftState({dirty:false,busy:false});
       setModuleSection("funcoes");
@@ -265,6 +266,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       heading?.scrollIntoView({behavior:"smooth",block:"start"});
       heading?.focus({preventScroll:true});
     });
+    return true;
   };
   const selectModuleArea = (area: ModuleSection) => {
     setModuleSection(area);
@@ -305,6 +307,19 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     setAc01Request(previous=>({stage,seq:(previous?.seq??0)+1}));
     selectModuleArea("especialista");
   };
+  // D5/AC-01: solicitação de navegação da Central M3 para o fluxo existente.
+  // Sem criação de contribuição, escrita ou promoção documental.
+  useEffect(()=>{
+    if(!requestedAc01)return;
+    const target=catalog.find(module=>module.id===requestedAc01.moduleCode);
+    if(!target)return;
+    if(choose(target)===false)return; // respeita rascunhos e gravações em andamento
+    openSpecialistPanel("documentos");
+    setAc01Request(previous=>({stage:requestedAc01.stage,seq:(previous?.seq??0)+1}));
+    selectModuleArea("especialista");
+  // Cada solicitação externa tem seq novo; não repetir ao renderizar a ficha.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[requestedAc01?.seq]);
   // A mesma jornada da ficha existe para TODOS os módulos do catálogo.
   // Telas, funções e roteiros vêm do inventário real; lacunas permanecem explícitas.
   const openModuleStage = (stage: CrmStage) => {
