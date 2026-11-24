@@ -398,6 +398,31 @@ export const DIGITAL_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "O registro de especialista no cadastro de módulos é uma declaração de responsabilidade, não um mandato certificado. O Núcleo não deve inferir identidade, autoridade de publicação ou método a partir do texto da ficha. A Camada Mestre e o responsável competente devem reconciliar o método e seus limites antes de qualquer homologação.",
     source: DIGITAL_CODE,
   },
+  "FM-02": {
+    title: "Digital — visão rápida orientada a resultado (rascunho)",
+    body: "Estado Mestre V1.0 de 03/10 define Digital como inteligência e execução de marketing orientada a resultado. Jornada desejada: Campanha/Conteúdo → Lead → CRM → Venda/Não venda → Resultado → Digital aprende. A página Digital contém ideias, calendário, mídia, métricas, plataformas, tendências, engajamento, FAQ, atendimento e campanhas. Estratégia e interpretação de performance pertencem ao Digital; atendimento e semântica comercial ao CRM. Consultar calendário, plano semanal e campanha conforme necessidade. O ciclo completo é objetivo documental, não integração homologada.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-DIGITAL-V1.0.txt; src/pages/Digital.tsx",
+  },
+  "FM-05": {
+    title: "Digital — catálogo de ações de campanha (rascunho)",
+    body: "CampaignsPanel mostra Nova Campanha, Criar campanha, Aprovar campanha e Concluir campanha, com bloqueio quando conta autenticada não possui colaborador ativo. Criação depende de ideia existente; useCampaigns registra campaign_applications e campaign_executions. Aprovação, confirmação de execução e conclusão chamam RPCs específicas. Evidências, métricas e aprendizados são registros próprios. Não confundir aprovação com publicação externa ou confirmação comercial; criação em operações separadas não prova atomicidade. Presença do controle no código não confirma permissão efetiva ou runtime. Não acionar ações pelo Núcleo.",
+    source: "src/components/digital/CampaignsPanel.tsx; src/hooks/useCampaigns.ts",
+  },
+  "FM-06": {
+    title: "Digital — jornada de campanha e retorno comercial (rascunho)",
+    body: "Jornada documentada e observada em código: partir de ideia, definir objetivo, criar campanha essencial, submeter à aprovação, registrar evidência de execução, confirmar execução, registrar métrica e aprendizado, concluir conforme critérios competentes. Confrontar resultado comercial com fatos do CRM e pedidos oficiais, preservando origem e identidade. CampaignPerformancePanel não apresenta total parcial como resultado completo. Venda informada na Inbox não equivale a recebimento, origem rastreada não prova causalidade. A associação canônica Digital/CRM/Meta ainda requer reconciliação; não presumir vínculo entre IDs ou publicar campanhas por esta ficha.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-DIGITAL-V1.0.txt; src/components/digital/CampaignsPanel.tsx; src/hooks/useCampaigns.ts; src/components/crm/CampaignPerformancePanel.tsx",
+  },
+  "FM-09": {
+    title: "Digital — evolução e checkpoint documental (rascunho)",
+    body: "Estado Mestre de 03/10 declara homologação documental da reconstrução V0.1 como V1.0 vigente naquele momento; não conclui frentes. N1 fechar resultado Digital/CRM; N2 identidade canônica de campanha; N3 auditar origem/atribuição; N4 uso real de calendário, plano semanal, campanhas e dashboard; N5 aprendizado antes de ampliar Ads/automações. Código atual consultado possui campaign_applications e visão CRM de desempenho; não comprova identidade compartilhada nem integração produtiva. Próxima ação: reconciliar fontes atuais e método 03_MARKETING_CAMPANHAS/00_METODO_VIGENTE com especialista competente, sem criar frente fictícia. Método original referido na fonte não foi inspecionado neste recorte.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-DIGITAL-V1.0.txt; src/hooks/useCampaigns.ts; src/components/crm/CampaignPerformancePanel.tsx",
+  },
+  "FM-10": {
+    title: "Digital — aprendizagem e regras de atribuição (rascunho)",
+    body: "Diretriz do Estado Mestre: não criar três verdades concorrentes de Campanha em Digital, CRM e Meta; preservar estratégia, atendimento e infraestrutura em suas autoridades. Aprender com resultado comercial antes de ampliar Ads e automações. Código CampaignPerformancePanel explicita que falha de leitura não vira zero, destinatários podem repetir entre campanhas, vínculos ambíguos de pedidos exigem tratamento, origem rastreada não prova causalidade e valor de Pedido/status pago não equivale a recebimento/conciliação. São regras documentais e guardas observados no código, não prova de eficácia de campanhas ou experiência produtiva homologada. Não expor dados pessoais de leads.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-DIGITAL-V1.0.txt; src/components/crm/CampaignPerformancePanel.tsx",
+  },
 };
 
 export const ASSISTENTE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
