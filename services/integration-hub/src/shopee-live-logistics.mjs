@@ -4,6 +4,7 @@ import {
 import {
   getOrderDetail,
   getShippingDocumentParameter,
+  getShippingDocumentResult,
   getShippingParameter,
   parseShopeeError,
 } from './connectors/shopee-protocol.mjs';
@@ -14,6 +15,10 @@ const API_BASE_URL = 'https://partner.shopeemobile.com';
 const ORDER_DETAIL_PATH = '/api/v2/order/get_order_detail';
 const SHIPPING_PARAMETER_PATH = '/api/v2/logistics/get_shipping_parameter';
 const SHIPPING_DOCUMENT_PARAMETER_PATH = '/api/v2/logistics/get_shipping_document_parameter';
+const SHIPPING_DOCUMENT_RESULT_PATH = '/api/v2/logistics/get_shipping_document_result';
+const CELIVIO_ACCOUNT = 'd26c7a30-aa4a-4441-8012-600d70453689';
+const CELIVIO_ORDER = '261121TBS6BHE6';
+const CELIVIO_PACKAGE = 'OFG248906009827069';
 
 function requiredEnv(getEnv, name) {
   const value = getEnv(name);
@@ -99,14 +104,18 @@ export function createShopeeLiveLogisticsInspector({
   readOrderDetail = getOrderDetail,
   readShippingParameter = getShippingParameter,
   readShippingDocumentParameter = getShippingDocumentParameter,
+  readShippingDocumentResult = getShippingDocumentResult,
 } = {}) {
-  return async function inspectShopeeLiveLogistics({ orderSn, classifyOnly = false, fiscalMode = null, historicallyDeleted = false }) {
+  return async function inspectShopeeLiveLogistics({ orderSn, classifyOnly = false, fiscalMode = null, historicallyDeleted = false, celivioDocumentResultOnly = false }) {
     const partnerId = positiveInteger(requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_ID'), 'SHOPEE_LIVE_PARTNER_ID');
     const partnerKey = requiredEnv(getEnv, 'SHOPEE_LIVE_PARTNER_KEY');
     const channelAccountId = requiredEnv(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
     const tokenEncryptionKey = requiredEnv(getEnv, 'SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
 
     const normalizedOrderSn = String(orderSn ?? '').trim();
+    if (celivioDocumentResultOnly && (channelAccountId !== CELIVIO_ACCOUNT || normalizedOrderSn !== CELIVIO_ORDER || classifyOnly)) {
+      return { ok: false, code: 'celivio_document_scope_mismatch' };
+    }
     if (!normalizedOrderSn) throw new TypeError('orderSn must be a non-empty string');
     if (classifyOnly && historicallyDeleted) {
       return { ok: true, order: { order_sn: normalizedOrderSn },
@@ -180,6 +189,58 @@ export function createShopeeLiveLogisticsInspector({
     }
 
     const packageNumber = inferPackageNumber(order);
+    if (celivioDocumentResultOnly) {
+      // One-pilot, read-only verification: no create, download, upload, Core write, ship or refresh.
+      if (shopId !== 1357031949 || !Array.isArray(order.package_list)
+          || order.package_list.length !== 1 || packageNumber !== CELIVIO_PACKAGE) {
+        return { ok: false, code: 'celivio_document_package_mismatch' };
+      }
+      let task;
+      try {
+        task = await readShippingDocumentResult({
+          apiBaseUrl: API_BASE_URL,
+          shippingDocumentResultPath: SHIPPING_DOCUMENT_RESULT_PATH,
+          partnerId, partnerKey, accessToken, shopId,
+          orderSn: normalizedOrderSn,
+          packageNumber,
+          shippingDocumentType: 'NORMAL_AIR_WAYBILL',
+        });
+      } catch {
+        return { ok: false, code: 'document_result_transport_failed' };
+      }
+      const upstreamCode = parseShopeeError(task?.payload);
+      if (!task?.response?.ok || upstreamCode) {
+        const statusCode = Number(task?.response?.status);
+        return {
+          ok: false,
+          code: 'document_result_rejected',
+          diagnostic: {
+            upstream_http_status: Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599 ? statusCode : null,
+            upstream_error_code: typeof upstreamCode === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(upstreamCode) ? upstreamCode : 'unavailable',
+          },
+        };
+      }
+      const results = task?.payload?.response?.result_list;
+      if (!Array.isArray(results) || results.length !== 1
+          || results[0]?.order_sn !== normalizedOrderSn
+          || results[0]?.package_number !== packageNumber) {
+        return { ok: false, code: 'document_result_identity_mismatch' };
+      }
+      const status = results[0]?.status;
+      if (!['READY', 'PROCESSING', 'FAILED'].includes(status)) {
+        return { ok: false, code: 'document_result_unknown_status' };
+      }
+      return {
+        ok: true,
+        order_sn: normalizedOrderSn,
+        package_number: packageNumber,
+        document_type: 'NORMAL_AIR_WAYBILL',
+        document_status: status,
+        document_downloaded: false,
+        document_created: false,
+        written: 0,
+      };
+    }
 
     // Capture a sanitized checkpoint before external logistics requests.
     const orderCheckpoint = {
