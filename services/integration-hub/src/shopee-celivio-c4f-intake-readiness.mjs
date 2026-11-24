@@ -42,32 +42,38 @@ export function assessCelivioC4FIntakeReadiness({
     physicalConversionHomologated,duplicateChecked,existingOrder,
   });
   blockers.push(...gate.blockers);
-  // A money-free snapshot can form an inert structural projection, but is NOT
-  // proof that the order's monetary facts were acquired and reconciled.
+  // The shared Adão F6-H/F6-I contract accepts unknown monetary fields as
+  // null; pricing is not a new Celivio-only structural precondition.
+  // Keep a separate evidence gap for business reconciliation: this does NOT
+  // certify that a missing amount is zero or paid.
   const hasMoney=finiteNonNegative(order?.total_amount)
     && finiteNonNegative(item?.model_discounted_price);
+  const evidencePending = [];
   if (!hasMoney || monetaryEvidenceConfirmed !== true)
-    blockers.push('monetary_evidence_missing_or_unverified');
-  // Never infer payment, carrier or buyer address from seller screenshots.
-  // Shipping may remain unresolved by design, but it requires explicit
-  // operational acknowledgement BEFORE a real writer gate can be considered.
+    evidencePending.push('monetary_evidence_missing_or_unverified');
+  // Shipping/labels belong to F6-O / Operations, AFTER order intake.
+  // Missing logistics cannot block the structural Pedido+Itens preview.
   if (shippingContextConfirmed !== true)
-    blockers.push('shipping_context_unverified');
-  // Historical snapshot PROCESSED is not proof of status AT writer time.
+    evidencePending.push('shipping_context_for_later_operations');
+  // The recorded PROCESSED status is historical; a new pre-commit check
+  // remains mandatory before any future real writer authorization.
   if (latestExternalStatusConfirmed !== true)
-    blockers.push('current_external_status_not_rechecked');
+    evidencePending.push('current_external_status_not_rechecked');
   return {
     schemaVersion:1,account:'celivio',orderSn:CELIVIO_C4F_PILOT,
     rawId:CELIVIO_C4F_RAW_ID,
     advisoryStructuralCandidate:gate.candidateForNextGate && !blockers.includes('real_raw_scope_or_shape_unverified')
       && !blockers.includes('raw_identity_not_verified'),
+    // Only advisory preview readiness. NEVER equivalent to commit readiness.
     nextGateReady:blockers.length === 0,
     blockers:[...new Set(blockers)],
+    evidencePending,
+    // Reader/preview may continue with null money and deferred logistics;
+    // no such fact may be invented, silently priced or marked reconciled.
     requiredBeforeAnyWriterAuthorization:[
-      'reconcile_money_from_authoritative_source',
       'confirm_current_shopee_status',
-      'acknowledge_or_reconcile_shipping_context',
       'recheck_duplicate_immediately_before_atomic_creation',
+      'review_missing_monetary_evidence_under_shared_contract',
       'separate_explicit_owner_approval_and_production_gate',
     ],
     writerAuthorized:false,operationalWrites:false,rawWrites:false,
