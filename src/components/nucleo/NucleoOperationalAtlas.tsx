@@ -190,6 +190,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             : "Acompanhar o estado e as próximas ações das frentes",
       rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4};
   }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
+  // P3 M0/M2: fotografia consultiva, sem converter ausência de referência em
+  // ausência do método; proveniência versionada e cadastro M3 são coisas distintas.
+  const inventoryGaps=catalog.map(module=>{
+    const core=registeredModules.find(item=>item.code===module.id);
+    const sources=MODULE_PROVENANCE[module.id]?.sources.length??0;
+    const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
+    return {module,core,sources,fronts};
+  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0)
+    .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -455,6 +464,47 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             ))}
           </div>
         </section>
+      )}
+
+      {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
+          aria-label="Inventário de lacunas M0 e fontes M2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold">Inventário e fontes · M0/M2</h3>
+              <p className="text-xs text-muted-foreground">
+                Conciliação entre o catálogo versionado, módulos cadastrados no Core e referências de proveniência.
+                Nenhuma lacuna confirma ausência de documentos fora destes recortes.
+              </p>
+            </div>
+            <Badge variant="outline">{inventoryGaps.length} módulo(s) com lacuna catalogada</Badge>
+          </div>
+          {inventoryGaps.length===0
+            ? <p className="text-sm text-muted-foreground">
+                Nenhuma lacuna dessas três categorias foi identificada no recorte. Isso não comprova inventário integral.
+              </p>
+            : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {inventoryGaps.map(({module,core,sources,fronts})=>
+                  <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
+                    <p className="font-semibold text-sm">{module.id} · {module.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes diretas: {fronts.length}
+                    </p>
+                    <p className="text-xs">
+                      {[
+                        !core?"Cadastro do módulo não localizado no Core":null,
+                        sources===0?"Proveniência ainda sem fonte catalogada":null,
+                        core&&fronts.length===0?"Sem frente direta nesta leitura":null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={()=>choose(module)}>Investigar no módulo</Button>
+                  </div>)}
+              </div>}
+          <p className="text-xs text-muted-foreground">
+            Somente leitura. Registrar novas fontes, métodos ou frentes exige procedimento autorizado; não inferir vigência ou mandato.
+          </p>
+        </Card>
       )}
 
       {level==="overview" && (
