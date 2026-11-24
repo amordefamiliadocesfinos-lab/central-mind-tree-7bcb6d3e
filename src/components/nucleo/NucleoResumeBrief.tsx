@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { preparedReferences } from "@/lib/nucleo/preparedReferences";
 import { orderPending } from "@/lib/nucleo/workstreamPriority";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { ModuleProvenance } from "@/lib/nucleo/operationalProvenanceV12";
@@ -48,6 +49,9 @@ export default function NucleoResumeBrief({
   const visiblePending=context.pending.filter(item=>pendingFilter==="todos" || (pendingFilter==="bloqueadas" && item.status==="bloqueado") || (pendingFilter==="sem_acao" && !item.next_action.trim()) || (pendingFilter==="sem_responsavel" && !item.specialist.trim()) || (pendingFilter==="sem_aceite" && !item.acceptance_criteria.trim()) || (pendingFilter==="evidencia" && (item.evidence_state!=="comprovada" || !item.evidence_note.trim())));
   const declaredCurrent = provenance?.sources.filter(source => source.authority === "vigente_declarada") ?? [];
   const sourceCount = provenance?.sources.length ?? 0;
+  const preparedForModule=preparedReferences.filter(source=>source.moduleId===module.id);
+  const candidateCount=preparedForModule.filter(source=>!source.retained).length;
+  const retainedCount=preparedForModule.filter(source=>source.retained).length;
   const latest = context.recent;
   const latestCode = latest ? workstreams.find(item => item.id === latest.workstream_id)?.code ?? "Não localizado" : null;
   return <section className="rounded-xl border p-3 space-y-3"
@@ -143,6 +147,22 @@ export default function NucleoResumeBrief({
         A classificação de vigência é declaratória. Versões e contribuições AC-01 exigem conferência própria.
       </p>
     </div>
+    <section className="rounded-lg border p-3 text-xs space-y-2" aria-label="Referências preparadas para retomada AC-01">
+      <h5 className="font-semibold">Conhecimento preparado para continuidade</h5>
+      <p>{candidateCount} referência(s) candidata(s) · {retainedCount} retida(s) para conciliação neste módulo.</p>
+      <p className="text-muted-foreground">Inventário preparado por UUID do módulo. Não é leitura de contribuições persistidas nem prova de vigência. Nenhuma referência é atribuída automaticamente à frente em foco.</p>
+      {preparedForModule.length>0?<details className="rounded border p-2">
+        <summary className="cursor-pointer font-medium">Conferir fontes preparadas</summary>
+        <div className="mt-2 space-y-2">
+          {preparedForModule.map(source=><article key={source.requestId} className="border-t pt-2 space-y-1 break-words">
+            <p className="font-medium">{source.title}</p>
+            <p>{source.retained?"Retida para conciliação":"Candidata à curadoria"} · {source.note}</p>
+            <a href={source.locator} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Consultar original versionado</a>
+          </article>)}
+        </div>
+      </details>:<p className="text-muted-foreground">Sem referência neste inventário; não significa ausência de conhecimento.</p>}
+      <Button type="button" size="sm" variant="outline" onClick={onOpenDocuments}>Abrir AC-01 e conferir registros reais</Button>
+    </section>
     <div className="flex flex-wrap gap-2">
       <Button type="button" size="sm" variant="outline" onClick={onOpenSources}>Examinar todas as fontes</Button>
       <Button type="button" size="sm" variant="outline" onClick={onOpenDocuments}>Conferir versões AC-01</Button>
