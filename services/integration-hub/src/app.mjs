@@ -22,6 +22,7 @@ import {
 } from './shopee-intake-policy.mjs';
 import { randomUUID } from 'node:crypto';
 import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
+import { captureCelivioC4ERawOnce } from './shopee-celivio-c4e-raw-once.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -53,6 +54,7 @@ export async function handleRequest(
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
     readCelivioC4B = readCelivioC4BReadOnly,
+    captureCelivioC4E = captureCelivioC4ERawOnce,
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
     shipShopeeOrderOnce = guardedShopeeShipOrder,
@@ -262,6 +264,33 @@ export async function handleRequest(
         document_id: result?.ok === true ? result.document_id ?? null : null,
       });
     } catch { return json(503, { error: 'label_preparation_unavailable' }); }
+  }
+
+  // C4-E Celivio-only: explicit gate to exactly one redacted eligible-order
+  // Raw snapshot. No order/stock/separation writer and no token refresh.
+  if (normalizedPath === '/internal/shopee/celivio/c4e/raw-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length > 0
+      || request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined
+        && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) {
+      return json(400, { error: 'query_or_body_not_allowed' });
+    }
+    if (String(getEnv('SHOPEE_CELIVIO_C4E_RAW_ONCE_ENABLED') ?? '')
+      .trim().toLowerCase() !== 'true') {
+      return json(503, { status:'blocked', code:'c4e_not_enabled', raw_persist_attempted:0 });
+    }
+    try {
+      const result = await captureCelivioC4E();
+      return json(result?.ok ? 200 : 503, result?.ok
+        ? {status:'ok', ...result}
+        : {status:'blocked',code:result?.code ?? 'c4e_unavailable',
+           raw_persist_attempted:0,orders_written:0,items_written:0});
+    } catch {
+      return json(503,{status:'blocked',code:'c4e_unavailable',
+        raw_persist_attempted:0,orders_written:0,items_written:0});
+    }
   }
 
   // C4-B Celivio-only: isolated GETs to Shopee, zero Core writes.
