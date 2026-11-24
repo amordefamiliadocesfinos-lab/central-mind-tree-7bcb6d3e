@@ -223,6 +223,43 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
         : false);
   const unknownDependencyEndpoints=dependencies.filter(dep=>
     !workstreamsById.has(dep.workstream_id)||!workstreamsById.has(dep.depends_on_id));
+  // P3-A: confronto documental exclusivamente entre referências explicitamente
+  // catalogadas. Não faz verificação remota, promoção de versão ou comparação
+  // automática com o acervo AC-01 (que possui governança própria).
+  const documentaryMatrix=catalog.map(module=>{
+    const provenance=MODULE_PROVENANCE[module.id];
+    const sources=provenance?.sources??[];
+    const declared=sources.filter(item=>item.authority==="vigente_declarada");
+    const historical=sources.filter(item=>item.authority==="historica");
+    const code=sources.filter(item=>item.authority==="codigo_verificado");
+    const record=registeredModules.find(item=>item.code===module.id);
+    const declaredRole=record?.specialist.trim()||"";
+    const pathCounts=new Map<string,number>();
+    sources.forEach(source=>pathCounts.set(source.path,(pathCounts.get(source.path)??0)+1));
+    const duplicatePaths=[...pathCounts.entries()].filter(([,count])=>count>1).map(([path])=>path);
+    const issues:string[]=[];
+    if(sources.length===0)issues.push("Nenhuma fonte catalogada neste recorte");
+    if(declared.length===0)issues.push("Sem fonte marcada vigente declarada");
+    if(declared.length>1)issues.push("Mais de uma referência vigente declarada — comparar escopo e precedência");
+    if(duplicatePaths.length>0)issues.push("Mesmo localizador repetido no módulo");
+    if(!declaredRole)issues.push("Especialista não declarado na ficha M3");
+    if(!provenance?.methodSummary.trim())issues.push("Síntese do método não catalogada");
+    if(!provenance?.ownerBoundary.trim())issues.push("Limite de autoridade não catalogado");
+    return {module,record,provenance,sources,declared,historical,code,duplicatePaths,declaredRole,issues};
+  }).sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
+  const documentaryTotals={
+    modules:documentaryMatrix.length,
+    sources:documentaryMatrix.reduce((n,item)=>n+item.sources.length,0),
+    declared:documentaryMatrix.reduce((n,item)=>n+item.declared.length,0),
+    historical:documentaryMatrix.reduce((n,item)=>n+item.historical.length,0),
+    code:documentaryMatrix.reduce((n,item)=>n+item.code.length,0),
+    needsReview:documentaryMatrix.filter(item=>item.issues.length>0).length,
+  };
+  const sharedSourcePaths=new Map<string,string[]>();
+  documentaryMatrix.forEach(item=>item.sources.forEach(source=>{
+    const modules=sharedSourcePaths.get(source.path)??[];
+    if(!modules.includes(item.module.id))sharedSourcePaths.set(source.path,[...modules,item.module.id]);
+  }));
   // P3 M0/M2: fotografia consultiva, sem converter ausência de referência em
   // ausência do método; proveniência versionada e cadastro M3 são coisas distintas.
   const inventoryGaps=catalog.map(module=>{
@@ -646,6 +683,98 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           <p className="text-xs text-muted-foreground">
             Fontes: catálogo de rotas versionado no repositório e fichas M3/dependências do Core.
             Sem homologação de implantação, cobertura integral, responsabilidade formal ou operação real.
+          </p>
+        </Card>
+      )}
+
+      {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
+          aria-label="P3-A — reconciliação documental por módulo">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold">P3-A · Reconciliação documental</h3>
+              <p className="text-xs text-muted-foreground">
+                Inventário consultivo do catálogo de proveniência versionado por módulo:
+                método descrito, responsabilidade M3 declarada, documentos e pontos que exigem conferência.
+              </p>
+            </div>
+            <Badge variant="outline">Sem promoção de autoridade</Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              {label:"Módulos avaliados",value:documentaryTotals.modules},
+              {label:"Referências M2",value:documentaryTotals.sources},
+              {label:"Vigentes declaradas",value:documentaryTotals.declared},
+              {label:"Históricas",value:documentaryTotals.historical},
+              {label:"Código",value:documentaryTotals.code},
+              {label:"Módulos a conciliar",value:documentaryTotals.needsReview},
+            ].map(metric=><div key={metric.label} className="rounded-lg border p-2">
+              <p className="text-xs text-muted-foreground">{metric.label}</p>
+              <p className="text-lg font-semibold tabular-nums">{metric.value}</p>
+            </div>)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            A classificação `vigente declarada` vem somente do catálogo e não comprova validade atual.
+            Ter fontes de código ou documentos históricos não substitui método soberano verificado.
+            Contribuições AC-01 e suas versões devem ser conferidas na área documental própria.
+          </p>
+          <div className="space-y-2">
+            {documentaryMatrix.map(({module,record,provenance,sources,declared,historical,code,declaredRole,issues})=>
+              <details key={module.id} className="rounded-xl border p-3">
+                <summary className="cursor-pointer text-sm font-semibold">
+                  {module.id} · {module.name} — {sources.length} fonte(s) catalogada(s);
+                  {" "}{issues.length} ponto(s) para conciliação
+                </summary>
+                <div className="mt-3 space-y-3 text-xs">
+                  <p><strong>Ficha M3:</strong> {record?"localizada":"não localizada no recorte"}
+                    {" · "}<strong>Especialista declarado:</strong> {declaredRole||"não registrado"}</p>
+                  <p><strong>Método descrito:</strong> {provenance?.methodSummary||"Síntese não catalogada"}</p>
+                  <p><strong>Limite de autoridade descrito:</strong> {provenance?.ownerBoundary||"Não catalogado"}</p>
+                  <p className="text-muted-foreground">
+                    {declared.length} vigente(s) declarada(s) · {historical.length} histórica(s) · {code.length} referência(s) de código
+                  </p>
+                  {issues.length>0&&<div className="rounded-lg border p-2 space-y-1"
+                    aria-label={"Pontos para conferência documental do módulo "+module.id}>
+                    <p className="font-semibold">Pontos de reconciliação</p>
+                    {issues.map(issue=><p key={issue}>• {issue}</p>)}
+                  </div>}
+                  {sources.length===0
+                    ? <p className="text-muted-foreground">
+                        Nenhuma referência neste catálogo; não significa ausência de documento no repositório,
+                        biblioteca ou contribuições AC-01.
+                      </p>
+                    : <div className="space-y-2">
+                        {sources.map((source,i)=>{
+                          const sharedWith=sharedSourcePaths.get(source.path)??[];
+                          const repeatedInModule=sources.filter(item=>item.path===source.path).length>1;
+                          return <div key={source.path+"-"+i} className="rounded-lg border p-2 space-y-1">
+                            <p className="font-medium">{source.label}</p>
+                            <p className="text-muted-foreground">{SOURCE_AUTHORITY_LABELS[source.authority]}</p>
+                            <p>{source.note}</p>
+                            {repeatedInModule&&<p>Localizador repetido no módulo — conferir se é duplicidade real</p>}
+                            {sharedWith.length>1&&<p>Também catalogado em: {sharedWith.filter(id=>id!==module.id).join(", ")}</p>}
+                            <a href={source.path} target="_blank" rel="noopener noreferrer"
+                              className="underline underline-offset-2 break-all">
+                              Abrir fonte catalogada
+                            </a>
+                          </div>;
+                        })}
+                      </div>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={()=>investigateGap(module,"fontes")}>Ver método e fontes</Button>
+                    {record&&<Button type="button" variant="outline" size="sm"
+                      onClick={()=>investigateGap(module,"ac01")}>Conferir versões AC-01</Button>}
+                    {record&&<Button type="button" variant="outline" size="sm"
+                      onClick={()=>investigateGap(module,"frentes")}>Relacionar frentes M3</Button>}
+                  </div>
+                </div>
+              </details>)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Fonte desta matriz: `operationalProvenanceV12.ts` e módulos M3 da sessão.
+            Duplicidade de URL não implica documento duplicado, e múltiplas referências vigentes
+            não provam conflito — exigem avaliação documental humana.
           </p>
         </Card>
       )}
