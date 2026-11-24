@@ -781,6 +781,27 @@ export default function NucleoDevelopmentCenter() {
             }}/>}
         </div>
 
+      <details className="rounded-md border p-3 space-y-2">
+        <summary className="cursor-pointer text-sm font-semibold">Frente documental preparada — Saúde/CCH F24</summary>
+        <p className="text-xs text-muted-foreground">Espelho do mapa soberano V6.0 de 24/11/2026, U01 e contrato F24. Não cria uma nova frente operacional nem comprova estado atual, mandato ou homologação.</p>
+        <a className="text-xs underline" href="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966" target="_blank" rel="noreferrer">Fonte de continuidade #966</a>
+        <div>
+          <Button type="button" variant="outline" size="sm"
+            disabled={saving || loading || readError || creating || hasPendingChanges || !items.some(i=>i.id==="a0974b54-e8bf-46a0-8998-af5f667e1c8a"&&i.code==="SAU"&&i.kind==="modulo") || items.some(i=>i.code==="SAU-F24")}
+            onClick={()=>{
+              const parent=items.find(i=>i.id==="a0974b54-e8bf-46a0-8998-af5f667e1c8a"&&i.code==="SAU"&&i.kind==="modulo");
+              if(!authorized||saving||loading||readError||creating||hasPendingChanges||!parent||items.some(i=>i.code==="SAU-F24")||nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy)return;
+              setDraft({...emptyDraft,code:"SAU-F24",kind:"frente",parent_id:parent.id,
+                title:"F24 — Experiência guiada de execução e orientação contextual",
+                description:"Espelho documental CCH V6.0, 24/11/2026, U01 e contrato F24 P0–P6/G1–G5. Fonte: docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; Issue #966. G1/G2 integradas no checkpoint; G3 protótipo, G4 especificação, G5 condicionada. Reconciliar checkpoint atual com especialista; não inferir deploy, homologação, mandato ou autorização produtiva.",
+                acceptance_criteria:"Escolha explícita de extras, histórico comparável, timer/registro/recarga íntegros; critérios P0–P6 e gates G1–G5 do V6.0 preservados. Homologação autenticada e decisão competente separadas."});
+              setCreating(true);
+              requestAnimationFrame(()=>document.getElementById("nucleo-m3-create-module")?.scrollIntoView({behavior:"smooth",block:"start"}));
+            }}>Carregar minuta F24</Button>
+          {items.some(i=>i.code==="SAU-F24")&&<p className="text-xs text-muted-foreground">Código já presente. Consulte a ficha existente; não duplicar.</p>}
+        </div>
+      </details>
+
       {creating && (
         <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
           <h3 className="font-semibold text-sm">Cadastrar módulo, frente ou subfrente</h3>
