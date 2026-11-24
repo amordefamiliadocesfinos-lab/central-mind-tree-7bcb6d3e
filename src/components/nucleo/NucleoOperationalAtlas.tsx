@@ -65,7 +65,7 @@ interface Props {
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // P3: recorte consultivo, sem modificar cadastro nem fonte.
-  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes"|"acoes"|"responsavel">("todas");
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -196,17 +196,21 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   // ausência do método; proveniência versionada e cadastro M3 são coisas distintas.
   const inventoryGaps=catalog.map(module=>{
     const core=registeredModules.find(item=>item.code===module.id);
-    const sources=MODULE_PROVENANCE[module.id]?.sources.length??0;
+    const provenance=MODULE_PROVENANCE[module.id];
+    const sources=provenance?.sources.length??0;
+    // Ter referências históricas/código não equivale a possuir fonte vigente.
+    const hasDeclaredCurrentSource=Boolean(provenance?.sources.some(source=>source.authority==="vigente_declarada"));
     const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
     const descendants=fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
     const pendingWithoutAction=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.next_action.trim());
     const withoutOwner=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.specialist.trim());
-    return {module,core,sources,fronts,descendants,pendingWithoutAction,withoutOwner};
-  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0)
+    return {module,core,sources,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner};
+  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const visibleInventoryGaps=inventoryGaps.filter(item=>
     inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
     (inventoryFilter==="fontes"&&item.sources===0) ||
+    (inventoryFilter==="vigencia"&&!item.hasDeclaredCurrentSource) ||
     (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
     (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0) ||
     (inventoryFilter==="responsavel"&&item.withoutOwner.length>0));
@@ -242,6 +246,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     .filter(event=>moduleWork.some(item=>item.id===event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at)).slice(0,5);
   const moduleLatestEvent = moduleRecentEvents[0];
+  // Eventos M3 permitem recuperar mudanças de próxima ação declarada, não
+  // identificar automaticamente decisões soberanas ou aprendizado homologado.
+  const actionChanges=moduleRecentEvents.filter(event=>{
+    const before=event.before_state?.next_action,after=event.after_state?.next_action;
+    return typeof before==="string"&&typeof after==="string"&&before.trim()!==after.trim();
+  });
   const handoffPriority=[...modulePending].sort((a,b)=>
     Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
     ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
@@ -515,7 +525,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             {([
               ["todas","Todas as lacunas"],
               ["cadastro","Cadastro M3"],
-              ["fontes","Fontes M2"],
+              ["fontes","Sem fontes M2"],
+              ["vigencia","Sem fonte vigente declarada"],
               ["frentes","Frentes M3"],
               ["acoes","Sem próxima ação"],
               ["responsavel","Sem responsável"],
@@ -529,7 +540,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleInventoryGaps.map(({module,core,sources,fronts,descendants,pendingWithoutAction,withoutOwner})=>
+                {visibleInventoryGaps.map(({module,core,sources,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -537,6 +548,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     </p>
                     <p className="text-xs">
                       {[
+                        !hasDeclaredCurrentSource?"Nenhuma fonte marcada como vigente declarada neste catálogo (históricos ou código podem existir)":null,
                         !core?"Cadastro do módulo não localizado no Core":null,
                         sources===0?"Proveniência ainda sem fonte catalogada":null,
                         core&&fronts.length===0?"Sem frente direta nesta leitura":null,
@@ -561,7 +573,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     </div>}
                     <p className="text-xs text-muted-foreground">
                       Origem: cadastro, hierarquia, ações e responsáveis da leitura Core M3; referências documentais do catálogo versionado em código.
-                      Nenhuma dessas fontes, isoladamente, comprova vigência ou mandato.
+                      Fontes classificadas como vigentes são apenas declarações documentais, não certificação independente de vigência ou mandato.
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm"
@@ -960,6 +972,30 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       </div>
                       <p className="mt-2 text-muted-foreground">
                         Até cinco eventos encontrados nos 200 globais carregados. Não certifica lição, método ou decisão.
+                      </p>
+                    </details>}
+                    {actionChanges.length>0&&<details className="rounded-lg border bg-background p-2 text-xs"
+                      aria-label="Mudanças de próxima ação registradas no M3">
+                      <summary className="cursor-pointer font-semibold">
+                        Mudanças de direção M3 · {actionChanges.length} evento(s) com alteração de próxima ação
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {actionChanges.map(event=>{
+                          const front=moduleWork.find(item=>item.id===event.workstream_id);
+                          const before=event.before_state?.next_action;
+                          const after=event.after_state?.next_action;
+                          return <div key={event.id} className="rounded-md border p-2 space-y-1">
+                            <p className="font-medium">{front?.code||"Frente não identificada"} · {new Date(event.recorded_at).toLocaleString("pt-BR")}</p>
+                            <p className="break-words">Antes: {typeof before==="string"&&before.trim()?before:"Ação não registrada"}</p>
+                            <p className="break-words">Depois: {typeof after==="string"&&after.trim()?after:"Ação não registrada"}</p>
+                            {front&&<Button type="button" variant="outline" size="sm"
+                              onClick={()=>onSelectWorkstream(front.id)}>Abrir ficha atual</Button>}
+                          </div>;
+                        })}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Somente eventos presentes na janela M3 carregada; mudança textual não prova decisão da Camada Mestre,
+                        aceite, vigência nem causa da alteração.
                       </p>
                     </details>}
                     {handoffPriority.length>0
