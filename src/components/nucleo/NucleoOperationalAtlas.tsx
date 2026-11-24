@@ -312,7 +312,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   // e nunca cria fonte, contribuição ou mandato automaticamente.
   const investigateGap=(module:KnowledgeModule,area:"fontes"|"frentes"|"ac01"|"ac02")=>{
     if(choose(module)===false)return;
-    if(area==="fontes"){openSpecialistPanel("papel");selectModuleArea("especialista");return;}
+    if(area==="fontes"){
+      const hasCore=registeredModules.some(record=>record.code===module.id);
+      // Sem cadastro M3 não há painel de especialista: abrir ficha factual do
+      // catálogo em vez de levar a uma seção sem dados.
+      if(hasCore){openSpecialistPanel("papel");selectModuleArea("especialista");}
+      else selectModuleArea("funcoes");
+      return;
+    }
     if(area==="frentes"){selectModuleArea("desenvolvimento");return;}
     if(area==="ac01"){
       openSpecialistPanel("documentos");
