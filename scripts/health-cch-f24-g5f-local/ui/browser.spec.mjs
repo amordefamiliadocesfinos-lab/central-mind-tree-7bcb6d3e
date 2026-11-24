@@ -66,7 +66,22 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
      throw err;
    }
  }
- await expect(selected(page)).toBeEnabled();
+ // Diagnostic only: preserve the genuine UI state. Do not silently reselect the
+ // exercise here, since that would conceal loss of the athlete's explicit choice.
+ try {
+   await expect(selected(page)).toBeEnabled();
+ } catch (err) {
+   console.log("G5F sanitized after-fourth-series UI diagnostic",JSON.stringify({
+     buttons:(await page.getByRole("button").allTextContents()).map(s=>s.trim()).filter(Boolean).slice(-30),
+     selectedCount:await selected(page).count(),
+     extraCount:await extra(page).count(),
+     resultSavedCount:await page.getByRole("button",{name:"Resultado salvo"}).count(),
+     nextChoiceCount:await page.getByRole("button",{name:/Selecionado: continuar aqui|Escolher continuar aqui|Escolha acima como deseja continuar/}).count(),
+     syntheticCompletedCount:await page.getByTestId("g5f-count").textContent(),
+     setPatchStatuses:setPatches
+   }));
+   throw err;
+ }
  await selected(page).click();
  await page.getByRole("button",{name:"Concluir série"}).click();
  await expect(page.getByTestId("g5f-count")).toContainText("5");
