@@ -594,8 +594,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {portfolioAttention.map(({module,fronts,reason,focusFront,actionOwner})=>(
-              <button type="button" key={module.id} onClick={()=>choose(module)}
-                className="nucleo-v22-card-hover rounded-xl border p-4 text-left min-w-0 hover:border-primary/60 hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <article key={module.id} className="nucleo-v22-card-hover rounded-xl border p-4 text-left min-w-0 flex flex-col">
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="outline">{module.id}</Badge>
                   <span className="text-xs text-muted-foreground">{fronts.length} frente(s) M3</span>
@@ -606,8 +605,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {focusFront?.blocker.trim() && <p className="text-xs mt-1 leading-relaxed"><span className="font-medium">Bloqueio declarado:</span> {focusFront.blocker}</p>}
                 {focusFront && <p className="text-xs mt-1"><span className="font-medium">Situação:</span> {focusFront.status.replaceAll("_"," ")==="em validacao"?"Em validação":focusFront.status.replaceAll("_"," ")==="em andamento"?"Em andamento":focusFront.status.replaceAll("_"," ")}</p>}
                 <p className="text-xs mt-2 leading-relaxed line-clamp-3" title={actionOwner?.next_action||undefined}><span className="font-medium">Próxima ação {focusFront?(focusFront.kind==="subfrente"?"da subfrente":"da frente"):"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
-                <span className="block text-sm font-medium text-primary mt-3">Explorar módulo</span>
-              </button>
+                <div className="mt-auto pt-3 flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={()=>choose(module)}>Explorar módulo</Button>
+                  {focusFront && <Button type="button" size="sm" onClick={()=>{
+                    if(fmDraftState.busy || specialistDraftState.busy){window.alert("Gravação em andamento ou registro indeterminado. Reconcilie antes de abrir a ficha.");return;}
+                    onSelectWorkstream(focusFront.id);
+                  }}>Abrir ficha {focusFront.code}</Button>}
+                </div>
+              </article>
             ))}
           </div>
         </section>
