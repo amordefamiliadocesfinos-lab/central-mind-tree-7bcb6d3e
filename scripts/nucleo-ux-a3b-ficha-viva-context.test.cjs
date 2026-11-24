@@ -140,6 +140,20 @@ assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"')
 assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));
 // Work UX-01 / achados UX01-01, UX01-02, UX01-03: testes do contrato visual.
 const center=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+const createM3=center.slice(center.indexOf("  const addItem = async"),center.indexOf("  const addDependency = async"));
+const bindM3=center.slice(center.indexOf("  const addDependency = async"),center.indexOf("  const saveItem = async"));
+for(const [source,success] of [[createM3,'toast.success("Frente registrada, com histórico auditável.")'],[bindM3,'toast.success("Dependência adicionada sem substituir as anteriores.")']]){
+ assert(source.includes('.insert(payload).select("id").maybeSingle()'));
+ assert(source.includes('.select("*").eq("id",'));
+ assert(source.indexOf("readback.error")<source.indexOf(success));
+ assert(source.includes("finally {\n      setSaving(false);"));
+}
+assert(createM3.includes('.eq("code",payload.code).maybeSingle()'));
+assert(createM3.includes('.eq("event_type","criado").maybeSingle()'));
+assert(createM3.includes('audit.data.before_state!==null'));
+assert(createM3.includes('!matches(audit.data.after_state'));
+assert(createM3.indexOf('toast.success(')<createM3.indexOf('setDraft(emptyDraft)'));
+
 assert(center.includes("const crmAttention=selectAttention([...crmFronts,...crmSubfronts]);"),"CRM reutiliza seleção de atenção");
 const crmSelector=center.match(/const crmAttention=([^;]+);/)[1];
 for(const [crmFronts,expected] of [[[done],null],[[done,normal],"normal"],[[critical,blocked],"blocked"],[[],null]]){
