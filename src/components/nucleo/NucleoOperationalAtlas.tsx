@@ -65,7 +65,7 @@ interface Props {
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // P3: recorte consultivo, sem modificar cadastro nem fonte.
-  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes">("todas");
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"frentes"|"acoes">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -198,13 +198,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const core=registeredModules.find(item=>item.code===module.id);
     const sources=MODULE_PROVENANCE[module.id]?.sources.length??0;
     const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
-    return {module,core,sources,fronts};
-  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0)
+    const pendingWithoutAction=fronts.filter(front=>front.status!=="concluido"&&!front.next_action.trim());
+    return {module,core,sources,fronts,pendingWithoutAction};
+  }).filter(item=>!item.core||item.sources===0||item.fronts.length===0||item.pendingWithoutAction.length>0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const visibleInventoryGaps=inventoryGaps.filter(item=>
     inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
     (inventoryFilter==="fontes"&&item.sources===0) ||
-    (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0));
+    (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
+    (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -233,9 +235,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     .filter(event => specialistWork.some(item => item.id === event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
   // F5: somente os eventos M3 efetivamente carregados (janela global limitada).
-  const moduleLatestEvent = events
+  const moduleRecentEvents=events
     .filter(event=>moduleWork.some(item=>item.id===event.workstream_id))
-    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
+    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at)).slice(0,5);
+  const moduleLatestEvent = moduleRecentEvents[0];
   const handoffPriority=[...modulePending].sort((a,b)=>
     Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
     ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
@@ -511,6 +514,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               ["cadastro","Cadastro M3"],
               ["fontes","Fontes M2"],
               ["frentes","Frentes M3"],
+              ["acoes","Sem próxima ação"],
             ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
               variant={inventoryFilter===key?"default":"outline"}
               aria-pressed={inventoryFilter===key}
@@ -521,19 +525,29 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleInventoryGaps.map(({module,core,sources,fronts})=>
+                {visibleInventoryGaps.map(({module,core,sources,fronts,pendingWithoutAction})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes diretas: {fronts.length}
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes diretas: {fronts.length} · pendentes sem ação: {pendingWithoutAction.length}
                     </p>
                     <p className="text-xs">
                       {[
                         !core?"Cadastro do módulo não localizado no Core":null,
                         sources===0?"Proveniência ainda sem fonte catalogada":null,
                         core&&fronts.length===0?"Sem frente direta nesta leitura":null,
+                        pendingWithoutAction.length>0?`${pendingWithoutAction.length} frente(s) pendente(s) sem próxima ação`:null,
                       ].filter(Boolean).join(" · ")}
                     </p>
+                    {pendingWithoutAction.length>0&&<div className="space-y-1 rounded-lg border p-2 text-xs"
+                      aria-label="Frentes sem próxima ação">
+                      {pendingWithoutAction.slice(0,3).map(front=><p key={front.id}>
+                        <strong>{front.code}</strong> · {front.title}
+                      </p>)}
+                      {pendingWithoutAction.length>3&&<p className="text-muted-foreground">
+                        Mais {pendingWithoutAction.length-3} frente(s) sem ação neste recorte.
+                      </p>}
+                    </div>}
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm"
                         onClick={()=>investigateGap(module,"fontes")}>Fontes e método</Button>
@@ -912,6 +926,23 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       : <p className="text-xs text-muted-foreground">
                           Nenhum checkpoint encontrado nos 200 eventos globais carregados; históricos anteriores podem existir.
                         </p>}
+                    {moduleRecentEvents.length>0&&<details className="rounded-lg border bg-background p-2 text-xs">
+                      <summary className="cursor-pointer font-semibold">
+                        Histórico contextual · {moduleRecentEvents.length} evento(s) recente(s) nesta janela M3
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {moduleRecentEvents.map(event=><div key={event.id} className="rounded-md border p-2">
+                          <p className="font-medium">{workstreams.find(item=>item.id===event.workstream_id)?.code||"Registro não identificado"} · {event.event_type}</p>
+                          <p className="text-muted-foreground">{new Date(event.recorded_at).toLocaleString("pt-BR")} · evento administrativo</p>
+                          {moduleWork.some(item=>item.id===event.workstream_id)&&
+                            <Button type="button" variant="outline" size="sm"
+                              onClick={()=>onSelectWorkstream(event.workstream_id)}>Abrir frente vinculada</Button>}
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Até cinco eventos encontrados nos 200 globais carregados. Não certifica lição, método ou decisão.
+                      </p>
+                    </details>}
                     {handoffPriority.length>0
                       ? <div className="space-y-2">
                           {handoffPriority.map(item=><div key={item.id} className="rounded-lg border bg-background p-2 space-y-1 text-xs">
