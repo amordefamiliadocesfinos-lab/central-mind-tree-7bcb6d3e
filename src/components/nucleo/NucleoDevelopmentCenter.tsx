@@ -191,6 +191,16 @@ export default function NucleoDevelopmentCenter() {
     : undefined;
   const resumeCheckpointSummary=resumeCheckpoint? summarizeDevelopmentCheckpoint(resumeCheckpoint):null;
   const moduleOptions=items.filter(item=>item.kind==="modulo"&&item.code!=="NUC");
+  // Entrega A+ D1: o atalho CRM só utiliza relações reais já lidas do Core M3.
+  const crmModule=moduleOptions.find(item=>item.code.toUpperCase()==="CRM");
+  const crmFronts=crmModule ? items.filter(item=>
+    item.kind==="frente"&&item.parent_id===crmModule.id) : [];
+  const crmAttention=[...crmFronts].sort((a,b)=>{
+    const rank=(item:DevelopmentWorkstream)=>item.status==="bloqueado"?0
+      :item.priority==="critica"?1:item.priority==="alta"?2
+      :item.status==="em_andamento"?3:4;
+    return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
+  })[0];
   const specialistOptions=Array.from(new Set(
     items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
       .map(item=>item.specialist.trim()).filter(Boolean)
@@ -373,6 +383,20 @@ export default function NucleoDevelopmentCenter() {
     </Card>
   );
 
+  const focusCrm=()=>{
+    if(!crmModule){openModuleSearch();return;}
+    // Não perder edições: choose() faz o mesmo controle das fichas existentes.
+    if(crmAttention && !choose(crmAttention.id))return;
+    setFilter("");
+    setAttentionStatus(null);
+    setSpecialistFocus("");
+    setModuleFocusId(crmModule.id);
+    setWorkspaceView("frentes");
+    if(crmAttention){
+      requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")
+        ?.scrollIntoView({behavior:"smooth",block:"start"}));
+    }
+  };
   const resumeFront=(id:string)=>{
     if(!choose(id))return;
     setFilter("");
@@ -458,6 +482,27 @@ export default function NucleoDevelopmentCenter() {
               Buscar módulo
             </Button>
           </div>
+          <Card className="rounded-2xl border-[#c6dcfb] p-4 dark:border-blue-900" aria-label="Acesso direto ao acompanhamento CRM">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <h4 className="text-sm font-semibold">CRM · acompanhamento direto</h4>
+                <p className="text-xs text-muted-foreground">
+                  {crmModule
+                    ? `${crmFronts.length} frente(s) vinculada(s) ao CRM no Core M3 desta sessão. Não é inventário de todo o CRM.`
+                    : "CRM não está cadastrado como módulo na leitura M3 atual. Consulte o Atlas sem presumir ausência do trabalho."}
+                </p>
+                {crmAttention&&<>
+                  <p className="break-words text-sm font-medium">{crmAttention.code} · {crmAttention.title}</p>
+                  <p className="break-words text-xs"><strong>Próxima ação:</strong> {crmAttention.next_action?.trim()||"Não registrada no Core."}</p>
+                  <p className="text-xs text-muted-foreground">Situação: {states.find(v=>v.key===crmAttention.status)?.label||crmAttention.status}
+                    {" · "}Responsável declarado: {crmAttention.specialist?.trim()||"não informado"}</p>
+                </>}
+              </div>
+              <Button type="button" className="min-h-11 rounded-full" onClick={focusCrm}>
+                {crmModule?"Acompanhar CRM":"Localizar CRM no Atlas"}
+              </Button>
+            </div>
+          </Card>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
               <h4 className="text-sm font-semibold">De onde continuar</h4>
