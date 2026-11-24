@@ -54,6 +54,20 @@ async function checkAccess(auth,params){
  if(me.status!==200||!rx.test(me.body?.id))return {status:401};
  const jwt=decodeJwt(token);
  if(jwt.sub!==me.body.id||!sessionStillValid(jwt.session_id,me.body.id))return {status:401};
+ if(!params){
+  const q=new URLSearchParams({select:"specialty_id,module_id,front_id",order:"specialty_id,module_id,front_id",limit:"101"});
+  const visible=await request("/rest/v1/f12_read_context?"+q.toString(),{headers:{Authorization:"Bearer "+token}});
+  if(visible.status!==200||!Array.isArray(visible.body)||visible.body.length>=101)return {status:503};
+  const groups=new Map();
+  for(const row of visible.body){
+   if(!rx.test(row.specialty_id)||!rx.test(row.module_id)||(row.front_id!==null&&!rx.test(row.front_id)))return {status:503};
+   if(!groups.has(row.specialty_id))groups.set(row.specialty_id,new Map());
+   const modules=groups.get(row.specialty_id);
+   if(!modules.has(row.module_id))modules.set(row.module_id,new Set());
+   modules.get(row.module_id).add(row.front_id);
+  }
+  return {status:200,directory:[...groups].map(([specialty_id,modules])=>({specialty_id,modules:[...modules].map(([module_id,fronts])=>({module_id,front_ids:[...fronts]}))})),mode:"visible_contexts_only"};
+ }
  const q=new URLSearchParams({select:"id,specialty_id,module_id,front_id,card_type,public_label,public_source_ref",module_id:"eq."+params.module_id,
   specialty_id:"eq."+params.specialty_id,front_id:"eq."+params.front_id});
  const found=await request("/rest/v1/f12_read_context?"+q.toString(),{headers:{Authorization:"Bearer "+token}});
@@ -123,7 +137,12 @@ INSERT INTO f12_lab.context_cards VALUES
  const server=http.createServer(async (req,res)=>{
   try{
    const url=new URL(req.url,"http://127.0.0.1");
-   if(req.method!=="GET"||url.pathname!=="/f12/read"){res.writeHead(404).end();return}
+   if(req.method!=="GET"||!["/f12/read","/f12/contexts"].includes(url.pathname)){res.writeHead(404).end();return}
+   if(url.pathname==="/f12/contexts"){
+    const found=await checkAccess(req.headers.authorization,null);
+    res.writeHead(found.status,{"Content-Type":"application/json","Cache-Control":"no-store"});
+    res.end(JSON.stringify(found.status===200?{status:200,directory:found.directory,mode:found.mode}:{status:found.status}));return;
+   }
    const keys=["module_id","specialty_id","front_id"];
    const params=Object.fromEntries(keys.map(k=>[k,url.searchParams.get(k)]));
    if(!keys.every(k=>rx.test(params[k]||""))){res.writeHead(400).end();return}
@@ -140,6 +159,13 @@ INSERT INTO f12_lab.context_cards VALUES
   return r.status;
  }
  try{
+  const directoryUrl=`http://127.0.0.1:${port}/f12/contexts`;
+  async function directory(token){const r=await fetch(directoryUrl,{headers:token?{Authorization:"Bearer "+token}:{}});return {status:r.status,body:await r.json()};}
+  assert.equal((await directory()).status,401);
+  assert.deepEqual((await directory(users[1].token)).body.directory,[]);
+  const ownDirectory=await directory(users[0].token);
+  assert.equal(ownDirectory.status,200);
+  assert.deepEqual(ownDirectory.body.directory,[{specialty_id:GOV,modules:[{module_id:NUC,front_ids:[M4]}]}]);
   assert.equal(await code(endpoint()),401,"HTTP 401 no token");
   assert.equal(await code(endpoint(),"invalid"),401,"HTTP 401 invalid credential");
   assert.equal(await code(endpoint(),users[1].token),403,"HTTP 403 authenticated, ungranted");
@@ -180,6 +206,8 @@ INSERT INTO f12_lab.context_cards VALUES
   assert.deepEqual(direct.body,[],"ungranted user sees zero raw rows under RLS");
   revoke();
   assert.equal(await code(endpoint(),users[0].token),403,"HTTP 403 immediately after grant revoke");
+  assert.deepEqual((await directory(users[0].token)).body.directory,[]);
+  console.log("PASS F2 scoped directory: grouped specialty/module/front identities, ungranted and revoked contexts absent");
   const revokedPackage=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[0].token}});
   assert.equal(revokedPackage.status,403);
   assert.equal((await revokedPackage.json()).context,undefined);
@@ -187,6 +215,7 @@ INSERT INTO f12_lab.context_cards VALUES
   const out=await request("/auth/v1/logout",{method:"POST",headers:{Authorization:"Bearer "+users[0].token}});
   assert([200,204].includes(out.status),"local Auth logout");
   assert.equal(await code(endpoint(),users[0].token),401,"HTTP 401 when session revoked");
+  assert.equal((await directory(users[0].token)).status,401);
   console.log("PASS local Supabase Auth + PostgREST + HTTP gateway: 401,403,200, RLS, revoke grant, revoke session (isolated)");
  }finally{
   await new Promise(resolve=>server.close(resolve));
