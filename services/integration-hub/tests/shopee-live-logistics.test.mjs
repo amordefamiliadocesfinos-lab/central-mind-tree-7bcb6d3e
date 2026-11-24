@@ -392,3 +392,55 @@ test('F6-Q.6D.2D classification mode reads detail only and preserves tombstone s
   assert.equal(deleted.classification.state, 'BLOQUEADO');
   assert.equal(downstreamCalls, 0);
 });
+
+
+test('Celivio F5 document result is read-only and exact package scoped', async () => {
+  const calls = [];
+  let shopId = 1357031949;
+  let packageNumber = 'OFG248906009827069';
+  const inspector = createShopeeLiveLogisticsInspector({
+    getEnv: key => key === 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID'
+      ? 'd26c7a30-aa4a-4441-8012-600d70453689' : env[key],
+    now: () => Date.parse('2026-11-24T19:00:00.000Z'),
+    readConnection: async () => ({ ok: true, payload: {
+      shop_id: shopId, partner_id: 2047685,
+      access_token_ciphertext: 'cipher',
+      access_token_expires_at: '2026-11-24T22:17:59.308Z',
+    }}),
+    decryptToken: async () => 'access',
+    readOrderDetail: async () => ({ response: { ok: true }, payload: { response: { order_list: [{
+      order_sn: '261121TBS6BHE6',
+      package_list: [{ package_number: packageNumber }],
+    }] } } }),
+    readShippingDocumentResult: async input => {
+      calls.push(input);
+      return { response: { ok: true }, payload: { response: { result_list: [{
+        order_sn: '261121TBS6BHE6', package_number: 'OFG248906009827069',
+        status: 'PROCESSING', confidential_url: 'must-never-escape',
+      }] } } };
+    },
+    readShippingParameter: async () => { throw Error('never ship'); },
+    readShippingDocumentParameter: async () => { throw Error('never prepare'); },
+  });
+  const ready = await inspector({ orderSn: '261121TBS6BHE6', celivioDocumentResultOnly: true });
+  assert.deepEqual(ready, {
+    ok: true, order_sn: '261121TBS6BHE6',
+    package_number: 'OFG248906009827069',
+    document_type: 'NORMAL_AIR_WAYBILL', document_status: 'PROCESSING',
+    document_downloaded: false, document_created: false, written: 0,
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].shippingDocumentType, 'NORMAL_AIR_WAYBILL');
+  assert.equal(JSON.stringify(ready).includes('confidential'), false);
+  packageNumber = 'WRONG';
+  const rejected = await inspector({ orderSn: '261121TBS6BHE6', celivioDocumentResultOnly: true });
+  assert.equal(rejected.code, 'celivio_document_package_mismatch');
+  assert.equal(calls.length, 1);
+  shopId = 100;
+  const wrongShop = await inspector({ orderSn: '261121TBS6BHE6', celivioDocumentResultOnly: true });
+  assert.equal(wrongShop.code, 'celivio_document_package_mismatch');
+  assert.equal(calls.length, 1);
+  const wrongOrder = await inspector({ orderSn: 'OTHERORDER', celivioDocumentResultOnly: true });
+  assert.equal(wrongOrder.code, 'celivio_document_scope_mismatch');
+  assert.equal(calls.length, 1);
+});
