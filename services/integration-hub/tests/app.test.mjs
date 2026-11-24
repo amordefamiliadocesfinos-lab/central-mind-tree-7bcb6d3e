@@ -801,3 +801,57 @@ test('F6-O.1R OAuth refresh-once route reports expired refresh token without tok
   assert.equal(body.mode, 'oauth_refresh_once');
   assert.equal(Object.hasOwn(body, 'access_token'), false);
 });
+
+
+test('Celivio F5 document-result route is default-off, no-body, exact-account and read-only', async () => {
+  const path = '/internal/shopee/celivio/f5/document-result';
+  const base = { method: 'POST', path, query: {}, headers: { 'content-length': '0' } };
+  let called = 0;
+  const inspectShopeeLogistics = async args => {
+    called++;
+    assert.deepEqual(args, { orderSn: '261121TBS6BHE6', celivioDocumentResultOnly: true });
+    return { ok: true, order_sn: '261121TBS6BHE6',
+      package_number: 'OFG248906009827069', document_status: 'READY', written: 0 };
+  };
+  const make = (override = {}) => ({
+    handleShopeeLive: async () => null,
+    inspectShopeeLogistics,
+    getEnv: key => ({
+      SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'd26c7a30-aa4a-4441-8012-600d70453689',
+      SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN: '261121TBS6BHE6',
+      SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'false', ...override,
+    })[key],
+  });
+  const off = await handleRequest(base, make());
+  assert.equal(off.status, 503);
+  assert.equal(called, 0);
+  const wrongAccount = await handleRequest(base, make({
+    SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'true',
+    SHOPEE_LIVE_CHANNEL_ACCOUNT_ID: 'foreign-account',
+  }));
+  assert.equal(wrongAccount.status, 503);
+  assert.equal(called, 0);
+  const wrongTarget = await handleRequest(base, make({
+    SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'true',
+    SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN: 'OTHERORDER',
+  }));
+  assert.equal(wrongTarget.status, 503);
+  assert.equal(called, 0);
+  const body = await handleRequest({ ...base, body: '{}' }, make({
+    SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'true',
+  }));
+  assert.equal(body.status, 400);
+  assert.equal(called, 0);
+  const get = await handleRequest({ ...base, method: 'GET' }, make({
+    SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'true',
+  }));
+  assert.equal(get.status, 405);
+  assert.equal(called, 0);
+  const ok = await handleRequest(base, make({
+    SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED: 'true',
+  }));
+  assert.equal(ok.status, 200);
+  assert.equal(JSON.parse(ok.body).document_status, 'READY');
+  assert.equal(JSON.parse(ok.body).written, 0);
+  assert.equal(called, 1);
+});
