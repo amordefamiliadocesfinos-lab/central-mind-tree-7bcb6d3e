@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type Filter = "todos" | "direcao" | "evidencia" | "responsabilidade" | "outros";
 const fields = [
@@ -38,6 +39,7 @@ export default function NucleoContinuityTimeline({
 }: Props) {
   const [filter, setFilter] = useState<Filter>("todos");
   const [limit, setLimit] = useState(10);
+  const [search,setSearch]=useState("");
   const rows = useMemo(() => {
     const fronts = workstreams.filter(item => item.kind === "frente" && item.parent_id === module.id);
     const children = fronts.flatMap(front =>
@@ -66,8 +68,10 @@ export default function NucleoContinuityTimeline({
       })
       .filter((row): row is TimelineRow => row !== null);
   }, [module.id, workstreams, events]);
-  const filtered = rows.filter(row => filter === "todos" || row.group === filter ||
-    row.changes.some(change => change.group === filter));
+  const term=search.trim().toLocaleLowerCase("pt-BR");
+  const filtered = rows.filter(row => (filter === "todos" || row.group === filter ||
+    row.changes.some(change => change.group === filter)) &&
+    (!term || [row.front.code,row.front.title,row.event.id].some(value=>value.toLocaleLowerCase("pt-BR").includes(term))));
   const displayed = filtered.slice(0, limit);
   return <section aria-label="P4-A — linha do tempo documental e operacional"
     className="rounded-xl border p-3 space-y-3">
@@ -89,7 +93,8 @@ export default function NucleoContinuityTimeline({
           aria-pressed={filter === value} size="sm"
           onClick={() => { setFilter(value); setLimit(10); }}>{label}</Button>)}
     </div>
-    <p className="text-xs text-muted-foreground">
+    <Input aria-label="Buscar histórico por ficha ou evento" placeholder="Código, título da ficha ou ID do evento" value={search} onChange={event=>{setSearch(event.target.value);setLimit(10);}}/>
+    <p className="text-xs text-muted-foreground" role="status">
       {rows.length} evento(s) M3 localizado(s) neste recorte · {filtered.length} no filtro.
       O histórico documental AC-01 e as autorizações possuem fontes independentes.
     </p>
