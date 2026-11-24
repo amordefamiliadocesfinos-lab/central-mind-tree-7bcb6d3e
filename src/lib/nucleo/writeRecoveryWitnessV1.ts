@@ -4,28 +4,28 @@
  * e só é comparado contra um registro efetivamente retornado pelo Core.
  */
 export type WriteWitness={
- kind:"fm"|"ac01";moduleId:string;requestId?:string;section?:string;
+ kind:"fm"|"ac01";moduleId:string;authUid?:string;requestId?:string;section?:string;
  version?:number;salt:string;digest:string;
 };
 export const witnessFieldsFm=(r:{
  module_id:string;section_code:string;version_no:number;title:string;body:string;
- source_reference:string;authority_state:string;evidence_level:string;
+ source_reference:string;authority_state:string;evidence_level:string;recorded_by_auth_uid?:string|null;
 })=>[r.module_id,r.section_code,r.version_no,r.title,r.body,r.source_reference,
- r.authority_state,r.evidence_level];
+ r.authority_state,r.evidence_level,r.recorded_by_auth_uid??null];
 export const witnessFieldsAc01=(r:{
  request_id:string;module_id:string;specialist_role:string;contribution_kind:string;
  title:string;source_kind:string;source_locator:string;source_checksum_sha256:string|null;
- note:string;parent_revision_id:string|null;version_no:number;authority_state:string;
+ note:string;parent_revision_id:string|null;version_no:number;authority_state:string;recorded_by_auth_uid?:string|null;
 })=>[r.request_id,r.module_id,r.specialist_role,r.contribution_kind,r.title,
  r.source_kind,r.source_locator,r.source_checksum_sha256,r.note,r.parent_revision_id,
- r.version_no,r.authority_state];
+ r.version_no,r.authority_state,r.recorded_by_auth_uid??null];
 export async function fingerprint(fields:unknown[],salt:string):Promise<string>{
  const bytes=new TextEncoder().encode(JSON.stringify([salt,fields]));
  const digest=await crypto.subtle.digest("SHA-256",bytes);
  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
 }
 export async function makeWitness(kind:"fm"|"ac01",moduleId:string,
- fields:unknown[],locator:{requestId?:string;section?:string;version?:number}):Promise<WriteWitness>{
+ fields:unknown[],locator:{authUid?:string;requestId?:string;section?:string;version?:number}):Promise<WriteWitness>{
  const salt=crypto.randomUUID();
  return {kind,moduleId,...locator,salt,digest:await fingerprint(fields,salt)};
 }

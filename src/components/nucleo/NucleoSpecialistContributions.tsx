@@ -21,7 +21,7 @@ type RecordRow={
  parent_revision_id:string|null;request_id:string;
 };
 type PendingAttempt={
- requestId:string;moduleId:string;specialistRole:string;contributionKind:string;title:string;
+ requestId:string;moduleId:string;specialistRole:string;contributionKind:string;title:string;authUid?:string;lineageId?:string;
  sourceKind:string;sourceLocator:string;checksum:string|null;note:string;
  parentRevisionId:string|null;versionNo:number;authorityState:"proposta"|"em_evolucao";
 };
@@ -31,7 +31,10 @@ const isMatchingPendingAttempt=(row:RecordRow,attempt:PendingAttempt)=>(
  row.title===attempt.title&&row.source_kind===attempt.sourceKind&&
  row.source_locator===attempt.sourceLocator&&row.source_checksum_sha256===attempt.checksum&&
  row.note===attempt.note&&row.parent_revision_id===attempt.parentRevisionId&&
- row.version_no===attempt.versionNo&&row.authority_state===attempt.authorityState
+ row.version_no===attempt.versionNo&&row.authority_state===attempt.authorityState&&
+ Boolean(attempt.authUid)&&row.recorded_by_auth_uid===attempt.authUid&&
+ Boolean(row.recorded_at)&&!Number.isNaN(Date.parse(row.recorded_at))&&
+ Boolean(row.lineage_id)&&(!attempt.lineageId||row.lineage_id===attempt.lineageId)
 );
 type ACDB=Omit<Database,"public">&{public:Omit<Database["public"],"Tables">&{
  Tables:Database["public"]["Tables"]&{nucleo_specialist_contributions:{
@@ -200,19 +203,22 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      requestId,moduleId,specialistRole:cleanRole,contributionKind:kind,title:cleanTitle,
      sourceKind,sourceLocator:cleanSource,checksum:checksum.trim()||null,note:cleanNote,
      parentRevisionId:parent?.id??null,versionNo:parent?parent.version_no+1:1,
+     lineageId:parent?.lineage_id,
      authorityState:parent?"em_evolucao":"proposta",
    };
    try{
      const auth=await supabase.auth.getUser();
      if(auth.error||!auth.data.user){setFeedback("Sessão não confirmada; nenhuma proposta enviada.");return;}
+     attempt.authUid=auth.data.user.id;
      const fields=witnessFieldsAc01({
        request_id:requestId,module_id:moduleId,specialist_role:cleanRole,
        contribution_kind:kind,title:cleanTitle,source_kind:sourceKind,
        source_locator:cleanSource,source_checksum_sha256:checksum.trim()||null,
        note:cleanNote,parent_revision_id:parent?.id??null,
        version_no:attempt.versionNo,authority_state:attempt.authorityState,
+       recorded_by_auth_uid:attempt.authUid,
      });
-     const witness=await makeWitness("ac01",moduleId,fields,{requestId});
+     const witness=await makeWitness("ac01",moduleId,fields,{requestId,authUid:attempt.authUid});
      if(!fence.markStarted(witness)){
        setFeedback("Sem proteção local para esta tentativa. Nenhuma proposta foi enviada.");
        return;
@@ -231,7 +237,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      if(check.error||!check.data||!isMatchingPendingAttempt(check.data,attempt)){
        uncertainRef.current=true;setFeedback("Inserção retornou, mas readback não confirmou todos os dados. Confira a origem antes de repetir.");return;
      }
-     if(!fence.clearConfirmed()){
+     if(!fence.clearConfirmed(witness)){
        uncertainRef.current=true;
        setFeedback("Registro confirmado, mas a trava local permaneceu ativa. Não repetir; reconcilie a sessão.");
        return;

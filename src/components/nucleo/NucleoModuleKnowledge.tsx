@@ -92,13 +92,15 @@ function SourceReferences({reference}:{reference:string}) {
 
 
 type PendingFmAttempt={
- moduleId:string;sectionCode:FMSection;versionNo:number;title:string;body:string;sourceReference:string;
+ moduleId:string;sectionCode:FMSection;versionNo:number;title:string;body:string;sourceReference:string;authUid?:string;
 };
 const matchesPendingFmAttempt=(row:Revision,pending:PendingFmAttempt)=>(
  row.module_id===pending.moduleId&&row.section_code===pending.sectionCode&&
  row.version_no===pending.versionNo&&row.title===pending.title&&
  row.body===pending.body&&row.source_reference===pending.sourceReference&&
- row.authority_state==="rascunho"&&row.evidence_level==="declarado"
+ row.authority_state==="rascunho"&&row.evidence_level==="declarado"&&
+ Boolean(pending.authUid)&&row.recorded_by_auth_uid===pending.authUid&&
+ Boolean(row.recorded_at)&&!Number.isNaN(Date.parse(row.recorded_at))
 );
 type DraftState={dirty:boolean;busy:boolean};
 export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateChange,workstreams,events,onOpenAc01Stage,onOpenWorkstream,requestedSection}:{
@@ -265,10 +267,13 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     const attempt:PendingFmAttempt={moduleId,sectionCode:section,versionNo:version,
       title:cleanTitle,body:cleanBody,sourceReference:cleanSource};
     try {
+      const auth=await supabase.auth.getUser();
+      if(auth.error||!auth.data.user){setError("Sessão não confirmada; nenhuma revisão enviada.");return;}
+      attempt.authUid=auth.data.user.id;
       const fields=witnessFieldsFm({module_id:moduleId,section_code:section,version_no:version,
         title:cleanTitle,body:cleanBody,source_reference:cleanSource,
-        authority_state:"rascunho",evidence_level:"declarado"});
-      const witness=await makeWitness("fm",moduleId,fields,{section,version});
+        authority_state:"rascunho",evidence_level:"declarado",recorded_by_auth_uid:attempt.authUid});
+      const witness=await makeWitness("fm",moduleId,fields,{section,version,authUid:attempt.authUid});
       if(!fence.markStarted(witness)){
         setError("Não foi possível proteger a tentativa nesta sessão. Nenhum registro foi enviado.");
         return;
@@ -291,7 +296,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         setError("Envio efetuado, mas a revisão não foi integralmente confirmada. Recarregue o histórico antes de outra tentativa.");
         return;
       }
-      if(!fence.clearConfirmed()){
+      if(!fence.clearConfirmed(witness)){
         setWriteUncertain(true);
         setError("Revisão confirmada, mas a trava local não foi liberada. Não repetir; reconcilie a sessão.");
         return;

@@ -26,15 +26,15 @@ assert(pendingSource.includes('row.source_reference===pending.sourceReference'),
 assert(pendingSource.includes('row.authority_state==="rascunho"'),"Nunca inferir homologação");
 const vm=require("node:vm");
 const matcher=vm.runInNewContext(pendingSource.replace('=(row:Revision,pending:PendingFmAttempt)=>','=(row,pending)=>')+';matchesPendingFmAttempt');
-const attempt={moduleId:"mod-a",sectionCode:"FM-09",versionNo:7,title:"Título",body:"Texto original",sourceReference:"docs/origem.md"};
+const attempt={moduleId:"mod-a",sectionCode:"FM-09",versionNo:7,title:"Título",body:"Texto original",sourceReference:"docs/origem.md",authUid:"user-a"};
 const row={module_id:attempt.moduleId,section_code:attempt.sectionCode,version_no:attempt.versionNo,
  title:attempt.title,body:attempt.body,source_reference:attempt.sourceReference,
- authority_state:"rascunho",evidence_level:"declarado"};
+ authority_state:"rascunho",evidence_level:"declarado",recorded_by_auth_uid:"user-a",recorded_at:"2026-11-24T20:00:00Z"};
 assert.equal(matcher(row,attempt),true,"Correspondência total confirma a revisão");
 for(const [key,wrong] of [
  ["module_id","outro"],["section_code","FM-08"],["version_no",8],["title","Diferente"],
  ["body","Mudado"],["source_reference","outro.md"],["authority_state","homologado"],
- ["evidence_level","uso_real_verificado"]
+ ["evidence_level","uso_real_verificado"],["recorded_by_auth_uid","user-b"],["recorded_at","invalid"]
 ])assert.equal(matcher({...row,[key]:wrong},attempt),false,"Rejeitar divergência "+key);
 assert(k.includes('onDraftStateChange?.({dirty:draftDirty,busy:saving||writeUncertain||fence.blocked})'),"Estado indeterminado propaga bloqueio ao Atlas");
 assert(k.includes('if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked) return;'),"Nova escrita bloqueada após gravação ambígua");
@@ -97,7 +97,7 @@ for(const term of [
  'event.key!==key&&event.key!==null',
  'if(window.localStorage.getItem(key)!==null)',
  'if(current===null)return false;',
- 'state.witness?current!==JSON.stringify(state.witness):current!=="pending"',
+ 'witness?current!==JSON.stringify(witness):current!=="pending"',
 ])assert(fence.includes(term),"Proteção multiaba ausente: "+term);
 assert(fence.indexOf('if(window.localStorage.getItem(key)!==null)')<
  fence.indexOf('window.localStorage.setItem(key,witness?JSON.stringify(witness):"pending")'),
