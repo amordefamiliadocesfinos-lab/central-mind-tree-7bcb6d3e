@@ -148,6 +148,22 @@ export default function NucleoAc02NucContextRead(){
    <p className="text-xs">Mapa: {visibleResult.contribution.title} · v{visibleResult.contribution.version_no} · {visibleResult.contribution.authority_state}</p>
    <p className="text-xs break-all">Contribuição AC-01: {visibleResult.contribution.id}</p>
    <p className="text-xs">Especialidade descritiva: {visibleResult.specialist.specialty} — não homologada</p>
+   <section className="rounded-lg border p-3 space-y-2" aria-label="Identidade e vínculos de atuação">
+    <h5 className="text-sm font-semibold">Especialidade e contexto de atuação</h5>
+    <dl className="grid gap-2 sm:grid-cols-2 text-xs">
+     <div><dt className="text-muted-foreground">Especialidade descritiva</dt><dd className="font-medium">{visibleResult.specialist.specialty}</dd></div>
+     <div><dt className="text-muted-foreground">Papel funcional declarado</dt><dd>{visibleResult.specialist.role}</dd></div>
+     <div><dt className="text-muted-foreground">Módulo de atuação consultado</dt><dd>{visibleResult.module.code} · <span className="break-all">{visibleResult.module.id}</span></dd></div>
+     <div><dt className="text-muted-foreground">Identidade persistente / vínculo N:N</dt><dd>Cadastro relacional ainda não integrado ao Core.</dd></div>
+     <div><dt className="text-muted-foreground">Método geral</dt><dd>Não certificado nesta consulta; a proposta AC-01 abaixo é uma referência de planejamento.</dd></div>
+     <div><dt className="text-muted-foreground">Adaptação contextual</dt><dd>Frentes M3 e próximas ações abaixo; não equivalem a um método local vigente.</dd></div>
+    </dl>
+    <p className="text-xs text-muted-foreground">Mandato: {visibleResult.specialist.mandate} · Sucessor: {visibleResult.specialist.successor}. A consulta não herda autoridade e não cria vínculo de atuação.</p>
+    <div className="flex flex-wrap gap-2">
+     <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac01-piloto");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar registro AC-01</Button>
+     <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac02-quadro-decisao");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar continuidade e aprendizagem</Button>
+    </div>
+   </section>
    <section className="rounded-lg border p-3 space-y-3" aria-label="Painel de próximas ações das frentes NUC">
     <div className="space-y-1">
      <h5 className="font-semibold text-sm">Próximas ações · consulta do Core</h5>

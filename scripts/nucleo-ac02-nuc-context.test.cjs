@@ -55,3 +55,11 @@ assert.match(ui,/\{visibleResult&&<div/);
 
 assert.match(ui,/status==="consultivo_nao_homologado"/);
 console.log("PASS AC02 NUC: contrato fechado, filtros de escopo, JWT, grant, RLS, leitura mínima, negativa de homologação e UI");
+
+// F1/F2 transition: render the existing authenticated context without inventing a relational identity.
+assert.match(ui,/aria-label="Identidade e vínculos de atuação"/);
+assert.match(ui,/visibleResult\.specialist\.role/);
+assert.match(ui,/Cadastro relacional ainda não integrado ao Core/);
+assert.match(ui,/Método geral/);
+assert.match(ui,/Adaptação contextual/);
+assert.match(ui,/A consulta não herda autoridade e não cria vínculo de atuação/);
