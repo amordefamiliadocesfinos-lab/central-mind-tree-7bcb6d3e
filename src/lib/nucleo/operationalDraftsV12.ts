@@ -202,6 +202,26 @@ export const OPERACOES_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "A página Operacoes.tsx contém ações de criação e consulta de pedidos, navegação entre áreas operacionais e componentes de produção/estoque. MRPTab.tsx abre contexto assistido para Compras; PurchasesTab.tsx permite tratar condições financeiras por fluxo específico. Distinguir abrir/filtrar um registro de criar, faturar, receber, produzir ou movimentar fisicamente. Para cada comando, o responsável precisa confirmar permissões, evento persistido e eventual efeito em outro módulo. Não deduzir criação automática de compra, baixa de estoque ou quitação a partir da existência de botão ou RPC.",
     source: "src/pages/Operacoes.tsx; src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx; src/lib/purchases/confirmPurchaseFinancial.ts",
   },
+  "FM-03": {
+    title: "Operações — fronteiras entre planejamento e fato físico (rascunho)",
+    body: "Pedido representa demanda; OP organiza produção; MRP calcula necessidades e prazos; sugestão de compra não constitui recebimento. O código de Compras distingue confirmação com fornecedor (sem obrigação financeira ou estoque), faturamento (criação de obrigações, sem pagamento) e recebimento físico. Financeiro é autoridade sobre pagamentos; não inferir quitação da compra. ET1 exige distinguir pacote lacrado P100 de unidade EA por variante/local e preservar histórico. Não converter saldo legado automaticamente nem acionar produção, estoque, compra ou Shopee pelo Núcleo.",
+    source: "src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx; src/lib/purchases/confirmPurchaseFinancial.ts; docs/operacoes/ET1_EMBALAGEM_TRUFA_P100_EA_CONTRATO_TESTES.md",
+  },
+  "FM-06": {
+    title: "Operações — jornada MRP até preparação de compra (rascunho)",
+    body: "Na aba MRP, consultar Planejamento de compras: físico, necessidade produtiva, a receber, quantidade Comprar e prazo. Quando shortage > 0, Preparar compra encaminha para aba purchases com produto, necessidade, unidade e nome. Conferir identidade/variante, apresentação de compra, fornecedor, quantidade e condições antes de salvar; contexto MRP não prova pedido criado. A confirmação com fornecedor não altera estoque nem cria obrigação; faturamento e recebimento são etapas distintas. Consultar retorno e registro competente antes de declarar sucesso. Jornada fundamentada no código, não UAT atual nem autorização de execução.",
+    source: "src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx; src/lib/purchases/confirmPurchaseFinancial.ts",
+  },
+  "FM-09": {
+    title: "Operações — evolução e checkpoints documentais (rascunho)",
+    body: "Checkpoint histórico CB3 de 21/10: abertura de chocolate base prevista automaticamente, sem botão manual, dependente de contrato único recebimento/consumo/saída; nota é rascunho. ET1 PR #355 registra implementação parcial e proibição de migration antes dos acoplamentos. Preservar BOM, fatos de produção e saldos anteriores. O código MRP/Compras consultado distingue planejamento, preparação, confirmação e faturamento; isso não demonstra deploy ou aceite. Próxima ação documental: reconciliar o estado atual das frentes e evidências com o especialista Operações, sem reabrir contratos históricos ou promover conclusão por presença de código.",
+    source: "docs/operacoes/chocolate-cb3-notas-implementacao-20261021.md; docs/operacoes/ET1_EMBALAGEM_TRUFA_P100_EA_CONTRATO_TESTES.md; src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx",
+  },
+  "FM-10": {
+    title: "Operações — aprendizagens reutilizáveis e limites (rascunho)",
+    body: "ET1 documenta que 100 × P100 + EA conserva quantidade física nas conversões por variante/local; 500 EA não comprovam cinco pacotes fechados. Abrir apenas o mínimo necessário, atomicamente com o fato, sob lock e idempotência; conciliar antes de repetir e preservar BOM correta (product_batch_recipe_items não é BOM de embalagem). Não deduzir consumo das variantes sem BOM nem converter histórico por conveniência. CB3 reforça contrato único entre recebimento, produção e saída, sem publicar acoplamento parcial. MRP antecipa, fatos físicos confirmam; faturamento não é pagamento. Regras documentais e testes exigidos, não prova de ativação ou autorização de mudança de estoque.",
+    source: "docs/operacoes/ET1_EMBALAGEM_TRUFA_P100_EA_CONTRATO_TESTES.md; docs/operacoes/chocolate-cb3-notas-implementacao-20261021.md; src/components/operations/MRPTab.tsx; src/components/operations/PurchasesTab.tsx",
+  },
 };
 
 export const FINANCEIRO_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
