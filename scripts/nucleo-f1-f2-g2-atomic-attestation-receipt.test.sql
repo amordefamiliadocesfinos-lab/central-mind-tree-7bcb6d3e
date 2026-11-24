@@ -5,6 +5,10 @@
 
 -- Extend laboratory decision contract, not prior G2 fixture or G1 behavior.
 -- Executor can read attestations scoped to itself, but cannot create or edit them.
+-- This is the disposable local database only; required to use auth.uid() inside
+-- invoker triggers and RLS when switching to the isolated NOLOGIN executor.
+GRANT USAGE ON SCHEMA auth TO f12_grant_executor;
+GRANT EXECUTE ON FUNCTION auth.uid() TO f12_grant_executor;
 GRANT SELECT ON f12_lab.g2_decision_attestations,f12_lab.g2_competences TO f12_grant_executor;
 ALTER TABLE f12_lab.g2_decision_attestations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE f12_lab.g2_competences ENABLE ROW LEVEL SECURITY;
