@@ -6,6 +6,7 @@ import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { MODULE_PROVENANCE } from "@/lib/nucleo/operationalProvenanceV12";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
+import { COVERAGE_SOURCES, prepareCoverageBatch } from "@/lib/nucleo/coveragePreparation";
 
 type Filter = "todos" | "precisa_reconciliar" | "somente_catalogo" | "sem_frente" | "com_frente";
 
@@ -24,6 +25,14 @@ export default function NucleoCrossModuleCoverage({
   onOpenWorkstream:(id:string)=>void;
 }) {
   const [filter,setFilter]=useState<Filter>("todos");
+  const [preparation,setPreparation]=useState("");
+  async function prepareReferences(code:string,id:string,role:string){
+    try{
+      const batch=await prepareCoverageBatch(code,id,role);
+      await navigator.clipboard.writeText(JSON.stringify(batch,null,2));
+      setPreparation(`Lote ${code} copiado para revisão: ${batch.proposals.length} referência(s). Nenhum registro foi gravado.`);
+    }catch{setPreparation("Não foi possível preparar ou copiar o lote. Nenhum registro foi gravado.");}
+  }
   const rows=modules.map(module => {
     const record=workstreams.find(item => item.kind==="modulo" && item.code===module.id);
     const fronts=record ? workstreams.filter(item =>
@@ -77,6 +86,7 @@ export default function NucleoCrossModuleCoverage({
         <Button type="button" size="sm" variant={filter==="com_frente"?"default":"outline"}
           aria-pressed={filter==="com_frente"} onClick={()=>setFilter("com_frente")}>Com frente vinculada</Button>
       </div>
+      {preparation&&<p role="status" className="text-xs">{preparation}</p>}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visible.map(({module,record,fronts,subfronts,provenance,candidates,attentionFront})=>(
           <article key={module.id} className="rounded-lg border p-4 space-y-2 min-w-0">
@@ -158,6 +168,11 @@ export default function NucleoCrossModuleCoverage({
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3
               </Button>}
+              {record&&COVERAGE_SOURCES.some(source=>source.moduleCode===module.id)&&
+                <Button type="button" size="sm" variant="outline"
+                  onClick={()=>void prepareReferences(module.id,record.id,record.specialist)}>
+                  Preparar referências AC-01
+                </Button>}
             </div>
           </article>
         ))}

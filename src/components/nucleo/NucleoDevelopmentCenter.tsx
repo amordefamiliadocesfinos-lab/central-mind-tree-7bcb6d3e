@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoAc01PilotRegistration from "@/components/nucleo/NucleoAc01PilotRegistration";
 import NucleoAc02NucContextRead from "@/components/nucleo/NucleoAc02NucContextRead";
+import NucleoIdentityContext from "@/components/nucleo/NucleoIdentityContext";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
@@ -1310,6 +1311,8 @@ export default function NucleoDevelopmentCenter() {
                 </div>
                 <p className="text-xs text-muted-foreground">Após consultar AC-02 com a sessão autorizada, utilize o quadro de preparação para decisão apresentado na mesma seção. Sem nova consulta automática.</p>
               </nav>}
+              {moduleIdForWorkstream(selected,byId)&&<NucleoIdentityContext key={selected.id}
+                moduleId={moduleIdForWorkstream(selected,byId)!} frontId={selected.kind==="modulo"?null:selected.id} />}
               {selected.code==="NUC"&&<NucleoAc01PilotRegistration />}
               {selected.code==="NUC"&&<NucleoAc02NucContextRead />}
               {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">

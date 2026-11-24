@@ -18,6 +18,7 @@ import { deriveAc01ReviewCriteria } from "@/lib/nucleo/ac01ReviewCriteriaV13";
 import { prepareAc01HumanReviewBrief } from "@/lib/nucleo/ac01HumanReviewBriefV13";
 import { summarizeAc01ContributionV13 } from "@/lib/nucleo/ac01ContributionSummaryV13";
 import NucleoAC01ReviewContinuityRead from "@/components/nucleo/NucleoAC01ReviewContinuityRead";
+import NucleoAc01ContentComparison from "@/components/nucleo/NucleoAc01ContentComparison";
 
 type Tables={
  nucleo_ac01_decision_requests:{Row:Ac01Request;Insert:never;Update:never;Relationships:[]};
@@ -447,6 +448,9 @@ export default function NucleoAC01DocumentGovernance({
          </p>
        </div>
      </details>}
+     {selected&&assisted?.previous&&contributions.find(c=>c.id===assisted.previous?.id)&&
+      <NucleoAc01ContentComparison key={selected.id+moduleId}
+       previous={contributions.find(c=>c.id===assisted.previous?.id)!} current={selected} />}
      {review&&<section className="rounded-md border p-3 space-y-2"
        aria-label="Critérios verificáveis para revisão humana e consolidação assistida">
        <div className="flex flex-wrap items-center justify-between gap-2">

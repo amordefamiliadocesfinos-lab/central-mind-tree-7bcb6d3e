@@ -1,0 +1,476 @@
+MAPA MESTRE — NÚCLEO 2.0 V1.3
+ESCOPO INTEGRAL CONSOLIDADO E CONGELADO — CONHECIMENTO EM EVOLUÇÃO DOS ESPECIALISTAS
+PROJETO PAINEL CENTRAL — AMOR DE FAMÍLIA
+Data: 14/11/2026
+Autoridade: Camada Mestre, com base na determinação do proprietário
+Estado: ESCOPO FUNCIONAL V1.3 CONGELADO PARA EXECUÇÃO CONTROLADA
+Natureza: V1.2 INTEGRAL PRESERVADA + ADENDO SOBERANO AC-01, SEM NOVA FASE E SEM CANCELAMENTO DE ENTREGAS.
+
+FONTES INTEGRADAS NESTA VERSÃO
+- V1.0 (11/11/2026): arquitetura inicial M0–M5.
+- V1.1 (12/11/2026): finalidade de acompanhar TODO o Painel Central e CA-01–CA-12.
+- V1.2 (12/11/2026): conhecimento operacional, métodos/especialistas, interface visual e CA-13–CA-22.
+- Achado congelado AC-01 (14/11/2026): gestão contínua de versões e consolidação, CA-23–CA-29 literais.
+- Repasse técnico do Especialista Núcleo (14/11/2026): evidências e limites; não fonte de autoridade para reescrever CA.
+
+PREVALÊNCIA E PRESERVAÇÃO
+A Parte I abaixo incorpora a V1.2 VERBATIM, que por sua vez contém a V1.1 e herda a V1.0. A Parte II complementa os critérios CA-23–CA-29 SEM reduzir ou substituir CA-01–CA-22. Em caso de conflito, exigem-se confirmação da autoridade documental e preservação do patrimônio; não se admite promoção automática de fontes. A Parte III traz baseline factual transitória e roteiro de execução, não um novo mapa soberano. O documento V1.3 NÃO representa que as novas funcionalidades estejam implantadas ou homologadas.
+
+OBJETIVO INTEGRAL DO PROPRIETÁRIO
+O Núcleo existente é o centro VISUAL, LEGÍVEL, DINÂMICO E GOVERNADO para entender e acompanhar cada módulo, sua operação, seus especialistas, seus métodos e ecossistemas, sua evolução e seus documentos; para receber contribuições novas sem perdê-las, refiná-las e consolidá-las sob decisão do gestor; e para transmitir conhecimento confiável a humanos e IAs autorizadas. O Núcleo NÃO se limita a registrar o próprio desenvolvimento, NÃO é uma biblioteca paralela, e NÃO atua como escritor indiscriminado de fontes externas.
+
+═══════════════════════════════════════════════════════════════════════════
+PARTE I — BASE V1.2 REPRODUZIDA INTEGRALMENTE (SEM SUPRESSÕES)
+═══════════════════════════════════════════════════════════════════════════
+
+MAPA MESTRE — NÚCLEO 2.0
+V1.2 — ESCOPO INTEGRAL REFINADO: ECOSSISTEMA DOS ESPECIALISTAS, MANUAIS VIVOS E EXPERIÊNCIA VISUAL
+PAINEL CENTRAL — AMOR DE FAMÍLIA
+
+Data: 12/11/2026
+Estado: ESCOPO FUNCIONAL COMPLEMENTAR CONGELADO PELA CAMADA MESTRE
+Autoridade: Camada Mestre, sob determinação expressa do proprietário
+Base preservada: V1.0 (11/11/2026) e V1.1 (12/11/2026)
+Natureza da revisão: amplia o significado de Conhecimento, Arquitetura e Desenvolvimento com documentação operacional verificável por módulo e continuidade dos especialistas; NÃO cria outro Núcleo ou uma M6.
+
+PREVALÊNCIA: este V1.2 preserva integralmente as exigências V1.1 e acrescenta critérios específicos de operação, conhecimento de especialistas e interface humana. Em conflito, respeitar mapa soberano, autoridade documental efetiva, segurança e a missão integral do proprietário.
+
+═══════════════════════════════════════════════════════════════════════════
+PARTE I — REQUISITOS V1.1 INCORPORADOS SEM SUPRESSÕES
+═══════════════════════════════════════════════════════════════════════════
+
+MAPA MESTRE — NÚCLEO 2.0
+V1.1 — ESCOPO INTEGRAL, FINALIDADE REAL E CRITÉRIOS DE ACEITE
+PAINEL CENTRAL — AMOR DE FAMÍLIA
+
+Data: 12/11/2026
+Estado: ESCOPO FUNCIONAL ESTRATÉGICO CONGELADO PELA CAMADA MESTRE
+Natureza: evolução complementar e prevalente, no que explicita, ao MAPA_MESTRE_NUCLEO_2_0_V1_0_CONGELADO_2026-11-11.txt
+Autoridade: Camada Mestre, por determinação expressa do proprietário
+Escopo: Núcleo existente na rota /nucleo; nenhuma criação de sistema paralelo.
+
+1. DECLARAÇÃO INTEGRAL DA MISSÃO DO PROPRIETÁRIO
+
+Transformar o Núcleo existente do Painel Central em um CENTRO VISUAL, DINÂMICO, SELECIONÁVEL, NUMERADO E CONFIÁVEL de GOVERNANÇA, CONHECIMENTO, ARQUITETURA e ACOMPANHAMENTO DA EVOLUÇÃO DE TODO O PAINEL CENTRAL.
+
+O proprietário precisa abrir o Núcleo e compreender, sem reconstruir o contexto de inúmeros chats:
+- Tudo o que o Painel Central possui, está desenvolvendo, validando e ainda precisa fazer.
+- Todos os módulos, domínios, especialistas, frentes, subfrentes e suas dependências.
+- Qual é o escopo de cada frente, qual decisão rege sua existência e como mudou ao longo do tempo.
+- Quem responde por cada frente, o último checkpoint, a próxima ação e os impedimentos reais.
+- Quais arquivos, diretórios, branches, PRs, commits e testes do GitHub estão associados.
+- O que realmente está aplicado no Supabase Cloud oficial, inclusive migrations e infraestrutura observável.
+- Quais documentos, versões e métodos governam uma decisão, com Google Drive integrado à Biblioteca.
+- Quando surge uma nova frente ou descoberta, registrá-la no mapa sem perder a estrutura ou apagar a decisão anterior.
+- Usar interface administrativa amigável: mapas, árvore, fichas numeradas, seletores, filtros, Kanban, linha do tempo, dependências, estado de prova e alertas.
+- Registrar informações por escrita estruturada e seleção; associar evidências automaticamente quando a integração realmente as comprovar.
+
+DEFINIÇÃO DE SUCESSO: o Núcleo deixa de acompanhar predominantemente a própria construção e passa a permitir ACOMPANHAMENTO OPERACIONAL DO DESENVOLVIMENTO DE TODO O ECOSSISTEMA PAINEL CENTRAL.
+
+2. ACHADO E CORREÇÃO DE ESCOPO (12/11/2026)
+
+O proprietário declarou expressamente: “NÃO PERMITE”, respondendo à questão de se a Central atual permite acompanhar visualmente CRM, Shopee, Operações, Financeiro, Saúde e os especialistas, com suas frentes, prioridades, decisões e pendências.
+
+Portanto, o aceite técnico restrito da ENTREGA A (M0–M5) NÃO satisfaz o objetivo integral original. A Entrega A é base técnica aproveitável, não encerramento da missão.
+
+É proibido declarar o Núcleo 2.0 integralmente entregue porque há 7 frentes internas NUC-M0...M5, 49 evidências, catálogo metadata-only ou telas de supervisão do próprio Núcleo. Tais resultados são patrimônio e permanecem reconhecidos dentro de seus limites, mas não substituem o cadastro e acompanhamento real das frentes de TODO O PAINEL CENTRAL.
+
+Não desfazer entregas anteriores, não refazer M0–M5 do zero, não criar mapas paralelos, não invalidar automaticamente provas já homologadas. O trabalho é EVOLUIR A IMPLEMENTAÇÃO EXISTENTE até alcançar o objetivo completo.
+
+3. ARQUITETURA CONGELADA: UM NÚCLEO, TRÊS EXPERIÊNCIAS INTEGRADAS
+
+A. CONHECIMENTO E BIBLIOTECA
+- As oito áreas documentais originais permanecem preservadas: Biblioteca do Projeto, Consciência, Arquitetura, Princípios Arquiteturais, Atlas, IA Orquestradora, Evolução do Projeto e Estado Atual do Sistema.
+- Google Drive como acervo documental governado; fonte de um arquivo não implica autoridade automática.
+- Documentos vinculados a frentes e decisões por IDs, revisão/hashes quando viável, estado (vigente, proposta, histórico, supersedido, pendente), origem, aprovação e relações.
+- Busca, filtros e navegação sem duplicar todo o conteúdo no banco.
+- Migração documental integral das 82 páginas e outras origens permanece ENTREGA B separada, NÃO AUTORIZADA por este mapa. Preservar backup, conteúdo, versões, hashes, flags e storage local; nenhum overwrite/exclusão automática.
+
+B. ARQUITETURA
+- Atlas navegável dos domínios, módulos, componentes, contratos, decisões e dependências.
+- Distinguir a arquitetura desejada do estado implementado.
+- Relacionar cada módulo aos documentos soberanos, responsáveis, integrações e riscos.
+- Nenhum novo Núcleo nem substituição do Núcleo original.
+
+C. DESENVOLVIMENTO E VISÃO EXECUTIVA — EIXO CENTRAL DO PEDIDO
+- Painel visual de TODO O ECOSSISTEMA, não só NUC-M0–M5.
+- Inventário de módulos e especialistas reais.
+- Árvore hierárquica selecionável e numeração permanente: programa → domínio → módulo → frente → subfrente → tarefa/marco, sem exigir renumeração quando algo muda de lugar.
+- Frente com descrição escrita, escopo congelado, critérios de aceite, versão, responsável, relações, decisões, prioridade, dependências, bloqueadores, histórico e próximos passos.
+- Descobertas registradas como itens vinculados (incorporar, propor, adiar, transferir ou rejeitar) com motivo e vínculo ao escopo; não admitir alteração silenciosa do escopo homologado.
+- Kanban de estados, linha do tempo, filtros por domínio/responsável/prioridade/status/risco e mapa de dependências.
+- Visualizar código/diretórios/branches/main/PR/CI/merge, migrations/deploy do Supabase e fontes documentais por frente.
+- Central de alertas sobre lacunas, frentes sem checkpoint, evidências desatualizadas, divergências de versão, mudanças sem frente e dependências inconclusas.
+- Supervisão assistida pela IA: sugerir, explicar e relacionar evidências; jamais criar ou encerrar homologações com base só em inferência.
+
+4. COBERTURA OBRIGATÓRIA DO PAINEL CENTRAL
+
+A estrutura deve comportar todos os domínios presentes e futuros sem exigir alterações de código para registrar um novo módulo.
+
+A primeira cobertura real, verificada pelas fontes, deve incluir pelo menos:
+- CRM;
+- Shopee: Arquitetura Comercial, Mappings, Integração, implementação por conta;
+- Operações / Estoque / Produção;
+- Financeiro;
+- Saúde / CCH;
+- Captura Central;
+- Rotina, Planejamento, Calendário, Metas e Foco, conforme arquitetura vigente;
+- Núcleo, IA/Assistente, Digital e demais módulos encontrados no inventário real.
+
+A lista é mínima de investigação, NÃO lista fictícia de frentes supostamente concluídas. Cada domínio deve ser rastreado às fontes, sem inventar responsável, status ou progresso.
+
+Cobertura inicial pode ser incremental, mas o modelo deve suportar TODO o ecossistema e permitir cadastro manual assistido e importação de metadados com prova de origem. É proibido considerar implantação global homologada quando apenas os registros internos do Núcleo estiverem disponíveis.
+
+5. FUNCIONALIDADES DE CONTROLE NECESSÁRIAS
+
+5.1 Painel executivo: visão geral, distribuição por estados reais, prioridades, bloqueios, próximas ações e indicadores lastreados; sem percentuais arbitrários.
+5.2 Mapa selecionável: expandir/recolher domínios e frentes, abrir a ficha pelo ID estável, filtrar e localizar.
+5.3 Ficha operacional: identificador, título, objetivo, escopo original, decisão vigente, versão, fase, responsável, estados separados, critérios de aceite, bloqueios, dependências, checklist, notas, evidências e histórico.
+5.4 Cadastro e evolução: criar/editar subfrentes e descobertas, selecionar domínio e especialista, vincular ao mapa, registrar autor e timestamp; controles contra renumeração e duplicidade.
+5.5 Kanban: estados alterados por ação autorizada, justificativa e auditoria; não por suposição automática.
+5.6 Timeline: eventos de planejamento, desenvolvimento, testes, merge, implantação, aceites, adiamentos e decisões, preservando eventos anteriores.
+5.7 Dependências: relações explícitas com direção, status, origem e impacto; nunca inventar relações apenas pelo nome.
+5.8 Especialistas: cadastro/identidade funcional, responsabilidade e últimos checkpoints; um chat novo não significa uma frente nova.
+5.9 Evidências: links canônicos à fonte, SHA/ID, consulta e data; separar evidência automática, declaração humana e verificação operacional.
+5.10 Documentos: vínculo a originais Drive/Git e classificação de vigência, sem promoção automática.
+5.11 Alertas: baseados em regras transparentes, com origem, motivo e nível de confiança; alertas não alteram produção.
+5.12 Controle administrativo: ações, revisões de escopo, homologações e permissões auditáveis, com RLS e least privilege.
+5.13 Resiliência: o GitHub, Supabase e especialistas devem continuar a operar mesmo quando o Núcleo estiver indisponível; reconciliação posterior sem duplicações.
+
+6. FONTE SOBERANA POR ASSUNTO
+
+GitHub: código, estrutura de diretórios, branches, PRs, commits e CI.
+Supabase Cloud oficial: esquema, migrations efetivamente aplicadas, Auth, dados e estado aplicado.
+Google Drive: arquivos documentais originais e revisões; a hierarquia de homologação define a autoridade do documento.
+Núcleo: IDs e relações de governança, frentes, decisões humanas, estados de acompanhamento, vínculos e trilhas de auditoria. Não duplicar ou sobrescrever fatos originais das fontes.
+Especialistas/Camada Mestre: escopo e decisões de autoridade segundo seus contratos vigentes.
+
+Todo dado exibido deve ser classificado como: comprovado na fonte, registrado por responsável, inferido/pendente ou não verificado; registrar data de conferência e origem. 'Sem evidência' não significa 'não existe'.
+
+7. SEPARAÇÃO DOS ESTADOS (REGRA OBRIGATÓRIA)
+
+Os registros precisam distinguir no mínimo:
+Planejado → Em desenvolvimento → Código implementado → Testes realizados → PR mergeada → Deploy/Migration aplicados → Homologação funcional → Em uso real.
+
+Uma frente pode ter eixos paralelos de engenharia, implantação, segurança, documentação e aceite humano. Não deduzir conclusão operacional de CI ou merge. O adiamento de um teste não significa aprovação. Para conclusão, usar critérios verificáveis definidos na própria frente.
+
+8. REAPROVEITAMENTO OBRIGATÓRIO DAS ENTREGAS A / M0–M5
+
+M0: preservar auditoria e identificação de origem local; não afirmar inventário global de 82 páginas.
+M1: aproveitar schema/RLS/imutabilidade e registrar somente extensão mínima necessária; sem importação documental.
+M2: aproveitar referências privadas Drive metadata-only e ampliar catálogo conforme autoridade, sem copiar dados sensíveis.
+M3: EVOLUIR central de frentes existente para todos os domínios. O caminho crítico deste mapa é entregar gestão visual REAL, selecionável e acionável ao administrador.
+M4: aproveitar snapshots e evidências GitHub/Supabase; ampliar cobertura por domínio com coleta confiável e reconciliação. Sem alegar sincronização ao vivo ou escrita automática onde só há snapshots.
+M5: aproveitar supervisão read-only, expandir regras e filtros para frentes reais de todo o Painel; não tratar ausência de alertas como conclusão.
+
+O mapa original M0–M5 permanece congelado em finalidade e ordem histórica. Este V1.1 introduz o CRITÉRIO DE COBERTURA E EXPERIÊNCIA TRANSVERSAL indispensável ao cumprimento real dessas mesmas fases, sem apagar o legado.
+
+9. ENTREGAS E PORTÕES
+
+ENTREGA A — BASE TÉCNICA E GOVERNANÇA RESTRITA: aceite técnico com ressalvas já deliberado pela Camada Mestre. Continua válido, sem se converter em aceite integral do objetivo.
+
+ENTREGA A+ — REALIZAÇÃO OPERACIONAL VISUAL INTEGRAL (desdobramento de M3/M4/M5, não uma fase M6): integrar os módulos/especialistas/frentes reais, fornecer UI executiva e fichas selecionáveis, registrar descobertas, ligar evidências e permitir uso regular pelo gestor. A+ é uma designação de ACEITE FUNCIONAL de alcance, não altera o mapa M0–M5.
+
+ENTREGA B — MIGRAÇÃO DOCUMENTAL INTEGRAL: fronteira própria, preservada; importação, sobrescrita ou mudança da fonte de leitura não autorizadas neste V1.1.
+
+Gate para A+: deve haver inventário validado de módulos e especialistas, funcionamento real do cadastro e da navegação, testes de persistência/autorização, integração factual de evidências GitHub/Supabase e demonstração efetiva ao administrador. O especialista deve apresentar evidências por domínio, não apenas os registros técnicos do próprio Núcleo. Testes E2E da M3 e da M5 anteriormente adiados continuam pendentes; não mascarar nem obrigar que impeçam desenvolvimento independente.
+
+10. CRITÉRIOS DE ACEITE MENSURÁVEIS (SEM SIMULAÇÃO)
+
+CA-01: O administrador consegue visualizar uma árvore real de módulos do Painel Central, e não só NUC-M0–M5.
+CA-02: Consegue selecionar CRM, Shopee, Operações, Financeiro e Saúde e enxergar frentes fundamentadas com responsável, situação e próxima ação, mesmo que algumas ainda dependam de levantamento e sejam indicadas como não verificadas.
+CA-03: Consegue cadastrar nova frente/subfrente e descoberta relacionada, com ID estável, texto, opções selecionáveis, domínio, responsável e trilha de alteração, sem editar código.
+CA-04: Consegue acompanhar frentes por lista, árvore, Kanban e linha do tempo, com filtros funcionais e readback.
+CA-05: A ficha mostra documentos homologados e históricos vinculados e distingue fonte original de catálogo no Núcleo.
+CA-06: A ficha mostra PR, commit, CI, diretório e estado de deploy/migration quando comprovados; ausência de coleta é explicitada.
+CA-07: Uma nova decisão/alteração não elimina o escopo original, o histórico ou a origem da evidência.
+CA-08: Uma mudança detectada no GitHub ou Supabase não altera automaticamente um aceite humano; observabilidade tem timestamps e falha segura.
+CA-09: Operações administrativas ficam sob Auth/RLS, com testes de acesso autorizado e negado; dados/documentos privados não são expostos.
+CA-10: O proprietário consegue efetivamente usar a Central para identificar uma frente prioritária, seu último checkpoint, seu bloqueio e a próxima ação, sem recorrer aos chats para montar a visão macro.
+CA-11: A cobertura de cada domínio é explicitamente visível (inventariado/parcial/não verificado), evitando declarar globalidade de um catálogo inicial.
+CA-12: O sistema mantém sua capacidade de manutenção por GitHub/Supabase mesmo com o Núcleo indisponível.
+
+A conclusão integral exige prova funcional em uso real do proprietário, não apenas commits e contagens. Todos os casos devem ser evidenciados ou classificados como não homologados.
+
+11. MÉTODO E AUTONOMIA
+
+HERDAR → COMPREENDER → PRATICAR → COMPROVAR → APRENDER → SIMPLIFICAR → TRANSMITIR.
+SITUAÇÃO → CAUSA → AÇÃO → PROVA → REGRA REUTILIZÁVEL → LIMITE.
+
+Ao especialista: autonomia ampla para investigar, evoluir UI e schema dentro do Núcleo, estruturar cadastro e inventário, elaborar testes, branches/PRs, vincular evidências já autorizadas e corrigir problemas reversíveis. Não solicitar autorização para cada intervenção de escopo claro, sem prejuízo das normas superiores.
+
+Controle específico: mudanças irreversíveis de banco/documentos, concessões de privilégio, cross-domain RLS, importação da Entrega B, exclusões, promoção documental sem autoridade e mudança de mapa. Não usar construtor visual Lovable. Não tornar o Núcleo o executor obrigatório de todo código.
+
+12. DIRETRIZ DE EXECUÇÃO IMEDIATA AO ESPECIALISTA
+
+1. Herdar V1.0, este V1.1 e a auditoria oficial da PR #699; manter as decisões de aceite restrito com suas ressalvas.
+2. Verificar o estado técnico atual, evitar refazer o que já está implementado.
+3. Produzir confronto FUNCIONAL: missão integral x tela atual x dados reais x lacunas, especialmente a ausência de cobertura dos demais domínios.
+4. Apresentar o menor plano de evolução de M3, M4, M5 com dependências estritamente necessárias de M1/M2, preservando entregas existentes.
+5. Priorizar um primeiro ciclo vertical útil de ponta a ponta: cadastro/consulta de módulo real → frente real → responsável → estado/escopo → documento → evidência GitHub/Supabase → tela selecionável → readback → histórico.
+6. Escalar incrementalmente para os domínios restantes, mostrando cobertura e lacunas sem inventar dados.
+7. Desenvolver diretamente no GitHub, testar, publicar conforme gates, demonstrar uso real e atualizar registros originais; não proliferar documentação.
+8. Não importar as 82 páginas, não alterar a fonte documental em uso e não promover status das frentes automaticamente.
+
+13. REGRA DE PREVALÊNCIA E CONTINUIDADE
+
+Este documento formaliza integralmente a finalidade expressa do proprietário. Complementa e esclarece o Mapa Mestre Núcleo 2.0 V1.0, sem apagar sua história ou os aceites técnicos anteriores. Em caso de leitura divergente, prevalece a finalidade de acompanhamento VISUAL E OPERACIONAL DE TODO O PAINEL CENTRAL, respeitadas as fontes soberanas e as proibições de operações irreversíveis.
+
+Estado de congelamento: APROVADO NA CAMADA MESTRE NESTA CONVERSA. O registro no repositório deve ser realizado pelo Especialista, em local canônico existente, com versionamento e sem criar autoridade concorrente.
+
+FIM — MAPA MESTRE NÚCLEO 2.0 V1.1 — ESCOPO INTEGRAL CONGELADO
+
+
+═══════════════════════════════════════════════════════════════════════════
+PARTE II — ADENDO V1.2 CONGELADO: CONHECIMENTO OPERACIONAL, ESPECIALISTAS E UX
+═══════════════════════════════════════════════════════════════════════════
+
+14. MISSÃO AMPLIADA — ENTENDER E OPERAR O PAINEL, NÃO APENAS ACOMPANHAR CÓDIGO
+
+O Núcleo deve permitir que um operador humano, um novo especialista ou uma IA autorizada consiga, em pouco tempo, responder para QUALQUER MÓDULO:
+- O que é o módulo, qual problema resolve, para quem existe e onde entra no Painel Central.
+- O que faz e o que NÃO faz, inclusive fronteiras com módulos vizinhos.
+- Como acessar e quais pré-requisitos/permissões são necessários.
+- Quais funções existem hoje, quais estão em construção ou desativadas.
+- Como são organizadas as telas, menus, botões, formulários, estados, mensagens, atalhos e fluxos de uso.
+- O que acontece ao acionar cada função: entradas, efeito, confirmação, registro gerado, desfazer e riscos.
+- Como realizar tarefas frequentes do começo ao fim, com resultado esperado e como verificar.
+- Quem é o especialista responsável, qual método/ecossistema governa seu trabalho, qual mapa e último checkpoint valem.
+- Quais fontes técnicas/documentais comprovam cada afirmação, última verificação e lacunas.
+- O que o módulo já é em uso real versus o que está só previsto ou documentado.
+
+A meta de compreensão rápida deve ser aferida em ensaio com operador que não participou do desenvolvimento, sem presumir familiaridade. IA somente pode recomendar ações conforme permissões e contrato; conhecimento não autoriza execução automática.
+
+15. PADRÃO UNIVERSAL: FICHA VIVA DO MÓDULO (FM)
+
+Cada módulo terá um único registro canônico de identificação e ligações, com seções progressivas e versionadas:
+FM-01 IDENTIDADE — ID estável, nome, domínio, finalidade em 1–3 frases, público, rotas, estado de cobertura, especialista vigente.
+FM-02 VISÃO RÁPIDA — para que serve; 3–7 funções essenciais; tarefas mais comuns; links Abrir módulo, Ver manual, Ver frentes, Ver especialista.
+FM-03 FRONTEIRAS — escopo e não escopo; donos de dados, autoridade, integrações, dependências, riscos conhecidos.
+FM-04 MAPA DE TELAS — rotas, menus, abas, navegação, componentes e contexto de permissões, com evidência de versão.
+FM-05 CATÁLOGO DE AÇÕES — tabela individual de controles relevantes: tela, rótulo exato do botão/campo, localização, pré-condição, ação esperada, efeito real, persistência, confirmação/erro, reversibilidade, perigo e referência de prova.
+FM-06 JORNADAS PRÁTICAS — passo a passo para tarefas concretas, entradas/saídas, critérios de sucesso e problemas comuns; separação entre operação real, demonstração e proposta.
+FM-07 DADOS E EVIDÊNCIAS — origem GitHub/Supabase/Drive/uso real, contratos, tabelas, eventos, versões, timestamps e limites de prova; nunca expor secrets ou dados sensíveis por padrão.
+FM-08 GOVERNANÇA DO ESPECIALISTA — papel, responsabilidades, métodos ativos, ecossistema específico, mapa soberano, diretrizes congeladas, última transferência e checkpoint de continuidade.
+FM-09 EVOLUÇÃO — frentes, subfrentes, problemas, decisões, melhorias, PRs, testes, deploy, aceites, pendências, histórico e descoberta vinculada.
+FM-10 APRENDIZAGEM — lições reutilizáveis observadas no uso, anti-padrões, erros, causas, correções e critérios de atualização; não sobrepor metodologia soberana por mera observação.
+
+Não obrigar uma transcrição manual de cada linha de código ou de todo botão decorativo. Catalogar ações significativas para operação e risco; aplicar níveis de documentação completos gradualmente, mostrando cobertura.
+
+16. ECOSSISTEMA DOS ESPECIALISTAS — CONTINUIDADE ENTRE CHATS, MÉTODOS E EXPERIÊNCIAS
+
+O Núcleo deverá tratar o especialista como PAPEL FUNCIONAL PERSISTENTE, não como título de um chat. Um especialista pode ter várias conversas e transferências sem alterar a identidade de sua especialidade.
+
+Registro mínimo:
+- ID funcional, domínio, mandato e fronteiras; especialista anterior/atual e delegações autorizadas.
+- Método universal herdado + métodos especializados e suas versões/estados de autoridade; distinguir proposta, congelado, homologado, supersedido.
+- Documentos do ecossistema, plano e mapa vigentes, experiências operacionais, regras reutilizáveis e limites.
+- Sequência de frentes, checkpoints, decisões, pendências e evidências no Git; história da transferência.
+- Fontes soberanas relacionadas e estado real de aplicação.
+- Comando de assunção gerável como RASCUNHO estruturado a partir de fontes verificadas (nunca inventar contexto, conceder privilégios ou elevar proposta a norma).
+
+Modelo de herança: HERDAR → COMPREENDER → PRATICAR → COMPROVAR → APRENDER → SIMPLIFICAR → TRANSMITIR.
+Modelo de aprendizagem: SITUAÇÃO → CAUSA → AÇÃO → PROVA → REGRA REUTILIZÁVEL → LIMITE.
+As práticas não devem gerar burocracia: exigir apenas informação que facilite decisão, operação, prova e transferência. Não copiar arquivos inteiros de especialistas para o banco se links governados e metadados bastarem.
+
+17. EXPERIÊNCIA VISUAL HUMANA — REQUISITOS NÃO NEGOCIÁVEIS
+
+A interface deve ser LEGÍVEL, COMPREENSÍVEL, DINÂMICA, CONSISTENTE e ADAPTATIVA em desktop e mobile.
+- Primeira tela: visão executiva com módulos reais, frentes, especialistas, bloqueios, última atualização e próximas ações; sem exigir leitura de documento extenso.
+- Navegação em três níveis: VISÃO GERAL (decidir) → FICHA DO MÓDULO (entender) → DETALHE OPERACIONAL/PROVA (executar/aprender).
+- Menus claros e títulos familiares, busca global e dentro do Núcleo, breadcrumbs, filtros úteis, ordenação e expansão contextual.
+- Lista/árvore, Kanban, tabela compacta, linha do tempo e grafo de dependências como visões complementares do MESMO dado; não replicar bases.
+- Formulários: escrita + seleção, autocompletar, validação visível, estados vazios orientadores, cancelamento, salvamento com feedback e readback, histórico.
+- Tipografia e contraste acessíveis (referência WCAG 2.2 AA como meta); espaçamento, alinhamento, responsividade, foco de teclado e alvos de toque adequados; não depender de cor para status.
+- Resumo legível em 30–60 segundos para tarefas de gestão comuns, com detalhes sob demanda; este intervalo é alvo de experiência, NÃO SLA técnico já homologado.
+- Informação visual sempre honesta: origem, timestamp, status 'não verificado', 'em validação', 'sem dado'; não inventar progresso e não confundir zero alertas com conclusão.
+- Ícones com texto, etiquetas curtas, estados consistentes, notas explicativas e poucos cliques para chegar à frente.
+- Mostrar sempre 'O que é', 'O que faz', 'Como usar', 'Especialista', 'Método', 'Estado', 'Próxima ação', em organização fácil de escanear.
+- Suporte a usuário humano iniciante e avançado, e a consulta estruturada por IA, sem substituir verificação de permissões.
+
+18. CONHECIMENTO PARA IA: CONTRATO DE CONSUMO CONTROLADO
+
+O Núcleo deve expor, futuramente por consulta autenticada autorizada, dados estruturados que permitam a uma IA entender o módulo sem percorrer toda a base bruta. Resumo, mapa de tela, catálogo de ações, procedimentos, contratos, fonte, versão e grau de confiança são referências de consulta.
+
+Separar:
+- DESCRIÇÃO DOCUMENTADA: o que a fonte diz;
+- IMPLEMENTAÇÃO OBSERVADA: o que código e esquema provam;
+- USO REAL VERIFICADO: o que vídeo, operação ou teste comprovou;
+- PROPOSTA/PENDÊNCIA: o que ainda não existe ou não foi homologado.
+
+Toda instrução operacional destinada a IA deve informar objetivo, entradas, permissões, passos, validação, efeitos e proibições. A IA não poderá declarar sucesso sem retorno técnico nem fazer ações sensíveis por leitura de um manual. Respeitar isolamento e autorização do usuário.
+
+19. CICLO DE ATUALIZAÇÃO — MANUAL VIVO SEM DUPLICIDADE
+
+1. Identificar módulo e fonte/documento existente (não criar cópia por padrão).
+2. Inventariar rotas, funções e métodos com fontes efetivamente acessíveis.
+3. Classificar cada informação como verificada, observada, proposta ou não verificada.
+4. Revisar com especialista responsável as lacunas ou fronteiras, sem transferir sua autoridade ao Núcleo.
+5. Atualizar o registro canônico e suas relações, mantendo versão e histórico.
+6. Associar PR, commit, migration, evidência de teste ou uso real, conforme aplicável.
+7. Revalidar quando mudar UI, contrato, método ou fluxo importante; destacar conteúdo potencialmente desatualizado.
+8. Permitir revisão humana e registro de quem autorizou uma mudança normativa, sem promover automaticamente.
+
+Atualizações automáticas de GitHub/Supabase/Drive podem sinalizar 'documentação possivelmente desatualizada', mas não reescrever procedimentos homologados sem verificação.
+
+20. PLANO DE REALIZAÇÃO SEM MUDAR M0–M5
+
+A nova capacidade deve ser implementada como extensão das frentes já existentes, não uma nova fase:
+- M0: levantamento REAL de inventário dos módulos, especialistas, métodos e manuais de operação; preservar fontes e estados documentais.
+- M1: registro canônico/relacional da ficha, catálogo de funções e versões, com RLS e histórico; extensão mínima sobre a base existente.
+- M2: ligação aos documentos e ecossistemas no Drive/Git e busca orientada; sem migrar a biblioteca B por inferência.
+- M3: foco prioritário nas visões humanas e fichas navegáveis, com botão de ações, busca, seleção, edição, histórico e demonstrações práticas.
+- M4: evidência factual do comportamento implementado (rotas, componentes, PRs, migrações) ligada às funcionalidades descritas; sem assumir que o código equivale a uso real.
+- M5: detectar lacunas de documentação/fluxo, conflito de fontes e necessidade de revisão; IA explicativa e recomendações não executoras.
+
+Piloto vertical obrigatório: CRM, se existir material/autoridade verificável e acesso suficiente para inspecionar; caso contrário escolher outro módulo real documentado e justificar. O piloto deve apresentar DOIS TRAJETOS:
+(A) gestor acompanha frente/especialista/evidências do módulo;
+(B) operador humano ou IA autorizada entende o que o módulo é, como funciona e como realizar uma tarefa concreta, com tela/controle real e prova.
+Não produzir botões ou fluxos fictícios como se operacionais fossem.
+
+21. CRITÉRIOS ADICIONAIS DE ACEITE (CA-13 A CA-22)
+
+CA-13: Existe ao menos uma Ficha Viva de módulo real com finalidade, fronteiras, especialista, método, mapa e evidências verificadas.
+CA-14: O módulo piloto possui Mapa de Telas navegável e catálogo de ações relevantes, indicando rótulos dos botões, entradas, efeitos e status de verificação, sem atribuir função inventada.
+CA-15: Um operador humano que não participou do desenvolvimento consegue localizar uma tarefa, compreender os passos e identificar a confirmação/erro esperado usando a interface, com observação e registro do teste.
+CA-16: Um agente de IA autorizado consegue consultar os mesmos dados estruturados e explicar o fluxo com fontes e limites, sem acesso indevido nem execução implícita.
+CA-17: O método e o ecossistema do especialista estão vinculados à ficha do módulo com versão e autoridade, preservando históricos e transferências de chat.
+CA-18: Uma mudança de PR/UI pode gerar marcação de revisão documental pendente, sem alterar silenciosamente manual vigente.
+CA-19: O administrador consegue alternar entre Visão Geral, Módulo e Detalhe/Prova e encontrar uma frente ou função por busca e filtro, sem reconstruir contexto de chats.
+CA-20: Leitura acessível e responsiva testada ao menos em desktop e viewport mobile; navegação por teclado e contraste verificados nos caminhos críticos.
+CA-21: Registros editáveis têm validação, readback, autoria, datas e histórico; falha é exibida como falha ou estado indeterminado, jamais sucesso presumido.
+CA-22: Crescimento da cobertura para vários módulos é possível sem código novo para cada módulo; cada ficha exibe grau de cobertura real e não verificada.
+
+Estes CA-13 a CA-22 COMPLEMENTAM, não substituem, os CA-01 a CA-12 da V1.1. Aceite A restrito permanece aceito com ressalvas; A+ requer prova funcional do acompanhamento global E da compreensão operacional por módulo; B segue separada e não autorizada.
+
+22. PROIBIÇÕES E FRONTEIRAS REAFIRMADAS
+
+- Não transformar documentação histórica em instrução atual sem checar vigência.
+- Não confundir o uso real de um botão com a aparência do botão no código.
+- Não criar manual total de módulo com base em suposição ou interface não verificada.
+- Não coletar nem expor conversas, senhas, fichas de saúde ou registros empresariais sensíveis automaticamente.
+- Não utilizar IA para editar conteúdo normativo sem revisão de autoridade.
+- Não duplicar documentação inteira do Drive/Git no Supabase; utilizar referências e indexação governadas.
+- Não criar Núcleo paralelo, outro roadmap soberano ou M6.
+- Não iniciar migração B, substituir 82 páginas locais nem modificar grants/RLS alheios por conveniência.
+- Não bloquear a continuidade do trabalho dos especialistas caso o Núcleo esteja indisponível.
+
+FIM — MAPA MESTRE NÚCLEO 2.0 V1.2 — ESCOPO INTEGRAL REFINADO
+
+═══════════════════════════════════════════════════════════════════════════
+PARTE II — ADENDO AC-01: GESTÃO CONTÍNUA DO CONHECIMENTO DOS ESPECIALISTAS
+═══════════════════════════════════════════════════════════════════════════
+
+23. ACHADO CONGELADO E OBJETIVO FUNCIONAL
+
+Cada especialista, enquanto PAPEL FUNCIONAL PERSISTENTE vinculado a um módulo ou domínio, dispõe de um espaço VISUAL de Conhecimento e Evolução para receber ou vincular contribuições: método, ecossistema, manual, procedimento, experiência, aprendizado, mapa, checkpoint, arquivo ou nova versão.
+
+O proprietário/gestor autorizado deve poder localizar essas contribuições, distinguir rascunho/proposta de vigente, conferir origem e diferenças, solicitar refinamentos, manter propostas abertas sem perda, preparar consolidação, registrar decisão competente e consultar toda a cadeia histórica. O caminho deverá continuar compreensível em desktop/mobile, com navegação progressiva do módulo à especialidade e do documento à diferença/decisão.
+
+A nova entrega integra a ENTREGA A+ e evolui M1–M5. A Entrega A aceita com ressalvas permanece reconhecida e a Entrega B (migração documental integral do patrimônio local de 82 páginas e outras origens) continua SEPARADA E NÃO AUTORIZADA por este mapa.
+
+24. CRITÉRIOS CA-23 A CA-29 — REDAÇÃO LITERAL DO AC-01
+
+CA-23 — Ingestão ou vínculo de arquivo/referência por especialista, com identidade, origem e preservação do original.
+CA-24 — Histórico versionado e convivência de vigente, proposta, em evolução, histórico e divergente.
+CA-25 — Comparação legível de versões, diferenças, remoções, inclusões e conflitos.
+CA-26 — Consolidação assistida e governada, sem aprovação/promulgação automática por IA.
+CA-27 — Atualização controlada de referências vigentes após decisão humana competente; versões anteriores preservadas.
+CA-28 — Visão visual dinâmica das pendências, revisões, filas e decisões do gestor.
+CA-29 — Contexto reutilizável para continuidade de especialistas e orientação de humanos/IA autorizados; com fontes, limites, versões e permissões.
+
+Os sete critérios são INDEPENDENTES e NÃO podem ser renumerados ou reescritos com significados alternativos. A matriz temática do repasse técnico de 14/11 é apenas estudo de aderência provisório; não substitui esta redação literal.
+
+25. CONTRATO DE CONTEÚDO E AUTORIDADE
+
+A. Identidade mínima da contribuição: ID imutável; módulo/domínio; papel do especialista; vínculo opcional à frente/subfrente; tipo documental; título; origem (Drive/GitHub/storage privado autorizado/arquivo legado); URL ou localizador autorizado; hash/checksum quando factível; versão ou relacionamento de anterioridade; autoria identificável, data de recebimento e visibilidade; estado documental e justificativa; referência de autoridade/homologação, quando houver.
+B. Distinguir AUTOR / PROPONENTE / REVISOR / DECISOR / EXECUTOR da atualização. Um especialista pode propor sem possuir competência para homologar. A capacidade técnica `nucleo_manage`, isoladamente, NÃO deve ser interpretada como decisão substantiva do proprietário ou autoridade documental para promulgação.
+C. Estados documentais, com semântica específica e trilha auditável: recebido; em análise; em evolução; aguardando decisão; vigente homologado; histórico/supersedido; divergente/bloqueado. Estados intermediários não substituem o documento vigente. Registrar decisões de rejeição, devolução para refinamento ou manutenção separada, preservando o material.
+D. Vincular arquivo sem ler ou copiar conteúdo privado quando a permissão de origem não permitir. Limites de acesso do Drive/GitHub e das RLS do Core prevalecem. Não publicar documentos inteiros em GitHub público, logs, CI ou IA externa por conveniência.
+E. Histórico append-only ou revisional equivalente: não sobrescrever silenciosamente originais, hashes, versões, justificativas ou decisões. Tratamento seguro para duplicados por hash, homônimos e documentos divergentes: nunca deduplicar somente pelo título.
+F. Certificação de mandato é processo distinto de vínculo de documento: ausência de mandato formal não autoriza inventar titular; pode-se registrar contribuição com autoria/proveniência verificadas e estado não homologado, sem declará-la método vigente.
+
+26. CICLO OPERACIONAL DE PONTA A PONTA (CRITÉRIO DE ENTREGA)
+
+1 — RECEBER / VINCULAR. Selecionar módulo/especialista, anexar arquivo por armazenamento privado autorizado OU referenciar objeto existente de fonte governada, capturar metadados e validar permissão, integridade e duplicidade. Registro como proposta/recebido, nunca como vigente automático.
+2 — TRIAR. Exibir em fila visual do gestor, classificar tipo/autor/urgência/risco/versão/área afetada, preservando materiais sem decisão.
+3 — COMPARAR. Disponibilizar diferenças de versões elegíveis lado a lado: texto incluído, removido, modificado e conflitos de autoridade. Quando formato não permitir diff confiável, indicar limitação, não inventar diferença.
+4 — REFINAR. Permitir comentários, devolução, nova proposta e versões paralelas, com vínculo causal e histórico. O especialista não perde a contribuição rejeitada ou pendente.
+5 — CONSOLIDAR. Preparar rascunho derivado com fontes e trechos de procedência, com ou sem auxílio de IA AUTORIZADA. IA auxilia, não executa homologação, não assume identidade de autoridade humana.
+6 — DECIDIR / HOMOLOGAR. Registrar decisão explícita do gestor/autoridade competente, incluindo escopo, versão, data, responsável, documentos afetados e justificativa. Falha ou falta de permissão impede promoção.
+7 — PUBLICAR REFERÊNCIA VIGENTE. Atualizar referências canônicas pertinentes de método/ecossistema/Ficha Viva e manter anterior acessível; garantir readback/auditoria, não deslocar a fonte original ou reescrever histórico. Publicação e migração são eventos separados.
+8 — TRANSMITIR / REVISITAR. A ficha do especialista e o pacote de assunção recuperam versão vigente, propostas abertas, conflitos, limitações e histórico; alertas de PR/módulo podem sugerir revisão sem aprovar silenciosamente.
+
+27. EXPERIÊNCIA VISUAL NÃO NEGOCIÁVEL
+
+Entrada por: VISÃO GERAL → MÓDULO → ESPECIALISTA → CONHECIMENTO E EVOLUÇÃO → DOCUMENTO/VERSÃO → DIFF/DECISÃO/PROVA.
+- Cartões pequenos, legíveis e úteis; abas para vigente, propostas, em evolução, para decidir e histórico; contagens derivadas de dados reais e com data da leitura.
+- Busca e filtros por módulo, especialista, tipo, estado, origem, versão e pendência; evitar tabela técnica bruta como experiência principal.
+- Visualização de duas versões e alterações relevantes sem perda de contexto; seleção explícita da origem e do alvo antes de consolidar.
+- Fila do gestor com ações comprovadas: consultar, comparar, solicitar revisão, manter separado, preparar consolidação, encaminhar para aprovação, homologar quando autorizado.
+- Confirmação de salvar com readback, autoria, timestamps e indicação de erro ou estado indeterminado; nunca sucesso presumido.
+- Estados vazios orientadores, navegação responsiva, contraste/teclado, legibilidade e feedback de mudanças; detalhes técnicos sob demanda.
+- Um documento pode permanecer sem homologação indefinidamente e continua encontrável.
+
+28. REAPROVEITAMENTO POR FASE — SEM M6
+
+M0 — Herança/inventário: reconhecer fontes e origens; não reabrir acervo global sem razão ou importar localStorage.
+M1 — Persistência: aproveitar `nucleo_documents`, `nucleo_document_revisions`, `nucleo_module_knowledge_revisions` e relações existentes; modelar somente extensão mínima adicional e auditável para contribuições, estados/decisões e vínculos, se comprovadamente necessária.
+M2 — Biblioteca e Drive: aproveitar metadados e referências privadas; conteúdo remoto continua na fonte, sob sua permissão; upload privado requer contrato explícito para storage, versão, antivírus/validação apropriada, acesso e retenção.
+M3 — Interfaces e especialistas: ampliar Ficha Viva, atlas e componentes de mandato com espaço visual por especialista; manter mapa/frentes/experiências legados.
+M4 — Evidências: associar contribuições a PRs/CI/commits e mudanças comprovadas sem concluir que merge significa deploy, revisão documental ou aprovação.
+M5 — Supervisão: alertar ausência de revisão, conflitos e pendências; IA somente assistiva e autorizada; sem promoção, execução ou concessão automática.
+
+29. CRITÉRIOS DE ACEITE DA EVOLUÇÃO AC-01
+
+A execução técnica do fluxo de AC-01 só poderá ser classificada como entregue quando houver prova observável de:
+- Um documento REAL ou fonte real elegível vinculado a especialista e módulo sem perda de original, com hash/identificador/proveniência/autoridade.
+- Duas versões distintas localizáveis com histórico e marcação clara de qual é vigente, proposta ou não homologada.
+- Comparação legível por gestor com explicação das diferenças e conflitos, inclusive limite de formatos não suportados.
+- Proposta refinada e rascunho consolidado sem modificar a versão vigente.
+- Decisão competente e registrável testada em cenário autorizado e em cenário NEGATIVO sem autorização; nenhuma promoção baseada só no cadastro ou na IA.
+- Readback demonstrando referência vigente atualizada, histórico antigo preservado e possibilidade de recuperar as propostas.
+- Fila visual mostrando documentos em revisão e estados com atualização real; teste de navegação desktop e mobile.
+- Pacote de continuidade de especialista obtendo método/ecossistema vigentes e pendências documentais, sem exposição indevida a IA não autorizada.
+- Teste de falha/repetição, duplicidade e revogação sem perda de dados.
+
+Homologação final exige observação do gestor/operador autorizado. CI/merge/DDL não substituem UAT. Não reabrir artificialmente testes antes adiados, mas registrar que permanecem gates.
+
+30. FRONTEIRAS E PROIBIÇÕES
+
+- O Núcleo não homologa metodologias de outros especialistas por inferência; respeitar a autoridade da Camada Mestre e das fontes soberanas.
+- Não criar uma segunda Biblioteca, um segundo Núcleo, uma fase M6 ou duplicar o acervo no Supabase.
+- Não importar ou substituir o backup de 82 páginas, outros navegadores/ZIP/Drive em massa: Entrega B continua NÃO AUTORIZADA.
+- Não alterar automaticamente histórico, concessões administrativas, autoria, fluxos de CRM/Operações/Shopee/Saúde ou contratos de outros módulos.
+- Não fazer upload de documentos privados em GitHub público nem expor textos sensíveis em prompts/logs.
+- Não tratar proposta, versão mais nova, hash coincidente ou merge técnico como homologação.
+- Não bloquear desenvolvimento dos demais módulos se o Núcleo estiver indisponível.
+
+═══════════════════════════════════════════════════════════════════════════
+PARTE III — RECONCILIAÇÃO E PONTO DE PARTIDA (BASELINE, NÃO NORMA)
+═══════════════════════════════════════════════════════════════════════════
+
+31. CONFRONTO COM REPASSE DO ESPECIALISTA (CORTE 14/11/2026)
+
+Último checkpoint RELATADO e a conferir na execução: PR #763 integrada à main, merge SHA `3f983cfcbcd197c4088ebecbc40d79e0c3435b6b`.
+Inventário Core informado: 22 registros M3 (10 módulos, 8 frentes, 4 subfrentes), 51 evidências M4, 41 eventos M3, 3 referências Drive metadata-only; 0 documentos M1, 0 revisões FM, 0 mandatos formais, 0 dependências M3 e 0 lotes importados. Essas contagens são FOTO do corte e não medidor automático de conclusão futura.
+Cobertura: NUC (M0–M5), CRM (CRM-UX02), Shopee (F12 + quatro subfrentes); FIN/OPE/SAU/CAP/ROT/DIG/ASS predominantemente como cadastros de inventário. Não interpretar ausência de frente como ausência de desenvolvimento fora do Núcleo.
+A auditoria registra infraestrutura e componentes existentes: `NucleoModuleKnowledge.tsx`, `NucleoKnowledgeReviewConsole.tsx`, `NucleoMandateRegistry.tsx`, `NucleoMandateProposal.tsx`, `NucleoDriveReferences.tsx`, `NucleoOperationalAtlas.tsx`; tabelas M1/M3/M4 e `nucleo_module_knowledge_revisions`, `nucleo_specialist_mandate_records`.
+Conclusão factual: AC-01 NÃO está entregue de ponta a ponta; Entrega A+ NÃO homologada; Entrega A aceita com ressalvas; Entrega B não autorizada.
+
+32. RECONCILIAÇÃO DO ERRO DE CORRESPONDÊNCIA CA
+
+O repasse de 14/11 classificou CA-23–CA-29 tematicamente e declarou não possuir o texto literal do AC-01. A Parte II, item 24, RESTABELECE as definições literais disponíveis no documento oficial AC-01. As análises do repasse continuam úteis, mas as rubricas não devem ser usadas como nomes normativos dos CA. Nenhum CA-23–CA-29 pode ser marcado homologado por essa matriz provisória.
+
+33. ORDEM DE REALIZAÇÃO DA ENTREGA A+ COM AC-01
+
+P0 — Reconciliação mínima: confirmar último SHA/deploy, estrutura atual e contratos efetivos (sem reiniciar M0–M5).
+P1 — Contrato de fonte e autorização: definir papéis distintos proposta/revisão/homologação, conexões documentais e armazenamento; provar via RLS e testes; evitar conceder autoridade automática.
+P2 — Piloto vertical real: selecionar especialidade com fonte legítima e gestor autorizado; registrar proposta de vínculo e preservar original; validar inserção/readback e cenário negativo.
+P3 — Visão legível de comparação/refinamento: duas versões, diff, comentários, manutenção de rascunho e preparo de consolidação, sem promoção automática.
+P4 — Homologação governada: ato de autoridade, atualização controlada da referência e histórico imutável, com recuperação.
+P5 — Transmissão e aceites: pacote de sucessão + IA autorizada quando aplicável + homologação visual em sessão real; ampliar a mais de uma especialidade sem codificar componente exclusivo por módulo.
+
+EXECUÇÃO: respeitar este roteiro como prioridades DENTRO de M1–M5 e das frentes existentes. Não criar nova fase soberana, não rediscutir itens concluídos sem fato novo. PR/CI e deployment continuam critérios de evidência distintos.
+
+FIM DO ADENDO CONGELADO V1.3. A V1.2 acima permanece preservada integralmente.

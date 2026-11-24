@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs");
-const read=p=>fs.readFileSync(p,"utf8");
+const read=p=>fs.readFileSync(p,"utf8").replace(/\r\n/g,"\n");
 const a=read("src/components/nucleo/NucleoOperationalAtlas.tsx");
 const d=read("src/components/nucleo/NucleoModuleDiscovery.tsx");
 const g=read("src/components/nucleo/NucleoGuidedJourneys.tsx");

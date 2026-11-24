@@ -24,7 +24,7 @@ export type Ac01Record = {
  id:string;module_id:string;lineage_id:string;version_no:number;
  specialist_role:string;contribution_kind:string;title:string;
  authority_state:string;recorded_at:string;parent_revision_id:string|null;
- source_locator:string;source_kind:string;recorded_by_auth_uid:string;
+ source_locator:string;source_kind:string;recorded_by_auth_uid:string;source_checksum_sha256?:string|null;
 };
 export type Ac01Request = {
  id:string;contribution_id:string;recorded_at:string;requested_outcome:string;
