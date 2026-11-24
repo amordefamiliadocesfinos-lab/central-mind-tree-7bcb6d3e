@@ -202,13 +202,14 @@ export default function NucleoDevelopmentCenter() {
   const crmFronts=crmModule ? items.filter(item=>
     item.kind==="frente"&&item.parent_id===crmModule.id) : [];
   // Uma fila de uso real: navegação por frentes cadastradas, sem alterar estados.
-  const crmQueue=[...crmFronts].sort((a,b)=>{
+  const crmSubfronts=crmFronts.flatMap(front=>items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+  const crmQueue=[...crmFronts,...crmSubfronts].sort((a,b)=>{
     const rank=(item:DevelopmentWorkstream)=>item.status==="bloqueado"?0
       :item.priority==="critica"?1:item.priority==="alta"?2
       :item.status==="em_andamento"?3:4;
     return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
   });
-  const crmAttention=selectAttention(crmFronts);
+  const crmAttention=selectAttention([...crmFronts,...crmSubfronts]);
   const crmSelectedPosition=crmQueue.findIndex(item=>item.id===selectedId);
   // P2/P4: a mesma navegação M3/M4/M5/AC-01/AC-02 pode servir qualquer
   // módulo operacional cadastrado. CRM mantém o atalho do piloto original.
@@ -416,12 +417,9 @@ export default function NucleoDevelopmentCenter() {
 
   const focusModule=(module:DevelopmentWorkstream)=>{
     const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
-    const ranked=[...fronts].sort((a,b)=>
-      Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
-      ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
-       {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
-      a.code.localeCompare(b.code,"pt-BR"));
-    if(ranked[0]&&!choose(ranked[0].id))return;
+    const subfronts=fronts.flatMap(front=>items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+    const attention=selectAttention([...fronts,...subfronts]);
+    if(attention&&!choose(attention.id))return;
     setFilter("");setAttentionStatus(null);setSpecialistFocus("");
     setModuleFocusId(module.id);setWorkspaceView("frentes");
     requestAnimationFrame(()=>document.getElementById("nucleo-din-focus")
@@ -530,7 +528,7 @@ export default function NucleoDevelopmentCenter() {
                 <h4 className="text-sm font-semibold">CRM · acompanhamento direto</h4>
                 <p className="text-xs text-muted-foreground">
                   {crmModule
-                    ? `${crmFronts.length} frente(s) vinculada(s) ao CRM no Core M3 desta sessão. Não é inventário de todo o CRM.`
+                    ? `${crmFronts.length} frente(s) e ${crmSubfronts.length} subfrente(s) vinculadas ao CRM no Core M3 desta sessão. Não é inventário de todo o CRM.`
                     : "CRM não está cadastrado como módulo na leitura M3 atual. Consulte o Atlas sem presumir ausência do trabalho."}
                 </p>
                 {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhuma frente pendente localizada neste recorte M3. Consulte a fila para acessar as fichas existentes.</p>}
@@ -564,14 +562,18 @@ export default function NucleoDevelopmentCenter() {
               {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM")
                 .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR")).map(module=>{
                   const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
-                  const pending=fronts.filter(item=>item.status!=="concluido");
+                  const subfronts=fronts.flatMap(front=>items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+                  const linked=[...fronts,...subfronts];
+                  const pending=linked.filter(item=>item.status!=="concluido");
+                  const attention=selectAttention(linked);
                   return <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm break-words">{module.code} · {module.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {fronts.length} frente(s) diretas · {pending.length} sem conclusão declarada
+                      {fronts.length} frente(s) diretas · {subfronts.length} subfrente(s) · {pending.length} sem conclusão declarada
                     </p>
                     <Button type="button" size="sm" variant="outline" className="min-h-10"
                       onClick={()=>focusModule(module)}>Acompanhar módulo</Button>
+                    {attention&&<p className="text-xs break-words"><strong>Em atenção:</strong> {attention.code} · {attention.next_action.trim()||"Próxima ação não registrada"}</p>}
                   </div>;
                 })}
               {moduleOptions.every(module=>module.code.toUpperCase()==="CRM")&&
@@ -1087,7 +1089,7 @@ export default function NucleoDevelopmentCenter() {
                     <div>
                       <p className="text-sm font-semibold">CRM · fila de frentes do Core</p>
                       <p className="text-xs text-muted-foreground">
-                        {crmQueue.length} frente(s) M3 vinculada(s) diretamente ao CRM. Ordem por bloqueio e prioridade registrada, sem pontuação automática.
+                        {crmFronts.length} frente(s) e {crmSubfronts.length} subfrente(s) M3 vinculadas ao CRM. Ordem por bloqueio e prioridade registrada, sem pontuação automática.
                       </p>
                     </div>
                     <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
@@ -1139,7 +1141,7 @@ export default function NucleoDevelopmentCenter() {
                     </Button>
                   </div>
                   {crmSelectedPosition>=0&&<p className="text-xs font-medium" role="status">
-                    Frente {crmSelectedPosition+1} de {crmQueue.length} · {selected.code}
+                    Ficha {crmSelectedPosition+1} de {crmQueue.length} · {selected.code}
                   </p>}
                   <div className="flex flex-wrap gap-2" aria-label="Percorrer frentes CRM">
                     <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
