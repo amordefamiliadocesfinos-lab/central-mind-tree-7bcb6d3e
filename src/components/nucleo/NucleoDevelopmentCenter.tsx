@@ -878,6 +878,14 @@ export default function NucleoDevelopmentCenter() {
       <div id="nucleo-din-supervision" hidden={!supervisionExpanded} className={supervisionExpanded?"":"hidden"}>
         {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies}
           focusModuleId={supervisionFocusModuleId||undefined}
+          onOpenEvidence={id=>{
+            if(!byId.has(id)){toast.warning("Esta frente não está na leitura M3 atual. Atualize os registros.");return;}
+            if(!choose(id))return;
+            setSupervisionExpanded(false);
+            setExpandedEvidenceFor(id);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-technical-evidence")
+              ?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }}
           onOpenWorkstream={id=>{
             if(!byId.has(id)){toast.warning("Esta frente não está na leitura M3 atual. Atualize os registros.");return;}
             if(!choose(id))return;

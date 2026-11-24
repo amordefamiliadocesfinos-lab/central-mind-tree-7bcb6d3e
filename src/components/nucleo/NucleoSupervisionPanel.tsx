@@ -22,12 +22,13 @@ const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
 
 export default function NucleoSupervisionPanel({
-  workstreams, dependencies, focusModuleId, onOpenWorkstream,
+  workstreams, dependencies, focusModuleId, onOpenWorkstream, onOpenEvidence,
 }: {
   workstreams: DevelopmentWorkstream[];
   dependencies: DevelopmentDependency[];
   focusModuleId?: string;
   onOpenWorkstream?: (id: string) => void;
+  onOpenEvidence?: (id: string) => void;
 }) {
   const [evidence, setEvidence] = useState<TechnicalEvidence[]>([]);
   const [latestFronts, setLatestFronts] = useState<DevelopmentWorkstream[]>([]);
@@ -245,6 +246,14 @@ export default function NucleoSupervisionPanel({
                       const front=latestFronts.find(item=>item.code===finding.workstreamCode);
                       if(front)onOpenWorkstream(front.id);
                     }}>Abrir ficha M3 da frente</Button>}
+                {onOpenEvidence && finding.evidenceIds.length>0 && latestFronts.some(front=>front.code===finding.workstreamCode) &&
+                  <Button type="button" variant="outline" size="sm" onClick={()=>{
+                    const front=latestFronts.find(item=>item.code===finding.workstreamCode);
+                    if(front)onOpenEvidence(front.id);
+                  }}>Consultar evidências M4 da ficha</Button>}
+                {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && latestFronts.filter(target=>target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && latestFronts.some(origin=>origin.id===link.workstream_id && origin.code===finding.workstreamCode))).map(target=>(
+                  <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir dependência {target.code}</Button>
+                ))}
                 {finding.evidenceIds.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">
                     {finding.evidenceIds.length} evidência(s) associada(s), com origem verificável:
