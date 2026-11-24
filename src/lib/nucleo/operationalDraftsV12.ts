@@ -280,6 +280,31 @@ export const FINANCEIRO_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "O componente Financeiro.tsx integra listas de recebimentos/pagamentos, gestão de contas, categorias e contatos, notas, precificação e motor Shopee. O uso de useFinancial oferece ações de consulta e alteração que precisam ser analisadas por fluxo específico. A existência de componentes de importação ou conciliação não comprova suas regras de competência, liquidação, idempotência, arredondamento ou efeitos em compras. Não executar importação de extratos, confirmação de pagamento, estorno nem fechamento financeiro pelo Núcleo.",
     source: "src/pages/Financeiro.tsx; src/hooks/useFinancial.ts",
   },
+  "FM-03": {
+    title: "Financeiro — fronteiras de autoridade (rascunho)",
+    body: "O Estado Mestre V1.0 de 03/10 distingue obrigação/competência (financial_entries) de movimento realizado (financial_movements). Operações governa pedido de compra, itens, fornecedor, recebimento físico e estoque; Financeiro governa obrigação, vencimento, pagamento, recebimento, movimento e conciliação; Shopee fornece eventos externos, não comprovação de dinheiro no banco. O documento declara vigência naquela data, não prova estado técnico atual. Alterações transversais de schema e vínculos exigem Camada Mestre.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt",
+  },
+  "FM-06": {
+    title: "Financeiro — jornada obrigação até movimento (rascunho)",
+    body: "Jornada documental: identificar origem da obrigação, consultar lançamento, competência, vencimento, saldo e conta; distinguir confirmação comercial de faturamento. O código de Compras chama register_purchase_billing ou register_purchase_invoice_billing para faturamento. No Financeiro, PaymentDialog apresenta Registrar Pagamento/Recebimento e Confirmar Baixa. useFinancial exige conta, verifica valor contra saldo, registra movimento e atualiza data de pagamento quando totalmente quitado. Confirmar retorno e conciliar origem, obrigação e movimento; não presumir quitação nem atomicidade de todo o fluxo a partir do código. Jornada de consulta e orientação, sem autorização de execução financeira.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt; src/lib/purchases/confirmPurchaseFinancial.ts; src/components/financial/PaymentDialog.tsx; src/hooks/useFinancial.ts",
+  },
+  "FM-07": {
+    title: "Financeiro — fontes e evidências (rascunho)",
+    body: "Estado Mestre V1.0 recuperado de 03/10 é fonte histórica de continuidade, declara estado técnico em tempo real não confirmado. Código consultado: Financeiro.tsx, useFinancial.ts, PaymentDialog.tsx e confirmPurchaseFinancial.ts. Existem referências a financial_entries e registro de pagamentos, além de RPCs de faturamento de compra. A presença dessas funções comprova superfície técnica, não aplicação de migration, consistência contábil, atomicidade, idempotência ou funcionamento publicado. Não incorporar dados bancários, valores privados, credenciais ou registros pessoais à ficha. Conferir provas atuais no especialista competente.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt; src/pages/Financeiro.tsx; src/hooks/useFinancial.ts; src/lib/purchases/confirmPurchaseFinancial.ts",
+  },
+  "FM-09": {
+    title: "Financeiro — evolução e checkpoint histórico (rascunho)",
+    body: "O Estado Mestre de 03/10 registra homologação documental da reconstrução V0.1 como primeira V1.0 vigente naquele momento, sem declarar frentes concluídas. N1 Compra → obrigação; N2 origem → obrigação → pagamento → movimento; N3 Shopee taxa → recebível → repasse → movimento → conciliação; N4 uso real antes de inteligência. Hoje há código de faturamento de compras por RPC e registro de pagamentos, mas estado produtivo e abrangência não comprovados neste recorte. Próxima ação documental: reconciliar a fonte histórica com especialista e evidências atuais; vincular frente real somente após escopo comprovado, sem criar frente fictícia nem declarar fechamento financeiro.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt; src/lib/purchases/confirmPurchaseFinancial.ts; src/hooks/useFinancial.ts",
+  },
+  "FM-10": {
+    title: "Financeiro — aprendizagem e regras reutilizáveis (rascunho)",
+    body: "Diretrizes recuperadas do Estado Mestre: preservar a fundação existente, conectar fatos econômicos sem reconstruir o módulo; obrigação não é caixa; eventos marketplace não provam dinheiro recebido; fechar vínculos canônicos idempotentes antes de custos e inteligência. O código de baixa exige conta e limita valor ao saldo remanescente, incluindo pagamentos parciais no acompanhamento. A existência desses guardas não demonstra segurança de concorrência ou atomicidade: exigir evidência específica antes de declarar tais propriedades. Separar competência, vencimento, liquidação e movimento; preservar origem e histórico. Regras documentais e observações de código, não lições de incidente produtivo homologado nem orientação contábil.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt; src/hooks/useFinancial.ts; src/lib/purchases/confirmPurchaseFinancial.ts",
+  },
 };
 
 export const CAPTURA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
