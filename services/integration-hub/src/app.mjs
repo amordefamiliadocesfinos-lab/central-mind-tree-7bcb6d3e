@@ -490,6 +490,33 @@ export async function handleRequest(
     }
   }
 
+  // Read-only Celivio PDF task status; intentionally does not download or create documents.
+  if (normalizedPath === '/internal/shopee/celivio/f5/document-result') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length
+        || Number(request.headers?.['content-length'] ?? 0) !== 0
+        || request.headers?.['transfer-encoding'] || request.body) {
+      return json(400, { error: 'body_or_query_not_allowed' });
+    }
+    if (getEnv('SHOPEE_CELIVIO_F5_DOCUMENT_RESULT_ENABLED') !== 'true'
+        || getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== CELIVIO_C4C_ACCOUNT_ID
+        || getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN') !== '261121TBS6BHE6') {
+      return json(503, { status: 'blocked', code: 'celivio_document_result_disabled' });
+    }
+    try {
+      const result = await inspectShopeeLogistics({
+        orderSn: '261121TBS6BHE6', celivioDocumentResultOnly: true,
+      });
+      return json(result?.ok ? 200 : 503, result?.ok
+        ? { status: 'ok', mode: 'read_only', ...result }
+        : { status: 'degraded', mode: 'read_only',
+          code: result?.code ?? 'document_result_unavailable',
+          ...(result?.diagnostic ? { diagnostic: result.diagnostic } : {}) });
+    } catch {
+      return json(503, { status: 'degraded', mode: 'read_only', code: 'runtime_exception' });
+    }
+  }
+
   if (normalizedPath === '/internal/shopee/live/logistics/inspect') {
     if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
     if (request.query && Object.keys(request.query).length > 0) {
