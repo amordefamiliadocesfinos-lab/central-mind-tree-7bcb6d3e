@@ -1011,6 +1011,14 @@ export default function NucleoDevelopmentCenter() {
                         document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"});}}>
                       Ver todas do CRM
                     </Button>
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      onClick={()=>{
+                        setExpandedEvidenceFor(selected.id);
+                        requestAnimationFrame(()=>document.getElementById("nucleo-m3-technical-evidence")
+                          ?.scrollIntoView({behavior:"smooth",block:"start"}));
+                      }}>
+                      Abrir evidências M4
+                    </Button>
                   </div>
                   {crmSelectedPosition>=0&&<p className="text-xs font-medium" role="status">
                     Frente {crmSelectedPosition+1} de {crmQueue.length} · {selected.code}
@@ -1110,7 +1118,7 @@ export default function NucleoDevelopmentCenter() {
               </label>
                 </div>
               </details>
-              <section className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900" aria-label="Consulta de evidências técnicas M4">
+              <section id="nucleo-m3-technical-evidence" className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 scroll-mt-28 dark:border-slate-700 dark:bg-slate-900" aria-label="Consulta de evidências técnicas M4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-sm font-semibold">Evidências técnicas M4</h4>
