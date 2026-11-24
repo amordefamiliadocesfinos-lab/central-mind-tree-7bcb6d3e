@@ -38,7 +38,8 @@ test('Celivio F5 exact pilot reuses the existing Adão synchronizer with durable
   let observedOrder;
   const sync = createCelivioPilotLabelSync({
     getEnv: env,
-    readTombstones: async data => {
+    readTombstones: async (data, options) => {
+      assert.deepEqual(options, { timeoutMs: 12_000 });
       assert.deepEqual(data, { channel_account_id: ACCOUNT, order_sns: [ORDER] });
       return { ok: true, payload: { deleted_order_sns: [] } };
     },
