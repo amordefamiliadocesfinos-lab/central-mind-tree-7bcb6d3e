@@ -49,9 +49,11 @@ test('wrong Item/Model and duplicated mappings block the next evidence gate', ()
 
 test('unverified duplicate blocks; even all green remains non-writing', () => {
   const base = {...input, externalStatus:'PROCESSED', rawOrderDetailPersisted:true,
-    physicalConversionHomologated:true};
+    physicalConversionHomologated:true, duplicateChecked:true};
   const duplicate = assessCelivioC4CPreflight({...base, existingOrder:{id:'existing'}});
-  assert.ok(duplicate.blockers.includes('already_imported_or_unverified_duplicate'));
+  assert.ok(duplicate.blockers.includes('already_imported'));
+  const unverified = assessCelivioC4CPreflight({...base, duplicateChecked:false});
+  assert.ok(unverified.blockers.includes('duplicate_check_not_proven'));
   const clean = assessCelivioC4CPreflight(base);
   assert.equal(clean.candidateForNextGate,true);
   assert.deepEqual(clean.blockers,[]);
