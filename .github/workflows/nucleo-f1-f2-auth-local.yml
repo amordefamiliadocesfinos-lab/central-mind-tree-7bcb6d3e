@@ -1,0 +1,103 @@
+name: Núcleo F1-F2 — Supabase Auth local descartável
+on:
+  pull_request:
+    paths:
+      - "scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs"
+      - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
+      - "scripts/nucleo-f1-f2-g1-scope.test.sql"
+      - "scripts/nucleo-f1-f2-writer-audit.test.sql"
+      - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
+      - "scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql"
+      - "scripts/nucleo-f1-f2-g2-security-adversarial.test.sql"
+      - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
+      - "scripts/nucleo-f1-f2-g2-decider-local-auth.cjs"
+      - ".github/workflows/nucleo-f1-f2-auth-local.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-auth-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Supabase CLI (local only)
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.79.0
+      - name: Create isolated ephemeral local project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f12-auth-local"
+          cd "$RUNNER_TEMP/f12-auth-local"
+          supabase init --yes
+          supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/f12-auth-local.env"
+          python3 - <<'PY'
+          import os
+          allowed={'ANON_KEY','API_URL'}
+          path=os.environ['RUNNER_TEMP']+'/f12-auth-local.env'
+          with open(os.environ['GITHUB_ENV'],'a') as out:
+              for line in open(path):
+                  if '=' not in line: continue
+                  key,val=line.strip().split('=',1)
+                  if key not in allowed: continue
+                  val=val.strip('"').strip("'")
+                  print('::add-mask::'+val)
+                  out.write(f'{key}={val}\n')
+          PY
+      - name: Reproduce F1/F2 schema only in local Supabase Postgres
+        shell: bash
+        env: &db
+          PGHOST: 127.0.0.1
+          PGPORT: "54322"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          sed -e '/^CREATE SCHEMA auth;$/d' \
+              -e '/^CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE$/,+1d' \
+              scripts/nucleo-f1-f2-concrete-candidate.lab.sql > "$RUNNER_TEMP/f12-candidate-local.sql"
+          psql -X -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/f12-candidate-local.sql" >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-m3-official-compat.sql >/dev/null
+          # Local Supabase postgres role is not SUPERUSER; allow this fixture to impersonate its NOLOGIN executor.
+          # Never apply this role membership in hosted Supabase.
+          psql -X -v ON_ERROR_STOP=1 -c 'GRANT f12_grant_executor TO postgres;' >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.test.sql >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-cross-front-fixture.sql >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE VIEW public.f12_read_context WITH (security_invoker=true) AS SELECT id,specialty_id,module_id,front_id,card_type,public_label,public_source_ref FROM f12_lab.context_cards; GRANT SELECT ON public.f12_read_context TO authenticated; NOTIFY pgrst, '"'"'reload schema'"'"';' >/dev/null
+      - name: Actual local Auth signup/login and HTTP 401/403/200
+        env: *db
+        run: node scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs
+      - name: G1 explicit scope RLS regression on local Auth stack
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g1-scope.test.sql
+      - name: Audit writer contract on disposable Auth stack
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-writer-audit.test.sql
+      - name: G2 decider/executor authority fixture
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-authority-lab.sql
+      - name: G2 competing executor transactions in local Supabase Postgres
+        env: *db
+        run: node scripts/nucleo-f1-f2-g2-writer-race.cjs
+      - name: G2 local Auth identity of distinct decider
+        env: *db
+        run: node scripts/nucleo-f1-f2-g2-decider-local-auth.cjs
+      - name: G2 attested authority and transactional receipt
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql
+      - name: G2 security regression — both known bypasses denied
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-security-adversarial.test.sql
+      - name: Stop local-only stack
+        if: always()
+        shell: bash
+        run: |
+          if [ -d "$RUNNER_TEMP/f12-auth-local/supabase" ]; then
+            cd "$RUNNER_TEMP/f12-auth-local"
+            supabase stop --no-backup || true
+          fi
