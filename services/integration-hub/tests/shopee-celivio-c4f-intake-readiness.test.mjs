@@ -32,13 +32,14 @@ const raw=()=>({
 const input=()=>({raw:raw(),mappingMatches:[mapping],
  physicalConversionHomologated:true,duplicateChecked:true,existingOrder:null});
 
-test('real Celivio C4-E Raw meets C4-C structural facts but C4-F holds money, current status and shipping',()=>{
+test('real Celivio C4-E Raw proceeds to advisory preview with money and logistics still unknown',()=>{
  const r=assessCelivioC4FIntakeReadiness(input());
  assert.equal(r.advisoryStructuralCandidate,true);
- assert.equal(r.nextGateReady,false);
- assert.deepEqual(r.blockers,[
+ assert.equal(r.nextGateReady,true);
+ assert.deepEqual(r.blockers,[]);
+ assert.deepEqual(r.evidencePending,[
   'monetary_evidence_missing_or_unverified',
-  'shipping_context_unverified',
+  'shipping_context_for_later_operations',
   'current_external_status_not_rechecked',
  ]);
  for(const flag of ['writerAuthorized','operationalWrites','rawWrites','orderWrites',
@@ -50,8 +51,9 @@ test('no fabricated Shopee money: explicit confirmation flag cannot invent absen
  const r=assessCelivioC4FIntakeReadiness({...input(),
   monetaryEvidenceConfirmed:true,shippingContextConfirmed:true,
   latestExternalStatusConfirmed:true});
- assert.equal(r.nextGateReady,false);
- assert.ok(r.blockers.includes('monetary_evidence_missing_or_unverified'));
+ assert.equal(r.nextGateReady,true);
+ assert.ok(r.evidencePending.includes('monetary_evidence_missing_or_unverified'));
+ assert.equal(r.writerAuthorized,false);
 });
 
 test('even hypothetical complete independently confirmed evidence is not writer authorization',()=>{
@@ -62,10 +64,29 @@ test('even hypothetical complete independently confirmed evidence is not writer 
   monetaryEvidenceConfirmed:true,shippingContextConfirmed:true,
   latestExternalStatusConfirmed:true});
  assert.equal(r.nextGateReady,true);
+ assert.deepEqual(r.evidencePending,[]);
  assert.equal(r.writerAuthorized,false);
  assert.equal(r.orderWrites,false);
  assert.equal(r.itemWrites,false);
  assert.equal(r.separationAuthorized,false);
+});
+
+test('deferred shipping and missing optional money never authorize writer, labels or finance',()=>{
+ const i=input();
+ const a=assessCelivioC4FIntakeReadiness(i);
+ const b=assessCelivioC4FIntakeReadiness({...i,shippingContextConfirmed:true});
+ assert.equal(a.nextGateReady,true);
+ assert.equal(b.nextGateReady,true);
+ assert.equal(a.evidencePending.includes('shipping_context_for_later_operations'),true);
+ assert.equal(b.evidencePending.includes('shipping_context_for_later_operations'),false);
+ for(const r of [a,b]){
+  assert.equal(r.writerAuthorized,false);
+  assert.equal(r.orderWrites,false);
+  assert.equal(r.itemWrites,false);
+  assert.equal(r.inventoryActionAuthorized,false);
+  assert.equal(r.labelActionAuthorized,false);
+  assert.equal(r.tokenRefreshAuthorized,false);
+ }
 });
 
 test('raw identity or account mismatch, wrong model, paid-status regression and duplication block',()=>{
