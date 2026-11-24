@@ -153,3 +153,39 @@ BEGIN
  THEN RAISE EXCEPTION 'revocation lacks distinct actor and decision'; END IF;
  RAISE NOTICE 'PASS concrete F1/F2 SQL lab: N:N, methods, contextual RLS, invalid front, no writer, revoked/expired, admin, history';
 END $$;
+
+-- F4: exercise the AC-01 association independently of context-card counts.
+BEGIN;
+INSERT INTO f12_core.ac01_reference_fixture
+ (id,lineage_id,version_no,module_id,workstream_id,specialist_role,contribution_kind,source_kind,source_locator,authority_state,recorded_by_auth_uid)
+ VALUES ('71000000-0000-4000-8000-000000000001','72000000-0000-4000-8000-000000000001',1,
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'Especialista Núcleo 2.0','mapa','github','synthetic://ac01/mapa','proposta','30000000-0000-4000-8000-000000000001');
+INSERT INTO f12_lab.ac01_specialty_links(source_ref,contribution_id,assignment_id,declared_role,linked_by_auth_uid)
+ VALUES ('synthetic://source/nuc','71000000-0000-4000-8000-000000000001',
+ '40000000-0000-4000-8000-000000000001','Especialista Núcleo 2.0','30000000-0000-4000-8000-000000000099');
+DO $f4$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM f12_lab.ac01_specialty_links l JOIN f12_core.ac01_reference_fixture c ON c.id=l.contribution_id
+ WHERE c.authority_state='proposta' AND c.version_no=1 AND c.recorded_by_auth_uid='30000000-0000-4000-8000-000000000001'
+ AND l.linked_by_auth_uid='30000000-0000-4000-8000-000000000099') THEN RAISE EXCEPTION 'F4 original provenance lost'; END IF;
+ BEGIN
+ INSERT INTO f12_lab.ac01_specialty_links(source_ref,contribution_id,assignment_id,declared_role,linked_by_auth_uid)
+ VALUES ('synthetic://source/crm','71000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','Especialista Núcleo 2.0','30000000-0000-4000-8000-000000000099');
+ RAISE EXCEPTION 'F4 wrong module accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'F4_AC01_LINK_CONTEXT_OR_REVIEW_MISMATCH' THEN RAISE; END IF; END;
+ BEGIN
+ INSERT INTO f12_lab.ac01_specialty_links(source_ref,contribution_id,assignment_id,declared_role,linked_by_auth_uid)
+ VALUES ('synthetic://source/sec','71000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000003','Especialista Núcleo 2.0','30000000-0000-4000-8000-000000000002');
+ RAISE EXCEPTION 'F4 unreviewed link accepted';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'F4_AC01_LINK_CONTEXT_OR_REVIEW_MISMATCH' THEN RAISE; END IF; END;
+ BEGIN
+ UPDATE f12_lab.ac01_specialty_links SET declared_role='other' WHERE source_ref='synthetic://source/nuc';
+ RAISE EXCEPTION 'F4 mutable association';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'approved source metadata is immutable' THEN RAISE; END IF; END;
+ IF has_table_privilege('authenticated','f12_lab.ac01_specialty_links','INSERT') OR
+ has_table_privilege('authenticated','f12_lab.ac01_specialty_links','SELECT') OR
+ has_table_privilege('authenticated','f12_core.ac01_reference_fixture','SELECT') THEN RAISE EXCEPTION 'F4 raw access leaked'; END IF;
+ RAISE NOTICE 'PASS F4 association: existing AC01 identity, original author and state, cross-module and unauthorized reviewer denied, immutable and private';
+END $f4$;
+ROLLBACK;
