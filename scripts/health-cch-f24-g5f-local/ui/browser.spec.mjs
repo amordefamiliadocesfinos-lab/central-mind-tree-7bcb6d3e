@@ -50,6 +50,10 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  // Actual F19 requires a persisted result after work4; synthetic G5-E did not.
  const save=page.getByRole("button",{name:"Salvar resultado"});
  if(await save.count()) {
+   // Work timing is captured without performance by the RPC, but a new
+   // factual result must be supplied to the "Salvar resultado" UI gate.
+   await page.getByPlaceholder("kg").fill("80");
+   await page.getByPlaceholder(/plano 6/).fill("8");
    await save.click();
    try {
      await expect(page.getByRole("button",{name:"Resultado salvo"})).toBeVisible();
