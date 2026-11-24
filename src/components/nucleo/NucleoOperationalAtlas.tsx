@@ -8,6 +8,7 @@ import NucleoSpecialistContributions from "@/components/nucleo/NucleoSpecialistC
 import NucleoModuleDiscovery from "@/components/nucleo/NucleoModuleDiscovery";
 import NucleoMandateRegistry from "@/components/nucleo/NucleoMandateRegistry";
 import NucleoAc02ContinuityRead from "@/components/nucleo/NucleoAc02ContinuityRead";
+import NucleoContinuityTimeline from "@/components/nucleo/NucleoContinuityTimeline";
 import NucleoCrossModuleCoverage from "@/components/nucleo/NucleoCrossModuleCoverage";
 import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import { MODULE_PROVENANCE, SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
@@ -1360,6 +1361,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       Consulte AC-01 e a origem das evidências antes de utilizar o pacote consultivo. Nenhuma lição FM-09/FM-10 é presumida a partir destes eventos.
                     </p>
                   </section>
+                  <NucleoContinuityTimeline key={selectedRecord.id+"-timeline"}
+                    module={selectedRecord} workstreams={workstreams} events={events}
+                    onOpenWorkstream={onSelectWorkstream}
+                    onOpenDocuments={()=>openSpecialistPanel("documentos")}
+                    onOpenMandates={()=>openSpecialistPanel("mandato")}/>
                   <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
                     onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
                     onViewDocuments={()=>openSpecialistPanel("documentos")}
