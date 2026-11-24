@@ -95,6 +95,36 @@ export const CCH_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "A fonte documental CCH v5.4 declara-se soberana e congelada em 12/11/2026. O especialista técnico atual, seu mandato, versão de método e eventual sucessão ainda precisam ser vinculados à governança do Núcleo por evidência própria; não deduzir identidade nominal a partir do conteúdo do mapa. Preservar as fronteiras de autorização do módulo Saúde e não tratar a supervisão M5 read-only como executor de treinos ou intervenções.",
     source: CCH_MAP,
   },
+  "FM-02": {
+    title: "Saúde/CCH — visão rápida e propósito V6.0 (rascunho)",
+    body: "O CCH é acompanhamento individual, ensino, interpretação, prescrição assistida, execução e evolução; não apenas contador de séries. A experiência desejada inclui iniciar/retomar treino, cronômetros, escolha de exercício e séries extras, histórico, registro e correções auditáveis, progresso e próximo ciclo. Atende níveis iniciante, intermediário e avançado sem reduzir automaticamente o treino por baixa confiança nos dados. A decisão permanece com o atleta. A visão multidisciplinar U08 não autoriza expansão produtiva. Consultar /saude e /saude/treino/programa; distinguir objetivo de produto e funcionamento comprovado.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
+  "FM-05": {
+    title: "Saúde/CCH — controles e efeitos previstos F24 (rascunho)",
+    body: "O contrato V6.0 prevê + Série extra e Próximo exercício com igual destaque e escolha explícita; extras pertencem ao M4 e não reescrevem M3. O limite do schema é 100 séries. Timer é autoridade de execução; pausa, recarga e retomada devem preservar a escolha. Ver movimento é previsto sob demanda (G3 protótipo, não implantação); dicas ocasionais e silenciáveis pertencem ao G4 especificado. Publicar programa exige decisão manual e gate F22, com prescrição obrigatória completa. Estes são requisitos normativos, não catálogo de botões autenticado ou confirmação de comportamento produtivo. Não acionar controles de atletas para verificar esta ficha.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
+  "FM-06": {
+    title: "Saúde/CCH — jornada guiada e continuidade (rascunho)",
+    body: "Jornada alvo do V6.0: consultar objetivo e programa autorizado, iniciar ou retomar sessão, escolher exercício, registrar séries, decidir explicitamente entre extra e próximo exercício, preservar timer e histórico, conferir realizado versus planejado. Para revisão do programa, contexto autorizado e dados comparáveis → opções justificadas → draft M3 versionado → diff/revisão humana → publicação manual F22. Não inferir identidade de aparelho por rótulo ou sugerir kg sem evidência comparável. A jornada F24 G5 segue condicionada a provas autenticadas; não usar este rascunho como prescrição ou autorização para operar sessões reais.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
+  "FM-07": {
+    title: "Saúde/CCH — fontes e limites das evidências (rascunho)",
+    body: "V6.0 preserva mapas v5.4 e Motor V1.0, matriz E4, issues #966/#973/#980 e contratos M3/M4/F19/F21/F22. G1 #1025 e G2 #1027 integradas; E4 CI #45248590206 aprovada conforme matriz. G5-F #1036 usa Auth e banco efêmeros, não produção. A fonte registra falha residual React em #45394052270 apesar de cinco viewports executados; não tratar essa execução como homologação UX. Snapshot transacional, revisão servida e UAT permanecem pendências no checkpoint. Consultar issue #966 para fatos mutáveis. Não importar dados de saúde, fotos, prescrições ou histórico individual.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
+  "FM-09": {
+    title: "Saúde/CCH — evolução e checkpoint congelado V6.0 (rascunho)",
+    body: "Fotografia de 24/11: U01 F24 G5-F é prioridade imediata; G1/G2 integradas, falha residual local de escolha extra após PATCH/reload, causa raiz não comprovada. U02 E2/E3 engenharia integrada com homologação pendente/adiada; U03 E4 técnica aprovada com provas remanescentes. U04 G3 protótipo, U05/U06 G4 especificação, U07 E5 real bloqueada, U08 visão estratégica. F23 fechada. Próxima ação histórica: investigar montagem/estado e sequência PATCH/reload, corrigir menor causa e provar quinto início humano sem re-seleção artificial. Antes de continuar, recuperar checkpoint atual na #966; não presumir que a falha continua nem reabrir gates.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
+  "FM-10": {
+    title: "Saúde/CCH — aprendizagem e regras reutilizáveis (rascunho)",
+    body: "Lições do mapa: experiência declarada, confiança dos dados e fase real são independentes; lacuna de dados não implica iniciante nem redução automática de treino. Mesmo rótulo não comprova mesma máquina; unidade, atleta, exercício e proveniência condicionam comparabilidade. Volume executado não demonstra causalidade ou eficácia; mínimo técnico de observações não é limiar científico. Duas varreduras REST não são snapshot atômico. CI, laboratório Auth e revisão publicada são provas distintas; falha localizada pede menor correção, sem repetir provas válidas. Preservar escolha humana, histórico append-only e privacidade. Estas regras são documentais; não são aconselhamento clínico, medição individual ou autorização de intervenção.",
+    source: "docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md; https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/966",
+  },
 };
 
 
