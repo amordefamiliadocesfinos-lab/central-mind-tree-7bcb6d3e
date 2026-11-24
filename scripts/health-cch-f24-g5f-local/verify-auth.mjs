@@ -4,12 +4,12 @@ import fs from "node:fs";
 import {spawnSync} from "node:child_process";
 import {createClient} from "@supabase/supabase-js";
 
-const URL = process.env.API_URL;
+const API = process.env.API_URL;
 const ANON = process.env.ANON_KEY;
 const SERVICE = process.env.SERVICE_ROLE_KEY;
 const DB = process.env.DB_URL;
-if(!URL || !ANON || !SERVICE || !DB) throw Error("local CLI keys/DSN missing");
-const address = new URL(URL);
+if(!API || !ANON || !SERVICE || !DB) throw Error("local CLI keys/DSN missing");
+const address = new URL(API);
 if(!["localhost","127.0.0.1"].includes(address.hostname)) throw Error("non-local API blocked");
 const db = new URL(DB);
 if(!["localhost","127.0.0.1"].includes(db.hostname)) throw Error("non-local DB blocked");
@@ -26,8 +26,8 @@ const EX_B = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OTHER = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const REST3 = "20000000-0000-4000-8000-000000000003";
 const uniq = () => crypto.randomUUID();
-const admin = createClient(URL,SERVICE,{auth:{autoRefreshToken:false,persistSession:false}});
-const publicClient=()=>createClient(URL,ANON,{auth:{autoRefreshToken:false,persistSession:false}});
+const admin = createClient(API,SERVICE,{auth:{autoRefreshToken:false,persistSession:false}});
+const publicClient=()=>createClient(API,ANON,{auth:{autoRefreshToken:false,persistSession:false}});
 const pgsql=(sql)=>{
  const proc=spawnSync("psql",[DB,"-X","-v","ON_ERROR_STOP=1","-q"],{input:sql,encoding:"utf8",stdio:["pipe","pipe","pipe"]});
  if(proc.status!==0) throw Error("local PostgreSQL fixture failed: "+proc.stderr.replace(/(password|token|secret)\S*/ig,"[redacted]").slice(0,700));
