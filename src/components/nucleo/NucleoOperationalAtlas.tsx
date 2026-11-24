@@ -242,19 +242,23 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     .filter(event => specialistWork.some(item => item.id === event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
   // F5: somente os eventos M3 efetivamente carregados (janela global limitada).
-  const moduleRecentEvents=events
-    .filter(event=>moduleWork.some(item=>item.id===event.workstream_id))
-    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at)).slice(0,5);
-  const moduleLatestEvent = moduleRecentEvents[0];
+  const moduleEventIds=new Set(moduleWork.map(item=>item.id));
+  const moduleEventsInWindow=events
+    .filter(event=>moduleEventIds.has(event.workstream_id))
+    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
+  // Resumo geral limitado a cinco; busca de mudanças percorre a janela
+  // completa de eventos autorizados já carregados (até 200 globais).
+  const moduleRecentEvents=moduleEventsInWindow.slice(0,5);
+  const moduleLatestEvent = moduleEventsInWindow[0];
   // Eventos M3 permitem recuperar mudanças de próxima ação declarada, não
   // identificar automaticamente decisões soberanas ou aprendizado homologado.
-  const actionChanges=moduleRecentEvents.filter(event=>{
+  const actionChanges=moduleEventsInWindow.filter(event=>{
     const before=event.before_state?.next_action,after=event.after_state?.next_action;
     return typeof before==="string"&&typeof after==="string"&&before.trim()!==after.trim();
-  });
+  }).slice(0,5);
   // P4: apenas alterações explícitas nos snapshots de eventos M3;
   // ausência de snapshot ou registro sem mudança não é decisão inexistente.
-  const recordedEvidenceChanges=moduleRecentEvents.flatMap(event=>{
+  const recordedEvidenceChanges=moduleEventsInWindow.flatMap(event=>{
     const front=moduleWork.find(item=>item.id===event.workstream_id);
     if(!front||!event.before_state||!event.after_state)return [];
     const fields=[
@@ -269,7 +273,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       return [{id:event.id+"-"+field.key,eventId:event.id,front,field:field.label,
         before:before.trim(),after:after.trim(),at:event.recorded_at}];
     });
-  });
+  }).slice(0,8);
   const handoffPriority=[...modulePending].sort((a,b)=>
     Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
     ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
@@ -1016,7 +1020,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                         })}
                       </div>
                       <p className="mt-2 text-muted-foreground">
-                        Somente eventos presentes na janela M3 carregada; mudança textual não prova decisão da Camada Mestre,
+                        Até cinco mudanças encontradas nos eventos M3 carregados (janela global de até 200); mudança textual não prova decisão da Camada Mestre,
                         aceite, vigência nem causa da alteração.
                       </p>
                     </details>}
@@ -1035,7 +1039,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                         </div>)}
                       </div>
                       <p className="mt-2 text-muted-foreground">
-                        Diferenças extraídas dos snapshots antes/depois dos eventos M3 consultados.
+                        Até oito diferenças extraídas dos snapshots antes/depois na janela global M3 carregada (até 200 eventos).
                         Histórico administrativo não comprova decisão formal, documentação de origem ou aceite independente.
                       </p>
                     </details>}
