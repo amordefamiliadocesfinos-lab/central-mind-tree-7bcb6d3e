@@ -131,6 +131,31 @@ export const SHOPEE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "O método da F12 exige desenvolvimento pela frente especialista de Integração Shopee, GitHub como fonte de código e Lovable Cloud/Core como verdade operacional, com implantação isolada e autorização explícita. O mapa descreve a ordem F12.1 → F12.2 → F12.3 → F12.4 e proíbe criar frente paralela. A identidade nominal vigente do especialista e a eventual sucessão ainda precisam ser reconciliadas pela autoridade competente. O Núcleo só espelha registros existentes para acompanhamento humano; decisões de deploy, migrations, pedidos e escala são externas à Ficha Viva.",
     source: F12_MAP+"; "+SHP_MASTER,
   },
+  "FM-02": {
+    title: "Shopee — visão rápida da operação integrada (rascunho)",
+    body: "Finalidade: concentrar a rotina física na Central de Separação. Fluxo alvo: Shopee → Hub → Raw → normalização → mapping exato → Pedido, Itens e Separação → documento logístico oficial → preparação física → coleta comprovada. A Shopee continua fonte fiscal/logística; o Core governa o negócio. O mapa F12 registra a jornada Adão até a prévia combinada em 16/11; prévia não prova impressão física ou coleta. Consultar Operações / Separação e, no Núcleo, a frente F12 e suas evidências. Não executar operações por este rascunho.",
+    source: SHP_MASTER+"; "+F12_MAP,
+  },
+  "FM-04": {
+    title: "Shopee — superfícies operacionais e de acompanhamento (rascunho)",
+    body: "Código consultado: Operacoes.tsx admite aba separation e renderiza OrderSeparationBoard. Na Separação existem três colunas: A FAZER, EM PREPARAÇÃO e FINALIZADO; documentos anexados e prévia Etiqueta Shopee + Composição Interna. O diálogo ShopeeOrdersImportDialog é uma superfície distinta de importação. O Núcleo acompanha F12 e subfrentes sem operar o Hub. O mapa de telas é baseado no código e no mapa soberano; visibilidade por perfil e versão servida requerem prova autenticada.",
+    source: SHP_MASTER+"; src/pages/Operacoes.tsx; src/components/operations/OrderSeparationBoard.tsx",
+  },
+  "FM-05": {
+    title: "Shopee — controles significativos e efeitos (rascunho)",
+    body: "ETIQUETA PENDENTE: botão principal indisponível em A FAZER para pedido Shopee sem etiqueta. IMPRIMIR: solicita abertura do documento; conferir sucesso antes de marcar impressão. IMPRIMIR COMPOSIÇÃO INTERNA: documento auxiliar, não etiqueta oficial nem fato físico. IMPRIMIR ETIQUETA + COMPOSIÇÃO: abre prévia combinada quando existe shipping_label; prévia sozinha não move separação. FINALIZAR: ação na coluna EM PREPARAÇÃO, exige autorização e fato físico conforme mapa; estoque insuficiente exibe impedimento, não presumir baixa. REIMPRIMIR: acesso ao documento de pedido finalizado. Não acionar controles para testar esta ficha; código observado não certifica runtime.",
+    source: SHP_MASTER+"; src/pages/Operacoes.tsx; src/components/operations/OrderSeparationBoard.tsx",
+  },
+  "FM-09": {
+    title: "Shopee — evolução e checkpoint histórico (rascunho)",
+    body: "F12 permanece aberta sob escopo congelado; encerramento administrativo de 12/11 foi retificado. Checkpoint 16/11: F12.1 tem prova de dois envios no ciclo, não do teto 3+3; F12.2 PRs #623/#625 e #789, revisão isolada 00260-sug, sem homologação Live da reserva; F12.3 checkpoint/resume e testes isolados, concorrência real e meta 100/dia pendentes naquele recorte; F12.4 expansão sujeita a gates. Em 19/11 o caso Celivio documentou OAuth Live homologado, não homologação de pedidos/etiquetas. Estes são marcos históricos, não estado atual de Scheduler, flags ou tráfego. Próxima ação documental: reconciliar evidências posteriores com o especialista, preservando escopo e origem; nenhuma execução operacional.",
+    source: F12_MAP+"; docs/operations/METODO_IMPLANTACAO_SHOPEE_CELIVIO_NETO_V1_0_2026-11-19.md",
+  },
+  "FM-10": {
+    title: "Shopee — aprendizados reutilizáveis com limites (rascunho)",
+    body: "Caso Celivio 19/11: checklist antigo dizia Gateway pendente; inspeção FULL confirmou rota existente. Regra proposta: estado efetivo prevalece sobre checklist, diagnosticar bloqueio observável antes de mudar arquitetura. GET de início OAuth cria state/cookie; não tratar 302 como health-check. Preservar hostname durante consentimento e verificar Core antes de repetir. Causa dos 409/400 históricos não comprovada; instrumentação sanitizada e sucesso posterior não resolvem retrospectivamente a causa. F12: separar conta+pedido+pacote, claims duráveis, tombstones e reconciliação antes de retry; etiqueta e ship_order aceito não provam coleta física. Lição de ambiente compartilhado: revisão com flags diferentes pode afetar outras contas; conferir tráfego e configuração antes de promover. Método do caso aceito como registro, reutilização ainda em avaliação; não autoriza ações LIVE.",
+    source: F12_MAP+"; docs/operations/METODO_IMPLANTACAO_SHOPEE_CELIVIO_NETO_V1_0_2026-11-19.md",
+  },
 };
 
 
