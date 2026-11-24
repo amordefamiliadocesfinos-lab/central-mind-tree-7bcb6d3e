@@ -1,0 +1,80 @@
+name: CCH F24 G5-F Auth/RLS/F19 Local Disposable
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/health-cch-f24-g5f-local/**'
+      - '.github/workflows/health-cch-f24-g5f-local.yml'
+      - 'supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql'
+permissions:
+  contents: read
+jobs:
+  local-auth:
+    name: Disposable real GoTrue PostgREST PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Install pinned local Supabase CLI (no hosted login)
+        run: npm install --no-save --no-package-lock --ignore-scripts=false supabase@3.1.0
+      - name: Run one ephemeral local Auth/RLS/F19 verification and teardown
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_URL
+          unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+          tmp="$(mktemp -d /tmp/cch-g5f-auth-XXXXXX)"
+          mkdir -p test-results
+          export G5F_RPC_SQL="$tmp/f19-functions.sql"
+          export G5F_EVIDENCE="$tmp/evidence.json"
+          teardown(){
+            set +e
+            timeout 180s npx supabase stop --workdir "$tmp" --no-backup >/dev/null 2>&1
+            echo "G5-F teardown attempted, no backup, local project only"
+            rm -rf "$tmp"
+          }
+          trap teardown EXIT
+          npx supabase init --workdir "$tmp"
+          # Never use the repository's real Supabase project configuration.
+          sed -i "s/^project_id *=.*/project_id = \"cch-g5f-${GITHUB_RUN_ID}\"/" "$tmp/supabase/config.toml"
+          grep -Fx "project_id = \"cch-g5f-${GITHUB_RUN_ID}\"" "$tmp/supabase/config.toml" >/dev/null
+          npx supabase --help >/dev/null
+          npx supabase start --help >/dev/null
+          timeout 1100s npx supabase start --workdir "$tmp" >"$tmp/start.log" 2>&1 || {
+            echo "G5-F local Supabase failed to start; no remote fallback"
+            tail -25 "$tmp/start.log" | sed -E 's/(eyJ[A-Za-z0-9_-]{24})[A-Za-z0-9_-]+/[REDACTED]/g'
+            exit 1
+          }
+          npx supabase status --workdir "$tmp" -o env >"$tmp/status.env"
+          chmod 600 "$tmp/status.env"
+          set -a
+          source "$tmp/status.env"
+          set +a
+          test "${API_URL:-}" = "http://127.0.0.1:54321"
+          case "${DB_URL:-}" in
+            postgresql://postgres:*@127.0.0.1:54322/postgres) ;;
+            *) echo "G5-F DB not confirmed as local"; exit 1;;
+          esac
+          test -n "${ANON_KEY:-}" && test -n "${SERVICE_ROLE_KEY:-}"
+          echo "G5-F isolated local stack is ready; keys and DSN not logged"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f scripts/health-cch-f24-g5f-local/fixture.sql
+          node scripts/health-cch-f24-g5f-local/extract-rpcs.mjs
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$G5F_RPC_SQL"
+          node scripts/health-cch-f24-g5f-local/verify-auth.mjs
+          cp "$G5F_EVIDENCE" test-results/g5f-auth-local.json
+      - name: Upload sanitized local evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cch-f24-g5f-auth-local-evidence
+          path: test-results/g5f-auth-local.json
+          if-no-files-found: warn
+          retention-days: 7
