@@ -97,6 +97,7 @@ export default function NucleoDevelopmentCenter() {
   const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0);
   // D5: pedido de navegação, sem escrita; Atlas mantém consulta e rascunhos.
   const [ac01Jump,setAc01Jump] = useState<{moduleCode:string;stage:"versoes"|"refinar"|"historico";seq:number}|null>(null);
+  const [ac02Jump,setAc02Jump] = useState<{moduleCode:string;seq:number}|null>(null);
   const [returnToAtlas,setReturnToAtlas] = useState(false);
   const [atlasNavigationRequest,setAtlasNavigationRequest] = useState(0);
   const [lastOpenedId,setLastOpenedId] = useState("");
@@ -609,6 +610,7 @@ export default function NucleoDevelopmentCenter() {
           {atlasVisited&&<NucleoOperationalAtlas workstreams={items} dependencies={dependencies} events={history}
             searchRequestSeq={moduleSearchRequestSeq}
             requestedAc01={ac01Jump}
+            requestedAc02={ac02Jump}
             onPrepareModule={prepareModule}
             onSelectWorkstream={id => {
               if (!choose(id)) return;
@@ -1053,6 +1055,18 @@ export default function NucleoDevelopmentCenter() {
                         setAc01Jump(prev=>({moduleCode:crmModule.code,stage:"versoes",seq:(prev?.seq??0)+1}));
                       }}>
                       Consultar versões AC-01
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      onClick={()=>{
+                        if(hasPendingChanges && !window.confirm(
+                          "Há alterações não salvas na ficha M3. Continuar ao contexto AC-02 sem descartar a minuta?"
+                        ))return;
+                        setWorkspaceView("geral");
+                        setAtlasVisited(true);
+                        setAtlasExpanded(true);
+                        setAc02Jump(prev=>({moduleCode:crmModule.code,seq:(prev?.seq??0)+1}));
+                      }}>
+                      Continuar AC-02 e checkpoints F5
                     </Button>
                   </div>
                   {crmSelectedPosition>=0&&<p className="text-xs font-medium" role="status">
