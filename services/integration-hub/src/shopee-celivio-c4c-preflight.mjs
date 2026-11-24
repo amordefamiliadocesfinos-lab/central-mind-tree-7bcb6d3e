@@ -13,7 +13,7 @@ export function assessCelivioC4CPreflight({
   channelAccountId, shopId, orderSn, externalStatus,
   itemId, modelId, quantity, mappingMatches = [],
   rawOrderDetailPersisted = false, physicalConversionHomologated = false,
-  existingOrder = null,
+  existingOrder = null, duplicateChecked = false,
 } = {}) {
   const blockers = [];
   if (text(channelAccountId) !== CELIVIO_C4C_ACCOUNT_ID
@@ -36,7 +36,8 @@ export function assessCelivioC4CPreflight({
 
   if (rawOrderDetailPersisted !== true) blockers.push('raw_order_detail_not_persisted');
   if (physicalConversionHomologated !== true) blockers.push('physical_conversion_not_homologated');
-  if (existingOrder !== null) blockers.push('already_imported_or_unverified_duplicate');
+  if (duplicateChecked !== true) blockers.push('duplicate_check_not_proven');
+  if (existingOrder !== null) blockers.push('already_imported');
 
   return {
     schemaVersion: 1,
