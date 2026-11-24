@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
 
@@ -60,24 +60,30 @@ export const guidedStrategies: Array<{ value: GuidedStrategy; label: string; det
     detail:"Apresentar a recuperação como contexto, sem reduzir automaticamente o treino."},
 ];
 export function useCchCycleAdvisor(athleteId: string | null | undefined, versionId: string | null | undefined, programId?: string | null) {
-  const [assessment,setAssessment]=useState<Assessment>(empty);
-  const [loading,setLoading]=useState(false);
-  const [error,setError]=useState<string | null>(null);
+  const scope=JSON.stringify([athleteId??null,versionId??null,programId??null]);
+  const [snapshot,setSnapshot]=useState<{scope:string;assessment:Assessment;loading:boolean;error:string|null}>({scope:"",assessment:empty,loading:false,error:null});
+  const generation=useRef(0);
+  const activeScope=Boolean(athleteId&&versionId&&programId);
+  const assessment=snapshot.scope===scope?snapshot.assessment:empty;
+  const loading=activeScope&&(snapshot.scope!==scope||snapshot.loading);
+  const error=snapshot.scope===scope?snapshot.error:null;
   const [generating,setGenerating]=useState(false);
 
   const refresh=useCallback(async()=>{
-    if(!athleteId||!versionId||!programId){setAssessment(empty);setError(null);return;}
-    setLoading(true);setError(null);
+    const request=++generation.current;
+    if(!athleteId||!versionId||!programId){setSnapshot({scope,assessment:empty,loading:false,error:null});return;}
+    setSnapshot({scope,assessment:empty,loading:true,error:null});
     try{
       const result=await supabase.rpc("health_cch_assess_cycle_v10" as never, {p_program_id:programId} as never);
       if(result.error)throw new Error(result.error.message);
       const data=result.data as unknown as Assessment;
       if(!data || data.source_version_id!==versionId)throw new Error("Versão da auditoria divergente do programa.");
-      setAssessment(data);
-    }catch(cause){setError(cause instanceof Error?cause.message:"Auditoria indisponível");setAssessment(empty);}
-    finally{setLoading(false);}
-  },[athleteId,versionId,programId]);
-  useEffect(()=>{void refresh()},[refresh]);
+      if(request===generation.current)setSnapshot({scope,assessment:data,loading:false,error:null});
+    }catch(cause){
+      if(request===generation.current)setSnapshot({scope,assessment:empty,loading:false,error:cause instanceof Error?cause.message:"Auditoria indisponível"});
+    }
+  },[athleteId,versionId,programId,scope]);
+  useEffect(()=>{void refresh();return()=>{generation.current++;}},[refresh]);
 
   const recommendations=useMemo(()=>{
     const candidates=assessment.exercise_assessments.filter(e=>e.decision==="progress_candidate").length;
@@ -114,7 +120,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
       suggestions;
   },[assessment]);
   const generate=useCallback(async(program:string,goal:GuidedGoal,strategy:GuidedStrategy,priorityMuscleId?:string,allowTargetedSets=false,recovery:RecoveryReport="unknown",symptoms:SymptomReport="unknown")=>{
-    if(!athleteId||!versionId||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
+    if(!athleteId||!versionId||!programId||program!==programId||loading||assessment.source_version_id!==versionId||error)throw new Error("Auditoria atual válida obrigatória.");
     setGenerating(true);
     try{
       const result=await supabase.rpc("health_cch_generate_guided_cycle_v10" as never,
@@ -123,7 +129,7 @@ export function useCchCycleAdvisor(athleteId: string | null | undefined, version
           p_recovery_report:recovery,p_symptom_report:symptoms} as never);
       if(result.error)throw new Error(result.error.message);
     }finally{setGenerating(false);}
-  },[athleteId,versionId,assessment.source_version_id,error]);
+  },[athleteId,versionId,programId,loading,assessment.source_version_id,error]);
   const saveIncrement=useCallback(async(exerciseId:string,label:string,unit:string,increment:number)=>{
     if(!athleteId)throw new Error("Atleta indisponível");
     const result=await supabase.rpc("health_cch_save_load_increment" as never,
