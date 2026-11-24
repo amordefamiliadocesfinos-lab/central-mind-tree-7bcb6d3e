@@ -24,11 +24,13 @@ jobs:
       - name: Install repository dependencies
         run: npm ci
       - name: Install pinned local Supabase CLI (no hosted login)
-        run: npm install --no-save --no-package-lock --ignore-scripts=false supabase@3.1.0
+        run: npm install --no-save --no-package-lock --ignore-scripts=false supabase@3.1.0 @playwright/test@1.56.1
       - name: PostgreSQL client for disposable database inspection
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
+      - name: Install ephemeral Chromium
+        run: npx playwright install chromium --with-deps
       - name: Run one ephemeral local Auth/RLS/F19 verification and teardown
         shell: bash
         run: |
@@ -42,11 +44,18 @@ jobs:
           mkdir -p test-results
           export G5F_RPC_SQL="$tmp/f19-functions.sql"
           export G5F_EVIDENCE="$tmp/evidence.json"
+          export G5F_LOGIN_JSON="$tmp/login.json"
           teardown(){
             set +e
             (cd "$tmp" && timeout 180s "$cli" stop --no-backup --project-id "cch-g5f-${GITHUB_RUN_ID}") >/dev/null 2>&1
-            echo "G5-F teardown attempted, no backup, local project only"
+            remaining="$(docker ps -a --format '{{.Names}}' | grep -F "cch-g5f-${GITHUB_RUN_ID}" || true)"
+            volumes="$(docker volume ls --format '{{.Name}}' | grep -F "cch-g5f-${GITHUB_RUN_ID}" || true)"
             rm -rf "$tmp"
+            if [ -n "$remaining" ] || [ -n "$volumes" ]; then
+              echo "G5-F teardown incomplete: local resources detected"
+              return 1
+            fi
+            echo "G5-F teardown verified: zero local project containers and zero volumes"
           }
           trap teardown EXIT
           (cd "$tmp" && "$cli" init)
@@ -88,12 +97,17 @@ jobs:
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$G5F_RPC_SQL"
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -c "NOTIFY pgrst, 'reload schema';"
           node scripts/health-cch-f24-g5f-local/verify-auth.mjs
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" npx playwright test --config scripts/health-cch-f24-g5f-local/ui/playwright.config.mjs
           cp "$G5F_EVIDENCE" test-results/g5f-auth-local.json
       - name: Upload sanitized local evidence only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cch-f24-g5f-auth-local-evidence
-          path: test-results/g5f-auth-local.json
+          path: |
+            test-results/g5f-auth-local.json
+            test-results/g5f-browser-results.json
+            test-results/g5f-auth-*.png
+            test-results/g5f-browser-traces/
           if-no-files-found: warn
           retention-days: 7
