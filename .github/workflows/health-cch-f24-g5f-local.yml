@@ -6,6 +6,9 @@ on:
       - 'scripts/health-cch-f24-g5f-local/**'
       - '.github/workflows/health-cch-f24-g5f-local.yml'
       - 'supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql'
+concurrency:
+  group: cch-g5f-local-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
