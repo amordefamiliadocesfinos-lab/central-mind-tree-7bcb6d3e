@@ -8,6 +8,7 @@ on:
       - "scripts/nucleo-f1-f2-writer-audit.test.sql"
       - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
       - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
+      - "scripts/nucleo-f1-f2-g2-decider-local-auth.cjs"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
   workflow_dispatch:
 permissions:
@@ -81,6 +82,9 @@ jobs:
       - name: G2 competing executor transactions in local Supabase Postgres
         env: *db
         run: node scripts/nucleo-f1-f2-g2-writer-race.cjs
+      - name: G2 local Auth identity of distinct decider
+        env: *db
+        run: node scripts/nucleo-f1-f2-g2-decider-local-auth.cjs
       - name: Stop local-only stack
         if: always()
         shell: bash
