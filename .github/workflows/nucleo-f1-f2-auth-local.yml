@@ -8,6 +8,7 @@ on:
       - "scripts/nucleo-f1-f2-writer-audit.test.sql"
       - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
       - "scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql"
+      - "scripts/nucleo-f1-f2-g2-security-adversarial.test.sql"
       - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
       - "scripts/nucleo-f1-f2-g2-decider-local-auth.cjs"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
@@ -89,6 +90,9 @@ jobs:
       - name: G2 attested authority and transactional receipt
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql
+      - name: G2 security adversarial — expected gaps and full rollback
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-security-adversarial.test.sql
       - name: Stop local-only stack
         if: always()
         shell: bash
