@@ -140,12 +140,14 @@ assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"')
 assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));
 // Work UX-01 / achados UX01-01, UX01-02, UX01-03: testes do contrato visual.
 const center=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
-assert(center.includes("const crmAttention=selectAttention(crmFronts);"),"CRM reutiliza seleção de atenção");
+assert(center.includes("const crmAttention=selectAttention([...crmFronts,...crmSubfronts]);"),"CRM reutiliza seleção de atenção");
 const crmSelector=center.match(/const crmAttention=([^;]+);/)[1];
 for(const [crmFronts,expected] of [[[done],null],[[done,normal],"normal"],[[critical,blocked],"blocked"],[[],null]]){
- assert.equal(vm.runInNewContext(crmSelector,{crmFronts,selectAttention})?.id??null,expected);
+ assert.equal(vm.runInNewContext(crmSelector,{crmFronts,crmSubfronts:[],selectAttention})?.id??null,expected);
 }
-assert(center.includes("const crmQueue=[...crmFronts].sort("),"Preservar fila completa para navegação, inclusive concluídas");
+assert.equal(vm.runInNewContext(crmSelector,{crmFronts:[done,critical],crmSubfronts:[blocked],selectAttention}).id,"blocked");
+assert(center.includes("const attention=selectAttention([...fronts,...subfronts]);"),"Atenção transversal inclui subfrentes");
+assert(center.includes("const crmQueue=[...crmFronts,...crmSubfronts].sort("),"Preservar fila completa para navegação, inclusive concluídas");
 for(const token of [
  'const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0)',
  'const openModuleSearch=()=>{',
