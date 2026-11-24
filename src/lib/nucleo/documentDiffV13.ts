@@ -13,15 +13,20 @@ export type DiffResultV13={
 };
 const MAX_CHARS=12000;
 const MAX_LINES=180;
-export function compareDocumentVersionsV13(before:string,after:string):DiffResultV13{
+export function compareDocumentVersionsV13(before:string,after:string,options?:{
+  maxChars?:number;maxLines?:number;preserveLineEndings?:boolean;
+}):DiffResultV13{
+  // Existing FM defaults stay unchanged; authorized local files reuse this engine.
+  const maxChars=Math.min(options?.maxChars??MAX_CHARS,200000);
+  const maxLines=Math.min(options?.maxLines??MAX_LINES,600);
   const unavailable=(reason:string):DiffResultV13=>({state:"indisponivel",reason,lines:[],included:0,removed:0});
-  if(before.length>MAX_CHARS||after.length>MAX_CHARS){
-    return unavailable("Texto excede 12.000 caracteres: comparação integral indisponível. Consulte as versões na fonte original.");
+  if(before.length>maxChars||after.length>maxChars){
+    return unavailable(`Texto excede ${maxChars.toLocaleString('pt-BR')} caracteres: comparação integral indisponível. Consulte as versões na fonte original.`);
   }
-  const left=before.replace(/\r\n/g,"\n").split("\n");
-  const right=after.replace(/\r\n/g,"\n").split("\n");
-  if(left.length>MAX_LINES||right.length>MAX_LINES){
-    return unavailable("Documento excede 180 linhas: não gerar diferenças parciais.");
+  const left=(options?.preserveLineEndings?before:before.replace(/\r\n/g,"\n")).split("\n");
+  const right=(options?.preserveLineEndings?after:after.replace(/\r\n/g,"\n")).split("\n");
+  if(left.length>maxLines||right.length>maxLines){
+    return unavailable(`Documento excede ${maxLines} linhas: não gerar diferenças parciais.`);
   }
   const matrix=Array.from({length:left.length+1},()=>new Uint16Array(right.length+1));
   for(let i=left.length-1;i>=0;i--){

@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto'),cp=require('node:child_process'),ts=require('typescript');
 function load(file,mocks={}){const m={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(m,m.exports,name=>mocks[name]);return m.exports;}
-const diff=load('src/lib/nucleo/ac01ContentComparison.ts');
+const diff=load('src/lib/nucleo/ac01ContentComparison.ts',{'./documentDiffV13':load('src/lib/nucleo/documentDiffV13.ts')});
 function reconstruct(rows,kind){return rows.filter(x=>x.kind!==kind).map(x=>x.text).join('\n');}
 for(const [a,b] of [['a\nb\nc','a\nx\nc'],['','abc'],['a\na','a'],['same','same'],['a\n','a'],['á\r\nb','á\nb']]){
  const rows=diff.compareAuthorizedText(a,b);
