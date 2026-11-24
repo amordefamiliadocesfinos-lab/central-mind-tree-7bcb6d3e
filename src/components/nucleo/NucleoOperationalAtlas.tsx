@@ -252,6 +252,24 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const before=event.before_state?.next_action,after=event.after_state?.next_action;
     return typeof before==="string"&&typeof after==="string"&&before.trim()!==after.trim();
   });
+  // P4: apenas alterações explícitas nos snapshots de eventos M3;
+  // ausência de snapshot ou registro sem mudança não é decisão inexistente.
+  const recordedEvidenceChanges=moduleRecentEvents.flatMap(event=>{
+    const front=moduleWork.find(item=>item.id===event.workstream_id);
+    if(!front||!event.before_state||!event.after_state)return [];
+    const fields=[
+      {key:"evidence_state",label:"Situação da evidência"},
+      {key:"evidence_note",label:"Descrição da evidência"},
+      {key:"acceptance_criteria",label:"Critério de aceite"},
+      {key:"blocker",label:"Bloqueio"},
+    ] as const;
+    return fields.flatMap(field=>{
+      const before=event.before_state?.[field.key],after=event.after_state?.[field.key];
+      if(typeof before!=="string"||typeof after!=="string"||before.trim()===after.trim())return [];
+      return [{id:event.id+"-"+field.key,eventId:event.id,front,field:field.label,
+        before:before.trim(),after:after.trim(),at:event.recorded_at}];
+    });
+  });
   const handoffPriority=[...modulePending].sort((a,b)=>
     Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
     ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
@@ -558,15 +576,19 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     </p>
                     {(pendingWithoutAction.length>0||withoutOwner.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
                       aria-label="Lacunas de acompanhamento das frentes">
-                      {pendingWithoutAction.slice(0,3).map(front=><p key={front.id}>
-                        <strong>{front.code}</strong> · {front.title}
-                      </p>)}
+                      {pendingWithoutAction.slice(0,3).map(front=><div key={front.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{front.code}</strong> · {front.title} · sem próxima ação</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(front.id)}>Abrir ficha M3</Button>
+                      </div>)}
                       {pendingWithoutAction.length>3&&<p className="text-muted-foreground">
                         Mais {pendingWithoutAction.length-3} item(ns) sem ação neste recorte.
                       </p>}
-                      {withoutOwner.slice(0,3).map(item=><p key={"responsavel-"+item.id}>
-                        <strong>{item.code}</strong> · sem responsável declarado · {item.title}
-                      </p>)}
+                      {withoutOwner.slice(0,3).map(item=><div key={"responsavel-"+item.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · sem responsável declarado · {item.title}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha M3</Button>
+                      </div>)}
                       {withoutOwner.length>3&&<p className="text-muted-foreground">
                         Mais {withoutOwner.length-3} item(ns) sem responsável no recorte.
                       </p>}
@@ -996,6 +1018,25 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       <p className="mt-2 text-muted-foreground">
                         Somente eventos presentes na janela M3 carregada; mudança textual não prova decisão da Camada Mestre,
                         aceite, vigência nem causa da alteração.
+                      </p>
+                    </details>}
+                    {recordedEvidenceChanges.length>0&&<details className="rounded-lg border bg-background p-2 text-xs"
+                      aria-label="Alterações documentadas no histórico administrativo M3">
+                      <summary className="cursor-pointer font-semibold">
+                        Evolução registrada de evidências e critérios · {recordedEvidenceChanges.length} alteração(ões)
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {recordedEvidenceChanges.map(change=><div key={change.id} className="rounded-md border p-2 space-y-1">
+                          <p className="font-medium">{change.front.code} · {change.field} · {new Date(change.at).toLocaleString("pt-BR")}</p>
+                          <p className="break-words">Registro anterior: {change.before||"Campo vazio"}</p>
+                          <p className="break-words">Registro posterior: {change.after||"Campo vazio"}</p>
+                          <Button type="button" size="sm" variant="outline"
+                            onClick={()=>onSelectWorkstream(change.front.id)}>Abrir ficha e conferir evidências</Button>
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Diferenças extraídas dos snapshots antes/depois dos eventos M3 consultados.
+                        Histórico administrativo não comprova decisão formal, documentação de origem ou aceite independente.
                       </p>
                     </details>}
                     {handoffPriority.length>0
