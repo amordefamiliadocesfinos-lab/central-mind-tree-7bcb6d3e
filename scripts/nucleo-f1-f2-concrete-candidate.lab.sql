@@ -234,7 +234,7 @@ CREATE TABLE f12_lab.context_cards (
  specialty_id uuid NOT NULL REFERENCES f12_lab.specialties(id) ON DELETE RESTRICT,
  module_id uuid NOT NULL REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
  front_id uuid REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
- card_type text NOT NULL CHECK(card_type IN ('checkpoint','method_ref','next_action')),
+ card_type text NOT NULL CHECK(card_type IN ('checkpoint','method_ref','next_action','contribution_ref','learning_ref')),
  public_label text NOT NULL CHECK(length(public_label) BETWEEN 3 AND 200),
  public_source_ref text NOT NULL REFERENCES f12_lab.approved_card_sources(source_ref) ON DELETE RESTRICT,
  CHECK(front_id IS NULL OR module_id IS NOT NULL),
