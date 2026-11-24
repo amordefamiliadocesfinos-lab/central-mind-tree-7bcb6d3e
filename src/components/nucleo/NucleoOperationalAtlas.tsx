@@ -299,8 +299,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
-  const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
-  const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.parent_id === front.id));
+  const selectedFronts = selectedRecord ? workstreams.filter(item => item.kind === "frente" && item.parent_id === selectedRecord.id) : [];
+  const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.kind === "subfrente" && item.parent_id === front.id));
   // Resumo apenas dos registros descendentes existentes no Core M3.
   // Não equivale a progresso percentual, evidência de deploy ou homologação.
   const moduleWork = [...selectedFronts, ...selectedSubfronts];
