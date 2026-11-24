@@ -6,6 +6,7 @@ import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { MODULE_PROVENANCE } from "@/lib/nucleo/operationalProvenanceV12";
 import { MODULE_RECONCILIATION_V12 } from "@/lib/nucleo/moduleReconciliationV12";
+import { preparedReferences } from "@/lib/nucleo/preparedReferences";
 import { COVERAGE_SOURCES, prepareCoverageBatch } from "@/lib/nucleo/coveragePreparation";
 
 type Filter = "todos" | "precisa_reconciliar" | "somente_catalogo" | "sem_frente" | "com_frente";
@@ -48,6 +49,8 @@ export default function NucleoCrossModuleCoverage({
     const attentionFront=selectAttention(pendingFronts);
     return {module,record,fronts,subfronts,provenance,candidates,attentionFront};
   });
+  const preparedCount=rows.reduce((total,row)=>total+preparedReferences.filter(p=>p.moduleId===row.record?.id&&!p.retained).length,0);
+  const retainedCount=rows.reduce((total,row)=>total+preparedReferences.filter(p=>p.moduleId===row.record?.id&&p.retained).length,0);
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
   const notRegistered=rows.filter(row=>!row.record).length;
   const reconcileCount=missing+notRegistered;
@@ -64,6 +67,11 @@ export default function NucleoCrossModuleCoverage({
         <Badge variant="secondary">{linked} com frente vinculada</Badge>
         <Badge variant="outline">{missing} sem frente vinculada</Badge>
         <Badge variant="outline">{notRegistered} somente no catálogo</Badge>
+      </div>
+      <div className="rounded-lg border p-3 space-y-1" aria-label="Inventário documental preparado AC-01">
+        <h4 className="text-sm font-semibold">Alimentação documental preparada</h4>
+        <p className="text-xs">{preparedCount} referência(s) candidata(s) · {retainedCount} retida(s) para conciliação</p>
+        <p className="text-xs text-muted-foreground">Inventário estático por UUID do módulo. Não mede registros persistidos, vigência ou homologação. Consulte Documentos AC-01 para conferir o Core e carregar minutas.</p>
       </div>
       <p className="text-xs text-muted-foreground">
         Fila de reconciliação: {reconcileCount} módulo(s) exigem conferência de cadastro ou vínculo.
@@ -106,6 +114,18 @@ export default function NucleoCrossModuleCoverage({
               <Badge variant="outline">{subfronts.length} subfrente(s)</Badge>
               <Badge variant="outline">{provenance?.sources.length ?? 0} fonte(s) catalogada(s)</Badge>
             </div>
+            {record&&(()=>{
+              const prepared=preparedReferences.filter(p=>p.moduleId===record.id);
+              return prepared.length>0?<details className="rounded-md border p-2 space-y-2">
+                <summary className="cursor-pointer text-xs font-medium">{prepared.filter(p=>!p.retained).length} candidata(s) AC-01 · {prepared.filter(p=>p.retained).length} retida(s)</summary>
+                <p className="text-xs text-muted-foreground">Fontes preparadas, não confirmação de persistência. Abra o módulo e Documentos AC-01 para registrar pelo escritor oficial.</p>
+                {prepared.map(p=><div key={p.requestId} className="border-t pt-2 text-xs break-words">
+                  <p className="font-medium">{p.title}</p>
+                  <p>{p.retained?"Retida para conciliação":"Candidata à curadoria"} — {p.note}</p>
+                  <a href={p.locator} target="_blank" rel="noopener noreferrer" className="underline">Conferir original</a>
+                </div>)}
+              </details>:null;
+            })()}
             {fronts.length>0 ? (
               <p className="text-xs text-muted-foreground break-words">
                 Vínculos: {fronts.map(front=>front.code).join(", ")}
