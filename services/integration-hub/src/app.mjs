@@ -25,6 +25,7 @@ import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
 import { captureCelivioC4ERawOnce } from './shopee-celivio-c4e-raw-once.mjs';
 import { runCelivioPreview } from './shopee-celivio-preview-read-budget.mjs';
 import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
+import { runCelivioPilotCommitOne } from './shopee-celivio-commit-one.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -54,6 +55,7 @@ export async function handleRequest(
     runShopeePreview = runShopeeControlledAutoIntake,
     runCelivioReadOnlyPreview = runCelivioPreview,
     runShopeeCommit = runShopeeControlledAutoIntake,
+    runCelivioCommitOne = runCelivioPilotCommitOne,
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
     readCelivioC4B = readCelivioC4BReadOnly,
@@ -655,7 +657,12 @@ export async function handleRequest(
     }
 
     try {
-      const result = await runShopeeCommit({
+      // Celivio C4-G: only the already-previewed pilot can enter
+      // the 12s account-scoped Core reader and existing idempotent writer.
+      // The external commit flag and exact env order identity remain mandatory.
+      const commitOne = channelAccountId === CELIVIO_C4C_ACCOUNT_ID
+        ? runCelivioCommitOne : runShopeeCommit;
+      const result = await commitOne({
         channelAccountId,
         limit: 5,
         mode: 'commit',
