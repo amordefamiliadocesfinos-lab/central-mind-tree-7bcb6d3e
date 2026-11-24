@@ -49,7 +49,8 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await extra(page).click();
  // Actual F19 requires a persisted result after work4; synthetic G5-E did not.
  const save=page.getByRole("button",{name:"Salvar resultado"});
- if(await save.count()) {
+ await expect(save).toBeVisible();
+ {
    // Work timing is captured without performance by the RPC, but a new
    // factual result must be supplied to the "Salvar resultado" UI gate.
    await page.getByPlaceholder("kg").fill("80");
@@ -66,6 +67,7 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
      throw err;
    }
  }
+ expect(setPatches.some(status=>status>=200&&status<300)).toBe(true);
  // Diagnostic only: preserve the genuine UI state. Do not silently reselect the
  // exercise here, since that would conceal loss of the athlete's explicit choice.
  try {
@@ -85,4 +87,8 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await selected(page).click();
  await page.getByRole("button",{name:"Concluir série"}).click();
  await expect(page.getByTestId("g5f-count")).toContainText("5");
+ await page.reload();
+ await expect(page.getByTestId("g5f-count")).toContainText("5",{timeout:30_000});
+ await expect(extra(page)).toBeVisible();
+ await expect(selected(page)).toHaveCount(0);
 });
