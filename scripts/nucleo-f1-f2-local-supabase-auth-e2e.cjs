@@ -188,6 +188,19 @@ INSERT INTO f12_lab.context_cards VALUES
   assert([200,204].includes(out.status),"local Auth logout");
   assert.equal(await code(endpoint(),users[0].token),401,"HTTP 401 when session revoked");
   console.log("PASS local Supabase Auth + PostgREST + HTTP gateway: 401,403,200, RLS, revoke grant, revoke session (isolated)");
- }finally{await new Promise(resolve=>server.close(resolve));}
+ }finally{
+  await new Promise(resolve=>server.close(resolve));
+  // Restore the shared baseline card set for the subsequent G1/G2 tests.
+  // Only remove the three temporary projection cards created by this local
+  // scenario. Reviewed source records remain immutable.
+  sql(`DELETE FROM f12_lab.context_cards WHERE id IN
+    ('60000000-0000-4000-8000-000000000096',
+     '60000000-0000-4000-8000-000000000097',
+     '60000000-0000-4000-8000-000000000098')
+    AND public_source_ref IN ('synthetic://source/nuc-method',
+      'synthetic://source/nuc-contribution-v2','synthetic://source/nuc-learning');
+  `);
+  assert.equal(sql(`SELECT count(*) FROM f12_lab.context_cards WHERE module_id='${NUC}' AND specialty_id='${GOV}'`),"2","restore baseline G1 card set");
+ }
 }
 main().catch(e=>{console.error("LOCAL_AUTH_GATE_FAIL",e.message);process.exit(1)});
