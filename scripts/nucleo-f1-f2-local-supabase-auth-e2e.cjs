@@ -59,7 +59,7 @@ async function checkAccess(auth,params){
  const found=await request("/rest/v1/f12_read_context?"+q.toString(),{headers:{Authorization:"Bearer "+token}});
  if(found.status!==200||!Array.isArray(found.body))return {status:503};
  if(!found.body.length)return {status:403};
- const allowedTypes=["checkpoint","method_ref","next_action"];
+ const allowedTypes=["checkpoint","method_ref","next_action","contribution_ref","learning_ref"];
  const rows=found.body;
  if(rows.some(r=>!rx.test(r.id)||r.specialty_id!==params.specialty_id||r.module_id!==params.module_id||
    r.front_id!==params.front_id||!allowedTypes.includes(r.card_type)||
@@ -70,7 +70,9 @@ async function checkAccess(auth,params){
  return {status:200,body:rows,context:{
    specialty_id:params.specialty_id,module_id:params.module_id,front_id:params.front_id,
    mode:"consultive_only",slots,missing:allowedTypes.filter(type=>slots[type]===null),
-   authority:"not_inherited",origin:"reviewed_metadata_local_lab"
+   authority:"not_inherited",origin:"reviewed_metadata_local_lab",
+   knowledge_status:"reference_only_no_publication_or_approval",
+   learning_status:"reference_only_no_method_promotion"
  }};
 }
 async function main(){
@@ -99,6 +101,24 @@ INSERT INTO f12_lab.context_cards VALUES
  ('60000000-0000-4000-8000-000000000098','10000000-0000-4000-8000-000000000001',
  '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
  'method_ref','synthetic reviewed method reference','synthetic://source/nuc-method');
+INSERT INTO f12_lab.approved_card_sources
+ (source_ref,specialty_id,module_id,front_id,public_label,origin_kind,verified,private_payload_included,authorization_ref)
+ VALUES('synthetic://source/nuc-contribution-v2','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'synthetic contribution proposal v2','github_reference',true,false,'synthetic://approval/nuc-contribution-v2');
+INSERT INTO f12_lab.context_cards VALUES
+ ('60000000-0000-4000-8000-000000000096','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'contribution_ref','synthetic contribution proposal v2','synthetic://source/nuc-contribution-v2');
+INSERT INTO f12_lab.approved_card_sources
+ (source_ref,specialty_id,module_id,front_id,public_label,origin_kind,verified,private_payload_included,authorization_ref)
+ VALUES('synthetic://source/nuc-learning','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'synthetic reviewed lesson checkpoint','m3_event_reference',true,false,'synthetic://approval/nuc-learning');
+INSERT INTO f12_lab.context_cards VALUES
+ ('60000000-0000-4000-8000-000000000097','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'learning_ref','synthetic reviewed lesson checkpoint','synthetic://source/nuc-learning');
 `);
  const server=http.createServer(async (req,res)=>{
   try{
@@ -141,8 +161,17 @@ INSERT INTO f12_lab.context_cards VALUES
   assert.equal(pkg.context.slots.method_ref.source_ref,"synthetic://source/nuc-method");
   assert.equal(pkg.context.slots.next_action,null);
   assert.deepEqual(pkg.context.missing,["next_action"]);
-  assert.equal(pkg.results,2);
+  assert.equal(pkg.context.slots.contribution_ref.source_ref,"synthetic://source/nuc-contribution-v2");
+  assert.equal(pkg.context.slots.learning_ref.source_ref,"synthetic://source/nuc-learning");
+  assert.equal(pkg.context.knowledge_status,"reference_only_no_publication_or_approval");
+  assert.equal(pkg.context.learning_status,"reference_only_no_method_promotion");
+  assert.equal(pkg.results,4);
   assert(!JSON.stringify(pkg).includes("synthetic different front"));
+  for(const forbiddenUrl of [endpoint(M4,SEC),endpoint(M5,GOV),crmUrl]){
+   const denied=await fetch(forbiddenUrl,{headers:{Authorization:"Bearer "+users[0].token}});
+   assert.equal(denied.status,403);
+   assert.equal((await denied.json()).context,undefined);
+  }
   const deniedPackage=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[1].token}});
   assert.equal(deniedPackage.status,403);
   assert.equal((await deniedPackage.json()).context,undefined);
@@ -154,7 +183,7 @@ INSERT INTO f12_lab.context_cards VALUES
   const revokedPackage=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[0].token}});
   assert.equal(revokedPackage.status,403);
   assert.equal((await revokedPackage.json()).context,undefined);
-  console.log("PASS F3 individual consultive package: scoped reviewed metadata, explicit missing next action, no inherited authority, denied and revoked responses contain no context");
+  console.log("PASS F3/F4/F5 consultive package: scoped method, contribution and lesson references; missing next action explicit; no inherited authority or publication; denied/revoked context withheld");
   const out=await request("/auth/v1/logout",{method:"POST",headers:{Authorization:"Bearer "+users[0].token}});
   assert([200,204].includes(out.status),"local Auth logout");
   assert.equal(await code(endpoint(),users[0].token),401,"HTTP 401 when session revoked");
