@@ -12,6 +12,8 @@ const ORDER = '261121TBS6BHE6';
 const PACKAGE = 'OFG248906009827069';
 const CARRIER = 'Retirada pelo Comprador';
 const PDF_TYPE = 'NORMAL_AIR_WAYBILL';
+// Scoped to this Core tombstone lookup; never change the global 5 s timeout.
+const TOMBSTONE_READ_TIMEOUT_MS = 12_000;
 
 const safeCode = value => typeof value === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(value)
   ? value : 'unknown';
@@ -36,7 +38,7 @@ export function createCelivioPilotLabelSync({
     const tombstones = await readTombstones({
       channel_account_id: ACCOUNT,
       order_sns: [ORDER],
-    });
+    }, { timeoutMs: TOMBSTONE_READ_TIMEOUT_MS });
     if (!tombstones?.ok || !Array.isArray(tombstones.payload?.deleted_order_sns)) {
       return { ok: false, code: 'tombstone_unavailable' };
     }
