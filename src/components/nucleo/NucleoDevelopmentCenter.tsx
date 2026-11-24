@@ -878,6 +878,7 @@ export default function NucleoDevelopmentCenter() {
       <div id="nucleo-din-supervision" hidden={!supervisionExpanded} className={supervisionExpanded?"":"hidden"}>
         {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies}
           focusModuleId={supervisionFocusModuleId||undefined}
+          checkpointEvents={history}
           onOpenEvidence={id=>{
             if(!byId.has(id)){toast.warning("Esta frente não está na leitura M3 atual. Atualize os registros.");return;}
             if(!choose(id))return;

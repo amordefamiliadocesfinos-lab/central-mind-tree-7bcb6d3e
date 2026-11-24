@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import type {
-  NucleoDevelopmentDatabase, DevelopmentDependency, DevelopmentWorkstream, TechnicalEvidence,
+  NucleoDevelopmentDatabase, DevelopmentDependency, DevelopmentWorkstream, TechnicalEvidence, DevelopmentEvent,
 } from "@/lib/nucleo/development.types";
 import { inspectNucleoSupervision } from "@/lib/nucleo/supervision";
 import { findNucleoFindingSources } from "@/lib/nucleo/supervision-provenance";
@@ -22,13 +22,14 @@ const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const MAX_EVIDENCE = 500;
 
 export default function NucleoSupervisionPanel({
-  workstreams, dependencies, focusModuleId, onOpenWorkstream, onOpenEvidence,
+  workstreams, dependencies, focusModuleId, onOpenWorkstream, onOpenEvidence, checkpointEvents,
 }: {
   workstreams: DevelopmentWorkstream[];
   dependencies: DevelopmentDependency[];
   focusModuleId?: string;
   onOpenWorkstream?: (id: string) => void;
   onOpenEvidence?: (id: string) => void;
+  checkpointEvents?: readonly DevelopmentEvent[];
 }) {
   const [evidence, setEvidence] = useState<TechnicalEvidence[]>([]);
   const [latestFronts, setLatestFronts] = useState<DevelopmentWorkstream[]>([]);
@@ -140,8 +141,8 @@ export default function NucleoSupervisionPanel({
   const complete = loaded && permissionConfirmed && !loadError &&
     evidence.length < MAX_EVIDENCE && latestFronts.length > 0;
   const snapshot = useMemo(
-    () => complete ? inspectNucleoSupervision(latestFronts, evidence, latestDependencies) : null,
-    [complete, latestFronts, evidence, latestDependencies],
+    () => complete ? inspectNucleoSupervision(latestFronts, evidence, latestDependencies, new Date(), checkpointEvents ? {events:checkpointEvents,workstreams} : undefined) : null,
+    [complete, latestFronts, evidence, latestDependencies, checkpointEvents, workstreams],
   );
   // O recorte é aplicado SOMENTE após a leitura M5 autenticada e completa.
   // Nunca transforma falta de prova M4 em "zero alertas".

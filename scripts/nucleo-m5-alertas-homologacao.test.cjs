@@ -219,4 +219,22 @@ scenario("dependência pendente ou ausente não implica bloqueio",{
   evidence:[],dependencies:[{workstream_id:"A",depends_on_id:"B"},{workstream_id:"A",depends_on_id:"UNKNOWN"}],
 },r=>assert.deepEqual(kinds(r),[]));
 
+scenario("prioridade alta e crítica somente em fichas abertas",{
+  fronts:[front("A",{priority:"alta"}),front("B",{priority:"critica",status:"concluido"}),front("C",{priority:"critica"})],
+  evidence:[proof("P","B")],
+},r=>assert.equal(r.findings.filter(f=>f.kind==="prioridade_aberta").map(f=>f.workstreamCode).join(","),"A,C"));
+scenario("conferência anterior à atualização M3 é sinal consultivo",{
+  fronts:[front("A",{updated_at:"2026-11-12T12:00:00Z"})],
+  evidence:[{...proof("P","A"),checked_at:"2026-11-11T12:00:00Z"},{...proof("Q","A"),checked_at:"2026-11-12T13:00:00Z"},proof("R","A")],
+},r=>{
+  const signal=r.findings.find(f=>f.kind==="conferencia_anterior_m3");
+  assert.equal(signal.severity,"informativo");
+  assert.equal(signal.evidenceIds.join(","),"P");
+});
+const windowFront=front("A",{updated_at:"2026-11-12T12:00:00Z"});
+assert.equal(inspect([windowFront],[],[],TODAY,{events:[],workstreams:[windowFront]}).findings.filter(f=>f.kind==="checkpoint_nao_localizado").length,1);
+assert.equal(inspect([windowFront],[],[],TODAY,{events:[{workstream_id:"A"}],workstreams:[windowFront]}).findings.length,0);
+assert.equal(inspect([windowFront],[],[],TODAY,{events:[],workstreams:[{...windowFront,updated_at:"2026-11-11T12:00:00Z"}]}).findings.length,0);
+assert.equal(inspect([windowFront],[],[],TODAY).findings.length,0);
+
 console.log("M5 HOMOLOGAÇÃO: " + checks + " cenários sintéticos aprovados; zero escrita, sem uso do Core.");
