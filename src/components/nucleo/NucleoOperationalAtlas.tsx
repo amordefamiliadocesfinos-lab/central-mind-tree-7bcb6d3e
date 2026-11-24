@@ -192,6 +192,37 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             : "Acompanhar o estado e as próximas ações das frentes",
       rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4};
   }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
+  // P2-A: matriz consultiva da cobertura cruzando duas origens distintas:
+  // catálogo versionado e cadastros/hierarquia/dependências do Core M3.
+  // O conjunto recebido é a leitura autorizada da sessão, não inventário universal.
+  const coverageMatrix=catalog.map(module=>{
+    const record=registeredModules.find(item=>item.code===module.id);
+    const fronts=record?workstreams.filter(item=>item.kind==="frente"&&item.parent_id===record.id):[];
+    const subfronts=fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+    const scopeIds=new Set([record?.id,...fronts.map(item=>item.id),...subfronts.map(item=>item.id)].filter((id):id is string=>Boolean(id)));
+    const linkedDependencies=dependencies.filter(dep=>scopeIds.has(dep.workstream_id));
+    const unresolvedDependencies=linkedDependencies.filter(dep=>!workstreamsById.has(dep.depends_on_id));
+    const externalDependencies=linkedDependencies.filter(dep=>
+      workstreamsById.has(dep.depends_on_id)&&!scopeIds.has(dep.depends_on_id));
+    const status=!record?"nao_verificado":fronts.length===0?"incompleto":"identificado";
+    return {module,record,fronts,subfronts,linkedDependencies,unresolvedDependencies,externalDependencies,status};
+  }).sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
+  const coverageTotals={
+    identified:coverageMatrix.filter(item=>item.status==="identificado").length,
+    incomplete:coverageMatrix.filter(item=>item.status==="incompleto").length,
+    unverified:coverageMatrix.filter(item=>item.status==="nao_verificado").length,
+    directFronts:coverageMatrix.reduce((count,item)=>count+item.fronts.length,0),
+    subfronts:coverageMatrix.reduce((count,item)=>count+item.subfronts.length,0),
+    dependencies:dependencies.length,
+  };
+  const unmappedWorkstreams=workstreams.filter(item=>
+    item.kind==="frente"
+      ? !workstreams.some(parent=>parent.id===item.parent_id&&parent.kind==="modulo")
+      : item.kind==="subfrente"
+        ? !workstreams.some(parent=>parent.id===item.parent_id&&parent.kind==="frente")
+        : false);
+  const unknownDependencyEndpoints=dependencies.filter(dep=>
+    !workstreamsById.has(dep.workstream_id)||!workstreamsById.has(dep.depends_on_id));
   // P3 M0/M2: fotografia consultiva, sem converter ausência de referência em
   // ausência do método; proveniência versionada e cadastro M3 são coisas distintas.
   const inventoryGaps=catalog.map(module=>{
@@ -536,6 +567,87 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             ))}
           </div>
         </section>
+      )}
+
+      {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
+          aria-label="P2-A — matriz de cobertura real por módulo">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-semibold text-base">P2-A · Matriz de cobertura do Core</h3>
+              <p className="text-xs text-muted-foreground">
+                Confronto consultivo do catálogo de módulos com registros, frentes, subfrentes e dependências M3
+                realmente carregadas nesta sessão. Cobertura identificada não significa implementação concluída.
+              </p>
+            </div>
+            <Badge variant="outline">Somente leitura</Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              {label:"Com frentes M3",value:coverageTotals.identified},
+              {label:"Cadastro incompleto",value:coverageTotals.incomplete},
+              {label:"Core não verificado",value:coverageTotals.unverified},
+              {label:"Frentes operacionais",value:coverageTotals.directFronts},
+              {label:"Subfrentes",value:coverageTotals.subfronts},
+              {label:"Dependências M3",value:coverageTotals.dependencies},
+            ].map(metric=><div key={metric.label} className="rounded-lg border p-2">
+              <p className="text-xs text-muted-foreground">{metric.label}</p>
+              <p className="text-lg font-semibold tabular-nums">{metric.value}</p>
+            </div>)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O Núcleo (NUC) é governança e não entra nos módulos operacionais. Dependências são apenas
+            os vínculos registrados na leitura M3; zero registros não demonstra independência entre módulos.
+          </p>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/50">
+                <tr>
+                  {["Módulo","Classificação no Core","Frentes","Subfrentes","Dependências","Ação"].map(label=>
+                    <th key={label} scope="col" className="p-2 font-semibold whitespace-nowrap">{label}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {coverageMatrix.map(({module,record,fronts,subfronts,linkedDependencies,unresolvedDependencies,externalDependencies,status})=>
+                  <tr key={module.id} className="border-t align-top">
+                    <td className="p-2"><strong>{module.id}</strong> · {module.name}</td>
+                    <td className="p-2">
+                      {status==="identificado"?"Identificado: módulo e frentes M3"
+                        :status==="incompleto"?"Incompleto: módulo sem frente direta M3"
+                        :"Não verificado: sem cadastro M3 na leitura"}
+                    </td>
+                    <td className="p-2 tabular-nums">{fronts.length}</td>
+                    <td className="p-2 tabular-nums">{subfronts.length}</td>
+                    <td className="p-2">
+                      {linkedDependencies.length} declarada(s)
+                      {externalDependencies.length>0?` · ${externalDependencies.length} externa(s) ao módulo`:""}
+                      {unresolvedDependencies.length>0?` · ${unresolvedDependencies.length} com destino ausente`:""}
+                    </td>
+                    <td className="p-2">
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={()=>choose(module)}>Examinar</Button>
+                    </td>
+                  </tr>)}
+              </tbody>
+            </table>
+          </div>
+          {(unmappedWorkstreams.length>0||unknownDependencyEndpoints.length>0)&&
+            <div className="rounded-lg border p-3 text-xs space-y-1" role="status">
+              <p className="font-semibold">Relações que exigem conciliação</p>
+              <p>{unmappedWorkstreams.length} frente(s)/subfrente(s) sem pai do tipo esperado na leitura
+                {" · "}{unknownDependencyEndpoints.length} dependência(s) com origem ou destino não identificado.</p>
+              {unmappedWorkstreams.slice(0,5).map(item=><p key={item.id}>
+                {item.code} · {item.title} · pai não localizado com tipo esperado
+              </p>)}
+              <p className="text-muted-foreground">
+                O diagnóstico não altera vínculos e não considera o histórico fora deste recorte.
+              </p>
+            </div>}
+          <p className="text-xs text-muted-foreground">
+            Fontes: catálogo de rotas versionado no repositório e fichas M3/dependências do Core.
+            Sem homologação de implantação, cobertura integral, responsabilidade formal ou operação real.
+          </p>
+        </Card>
       )}
 
       {level==="overview" && (
