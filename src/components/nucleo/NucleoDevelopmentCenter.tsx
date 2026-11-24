@@ -217,7 +217,10 @@ export default function NucleoDevelopmentCenter() {
   const selectedModuleFronts=selectedOperationalModule
     ? items.filter(item=>item.kind==="frente"&&item.parent_id===selectedOperationalModule.id)
     : [];
-  const selectedModuleQueue=[...selectedModuleFronts].sort((a,b)=>{
+  const selectedModuleSubfronts=selectedModuleFronts.flatMap(front=>
+    items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+  // P2: navegar também nas subfrentes reais, sem perder o vínculo do módulo.
+  const selectedModuleQueue=[...selectedModuleFronts,...selectedModuleSubfronts].sort((a,b)=>{
     const rank=(item:DevelopmentWorkstream)=>item.status==="bloqueado"?0
       :item.priority==="critica"?1:item.priority==="alta"?2
       :item.status==="em_andamento"?3:4;
@@ -1160,8 +1163,8 @@ export default function NucleoDevelopmentCenter() {
                   <div className="space-y-1">
                     <p className="text-sm font-semibold">{selectedOperationalModule.code} · desenvolvimento e continuidade</p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedModuleQueue.length} frente(s) diretas cadastradas no Core M3.
-                      Vínculos, checkpoints e prioridades são declarados, não homologados.
+                      {selectedModuleFronts.length} frente(s) e {selectedModuleSubfronts.length} subfrente(s)
+                      vinculada(s) diretamente às frentes no Core M3. Vínculos, checkpoints e prioridades são declarados, não homologados.
                     </p>
                     <p className="text-xs">
                       <strong>Próxima ação da ficha:</strong> {selected.next_action.trim()||"Não registrada no M3."}
@@ -1201,6 +1204,11 @@ export default function NucleoDevelopmentCenter() {
                         setWorkspaceView("geral");setAtlasVisited(true);setAtlasExpanded(true);
                         setAc02Jump(prev=>({moduleCode:selectedOperationalModule.code,seq:(prev?.seq??0)+1}));
                       }}>Continuidade AC-02/F5</Button>
+                  </div>
+                  <div className="rounded-lg border p-2 space-y-1 text-xs" aria-label="Contexto da frente selecionada">
+                    <p><strong>Tipo e vínculo:</strong> {selected.kind} · pai: {selected.parent_id?byId.get(selected.parent_id)?.code||"não identificado":"raiz sem pai declarado"}</p>
+                    <p><strong>Responsável declarado:</strong> {selected.specialist.trim()||"não informado"}</p>
+                    <p><strong>Estado da prova M3:</strong> {evidenceNames[selected.evidence_state]}</p>
                   </div>
                   <div className="flex flex-wrap gap-2" aria-label="Percorrer frentes deste módulo">
                     <Button type="button" size="sm" variant="outline"
