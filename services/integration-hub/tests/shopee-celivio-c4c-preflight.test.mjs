@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessCelivioC4CPreflight, CELIVIO_C4C_ACCOUNT_ID } from '../src/shopee-celivio-c4c-preflight.mjs';
+import { mappingPhysicalBlocker } from '../src/shopee-mapping-physical-guard.mjs';
 
 const match = {
   channel_account_id: CELIVIO_C4C_ACCOUNT_ID,
@@ -68,4 +69,40 @@ test('PII and token values are never returned', () => {
   const serialized=JSON.stringify(r);
   assert.equal(serialized.includes('PRIVATE'),false);
   assert.equal(serialized.includes('SECRET'),false);
+});
+
+// The following non-secret facts were checked against the official Core on 2026-11-24:
+// product CHOCOLATE BASE, variant Meio Amargo, both active, unit g; active
+// commercial presentation "kg" factor 1000; official mapping multiplier 5000.
+// The guard validates *mass*, not packaging composition (five 1kg packs are NOT inferred).
+test('Celivio Diehl 5kg official physical conversion is consistent with the live catalog facts', () => {
+  const item = {
+    itemId: '23499115129', modelId: '239430912885',
+    itemName: 'Chocolate Cobertura Diehl Branco ou Meio Amargo',
+    modelName: '5 KG,COBERTURA MEIO AMARGO', quantity: 1,
+  };
+  const mapping = {
+    ...match, variant_id: '1a3d59a6-4712-4afd-811a-5a72aad76fa9',
+    physical_identity: {
+      active: true, unit: 'g', presentation_factors: [400, 1000, 1],
+    },
+  };
+  const scope = { channelAccountId: CELIVIO_C4C_ACCOUNT_ID };
+  assert.equal(mappingPhysicalBlocker(item, mapping, scope), null);
+  assert.equal(item.quantity * mapping.physical_multiplier, 5000);
+  assert.equal(mapping.physical_multiplier / 1000, 5);
+  assert.equal(mappingPhysicalBlocker(item, {
+    ...mapping, physical_identity: {...mapping.physical_identity, unit: 'kg'},
+  }, scope), 'physical_multiplier_mismatch');
+  assert.equal(mappingPhysicalBlocker(item, {
+    ...mapping, physical_identity: {...mapping.physical_identity, presentation_factors: [400]},
+  }, scope), 'physical_presentation_unverified');
+  const preflight = assessCelivioC4CPreflight({
+    ...input, rawOrderDetailPersisted: false,
+    physicalConversionHomologated: true, duplicateChecked: true,
+  });
+  assert.equal(preflight.candidateForNextGate, false);
+  assert.ok(preflight.blockers.includes('external_status_not_intake_eligible'));
+  assert.ok(preflight.blockers.includes('raw_order_detail_not_persisted'));
+  assert.equal(preflight.writerAuthorized, false);
 });
