@@ -10,6 +10,7 @@ import NucleoContributionDesk from "@/components/nucleo/NucleoContributionDesk";
 import NucleoAC01DocumentGovernance from "@/components/nucleo/NucleoAC01DocumentGovernance";
 import type {Ac01QueueIssue} from "@/lib/nucleo/ac01ConsolidationQueueV13";
 import {usePendingWriteFence} from "@/lib/nucleo/pendingWriteFenceV1";
+import {preparedReferences,isPreparedDuplicate,type PreparedReference} from "@/lib/nucleo/preparedReferences";
 import {makeWitness,witnessFieldsAc01} from "@/lib/nucleo/writeRecoveryWitnessV1";
 
 type RecordRow={
@@ -153,6 +154,12 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    }
    setFeedback("");
  };
+ const candidates=preparedReferences.filter(p=>p.moduleId===moduleId);
+ const loadPrepared=(p:PreparedReference)=>{
+   if(p.moduleId!==moduleId||saving||reading||readError||uncertainRef.current||!fence.ready||fence.blocked||isPreparedDuplicate(p,rows))return;
+   if(draftDirty&&!window.confirm("Substituir a minuta não salva pela referência preparada?"))return;
+   setParentId("");setTitle(p.title);setKind(p.kind);setSourceKind("github");setLocator(p.locator);setChecksum(p.checksum);setNote(p.note);setRole("");setFeedback("Minuta preparada. Confirme o papel funcional real e revise a origem antes de registrar.");
+ };
  const parent=rows.find(item=>item.id===parentId);
  const visibleVersions=rows.filter(item=>{
    const q=versionQuery.trim().toLocaleLowerCase("pt-BR");
@@ -179,6 +186,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      setFeedback("Confira papel (3–180), título (3–180), localizador (8–1.500), nota (até 2.000) e SHA-256 opcional.");
      return;
    }
+   if(!parentId && (rows.some(r=>r.source_locator===cleanSource||(checksum.trim()&&r.source_checksum_sha256===checksum.trim()))||candidates.some(p=>p.retained&&p.locator===cleanSource))){setFeedback("Referência já registrada ou retida para conciliação. Consulte as versões existentes.");return;}
    if(parentId && (!parent || latestByLineage.get(parent.lineage_id)?.id!==parent.id || parent.specialist_role!==cleanRole || parent.contribution_kind!==kind)){
      setFeedback("A versão anterior precisa pertencer ao mesmo especialista e tipo. Reconsulte e selecione novamente.");return;
    }
@@ -434,6 +442,15 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    </div>}
    <div id="nucleo-ac01-source-form" className="nucleo-v22-soft-surface scroll-mt-28 space-y-3 p-3">
      <h5 className="text-sm font-semibold">{parent?"Registrar revisão da contribuição":"Vincular nova contribuição"} — não homologada</h5>
+     {candidates.length>0&&<details className="rounded-lg border p-3 space-y-2">
+       <summary className="cursor-pointer text-sm font-semibold">Referências preparadas ({candidates.length})</summary>
+       <p className="text-xs text-muted-foreground">Carregar uma minuta não grava nem homologa. Confirme o papel funcional e a origem; a autoria será a sessão autenticada.</p>
+       {candidates.map(p=><div key={p.requestId} className="rounded border p-2 space-y-1 break-words">
+         <p className="text-sm font-medium">{p.title}</p>
+         <p className="text-xs text-muted-foreground">{p.note}</p>
+         <Button type="button" variant="outline" size="sm" disabled={reading||Boolean(readError)||saving||uncertainRef.current||!fence.ready||fence.blocked||isPreparedDuplicate(p,rows)} onClick={()=>loadPrepared(p)}>{isPreparedDuplicate(p,rows)?"Existente / conciliar":"Carregar minuta"}</Button>
+       </div>)}
+     </details>}
      <label className="block space-y-1 text-sm">Histórico / versão de origem
        <select value={parentId} disabled={saving||reading||Boolean(readError)||uncertainRef.current} onChange={e=>chooseReference(e.target.value)} className="min-h-11 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
          <option value="">Nova contribuição — v1</option>
