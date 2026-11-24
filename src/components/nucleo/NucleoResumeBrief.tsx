@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { ModuleProvenance } from "@/lib/nucleo/operationalProvenanceV12";
 import { SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
@@ -24,6 +24,8 @@ export default function NucleoResumeBrief({
   module, workstreams, events, provenance, onOpenWorkstream,
   onOpenSources, onOpenDocuments, onOpenMandates,
 }: Props) {
+  const [pendingFilter,setPendingFilter]=useState<"todos"|"bloqueadas"|"sem_acao"|"evidencia">("todos");
+  const [pendingLimit,setPendingLimit]=useState(5);
   const context = useMemo(() => {
     const fronts = workstreams.filter(item => item.kind === "frente" && item.parent_id === module.id);
     const subfronts = fronts.flatMap(front =>
@@ -42,6 +44,7 @@ export default function NucleoResumeBrief({
     return { fronts, subfronts, pending, recent, missingAction, missingOwner, missingAcceptance, evidenceToReview };
   }, [module.id, workstreams, events]);
 
+  const visiblePending=context.pending.filter(item=>pendingFilter==="todos" || (pendingFilter==="bloqueadas" && item.status==="bloqueado") || (pendingFilter==="sem_acao" && !item.next_action.trim()) || (pendingFilter==="evidencia" && (item.evidence_state!=="comprovada" || !item.evidence_note.trim())));
   const declaredCurrent = provenance?.sources.filter(source => source.authority === "vigente_declarada") ?? [];
   const sourceCount = provenance?.sources.length ?? 0;
   const latest = context.recent;
@@ -91,9 +94,13 @@ export default function NucleoResumeBrief({
     </div>
     <div className="rounded-lg border p-2 text-xs space-y-2">
       <p className="font-semibold">Próximos passos declarados e obstáculos</p>
-      {context.pending.length === 0 ? <p className="text-muted-foreground">
-        Nenhuma frente pendente localizada nesta leitura M3; não comprova encerramento operacional.
-      </p> : context.pending.slice(0, 5).map(item => <div key={item.id} className="rounded-md border p-2 space-y-1">
+      <nav className="flex flex-wrap gap-2" aria-label="Filtrar pendências de retomada">
+        {([["todos","Todas"],["bloqueadas","Bloqueadas"],["sem_acao","Sem próxima ação"],["evidencia","Evidência a conferir"]] as const).map(([key,label])=><Button key={key} type="button" size="sm" variant={pendingFilter===key?"default":"outline"} aria-pressed={pendingFilter===key} onClick={()=>{setPendingFilter(key);setPendingLimit(5);}}>{label}</Button>)}
+      </nav>
+      <p className="text-muted-foreground" role="status">{visiblePending.length} de {context.pending.length} pendências no filtro.</p>
+      {visiblePending.length === 0 ? <p className="text-muted-foreground">
+        Nenhuma pendência neste filtro e recorte M3; não comprova encerramento operacional.
+      </p> : visiblePending.slice(0, pendingLimit).map(item => <div key={item.id} className="rounded-md border p-2 space-y-1">
         <p className="font-medium">{item.code} · {item.title} · {item.status.replaceAll("_", " ")}</p>
         <p><strong>Próxima ação:</strong> {item.next_action.trim() || "Não registrada"}</p>
         <p><strong>Responsável:</strong> {item.specialist.trim() || "Não informado"}</p>
@@ -103,9 +110,7 @@ export default function NucleoResumeBrief({
         <Button size="sm" type="button" variant="outline"
           onClick={() => onOpenWorkstream(item.id)}>Abrir {item.kind === "subfrente" ? "subfrente" : "frente"} vinculada</Button>
       </div>)}
-      {context.pending.length > 5 && <p className="text-muted-foreground">
-        Mais {context.pending.length - 5} pendência(s) na leitura M3; consultar Desenvolvimento para o conjunto completo.
-      </p>}
+      {visiblePending.length > pendingLimit && <Button type="button" size="sm" variant="outline" onClick={()=>setPendingLimit(current=>current+5)}>Mostrar mais {Math.min(5,visiblePending.length-pendingLimit)} pendência(s)</Button>}
     </div>
     <div className="rounded-lg border p-2 text-xs space-y-2">
       <p className="font-semibold">Fontes de conhecimento para conferir</p>
