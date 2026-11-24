@@ -86,6 +86,7 @@ jobs:
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f scripts/health-cch-f24-g5f-local/fixture.sql
           node scripts/health-cch-f24-g5f-local/extract-rpcs.mjs
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$G5F_RPC_SQL"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -c "NOTIFY pgrst, 'reload schema';"
           node scripts/health-cch-f24-g5f-local/verify-auth.mjs
           cp "$G5F_EVIDENCE" test-results/g5f-auth-local.json
       - name: Upload sanitized local evidence only
