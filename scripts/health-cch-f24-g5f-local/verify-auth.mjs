@@ -164,9 +164,9 @@ const UI_EX2="adadadad-adad-4dad-8dad-adadadadadad";
 const UI_REST3="aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae";
 pgsql(`
  INSERT INTO public.health_workout_sessions(id,athlete_id,status) VALUES ('${UI_SESSION}','${ATH_A}','active');
- INSERT INTO public.health_workout_exercises(id,athlete_id,session_id,status,planned_sets_min,planned_sets_max,planned_rest_seconds,planned_reps_min,planned_reps_max,planned_rir_target,exercise_id)
- VALUES ('${UI_EX1}','${ATH_A}','${UI_SESSION}','active',3,3,90,6,10,2,'cat-g5f-1'),
- ('${UI_EX2}','${ATH_A}','${UI_SESSION}','pending',3,3,90,8,12,2,'cat-g5f-2');
+ INSERT INTO public.health_workout_exercises(id,athlete_id,session_id,status,planned_sets_min,planned_sets_max,planned_rest_seconds,planned_reps_min,planned_reps_max,planned_rir_target,exercise_id,sequence_order)
+ VALUES ('${UI_EX1}','${ATH_A}','${UI_SESSION}','active',3,3,90,6,10,2,'cat-g5f-1',1),
+ ('${UI_EX2}','${ATH_A}','${UI_SESSION}','pending',3,3,90,8,12,2,'cat-g5f-2',2);
  INSERT INTO public.health_workout_sets(athlete_id,session_id,workout_exercise_id,set_number,status,set_type,load_value,load_unit,reps,rir)
  SELECT '${ATH_A}','${UI_SESSION}','${UI_EX1}',n,'completed','working',80,'kg',8,2
  FROM generate_series(1,3) AS n;
