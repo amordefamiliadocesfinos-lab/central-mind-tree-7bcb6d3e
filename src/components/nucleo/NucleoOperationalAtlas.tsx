@@ -64,6 +64,8 @@ interface Props {
 
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
+  // P3: recorte consultivo, sem modificar cadastro nem fonte.
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel"|"aceite"|"evidencia">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -190,6 +192,36 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             : "Acompanhar o estado e as próximas ações das frentes",
       rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4};
   }).sort((a,b)=>a.rank-b.rank||a.module.id.localeCompare(b.module.id,"pt-BR")).slice(0,4);
+  // P3 M0/M2: fotografia consultiva, sem converter ausência de referência em
+  // ausência do método; proveniência versionada e cadastro M3 são coisas distintas.
+  const inventoryGaps=catalog.map(module=>{
+    const core=registeredModules.find(item=>item.code===module.id);
+    const provenance=MODULE_PROVENANCE[module.id];
+    const sourceEntries=provenance?.sources??[];
+    const sources=sourceEntries.length;
+    // Ter referências históricas/código não equivale a possuir fonte vigente.
+    const hasDeclaredCurrentSource=Boolean(provenance?.sources.some(source=>source.authority==="vigente_declarada"));
+    const fronts=core?workstreams.filter(item=>item.parent_id===core.id&&item.kind==="frente"):[];
+    const descendants=fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+    const pendingWithoutAction=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.next_action.trim());
+    const withoutOwner=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.specialist.trim());
+    const withoutAcceptance=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.acceptance_criteria.trim());
+    // Leitura M3: evidência sem comprovação declarada ou sem nota quando
+    // declarada comprovada é sinal de reconciliação, não prova de ausência M4.
+    const evidenceToReview=[...fronts,...descendants].filter(item=>
+      item.status!=="concluido"&&(item.evidence_state!=="comprovada"||!item.evidence_note.trim()));
+    return {module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance,evidenceToReview};
+  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0||item.withoutAcceptance.length>0||item.evidenceToReview.length>0)
+    .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
+  const visibleInventoryGaps=inventoryGaps.filter(item=>
+    inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
+    (inventoryFilter==="fontes"&&item.sources===0) ||
+    (inventoryFilter==="vigencia"&&!item.hasDeclaredCurrentSource) ||
+    (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
+    (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0) ||
+    (inventoryFilter==="responsavel"&&item.withoutOwner.length>0) ||
+    (inventoryFilter==="aceite"&&item.withoutAcceptance.length>0) ||
+    (inventoryFilter==="evidencia"&&item.evidenceToReview.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -218,9 +250,38 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     .filter(event => specialistWork.some(item => item.id === event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
   // F5: somente os eventos M3 efetivamente carregados (janela global limitada).
-  const moduleLatestEvent = events
-    .filter(event=>moduleWork.some(item=>item.id===event.workstream_id))
-    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
+  const moduleEventIds=new Set(moduleWork.map(item=>item.id));
+  const moduleEventsInWindow=events
+    .filter(event=>moduleEventIds.has(event.workstream_id))
+    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
+  // Resumo geral limitado a cinco; busca de mudanças percorre a janela
+  // completa de eventos autorizados já carregados (até 200 globais).
+  const moduleRecentEvents=moduleEventsInWindow.slice(0,5);
+  const moduleLatestEvent = moduleEventsInWindow[0];
+  // Eventos M3 permitem recuperar mudanças de próxima ação declarada, não
+  // identificar automaticamente decisões soberanas ou aprendizado homologado.
+  const actionChanges=moduleEventsInWindow.filter(event=>{
+    const before=event.before_state?.next_action,after=event.after_state?.next_action;
+    return typeof before==="string"&&typeof after==="string"&&before.trim()!==after.trim();
+  }).slice(0,5);
+  // P4: apenas alterações explícitas nos snapshots de eventos M3;
+  // ausência de snapshot ou registro sem mudança não é decisão inexistente.
+  const recordedEvidenceChanges=moduleEventsInWindow.flatMap(event=>{
+    const front=moduleWork.find(item=>item.id===event.workstream_id);
+    if(!front||!event.before_state||!event.after_state)return [];
+    const fields=[
+      {key:"evidence_state",label:"Situação da evidência"},
+      {key:"evidence_note",label:"Descrição da evidência"},
+      {key:"acceptance_criteria",label:"Critério de aceite"},
+      {key:"blocker",label:"Bloqueio"},
+    ] as const;
+    return fields.flatMap(field=>{
+      const before=event.before_state?.[field.key],after=event.after_state?.[field.key];
+      if(typeof before!=="string"||typeof after!=="string"||before.trim()===after.trim())return [];
+      return [{id:event.id+"-"+field.key,eventId:event.id,front,field:field.label,
+        before:before.trim(),after:after.trim(),at:event.recorded_at}];
+    });
+  }).slice(0,8);
   const handoffPriority=[...modulePending].sort((a,b)=>
     Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
     ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
@@ -293,6 +354,26 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     }));
   };
 
+  // P3/P4: da lacuna para o painel existente. A seleção respeita rascunhos
+  // e nunca cria fonte, contribuição ou mandato automaticamente.
+  const investigateGap=(module:KnowledgeModule,area:"fontes"|"frentes"|"ac01"|"ac02")=>{
+    if(choose(module)===false)return;
+    if(area==="fontes"){
+      const hasCore=registeredModules.some(record=>record.code===module.id);
+      // Sem cadastro M3 não há painel de especialista: abrir ficha factual do
+      // catálogo em vez de levar a uma seção sem dados.
+      if(hasCore){openSpecialistPanel("papel");selectModuleArea("especialista");}
+      else selectModuleArea("funcoes");
+      return;
+    }
+    if(area==="frentes"){selectModuleArea("desenvolvimento");return;}
+    if(area==="ac01"){
+      openSpecialistPanel("documentos");
+      setAc01Request(prev=>({stage:"versoes",seq:(prev?.seq??0)+1}));
+      selectModuleArea("especialista");return;
+    }
+    openSpecialistPanel("continuidade");selectModuleArea("especialista");
+  };
   const openFm09Continuity=()=>{
     // A solicitação FM-09 muda a seção ativa: não remapear um rascunho local
     // para outra seção nem navegar durante uma gravação indeterminada.
@@ -455,6 +536,134 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             ))}
           </div>
         </section>
+      )}
+
+      {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
+          aria-label="Inventário de lacunas M0 e fontes M2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold">Inventário e fontes · M0/M2</h3>
+              <p className="text-xs text-muted-foreground">
+                Conciliação entre o catálogo versionado, módulos cadastrados no Core e referências de proveniência.
+                Nenhuma lacuna confirma ausência de documentos fora destes recortes.
+              </p>
+            </div>
+            <Badge variant="outline">{inventoryGaps.length} módulo(s) com lacuna catalogada</Badge>
+          </div>
+          <nav className="flex flex-wrap gap-2" aria-label="Filtrar pendências de inventário">
+            {([
+              ["todas","Todas as lacunas"],
+              ["cadastro","Cadastro M3"],
+              ["fontes","Sem fontes M2"],
+              ["vigencia","Sem fonte vigente declarada"],
+              ["frentes","Frentes M3"],
+              ["acoes","Sem próxima ação"],
+              ["responsavel","Sem responsável"],
+              ["aceite","Sem critério de aceite"],
+              ["evidencia","Evidência a conferir"],
+            ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
+              variant={inventoryFilter===key?"default":"outline"}
+              aria-pressed={inventoryFilter===key}
+              onClick={()=>setInventoryFilter(key)}>{label}</Button>)}
+          </nav>
+          {visibleInventoryGaps.length===0
+            ? <p className="text-sm text-muted-foreground">
+                Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
+              </p>
+            : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {visibleInventoryGaps.map(({module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance,evidenceToReview})=>
+                  <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
+                    <p className="font-semibold text-sm">{module.id} · {module.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length} · sem aceite: {withoutAcceptance.length} · evidência a conferir: {evidenceToReview.length}
+                    </p>
+                    <p className="text-xs">
+                      {[
+                        !hasDeclaredCurrentSource?"Nenhuma fonte marcada como vigente declarada neste catálogo (históricos ou código podem existir)":null,
+                        !core?"Cadastro do módulo não localizado no Core":null,
+                        sources===0?"Proveniência ainda sem fonte catalogada":null,
+                        core&&fronts.length===0?"Sem frente direta nesta leitura":null,
+                        pendingWithoutAction.length>0?`${pendingWithoutAction.length} item(ns) pendente(s) sem próxima ação`:null,
+                        withoutOwner.length>0?`${withoutOwner.length} item(ns) pendente(s) sem responsável declarado`:null,
+                        withoutAcceptance.length>0?`${withoutAcceptance.length} item(ns) pendente(s) sem critério de aceite`:null,
+                        evidenceToReview.length>0?`${evidenceToReview.length} item(ns) pendente(s) com evidência M3 a conferir`:null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                    {(pendingWithoutAction.length>0||withoutOwner.length>0||withoutAcceptance.length>0||evidenceToReview.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
+                      aria-label="Lacunas de acompanhamento das frentes">
+                      {pendingWithoutAction.slice(0,3).map(front=><div key={front.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{front.code}</strong> · {front.title} · sem próxima ação</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(front.id)}>Abrir ficha M3</Button>
+                      </div>)}
+                      {pendingWithoutAction.length>3&&<p className="text-muted-foreground">
+                        Mais {pendingWithoutAction.length-3} item(ns) sem ação neste recorte.
+                      </p>}
+                      {withoutOwner.slice(0,3).map(item=><div key={"responsavel-"+item.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · sem responsável declarado · {item.title}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha M3</Button>
+                      </div>)}
+                      {withoutOwner.length>3&&<p className="text-muted-foreground">
+                        Mais {withoutOwner.length-3} item(ns) sem responsável no recorte.
+                      </p>}
+                      {withoutAcceptance.slice(0,3).map(item=><div key={"aceite-"+item.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · sem critério de aceite · {item.title}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha M3</Button>
+                      </div>)}
+                      {withoutAcceptance.length>3&&<p className="text-muted-foreground">
+                        Mais {withoutAcceptance.length-3} item(ns) sem critério no recorte.
+                      </p>}
+                      {evidenceToReview.slice(0,3).map(item=><div key={"evidencia-"+item.id}
+                        className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · {item.title} · {item.evidence_state.replaceAll("_"," ")}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha e M4</Button>
+                      </div>)}
+                      {evidenceToReview.length>3&&<p className="text-muted-foreground">
+                        Mais {evidenceToReview.length-3} item(ns) com evidência M3 a conferir.
+                      </p>}
+                    </div>}
+                    {sourceEntries.length>0&&<details className="rounded-lg border p-2 text-xs">
+                      <summary className="cursor-pointer font-medium">
+                        Referências M2 identificadas · {sourceEntries.length} fonte(s) no catálogo
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {sourceEntries.map(source=><div key={source.path} className="space-y-1">
+                          <p>{source.label} · {SOURCE_AUTHORITY_LABELS[source.authority]}</p>
+                          <a href={source.path} target="_blank" rel="noopener noreferrer"
+                            className="underline underline-offset-2 break-all">
+                            Abrir referência catalogada
+                          </a>
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Referências versionadas no código; validade e existência atual não verificadas nesta sessão.
+                      </p>
+                    </details>}
+                    <p className="text-xs text-muted-foreground">
+                      Origem: cadastro, hierarquia, ações e responsáveis da leitura Core M3; referências documentais do catálogo versionado em código.
+                      Fontes classificadas como vigentes são apenas declarações documentais, não certificação independente de vigência ou mandato.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"fontes")}>Fontes e método</Button>
+                      {core&&<Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"frentes")}>Frentes M3</Button>}
+                      {core&&<Button type="button" variant="outline" size="sm"
+                        onClick={()=>investigateGap(module,"ac01")}>Versões AC-01</Button>}
+                      {core&&/^[A-Z]{3}$/.test(module.id)&&
+                        <Button type="button" variant="outline" size="sm"
+                          onClick={()=>investigateGap(module,"ac02")}>Continuidade AC-02</Button>}
+                    </div>
+                  </div>)}
+              </div>}
+          <p className="text-xs text-muted-foreground">
+            Somente leitura. Registrar novas fontes, métodos ou frentes exige procedimento autorizado; não inferir vigência ou mandato.
+          </p>
+        </Card>
       )}
 
       {level==="overview" && (
@@ -808,6 +1017,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       {moduleWork.length} frente(s)/subfrente(s) vinculada(s) ao módulo; {modulePending.length} sem conclusão declarada.
                       Recorte M3 desta sessão, não inventário de todas as fontes.
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      Origem: ações, critérios, estado e responsável da ficha Core M3; eventos da janela M3 carregada.
+                      Métodos e versões AC-01 têm fontes próprias e não são certificados por este resumo.
+                    </p>
                     {moduleLatestEvent
                       ? <p className="text-xs">Último evento M3 localizado: {moduleLatestEvent.event_type} · {new Date(moduleLatestEvent.recorded_at).toLocaleString("pt-BR")}
                           {" · "}{workstreams.find(item=>item.id===moduleLatestEvent.workstream_id)?.code||"Frente não identificada"}.
@@ -816,6 +1029,66 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       : <p className="text-xs text-muted-foreground">
                           Nenhum checkpoint encontrado nos 200 eventos globais carregados; históricos anteriores podem existir.
                         </p>}
+                    {moduleRecentEvents.length>0&&<details className="rounded-lg border bg-background p-2 text-xs">
+                      <summary className="cursor-pointer font-semibold">
+                        Histórico contextual · {moduleRecentEvents.length} evento(s) recente(s) nesta janela M3
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {moduleRecentEvents.map(event=><div key={event.id} className="rounded-md border p-2">
+                          <p className="font-medium">{workstreams.find(item=>item.id===event.workstream_id)?.code||"Registro não identificado"} · {event.event_type}</p>
+                          <p className="text-muted-foreground">{new Date(event.recorded_at).toLocaleString("pt-BR")} · evento administrativo</p>
+                          {moduleWork.some(item=>item.id===event.workstream_id)&&
+                            <Button type="button" variant="outline" size="sm"
+                              onClick={()=>onSelectWorkstream(event.workstream_id)}>Abrir frente vinculada</Button>}
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Até cinco eventos encontrados nos 200 globais carregados. Não certifica lição, método ou decisão.
+                      </p>
+                    </details>}
+                    {actionChanges.length>0&&<details className="rounded-lg border bg-background p-2 text-xs"
+                      aria-label="Mudanças de próxima ação registradas no M3">
+                      <summary className="cursor-pointer font-semibold">
+                        Mudanças de direção M3 · {actionChanges.length} evento(s) com alteração de próxima ação
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {actionChanges.map(event=>{
+                          const front=moduleWork.find(item=>item.id===event.workstream_id);
+                          const before=event.before_state?.next_action;
+                          const after=event.after_state?.next_action;
+                          return <div key={event.id} className="rounded-md border p-2 space-y-1">
+                            <p className="font-medium">{front?.code||"Frente não identificada"} · {new Date(event.recorded_at).toLocaleString("pt-BR")}</p>
+                            <p className="break-words">Antes: {typeof before==="string"&&before.trim()?before:"Ação não registrada"}</p>
+                            <p className="break-words">Depois: {typeof after==="string"&&after.trim()?after:"Ação não registrada"}</p>
+                            {front&&<Button type="button" variant="outline" size="sm"
+                              onClick={()=>onSelectWorkstream(front.id)}>Abrir ficha atual</Button>}
+                          </div>;
+                        })}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Até cinco mudanças encontradas nos eventos M3 carregados (janela global de até 200); mudança textual não prova decisão da Camada Mestre,
+                        aceite, vigência nem causa da alteração.
+                      </p>
+                    </details>}
+                    {recordedEvidenceChanges.length>0&&<details className="rounded-lg border bg-background p-2 text-xs"
+                      aria-label="Alterações documentadas no histórico administrativo M3">
+                      <summary className="cursor-pointer font-semibold">
+                        Evolução registrada de evidências e critérios · {recordedEvidenceChanges.length} alteração(ões)
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {recordedEvidenceChanges.map(change=><div key={change.id} className="rounded-md border p-2 space-y-1">
+                          <p className="font-medium">{change.front.code} · {change.field} · {new Date(change.at).toLocaleString("pt-BR")}</p>
+                          <p className="break-words">Registro anterior: {change.before||"Campo vazio"}</p>
+                          <p className="break-words">Registro posterior: {change.after||"Campo vazio"}</p>
+                          <Button type="button" size="sm" variant="outline"
+                            onClick={()=>onSelectWorkstream(change.front.id)}>Abrir ficha e conferir evidências</Button>
+                        </div>)}
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        Até oito diferenças extraídas dos snapshots antes/depois na janela global M3 carregada (até 200 eventos).
+                        Histórico administrativo não comprova decisão formal, documentação de origem ou aceite independente.
+                      </p>
+                    </details>}
                     {handoffPriority.length>0
                       ? <div className="space-y-2">
                           {handoffPriority.map(item=><div key={item.id} className="rounded-lg border bg-background p-2 space-y-1 text-xs">
@@ -823,6 +1096,17 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                             <p>Estado declarado: {item.status.replaceAll("_"," ")} · responsável: {item.specialist.trim()||"não informado"}</p>
                             <p className="break-words"><strong>Próxima ação:</strong> {item.next_action.trim()||"Não registrada no Core M3."}</p>
                             {item.blocker.trim()&&<p className="break-words">Bloqueio: {item.blocker}</p>}
+                            <p className="text-muted-foreground">
+                              Critério de aceite M3: {item.acceptance_criteria.trim()||"Não registrado"}
+                              {" · "}Evidência declarada: {item.evidence_state.replaceAll("_"," ")}
+                            </p>
+                            {item.evidence_note.trim()&&<p className="break-words">
+                              <strong>Nota de evidência M3:</strong> {item.evidence_note}
+                            </p>}
+                            <p className="text-muted-foreground">
+                              Fonte: ficha M3 atual. A nota declarada não substitui a verificação das provas técnicas M4.
+                            </p>
+                            <p className="text-muted-foreground">Atualização da ficha: {new Date(item.updated_at).toLocaleString("pt-BR")}</p>
                             <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(item.id)}>
                               Abrir ficha da frente
                             </Button>
