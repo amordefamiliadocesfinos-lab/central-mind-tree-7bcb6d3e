@@ -106,8 +106,8 @@ jobs:
           name: cch-f24-g5f-auth-local-evidence
           path: |
             test-results/g5f-auth-local.json
-            test-results/g5f-browser-results.json
-            test-results/g5f-auth-*.png
-            test-results/g5f-browser-traces/
+            scripts/health-cch-f24-g5f-local/ui/test-results/g5f-browser-results.json
+            scripts/health-cch-f24-g5f-local/ui/test-results/g5f-auth-*.png
+            scripts/health-cch-f24-g5f-local/ui/test-results/g5f-browser-traces/
           if-no-files-found: warn
           retention-days: 7
