@@ -141,17 +141,18 @@ const matcherSource=contributions.slice(start,end)
 const matcher=vmAttempt.runInNewContext(matcherSource+';isMatchingPendingAttempt');
 const attempt={requestId:"req-1",moduleId:"mod-1",specialistRole:"Especialista",
  contributionKind:"manual",title:"Fonte",sourceKind:"git",sourceLocator:"docs/origem",
- checksum:null,note:"Observação",parentRevisionId:null,versionNo:1,authorityState:"proposta"};
+ checksum:null,note:"Observação",parentRevisionId:null,versionNo:1,authorityState:"proposta",authUid:"user-a",lineageId:"lineage-a"};
 const row={request_id:attempt.requestId,module_id:attempt.moduleId,
  specialist_role:attempt.specialistRole,contribution_kind:attempt.contributionKind,
  title:attempt.title,source_kind:attempt.sourceKind,source_locator:attempt.sourceLocator,
  source_checksum_sha256:attempt.checksum,note:attempt.note,parent_revision_id:attempt.parentRevisionId,
- version_no:attempt.versionNo,authority_state:attempt.authorityState};
+ version_no:attempt.versionNo,authority_state:attempt.authorityState,recorded_by_auth_uid:"user-a",recorded_at:"2026-11-24T20:00:00Z",lineage_id:"lineage-a"};
 assert.equal(matcher(row,attempt),true,"Snapshot igual pode ser reconciliado");
 for(const [field,value] of [
  ["title","Título alterado"],["source_locator","docs/outra"],["note","Diferente"],
  ["source_checksum_sha256","sha"],["request_id","req-2"],["version_no",2],
  ["module_id","mod-2"],["authority_state","homologado"],["parent_revision_id","rev-x"],
- ["specialist_role","Outro"],["contribution_kind","mapa"],["source_kind","drive"]
+ ["specialist_role","Outro"],["contribution_kind","mapa"],["source_kind","drive"],
+ ["recorded_by_auth_uid","user-b"],["recorded_at","invalid"],["lineage_id","lineage-b"]
 ])assert.equal(matcher({...row,[field]:value},attempt),false,"Rejeitar divergência: "+field);
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");

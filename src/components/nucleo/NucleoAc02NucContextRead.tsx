@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {useAuth} from "@/contexts/AuthContext";
 import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
+import NucleoIdentityContext from "@/components/nucleo/NucleoIdentityContext";
 type Front={code:string;title:string;status:string;evidence_state:string;next_action:string;evidence_count:number};
 type Contribution={id:string;title:string;version_no:number;authority_state:string;source_kind:string;source_locator:string};
 type Checkpoint={
@@ -154,10 +155,11 @@ export default function NucleoAc02NucContextRead(){
      <div><dt className="text-muted-foreground">Especialidade descritiva</dt><dd className="font-medium">{visibleResult.specialist.specialty}</dd></div>
      <div><dt className="text-muted-foreground">Papel funcional declarado</dt><dd>{visibleResult.specialist.role}</dd></div>
      <div><dt className="text-muted-foreground">Módulo de atuação consultado</dt><dd>{visibleResult.module.code} · <span className="break-all">{visibleResult.module.id}</span></dd></div>
-     <div><dt className="text-muted-foreground">Identidade persistente / vínculo N:N</dt><dd>Cadastro relacional ainda não integrado ao Core.</dd></div>
+     <div><dt className="text-muted-foreground">Identidade persistente / vínculo N:N</dt><dd>Consulte os vínculos autorizados abaixo; esta projeção descritiva não certifica o cadastro relacional.</dd></div>
      <div><dt className="text-muted-foreground">Método geral</dt><dd>Não certificado nesta consulta; a proposta AC-01 abaixo é uma referência de planejamento.</dd></div>
      <div><dt className="text-muted-foreground">Adaptação contextual</dt><dd>Frentes M3 e próximas ações abaixo; não equivalem a um método local vigente.</dd></div>
     </dl>
+    <NucleoIdentityContext moduleId={ID} frontId={null}/>
     <p className="text-xs text-muted-foreground">Mandato: {visibleResult.specialist.mandate} · Sucessor: {visibleResult.specialist.successor}. A consulta não herda autoridade e não cria vínculo de atuação.</p>
     <div className="flex flex-wrap gap-2">
      <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac01-piloto");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar registro AC-01</Button>
