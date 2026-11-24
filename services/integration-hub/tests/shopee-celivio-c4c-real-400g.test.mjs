@@ -74,6 +74,6 @@ test('C4-C blocks physical mismatch for Celivio 400g model',()=>{
   const i={itemId:item.item_id,modelId:item.model_id,
     itemName:item.item_name,modelName:item.model_name,quantity:1};
   const scope={channelAccountId:CELIVIO_C4C_ACCOUNT_ID};
-  assert.equal(mappingPhysicalBlocker(i,{...mapping,physical_multiplier:5000},scope),'physical_multiplier_mismatch');
-  assert.equal(mappingPhysicalBlocker(i,{...mapping,physical_identity:{active:true,unit:'g',presentation_factors:[1000]}},scope),'physical_presentation_unverified');
+  assert.equal(mappingPhysicalBlocker(i,{...mapping,physical_multiplier:5000},scope),'celivio_400g_physical_unverified');
+  assert.equal(mappingPhysicalBlocker(i,{...mapping,physical_identity:{active:true,unit:'g',presentation_factors:[1000]}},scope),'celivio_400g_physical_unverified');
 });
