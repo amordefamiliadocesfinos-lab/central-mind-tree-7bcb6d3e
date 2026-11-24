@@ -22,5 +22,9 @@ assert.equal(src.split('Explorar árvore completa de módulos e frentes').length
 assert(src.includes('onClick={() => choose(sub.id)}'),"Original hierarchy navigation preserved");
 assert(src.includes('<NucleoSupervisionPanel'),"Original supervision preserved");
 assert(src.includes('NucleoExecutiveDevelopment'),"Original executive preserved");
-assert(src.includes('NucleoModuleKnowledge')===false,"Not creating a second FM copy");
+assert.equal(src.split('<NucleoModuleKnowledge ').length-1,1,"One existing FM writer for governance only");
+assert(src.includes('items.filter(item=>item.kind==="modulo"&&item.code==="NUC").map(module=>'),"Use the actual NUC root, never an operational duplicate");
+assert(src.includes('moduleId={module.id} moduleCode={module.code}'),"Preserve Core module identity");
+assert(src.includes('if(nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy)'),"M3 refresh cannot unmount a pending governance draft");
+assert(src.includes('onDraftStateChange={reportNucKnowledgeDraft}'),"Use the existing FM draft guard");
 console.log("UX-DIN-06: provenance, compact navigation, responsive grids and original hierarchy PASS");
