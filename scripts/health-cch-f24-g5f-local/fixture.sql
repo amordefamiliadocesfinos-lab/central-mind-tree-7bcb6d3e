@@ -79,9 +79,9 @@ END $$;
 -- The M4 source schema auto-updates updated_at on set edits. Recreate that
 -- timestamp behavior in this reduced ephemeral fixture, not in production.
 CREATE OR REPLACE FUNCTION public.g5f_touch_updated_at()
- RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+ RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $g5f$
 BEGIN NEW.updated_at=clock_timestamp()+interval '1 millisecond'; RETURN NEW; END;
-$;
+$g5f$;
 CREATE TRIGGER g5f_touch_set_updated_at
  BEFORE UPDATE ON public.health_workout_sets
  FOR EACH ROW EXECUTE FUNCTION public.g5f_touch_updated_at();
