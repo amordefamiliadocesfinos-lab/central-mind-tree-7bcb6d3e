@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence
 import NucleoAc01PilotRegistration from "@/components/nucleo/NucleoAc01PilotRegistration";
 import NucleoAc02NucContextRead from "@/components/nucleo/NucleoAc02NucContextRead";
 import NucleoIdentityContext from "@/components/nucleo/NucleoIdentityContext";
+import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
 import NucleoSupervisionPanel from "@/components/nucleo/NucleoSupervisionPanel";
 import NucleoOperationalAtlas from "@/components/nucleo/NucleoOperationalAtlas";
 import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevelopment";
@@ -108,8 +109,17 @@ export default function NucleoDevelopmentCenter() {
   const [dependencyTarget, setDependencyTarget] = useState("");
   const [saving, setSaving] = useState(false);
   const [edit, setEdit] = useState<Partial<DevelopmentWorkstream>>({});
+  const [nucKnowledgeVisited,setNucKnowledgeVisited]=useState(false);
+  const nucKnowledgeDraft=useRef({dirty:false,busy:false});
+  const reportNucKnowledgeDraft=useCallback((value:{dirty:boolean;busy:boolean})=>{
+    nucKnowledgeDraft.current=value;
+  },[]);
 
   const refresh = useCallback(async () => {
+    if(nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy){
+      toast.warning("Conclua ou reconcilie a Ficha Viva do Núcleo antes de atualizar o M3.");
+      return;
+    }
     setLoading(true);
     const [fronts, links, events] = await Promise.all([
       client.from("nucleo_development_workstreams").select("*").order("code"),
@@ -1444,6 +1454,14 @@ export default function NucleoDevelopmentCenter() {
           )}
         </Card>
       </div>
+      {items.filter(item=>item.kind==="modulo"&&item.code==="NUC").map(module=>
+        <details key={module.id} id="nucleo-governance-fm" className="rounded-xl border p-3"
+          onToggle={event=>{if(event.currentTarget.open)setNucKnowledgeVisited(true);}}>
+          <summary className="cursor-pointer text-sm font-semibold">Ficha Viva do Núcleo · FM-01 a FM-10</summary>
+          <p className="mt-3 text-xs text-muted-foreground">Registros da governança NUC, separados dos módulos operacionais. O escritor e o histórico são os mesmos da Ficha Viva existente; somente rascunhos declarados, sem nova autoridade.</p>
+          {nucKnowledgeVisited&&<NucleoModuleKnowledge moduleId={module.id} moduleCode={module.code}
+            workstreams={items} events={history} onDraftStateChange={reportNucKnowledgeDraft}/>}
+        </details>)}
     </div>
   );
 }
