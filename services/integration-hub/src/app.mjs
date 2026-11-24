@@ -23,6 +23,8 @@ import {
 import { randomUUID } from 'node:crypto';
 import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
 import { captureCelivioC4ERawOnce } from './shopee-celivio-c4e-raw-once.mjs';
+import { runCelivioPreview } from './shopee-celivio-preview-read-budget.mjs';
+import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -50,6 +52,7 @@ export async function handleRequest(
     probeCore = probeCoreBridge,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
+    runCelivioReadOnlyPreview = runCelivioPreview,
     runShopeeCommit = runShopeeControlledAutoIntake,
     inspectShopeeLogistics = inspectShopeeLiveLogistics,
     refreshShopeeOauth = refreshShopeeOauthOnce,
@@ -773,7 +776,11 @@ export async function handleRequest(
     if (!channelAccountId) return json(503, { error: 'runtime_not_configured' });
 
     try {
-      const result = await runShopeePreview({
+      // Celivio only: bounded 12s Core batch read as already proven for Adão.
+      // No changes for Priscila, Viviane, Adão or any commit endpoint.
+      const preview = channelAccountId === CELIVIO_C4C_ACCOUNT_ID
+        ? runCelivioReadOnlyPreview : runShopeePreview;
+      const result = await preview({
         channelAccountId,
         limit: 5,
         mode: 'preview',
