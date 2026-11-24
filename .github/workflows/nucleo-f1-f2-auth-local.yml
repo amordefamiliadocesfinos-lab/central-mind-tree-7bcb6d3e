@@ -7,6 +7,7 @@ on:
       - "scripts/nucleo-f1-f2-g1-scope.test.sql"
       - "scripts/nucleo-f1-f2-writer-audit.test.sql"
       - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
+      - "scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql"
       - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
       - "scripts/nucleo-f1-f2-g2-decider-local-auth.cjs"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
@@ -85,6 +86,9 @@ jobs:
       - name: G2 local Auth identity of distinct decider
         env: *db
         run: node scripts/nucleo-f1-f2-g2-decider-local-auth.cjs
+      - name: G2 attested authority and transactional receipt
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql
       - name: Stop local-only stack
         if: always()
         shell: bash
