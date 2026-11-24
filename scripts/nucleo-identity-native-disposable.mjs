@@ -10,8 +10,29 @@ const db=postgres(options);
 try{
  await db.unsafe("SET nucleo.identity_candidate_disposable='on'");
  for(const file of [...identityBootstrapFiles,'scripts/nucleo-identity-read.test.sql']){
+  if(file.endsWith('/nucleo_identity_read_candidate.sql')){
+   // Reproduce the observed public-schema function defaults only, after legacy
+   // bootstrap; never touch the hosted project's roles or global privileges.
+   await db.unsafe(`CREATE ROLE sandbox_exec NOLOGIN;
+    CREATE ROLE sandbox_exec_xkskyutmtlhivvpfxkjg NOLOGIN;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS
+     TO anon,authenticated,service_role,sandbox_exec_xkskyutmtlhivvpfxkjg;`);
+  }
   await db.unsafe(fs.readFileSync(file,'utf8').replace(/^\\.*$/gm,''));console.log('PASS',file);
  }
+ const acl=await db.unsafe(`SELECT rolname,
+   has_schema_privilege(rolname,'nucleo_identity','USAGE') AS schema_use,
+   has_function_privilege(rolname,'public.nucleo_identity_context_read(uuid)','EXECUTE') AS context_exec,
+   has_function_privilege(rolname,'public.nucleo_identity_assignments_read(uuid)','EXECUTE') AS list_exec
+   FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role','sandbox_exec','sandbox_exec_xkskyutmtlhivvpfxkjg')`);
+ assert.equal(acl.length,5);
+ for(const row of acl){
+  const expected=row.rolname==='authenticated';
+  assert.equal(row.schema_use,expected,row.rolname);
+  assert.equal(row.context_exec,expected,row.rolname);
+  assert.equal(row.list_exec,expected,row.rolname);
+ }
+ console.log('PASS candidate ACLs with cloud-like default EXECUTE grants: authenticated only; no legacy ACL changes.');
  const a=postgres(options),b=postgres(options);
  try{
   const insert=(sql,id)=>sql.begin(async tx=>{
