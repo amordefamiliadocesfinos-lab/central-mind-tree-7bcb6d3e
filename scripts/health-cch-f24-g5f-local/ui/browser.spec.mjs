@@ -29,6 +29,13 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await expect(page.getByTestId("g5f-count")).toContainText("4",{timeout:30_000});
  await expect(extra(page)).toBeVisible();
  await extra(page).click();
+ // Actual F19 requires a persisted result after work4; synthetic G5-E did not.
+ const save=page.getByRole("button",{name:"Salvar resultado"});
+ if(await save.count()) {
+   await save.click();
+   await expect(page.getByRole("button",{name:"Resultado salvo"})).toBeVisible();
+ }
+ await expect(selected(page)).toBeEnabled();
  await selected(page).click();
  await page.getByRole("button",{name:"Concluir série"}).click();
  await expect(page.getByTestId("g5f-count")).toContainText("5");
