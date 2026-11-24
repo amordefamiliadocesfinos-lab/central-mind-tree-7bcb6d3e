@@ -192,7 +192,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    }
    if(!window.confirm(parent ? "Registrar NOVA revisão append-only da contribuição? A referência anterior permanece preservada e nenhuma versão será homologada." : "Registrar uma NOVA proposta de contribuição por referência? O original não será importado e nenhum mandato ou documento será homologado."))return;
    setSaving(true);setFeedback("");
-   const requestId=requestRef.current??crypto.randomUUID();
+   // Prepared sources use a stable request key across sessions; the Core's
+   // unique request_id prevents concurrent repeat submissions of the same source.
+   const prepared=!parentId?candidates.find(p=>!p.retained&&(p.locator===cleanSource||p.checksum===checksum.trim())):undefined;
+   const requestId=requestRef.current??prepared?.requestId??crypto.randomUUID();
    const attempt:PendingAttempt={
      requestId,moduleId,specialistRole:cleanRole,contributionKind:kind,title:cleanTitle,
      sourceKind,sourceLocator:cleanSource,checksum:checksum.trim()||null,note:cleanNote,
