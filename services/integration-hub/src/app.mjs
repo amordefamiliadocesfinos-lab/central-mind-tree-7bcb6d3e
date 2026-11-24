@@ -5,6 +5,7 @@ import { runShopeeMinimumCycle } from './shopee-minimum-cycle.mjs';
 import { runAdaoAutomaticIntake } from './shopee-adao-automatic-intake.mjs';
 import { runAdaoCycle } from './shopee-adao-cycle.mjs';
 import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
+import { syncCelivioPilotLabelOnce } from './shopee-celivio-f5-label-sync.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
 import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
@@ -48,6 +49,7 @@ export async function handleRequest(
     runAdaoIntake = runAdaoAutomaticIntake,
     runAdaoAccountCycle = runAdaoCycle,
     syncAdaoLabel = syncAdaoReadyLabelOnce,
+    syncCelivioPilotLabel = syncCelivioPilotLabelOnce,
     readAdaoLogistics = readAdaoLogisticsReadOnly,
     syncCore = callCoreBridgeAction,
     probeCore = probeCoreBridge,
@@ -487,6 +489,35 @@ export async function handleRequest(
       });
     } catch {
       return json(503, { status: 'degraded', mode: 'label_sync_once', code: 'runtime_exception' });
+    }
+  }
+
+  // F5: one exact Celivio pilot, reusing Adão's durable-claim PDF synchronizer.
+  // No automatic scheduling, no ship_order, no general account/order input.
+  if (normalizedPath === '/internal/shopee/celivio/f5/label/sync-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length
+        || Number(request.headers?.['content-length'] ?? 0) !== 0
+        || request.headers?.['transfer-encoding'] || request.body) {
+      return json(400, { error: 'body_or_query_not_allowed' });
+    }
+    if (getEnv('SHOPEE_CELIVIO_F5_LABEL_SYNC_ENABLED') !== 'true'
+        || getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== CELIVIO_C4C_ACCOUNT_ID
+        || getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN') !== '261121TBS6BHE6') {
+      return json(503, { status: 'blocked', code: 'celivio_f5_label_sync_disabled' });
+    }
+    try {
+      const result = await syncCelivioPilotLabel();
+      const code = result?.code ?? 'label_sync_unavailable';
+      return json(result?.ok ? 200 : 409, {
+        status: result?.ok ? 'ok' : 'blocked',
+        account: 'celivio', code,
+        document_id: result?.ok ? result.document_id ?? null : null,
+        ...(code === 'document_status_rejected' && result?.diagnostic
+          ? { diagnostic: result.diagnostic } : {}),
+      });
+    } catch {
+      return json(503, { status: 'blocked', account: 'celivio', code: 'label_sync_exception' });
     }
   }
 
