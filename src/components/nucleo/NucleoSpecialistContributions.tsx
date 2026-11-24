@@ -21,6 +21,7 @@ type RecordRow={
  parent_revision_id:string|null;request_id:string;
 };
 type PendingAttempt={
+ witness?:Awaited<ReturnType<typeof makeWitness>>;
  requestId:string;moduleId:string;specialistRole:string;contributionKind:string;title:string;authUid?:string;lineageId?:string;
  sourceKind:string;sourceLocator:string;checksum:string|null;note:string;
  parentRevisionId:string|null;versionNo:number;authorityState:"proposta"|"em_evolucao";
@@ -122,7 +123,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
         if(uncertainRef.current&&requestRef.current){
           const attempt=pendingAttemptRef.current;
           const prior=result.data.find(item=>item.request_id===requestRef.current);
-          if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)&&fence.clearConfirmed()){
+          if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)&&fence.clearConfirmed(attempt.witness)){
             setFeedback("Proposta previamente enviada localizada e integralmente conferida no Core (v"+prior.version_no+"). Não reenviar.");
             uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
             setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
@@ -224,6 +225,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        return;
      }
      requestRef.current=requestId;
+     attempt.witness=witness;
      pendingAttemptRef.current=attempt;
      const result=await db.from("nucleo_specialist_contributions").insert({
        module_id:moduleId,specialist_role:cleanRole,contribution_kind:kind,title:cleanTitle,

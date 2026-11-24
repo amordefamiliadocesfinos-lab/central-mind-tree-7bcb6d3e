@@ -88,15 +88,15 @@ export function usePendingWriteFence(kind:"fm"|"ac01",moduleId:string){
      return false;
    }
  },[state.ready,state.blocked,kind,moduleId]);
- const clearConfirmed=useCallback((expected?:WriteWitness)=>{
+ const clearConfirmed=useCallback((expected:WriteWitness|undefined)=>{
    const key=keyRef.current;
-   if(!key)return false;
+   if(!key||!expected)return false;
    try{
      const current=window.localStorage.getItem(key);
      // O marcador pode ter mudado em outra aba ou entre a gravação e o readback.
      if(current===null)return false;
      const witness=witnessRef.current;
-     if(expected&&JSON.stringify(expected)!==JSON.stringify(witness))return false;
+     if(JSON.stringify(expected)!==JSON.stringify(witness))return false;
      if(witness?current!==JSON.stringify(witness):current!=="pending")return false;
      window.localStorage.removeItem(key);
      witnessRef.current=null;

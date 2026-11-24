@@ -92,6 +92,7 @@ function SourceReferences({reference}:{reference:string}) {
 
 
 type PendingFmAttempt={
+ witness?:Awaited<ReturnType<typeof makeWitness>>;
  moduleId:string;sectionCode:FMSection;versionNo:number;title:string;body:string;sourceReference:string;authUid?:string;
 };
 const matchesPendingFmAttempt=(row:Revision,pending:PendingFmAttempt)=>(
@@ -167,7 +168,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           if(writeUncertain&&pending){
             const sameVersion=result.data.filter(row=>row.module_id===pending.moduleId&&
               row.section_code===pending.sectionCode&&row.version_no===pending.versionNo);
-            if(sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)&&fence.clearConfirmed()){
+            if(sameVersion.length===1&&matchesPendingFmAttempt(sameVersion[0],pending)&&fence.clearConfirmed(pending.witness)){
               pendingAttemptRef.current=null;
               setWriteUncertain(false);
               setTitle("");setBody("");setSource("");setValidationError(null);
@@ -278,7 +279,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         setError("Não foi possível proteger a tentativa nesta sessão. Nenhum registro foi enviado.");
         return;
       }
-      pendingAttemptRef.current=attempt;
+      attempt.witness=witness;pendingAttemptRef.current=attempt;
       const result=await client.from("nucleo_module_knowledge_revisions").insert({
         module_id:moduleId,section_code:section,version_no:version,title:cleanTitle,body:cleanBody,
         source_reference:cleanSource,authority_state:"rascunho",evidence_level:"declarado",

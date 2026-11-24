@@ -61,8 +61,8 @@ assert(k.includes('const fence=usePendingWriteFence("fm",moduleId)'),"FM usa tra
 assert(s.includes('const fence=usePendingWriteFence("ac01",moduleId)'),"AC-01 usa trava por módulo");
 assert(k.includes('if(!fence.markStarted(witness))'),"FM grava marcador ANTES do envio");
 assert(s.includes('if(!fence.markStarted(witness))'),"AC-01 grava marcador ANTES do envio");
-assert(k.includes('&&fence.clearConfirmed()'),"FM só libera após leitura conferida");
-assert(s.includes('&&fence.clearConfirmed()'),"AC-01 só libera após readback integral");
+assert(k.includes('&&fence.clearConfirmed(pending.witness)'),"FM só libera a tentativa conferida");
+assert(s.includes('&&fence.clearConfirmed(attempt.witness)'),"AC-01 só libera a tentativa conferida");
 assert(k.includes('Sem o conteúdo original em memória, a liberação automática não é segura'),
   "FM não libera após reload sem snapshot");
 assert(s.includes('O conteúdo da minuta não foi salvo no navegador'),
