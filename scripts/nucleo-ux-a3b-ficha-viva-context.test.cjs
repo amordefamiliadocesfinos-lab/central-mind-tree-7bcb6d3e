@@ -81,22 +81,25 @@ for(const token of [
 assert(fm.indexOf('Rascunho não salvo em {section}.')<fm.indexOf('<section aria-label="Cobertura documental por seção"'),"Aviso de minuta deve anteceder troca de seção");
 // UX-01: o cartão executivo acompanha a frente que motivou o destaque.
 for(const token of [
- 'const focusFront = critical.find(front=>front.next_action.trim()) ?? critical[0]',
+ 'const pendingItems = [...fronts,...subfronts].filter(item=>item.status!=="concluido");',
+ 'const focusFront = pendingItems.find(item=>item.status==="bloqueado")',
  'const actionOwner = focusFront ?? record;',
- 'Frente em atenção:',
+ 'focusFront.kind==="subfrente"?"Subfrente":"Frente"',
  'Bloqueio declarado:',
- 'Próxima ação {focusFront?"da frente":"do módulo"}:',
+ 'Próxima ação {focusFront?(focusFront.kind==="subfrente"?"da subfrente":"da frente"):"do módulo"}:',
  'actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"',
 ])assert(text.includes(token),"UX-01 atenção executiva: "+token);
 assert(!text.includes('Próxima ação: {record?.next_action.trim()'),"Não atribuir ação do módulo à frente prioritária");
 // UX-01: painel transversal liga frente e próxima ação ao mesmo registro M3.
 const coverage=fs.readFileSync("src/components/nucleo/NucleoCrossModuleCoverage.tsx","utf8");
 for(const token of [
- 'const attentionFront=fronts.find(front=>front.status==="bloqueado")',
- 'fronts.find(front=>front.priority==="critica")',
- 'fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())',
- 'Frente em atenção: {attentionFront.code} · {attentionFront.title}',
- 'Próxima ação da frente:',
+ 'const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");',
+ 'const attentionFront=pendingFronts.find(front=>front.status==="bloqueado")',
+ 'pendingFronts.find(front=>front.priority==="critica")',
+ 'pendingFronts.find(front=>front.next_action.trim())',
+ 'attentionFront.kind==="subfrente"?"Subfrente":"Frente"',
+ 'em atenção: {attentionFront.code} · {attentionFront.title}',
+ 'Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:',
  'attentionFront.next_action.trim()||"não informada no Core"',
  'Próxima ação do módulo:',
  'Sem frente M3 vinculada — situação da operação não verificada',
@@ -104,6 +107,28 @@ for(const token of [
  'onClick={()=>onOpenModule(module)}',
 ])assert(coverage.includes(token),"UX-01 cobertura transversal: "+token);
 assert(!coverage.includes('Próxima ação declarada: {record?.next_action.trim()'),"Não confundir ação do módulo com frente de atenção");
+// Executar as expressões reais de seleção em ambas as superfícies.
+const selectors=[
+ [text,'const pendingItems =','const actionOwner =','focusFront'],
+ [coverage,'const pendingFronts=','return {module,record,fronts,subfronts','attentionFront'],
+];
+const item=(id,status,priority,next_action="")=>({id,status,priority,next_action});
+const done=item("done","concluido","critica","antiga");
+const normal=item("normal","planejado","normal","nova");
+const blocked=item("blocked","bloqueado","normal");
+const critical=item("critical","planejado","critica");
+const high=item("high","planejado","alta");
+for(const [source,start,end,result] of selectors){
+ const code=source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start)));
+ for(const [fronts,subfronts,expected] of [
+   [[done],[],null],[[done,normal],[],"normal"],[[done],[blocked],"blocked"],
+   [[critical],[blocked],"blocked"],[[normal],[critical],"critical"],
+   [[normal],[high],"high"],[[],[],null],
+ ]){
+   const actual=vm.runInNewContext(code+"; "+result,{fronts,subfronts});
+   assert.equal(actual?.id??null,expected,"Atenção M3: "+result);
+ }
+}
 // A matriz preserva a identidade visual herdada, sem introduzir paleta paralela.
 assert(coverage.includes('className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"'));
 assert(coverage.includes('className="rounded-lg border p-4 space-y-2 min-w-0"'));
@@ -126,7 +151,7 @@ for(const token of [
  'field?.focus({preventScroll:true})',
  'id="nucleo-atlas-module-search"',
  'return [...byCode.values()].filter(module=>module.id!=="NUC")',
- 'const pending=fronts.some(front=>front.status!=="concluido")',
+ 'const pending=pendingItems.length>0;',
  'rank:critical.length>0?0:pending?1:record&&fronts.length===0?2:!record?3:4',
 ])assert(text.includes(token),"UX-01 foco/contagem/prioridade: "+token);
 assert(text.includes('label:"Módulos no Core", value:summary.modules'),"Contagem operacional deve permanecer no Core");

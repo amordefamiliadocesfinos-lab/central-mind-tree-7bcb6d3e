@@ -34,9 +34,10 @@ export default function NucleoCrossModuleCoverage({
     const candidates=MODULE_RECONCILIATION_V12[module.id] ?? [];
     // Evidência transversal: destacar uma frente real, nunca substituir
     // sua próxima ação pela declaração genérica do cadastro do módulo.
-    const pendingFronts=fronts.filter(front=>front.status!=="concluido");
+    const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");
     const attentionFront=pendingFronts.find(front=>front.status==="bloqueado")
       ?? pendingFronts.find(front=>front.priority==="critica")
+      ?? pendingFronts.find(front=>front.priority==="alta")
       ?? pendingFronts.find(front=>front.next_action.trim())
       ?? pendingFronts[0] ?? null;
     return {module,record,fronts,subfronts,provenance,candidates,attentionFront};
@@ -135,10 +136,10 @@ export default function NucleoCrossModuleCoverage({
             <div className="rounded-md border bg-muted/20 p-3 space-y-1.5" aria-label={`Atenção do módulo ${module.id}`}>
               {attentionFront ? (
                 <>
-                  <p className="text-xs font-medium leading-relaxed">Frente em atenção: {attentionFront.code} · {attentionFront.title}</p>
+                  <p className="text-xs font-medium leading-relaxed">{attentionFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção: {attentionFront.code} · {attentionFront.title}</p>
                   <p className="text-xs text-muted-foreground">Situação declarada: {attentionFront.status.replaceAll("_"," ")}</p>
                   {attentionFront.blocker.trim() && <p className="text-xs break-words"><span className="font-medium">Bloqueio:</span> {attentionFront.blocker}</p>}
-                  <p className="text-xs break-words"><span className="font-medium">Próxima ação da frente:</span> {attentionFront.next_action.trim()||"não informada no Core"}</p>
+                  <p className="text-xs break-words"><span className="font-medium">Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:</span> {attentionFront.next_action.trim()||"não informada no Core"}</p>
                 </>
               ) : (
                 <>
@@ -155,7 +156,7 @@ export default function NucleoCrossModuleCoverage({
               </Button>
               {attentionFront && <Button type="button" variant="outline" size="sm"
                 onClick={()=>onOpenWorkstream(attentionFront.id)}>
-                Abrir ficha da frente {attentionFront.code}
+                {attentionFront.kind==="subfrente" ? <>Abrir ficha da subfrente {attentionFront.code}</> : <>Abrir ficha da frente {attentionFront.code}</>}
               </Button>}
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3

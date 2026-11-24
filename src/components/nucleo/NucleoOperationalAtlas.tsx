@@ -176,17 +176,20 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const portfolioAttention = catalog.map(module => {
     const record = workstreams.find(item=>item.kind==="modulo"&&item.code===module.id);
     const fronts = record ? workstreams.filter(item=>item.kind==="frente"&&item.parent_id===record.id) : [];
-    const critical = fronts.filter(front=>front.status==="bloqueado"||front.priority==="critica");
-    // Mostrar a ação da FRENTE que gerou atenção, nunca substituí-la
-    // silenciosamente pela ação genérica do cadastro do módulo.
-    const focusFront = critical.find(front=>front.next_action.trim()) ?? critical[0]
-      ?? fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())
-      ?? fronts.find(front=>front.status!=="concluido") ?? null;
+    const subfronts = fronts.flatMap(front=>workstreams.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+    const pendingItems = [...fronts,...subfronts].filter(item=>item.status!=="concluido");
+    const critical = pendingItems.filter(item=>item.status==="bloqueado"||item.priority==="critica");
+    // Mostrar a ação do registro pendente que gerou atenção, sem substituir pela ação do módulo.
+    const focusFront = pendingItems.find(item=>item.status==="bloqueado")
+      ?? pendingItems.find(item=>item.priority==="critica")
+      ?? pendingItems.find(item=>item.priority==="alta")
+      ?? pendingItems.find(item=>item.next_action.trim())
+      ?? pendingItems[0] ?? null;
     const actionOwner = focusFront ?? record;
-    const pending=fronts.some(front=>front.status!=="concluido");
+    const pending=pendingItems.length>0;
     return {module,record,fronts,critical,focusFront,actionOwner,
       reason:critical.length>0
-        ? `${critical.length} frente(s) com bloqueio ou prioridade crítica declarada(s)`
+        ? `${critical.length} frente(s)/subfrente(s) com bloqueio ou prioridade crítica declarada(s)`
         : record && fronts.length===0
           ? "Módulo no Core ainda sem frente M3 vinculada"
           : !record
@@ -296,8 +299,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
-  const selectedFronts = selectedRecord ? workstreams.filter(item => item.parent_id === selectedRecord.id) : [];
-  const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.parent_id === front.id));
+  const selectedFronts = selectedRecord ? workstreams.filter(item => item.kind === "frente" && item.parent_id === selectedRecord.id) : [];
+  const selectedSubfronts = selectedFronts.flatMap(front => workstreams.filter(item => item.kind === "subfrente" && item.parent_id === front.id));
   // Resumo apenas dos registros descendentes existentes no Core M3.
   // Não equivale a progresso percentual, evidência de deploy ou homologação.
   const moduleWork = [...selectedFronts, ...selectedSubfronts];
@@ -597,10 +600,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 </div>
                 <p className="font-semibold text-sm mt-3">{module.name}</p>
                 <p className="text-xs text-muted-foreground mt-1 min-h-12 leading-relaxed">{reason}</p>
-                {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">Frente em atenção:</span> {focusFront.code} · {focusFront.title}</p>}
+                {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">{focusFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção:</span> {focusFront.code} · {focusFront.title}</p>}
                 {focusFront?.blocker.trim() && <p className="text-xs mt-1 leading-relaxed"><span className="font-medium">Bloqueio declarado:</span> {focusFront.blocker}</p>}
                 {focusFront && <p className="text-xs mt-1"><span className="font-medium">Situação:</span> {focusFront.status.replaceAll("_"," ")==="em validacao"?"Em validação":focusFront.status.replaceAll("_"," ")==="em andamento"?"Em andamento":focusFront.status.replaceAll("_"," ")}</p>}
-                <p className="text-xs mt-2 leading-relaxed line-clamp-3" title={actionOwner?.next_action||undefined}><span className="font-medium">Próxima ação {focusFront?"da frente":"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
+                <p className="text-xs mt-2 leading-relaxed line-clamp-3" title={actionOwner?.next_action||undefined}><span className="font-medium">Próxima ação {focusFront?(focusFront.kind==="subfrente"?"da subfrente":"da frente"):"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
                 <span className="block text-sm font-medium text-primary mt-3">Explorar módulo</span>
               </button>
             ))}

@@ -38,7 +38,8 @@ export default function NucleoResumeBrief({
     const missingAction = pending.filter(item => !item.next_action.trim());
     const missingOwner = pending.filter(item => !item.specialist.trim());
     const missingAcceptance = pending.filter(item => !item.acceptance_criteria.trim());
-    return { fronts, subfronts, pending, recent, missingAction, missingOwner, missingAcceptance };
+    const evidenceToReview = pending.filter(item => item.evidence_state !== "comprovada" || !item.evidence_note.trim());
+    return { fronts, subfronts, pending, recent, missingAction, missingOwner, missingAcceptance, evidenceToReview };
   }, [module.id, workstreams, events]);
 
   const declaredCurrent = provenance?.sources.filter(source => source.authority === "vigente_declarada") ?? [];
@@ -71,6 +72,7 @@ export default function NucleoResumeBrief({
         { label: "Sem próxima ação", value: context.missingAction.length },
         { label: "Sem responsável", value: context.missingOwner.length },
         { label: "Sem critério de aceite", value: context.missingAcceptance.length },
+        { label: "Evidência M3 a conferir", value: context.evidenceToReview.length },
       ].map(metric => <div key={metric.label} className="rounded-lg border p-2">
         <p className="text-xs text-muted-foreground">{metric.label}</p>
         <p className="text-lg font-semibold tabular-nums">{metric.value}</p>
@@ -97,9 +99,9 @@ export default function NucleoResumeBrief({
         <p><strong>Responsável:</strong> {item.specialist.trim() || "Não informado"}</p>
         <p><strong>Critério de aceite:</strong> {item.acceptance_criteria.trim() || "Não registrado"}</p>
         {item.blocker.trim() && <p><strong>Bloqueio:</strong> {item.blocker}</p>}
-        <p className="text-muted-foreground">Evidência M3: {item.evidence_state.replaceAll("_", " ")}</p>
+        <p className="text-muted-foreground">Evidência M3: {item.evidence_state.replaceAll("_", " ")} · {item.evidence_note.trim() || "Nota não registrada"}</p>
         <Button size="sm" type="button" variant="outline"
-          onClick={() => onOpenWorkstream(item.id)}>Abrir frente vinculada</Button>
+          onClick={() => onOpenWorkstream(item.id)}>Abrir {item.kind === "subfrente" ? "subfrente" : "frente"} vinculada</Button>
       </div>)}
       {context.pending.length > 5 && <p className="text-muted-foreground">
         Mais {context.pending.length - 5} pendência(s) na leitura M3; consultar Desenvolvimento para o conjunto completo.
