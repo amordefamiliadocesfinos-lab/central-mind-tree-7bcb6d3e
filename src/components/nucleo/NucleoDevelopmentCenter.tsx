@@ -97,7 +97,7 @@ export default function NucleoDevelopmentCenter() {
   const [moduleSearchRequestSeq,setModuleSearchRequestSeq] = useState(0);
   // D5: pedido de navegação, sem escrita; Atlas mantém consulta e rascunhos.
   const [ac01Jump,setAc01Jump] = useState<{moduleCode:string;stage:"versoes"|"refinar"|"historico";seq:number}|null>(null);
-  const [ac02Jump,setAc02Jump] = useState<{moduleCode:string;seq:number}|null>(null);
+  const [ac02Jump,setAc02Jump] = useState<{moduleCode:string;seq:number;workstreamId?:string}|null>(null);
   const [returnToAtlas,setReturnToAtlas] = useState(false);
   const [atlasNavigationRequest,setAtlasNavigationRequest] = useState(0);
   const [lastOpenedId,setLastOpenedId] = useState("");
@@ -1133,7 +1133,7 @@ export default function NucleoDevelopmentCenter() {
                         setWorkspaceView("geral");
                         setAtlasVisited(true);
                         setAtlasExpanded(true);
-                        setAc02Jump(prev=>({moduleCode:crmModule.code,seq:(prev?.seq??0)+1}));
+                        setAc02Jump(prev=>({moduleCode:crmModule.code,workstreamId:selected.id,seq:(prev?.seq??0)+1}));
                       }}>
                       Continuar AC-02 e checkpoints F5
                     </Button>
@@ -1202,7 +1202,7 @@ export default function NucleoDevelopmentCenter() {
                         ?"Abre consulta protegida apenas por ação posterior":"Contrato AC-02 exige código de módulo com três letras"}
                       onClick={()=>{
                         setWorkspaceView("geral");setAtlasVisited(true);setAtlasExpanded(true);
-                        setAc02Jump(prev=>({moduleCode:selectedOperationalModule.code,seq:(prev?.seq??0)+1}));
+                        setAc02Jump(prev=>({moduleCode:selectedOperationalModule.code,workstreamId:selected.id,seq:(prev?.seq??0)+1}));
                       }}>Continuidade AC-02/F5</Button>
                   </div>
                   <div className="rounded-lg border p-2 space-y-1 text-xs" aria-label="Contexto da frente selecionada">

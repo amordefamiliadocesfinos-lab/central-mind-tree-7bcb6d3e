@@ -61,7 +61,7 @@ interface Props {
   onPrepareModule: (module: KnowledgeModule) => void;
   searchRequestSeq?: number;
   requestedAc01?: {moduleCode:string;stage:"versoes"|"refinar"|"historico";seq:number}|null;
-  requestedAc02?: {moduleCode:string;seq:number}|null;
+  requestedAc02?: {moduleCode:string;seq:number;workstreamId?:string}|null;
 }
 
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
@@ -117,6 +117,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     if(id!=="papel")setSpecialistPanelVisited(current=>current.includes(id)?current:[...current,id]);
   };
   const [knowledgeVisited,setKnowledgeVisited]=useState(false);
+  const [resumeFocusId,setResumeFocusId]=useState<string|null>(null);
   const [fmDraftState,setFmDraftState]=useState({dirty:false,busy:false});
   const [specialistDraftState,setSpecialistDraftState]=useState({dirty:false,busy:false});
   // O Core é a fonte do cadastro. O inventário GitHub apenas complementa rotas
@@ -403,6 +404,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       setSpecialistPanelVisited([]);
       setAc01Request(null);
       setFmSectionRequest(null);
+      setResumeFocusId(null);
       setKnowledgeVisited(false);
     }
     setSelectedId(item.id);
@@ -493,6 +495,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const target=catalog.find(module=>module.id===requestedAc02.moduleCode);
     if(!target)return;
     if(choose(target)===false)return;
+    setResumeFocusId(requestedAc02.workstreamId??null);
     openSpecialistPanel("continuidade");
     selectModuleArea("especialista");
   // Uma execução por solicitação explícita, com a mesma guarda de rascunhos.
@@ -1380,6 +1383,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   <NucleoResumeBrief key={selectedRecord.id+"-resume"}
                     module={selectedRecord} workstreams={workstreams} events={events}
                     provenance={selectedProvenance}
+                    focusedWorkstreamId={resumeFocusId}
                     onOpenWorkstream={onSelectWorkstream}
                     onOpenSources={()=>openSpecialistPanel("papel")}
                     onOpenDocuments={()=>openSpecialistPanel("documentos")}

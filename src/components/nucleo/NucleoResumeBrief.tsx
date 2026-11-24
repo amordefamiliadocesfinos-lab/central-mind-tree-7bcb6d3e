@@ -14,6 +14,7 @@ interface Props {
   workstreams: DevelopmentWorkstream[];
   events: DevelopmentEvent[];
   provenance?: ModuleProvenance;
+  focusedWorkstreamId?: string|null;
   onOpenWorkstream: (id: string) => void;
   onOpenSources: () => void;
   onOpenDocuments: () => void;
@@ -21,7 +22,7 @@ interface Props {
 }
 const rank = { critica: 0, alta: 1, normal: 2, baixa: 3 };
 export default function NucleoResumeBrief({
-  module, workstreams, events, provenance, onOpenWorkstream,
+  module, workstreams, events, provenance, focusedWorkstreamId, onOpenWorkstream,
   onOpenSources, onOpenDocuments, onOpenMandates,
 }: Props) {
   const [pendingFilter,setPendingFilter]=useState<"todos"|"bloqueadas"|"sem_acao"|"sem_responsavel"|"sem_aceite"|"evidencia">("todos");
@@ -41,9 +42,11 @@ export default function NucleoResumeBrief({
     const missingOwner = pending.filter(item => !item.specialist.trim());
     const missingAcceptance = pending.filter(item => !item.acceptance_criteria.trim());
     const evidenceToReview = pending.filter(item => item.evidence_state !== "comprovada" || !item.evidence_note.trim());
-    return { fronts, subfronts, pending, recent, missingAction, missingOwner, missingAcceptance, evidenceToReview };
+    return { fronts, subfronts, pending, recent, missingAction, missingOwner, missingAcceptance, evidenceToReview, linked };
   }, [module.id, workstreams, events]);
 
+  const focused=context.linked.find(item=>item.id===focusedWorkstreamId);
+  const focusedEvent=focused ? events.filter(event=>event.workstream_id===focused.id).sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at)||b.id.localeCompare(a.id))[0] : undefined;
   const visiblePending=context.pending.filter(item=>pendingFilter==="todos" || (pendingFilter==="bloqueadas" && item.status==="bloqueado") || (pendingFilter==="sem_acao" && !item.next_action.trim()) || (pendingFilter==="sem_responsavel" && !item.specialist.trim()) || (pendingFilter==="sem_aceite" && !item.acceptance_criteria.trim()) || (pendingFilter==="evidencia" && (item.evidence_state!=="comprovada" || !item.evidence_note.trim())));
   const declaredCurrent = provenance?.sources.filter(source => source.authority === "vigente_declarada") ?? [];
   const sourceCount = provenance?.sources.length ?? 0;
@@ -67,6 +70,18 @@ export default function NucleoResumeBrief({
         Origem: cadastro M3 do Core e referências do catálogo versionado. Papel textual não constitui mandato.
       </p>
     </div>
+    {focused && <section className="rounded-lg border p-3 space-y-1 text-xs" aria-label="Ficha de origem da retomada">
+      <p className="font-semibold">Ficha de origem da retomada · {focused.code} · {focused.title}</p>
+      <p>Estado declarado: {focused.status.replaceAll("_"," ")} · prioridade {focused.priority}</p>
+      <p><strong>Próxima ação:</strong> {focused.next_action.trim()||"Não registrada"}</p>
+      <p><strong>Responsável:</strong> {focused.specialist.trim()||"Não informado"}</p>
+      {focused.blocker.trim() && <p><strong>Bloqueio:</strong> {focused.blocker}</p>}
+      <p><strong>Critério de aceite:</strong> {focused.acceptance_criteria.trim()||"Não registrado"}</p>
+      <p><strong>Evidência M3:</strong> {focused.evidence_state.replaceAll("_"," ")} · {focused.evidence_note.trim()||"Nota não registrada"}</p>
+      <p>Último evento da ficha na janela M3: {focusedEvent?new Date(focusedEvent.recorded_at).toLocaleString("pt-BR")+" · "+focusedEvent.event_type:"Não localizado"}</p>
+      <Button type="button" size="sm" variant="outline" onClick={()=>onOpenWorkstream(focused.id)}>Retornar à ficha de origem</Button>
+      <p className="text-muted-foreground">Contexto consultivo da ficha existente; não constitui mandato nem pacote AC-02.</p>
+    </section>}
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {[
         { label: "Frentes M3", value: context.fronts.length },
