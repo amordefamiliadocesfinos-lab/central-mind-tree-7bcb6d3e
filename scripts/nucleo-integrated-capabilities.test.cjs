@@ -24,6 +24,29 @@ for(const source of inventory){
  assert.equal(crypto.createHash('sha256').update(original).digest('hex'),source.sha256);
 }
 const coverage=load('src/lib/nucleo/coveragePreparation.ts',{'./coverageSourcesV13':{default:inventory}});
+const prepared=load('src/lib/nucleo/preparedReferences.ts');
+const refs=prepared.preparedReferences;
+assert.equal(refs.length,26);
+assert.equal(new Set(refs.map(r=>r.moduleId)).size,10);
+assert.equal(new Set(refs.map(r=>r.requestId)).size,26);
+assert.equal(refs.filter(r=>r.retained).length,1);
+assert.equal(refs.filter(r=>!r.retained).length,25);
+for(const r of refs){
+ assert.match(r.requestId,/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+ const source=r.locator.match(/^https:\/\/github\.com\/amordefamiliadocesfinos-lab\/central-mind-tree-7bcb6d3e\/blob\/([0-9a-f]{40})\/(.+)$/);
+ assert(source,'immutable official source');
+ const original=cp.execFileSync('git',['show',source[1]+':'+source[2]],{maxBuffer:10_000_000});
+ assert.equal(crypto.createHash('sha256').update(original).digest('hex'),r.checksum,r.title);
+ assert(!('recorded_by_auth_uid' in r)&&!('specialist_role' in r)&&!('authority_state' in r));
+ assert.equal(prepared.isPreparedDuplicate(r,[]),r.retained);
+ for(const row of [
+  {request_id:r.requestId,source_locator:'other',source_checksum_sha256:null},
+  {request_id:'other',source_locator:r.locator,source_checksum_sha256:null},
+  {request_id:'other',source_locator:'other',source_checksum_sha256:r.checksum}
+ ]) assert(prepared.isPreparedDuplicate(r,[row]));
+}
+assert.equal(refs.filter(r=>r.locator.includes('/knowledge-recovery/')).length,4);
+
 async function main(){
  const a=await diff.readComparisonFile(new File(['hello'],'previous.txt'));
  assert.equal(a.sha256,crypto.createHash('sha256').update('hello').digest('hex'));
