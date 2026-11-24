@@ -32,6 +32,12 @@ const z=gap.inventoryAc02KnowledgeGaps("CRM",{...coverage,warnings:["Leitura de 
 assert.equal(z.gaps[0].state,"recorte_indeterminado");
 assert.throws(()=>gap.inventoryAc02KnowledgeGaps("CRM",coverage,continuity,{...guide,moduleCode:"FIN"}));
 assert.throws(()=>gap.inventoryAc02KnowledgeGaps("CRM\nBAD",coverage,continuity,guide));
+// A complete empty FM read must never imply that source references exist.
+const empty={entries:["FM-03","FM-08","FM-09"].map(sectionCode=>({sectionCode,status:"sem_registro",sourceReference:"nao_verificada"})),warnings:[]};
+assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",empty,continuity,guide).gaps[4].state,"referencia_inexistente_no_recorte");
+assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",{...empty,warnings:["Leitura de revisões não comprovadamente completa"]},continuity,guide).gaps[4].state,"recorte_indeterminado");
+const allPresent={...coverage,entries:coverage.entries.map(r=>({...r,sourceReference:"presente_na_revisao"}))};
+assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",allPresent,continuity,guide).gaps[4].state,"referencia_presente_consulta_pendente");
 const exporter=fs.readFileSync("supabase/functions/_shared/nucleo/ac02-assumption-export.ts","utf8");
 assert.ok(exporter.includes("inventoryAc02KnowledgeGaps(code,coverage,continuity,guide)"));
 assert.ok(exporter.includes("Inventário de lacunas de conhecimento (consultivo)"));
