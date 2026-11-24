@@ -62,6 +62,7 @@ export function inventoryAc02KnowledgeGaps(
   "Conferir M3/M4 no Core e provedores; frentes declaradas concluídas não equivalem a deploy ou homologação.");
  const fm=coverage?.entries??[];
  push("G05_FONTES",!coverage||incomplete(coverage)?"recorte_indeterminado":
+   !fm.some(e=>e.status==="referencia_core_declarada"&&e.sourceReference==="presente_na_revisao")||
    fm.some(e=>e.status==="referencia_core_declarada"&&e.sourceReference!=="presente_na_revisao")?
    "referencia_inexistente_no_recorte":"referencia_presente_consulta_pendente",
    "documental","core_metadata",
