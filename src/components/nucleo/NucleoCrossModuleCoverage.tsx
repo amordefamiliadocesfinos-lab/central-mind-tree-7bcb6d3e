@@ -156,7 +156,7 @@ export default function NucleoCrossModuleCoverage({
               </Button>
               {attentionFront && <Button type="button" variant="outline" size="sm"
                 onClick={()=>onOpenWorkstream(attentionFront.id)}>
-                Abrir ficha {attentionFront.kind==="subfrente"?"da subfrente":"da frente"} {attentionFront.code}
+                {attentionFront.kind==="subfrente" ? <>Abrir ficha da subfrente {attentionFront.code}</> : <>Abrir ficha da frente {attentionFront.code}</>}
               </Button>}
               {!record && <Button type="button" size="sm" onClick={()=>onPrepareModule(module)}>
                 Preparar cadastro M3
