@@ -1,0 +1,73 @@
+TÍTULO: Estado Vigente — Financeiro
+CÓDIGO: PCL-MST-ESTADO-FINANCEIRO-V1.0
+DOMÍNIO: Painel Central
+FUNÇÃO DOCUMENTAL: DOCUMENTO_MESTRE / ESTADO VIGENTE
+ESTADO: ATIVO / VIGENTE
+VERSÃO: V1.0
+DATA DO ESTADO: 03/10/2026
+ÚLTIMO CHECKPOINT: 03/10/2026 — homologação da reconstrução V0.1 como primeira versão vigente.
+FONTE SOBERANA DE: continuidade do módulo Financeiro
+DEPENDE DE: Auditoria funcional; Operações; Shopee; schema real quando confirmado
+É CONSUMIDO POR: Estado Mestre; especialista do módulo
+SUBSTITUI: PCL-MST-ESTADO-FINANCEIRO-V0.1
+OBSERVAÇÕES: primeira versão vigente e viva de continuidade. A homologação valida este documento como norte atual; não declara concluídas as frentes parciais nem converte estado técnico não confirmado em verdade atual.
+
+===============================================================================
+1. MISSÃO / ESTADO GERAL
+===============================================================================
+Financeiro possui fundação existente e não deve ser reconstruído. A principal fase
+é conectar fatos econômicos dos outros módulos e consolidar uso real.
+
+Regra estrutural:
+OBRIGAÇÃO FINANCEIRA != MOVIMENTAÇÃO FINANCEIRA REAL.
+
+===============================================================================
+2. PATRIMÔNIO PRESERVADO
+===============================================================================
+- contas e categorias;
+- recorrência e pagamentos;
+- extrato/importação;
+- marketplace;
+- financial_entries como obrigação/competência;
+- financial_movements como movimento realizado.
+
+===============================================================================
+3. NECESSIDADES REAIS
+===============================================================================
+N1 Compra -> obrigação financeira/Conta a Pagar canônica.
+N2 Rastreabilidade origem -> obrigação -> pagamento -> movimento.
+N3 Shopee: taxa -> recebível -> repasse -> movimento -> conciliação.
+N4 Consolidar uso real antes de margem/inteligência avançada.
+
+===============================================================================
+4. FRONTEIRAS DE AUTORIDADE
+===============================================================================
+Operações: Pedido de Compra, itens, fornecedor, recebimento físico e estoque.
+Financeiro: obrigação, vencimento, pagamento/recebimento, movimento e conciliação.
+Shopee: eventos/competências externas do marketplace; não confirma dinheiro no banco.
+
+===============================================================================
+5. PRÓXIMA CONTINUIDADE
+===============================================================================
+1. auditar schema/uso real atual de financial_entries e financial_movements;
+2. confirmar ausência/presença de vínculo Compra <-> Financeiro;
+3. fechar Compra -> Contas a Pagar no menor contrato idempotente;
+4. usar/observar;
+5. fechar Shopee -> Financeiro;
+6. só depois custos, margem, rentabilidade e inteligência.
+
+===============================================================================
+6. ESTADO TÉCNICO
+===============================================================================
+Estado técnico atual em tempo real: NÃO CONFIRMADO NESTE DOCUMENTO.
+Qualquer mudança em vínculo com Pedido/Compra/settlement ou schema financeiro é
+transversal e exige Camada Mestre.
+
+===============================================================================
+7. FONTES RELACIONADAS
+===============================================================================
+- AUDITORIA_FUNCIONAL_EXISTENCIA_PAINEL_CENTRAL_V1.0.
+- mapas/planejamentos de Operações — Compra <-> Financeiro.
+- Arquitetura Mestre Shopee — F6 Financeiro.
+
+FIM.
