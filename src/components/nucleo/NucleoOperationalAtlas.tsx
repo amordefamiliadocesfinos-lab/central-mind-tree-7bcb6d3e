@@ -58,9 +58,11 @@ interface Props {
   onSelectWorkstream: (id: string) => void;
   onPrepareModule: (module: KnowledgeModule) => void;
   searchRequestSeq?: number;
+  requestedAc01?: {moduleCode:string;stage:"versoes"|"refinar"|"historico";seq:number}|null;
+  requestedAc02?: {moduleCode:string;seq:number}|null;
 }
 
-export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0 }: Props) {
+export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
@@ -215,6 +217,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const specialistLatestEvent = events
     .filter(event => specialistWork.some(item => item.id === event.workstream_id))
     .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
+  // F5: somente os eventos M3 efetivamente carregados (janela global limitada).
+  const moduleLatestEvent = events
+    .filter(event=>moduleWork.some(item=>item.id===event.workstream_id))
+    .sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at))[0];
+  const handoffPriority=[...modulePending].sort((a,b)=>
+    Number(b.status==="bloqueado")-Number(a.status==="bloqueado") ||
+    ({critica:0,alta:1,normal:2,baixa:3}[a.priority] -
+     {critica:0,alta:1,normal:2,baixa:3}[b.priority]) ||
+    a.code.localeCompare(b.code,"pt-BR")).slice(0,3);
 
   const moduleStatusCounts = {
     andamento: moduleWork.filter(item => item.status === "em_andamento").length,
@@ -239,11 +250,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     if (item.id !== selectedId) {
       if (fmDraftState.busy || specialistDraftState.busy) {
         window.alert("Gravação em andamento ou registro indeterminado. Reconcilie antes de mudar de módulo.");
-        return;
+        return false;
       }
       if ((fmDraftState.dirty || specialistDraftState.dirty) && !window.confirm(
         "Existem rascunhos não salvos na Ficha Viva ou no especialista. Descartá-los e abrir outro módulo?"
-      )) return;
+      )) return false;
       setFmDraftState({dirty:false,busy:false});
       setSpecialistDraftState({dirty:false,busy:false});
       setModuleSection("funcoes");
@@ -265,6 +276,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       heading?.scrollIntoView({behavior:"smooth",block:"start"});
       heading?.focus({preventScroll:true});
     });
+    return true;
   };
   const selectModuleArea = (area: ModuleSection) => {
     setModuleSection(area);
@@ -305,6 +317,31 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     setAc01Request(previous=>({stage,seq:(previous?.seq??0)+1}));
     selectModuleArea("especialista");
   };
+  // D5/AC-01: solicitação de navegação da Central M3 para o fluxo existente.
+  // Sem criação de contribuição, escrita ou promoção documental.
+  useEffect(()=>{
+    if(!requestedAc01)return;
+    const target=catalog.find(module=>module.id===requestedAc01.moduleCode);
+    if(!target)return;
+    if(choose(target)===false)return; // respeita rascunhos e gravações em andamento
+    openSpecialistPanel("documentos");
+    setAc01Request(previous=>({stage:requestedAc01.stage,seq:(previous?.seq??0)+1}));
+    selectModuleArea("especialista");
+  // Cada solicitação externa tem seq novo; não repetir ao renderizar a ficha.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[requestedAc01?.seq]);
+  // D6: caminho direto M3 → Especialista → AC-02, apenas navegação.
+  // Nenhum endpoint é chamado até o usuário preparar o contexto explicitamente.
+  useEffect(()=>{
+    if(!requestedAc02)return;
+    const target=catalog.find(module=>module.id===requestedAc02.moduleCode);
+    if(!target)return;
+    if(choose(target)===false)return;
+    openSpecialistPanel("continuidade");
+    selectModuleArea("especialista");
+  // Uma execução por solicitação explícita, com a mesma guarda de rascunhos.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[requestedAc02?.seq]);
   // A mesma jornada da ficha existe para TODOS os módulos do catálogo.
   // Telas, funções e roteiros vêm do inventário real; lacunas permanecem explícitas.
   const openModuleStage = (stage: CrmStage) => {
@@ -758,12 +795,51 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {specialistPanelVisited.includes("mandato")&&<NucleoMandateRegistry modules={[selectedRecord]}/>}
               </div>
               <div id="nucleo-specialist-continuidade" hidden={specialistPanel!=="continuidade"}
-                aria-hidden={specialistPanel!=="continuidade"}>
-                {specialistPanelVisited.includes("continuidade")&&
+                aria-hidden={specialistPanel!=="continuidade"} className="space-y-3">
+                {specialistPanelVisited.includes("continuidade")&&<>
+                  <section className="rounded-xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 space-y-2 dark:border-blue-900 dark:bg-blue-950/20"
+                    aria-label="F5 — checkpoints e próximos passos M3 do módulo">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">Antes de continuar · checkpoints M3/F5</p>
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={()=>selectModuleArea("desenvolvimento")}>Ver frentes M3</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {moduleWork.length} frente(s)/subfrente(s) vinculada(s) ao módulo; {modulePending.length} sem conclusão declarada.
+                      Recorte M3 desta sessão, não inventário de todas as fontes.
+                    </p>
+                    {moduleLatestEvent
+                      ? <p className="text-xs">Último evento M3 localizado: {moduleLatestEvent.event_type} · {new Date(moduleLatestEvent.recorded_at).toLocaleString("pt-BR")}
+                          {" · "}{workstreams.find(item=>item.id===moduleLatestEvent.workstream_id)?.code||"Frente não identificada"}.
+                        <span className="text-muted-foreground"> Evento administrativo, não homologação.</span>
+                        </p>
+                      : <p className="text-xs text-muted-foreground">
+                          Nenhum checkpoint encontrado nos 200 eventos globais carregados; históricos anteriores podem existir.
+                        </p>}
+                    {handoffPriority.length>0
+                      ? <div className="space-y-2">
+                          {handoffPriority.map(item=><div key={item.id} className="rounded-lg border bg-background p-2 space-y-1 text-xs">
+                            <p className="font-semibold">{item.code} · {item.title}</p>
+                            <p>Estado declarado: {item.status.replaceAll("_"," ")} · responsável: {item.specialist.trim()||"não informado"}</p>
+                            <p className="break-words"><strong>Próxima ação:</strong> {item.next_action.trim()||"Não registrada no Core M3."}</p>
+                            {item.blocker.trim()&&<p className="break-words">Bloqueio: {item.blocker}</p>}
+                            <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(item.id)}>
+                              Abrir ficha da frente
+                            </Button>
+                          </div>)}
+                        </div>
+                      : <p className="text-xs text-muted-foreground">
+                          Nenhuma frente pendente localizada neste módulo no recorte M3. Isso não comprova continuidade concluída.
+                        </p>}
+                    <p className="text-xs text-muted-foreground">
+                      Consulte AC-01 e a origem das evidências antes de utilizar o pacote consultivo. Nenhuma lição FM-09/FM-10 é presumida a partir destes eventos.
+                    </p>
+                  </section>
                   <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
                     onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
                     onViewDocuments={()=>openSpecialistPanel("documentos")}
-                    onViewMandates={()=>openSpecialistPanel("mandato")}/> }
+                    onViewMandates={()=>openSpecialistPanel("mandato")}/>
+                </>}
               </div>
               <div id="nucleo-specialist-documentos" hidden={specialistPanel!=="documentos"}
                 aria-hidden={specialistPanel!=="documentos"}>
