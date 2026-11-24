@@ -307,32 +307,86 @@ export default function NucleoDevelopmentCenter() {
     if (!draft.code || draft.title.trim().length < 3 || (draft.kind !== "modulo" && !draft.parent_id)) {
       toast.error("Informe código, título e frente pai quando necessário."); return;
     }
-    setSaving(true);
-    const { error } = await client.from("nucleo_development_workstreams").insert({
+    const payload = {
       code: draft.code, title: draft.title.trim(), kind: draft.kind,
       parent_id: draft.parent_id || null, description: draft.description,
       specialist: draft.specialist, acceptance_criteria: draft.acceptance_criteria,
-    });
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Frente registrada, com histórico auditável.");
-    setCreating(false);
-    setDraft(emptyDraft);
-    await refresh();
+    };
+    setSaving(true);
+    try {
+      // Código estável e único: reconciliar eventual tentativa anterior antes de inserir.
+      const existing = await client.from("nucleo_development_workstreams")
+        .select("id").eq("code",payload.code).maybeSingle();
+      if (existing.error) {
+        toast.error("Não foi possível conferir o código no Core. Nenhuma nova inserção foi solicitada.");
+        return;
+      }
+      if (existing.data) {
+        toast.warning("Código já registrado. Consulte a ficha existente; nenhuma nova inserção foi solicitada.");
+        await refresh();
+        return;
+      }
+      const inserted = await client.from("nucleo_development_workstreams")
+        .insert(payload).select("id").maybeSingle();
+      if (inserted.error || !inserted.data) {
+        toast.warning("Criação não confirmada. Confira o código no Core antes de tentar novamente.");
+        await refresh();
+        return;
+      }
+      const id=inserted.data.id;
+      const [readback,audit]=await Promise.all([
+        client.from("nucleo_development_workstreams").select("*").eq("id",id).maybeSingle(),
+        client.from("nucleo_development_events").select("event_type,before_state,after_state")
+          .eq("workstream_id",id).eq("event_type","criado").maybeSingle(),
+      ]);
+      const matches=(record:Record<string,unknown>|null|undefined)=>!!record &&
+        record.id===id && Object.entries(payload).every(([key,value])=>record[key]===value);
+      if(readback.error || audit.error ||
+        !matches(readback.data as unknown as Record<string,unknown>|null) ||
+        audit.data?.event_type!=="criado" || audit.data.before_state!==null ||
+        !matches(audit.data.after_state as Record<string,unknown>)){
+        toast.warning("Criação enviada, mas ficha ou histórico não confirmado. Minuta preservada; confira o código antes de repetir.");
+        await refresh();
+        return;
+      }
+      toast.success("Frente registrada, com histórico auditável.");
+      setCreating(false);
+      setDraft(emptyDraft);
+      await refresh();
+    } catch {
+      toast.warning("Resultado da criação indeterminado. Minuta preservada; confira o código no Core antes de repetir.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addDependency = async () => {
-    if (!selected || !dependencyTarget || dependencyTarget === selected.id || saving) return;
+    if (!selected || !dependencyTarget || dependencyTarget === selected.id || saving || loading || readError) return;
+    const payload={workstream_id:selected.id,depends_on_id:dependencyTarget,description:"Dependência declarada para acompanhamento"};
     setSaving(true);
-    const { error } = await client.from("nucleo_development_dependencies").insert({
-      workstream_id: selected.id, depends_on_id: dependencyTarget,
-      description: "Dependência declarada para acompanhamento",
-    });
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Dependência adicionada sem substituir as anteriores.");
-    setDependencyTarget("");
-    await refresh();
+    try {
+      const inserted=await client.from("nucleo_development_dependencies").insert(payload).select("id").maybeSingle();
+      if(inserted.error || !inserted.data){
+        toast.warning("Vínculo não confirmado. Confira as dependências existentes antes de repetir.");
+        await refresh();
+        return;
+      }
+      const readback=await client.from("nucleo_development_dependencies").select("*").eq("id",inserted.data.id).maybeSingle();
+      const record=readback.data;
+      if(readback.error || !record || record.id!==inserted.data.id ||
+        record.workstream_id!==payload.workstream_id || record.depends_on_id!==payload.depends_on_id || record.description!==payload.description){
+        toast.warning("Vínculo enviado, mas não confirmado na leitura do Core.");
+        await refresh();
+        return;
+      }
+      toast.success("Dependência adicionada sem substituir as anteriores.");
+      setDependencyTarget("");
+      await refresh();
+    } catch {
+      toast.warning("Resultado do vínculo indeterminado. Confira as dependências antes de repetir.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveItem = async () => {
@@ -483,7 +537,7 @@ export default function NucleoDevelopmentCenter() {
             Acompanhe as frentes do Core, retome o trabalho registrado e abra detalhes quando precisar.
           </p>
         </div>
-        <Button type="button" size="sm" className="nucleo-v22-primary-button" onClick={() => {
+        <Button type="button" size="sm" className="nucleo-v22-primary-button" disabled={saving} onClick={() => {
           if (workspaceView === "frentes" && creating) setCreating(false);
           else {
             setWorkspaceView("frentes");
@@ -720,6 +774,7 @@ export default function NucleoDevelopmentCenter() {
         <Card id="nucleo-m3-create-module" className="p-4 space-y-3 scroll-mt-24">
           <h3 className="font-semibold text-sm">Cadastrar módulo, frente ou subfrente</h3>
           <p className="text-xs text-muted-foreground">Pré-preenchimento vindo do inventário não é certificação nem cadastro. Revise código, escopo e fonte original antes de clicar em Salvar. Não cria frentes ou responsáveis automaticamente.</p>
+          <fieldset disabled={saving} className="space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="text-xs space-y-1">Código estável
               <Input value={draft.code} placeholder="NUC-M3-F1" onChange={e => setDraft(v => ({...v,code:cleanCode(e.target.value)}))}/>
@@ -754,6 +809,7 @@ export default function NucleoDevelopmentCenter() {
           <label className="text-xs space-y-1 block">Escopo original
             <Textarea value={draft.description} onChange={e => setDraft(v => ({...v,description:e.target.value}))}/>
           </label>
+          </fieldset>
           <Button size="sm" disabled={saving} onClick={addItem}>Salvar sem substituir histórico</Button>
         </Card>
       )}
