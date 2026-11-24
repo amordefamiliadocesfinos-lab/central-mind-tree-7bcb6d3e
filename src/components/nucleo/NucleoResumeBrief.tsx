@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { orderPending } from "@/lib/nucleo/workstreamPriority";
 import type { DevelopmentEvent, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
 import type { ModuleProvenance } from "@/lib/nucleo/operationalProvenanceV12";
 import { SOURCE_AUTHORITY_LABELS } from "@/lib/nucleo/operationalProvenanceV12";
@@ -20,7 +21,6 @@ interface Props {
   onOpenDocuments: () => void;
   onOpenMandates: () => void;
 }
-const rank = { critica: 0, alta: 1, normal: 2, baixa: 3 };
 export default function NucleoResumeBrief({
   module, workstreams, events, provenance, focusedWorkstreamId, onOpenWorkstream,
   onOpenSources, onOpenDocuments, onOpenMandates,
@@ -33,9 +33,7 @@ export default function NucleoResumeBrief({
       workstreams.filter(item => item.kind === "subfrente" && item.parent_id === front.id));
     const linked = [...fronts, ...subfronts];
     const ids = new Set([module.id, ...linked.map(item => item.id)]);
-    const pending = linked.filter(item => item.status !== "concluido").sort((a, b) =>
-      Number(b.status === "bloqueado") - Number(a.status === "bloqueado") ||
-      rank[a.priority] - rank[b.priority] || a.code.localeCompare(b.code, "pt-BR"));
+    const pending = orderPending(linked);
     const recent = events.filter(event => ids.has(event.workstream_id))
       .sort((a, b) => b.recorded_at.localeCompare(a.recorded_at) || b.id.localeCompare(a.id))[0];
     const missingAction = pending.filter(item => !item.next_action.trim());
