@@ -212,4 +212,34 @@ CREATE FUNCTION public.nucleo_identity_assignments_read(module_id uuid) RETURNS 
 $$;
 REVOKE ALL ON FUNCTION public.nucleo_identity_assignments_read(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.nucleo_identity_assignments_read(uuid) TO authenticated;
+-- Deployment preflight: isolate effective ACLs on candidate objects only.
+-- Supabase public-schema defaults can grant EXECUTE to additional roles.
+-- Do not change global defaults, legacy objects, or privileged role attributes.
+DO $acl$
+DECLARE role_name text; object_name text;
+BEGIN
+ FOR role_name IN SELECT rolname FROM pg_roles
+   WHERE rolname IN ('anon','service_role','sandbox_exec','sandbox_exec_xkskyutmtlhivvpfxkjg')
+ LOOP
+   EXECUTE format('REVOKE ALL ON SCHEMA nucleo_identity FROM %I',role_name);
+   EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA nucleo_identity FROM %I',role_name);
+   EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA nucleo_identity FROM %I',role_name);
+   FOREACH object_name IN ARRAY ARRAY['nucleo_identity_context_read','nucleo_identity_assignments_read'] LOOP
+     EXECUTE format('REVOKE ALL ON FUNCTION public.%I(uuid) FROM %I',object_name,role_name);
+   END LOOP;
+ END LOOP;
+ -- Fail closed if memberships or other inherited ACLs still expose a client path.
+ FOR role_name IN SELECT rolname FROM pg_roles
+   WHERE rolname IN ('anon','service_role','sandbox_exec','sandbox_exec_xkskyutmtlhivvpfxkjg')
+ LOOP
+   IF has_schema_privilege(role_name,'nucleo_identity','USAGE')
+      OR has_function_privilege(role_name,'public.nucleo_identity_context_read(uuid)','EXECUTE')
+      OR has_function_privilege(role_name,'public.nucleo_identity_assignments_read(uuid)','EXECUTE')
+   THEN RAISE EXCEPTION 'IDENTITY_UNEXPECTED_EFFECTIVE_ACL: %',role_name; END IF;
+ END LOOP;
+ IF has_schema_privilege('authenticated','nucleo_identity','CREATE')
+ THEN RAISE EXCEPTION 'IDENTITY_CLIENT_SCHEMA_CREATE'; END IF;
+END $acl$;
+-- These ACL checks do not constrain superusers or administrators able to assume
+-- the object owner; trusted infrastructure access remains a separate boundary.
 COMMIT;
