@@ -109,6 +109,27 @@ export function mappingPhysicalBlocker(item, mapping, scope = {}) {
   }
   if (String(item?.itemId) === ACP1_ITEM && scope?.channelAccountId !== ACP1_ACCOUNT)
     return 'acp1_v19_account_unverified';
+  // Celivio C4-C: the *observed* official variation spells grams as "GR".
+  // Scope this special case to the one proved Item/Model and account rather
+  // than weakening the shared generic mass parser for other marketplaces.
+  if (scope?.channelAccountId === 'd26c7a30-aa4a-4441-8012-600d70453689'
+    && amendoimKey === '23794618391|229430912329') {
+    if (components.length !== 1) return 'celivio_400g_composition_invalid';
+    const c = components[0], identity = c.physical_identity;
+    const quantity = Number(item?.quantity);
+    if (c.product_id !== 'c70dd4b4-bc59-4d88-81ef-1a8c47315560'
+      || c.variant_id !== '1a3d59a6-4712-4afd-811a-5a72aad76fa9'
+      || c.channel_account_id !== scope.channelAccountId
+      || identity?.active !== true || identity.unit !== 'g'
+      || Number(c.physical_multiplier) !== 400
+      || !identity.presentation_factors?.some(f => Number(f) === 400)
+      || !Number.isSafeInteger(quantity) || quantity <= 0
+      || quantity * 400 > 2147483647
+      || String(item?.modelName ?? '').trim().toUpperCase() !== '400 GR,COBERTURA MEIO AMARGO') {
+      return 'celivio_400g_physical_unverified';
+    }
+    return null;
+  }
   if (Object.hasOwn(AMENDOIM_ADAO_MODELS, amendoimKey)) {
     return amendoimPhysicalBlocker(item, components, scope);
   }
