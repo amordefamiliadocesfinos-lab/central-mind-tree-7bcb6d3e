@@ -96,13 +96,28 @@ END $body$;
 CREATE TRIGGER g2_atomic_grant_gate BEFORE INSERT ON f12_lab.read_grants
  FOR EACH ROW EXECUTE FUNCTION f12_lab.g2_guard_atomic_grant();
 
+-- Dedicated beneficiary and assignment, not shared with the prior G2 race.
+INSERT INTO f12_lab.instances(id,auth_uid,identity_source,functional_label)
+VALUES ('20000000-0000-4000-8000-0000000000f2',
+ '30000000-0000-4000-8000-0000000000f2',
+ 'synthetic://g2/atomic-new-instance','atomic-grant-fixture');
+INSERT INTO f12_lab.assignments
+ (id,specialty_id,instance_id,auth_uid,module_id,front_id,responsibility,
+ local_method_ref,provenance_ref,status,valid_from)
+VALUES ('40000000-0000-4000-8000-0000000000f2',
+ '10000000-0000-4000-8000-000000000001',
+ '20000000-0000-4000-8000-0000000000f2',
+ '30000000-0000-4000-8000-0000000000f2',
+ '636768e6-e782-4c7d-8132-e7381621be12',NULL,'collaborator',NULL,
+ 'synthetic://g2/atomic-assignment','active',now()-interval '1 minute');
+
 -- New fixture: distinct immutable sovereign author, distinct technical executor.
 -- Lab postgres is the synthetic upstream authority; not a real human approval.
 INSERT INTO f12_lab.approved_decisions
  (id,action,assignment_id,grant_id,approved_actor_auth_uid,scope_kind,
  authoritative_source,approved_at,expires_at)
 VALUES ('80000000-0000-4000-8000-0000000000f1','grant_read_context',
- '40000000-0000-4000-8000-0000000000c1',NULL,
+ '40000000-0000-4000-8000-0000000000f2',NULL,
  '30000000-0000-4000-8000-000000000097','module',
  'synthetic://g2/atomic/master-approved',now()-interval '1 minute',now()+interval '1 hour');
 
@@ -125,8 +140,8 @@ BEGIN
  (id,assignment_id,auth_uid,permission,scope_kind,granted_at,valid_from,
  valid_until,decision_ref,granting_actor_ref)
  VALUES ('50000000-0000-4000-8000-0000000000f1',
- '40000000-0000-4000-8000-0000000000c1',
- '30000000-0000-4000-8000-000000000001','read_context','module',
+ '40000000-0000-4000-8000-0000000000f2',
+ '30000000-0000-4000-8000-0000000000f2','read_context','module',
  now(),now()-interval '1 minute',now()+interval '15 minutes',
  '80000000-0000-4000-8000-0000000000f1',
  '30000000-0000-4000-8000-000000000097');
@@ -151,8 +166,8 @@ VALUES ('80000000-0000-4000-8000-0000000000f1',
  '90000000-0000-4000-8000-0000000000c1',
  '30000000-0000-4000-8000-000000000099',
  '30000000-0000-4000-8000-000000000097',
- '40000000-0000-4000-8000-0000000000c1',
- '30000000-0000-4000-8000-000000000001','module','grant_read_context',
+ '40000000-0000-4000-8000-0000000000f2',
+ '30000000-0000-4000-8000-0000000000f2','module','grant_read_context',
  '90000000-0000-4000-8000-0000000000f1','synthetic://verified/lab-master');
 
 -- Operation is one SQL transaction. A failed second statement would
@@ -164,8 +179,8 @@ INSERT INTO f12_lab.read_grants
  (id,assignment_id,auth_uid,permission,scope_kind,granted_at,valid_from,
  valid_until,decision_ref,granting_actor_ref)
 VALUES ('50000000-0000-4000-8000-0000000000f1',
- '40000000-0000-4000-8000-0000000000c1',
- '30000000-0000-4000-8000-000000000001','read_context','module',
+ '40000000-0000-4000-8000-0000000000f2',
+ '30000000-0000-4000-8000-0000000000f2','read_context','module',
  now(),now()-interval '1 minute',now()+interval '15 minutes',
  '80000000-0000-4000-8000-0000000000f1',
  '30000000-0000-4000-8000-000000000097');
