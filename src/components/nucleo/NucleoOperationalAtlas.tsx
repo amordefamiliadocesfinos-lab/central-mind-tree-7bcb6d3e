@@ -65,7 +65,7 @@ interface Props {
 export default function NucleoOperationalAtlas({ workstreams, events, dependencies, onSelectWorkstream, onPrepareModule, searchRequestSeq = 0, requestedAc01, requestedAc02 }: Props) {
   const [search, setSearch] = useState("");
   // P3: recorte consultivo, sem modificar cadastro nem fonte.
-  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel"|"aceite">("todas");
+  const [inventoryFilter,setInventoryFilter] = useState<"todas"|"cadastro"|"fontes"|"vigencia"|"frentes"|"acoes"|"responsavel"|"aceite"|"evidencia">("todas");
   // Atalho da visão executiva: preservar o termo já digitado e focar o campo existente.
   useEffect(()=>{
     if(!searchRequestSeq)return;
@@ -206,8 +206,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     const pendingWithoutAction=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.next_action.trim());
     const withoutOwner=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.specialist.trim());
     const withoutAcceptance=[...fronts,...descendants].filter(item=>item.status!=="concluido"&&!item.acceptance_criteria.trim());
-    return {module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance};
-  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0||item.withoutAcceptance.length>0)
+    // Leitura M3: evidência sem comprovação declarada ou sem nota quando
+    // declarada comprovada é sinal de reconciliação, não prova de ausência M4.
+    const evidenceToReview=[...fronts,...descendants].filter(item=>
+      item.status!=="concluido"&&(item.evidence_state!=="comprovada"||!item.evidence_note.trim()));
+    return {module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance,evidenceToReview};
+  }).filter(item=>!item.core||item.sources===0||!item.hasDeclaredCurrentSource||item.fronts.length===0||item.pendingWithoutAction.length>0||item.withoutOwner.length>0||item.withoutAcceptance.length>0||item.evidenceToReview.length>0)
     .sort((a,b)=>a.module.id.localeCompare(b.module.id,"pt-BR"));
   const visibleInventoryGaps=inventoryGaps.filter(item=>
     inventoryFilter==="todas" || (inventoryFilter==="cadastro"&&!item.core) ||
@@ -216,7 +220,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     (inventoryFilter==="frentes"&&Boolean(item.core)&&item.fronts.length===0) ||
     (inventoryFilter==="acoes"&&item.pendingWithoutAction.length>0) ||
     (inventoryFilter==="responsavel"&&item.withoutOwner.length>0) ||
-    (inventoryFilter==="aceite"&&item.withoutAcceptance.length>0));
+    (inventoryFilter==="aceite"&&item.withoutAcceptance.length>0) ||
+    (inventoryFilter==="evidencia"&&item.evidenceToReview.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
@@ -556,6 +561,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               ["acoes","Sem próxima ação"],
               ["responsavel","Sem responsável"],
               ["aceite","Sem critério de aceite"],
+              ["evidencia","Evidência a conferir"],
             ] as const).map(([key,label])=><Button key={key} type="button" size="sm"
               variant={inventoryFilter===key?"default":"outline"}
               aria-pressed={inventoryFilter===key}
@@ -566,11 +572,11 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 Nenhuma lacuna encontrada neste filtro e recorte. Isso não comprova inventário integral.
               </p>
             : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleInventoryGaps.map(({module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance})=>
+                {visibleInventoryGaps.map(({module,core,sources,sourceEntries,hasDeclaredCurrentSource,fronts,descendants,pendingWithoutAction,withoutOwner,withoutAcceptance,evidenceToReview})=>
                   <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
                     <p className="font-semibold text-sm">{module.id} · {module.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length} · sem aceite: {withoutAcceptance.length}
+                      Cadastro M3: {core?"localizado":"não localizado"} · fontes versionadas: {sources} · frentes: {fronts.length} · subfrentes: {descendants.length} · sem ação: {pendingWithoutAction.length} · sem responsável: {withoutOwner.length} · sem aceite: {withoutAcceptance.length} · evidência a conferir: {evidenceToReview.length}
                     </p>
                     <p className="text-xs">
                       {[
@@ -581,9 +587,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                         pendingWithoutAction.length>0?`${pendingWithoutAction.length} item(ns) pendente(s) sem próxima ação`:null,
                         withoutOwner.length>0?`${withoutOwner.length} item(ns) pendente(s) sem responsável declarado`:null,
                         withoutAcceptance.length>0?`${withoutAcceptance.length} item(ns) pendente(s) sem critério de aceite`:null,
+                        evidenceToReview.length>0?`${evidenceToReview.length} item(ns) pendente(s) com evidência M3 a conferir`:null,
                       ].filter(Boolean).join(" · ")}
                     </p>
-                    {(pendingWithoutAction.length>0||withoutOwner.length>0||withoutAcceptance.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
+                    {(pendingWithoutAction.length>0||withoutOwner.length>0||withoutAcceptance.length>0||evidenceToReview.length>0)&&<div className="space-y-1 rounded-lg border p-2 text-xs"
                       aria-label="Lacunas de acompanhamento das frentes">
                       {pendingWithoutAction.slice(0,3).map(front=><div key={front.id} className="flex flex-wrap items-center justify-between gap-2">
                         <p><strong>{front.code}</strong> · {front.title} · sem próxima ação</p>
@@ -608,6 +615,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       </div>)}
                       {withoutAcceptance.length>3&&<p className="text-muted-foreground">
                         Mais {withoutAcceptance.length-3} item(ns) sem critério no recorte.
+                      </p>}
+                      {evidenceToReview.slice(0,3).map(item=><div key={"evidencia-"+item.id}
+                        className="flex flex-wrap items-center justify-between gap-2">
+                        <p><strong>{item.code}</strong> · {item.title} · {item.evidence_state.replaceAll("_"," ")}</p>
+                        <Button type="button" size="sm" variant="outline"
+                          onClick={()=>onSelectWorkstream(item.id)}>Abrir ficha e M4</Button>
+                      </div>)}
+                      {evidenceToReview.length>3&&<p className="text-muted-foreground">
+                        Mais {evidenceToReview.length-3} item(ns) com evidência M3 a conferir.
                       </p>}
                     </div>}
                     {sourceEntries.length>0&&<details className="rounded-lg border p-2 text-xs">
@@ -1083,6 +1099,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                             <p className="text-muted-foreground">
                               Critério de aceite M3: {item.acceptance_criteria.trim()||"Não registrado"}
                               {" · "}Evidência declarada: {item.evidence_state.replaceAll("_"," ")}
+                            </p>
+                            {item.evidence_note.trim()&&<p className="break-words">
+                              <strong>Nota de evidência M3:</strong> {item.evidence_note}
+                            </p>}
+                            <p className="text-muted-foreground">
+                              Fonte: ficha M3 atual. A nota declarada não substitui a verificação das provas técnicas M4.
                             </p>
                             <p className="text-muted-foreground">Atualização da ficha: {new Date(item.updated_at).toLocaleString("pt-BR")}</p>
                             <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(item.id)}>
