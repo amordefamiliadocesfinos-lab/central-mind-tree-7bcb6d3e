@@ -426,4 +426,29 @@ export const ASSISTENTE_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "O método soberano do Assistente, a identidade atual do especialista, a cadeia de aprovação e as condições para executar ações permanecem sem reconciliação formal no Núcleo. Registros textuais ou componentes no GitHub não atribuem mandato. Cabe à autoridade competente fornecer a referência original e aprovar o vínculo; até lá, manter somente leitura e linguagem não homologada.",
     source: ASSISTENTE_CODE+"; docs/architecture/NUCLEO_2_0_AUDITORIA_FINAL_PENDENCIAS_PRIORIZADAS_2026-11-12.md",
   },
+  "FM-02": {
+    title: "Assistente — visão rápida e limites (rascunho)",
+    body: "A interface CEO IA reúne chat, insights, políticas e log. O operador pode consultar propostas, contexto, risco, confiança e histórico de ações; análise e aprovação são operações distintas. O código ai-ceo possui fluxo de aprovação que pode executar uma ação, e não apenas marcar uma proposta. O endpoint direto /execute está desabilitado no código. Não interpretar a existência de executor como autorização geral. O método soberano e a configuração produtiva ainda não foram confirmados; o Núcleo permanece consultivo.",
+    source: "src/pages/Assistente.tsx; src/hooks/useAICEO.ts; supabase/functions/ai-ceo/index.ts",
+  },
+  "FM-05": {
+    title: "Assistente — catálogo de controles e efeitos (rascunho)",
+    body: "A tela contém análise, aprovação/rejeição de insights propostos, conversa contextual, Autopilot e Risco máximo permitido. useAICEO encaminha chamadas específicas e atualiza listas após retorno. Aprovação chama execução no backend e pode terminar executado ou aprovado conforme resultado; rejeição altera status. Autopilot é configuração com efeito, não simples filtro. O código de análise limita autoexecução a notificações de baixo risco conforme política, embora a interface use texto mais amplo. Não acionar controles para comprovar esta ficha; permissões e configuração real exigem validação própria.",
+    source: "src/pages/Assistente.tsx; src/hooks/useAICEO.ts; supabase/functions/ai-ceo/index.ts",
+  },
+  "FM-06": {
+    title: "Assistente — jornada consultiva e decisão humana (rascunho)",
+    body: "Jornada de acompanhamento: abrir insights, identificar proposta e área, ler descrição, impacto, risco, confiança e contexto, conferir fonte e autorização competente; consultar log e status antes de concluir se houve execução. Não tratar confiança exibida como garantia de correção. Aprovar é ação potencialmente executora; não usar como simulação. Consultar política sem alterá-la. Se houver erro, distinguir proposta, decisão e resultado real; não repetir execução incerta. Este roteiro é de consulta do Núcleo, não autorização para acionar análise, aprovar, rejeitar ou alterar autopilot.",
+    source: "src/pages/Assistente.tsx; src/hooks/useAICEO.ts; supabase/functions/ai-ceo/index.ts",
+  },
+  "FM-09": {
+    title: "Assistente — evolução e lacunas de governança (rascunho)",
+    body: "A auditoria do Núcleo de 13/11 não localizou método soberano próprio nas fontes examinadas. No código atual consultado existem interfaces de insights/políticas/log, fluxo de aprovação com executor, restrição de autopilot a notificações de baixo risco no ciclo de análise e endpoint direto /execute desabilitado. Há diferença entre texto de interface e alcance da autoexecução observado no backend. Não há prova de configuração atual, implantação, isolamento ou homologação operacional. Próxima ação: recuperar mapa e autoridade do especialista, reconciliar contratos por fluxo e vincular evidências reais; não criar frente fictícia ou ativar IA autônoma.",
+    source: "src/pages/Assistente.tsx; src/hooks/useAICEO.ts; supabase/functions/ai-ceo/index.ts",
+  },
+  "FM-10": {
+    title: "Assistente — aprendizagem e separação de responsabilidades (rascunho)",
+    body: "Regras de continuidade propostas a partir do código: sugestão, aprovação, execução e histórico são eventos distintos; aprovação pode ter efeito imediato, portanto não equivale a revisão inerte. Risco calculado não é autorização. Interface e executor podem ter alcances diferentes; conferir contrato efetivo antes de documentar autonomia. Estado aprovado não prova ação bem-sucedida; consultar resultado e log, sem assumir atomicidade ou idempotência. Capacidade planejada não é executor conectado. Preservar autoridade humana e não extrapolar permissões do módulo Assistente para Núcleo M5. Observações de código, não experiências produtivas homologadas.",
+    source: "src/pages/Assistente.tsx; src/hooks/useAICEO.ts; supabase/functions/ai-ceo/index.ts",
+  },
 };
