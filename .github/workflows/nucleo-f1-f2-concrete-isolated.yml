@@ -8,6 +8,7 @@ on:
       - "scripts/nucleo-f1-f2-g1-scope.test.sql"
       - "scripts/nucleo-f1-f2-writer-audit.test.sql"
       - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
+      - "scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql"
       - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
       - "scripts/nucleo-f1-f2-staging-m3-official-compat.sql"
       - "scripts/nucleo-f1-f2-staging-cross-front-fixture.sql"
@@ -75,6 +76,9 @@ jobs:
       - name: G2 competing executor transactions and retry
         env: *db
         run: node scripts/nucleo-f1-f2-g2-writer-race.cjs
+      - name: G2 attested authority and transactional receipt
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql
       - name: Concurrent uniqueness under two transactions
         env: *db
         run: node scripts/nucleo-f1-f2-concrete-concurrency.cjs
