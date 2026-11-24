@@ -192,4 +192,31 @@ scenario("quarenta e duas provas sintéticas verificadas, zero alertas",{
   assert.equal(r.findings.length,0);
 });
 
+scenario("dependência bloqueada afeta somente a frente vinculada e pendente",{
+  fronts:[front("A"),front("B",{status:"bloqueado",blocker:"Acesso pendente"}),front("C")],
+  evidence:[],dependencies:[{workstream_id:"A",depends_on_id:"B"}],
+},r=>{
+  const findings=r.findings.filter(f=>f.kind==="dependencia_bloqueante");
+  assert.equal(findings.length,1);
+  assert.equal(findings[0].workstreamCode,"A");
+  assert.match(findings[0].explanation,/B.*Acesso pendente/);
+});
+scenario("dependências bloqueadas agrupadas sem duplicar referências",{
+  fronts:[front("A"),front("B",{status:"bloqueado"}),front("C",{status:"bloqueado"})],
+  evidence:[],dependencies:[{workstream_id:"A",depends_on_id:"B"},{workstream_id:"A",depends_on_id:"C"},{workstream_id:"A",depends_on_id:"B"}],
+},r=>{
+  const findings=r.findings.filter(f=>f.kind==="dependencia_bloqueante");
+  assert.equal(findings.length,1);
+  assert.match(findings[0].explanation,/B.*C/);
+  assert.equal(findings[0].explanation.split("B ·").length,2);
+});
+scenario("frente concluída não reabre por dependência bloqueada",{
+  fronts:[front("A",{status:"concluido"}),front("B",{status:"bloqueado"})],
+  evidence:[proof("P","A")],dependencies:[{workstream_id:"A",depends_on_id:"B"}],
+},r=>assert.deepEqual(kinds(r),[]));
+scenario("dependência pendente ou ausente não implica bloqueio",{
+  fronts:[front("A"),front("B",{status:"planejado"})],
+  evidence:[],dependencies:[{workstream_id:"A",depends_on_id:"B"},{workstream_id:"A",depends_on_id:"UNKNOWN"}],
+},r=>assert.deepEqual(kinds(r),[]));
+
 console.log("M5 HOMOLOGAÇÃO: " + checks + " cenários sintéticos aprovados; zero escrita, sem uso do Core.");

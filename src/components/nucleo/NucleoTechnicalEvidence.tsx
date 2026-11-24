@@ -125,6 +125,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
                       Abrir fonte <ExternalLink className="h-3 w-3" />
                     </a>}
                     {detailsOpen && <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
+                      <p>Observada na origem: {record.source_observed_at?new Date(record.source_observed_at).toLocaleString("pt-BR"):"Não informada"}</p>
                       {record.checked_at && <p>Conferida: {new Date(record.checked_at).toLocaleString("pt-BR")}</p>}
                       <p>Registrada: {new Date(record.recorded_at).toLocaleString("pt-BR")}</p>
                       {record.evidence_note && <p className="break-words">{record.evidence_note}</p>}

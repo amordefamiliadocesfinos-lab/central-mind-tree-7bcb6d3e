@@ -5,7 +5,7 @@ export type SupervisionFinding = {
   id: string;
   workstreamCode: string;
   workstreamTitle: string;
-  kind: "divergencia" | "evidencia_ausente" | "prova_declarada" | "revisao_fonte" | "bloqueio" | "proxima_acao";
+  kind: "divergencia" | "evidencia_ausente" | "prova_declarada" | "revisao_fonte" | "bloqueio" | "proxima_acao" | "dependencia_bloqueante";
   severity: "atencao" | "informativo";
   title: string;
   explanation: string;
@@ -54,6 +54,7 @@ export function inspectNucleoSupervision(
     kind, severity, title, explanation, suggestedAction, evidenceIds,
   });
 
+  const byId = new Map(workstreams.map(item=>[item.id,item]));
   for (const front of workstreams.filter(item => item.kind !== "modulo")) {
     const records = byFront.get(front.id) ?? [];
     const diverging = records.filter(r => r.observed_state === "divergente");
@@ -84,6 +85,21 @@ export function inspectNucleoSupervision(
       add(front, "proxima_acao", "Próxima ação não declarada",
         "A ficha não contém próxima ação.",
         "Definir a próxima ação na M3 por uma pessoa autorizada.", [], "informativo");
+    }
+    // Somente dependências explícitas com destino conhecido e bloqueado.
+    // Não inferir que toda dependência pendente impede avanço nem reabrir concluídas.
+    if(front.status!=="concluido"){
+      const blockedDependencies = [...new Set(dependencies
+        .filter(link=>link.workstream_id===front.id)
+        .map(link=>link.depends_on_id))]
+        .map(id=>byId.get(id))
+        .filter((item): item is DevelopmentWorkstream=>!!item && item.status==="bloqueado" && item.id!==front.id)
+        .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR"));
+      if(blockedDependencies.length){
+        add(front,"dependencia_bloqueante","Dependência vinculada em situação bloqueada",
+          blockedDependencies.map(item=>item.code+" · "+item.title+(item.blocker.trim()?" — "+item.blocker:" — motivo não registrado")).join("; "),
+          "Consultar as fichas das dependências e alinhar a próxima ação com seus responsáveis. O vínculo não altera automaticamente o estado desta frente.");
+      }
     }
     const unverified = records.filter(r => r.observed_state === "nao_verificado" || r.observed_state === "observado");
     if (unverified.length) {
