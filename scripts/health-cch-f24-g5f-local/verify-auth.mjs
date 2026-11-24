@@ -43,7 +43,7 @@ const createUser=async(name)=>{
  const check=await client.auth.getUser();
  assert.equal(check.data.user?.id,data.user.id);
  assert.ok(sign.data.session?.access_token?.length>40);
- return {userId:data.user.id,client};
+ return {userId:data.user.id,client,email,password};
 };
 const rpc=async(client,name,args)=>{
  const {data,error}=await client.rpc(name,args);
@@ -157,6 +157,28 @@ assert.equal(open?.length,0);
 const {data:series}=await a.client.from("health_workout_sets").select("set_number").eq("workout_exercise_id",EX_A).eq("status","completed");
 assert.deepEqual(series.map(x=>x.set_number).sort((x,y)=>x-y),[1,2,3,4,5]);
 console.log("PASS G5F F19: authenticated 3/3→4/3→5/3, pause/resume, no automatic sixth, M3 unchanged");
+// A separate genuine local Auth session for the React browser, not the completed RPC test.
+const UI_SESSION="abababab-abab-4bab-8bab-abababababab";
+const UI_EX1="acacacac-acac-4cac-8cac-acacacacacac";
+const UI_EX2="adadadad-adad-4dad-8dad-adadadadadad";
+const UI_REST3="aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae";
+pgsql(`
+ INSERT INTO public.health_workout_sessions(id,athlete_id,status) VALUES ('${UI_SESSION}','${ATH_A}','active');
+ INSERT INTO public.health_workout_exercises(id,athlete_id,session_id,status,planned_sets_min,planned_sets_max,planned_rest_seconds,planned_reps_min,planned_reps_max,planned_rir_target)
+ VALUES ('${UI_EX1}','${ATH_A}','${UI_SESSION}','active',3,3,90,6,10,2),
+ ('${UI_EX2}','${ATH_A}','${UI_SESSION}','pending',3,3,90,8,12,2);
+ INSERT INTO public.health_workout_sets(athlete_id,session_id,workout_exercise_id,set_number,status,set_type,load_value,load_unit,reps,rir)
+ SELECT '${ATH_A}','${UI_SESSION}','${UI_EX1}',n,'completed','working',80,'kg',8,2
+ FROM generate_series(1,3) AS n;
+ INSERT INTO public.health_workout_timer_intervals
+ (id,athlete_id,session_id,workout_exercise_id,workout_set_id,interval_type,set_number,status,client_event_id,started_at,target_seconds,created_by_auth_user_id)
+ SELECT '${UI_REST3}','${ATH_A}','${UI_SESSION}','${UI_EX1}',id,'rest',3,'running',
+ '${uniq()}',now()-interval '120 seconds',90,'${a.userId}'
+ FROM public.health_workout_sets WHERE workout_exercise_id='${UI_EX1}' AND set_number=3;
+`);
+if(!process.env.G5F_LOGIN_JSON) throw Error("missing ephemeral browser login path");
+fs.writeFileSync(process.env.G5F_LOGIN_JSON,JSON.stringify({email:a.email,password:a.password,athleteId:ATH_A,sessionId:UI_SESSION}),{mode:0o600});
+console.log("G5-F browser fixture prepared with genuine local Auth A; credentials not logged");
 // Artifact safe metadata: omit real JWTs, passwords, API keys, user IDs and emails.
 fs.writeFileSync(process.env.G5F_EVIDENCE,JSON.stringify({
  status:"passed",mode:"LOCAL_SUPABASE_GOTRUE_POSTGREST_POSTGRES",run:process.env.GITHUB_RUN_ID||"local",
