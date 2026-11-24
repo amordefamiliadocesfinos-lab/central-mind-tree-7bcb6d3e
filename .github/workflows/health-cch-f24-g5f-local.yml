@@ -36,29 +36,34 @@ jobs:
           unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_URL
           unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
           tmp="$(mktemp -d /tmp/cch-g5f-auth-XXXXXX)"
+          export SUPABASE_WORKDIR="$tmp"
+          cli="$GITHUB_WORKSPACE/node_modules/.bin/supabase"
+          test -x "$cli"
           mkdir -p test-results
           export G5F_RPC_SQL="$tmp/f19-functions.sql"
           export G5F_EVIDENCE="$tmp/evidence.json"
           teardown(){
             set +e
-            timeout 180s npx supabase stop --workdir "$tmp" --no-backup >/dev/null 2>&1
+            (cd "$tmp" && timeout 180s "$cli" stop --no-backup --project-id "cch-g5f-${GITHUB_RUN_ID}") >/dev/null 2>&1
             echo "G5-F teardown attempted, no backup, local project only"
             rm -rf "$tmp"
           }
           trap teardown EXIT
-          npx supabase init --workdir "$tmp"
+          (cd "$tmp" && "$cli" init)
           # Never use the repository's real Supabase project configuration.
           sed -i "s/^project_id *=.*/project_id = \"cch-g5f-${GITHUB_RUN_ID}\"/" "$tmp/supabase/config.toml"
           grep -Fx "project_id = \"cch-g5f-${GITHUB_RUN_ID}\"" "$tmp/supabase/config.toml" >/dev/null
-          npx supabase --help >/dev/null
-          npx supabase start --help >/dev/null
-          timeout 1100s npx supabase start --workdir "$tmp" >"$tmp/start.log" 2>&1 || {
+          "$cli" --help >/dev/null
+          "$cli" start --help >/dev/null
+          (cd "$tmp" && timeout 1100s "$cli" start) >"$tmp/start.log" 2>&1 || {
             echo "G5-F local Supabase failed to start; no remote fallback"
             tail -25 "$tmp/start.log" | sed -E 's/(eyJ[A-Za-z0-9_-]{24})[A-Za-z0-9_-]+/[REDACTED]/g'
             exit 1
           }
           # Verify the Docker project identity; never accept repository production ref names.
           containers="$(docker ps --format '{{.Names}}')"
+          echo "G5-F active Supabase container names:"
+          echo "$containers" | grep '^supabase_' | sed -E 's/[[:space:]]+//g' | head -25
           echo "$containers" | grep -F "supabase_db_cch-g5f-${GITHUB_RUN_ID}" >/dev/null || {
             echo "G5-F local Docker project ID mismatch; aborting"; exit 1;
           }
@@ -66,7 +71,7 @@ jobs:
             echo "G5-F official project identifier detected in active containers"; exit 1
           fi
           echo "G5-F Docker project identity confirmed"
-          npx supabase status --workdir "$tmp" -o env >"$tmp/status.env"
+          (cd "$tmp" && "$cli" status -o env) >"$tmp/status.env"
           chmod 600 "$tmp/status.env"
           set -a
           source "$tmp/status.env"
