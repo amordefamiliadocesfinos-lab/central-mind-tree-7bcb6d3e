@@ -260,6 +260,70 @@ CREATE TRIGGER card_provenance BEFORE INSERT OR UPDATE ON f12_lab.context_cards
  FOR EACH ROW EXECUTE FUNCTION f12_lab.guard_card_provenance();
 
 
+-- F4/F5: narrow synthetic projection of the existing AC-01 record contract.
+-- This is NOT a new AC-01 writer or production migration. Only the lab fixture
+-- owner seeds original records; the link does not change author or authority.
+CREATE TABLE f12_core.ac01_reference_fixture (
+ id uuid PRIMARY KEY,
+ lineage_id uuid NOT NULL,
+ version_no integer NOT NULL CHECK(version_no>0),
+ parent_revision_id uuid REFERENCES f12_core.ac01_reference_fixture(id) ON DELETE RESTRICT,
+ module_id uuid NOT NULL REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
+ workstream_id uuid REFERENCES f12_core.workstreams(id) ON DELETE RESTRICT,
+ specialist_role text NOT NULL,
+ contribution_kind text NOT NULL CHECK(contribution_kind IN
+ ('metodo','ecossistema','manual','procedimento','aprendizado','mapa','checkpoint','arquivo','outro')),
+ source_kind text NOT NULL CHECK(source_kind IN ('github','google_drive','referencia_privada')),
+ source_locator text NOT NULL,
+ authority_state text NOT NULL CHECK(authority_state IN ('proposta','em_evolucao')),
+ recorded_by_auth_uid uuid NOT NULL,
+ recorded_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(lineage_id,version_no)
+);
+CREATE TRIGGER ac01_fixture_immutable BEFORE UPDATE OR DELETE
+ ON f12_core.ac01_reference_fixture FOR EACH ROW EXECUTE FUNCTION f12_lab.preserve_approved_source();
+-- One explicit reviewed association per exact source; historical versions remain
+-- independent. No name-based identity inference, no original payload exposed.
+CREATE TABLE f12_lab.ac01_specialty_links (
+ source_ref text PRIMARY KEY REFERENCES f12_lab.approved_card_sources(source_ref) ON DELETE RESTRICT,
+ contribution_id uuid NOT NULL REFERENCES f12_core.ac01_reference_fixture(id) ON DELETE RESTRICT,
+ assignment_id uuid NOT NULL REFERENCES f12_lab.assignments(id) ON DELETE RESTRICT,
+ declared_role text NOT NULL,
+ linked_at timestamptz NOT NULL DEFAULT now(),
+ linked_by_auth_uid uuid NOT NULL,
+ UNIQUE(contribution_id,assignment_id)
+);
+CREATE FUNCTION f12_lab.guard_ac01_specialty_link() RETURNS trigger
+ LANGUAGE plpgsql SECURITY INVOKER AS $linkguard$
+BEGIN
+ IF NOT EXISTS(
+  SELECT 1 FROM f12_core.ac01_reference_fixture c
+  JOIN f12_lab.assignments a ON a.id=NEW.assignment_id
+  JOIN f12_lab.approved_card_sources s ON s.source_ref=NEW.source_ref
+  WHERE c.id=NEW.contribution_id
+    AND c.module_id=a.module_id AND c.workstream_id IS NOT DISTINCT FROM a.front_id
+    AND s.specialty_id=a.specialty_id AND s.module_id=a.module_id
+    AND s.front_id IS NOT DISTINCT FROM a.front_id
+    AND c.specialist_role=NEW.declared_role
+    AND a.status='active' AND a.closed_at IS NULL
+    AND a.valid_from<=now() AND (a.valid_until IS NULL OR now()<a.valid_until)
+    AND s.verified AND NOT s.private_payload_included
+    AND EXISTS(SELECT 1 FROM f12_core.admin_caps cap
+      WHERE cap.auth_user_id=NEW.linked_by_auth_uid AND cap.capability='nucleo_manage'
+       AND cap.active AND cap.revoked_at IS NULL)
+ ) THEN RAISE EXCEPTION 'F4_AC01_LINK_CONTEXT_OR_REVIEW_MISMATCH'; END IF;
+ RETURN NEW;
+END $linkguard$;
+CREATE TRIGGER ac01_specialty_link_guard BEFORE INSERT ON f12_lab.ac01_specialty_links
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.guard_ac01_specialty_link();
+CREATE TRIGGER ac01_specialty_link_immutable BEFORE UPDATE OR DELETE ON f12_lab.ac01_specialty_links
+ FOR EACH ROW EXECUTE FUNCTION f12_lab.preserve_approved_source();
+ALTER TABLE f12_core.ac01_reference_fixture ENABLE ROW LEVEL SECURITY;
+ALTER TABLE f12_lab.ac01_specialty_links ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON f12_core.ac01_reference_fixture,f12_lab.ac01_specialty_links FROM PUBLIC,anon,authenticated;
+-- No client write grants or raw-row access. Only reviewed context cards remain
+-- visible through the existing scoped projection.
+
 -- M3 hierarchy hardening: conservatively refuse a reparent/kind change while any
 -- descendant or root is referenced by an assignment or consultive card.
 -- This is laboratory-only; productive M3 trigger integration needs separate approval.
