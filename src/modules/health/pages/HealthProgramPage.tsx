@@ -130,6 +130,28 @@ export function HealthProgramPage() {
     );
   }
 
+  // A failed read is not evidence that the athlete has no program.
+  // Do not expose creation, renewal or publication using an unknown snapshot.
+  if (program.error) {
+    return (
+      <Card data-testid="cch-u02-program-read-error">
+        <CardHeader>
+          <CardTitle className="text-base">Não foi possível consultar seu programa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p role="alert" className="text-sm text-muted-foreground">
+            Não foi possível confirmar o estado atual do programa. Tente novamente antes de criar, revisar ou publicar uma versão.
+          </p>
+          <Button variant="outline" className="min-h-11 w-full"
+            disabled={program.loading || program.saving}
+            onClick={() => void program.reload()}>
+            Tentar novamente
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!program.program) {
     return (
       <div className="space-y-4">
