@@ -1,0 +1,33 @@
+name: CCH F24 G5-F Nonproduction Configuration Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/health-cch-f24-g5f-preflight*.mjs'
+      - 'docs/health/CCH_F24_G5F_CONTRATO_HOMOLOGACAO_AUTH_ISOLADA_2026-11-23.md'
+      - '.github/workflows/health-cch-f24-g5f-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  static-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run fail-closed static environment guard contracts
+        run: node --test scripts/health-cch-f24-g5f-preflight.test.mjs
+      - name: Verify only proposal/test files were changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          diff="$(git diff --name-only origin/main...HEAD)"
+          echo "$diff"
+          if echo "$diff" | grep -Ev '^(docs/health/CCH_F24_G5F_CONTRATO_HOMOLOGACAO_AUTH_ISOLADA_2026-11-23\.md|scripts/health-cch-f24-g5f-preflight(\.test)?\.mjs|\.github/workflows/health-cch-f24-g5f-preflight\.yml)$'; then
+             echo "G5F scope violation"; exit 1
+          fi
