@@ -81,10 +81,13 @@ const list=async client=>{
  if(error) throw Error("RLS read failed "+error.message);
  return data;
 };
-const aa=await list(a.client), bb=await list(b.client), anonymous=await list(publicClient());
+const aa=await list(a.client), bb=await list(b.client);
 assert.deepEqual(aa.map(v=>v.id),[SESSION_A]);
 assert.deepEqual(bb.map(v=>v.id),[SESSION_B]);
-assert.equal(anonymous.length,0);
+// Explicit 42501 is the stronger expected default-deny result for anon.
+const anonResult=await publicClient().from("health_workout_sessions").select("id");
+assert.ok(anonResult.error || (anonResult.data||[]).length===0);
+if(anonResult.error) assert.match(anonResult.error.message,/permission denied|not permitted|authorization/i);
 for(const table of ["health_workout_sessions","health_workout_sets","health_workout_timer_intervals"]){
  const {data,error}=await b.client.from(table).select("*").eq("athlete_id",ATH_A);
  if(error) throw Error(table+" RLS failed "+error.message);
