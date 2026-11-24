@@ -57,6 +57,15 @@ jobs:
             tail -25 "$tmp/start.log" | sed -E 's/(eyJ[A-Za-z0-9_-]{24})[A-Za-z0-9_-]+/[REDACTED]/g'
             exit 1
           }
+          # Verify the Docker project identity; never accept repository production ref names.
+          containers="$(docker ps --format '{{.Names}}')"
+          echo "$containers" | grep -F "supabase_db_cch-g5f-${GITHUB_RUN_ID}" >/dev/null || {
+            echo "G5-F local Docker project ID mismatch; aborting"; exit 1;
+          }
+          if echo "$containers" | grep -F "xkskyutmtlhivvpfxkjg" >/dev/null; then
+            echo "G5-F official project identifier detected in active containers"; exit 1
+          fi
+          echo "G5-F Docker project identity confirmed"
           npx supabase status --workdir "$tmp" -o env >"$tmp/status.env"
           chmod 600 "$tmp/status.env"
           set -a
