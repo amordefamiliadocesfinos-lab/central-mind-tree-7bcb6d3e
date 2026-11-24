@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Install pinned local Supabase CLI (no hosted login)
         run: npm install --no-save --no-package-lock --ignore-scripts=false supabase@3.1.0
+      - name: PostgreSQL client for disposable database inspection
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
       - name: Run one ephemeral local Auth/RLS/F19 verification and teardown
         shell: bash
         run: |
