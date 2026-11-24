@@ -50,3 +50,12 @@
 **Exige staging/prod (autorização separada):** autenticação humana real, identidade real do executor, Auth/RLS hospedados, rollout, custos e rollback.
 
 **Despacho:** manter G2 de segurança da cadeia **ABERTO** nos pontos A1/A2/A3/A6/A7/A9. A CI anteriormente aprovada permanece válida para o que testou; CI com `CONFIRMED GAP` não significa que os riscos foram corrigidos. PR #1004 permanece aberta/draft, sem merge, migrations, deploy, contas ou grants reais.
+
+## 5. Contraprova após execução (readback CI)
+
+Workflow Supabase Auth local descartável [#45299207874](https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/actions/runs/45299207874), job `138127198578`: **completed / success** em 24/11/2026 UTC. Logs do teste adversarial:
+
+- `CONFIRMED GAP G2: legacy decision can grant without attestation; atomic-family decision can grant without receipt (all rolled back)`.
+- `PASS G2 adversarial test hygiene: no grant/decision/history persisted`.
+
+O mesmo job passou nas regressões G1, G2 atomic receipt, G2 race e GoTrue fictício local. Portanto, o resultado é **dois contornos comprovados na candidata**, não uma aprovação de implantação. Mantenha A1/A2 e o portão integrado de segurança **ABERTOS/BLOQUEANTES**, até existir enforcement geral e teste direcionado correspondente. O ensaio executou as tentativas dentro de `BEGIN ... ROLLBACK`, verificando depois a ausência de efeitos persistentes.
