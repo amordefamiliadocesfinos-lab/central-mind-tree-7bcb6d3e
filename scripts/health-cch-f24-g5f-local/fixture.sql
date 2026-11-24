@@ -21,12 +21,14 @@ CREATE TABLE public.health_workout_sessions (
  id uuid PRIMARY KEY, athlete_id uuid NOT NULL,
  status text NOT NULL CHECK(status IN ('active','paused','completed','aborted')),
  timer_paused_at timestamptz, pause_accumulated_seconds integer NOT NULL DEFAULT 0,
+ started_at timestamptz NOT NULL DEFAULT now(), ended_at timestamptz,
  UNIQUE(id,athlete_id)
 );
 CREATE TABLE public.health_workout_exercises (
  id uuid PRIMARY KEY, athlete_id uuid NOT NULL,
  session_id uuid NOT NULL, status text NOT NULL,
  planned_sets_min int,planned_sets_max int,planned_rest_seconds integer DEFAULT 90,
+ started_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(id,session_id,athlete_id)
 );
 CREATE TABLE public.health_workout_sets(
@@ -36,7 +38,7 @@ CREATE TABLE public.health_workout_sets(
  load_value numeric,load_unit text,reps integer,rir numeric,
  work_seconds integer,rest_seconds integer,client_event_id uuid,
  completed_at timestamptz,notes text,
- created_at timestamptz NOT NULL DEFAULT now()
+ created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE public.health_workout_timer_intervals (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), athlete_id uuid NOT NULL,
@@ -71,3 +73,10 @@ BEGIN
 END $$;
 -- No direct client INSERT/UPDATE/DELETE; F19 definer RPCs own state.
 -- G5F uses original RPCs extracted from the existing migration, not copied SQL rewrites.
+
+-- M4 allows editing factual set execution for the owner; timer mutations remain RPC only.
+GRANT UPDATE (load_value,load_unit,reps,rir) ON public.health_workout_sets TO authenticated;
+CREATE POLICY g5f_owner_update_sets ON public.health_workout_sets
+ FOR UPDATE TO authenticated
+ USING (public.health_can_write_athlete(athlete_id))
+ WITH CHECK (public.health_can_write_athlete(athlete_id));
