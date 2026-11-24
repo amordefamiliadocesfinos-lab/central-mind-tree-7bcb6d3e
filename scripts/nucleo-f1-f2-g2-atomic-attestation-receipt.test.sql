@@ -5,21 +5,19 @@
 
 -- Extend laboratory decision contract, not prior G2 fixture or G1 behavior.
 -- Executor can read attestations scoped to itself, but cannot create or edit them.
--- This is the disposable local database only; required to use auth.uid() inside
--- invoker triggers and RLS when switching to the isolated NOLOGIN executor.
-GRANT USAGE ON SCHEMA auth TO f12_grant_executor;
-GRANT EXECUTE ON FUNCTION auth.uid() TO f12_grant_executor;
+-- This fixture intentionally uses a synthetic session GUC for the executor;
+-- it is NOT a productive substitute for verified JWT/GoTrue identity.
 GRANT SELECT ON f12_lab.g2_decision_attestations,f12_lab.g2_competences TO f12_grant_executor;
 ALTER TABLE f12_lab.g2_decision_attestations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE f12_lab.g2_competences ENABLE ROW LEVEL SECURITY;
 CREATE POLICY g2_attestation_executor_read ON f12_lab.g2_decision_attestations
  FOR SELECT TO f12_grant_executor
- USING(executor_auth_uid=(SELECT auth.uid()));
+ USING(executor_auth_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid);
 CREATE POLICY g2_competence_executor_read ON f12_lab.g2_competences
  FOR SELECT TO f12_grant_executor
  USING(EXISTS(SELECT 1 FROM f12_lab.g2_decision_attestations a
    WHERE a.competence_id=g2_competences.id
-     AND a.executor_auth_uid=(SELECT auth.uid())));
+     AND a.executor_auth_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid));
 
 CREATE TABLE f12_lab.g2_execution_receipts (
  request_id uuid PRIMARY KEY,
@@ -34,17 +32,17 @@ ALTER TABLE f12_lab.g2_execution_receipts ENABLE ROW LEVEL SECURITY;
 GRANT SELECT,INSERT ON f12_lab.g2_execution_receipts TO f12_grant_executor;
 CREATE POLICY g2_receipt_executor_read ON f12_lab.g2_execution_receipts
  FOR SELECT TO f12_grant_executor
- USING(committed_actor_uid=(SELECT auth.uid()));
+ USING(committed_actor_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid);
 CREATE POLICY g2_receipt_executor_insert ON f12_lab.g2_execution_receipts
  FOR INSERT TO f12_grant_executor
- WITH CHECK(committed_actor_uid=(SELECT auth.uid())
+ WITH CHECK(committed_actor_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
  AND EXISTS(
   SELECT 1 FROM f12_lab.g2_decision_attestations a
   JOIN f12_lab.approved_decisions d ON d.id=a.decision_id
   JOIN f12_lab.read_grants g ON g.id=g2_execution_receipts.grant_id
   WHERE a.decision_id=g2_execution_receipts.decision_id
    AND a.request_id=g2_execution_receipts.request_id
-   AND a.executor_auth_uid=(SELECT auth.uid())
+   AND a.executor_auth_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
    AND d.id=g.decision_ref::uuid
    AND d.assignment_id=g.assignment_id
    AND g.auth_uid=a.beneficiary_auth_uid
@@ -77,7 +75,7 @@ BEGIN
   JOIN f12_lab.g2_competences c ON c.id=a.competence_id
   JOIN f12_lab.assignments ass ON ass.id=a.assignment_id
   WHERE a.decision_id=d.id
-    AND a.executor_auth_uid=(SELECT auth.uid())
+    AND a.executor_auth_uid=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
     AND a.decider_auth_uid<>a.executor_auth_uid
     AND a.assignment_id=NEW.assignment_id
     AND a.beneficiary_auth_uid=NEW.auth_uid
