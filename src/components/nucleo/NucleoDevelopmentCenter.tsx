@@ -86,6 +86,8 @@ export default function NucleoDevelopmentCenter() {
   const [executiveVisited,setExecutiveVisited] = useState(false);
   const [executiveExpanded,setExecutiveExpanded] = useState(false);
   const [supervisionExpanded,setSupervisionExpanded] = useState(false);
+  // D4: foco é somente de apresentação, nunca amplia a leitura M5.
+  const [supervisionFocusModuleId,setSupervisionFocusModuleId] = useState("");
   const [supervisionVisited,setSupervisionVisited] = useState(false);
   // Prova M4 só é consultada quando o usuário abre esta área.
   const [expandedEvidenceFor,setExpandedEvidenceFor] = useState<string|null>(null);
@@ -739,10 +741,18 @@ export default function NucleoDevelopmentCenter() {
         </div>
         <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
           aria-expanded={supervisionExpanded} aria-controls="nucleo-din-supervision"
-          onClick={()=>{setSupervisionVisited(true);setSupervisionExpanded(v=>!v);}}>{supervisionExpanded?"Recolher supervisão":"Abrir supervisão"}</Button>
+          onClick={()=>{setSupervisionFocusModuleId("");setSupervisionVisited(true);setSupervisionExpanded(v=>!v);}}>{supervisionExpanded?"Recolher supervisão":"Abrir supervisão"}</Button>
       </div>
       <div id="nucleo-din-supervision" hidden={!supervisionExpanded} className={supervisionExpanded?"":"hidden"}>
-        {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies} />}
+        {supervisionVisited&&!loading && <NucleoSupervisionPanel workstreams={items} dependencies={dependencies}
+          focusModuleId={supervisionFocusModuleId||undefined}
+          onOpenWorkstream={id=>{
+            if(!byId.has(id)){toast.warning("Esta frente não está na leitura M3 atual. Atualize os registros.");return;}
+            if(!choose(id))return;
+            setSupervisionExpanded(false);
+            requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")
+              ?.scrollIntoView({behavior:"smooth",block:"start"}));
+          }}/>} 
       </div>
 
       <details className="rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
@@ -1018,6 +1028,16 @@ export default function NucleoDevelopmentCenter() {
                           ?.scrollIntoView({behavior:"smooth",block:"start"}));
                       }}>
                       Abrir evidências M4
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      onClick={()=>{
+                        setSupervisionFocusModuleId(crmModule.id);
+                        setSupervisionVisited(true);
+                        setSupervisionExpanded(true);
+                        requestAnimationFrame(()=>document.getElementById("nucleo-din-supervision")
+                          ?.scrollIntoView({behavior:"smooth",block:"start"}));
+                      }}>
+                      Ver alertas M5 do CRM
                     </Button>
                   </div>
                   {crmSelectedPosition>=0&&<p className="text-xs font-medium" role="status">
