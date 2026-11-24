@@ -136,3 +136,58 @@ BEGIN
  THEN RAISE EXCEPTION 'G2_UNTRUSTED_AUTHORITY_WRITE'; END IF;
  RAISE NOTICE 'PASS G2 authority fixture: separated decider/executor, bounded competence, immutable attestation, no executor approvals';
 END $test$;
+
+-- Additional negative attestations use an unconsumed, independent decision.
+INSERT INTO f12_lab.approved_decisions
+ (id,action,assignment_id,grant_id,approved_actor_auth_uid,scope_kind,authoritative_source,approved_at,expires_at)
+VALUES ('80000000-0000-4000-8000-0000000000c2','grant_read_context',
+ '40000000-0000-4000-8000-0000000000c1',NULL,
+ '30000000-0000-4000-8000-000000000097','module',
+ 'synthetic://master/negative-cases',now()-interval '1 minute',now()+interval '1 hour');
+DO $negative$
+BEGIN
+ BEGIN
+ INSERT INTO f12_lab.g2_decision_attestations
+ (decision_id,competence_id,decider_auth_uid,executor_auth_uid,assignment_id,
+ beneficiary_auth_uid,scope_kind,action,request_id,proof_ref)
+ VALUES ('80000000-0000-4000-8000-0000000000c2',
+ '90000000-0000-4000-8000-0000000000c3',
+ '30000000-0000-4000-8000-000000000087',
+ '30000000-0000-4000-8000-000000000097',
+ '40000000-0000-4000-8000-0000000000c1',
+ '30000000-0000-4000-8000-000000000001','module','grant_read_context',
+ '90000000-0000-4000-8000-0000000000d2','synthetic://revoked-delegation');
+ RAISE EXCEPTION 'G2_REVOKED_DELEGATION_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='G2_REVOKED_DELEGATION_ALLOWED' THEN RAISE; END IF;
+ END;
+ BEGIN
+ INSERT INTO f12_lab.g2_decision_attestations
+ (decision_id,competence_id,decider_auth_uid,executor_auth_uid,assignment_id,
+ beneficiary_auth_uid,scope_kind,action,request_id,proof_ref)
+ VALUES ('80000000-0000-4000-8000-0000000000c2',
+ '90000000-0000-4000-8000-0000000000c1',
+ '30000000-0000-4000-8000-000000000099',
+ '30000000-0000-4000-8000-000000000097',
+ '40000000-0000-4000-8000-0000000000c1',
+ '30000000-0000-4000-8000-000000000002','module','grant_read_context',
+ '90000000-0000-4000-8000-0000000000d3','synthetic://wrong-beneficiary');
+ RAISE EXCEPTION 'G2_BENEFICIARY_SWAP_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='G2_BENEFICIARY_SWAP_ALLOWED' THEN RAISE; END IF;
+ END;
+ BEGIN
+ INSERT INTO f12_lab.g2_decision_attestations
+ (decision_id,competence_id,decider_auth_uid,executor_auth_uid,assignment_id,
+ beneficiary_auth_uid,scope_kind,action,request_id,proof_ref)
+ VALUES ('80000000-0000-4000-8000-0000000000c2',
+ '90000000-0000-4000-8000-0000000000c1',
+ '30000000-0000-4000-8000-000000000099',
+ '30000000-0000-4000-8000-000000000097',
+ '40000000-0000-4000-8000-0000000000c1',
+ '30000000-0000-4000-8000-000000000001','front','grant_read_context',
+ '90000000-0000-4000-8000-0000000000d4','synthetic://wrong-scope');
+ RAISE EXCEPTION 'G2_SCOPE_SWAP_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM='G2_SCOPE_SWAP_ALLOWED' THEN RAISE; END IF;
+ END;
+ IF (SELECT count(*) FROM f12_lab.g2_decision_attestations)<>1 THEN RAISE EXCEPTION 'G2_NEGATIVES_PERSISTED'; END IF;
+ RAISE NOTICE 'PASS G2 authority negatives: revoked delegation, beneficiary and scope mismatches blocked';
+END $negative$;
