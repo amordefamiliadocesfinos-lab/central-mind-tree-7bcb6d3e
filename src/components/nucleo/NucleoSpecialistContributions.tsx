@@ -153,6 +153,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    }
    setFeedback("");
  };
+ const parent=rows.find(item=>item.id===parentId);
  const visibleVersions=rows.filter(item=>{
    const q=versionQuery.trim().toLocaleLowerCase("pt-BR");
    const matches=[item.title,item.specialist_role,item.contribution_kind,item.source_kind,item.source_locator]
@@ -162,7 +163,6 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    if(versionView==="propostas")return item.authority_state==="proposta"||item.authority_state==="em_evolucao";
    return true;
  });
- const parent=rows.find(item=>item.id===parentId);
  // O ID da versão escolhida pode deixar de constar no recorte após reconsulta.
  // Não inferir que a ausência é exclusão, nem permitir registro pela origem antiga.
  const referenceMissing=Boolean(parentId&&!reading&&!readError&&!parent);
