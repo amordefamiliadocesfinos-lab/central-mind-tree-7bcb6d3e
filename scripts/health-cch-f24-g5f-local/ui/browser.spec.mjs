@@ -33,6 +33,8 @@ for(const width of [320,360,390,430,1280]){
 }
 
 test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({page})=>{
+ const setPatches=[];
+ page.on("response",res=>{if(res.request().method()==="PATCH" && res.url().includes("health_workout_sets")) setPatches.push(res.status());});
  await open(page);
  await extra(page).click();
  await page.getByRole("button",{name:"Próximo exercício",exact:true}).first().click();
@@ -54,7 +56,8 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
    } catch (err) {
      console.log("G5F sanitized save diagnostic",JSON.stringify({
        buttons:(await page.getByRole("button").allTextContents()).map(s=>s.trim()).filter(Boolean).slice(-22),
-       alerts:(await page.getByRole("status").allTextContents()).map(s=>s.slice(0,200)).slice(-5)
+       alerts:(await page.getByRole("status").allTextContents()).map(s=>s.slice(0,200)).slice(-5),
+       setPatchStatuses:setPatches
      }));
      throw err;
    }
