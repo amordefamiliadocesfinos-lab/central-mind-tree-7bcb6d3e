@@ -17,6 +17,7 @@ import NucleoExecutiveDevelopment from "@/components/nucleo/NucleoExecutiveDevel
 import NucleoPanoramaDinV30, { moduleIdForWorkstream } from "@/components/nucleo/NucleoPanoramaDinV30";
 import NucleoFocusPreviewV30 from "@/components/nucleo/NucleoFocusPreviewV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
+import { selectAttention } from "@/lib/nucleo/workstreamPriority";
 import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
 import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import type {
@@ -207,7 +208,7 @@ export default function NucleoDevelopmentCenter() {
       :item.status==="em_andamento"?3:4;
     return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
   });
-  const crmAttention=crmQueue[0];
+  const crmAttention=selectAttention(crmFronts);
   const crmSelectedPosition=crmQueue.findIndex(item=>item.id===selectedId);
   // P2/P4: a mesma navegação M3/M4/M5/AC-01/AC-02 pode servir qualquer
   // módulo operacional cadastrado. CRM mantém o atalho do piloto original.
@@ -435,10 +436,8 @@ export default function NucleoDevelopmentCenter() {
     setSpecialistFocus("");
     setModuleFocusId(crmModule.id);
     setWorkspaceView("frentes");
-    if(crmAttention){
-      requestAnimationFrame(()=>document.getElementById("nucleo-m3-workstream-detail")
-        ?.scrollIntoView({behavior:"smooth",block:"start"}));
-    }
+    requestAnimationFrame(()=>document.getElementById(crmAttention?"nucleo-m3-workstream-detail":"nucleo-din-focus")
+      ?.scrollIntoView({behavior:"smooth",block:"start"}));
   };
   const resumeFront=(id:string)=>{
     if(!choose(id))return;
@@ -534,6 +533,7 @@ export default function NucleoDevelopmentCenter() {
                     ? `${crmFronts.length} frente(s) vinculada(s) ao CRM no Core M3 desta sessão. Não é inventário de todo o CRM.`
                     : "CRM não está cadastrado como módulo na leitura M3 atual. Consulte o Atlas sem presumir ausência do trabalho."}
                 </p>
+                {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhuma frente pendente localizada neste recorte M3. Consulte a fila para acessar as fichas existentes.</p>}
                 {crmAttention&&<>
                   <p className="break-words text-sm font-medium">{crmAttention.code} · {crmAttention.title}</p>
                   <p className="break-words text-xs"><strong>Próxima ação:</strong> {crmAttention.next_action?.trim()||"Não registrada no Core."}</p>
