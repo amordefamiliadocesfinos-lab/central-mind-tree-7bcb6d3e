@@ -68,7 +68,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-candidate.test.sql >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-concrete-security-review.test.sql >/dev/null
           psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-staging-cross-front-fixture.sql >/dev/null
-          psql -X -v ON_ERROR_STOP=1 -c 'CREATE VIEW public.f12_read_context WITH (security_invoker=true) AS SELECT id,specialty_id,module_id,front_id,card_type,public_label FROM f12_lab.context_cards; GRANT SELECT ON public.f12_read_context TO authenticated; NOTIFY pgrst, '"'"'reload schema'"'"';' >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE VIEW public.f12_read_context WITH (security_invoker=true) AS SELECT id,specialty_id,module_id,front_id,card_type,public_label,public_source_ref FROM f12_lab.context_cards; GRANT SELECT ON public.f12_read_context TO authenticated; NOTIFY pgrst, '"'"'reload schema'"'"';' >/dev/null
       - name: Actual local Auth signup/login and HTTP 401/403/200
         env: *db
         run: node scripts/nucleo-f1-f2-local-supabase-auth-e2e.cjs
@@ -90,7 +90,7 @@ jobs:
       - name: G2 attested authority and transactional receipt
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-atomic-attestation-receipt.test.sql
-      - name: G2 security adversarial — expected gaps and full rollback
+      - name: G2 security regression — both known bypasses denied
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-security-adversarial.test.sql
       - name: Stop local-only stack
