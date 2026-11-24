@@ -1,0 +1,66 @@
+TÍTULO: Estado Vigente — Rotina
+CÓDIGO: PCL-MST-ESTADO-ROTINA-V1.0
+DOMÍNIO: Painel Central
+FUNÇÃO DOCUMENTAL: DOCUMENTO_MESTRE / ESTADO VIGENTE
+ESTADO: ATIVO / VIGENTE
+VERSÃO: V1.0
+DATA DO ESTADO: 03/10/2026
+ÚLTIMO CHECKPOINT: 03/10/2026 — homologação da reconstrução V0.1 como primeira versão vigente.
+FONTE SOBERANA DE: continuidade do módulo Rotina
+DEPENDE DE: Sistema de Execução; auditoria funcional; estrutura técnica de Rotinas
+É CONSUMIDO POR: Estado Mestre; especialista do módulo
+SUBSTITUI: PCL-MST-ESTADO-ROTINA-V0.1
+OBSERVAÇÕES: primeira versão vigente e viva de continuidade. A homologação valida este documento como norte atual; não declara concluídas as frentes parciais nem converte estado técnico não confirmado em verdade atual.
+
+===============================================================================
+1. MISSÃO / ESTADO GERAL
+===============================================================================
+Rotina representa o operacional recorrente no Sistema de Execução. A fundação já
+existe; prioridade é consolidar uso real e integrações, não redesenhar o módulo.
+
+Separação preservada:
+Recorrente -> Rotina.
+Estruturante -> Projeto/Planejamento.
+Próxima ação relevante -> Foco.
+
+===============================================================================
+2. PATRIMÔNIO PRESERVADO
+===============================================================================
+- routine_blocks, routine_templates, routine_mts, routine_prefs, routine_stats,
+  timer_state;
+- visões Dia/Semana/Mês;
+- Método de Trabalho (MT);
+- templates, alertas, timer, checklist;
+- integração com Agenda, usuários, Organograma e task_id;
+- pontos de integração com CRM, Financeiro e Produção.
+
+===============================================================================
+3. NECESSIDADES REAIS
+===============================================================================
+N1 Consolidar uso real das capacidades existentes.
+N2 Fechar fronteira Rotina <-> Tarefa/Foco/Planejamento sem duplicar obrigação.
+N3 Validar integrações CRM/Financeiro/Produção/Digital.
+N4 Evoluir IA somente sobre a estrutura existente e conforme necessidade comprovada.
+
+===============================================================================
+4. EM OBSERVAÇÃO
+===============================================================================
+Há planejamento técnico histórico para especialista Rotinas, Registro Universal,
+Action Executor e arquivamento lógico de blocos. Não declarar como pendência atual
+sem confirmar se já foi implementado posteriormente.
+
+===============================================================================
+5. PRÓXIMA CONTINUIDADE
+===============================================================================
+Confirmar estado técnico atual -> testar uso real Dia/Semana/Mês/MT/templates ->
+identificar atritos -> validar Rotina <-> Foco <-> Planejamento -> validar integrações
+-> corrigir somente lacunas comprovadas -> evoluir IA/adaptação.
+
+===============================================================================
+6. FONTES RELACIONADAS
+===============================================================================
+- documentação técnica da Fase Rotinas/Registro Universal.
+- AUDITORIA_FUNCIONAL_EXISTENCIA_PAINEL_CENTRAL_V1.0.
+- CONSOLIDACAO_MESTRE_ANOTACOES_PAINEL_CENTRAL_V1.0.
+
+FIM.

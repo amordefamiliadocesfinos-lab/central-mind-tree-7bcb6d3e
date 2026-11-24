@@ -1,0 +1,67 @@
+TÍTULO: Estado Vigente — Digital
+CÓDIGO: PCL-MST-ESTADO-DIGITAL-V1.0
+DOMÍNIO: Painel Central
+FUNÇÃO DOCUMENTAL: DOCUMENTO_MESTRE / ESTADO VIGENTE
+ESTADO: ATIVO / VIGENTE
+VERSÃO: V1.0
+DATA DO ESTADO: 03/10/2026
+ÚLTIMO CHECKPOINT: 03/10/2026 — homologação da reconstrução V0.1 como primeira versão vigente.
+FONTE SOBERANA DE: continuidade do módulo Digital
+DEPENDE DE: Consolidação Mestre; auditoria funcional; método de campanhas
+É CONSUMIDO POR: Estado Mestre; especialista do módulo
+SUBSTITUI: PCL-MST-ESTADO-DIGITAL-V0.1
+OBSERVAÇÕES: primeira versão vigente e viva de continuidade. A homologação valida este documento como norte atual; não declara concluídas as frentes parciais nem converte estado técnico não confirmado em verdade atual.
+
+===============================================================================
+1. MISSÃO / ESTADO GERAL
+===============================================================================
+Digital é inteligência e execução de marketing orientada a resultado. Fundação de
+calendário/planejamento existe; principal lacuna é fechar o ciclo com resultado CRM.
+
+Fluxo desejado:
+Campanha/Conteúdo -> Lead -> CRM -> Venda/Não venda -> Resultado -> Digital aprende.
+
+===============================================================================
+2. PATRIMÔNIO PRESERVADO
+===============================================================================
+- DigitalCalendar;
+- DigitalWeeklyPlan;
+- Dashboard Digital;
+- arquitetura/método de campanhas existente em 03_MARKETING_CAMPANHAS;
+- soberania do Digital sobre estratégia, calendário editorial, campanhas,
+  planejamento de conteúdo, interpretação de performance e decisão de marketing.
+
+===============================================================================
+3. FRONTEIRAS
+===============================================================================
+CRM = semântica comercial e atendimento.
+Digital = semântica de marketing.
+Meta/canais = infraestrutura técnica.
+Campanha não deve virar três verdades concorrentes em CRM/Digital/Meta.
+
+===============================================================================
+4. NECESSIDADES REAIS
+===============================================================================
+N1 Fechar Digital <-> CRM por resultado comercial.
+N2 Confirmar identidade canônica de Campanha.
+N3 Auditar origem/atribuição já implementadas.
+N4 Consolidar uso real de calendário, plano semanal, campanhas e Dashboard.
+N5 Fechar aprendizado por resultado antes de ampliar Ads/automações.
+
+===============================================================================
+5. PRÓXIMA CONTINUIDADE
+===============================================================================
+Auditar campanhas/calendário/plataformas/origem/métricas -> identificar Campanha
+canônica -> mapear Digital <-> CRM -> definir contrato de Resultado -> implementar
+menor ciclo -> usar em campanha real -> medir utilidade -> só depois Ads/atribuição
+avançada/automações.
+
+===============================================================================
+6. FONTES RELACIONADAS
+===============================================================================
+- 03_MARKETING_CAMPANHAS/00_METODO_VIGENTE (fonte do método, não do estado).
+- AUDITORIA_FUNCIONAL_EXISTENCIA_PAINEL_CENTRAL_V1.0.
+- CONSOLIDACAO_MESTRE_ANOTACOES_PAINEL_CENTRAL_V1.0.
+- governança do Especialista Meta quando a integração externa for necessária.
+
+FIM.
