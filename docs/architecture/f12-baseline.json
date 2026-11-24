@@ -1,0 +1,75 @@
+{
+  "rows": [
+    {
+      "checked_at": "2026-11-24 17:45:38.052158+00",
+      "contributions": 2,
+      "events": 42,
+      "evidence": 51,
+      "executor": "postgres",
+      "identity_schema": null,
+      "legacy": [
+        {
+          "acl": "{postgres=arwdDxtm/postgres,sandbox_exec_xkskyutmtlhivvpfxkjg=ar/postgres,sandbox_exec=ar/postgres,authenticated=arw/postgres,service_role=arw/postgres}",
+          "policies": 3,
+          "rls": true,
+          "table": "nucleo_development_workstreams"
+        },
+        {
+          "acl": "{postgres=arwdDxtm/postgres,sandbox_exec_xkskyutmtlhivvpfxkjg=ar/postgres,sandbox_exec=ar/postgres,authenticated=ar/postgres,service_role=ar/postgres}",
+          "policies": 2,
+          "rls": true,
+          "table": "nucleo_development_events"
+        },
+        {
+          "acl": "{postgres=arwdDxtm/postgres,sandbox_exec_xkskyutmtlhivvpfxkjg=ar/postgres,sandbox_exec=ar/postgres,authenticated=ar/postgres,service_role=ar/postgres}",
+          "policies": 2,
+          "rls": true,
+          "table": "nucleo_development_evidence"
+        },
+        {
+          "acl": "{postgres=arwdDxtm/postgres,sandbox_exec_xkskyutmtlhivvpfxkjg=ar/postgres,sandbox_exec=ar/postgres,authenticated=ar/postgres,service_role=ar/postgres}",
+          "policies": 2,
+          "rls": true,
+          "table": "nucleo_module_knowledge_revisions"
+        },
+        {
+          "acl": "{postgres=arwdDxtm/postgres,authenticated=arm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_xkskyutmtlhivvpfxkjg=ar/postgres,sandbox_exec=ar/postgres}",
+          "policies": 2,
+          "rls": true,
+          "table": "nucleo_specialist_contributions"
+        }
+      ],
+      "revisions": 0,
+      "roles": [
+        {
+          "bypass": true,
+          "role": "sandbox_exec",
+          "super": false
+        },
+        {
+          "bypass": false,
+          "role": "authenticated",
+          "super": false
+        },
+        {
+          "bypass": false,
+          "role": "anon",
+          "super": false
+        },
+        {
+          "bypass": true,
+          "role": "service_role",
+          "super": false
+        },
+        {
+          "bypass": true,
+          "role": "sandbox_exec_xkskyutmtlhivvpfxkjg",
+          "super": false
+        }
+      ],
+      "rpc_conflicts": 0,
+      "version": "17.6",
+      "workstreams": 23
+    }
+  ]
+}
