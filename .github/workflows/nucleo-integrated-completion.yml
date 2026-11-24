@@ -1,0 +1,46 @@
+name: Núcleo — integração e candidata isolada
+on:
+  pull_request:
+    paths:
+      - 'src/components/nucleo/**'
+      - 'src/lib/nucleo/**'
+      - 'scripts/nucleo-*'
+      - 'docs/architecture/proposals/nucleo_identity_read_candidate.sql'
+      - 'docs/architecture/MAPA_MESTRE_NUCLEO*'
+      - '.github/workflows/nucleo-integrated-completion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrated-counterproof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: nucleo_identity_disposable
+          POSTGRES_PASSWORD: disposable_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U postgres'
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: nucleo_identity_disposable
+      PGUSER: postgres
+      PGPASSWORD: disposable_only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/nucleo-final-counterproof.cjs --native-db

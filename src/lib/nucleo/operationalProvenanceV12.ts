@@ -90,10 +90,12 @@ export const MODULE_PROVENANCE: Partial<Record<string, ModuleProvenance>> = {
     ],
   },
   SAU: {
-    methodSummary: "Mapa Soberano CCH v5.4, de 12/11/2026, declara-se VIGENTE · FROZEN. F10–F22 implementadas e F22 operacional conforme a própria fonte; F23 não aberta.",
+    methodSummary: "Mapa Soberano Unificado CCH V6.0, de 24/11/2026, é o índice documental de continuidade e preserva as fontes anteriores. Seus portões permanecem próprios; presença do mapa no GitHub não comprova implantação ou uso real.",
     ownerBoundary: "O documento soberano estabelece regras do produto, mas não resolve sozinho a identidade do especialista vinculada ao Núcleo. Não usar dados dos praticantes na ficha.",
     sources: [
-      {label:"CCH — Mapa Soberano v5.4",path:map("docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md"),authority:"vigente_declarada",
+      {label:"CCH — Mapa Soberano Unificado V6.0",path:map("docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md"),authority:"vigente_declarada",
+       note:"Índice normativo de continuidade datado de 24/11/2026; preserva os portões de implantação e a privacidade do módulo."},
+      {label:"CCH — Mapa Soberano v5.4",path:map("docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md"),authority:"historica",
        note:"Data 12/11/2026; substitui v5.3. Implementação e uso real devem permanecer separados."},
       {label:"CCH — Matriz de cobertura v3",path:map("docs/health/CCH_REQUIREMENTS_COVERAGE_MATRIX_v3_2026-11-09.md"),authority:"historica",
        note:"Matriz datada de 09/11/2026, com distinção entre implementação em código e gates."},

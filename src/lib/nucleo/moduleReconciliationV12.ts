@@ -39,8 +39,8 @@ export const MODULE_RECONCILIATION_V12: Partial<Record<string,ReconciliationCand
       nextGate:"Conciliar método vigente de blocos e rotina, sem agendar ou disparar ações."},
   ],
   SAU: [
-    {label:"Mapa CCH V5.4 — F10 a F22",observed:"Mapa soberano de 12/11 declara F10–F22 implementadas, F22 operacional e F23 não aberta; afirmações são da fonte.",
-      reference:src("docs/health/CCH_MAPA_SOBERANO_E_METODO_DE_TRABALHO_v5_4_FROZEN.md"),evidenceKind:"mapa_declarado",
+    {label:"Mapa CCH V6.0 — continuidade unificada",observed:"Índice soberano de 24/11 preserva fontes e portões anteriores; não comprova implantação produtiva nem autoriza novos registros no Núcleo.",
+      reference:src("docs/health/CCH_MAPA_SOBERANO_UNIFICADO_V6_0_FROZEN_2026-11-24.md"),evidenceKind:"mapa_declarado",
       nextGate:"Conciliar a autoridade do especialista e critérios de aceite, sem criar F23 ou usar informações pessoais."},
   ],
   DIG: [
