@@ -30,16 +30,16 @@ export function buildAc02AssumptionGuide(
  if(!codePattern.test(moduleCode))throw new Error("AC02: module code invalid");
  const fm=(key:string)=>coverage?.entries.find(e=>e.sectionCode===key);
  const referenceState=(key:string):Ac02AssumptionGuideStep["state"]=>{
-  if(!coverage||fm(key)?.status!=="referencia_core_declarada")return "consulta_necessaria";
+  if(!coverage)return "consulta_necessaria";
   if(coverage.warnings.some(w=>w.includes("Leitura de revisões não comprovadamente completa")||
        w.includes("Metadados de revisão inválidos")||
        w.includes("Múltiplas revisões")))return "recorte_incompleto";
-  return "referencia_disponivel";
+  return fm(key)?.status==="referencia_core_declarada"?"referencia_disponivel":"consulta_necessaria";
  };
  const scope=referenceState("FM-03"),method=referenceState("FM-08");
  const checkpoint=referenceState("FM-09");
  const m3:Ac02AssumptionGuideStep["state"]=continuity
-  ?continuity.completeness==="recorte_incompleto"?"recorte_incompleto":"referencia_disponivel"
+  ?continuity.completeness==="recorte_incompleto"?"recorte_incompleto":continuity.frontsWithEvidence+continuity.frontsWithoutEvidence>0?"referencia_disponivel":"consulta_necessaria"
   :"consulta_necessaria";
  const step=(order:Ac02AssumptionGuideStep["order"],subject:Ac02AssumptionGuideStep["subject"],
   state:Ac02AssumptionGuideStep["state"],action:string,evidence:string):Ac02AssumptionGuideStep=>
