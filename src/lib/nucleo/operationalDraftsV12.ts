@@ -333,6 +333,31 @@ export const CAPTURA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     body: "O código de CapturaCentral.tsx implementa funções de envio e upload de anexos, gravação de áudio, edição, exclusão com confirmação, abertura de decisão, resolução como referência/arquivada e criação de tarefa. Essas rotas exigem autorização, confirmação dos vínculos e preservação dos anexos e da trilha de origem. A ficha não confirma que a classificação por IA ou a execução de tarefas está homologada; não disparar nenhuma dessas ações a partir do Núcleo.",
     source: "src/pages/CapturaCentral.tsx",
   },
+  "FM-03": {
+    title: "Captura Central — fronteiras e compreensão (rascunho)",
+    body: "O Estado Mestre de 03/10 define a captura como entrada universal e descarga mental: nem toda captura precisa gerar ação, toda captura deve gerar compreensão. Captura, interpretação, decisão, tarefa, planejamento e execução são eventos distintos. O código permite referência e arquivamento sem tarefa, ou fazer/planejar com vínculo a tarefa. A visão de relações múltiplas, enriquecimento, RAG e memória universal não equivale à implementação atual. Não transferir anexos privados ao Núcleo nem inferir autorização de execução.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0.txt; src/pages/CapturaCentral.tsx",
+  },
+  "FM-06": {
+    title: "Captura Central — jornada de decisão até planejamento e foco (rascunho)",
+    body: "Na Caixa de decisão, consultar registro, anexos e contexto. A interface oferece Fazer agora, Planejar, Referência e Arquivar. As duas primeiras opções exigem título e nó; Fazer agora com fila cheia solicita escolha de tarefa para retornar ao Planejamento, sem exclusão. O código cria tarefa e vincula a captura, depois atualiza o plano; se sincronização falhar, informa preservação da tarefa e orientação para reabrir Planejamento. Conferir vínculo e estado antes de afirmar sucesso ou repetir. Referência/arquivo não exigem tarefa. Roteiro baseado em código, não prova de atomicidade nem autorização para operar.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0.txt; src/pages/CapturaCentral.tsx",
+  },
+  "FM-07": {
+    title: "Captura Central — evidências e limites (rascunho)",
+    body: "Fonte documental: Estado Mestre V1.0 recuperado, declara vigência em 03/10 e implementação transversal parcial naquele checkpoint. Código CapturaCentral.tsx consulta inbox_entries, estados, anexos e linked_task_id; cria tasks e atualiza fluxo de planejamento/foco. São evidências de superfície técnica, não prova de isolamento, persistência completa, atomicidade, entrega de mídia ou revisão servida. O mapa conceitual e método vigente precisam de reconciliação competente. Não coletar registros ou anexos individuais para a ficha.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0.txt; src/pages/CapturaCentral.tsx",
+  },
+  "FM-09": {
+    title: "Captura Central — evolução e checkpoint (rascunho)",
+    body: "Checkpoint 03/10: primeira V1.0 documental vigente naquele momento, patrimônio de entrada simples e vínculos manuais preservado. N1 confirmar estados/writers; N2 fechar Captura → Planejamento → Foco; N3 melhorar associação sem carga mental; N4 separar compreensão de execução; N5 validar uso antes de RAG/grafo. Código consultado apresenta decisões e vínculo de tarefas com fila de foco, sem homologação atual. Próxima ação: reconciliar estado e método com especialista e prova real, sem criar frente fictícia ou executar capturas.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0.txt; src/pages/CapturaCentral.tsx",
+  },
+  "FM-10": {
+    title: "Captura Central — aprendizagem reutilizável (rascunho)",
+    body: "Diretrizes documentais: preservar simplicidade de registro, compreender antes de propor ação, não transformar toda ideia em tarefa, separar sugestão de execução. O código evidencia etapas de criação, vínculo e atualização de plano distintas, com tratamento de sincronização parcial e tentativa de compensação quando tarefa criada não foi vinculada; isso não prova transação atômica ou compensação garantida. Conferir origem e vínculo antes de repetir e preservar tarefas deslocadas da fila. Não tratar objetivos de IA/RAG como capacidade implementada. São observações documentais e técnicas, não incidentes homologados.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0.txt; src/pages/CapturaCentral.tsx",
+  },
 };
 
 export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
@@ -360,6 +385,31 @@ export const ROTINA_DRAFTS: Partial<Record<DraftSection,ModuleDraft>> = {
     title: "Rotina — ações previstas no hook (rascunho)",
     body: "O contrato de useRoutine contém iniciar, completar, pular, adicionar, atualizar, excluir, pausar e reordenar blocos, além de planejamento de dia/semana. A página Rotina.tsx utiliza diálogos de edição e conclusão e controles de alarmes. Cada ação pode mudar o estado real da rotina e deve ser exercida pelo operador autorizado, com conferência do resultado; a mera presença do hook não prova persistência, notificações recebidas ou cumprimento dos blocos. O Núcleo documenta e supervisiona, não executa.",
     source: "src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-03": {
+    title: "Rotina — fronteiras do Sistema de Execução (rascunho)",
+    body: "Estado Mestre de 03/10 distingue recorrente → Rotina, estruturante → Projeto/Planejamento, próxima ação relevante → Foco. Não duplicar obrigação entre módulos. Rotina possui vínculos task_id e escopos pessoal/empresa no código; vínculo não comprova execução de tarefa ou fato comercial/financeiro/produtivo. Preservar autoridade dos módulos respectivos, privacidade e permissões. Planejamento automático não equivale a autorização irrestrita de IA.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-ROTINA-V1.0.txt; src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-06": {
+    title: "Rotina — jornada de acompanhamento e execução (rascunho)",
+    body: "Consultar escopo disponível e período Dia/Semana/Mês, identificar bloco, método de trabalho, horário e vínculo com tarefa. Distinguir iniciar, pausar, completar e pular, presentes no hook useRoutine; consultar estado e confirmação após ação autorizada. Planejamento do dia/semana e templates são preparação, não conclusão de execução. Arquivamento de bloco é ação distinta de conclusão e exige conferir histórico. Este roteiro descreve código e diretrizes, não operação autenticada comprovada; não alterar blocos ou alarmes pelo Núcleo.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-ROTINA-V1.0.txt; src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-07": {
+    title: "Rotina — fontes e evidências (rascunho)",
+    body: "Estado Mestre V1.0 de 03/10 lista routine_blocks, routine_templates, routine_mts, routine_prefs, routine_stats e timer_state, além de integrações e visões Dia/Semana/Mês. Código Rotina.tsx e useRoutine.ts apresenta escopo mine/company, consulta por intervalo e ações sobre blocos, planejamento e estatísticas. Não confundir lista documental de tabelas com schema vigente verificado. Não comprova RLS efetiva, alarmes entregues, persistência, concorrência ou execução real. Não importar agenda individual ou dados privados.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-ROTINA-V1.0.txt; src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-09": {
+    title: "Rotina — evolução e checkpoint (rascunho)",
+    body: "Checkpoint histórico 03/10: V1.0 documental preserva fundação, prioridade de uso real e integrações. N1 consolidar capacidades existentes; N2 fronteira Rotina/Tarefa/Foco/Planejamento; N3 integrações CRM/Financeiro/Produção/Digital; N4 IA somente conforme necessidade comprovada. Registro Universal, Action Executor e arquivamento lógico eram temas em observação; código atual contém arquivamento de bloco, mas não autoriza concluir os demais temas. Próxima ação: reconciliar mapa e especialista, testar atritos reais e vincular frente fundamentada; não redesenhar módulo ou criar frente artificial.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-ROTINA-V1.0.txt; src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
+  },
+  "FM-10": {
+    title: "Rotina — aprendizagem e continuidade (rascunho)",
+    body: "Diretriz recuperada: consolidar uso antes de redesenhar; distinguir recorrência, projeto e próxima ação; não duplicar obrigações. Código distingue concluído e pulado e calcula estatísticas de blocos; quantidade planejada ou duração nominal não demonstra produtividade ou tempo efetivamente trabalhado. Alarme configurado não prova entrega, bloco iniciado não prova conclusão, tarefa vinculada não equivale a fato de outro módulo. Preservar histórico e revisar resultado antes de repetir ou replanejar. São regras documentais/observações técnicas, não prova de eficácia ou incidentes homologados.",
+    source: "docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-ROTINA-V1.0.txt; src/pages/Rotina.tsx; src/hooks/useRoutine.ts",
   },
 };
 
