@@ -34,10 +34,11 @@ export default function NucleoCrossModuleCoverage({
     const candidates=MODULE_RECONCILIATION_V12[module.id] ?? [];
     // Evidência transversal: destacar uma frente real, nunca substituir
     // sua próxima ação pela declaração genérica do cadastro do módulo.
-    const attentionFront=fronts.find(front=>front.status==="bloqueado")
-      ?? fronts.find(front=>front.priority==="critica")
-      ?? fronts.find(front=>front.status!=="concluido"&&front.next_action.trim())
-      ?? fronts.find(front=>front.status!=="concluido") ?? null;
+    const pendingFronts=fronts.filter(front=>front.status!=="concluido");
+    const attentionFront=pendingFronts.find(front=>front.status==="bloqueado")
+      ?? pendingFronts.find(front=>front.priority==="critica")
+      ?? pendingFronts.find(front=>front.next_action.trim())
+      ?? pendingFronts[0] ?? null;
     return {module,record,fronts,subfronts,provenance,candidates,attentionFront};
   });
   const missing=rows.filter(row=>row.record && row.fronts.length===0).length;
