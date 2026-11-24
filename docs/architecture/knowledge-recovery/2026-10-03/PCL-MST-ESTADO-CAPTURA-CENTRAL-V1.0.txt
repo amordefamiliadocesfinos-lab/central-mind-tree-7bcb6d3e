@@ -1,0 +1,63 @@
+TÍTULO: Estado Vigente — Captura Central
+CÓDIGO: PCL-MST-ESTADO-CAPTURA-CENTRAL-V1.0
+DOMÍNIO: Painel Central
+FUNÇÃO DOCUMENTAL: DOCUMENTO_MESTRE / ESTADO VIGENTE
+ESTADO: ATIVO / VIGENTE
+VERSÃO: V1.0
+DATA DO ESTADO: 03/10/2026
+ÚLTIMO CHECKPOINT: 03/10/2026 — homologação da reconstrução V0.1 como primeira versão vigente.
+FONTE SOBERANA DE: continuidade da Captura Central
+DEPENDE DE: Especificação conceitual Captura Central; auditoria funcional
+É CONSUMIDO POR: Estado Mestre; especialista do módulo
+SUBSTITUI: PCL-MST-ESTADO-CAPTURA-CENTRAL-V0.1
+OBSERVAÇÕES: primeira versão vigente e viva de continuidade. A homologação valida este documento como norte atual; não declara concluídas as frentes parciais nem converte estado técnico não confirmado em verdade atual.
+
+===============================================================================
+1. MISSÃO / ESTADO GERAL
+===============================================================================
+Captura Central é porta de entrada universal e espaço de descarga mental. Conceito
+está maduro; implementação transversal ainda é parcial.
+
+Princípio:
+NEM TODA CAPTURA PRECISA GERAR AÇÃO. TODA CAPTURA DEVE GERAR COMPREENSÃO.
+
+===============================================================================
+2. PATRIMÔNIO PRESERVADO
+===============================================================================
+- entrada simples de captura;
+- vínculos manuais com tarefa/área;
+- Planejamento reconhece estados da Captura;
+- filosofia: usuário registra; sistema compreende/relaciona sem exigir organização prévia.
+
+===============================================================================
+3. DISTINÇÃO OBRIGATÓRIA
+===============================================================================
+VISÃO DA CAPTURA != CAPACIDADE IMPLEMENTADA HOJE.
+
+Compreender contexto, relações múltiplas, enriquecer, aprender e gerar diversas
+entidades são direções arquiteturais; não presumir implementação universal.
+
+===============================================================================
+4. NECESSIDADES REAIS
+===============================================================================
+N1 Confirmar núcleo técnico real (tabelas, hooks, estados, writers).
+N2 Fechar Captura -> Planejamento -> Foco.
+N3 Melhorar associação por sugestão, sem aumentar carga mental.
+N4 Separar compreensão/sugestão de execução automática.
+N5 Validar uso real antes de RAG/grafo/memória universal.
+
+===============================================================================
+5. PRÓXIMA CONTINUIDADE
+===============================================================================
+Auditar estado técnico -> confirmar writers/vínculos -> testar uso real -> fechar
+Captura -> Planejamento -> Foco -> melhorar associações -> integrar especialistas ->
+somente depois conhecimento vivo/RAG/automações.
+
+===============================================================================
+6. FONTES RELACIONADAS
+===============================================================================
+- ESPECIALISTA Captura Central.
+- AUDITORIA_FUNCIONAL_EXISTENCIA_PAINEL_CENTRAL_V1.0.
+- CONSOLIDACAO_MESTRE_ANOTACOES_PAINEL_CENTRAL_V1.0.
+
+FIM.
