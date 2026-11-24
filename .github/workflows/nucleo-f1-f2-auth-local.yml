@@ -6,6 +6,8 @@ on:
       - "scripts/nucleo-f1-f2-concrete-candidate.lab.sql"
       - "scripts/nucleo-f1-f2-g1-scope.test.sql"
       - "scripts/nucleo-f1-f2-writer-audit.test.sql"
+      - "scripts/nucleo-f1-f2-g2-authority-lab.sql"
+      - "scripts/nucleo-f1-f2-g2-writer-race.cjs"
       - ".github/workflows/nucleo-f1-f2-auth-local.yml"
   workflow_dispatch:
 permissions:
@@ -73,6 +75,12 @@ jobs:
       - name: Audit writer contract on disposable Auth stack
         env: *db
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-writer-audit.test.sql
+      - name: G2 decider/executor authority fixture
+        env: *db
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-f1-f2-g2-authority-lab.sql
+      - name: G2 competing executor transactions in local Supabase Postgres
+        env: *db
+        run: node scripts/nucleo-f1-f2-g2-writer-race.cjs
       - name: Stop local-only stack
         if: always()
         shell: bash
