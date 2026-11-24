@@ -38,6 +38,9 @@ assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",empty,continuity,guide).gaps[4
 assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",{...empty,warnings:["Leitura de revisões não comprovadamente completa"]},continuity,guide).gaps[4].state,"recorte_indeterminado");
 const allPresent={...coverage,entries:coverage.entries.map(r=>({...r,sourceReference:"presente_na_revisao"}))};
 assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",allPresent,continuity,guide).gaps[4].state,"referencia_presente_consulta_pendente");
+const emptyM3={...continuity,frontsWithEvidence:0,frontsWithoutEvidence:0};
+assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",coverage,emptyM3,guide).gaps[3].state,"referencia_inexistente_no_recorte");
+assert.equal(gap.inventoryAc02KnowledgeGaps("CRM",coverage,{...emptyM3,completeness:"recorte_incompleto"},guide).gaps[3].state,"recorte_indeterminado");
 const exporter=fs.readFileSync("supabase/functions/_shared/nucleo/ac02-assumption-export.ts","utf8");
 assert.ok(exporter.includes("inventoryAc02KnowledgeGaps(code,coverage,continuity,guide)"));
 assert.ok(exporter.includes("Inventário de lacunas de conhecimento (consultivo)"));
