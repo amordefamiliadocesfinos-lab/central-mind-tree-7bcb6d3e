@@ -99,6 +99,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const [level, setLevel] = useState<Level>("overview");
   const [moduleSection,setModuleSection] = useState<ModuleSection>("funcoes");
   const [actionSearch, setActionSearch] = useState("");
+  const [documentaryFilter,setDocumentaryFilter]=useState<"todos"|"conciliar"|"sem_vigente">("todos");
   const [crmJourneyMode, setCrmJourneyMode] = useState<"gestor"|"operador">("operador");
   const [evidenceFrontId, setEvidenceFrontId] = useState<string | null>(null);
   const [knowledgeOpen,setKnowledgeOpen]=useState(false);
@@ -260,6 +261,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     code:documentaryMatrix.reduce((n,item)=>n+item.code.length,0),
     needsReview:documentaryMatrix.filter(item=>item.issues.length>0).length,
   };
+  const visibleDocumentaryMatrix=documentaryMatrix.filter(item=>documentaryFilter==="todos" || (documentaryFilter==="conciliar" && item.issues.length>0) || (documentaryFilter==="sem_vigente" && item.declared.length===0));
   const sharedSourcePaths=new Map<string,string[]>();
   documentaryMatrix.forEach(item=>item.sources.forEach(source=>{
     const modules=sharedSourcePaths.get(source.path)??[];
@@ -723,8 +725,13 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             Ter fontes de código ou documentos históricos não substitui método soberano verificado.
             Contribuições AC-01 e suas versões devem ser conferidas na área documental própria.
           </p>
+          <nav className="flex flex-wrap gap-2" aria-label="Filtrar reconciliação documental">
+            {([["todos","Todos"],["conciliar","Com pontos para conciliação"],["sem_vigente","Sem vigente declarada"]] as const).map(([key,label])=><Button key={key} type="button" size="sm" variant={documentaryFilter===key?"default":"outline"} aria-pressed={documentaryFilter===key} onClick={()=>setDocumentaryFilter(key)}>{label}</Button>)}
+          </nav>
+          <p className="text-xs text-muted-foreground" role="status">{visibleDocumentaryMatrix.length} de {documentaryMatrix.length} módulos no filtro.</p>
           <div className="space-y-2">
-            {documentaryMatrix.map(({module,record,provenance,sources,declared,historical,code,declaredRole,issues})=>
+            {visibleDocumentaryMatrix.length===0 && <p className="text-xs text-muted-foreground">Nenhum módulo corresponde ao filtro no catálogo atual.</p>}
+            {visibleDocumentaryMatrix.map(({module,record,provenance,sources,declared,historical,code,declaredRole,issues})=>
               <details key={module.id} className="rounded-xl border p-3">
                 <summary className="cursor-pointer text-sm font-semibold">
                   {module.id} · {module.name} — {sources.length} fonte(s) catalogada(s);
