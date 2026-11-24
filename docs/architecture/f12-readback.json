@@ -1,0 +1,97 @@
+{
+  "rows": [
+    {
+      "acl": [
+        {
+          "context_execute": false,
+          "list_execute": false,
+          "role": "sandbox_exec",
+          "schema_usage": false
+        },
+        {
+          "context_execute": true,
+          "list_execute": true,
+          "role": "authenticated",
+          "schema_usage": true
+        },
+        {
+          "context_execute": false,
+          "list_execute": false,
+          "role": "anon",
+          "schema_usage": false
+        },
+        {
+          "context_execute": false,
+          "list_execute": false,
+          "role": "service_role",
+          "schema_usage": false
+        },
+        {
+          "context_execute": false,
+          "list_execute": false,
+          "role": "sandbox_exec_xkskyutmtlhivvpfxkjg",
+          "schema_usage": false
+        }
+      ],
+      "checked_at": "2026-11-24 17:46:15.872613+00",
+      "legacy_counts": {
+        "contributions": 2,
+        "events": 42,
+        "evidence": 51,
+        "revisions": 0,
+        "workstreams": 23
+      },
+      "legacy_policies": 11,
+      "new_counts": {
+        "assignments": 0,
+        "instances": 0,
+        "read_grants": 0,
+        "references": 0,
+        "specialties": 0
+      },
+      "rpcs": [
+        {
+          "config": [
+            "search_path=\"\""
+          ],
+          "rpc": "nucleo_identity_context_read",
+          "security_definer": false
+        },
+        {
+          "config": [
+            "search_path=\"\""
+          ],
+          "rpc": "nucleo_identity_assignments_read",
+          "security_definer": false
+        }
+      ],
+      "tables": [
+        {
+          "name": "assignments",
+          "policies": 1,
+          "rls": true
+        },
+        {
+          "name": "instances",
+          "policies": 1,
+          "rls": true
+        },
+        {
+          "name": "read_grants",
+          "policies": 1,
+          "rls": true
+        },
+        {
+          "name": "references",
+          "policies": 1,
+          "rls": true
+        },
+        {
+          "name": "specialties",
+          "policies": 1,
+          "rls": true
+        }
+      ]
+    }
+  ]
+}

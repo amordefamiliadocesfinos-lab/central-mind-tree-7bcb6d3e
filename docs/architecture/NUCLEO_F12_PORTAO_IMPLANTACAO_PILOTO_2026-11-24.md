@@ -25,4 +25,17 @@ Projeto Lovable 1720a410-34cd-4410-995c-8c92c7edf16b / Core xkskyutmtlhivvpfxkjg
 ## Rollback
 Revogar execução/uso/seleção dos clientes nos objetos novos conforme ato aprovado; revogar a concessão por autoridade competente; manter origens, vínculos e trilha. Não DROP CASCADE, não alterar ACLs globais, não apagar registros legados. Verificar a aplicação anterior e registrar readback. Nenhuma execução produtiva nesta rodada.
 ## Decisão pendente
-Autorizar separadamente DDL vazio e posterior concessão individual do piloto. F6/F7/B continuam fechados.
+DDL vazio já autorizado e aplicado conforme atualização abaixo. A concessão individual do piloto permanece em ato separado. F6/F7/B continuam fechados.
+
+
+## Execução herdada e atualização — 24/11/2026, 17:46 UTC
+
+O portão de DDL foi cumprido nesta sessão por autorização expressa do proprietário. Exportação oficial concluída e preservada fora do repositório; backup diário mais recente listado em 24/11 às 01:31:32 UTC. Export custom PostgreSQL, 4.345 entradas, leitura integral por pg_restore concluída sem erro. Nenhum restore no Core.
+
+Artefato próprio: `proposals/nucleo_identity_production_manual.sql`, fora de migrations; corpo preservado do blob a8bf4322e8023b75461062b35e550c6131be1c14. Trava descartável original intacta. Delta validado em PostgreSQL 17.12 loopback: gates ausentes recusados, transação positiva, conflitos recusados e contenção sem exclusão aprovada. Rollback preparado em `proposals/nucleo_identity_disable_manual.sql`; não executado no Core.
+
+DDL aplicado por conector autenticado no projeto Lovable oficial. Readback: cinco tabelas vazias com RLS, cinco políticas, oito triggers, duas RPCs SECURITY INVOKER/search_path vazio. authenticated somente leitura contextual; anon/service_role/sandbox sem USAGE/EXECUTE. Default ACLs globais, registros, políticas e ACLs das cinco fontes legadas comparados dentro da transação e preservados. Negativa anon e saída []/NULL sem vínculo aprovadas por papel SQL, sem simular JWT individual.
+
+Piloto permanece PREPARADO, NÃO ATIVADO: NUC 636768e6-e782-4c7d-8132-e7381621be12; referência AC-01 existente 80f64bfb-cfa0-4012-a2ad-b75226881c2d ainda proposta; M4 fora do escopo de módulo. Identidade individual, decisor, executor, curadoria e prazo efetivo dependem de ato próprio. Nenhum INSERT produtivo efetuado.
+
+Últimas pendências: autorização/identificação da concessão individual; curadoria das fontes; aplicação pelo mecanismo competente; JWT real positivo/negativo, revogação e expiração quando autorizados; homologações de uso listadas em CA-01–CA-29. Sem ativar writer G2, F6, F7 ou Entrega B.
