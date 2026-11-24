@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -153,17 +153,15 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    }
    setFeedback("");
  };
- const visibleVersions=useMemo(()=>{
+ const visibleVersions=rows.filter(item=>{
    const q=versionQuery.trim().toLocaleLowerCase("pt-BR");
-   return rows.filter(item=>{
-     const text=[item.title,item.specialist_role,item.contribution_kind,item.source_kind,item.source_locator]
-       .some(value=>value.toLocaleLowerCase("pt-BR").includes(q));
-     if(!text)return false;
-     if(versionView==="revisoes")return Boolean(item.parent_revision_id);
-     if(versionView==="propostas")return item.authority_state==="proposta"||item.authority_state==="em_evolucao";
-     return true;
-   });
- },[rows,versionQuery,versionView]);
+   const matches=[item.title,item.specialist_role,item.contribution_kind,item.source_kind,item.source_locator]
+     .some(value=>value.toLocaleLowerCase("pt-BR").includes(q));
+   if(!matches)return false;
+   if(versionView==="revisoes")return Boolean(item.parent_revision_id);
+   if(versionView==="propostas")return item.authority_state==="proposta"||item.authority_state==="em_evolucao";
+   return true;
+ });
  const parent=rows.find(item=>item.id===parentId);
  // O ID da versão escolhida pode deixar de constar no recorte após reconsulta.
  // Não inferir que a ausência é exclusão, nem permitir registro pela origem antiga.
