@@ -54,11 +54,24 @@ async function checkAccess(auth,params){
  if(me.status!==200||!rx.test(me.body?.id))return {status:401};
  const jwt=decodeJwt(token);
  if(jwt.sub!==me.body.id||!sessionStillValid(jwt.session_id,me.body.id))return {status:401};
- const q=new URLSearchParams({select:"id,public_label",module_id:"eq."+params.module_id,
+ const q=new URLSearchParams({select:"id,specialty_id,module_id,front_id,card_type,public_label,public_source_ref",module_id:"eq."+params.module_id,
   specialty_id:"eq."+params.specialty_id,front_id:"eq."+params.front_id});
  const found=await request("/rest/v1/f12_read_context?"+q.toString(),{headers:{Authorization:"Bearer "+token}});
  if(found.status!==200||!Array.isArray(found.body))return {status:503};
- return {status:found.body.length?200:403,body:found.body};
+ if(!found.body.length)return {status:403};
+ const allowedTypes=["checkpoint","method_ref","next_action"];
+ const rows=found.body;
+ if(rows.some(r=>!rx.test(r.id)||r.specialty_id!==params.specialty_id||r.module_id!==params.module_id||
+   r.front_id!==params.front_id||!allowedTypes.includes(r.card_type)||
+   typeof r.public_label!=="string"||typeof r.public_source_ref!=="string")||
+   new Set(rows.map(r=>r.card_type)).size!==rows.length)return {status:503};
+ const slots=Object.fromEntries(allowedTypes.map(type=>[type,null]));
+ for(const row of rows)slots[row.card_type]={id:row.id,label:row.public_label,source_ref:row.public_source_ref};
+ return {status:200,body:rows,context:{
+   specialty_id:params.specialty_id,module_id:params.module_id,front_id:params.front_id,
+   mode:"consultive_only",slots,missing:allowedTypes.filter(type=>slots[type]===null),
+   authority:"not_inherited",origin:"reviewed_metadata_local_lab"
+ }};
 }
 async function main(){
  const suffix=crypto.randomBytes(5).toString("hex");
@@ -74,6 +87,19 @@ async function main(){
   users.push({id:login.body.user.id,token:login.body.access_token});
  }
  seed(users[0].id);
+ sql(`
+-- F3: reviewed method reference, exact same specialty/module/front; deliberately
+-- no next_action card, so the package must preserve the missing slot.
+INSERT INTO f12_lab.approved_card_sources
+ (source_ref,specialty_id,module_id,front_id,public_label,origin_kind,verified,private_payload_included,authorization_ref)
+ VALUES('synthetic://source/nuc-method','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'synthetic reviewed method reference','github_reference',true,false,'synthetic://approval/nuc-method');
+INSERT INTO f12_lab.context_cards VALUES
+ ('60000000-0000-4000-8000-000000000098','10000000-0000-4000-8000-000000000001',
+ '636768e6-e782-4c7d-8132-e7381621be12','95833fbd-38b5-4a0a-abea-45f74214d533',
+ 'method_ref','synthetic reviewed method reference','synthetic://source/nuc-method');
+`);
  const server=http.createServer(async (req,res)=>{
   try{
    const url=new URL(req.url,"http://127.0.0.1");
@@ -83,7 +109,7 @@ async function main(){
    if(!keys.every(k=>rx.test(params[k]||""))){res.writeHead(400).end();return}
    const found=await checkAccess(req.headers.authorization,params);
    res.writeHead(found.status,{"Content-Type":"application/json","Cache-Control":"no-store"});
-   res.end(JSON.stringify({status:found.status,results:found.body?.length??0}));
+   res.end(JSON.stringify({status:found.status,results:found.body?.length??0,...(found.status===200?{context:found.context}:{})}));
   }catch{res.writeHead(503).end(JSON.stringify({status:503}))}
  });
  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -102,11 +128,33 @@ async function main(){
   const crmUrl=`http://127.0.0.1:${port}/f12/read?module_id=${CRM}&specialty_id=${GOV}&front_id=${CRMFRONT}`;
   assert.equal(await code(crmUrl,users[0].token),403,"HTTP 403 another module");
   assert.equal(await code(endpoint(),users[0].token),200,"HTTP 200 approved scoped reader");
+  const packageResponse=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[0].token}});
+  const pkg=await packageResponse.json();
+  assert.equal(packageResponse.status,200);
+  assert.equal(packageResponse.headers.get("cache-control"),"no-store");
+  assert.equal(pkg.context.specialty_id,GOV);
+  assert.equal(pkg.context.module_id,NUC);
+  assert.equal(pkg.context.front_id,M4);
+  assert.equal(pkg.context.mode,"consultive_only");
+  assert.equal(pkg.context.authority,"not_inherited");
+  assert.equal(pkg.context.slots.checkpoint.source_ref,"synthetic://source/nuc");
+  assert.equal(pkg.context.slots.method_ref.source_ref,"synthetic://source/nuc-method");
+  assert.equal(pkg.context.slots.next_action,null);
+  assert.deepEqual(pkg.context.missing,["next_action"]);
+  assert.equal(pkg.results,2);
+  assert(!JSON.stringify(pkg).includes("synthetic different front"));
+  const deniedPackage=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[1].token}});
+  assert.equal(deniedPackage.status,403);
+  assert.equal((await deniedPackage.json()).context,undefined);
   const direct=await request("/rest/v1/f12_read_context?select=id",{headers:{Authorization:"Bearer "+users[1].token}});
   assert.equal(direct.status,200,"PostgREST selects must honor RLS");
   assert.deepEqual(direct.body,[],"ungranted user sees zero raw rows under RLS");
   revoke();
   assert.equal(await code(endpoint(),users[0].token),403,"HTTP 403 immediately after grant revoke");
+  const revokedPackage=await fetch(endpoint(),{headers:{Authorization:"Bearer "+users[0].token}});
+  assert.equal(revokedPackage.status,403);
+  assert.equal((await revokedPackage.json()).context,undefined);
+  console.log("PASS F3 individual consultive package: scoped reviewed metadata, explicit missing next action, no inherited authority, denied and revoked responses contain no context");
   const out=await request("/auth/v1/logout",{method:"POST",headers:{Authorization:"Bearer "+users[0].token}});
   assert([200,204].includes(out.status),"local Auth logout");
   assert.equal(await code(endpoint(),users[0].token),401,"HTTP 401 when session revoked");
