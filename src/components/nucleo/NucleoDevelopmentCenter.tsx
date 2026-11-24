@@ -195,12 +195,15 @@ export default function NucleoDevelopmentCenter() {
   const crmModule=moduleOptions.find(item=>item.code.toUpperCase()==="CRM");
   const crmFronts=crmModule ? items.filter(item=>
     item.kind==="frente"&&item.parent_id===crmModule.id) : [];
-  const crmAttention=[...crmFronts].sort((a,b)=>{
+  // Uma fila de uso real: navegação por frentes cadastradas, sem alterar estados.
+  const crmQueue=[...crmFronts].sort((a,b)=>{
     const rank=(item:DevelopmentWorkstream)=>item.status==="bloqueado"?0
       :item.priority==="critica"?1:item.priority==="alta"?2
       :item.status==="em_andamento"?3:4;
     return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
-  })[0];
+  });
+  const crmAttention=crmQueue[0];
+  const crmSelectedPosition=crmQueue.findIndex(item=>item.id===selectedId);
   const specialistOptions=Array.from(new Set(
     items.filter(item=>item.kind!=="modulo"&&item.code!=="NUC")
       .map(item=>item.specialist.trim()).filter(Boolean)
@@ -993,6 +996,41 @@ export default function NucleoDevelopmentCenter() {
                   </Button>
                 </div>
               </div>
+              {crmModule && moduleIdForWorkstream(selected,byId)===crmModule.id &&
+                <section className="space-y-3 rounded-xl border border-[#c6dcfb] bg-[#f5f9ff] p-3 dark:border-blue-900 dark:bg-blue-950/20"
+                  aria-label="Navegação operacional das frentes CRM">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">CRM · fila de frentes do Core</p>
+                      <p className="text-xs text-muted-foreground">
+                        {crmQueue.length} frente(s) M3 vinculada(s) diretamente ao CRM. Ordem por bloqueio e prioridade registrada, sem pontuação automática.
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      onClick={()=>{setModuleFocusId(crmModule.id);setAttentionStatus(null);setFilter("");setSpecialistFocus("");
+                        document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"});}}>
+                      Ver todas do CRM
+                    </Button>
+                  </div>
+                  {crmSelectedPosition>=0&&<p className="text-xs font-medium" role="status">
+                    Frente {crmSelectedPosition+1} de {crmQueue.length} · {selected.code}
+                  </p>}
+                  <div className="flex flex-wrap gap-2" aria-label="Percorrer frentes CRM">
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      disabled={crmSelectedPosition<=0}
+                      onClick={()=>{const previous=crmQueue[crmSelectedPosition-1];if(previous)choose(previous.id);}}>
+                      Frente anterior
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                      disabled={crmSelectedPosition<0||crmSelectedPosition>=crmQueue.length-1}
+                      onClick={()=>{const next=crmQueue[crmSelectedPosition+1];if(next)choose(next.id);}}>
+                      Próxima frente
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    As trocas respeitam o aviso de alterações não salvas. A navegação não grava nem altera prioridades.
+                  </p>
+                </section>}
               {selected.code==="NUC"&&<nav aria-label="Jornada de continuidade documental do Núcleo" className="rounded-xl border p-3 space-y-2">
                 <p className="text-sm font-semibold">Jornada de continuidade · Núcleo → Especialista → AC-01 → AC-02</p>
                 <p className="text-xs text-muted-foreground">Acesso às áreas já existentes nesta ficha. Navegar não grava, não concede autoridade e não comprova homologação.</p>
