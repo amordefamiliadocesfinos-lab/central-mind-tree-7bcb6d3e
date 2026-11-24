@@ -76,6 +76,15 @@ END $$;
 -- No direct client INSERT/UPDATE/DELETE; F19 definer RPCs own state.
 -- G5F uses original RPCs extracted from the existing migration, not copied SQL rewrites.
 
+-- The M4 source schema auto-updates updated_at on set edits. Recreate that
+-- timestamp behavior in this reduced ephemeral fixture, not in production.
+CREATE OR REPLACE FUNCTION public.g5f_touch_updated_at()
+ RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+BEGIN NEW.updated_at=clock_timestamp()+interval '1 millisecond'; RETURN NEW; END;
+$;
+CREATE TRIGGER g5f_touch_set_updated_at
+ BEFORE UPDATE ON public.health_workout_sets
+ FOR EACH ROW EXECUTE FUNCTION public.g5f_touch_updated_at();
 -- M4 allows editing factual set execution for the owner; timer mutations remain RPC only.
 GRANT UPDATE (load_value,load_unit,reps,rir) ON public.health_workout_sets TO authenticated;
 CREATE POLICY g5f_owner_update_sets ON public.health_workout_sets
