@@ -566,3 +566,15 @@ assert.match(ac01PilotAtlas,/record\.code==="NUC"\?"\/nucleo"/);
 assert.match(ac01PilotAtlas,/registeredModules = useMemo\([\s\S]*?item\.code !== "NUC"/);
 assert.match(ac01PilotAtlas,/<NucleoSpecialistContributions key=\{selectedRecord\.id\}/);
 console.log("Núcleo V1.3 AC-01: ficha NUC acessível para piloto sem duplicar módulos externos PASS.");
+
+// D3/D4: atalhos reutilizam ficha M3, guarda de edição e leitura M4 sob demanda.
+const m5Navigation=fs.readFileSync('src/components/nucleo/NucleoSupervisionPanel.tsx','utf8');
+const m3Navigation=fs.readFileSync('src/components/nucleo/NucleoDevelopmentCenter.tsx','utf8');
+assert.match(m5Navigation,/if\(front\)onOpenEvidence\(front.id\)/);
+assert.match(m5Navigation,/link.depends_on_id===target.id/);
+assert.match(m5Navigation,/onOpenWorkstream\(target.id\)/);
+const evidenceJump=m3Navigation.slice(m3Navigation.indexOf('onOpenEvidence={id=>{'),m3Navigation.indexOf('onOpenWorkstream={id=>{',m3Navigation.indexOf('onOpenEvidence={id=>{')));
+assert(evidenceJump.includes('if(!byId.has(id))'));
+assert(evidenceJump.includes('if(!choose(id))return;'));
+assert(evidenceJump.includes('setExpandedEvidenceFor(id)'));
+assert(evidenceJump.includes('nucleo-m3-technical-evidence'));
