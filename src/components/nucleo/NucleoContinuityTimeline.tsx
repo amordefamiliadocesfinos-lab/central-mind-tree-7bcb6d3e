@@ -62,7 +62,7 @@ export default function NucleoContinuityTimeline({
           : changes.some(item => item.group === "evidencia") ? "evidencia"
           : changes.some(item => item.group === "responsabilidade") ? "responsabilidade"
           : "outros";
-        return { event, front, changes, group } satisfies TimelineRow;
+        return { event, front, changes, group } as TimelineRow;
       })
       .filter((row): row is TimelineRow => row !== null);
   }, [module.id, workstreams, events]);
