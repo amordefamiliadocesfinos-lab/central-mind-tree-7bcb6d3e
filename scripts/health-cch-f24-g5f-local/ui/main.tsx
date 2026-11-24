@@ -46,7 +46,9 @@ function App(){
     return m;
  },[sets]);
  if(error) return <div role="alert">G5-F local auth error: {error}</div>;
- if(!logged||timer.loading||!sessionStart) return <div>Autenticando no GoTrue local e carregando F19...</div>;
+ // Match F19 production mounting: refreshes with an existing session must not
+ // unmount the component and erase the athlete’s explicit next-series choice.
+ if(!logged||!sessionStart||(timer.loading&&!timer.sessionTiming)) return <div>Autenticando no GoTrue local e carregando F19...</div>;
  return <main className="mx-auto max-w-2xl space-y-3 p-3">
    <header data-testid="g5f-auth-confirmed" className="rounded-lg border p-3">
      <strong>G5-F AUTENTICADO LOCAL — DADOS SINTÉTICOS</strong>
