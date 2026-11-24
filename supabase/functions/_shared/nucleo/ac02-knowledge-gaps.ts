@@ -58,7 +58,8 @@ export function inventoryAc02KnowledgeGaps(
  push("G03_CHECKPOINT",docState("FM-09"),"operacional","fm09",
   "Confrontar a revisão FM-09 com trabalho realmente concluído e evidência datada antes de prosseguir.");
  push("G04_M3_M4",!continuity||continuity.completeness==="recorte_incompleto"?
-   "recorte_indeterminado":"referencia_presente_consulta_pendente","operacional","m3_m4",
+   "recorte_indeterminado":continuity.frontsWithEvidence+continuity.frontsWithoutEvidence>0?
+   "referencia_presente_consulta_pendente":"referencia_inexistente_no_recorte","operacional","m3_m4",
   "Conferir M3/M4 no Core e provedores; frentes declaradas concluídas não equivalem a deploy ou homologação.");
  const fm=coverage?.entries??[];
  push("G05_FONTES",!coverage||incomplete(coverage)?"recorte_indeterminado":
