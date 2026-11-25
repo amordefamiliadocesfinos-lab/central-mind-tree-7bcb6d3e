@@ -31,15 +31,20 @@ function eligible(media:F24MediaDraft,exerciseId:string){
  */
 export function pickF24MediaPrototype(exerciseId:string,equipmentId:string|null,
  media:F24MediaDraft[]):F24MediaSelection[]{
- if(!exerciseId)return [];
- const candidate=media.filter(m=>eligible(m,exerciseId));
+ if(!exerciseId.trim())return [];
+ // A duplicated identity is ambiguous even when one record is retired or
+ // unlicensed. Never allow input order to choose an editorial revision.
+ const counts=new Map<string,number>();
+ for(const m of media)counts.set(m.mediaId,(counts.get(m.mediaId)??0)+1);
+ const candidate=media.filter(m=>counts.get(m.mediaId)===1&&eligible(m,exerciseId));
+ const choose=(items:F24MediaDraft[])=>items.length===1?items[0]:undefined;
  const seen=new Set<F24MediaDraft["kind"]>();
  const result:F24MediaSelection[]=[];
  // Preserve separate image + one motion format for a compact preview.
  for(const kind of ["image","video","gif"] as const){
   if((kind==="gif"&&seen.has("video"))||seen.has(kind))continue;
-  const exact=equipmentId?candidate.find(m=>m.kind===kind&&m.equipmentId===equipmentId):undefined;
-  const general=candidate.find(m=>m.kind===kind&&m.equipmentId===null);
+  const exact=equipmentId?choose(candidate.filter(m=>m.kind===kind&&m.equipmentId===equipmentId)):undefined;
+  const general=choose(candidate.filter(m=>m.kind===kind&&m.equipmentId===null));
   const chosen=exact??general;
   if(chosen){
    result.push({mediaId:chosen.mediaId,kind,generalDemonstration:chosen.equipmentId===null});
