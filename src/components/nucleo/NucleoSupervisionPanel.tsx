@@ -137,6 +137,15 @@ export default function NucleoSupervisionPanel({
     };
   }, []);
 
+  const reavaliar = () => {
+    // Retire the previous authorized report synchronously before scheduling a new read.
+    requestGuard.current.invalidate();
+    setLoaded(false); setPermissionConfirmed(false); setLastSuccessfulRead(null);
+    setEvidence([]); setLatestFronts([]); setLatestDependencies([]);
+    setLoadError(false); setLoading(true);
+    setReloadKey(k => k + 1);
+  };
+
   // Never infer missing evidence from a failed, partial or revoked RLS read.
   const complete = loaded && permissionConfirmed && !loadError &&
     evidence.length < MAX_EVIDENCE && latestFronts.length > 0;
@@ -178,7 +187,7 @@ export default function NucleoSupervisionPanel({
           </p>
         </div>
         <Button type="button" size="sm" variant="outline"
-          disabled={loading} onClick={() => setReloadKey(k => k + 1)}>
+          disabled={loading} onClick={reavaliar}>
           <RefreshCw className="h-3.5 w-3.5 mr-1"/> Reavaliar
         </Button>
       </div>
@@ -198,7 +207,7 @@ export default function NucleoSupervisionPanel({
         <>
           {lastSuccessfulRead && (
             <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
-              Última leitura autorizada: {new Date(lastSuccessfulRead).toLocaleString("pt-BR")} ·
+              Última leitura autorizada: <time dateTime={lastSuccessfulRead}>{new Date(lastSuccessfulRead).toLocaleString("pt-BR")} ({lastSuccessfulRead})</time> ·
               consultas válidas nesta sessão: {authorizedReadCount}.
               Para confirmar uma nova consulta, clique em Reavaliar e confira a atualização.
             </p>
