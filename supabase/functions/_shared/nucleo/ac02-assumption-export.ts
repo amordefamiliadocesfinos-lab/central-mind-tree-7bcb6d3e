@@ -156,7 +156,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
  ]:["- Sem inventário suficiente para gerar síntese operacional."];
 
  const coverage=input.documentary?describeAc02DocumentaryCoverage(input.documentary,input.documentaryReadComplete===true):null;
- if(!coverage)unresolved.push("Cobertura de FM-03/FM-08/FM-09: metadados de revisão não disponibilizados");
+ if(!coverage)unresolved.push("Cobertura de FM-03/FM-08/FM-09/FM-10: metadados de revisão não disponibilizados");
  else if(coverage.warnings.length)unresolved.push("Cobertura documental: revisar ressalvas, origem e último checkpoint operacional");
  const coverageLines=coverage?[
   "- Fonte: metadados de revisão do Core; documentos e referências privadas não incluídos.",
@@ -168,6 +168,7 @@ export function composeAc02AssumptionExport(input:Ac02AssumptionInput):Ac02Assum
    " / referência de fonte "+e.sourceReference),
   ...coverage.warnings.map(w=>"- Ressalva: "+w),
   "- Último checkpoint operacional comprovado: NÃO. FM-09 é referência documental, não prova de conclusão real.",
+  "- Aprendizagem FM-10: recuperar a fonte e confrontar erro/acerto com evidência M3/M4; metadados não comprovam lição homologada.",
   "- Método e ecossistema distintos comprovados: NÃO. FM-08 é uma seção compartilhada.",
  ]:["- Cobertura documental não recuperada; não inferir fonte, versão ou checkpoint."];
 

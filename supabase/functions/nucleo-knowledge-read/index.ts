@@ -240,9 +240,9 @@ Deno.serve(async request=>{
            id:row.id,lineageId:row.lineage_id,versionNo:row.version_no,
            authorityState:row.authority_state,
           }))},
-          documentary:sections.filter(row=>["FM-03","FM-08","FM-09"].includes(row.section_code)&&row.revision!==null)
+          documentary:sections.filter(row=>["FM-03","FM-08","FM-09","FM-10"].includes(row.section_code)&&row.revision!==null)
            .map(row=>({
-             sectionCode:row.section_code as "FM-03"|"FM-08"|"FM-09",
+             sectionCode:row.section_code as "FM-03"|"FM-08"|"FM-09"|"FM-10",
              id:row.revision!.id,
              versionNo:row.revision!.version_no,
              authorityState:row.revision!.authority_state,
