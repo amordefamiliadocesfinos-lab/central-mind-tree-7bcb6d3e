@@ -4091,10 +4091,10 @@ export default function Nucleo() {
     );
   };
 
-  const [developmentMode, setDevelopmentMode] = useState(false);
-  // Central M3 é montada sob demanda e permanece montada após a primeira abertura.
-  // Isso evita refetch inicial e preserva filtros e minutas ao alternar entre áreas.
-  const [developmentVisited, setDevelopmentVisited] = useState(false);
+  const [developmentMode, setDevelopmentMode] = useState(true);
+  // Acompanhamento abre primeiro. As duas áreas permanecem montadas para preservar
+  // filtros, seleção e minutas ao alternar, sem mudar os contratos de acesso.
+  const [developmentVisited, setDevelopmentVisited] = useState(true);
   const toggleDevelopmentMode = () => {
     if (!developmentMode) setDevelopmentVisited(true);
     setDevelopmentMode(value => !value);
@@ -4144,14 +4144,14 @@ export default function Nucleo() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold text-[#202124]">Núcleo</h1>
-              <p className="truncate text-xs text-[#5f6368]">Painel Central · Entrega A+</p>
+              <p className="truncate text-xs text-[#5f6368]">Painel Central · Gestão e conhecimento</p>
             </div>
           </div>
           <div className="min-w-0 flex-1">
             {developmentMode ? (
               <div className="flex min-h-11 items-center gap-2 rounded-full bg-[#e8f0fe] px-4 text-sm text-[#174ea6]">
                 <LayoutDashboard className="h-4 w-4 shrink-0" />
-                Central Visual de Desenvolvimento · dados do Core
+                Acompanhamento de módulos e frentes · dados autorizados do Core
               </div>
             ) : (
               <div className="min-w-0">
@@ -4161,7 +4161,7 @@ export default function Nucleo() {
                     aria-label={"Pesquisar páginas locais na área " + activeAreaMeta.title}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder={"Pesquisar nesta área · " + activeAreaMeta.title}
+                    placeholder={"Buscar páginas locais · " + activeAreaMeta.title}
                     className="h-11 rounded-full border-transparent bg-[#e8f0fe] pl-11 pr-4 text-sm text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#8ab4f8] focus-visible:bg-white focus-visible:ring-[#1a73e8]"
                   />
                 </div>
@@ -4169,21 +4169,28 @@ export default function Nucleo() {
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <nav className="flex flex-wrap items-center gap-2" aria-label="Ambientes do Núcleo">
             <Button type="button" size="sm" variant={developmentMode ? "default" : "outline"}
-              className={cn("min-h-10 rounded-full px-4",developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
-              onClick={toggleDevelopmentMode}>
+              aria-pressed={developmentMode}
+              className={cn("min-h-11 rounded-full px-4",developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
+              onClick={()=>{if(!developmentMode) toggleDevelopmentMode();}}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
-              {developmentMode ? "Biblioteca local" : "Central Visual · Core"}
+              Acompanhar trabalho
             </Button>
-            <Button type="button" size="sm" variant="outline"
-              className="min-h-10 rounded-full border-[#d5dce7] bg-white px-4 text-[#174ea6] hover:bg-[#e8f0fe]"
+            <Button type="button" size="sm" variant={!developmentMode ? "default" : "outline"}
+              aria-pressed={!developmentMode}
+              className={cn("min-h-11 rounded-full px-4",!developmentMode?"bg-[#1a73e8] text-white hover:bg-[#185abc]":"border-[#d5dce7] bg-white text-[#174ea6] hover:bg-[#e8f0fe]")}
+              onClick={()=>{if(developmentMode) toggleDevelopmentMode();}}>
+              Biblioteca local
+            </Button>
+            {!developmentMode && <Button type="button" size="sm" variant="outline"
+              className="min-h-11 rounded-full border-[#d5dce7] bg-white px-4 text-[#174ea6] hover:bg-[#e8f0fe]"
               disabled={backupInProgress} onClick={handleExportLegacy}
               title="Exportar cópia das páginas locais do navegador. Não modifica o Core.">
               <Download className="mr-2 h-4 w-4" />
               Backup local
-            </Button>
-          </div>
+            </Button>}
+          </nav>
         </div>
       </header>
 
@@ -4193,13 +4200,13 @@ export default function Nucleo() {
           {developmentMode ? (
             <div className="space-y-3 rounded-2xl border border-[#d2e3fc] bg-white p-4 shadow-sm" aria-label="Contexto da Central Visual">
               <div className="rounded-xl bg-[#e8f0fe] p-3">
-                <h2 className="text-sm font-semibold text-[#174ea6]">Central Visual · Core</h2>
+                <h2 className="text-sm font-semibold text-[#174ea6]">Acompanhar trabalho</h2>
                 <p className="mt-1 text-xs leading-relaxed text-[#3c4043]">
-                  Consulte módulos, frentes, especialistas e registros autorizados do Core. A navegação deste ambiente fica no painel principal.
+                  Encontre módulos, frentes, especialistas e próximas ações. Os registros consultados vêm do Core autorizado.
                 </p>
               </div>
               <p className="text-xs text-[#5f6368]">
-                As páginas criadas neste navegador pertencem à Biblioteca local e não representam Ficha Viva ou publicação canônica.
+                Biblioteca local: páginas deste navegador, separadas do conhecimento registrado no Core.
               </p>
               <Button type="button" variant="outline" onClick={() => setDevelopmentMode(false)}
                 className="min-h-11 w-full whitespace-normal rounded-full border-[#1a73e8] text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe]">

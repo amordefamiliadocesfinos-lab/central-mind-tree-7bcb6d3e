@@ -13,7 +13,8 @@ has('id="nucleo-editor" tabIndex={-1}', "Focusable editor region");
 // Creation must clear scoped search before focusing the new page.
 assert.match(code, /setPages\(\(prev\) => \[page, \.\.\.prev\]\);[\s\S]{0,240}setSearch\(""\);[\s\S]{0,100}setActivePageId\(page\.id\);[\s\S]{0,90}revealPageEditor\(\)/);
 // Central mounts only after first visit, but stays mounted when temporarily hidden.
-has('const [developmentVisited, setDevelopmentVisited] = useState(false)', "Mount on demand");
+has('const [developmentMode, setDevelopmentMode] = useState(true)', "Management default");
+has('const [developmentVisited, setDevelopmentVisited] = useState(true)', "Initial management visit stays mounted");
 has('if (!developmentMode) setDevelopmentVisited(true)', "Load on first visit");
 has('(developmentMode || developmentVisited) &&', "Persist after visit");
 has('<NucleoDevelopmentCenter />', "Existing functionality preserved");
