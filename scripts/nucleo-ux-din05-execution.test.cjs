@@ -32,4 +32,12 @@ assert(editor.indexOf("Consultar provas M4")>editor.indexOf("Editar demais dados
   "Evidence remains an optional detail");
 assert(src.includes('setExpandedEvidenceFor(current=>current===selected.id?null:selected.id)'),"Evidence lazy toggle");
 assert(src.includes('id="nucleo-din-focus"'),"Return to focus target");
+const create=src.slice(src.indexOf("const addItem ="),src.indexOf("const addDependency ="));
+assert(src.includes('acceptance_criteria: "", next_action: ""'),"Optional creation action starts empty");
+assert(src.includes('value={draft.next_action}'),"Creation exposes next action");
+assert.match(create,/next_action: draft\.next_action\.trim\(\)/,"Creation includes explicit next action");
+assert(create.includes('.insert(payload).select("id").maybeSingle()'),"Existing writer preserved");
+assert(create.includes('Object.entries(payload).every(([key,value])=>record[key]===value)'),"Readback includes action");
+assert(create.includes('matches(audit.data.after_state as Record<string,unknown>)'),"Creation event verifies action");
+assert(create.includes("setDraft(emptyDraft)"),"Successful creation clears draft");
 console.log("UX-DIN-05: priority action, progressive editor, M4 on demand and history safety PASS");
