@@ -50,6 +50,7 @@ jobs:
           docker run --rm --network none \
             --mount "type=bind,source=$GITHUB_WORKSPACE/services/integration-hub/tests,target=/workspace/services/integration-hub/tests,readonly" \
             --mount "type=bind,source=$GITHUB_WORKSPACE/supabase/functions/integration-core-bridge,target=/workspace/supabase/functions/integration-core-bridge,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/docs/operations/jornada-sku-v13,target=/workspace/docs/operations/jornada-sku-v13,readonly" \
             painel-shopee-hub-ci:${{ github.sha }} \
             sh -c 'node --test tests/*.test.mjs'
       - name: Runtime default-off protection in the built image

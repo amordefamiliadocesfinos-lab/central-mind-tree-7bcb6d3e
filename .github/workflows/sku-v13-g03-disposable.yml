@@ -1,0 +1,64 @@
+name: Jornada SKU V1.3 G03 disposable verification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/*marketplace_seller_sku_registry_v13.sql'
+      - 'services/integration-hub/tests/shopee-seller-sku-v13-offline.test.mjs'
+      - 'services/integration-hub/tests/shopee-sku-v13-168-projection.test.mjs'
+      - 'docs/operations/jornada-sku-v13/sku-v13-168-models-core-projection.json'
+      - 'services/integration-hub/tests/shopee-seller-sku-v13-consultive.test.mjs'
+      - 'services/integration-hub/tests/shopee-seller-sku-v13-bridge-auth.test.mjs'
+      - 'services/integration-hub/src/core-bridge.mjs'
+      - 'services/integration-hub/src/app.mjs'
+      - 'supabase/functions/integration-core-bridge/index.ts'
+      - 'supabase/functions/integration-core-bridge/handler.mjs'
+      - 'services/integration-hub/tests/sql/sku-v13-g03-disposable-*.sql'
+      - '.github/workflows/sku-v13-g03-disposable.yml'
+permissions:
+  contents: read
+jobs:
+  postgres17:
+    name: Disposable PostgreSQL 17 / No Cloud writes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-only
+          POSTGRES_DB: sku_v13_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sku_v13_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: disposable-only
+      PGDATABASE: sku_v13_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create minimal fixture, without official credentials
+        run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/sku-v13-g03-disposable-fixture.sql
+      - name: Apply candidate migration only inside disposable Postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125210000_marketplace_seller_sku_registry_v13.sql
+      - name: Assert admin-only RLS, immutable events and safe quarantine
+        run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/sku-v13-g03-disposable-assertions.sql
+  hub_offline:
+    name: Item/Model contract / Offline
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run SKU compatibility tests without network or writes
+        working-directory: services/integration-hub
+        run: node --test tests/shopee-seller-sku-v13-offline.test.mjs tests/shopee-seller-sku-v13-consultive.test.mjs tests/shopee-seller-sku-v13-bridge-auth.test.mjs tests/shopee-sku-v13-168-projection.test.mjs

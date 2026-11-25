@@ -27,6 +27,7 @@ const LIVE_ACTIONS = new Set([
   'shopee.raw_order_snapshot.upsert',
   'shopee.order.create',
   'shopee.order_intake_batch.read',
+  'shopee.seller_sku_registry.read',
   'shopee.logistics_tombstones.read',
   'shopee.logistics_classification.sync',
   'shopee.shipping_label.prepare',
@@ -285,6 +286,13 @@ function validateActionPayload(payload, nowMs) {
       && Array.isArray(payload.order_sns) && payload.order_sns.length > 0 && payload.order_sns.length <= 20
       && new Set(payload.order_sns).size === payload.order_sns.length
       && payload.order_sns.every(sn => typeof sn === 'string' && /^[A-Za-z0-9]{8,100}$/.test(sn));
+  }
+  // E05: exact Item/Model only; no batch retrieval, no caller-provided SKU.
+  if (payload.action === 'shopee.seller_sku_registry.read') {
+    return hasExactKeys(payload, ['action','channel_account_id','item_id','model_id'])
+      && UUID.test(payload.channel_account_id)
+      && typeof payload.item_id === 'string' && /^[0-9]{1,30}$/.test(payload.item_id)
+      && typeof payload.model_id === 'string' && /^[0-9]{1,30}$/.test(payload.model_id);
   }
   if (payload.action === 'shopee.order_intake_batch.read') {
     if (!hasExactKeys(payload, ['action', 'channel_account_id'], ['limit', 'order_sn'])) return false;

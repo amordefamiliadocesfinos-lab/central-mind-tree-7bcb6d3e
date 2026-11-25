@@ -8,7 +8,7 @@ import { syncAdaoReadyLabelOnce } from './shopee-adao-ready-label-sync.mjs';
 import { syncCelivioPilotLabelOnce } from './shopee-celivio-f5-label-sync.mjs';
 import { readAdaoLogisticsReadOnly } from './shopee-adao-logistics-readonly.mjs';
 import { HUB_SERVICE_NAME, HUB_VERSION } from './contracts.mjs';
-import { probeCoreBridge, callCoreBridgeAction } from './core-bridge.mjs';
+import { probeCoreBridge, callCoreBridgeAction, readSellerSkuRegistryExact } from './core-bridge.mjs';
 import { handleShopeeLiveOauthRequest } from './shopee-live-oauth.mjs';
 import { runShopeeControlledAutoIntake } from './shopee-order-auto-intake.mjs';
 import { inspectShopeeLiveLogistics } from './shopee-live-logistics.mjs';
@@ -55,6 +55,7 @@ export async function handleRequest(
     readAdaoLogistics = readAdaoLogisticsReadOnly,
     syncCore = callCoreBridgeAction,
     probeCore = probeCoreBridge,
+    readSellerSkuRegistry = readSellerSkuRegistryExact,
     handleShopeeLive = handleShopeeLiveOauthRequest,
     runShopeePreview = runShopeeControlledAutoIntake,
     runCelivioReadOnlyPreview = runCelivioPreview,
@@ -887,6 +888,64 @@ export async function handleRequest(
         : { status: 'blocked', code: result.code, written: 0 });
     } catch {
       return json(503, { status: 'blocked', code: 'mapping_diagnostic_unavailable', written: 0 });
+    }
+  }
+
+  // E05 (SKU V1.3): private, exact, default-off consultative read.
+  // Never reads Shopee, never refreshes OAuth, never runs order intake.
+  if (normalizedPath === '/internal/shopee/live/sku-registry/preview') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length
+      || request.headers?.['transfer-encoding'] !== undefined
+      || (request.headers?.['content-length'] !== undefined
+        && request.headers['content-length'] !== '0')
+      || (request.body !== undefined && request.body !== null && request.body !== '')) {
+      return json(400, { error: 'sku_registry_request_must_be_empty' });
+    }
+    if (String(getEnv('SHOPEE_SKU_REGISTRY_PREVIEW_ENABLED') ?? '').toLowerCase() !== 'true') {
+      return json(503, { status: 'blocked', code: 'sku_registry_preview_disabled', written: 0 });
+    }
+    const channelAccountId = String(getEnv('SHOPEE_SKU_REGISTRY_CHANNEL_ACCOUNT_ID') ?? '').trim();
+    const itemId = String(getEnv('SHOPEE_SKU_REGISTRY_ITEM_ID') ?? '').trim();
+    const modelId = String(getEnv('SHOPEE_SKU_REGISTRY_MODEL_ID') ?? '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelAccountId)
+      || !/^[0-9]{1,30}$/.test(itemId)
+      || !/^[0-9]{1,30}$/.test(modelId)) {
+      return json(503, { status: 'blocked', code: 'sku_registry_scope_invalid', written: 0 });
+    }
+    try {
+      const result = await readSellerSkuRegistry({
+        channel_account_id: channelAccountId, item_id: itemId, model_id: modelId,
+      });
+      const payload = result?.payload;
+      if (result?.ok !== true || !payload || payload.status !== 'ok'
+        || payload.action !== 'shopee.seller_sku_registry.read'
+        || payload.channel_account_id !== channelAccountId
+        || payload.item_id !== itemId || payload.model_id !== modelId
+        || typeof payload.mapping_found !== 'boolean'
+        || typeof payload.registry_found !== 'boolean'
+        || (payload.registry_found && !payload.mapping_found)
+        || (payload.registry_found && (typeof payload.canonical_sku !== 'string'
+          || !['UNKNOWN','BLANK','VALUE'].includes(payload.observation_kind)))
+        || (payload.mapping_found && typeof payload.mapping_id !== 'string')
+        || payload.written !== 0) {
+        return json(503, { status: 'blocked', code: 'sku_registry_preview_unavailable', written: 0 });
+      }
+      return json(200, {
+        status: 'ok', mode: 'read_only', account: channelAccountId,
+        item_id: itemId, model_id: modelId,
+        mapping_found: payload.mapping_found,
+        registry_found: payload.registry_found,
+        mapping_id: payload.mapping_found ? payload.mapping_id : null,
+        canonical_sku: payload.registry_found ? payload.canonical_sku : null,
+        observed_sku: payload.registry_found ? payload.observed_sku ?? null : null,
+        observation_kind: payload.registry_found ? payload.observation_kind : 'UNKNOWN',
+        reconciliation_status: payload.registry_found ? payload.reconciliation_status : 'NAO_PREPARADO',
+        revision: payload.registry_found ? payload.revision : null,
+        written: 0,
+      });
+    } catch {
+      return json(503, { status: 'blocked', code: 'sku_registry_preview_unavailable', written: 0 });
     }
   }
 
