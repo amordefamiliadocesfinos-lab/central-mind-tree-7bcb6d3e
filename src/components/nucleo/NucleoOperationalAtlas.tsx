@@ -112,7 +112,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   const [specialistPanel,setSpecialistPanel]=useState<"papel"|"mandato"|"continuidade"|"documentos">("papel");
   const [specialistPanelVisited,setSpecialistPanelVisited]=useState<Array<"mandato"|"continuidade"|"documentos">>([]);
   const [ac01Request,setAc01Request]=useState<{stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico";seq:number}|null>(null);
-  const [fmSectionRequest,setFmSectionRequest]=useState<{section:"FM-09";seq:number}|null>(null);
+  const [fmSectionRequest,setFmSectionRequest]=useState<{section:"FM-09"|"FM-10";seq:number}|null>(null);
   const openSpecialistPanel=(id:"papel"|"mandato"|"continuidade"|"documentos")=>{
     setSpecialistPanel(id);
     if(id!=="papel")setSpecialistPanelVisited(current=>current.includes(id)?current:[...current,id]);
@@ -435,19 +435,27 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     }
     openSpecialistPanel("continuidade");selectModuleArea("especialista");
   };
-  const openFm09Continuity=()=>{
+  const openContinuityFm=(section:"FM-09"|"FM-10")=>{
     // A solicitação FM-09 muda a seção ativa: não remapear um rascunho local
     // para outra seção nem navegar durante uma gravação indeterminada.
     if(fmDraftState.busy||specialistDraftState.busy){
-      window.alert("Gravação em andamento ou estado indeterminado. Reconcilie antes de abrir FM-09.");
+      window.alert("Gravação em andamento ou estado indeterminado. Reconcilie antes de abrir a seção de continuidade.");
       return;
     }
     if(fmDraftState.dirty){
-      window.alert("Existe um rascunho não salvo na Ficha Viva. Salve ou limpe o rascunho na seção atual antes de abrir FM-09.");
+      window.alert("Existe um rascunho não salvo na Ficha Viva. Salve ou limpe o rascunho na seção atual antes de abrir a seção de continuidade.");
       return;
     }
-    setFmSectionRequest(previous=>({section:"FM-09",seq:(previous?.seq??0)+1}));
+    setFmSectionRequest(previous=>({section,seq:(previous?.seq??0)+1}));
     selectModuleArea("conhecimento");
+  };
+  const openFm09Continuity=()=>openContinuityFm("FM-09");
+  const focusContinuityRegion=(id:string)=>{
+    requestAnimationFrame(()=>{
+      const region=document.getElementById(id);
+      region?.scrollIntoView({behavior:"smooth",block:"start"});
+      region?.focus({preventScroll:true});
+    });
   };
   const openAc01FromFm=(stage:"vincular"|"versoes"|"refinar"|"vigencia"|"historico")=>{
     if(fmDraftState.busy||specialistDraftState.busy){
@@ -1369,6 +1377,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     provenance={selectedProvenance}
                     focusedWorkstreamId={resumeFocusId}
                     onOpenWorkstream={onSelectWorkstream}
+                    onOpenContinuity={()=>focusContinuityRegion("nucleo-ac02-module-context")}
+                    onOpenLearning={openContinuityFm}
                     onOpenSources={()=>openSpecialistPanel("papel")}
                     onOpenDocuments={()=>openSpecialistPanel("documentos")}
                     onOpenMandates={()=>openSpecialistPanel("mandato")}/>
@@ -1380,6 +1390,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
                     onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
                     onViewDocuments={()=>openSpecialistPanel("documentos")}
+                    onViewResume={()=>focusContinuityRegion("nucleo-resume-module-context")}
+                    onViewLearning={openContinuityFm}
                     onViewMandates={()=>openSpecialistPanel("mandato")}/>
                 </>}
               </div>
