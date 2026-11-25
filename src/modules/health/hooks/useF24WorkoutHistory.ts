@@ -4,6 +4,20 @@ import type {WorkoutExercise} from "./useHealthWorkoutM4";
 import {selectF24ComparableHistory} from "../cch/f24ComparableHistory";
 import type {F24HistoryReference,F24HistoryRow} from "../cch/f24ComparableHistory";
 
+// Duplicate confirmations are ambiguous, even when the labels agree.
+function uniqueLabels(rows:{workout_exercise_id:string;equipment_label:string}[]){
+ const labels=new Map<string,string>();
+ const ambiguous=new Set<string>();
+ for(const row of rows){
+  if(ambiguous.has(row.workout_exercise_id))continue;
+  if(labels.has(row.workout_exercise_id)){
+   labels.delete(row.workout_exercise_id);
+   ambiguous.add(row.workout_exercise_id);
+  }else labels.set(row.workout_exercise_id,row.equipment_label);
+ }
+ return labels;
+}
+
 export type F24ExerciseHistoryStatus = {
  reference:F24HistoryReference|null;
  equipmentLabel:string|null;
@@ -23,7 +37,8 @@ export function useF24WorkoutHistory(
  }>({scope:null,records:new Map(),loading:false});
  const exerciseIds=useMemo(()=>[...new Set(exercises.map(e=>e.exercise_id))].sort(),
   [exercises]);
- const key=athleteId&&sessionId?JSON.stringify([athleteId,sessionId,exerciseIds]):null;
+ const instanceIds=useMemo(()=>exercises.map(e=>[e.id,e.exercise_id]).sort((a,b)=>a[0].localeCompare(b[0])),[exercises]);
+ const key=athleteId&&sessionId?JSON.stringify([athleteId,sessionId,instanceIds]):null;
  useEffect(()=>{
   let cancelled=false;
   if(!key||!athleteId||!sessionId||!exercises.length){
@@ -38,10 +53,10 @@ export function useF24WorkoutHistory(
    try {
     const current=await supabase.from("health_cch_workout_equipment")
       .select("workout_exercise_id,equipment_label")
-      .eq("athlete_id",athleteId).eq("session_id",sessionId);
+      .eq("athlete_id",athleteId).eq("session_id",sessionId).limit(1001);
     if(current.error)throw current.error;
-    const currentLabels=new Map((current.data??[])
-      .map(x=>[x.workout_exercise_id,x.equipment_label]));
+    if((current.data??[]).length>1000)throw new Error("Confirmações atuais truncadas.");
+    const currentLabels=uniqueLabels(current.data??[]);
     const result=new Map<string,F24ExerciseHistoryStatus>();
     for(const ex of exercises){
      const equipmentLabel=currentLabels.get(ex.id)??null;
@@ -85,8 +100,7 @@ export function useF24WorkoutHistory(
      if(equipment.error||sets.error)throw equipment.error??sets.error;
      if((equipment.data??[]).length>1000||(sets.data??[]).length>1000)
       throw new Error("Histórico de séries truncado.");
-     const byEquipment=new Map((equipment.data??[])
-      .map(x=>[x.workout_exercise_id,x.equipment_label]));
+     const byEquipment=uniqueLabels(equipment.data??[]);
      const byPast=new Map(past.map(x=>[x.id,x]));
      const dates=new Map(chunk.map(x=>[x.id,x.started_at]));
      for(const s of sets.data??[]){
