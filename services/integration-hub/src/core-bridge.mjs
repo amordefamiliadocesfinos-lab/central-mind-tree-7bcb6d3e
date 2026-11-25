@@ -31,6 +31,7 @@ export const CORE_BRIDGE_ACTIONS = Object.freeze({
   SHOPEE_RAW_ORDER_SNAPSHOT_UPSERT: 'shopee.raw_order_snapshot.upsert',
   SHOPEE_ORDER_CREATE: 'shopee.order.create',
   SHOPEE_ORDER_INTAKE_BATCH_READ: 'shopee.order_intake_batch.read',
+  SHOPEE_SELLER_SKU_REGISTRY_READ: 'shopee.seller_sku_registry.read',
   SHOPEE_LOGISTICS_TOMBSTONES_READ: 'shopee.logistics_tombstones.read',
   SHOPEE_SHIPPING_LABEL_PREPARE: 'shopee.shipping_label.prepare',
   SHOPEE_SHIPPING_LABEL_COMMIT: 'shopee.shipping_label.commit',
@@ -259,6 +260,15 @@ export function readLiveShopeeOrderIntakeBatch(data, options = {}) {
   });
 }
 
+
+// Explicitly consultative: HMAC-signed Core Bridge read with exact official identity.
+export function readSellerSkuRegistryExact(data, options = {}) {
+  return callCoreBridgeAction({
+    ...options,
+    action: CORE_BRIDGE_ACTIONS.SHOPEE_SELLER_SKU_REGISTRY_READ,
+    data,
+  });
+}
 
 // Prepared library endpoints only: the Hub has no route invoking ship_order.
 // These requests can claim/resolve ledger state, not modify a Shopee order.
