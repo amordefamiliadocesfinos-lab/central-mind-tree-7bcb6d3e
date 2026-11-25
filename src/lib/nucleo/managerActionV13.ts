@@ -6,3 +6,17 @@ export function managerActionExplanation(item: Pick<DevelopmentWorkstream, "code
       !item.next_action.includes("planning_context")) return null;
   return "Em uma compra real autorizada, conferir se o pedido foi salvo e se as informações de origem do planejamento MRP continuam disponíveis ao reabri-lo. Recebimento, estoque e financeiro exigem verificações independentes; não criar compra de teste.";
 }
+
+
+/** Literal excerpt from an explicit marker; the complete record remains accessible. */
+export function explicitNextActionExcerpt(value: string): string | null {
+  const text=value.trim();
+  const matches=[...text.matchAll(/(?:^|[.!?;\n]\s*)Próxima ação:\s*/giu)];
+  if(matches.length!==1)return null;
+  const match=matches[0];
+  const start=(match.index??0)+match[0].length;
+  const excerpt=text.slice(start).split(/\r?\n\s*\r?\n/,1)[0].trim();
+  if(excerpt.length<10)return null;
+  if(!text.slice(0,match.index??0).trim()&&!text.slice(start+excerpt.length).trim())return null;
+  return excerpt;
+}
