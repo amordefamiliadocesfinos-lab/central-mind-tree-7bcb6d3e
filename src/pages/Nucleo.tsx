@@ -4144,7 +4144,7 @@ export default function Nucleo() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold text-[#202124]">Núcleo</h1>
-              <p className="truncate text-xs text-[#5f6368]">Painel Central · Gestão e conhecimento<p>
+              <p className="truncate text-xs text-[#5f6368]">Painel Central · Gestão e conhecimento</p>
             </div>
           </div>
           <div className="min-w-0 flex-1">
