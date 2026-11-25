@@ -335,7 +335,11 @@ export default function NucleoDevelopmentCenter() {
 
   const choose = (id: string): boolean => {
     if (id === selectedId) { setReturnToAtlas(false); return true; }
-    if (saving || nucAc01Draft.current.busy || nucAc01Draft.current.dirty) {
+    if (saving) {
+      toast.warning("Aguarde a conclusão do registro antes de trocar de frente.");
+      return false;
+    }
+    if (nucAc01Draft.current.busy || nucAc01Draft.current.dirty) {
       toast.warning("Conclua ou reconcilie o registro AC-01 antes de trocar de frente.");
       return false;
     }
