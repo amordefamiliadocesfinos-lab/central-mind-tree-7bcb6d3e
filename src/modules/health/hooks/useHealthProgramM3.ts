@@ -32,6 +32,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
   const scope = athleteId ?? null;
   const [snapshot, setSnapshot] = useState<{ scope: string | null; state: State; loading: boolean; error: string | null }>({scope: null, state: emptyState, loading: false, error: null});
   const generation = useRef(0);
+  const currentScope = useRef<string | null | undefined>(undefined);
   const state = snapshot.scope === scope ? snapshot.state : emptyState;
   const loading = Boolean(scope) && (snapshot.scope !== scope || snapshot.loading);
   const error = snapshot.scope === scope ? snapshot.error : null;
@@ -41,6 +42,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
   }, [scope]);
 
   const reload = useCallback(async () => {
+    if (currentScope.current !== scope) return;
     const request = ++generation.current;
     const finish = (state: State, error: string | null = null) => {
       if (request === generation.current) setSnapshot({scope, state, loading: false, error});
@@ -50,7 +52,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       return;
     }
 
-    setSnapshot({scope, state: emptyState, loading: true, error: null});
+    setSnapshot(previous => ({scope, state: previous.scope === scope ? previous.state : emptyState, loading: true, error: null}));
     try {
 
     const { data: program, error: programError } = await supabase
@@ -150,9 +152,10 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
   }, [athleteId, scope]);
 
   useEffect(() => {
+    currentScope.current = scope;
     void reload();
-    return () => { generation.current++; };
-  }, [reload]);
+    return () => { currentScope.current = undefined; generation.current++; };
+  }, [reload, scope]);
 
   const mutate = useCallback(
     async (operation: () => Promise<{ error: { message: string } | null }>) => {
