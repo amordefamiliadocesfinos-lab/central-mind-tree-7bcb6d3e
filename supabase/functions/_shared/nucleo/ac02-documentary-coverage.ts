@@ -1,10 +1,10 @@
 /**
- * AC-02 — cobertura documental FM-03, FM-08 e FM-09.
+ * AC-02 — cobertura documental FM-03, FM-08, FM-09 e FM-10.
  * Recebe somente metadados autorizados de revisões do módulo no Core.
  * Source reference e corpos de documentos NÃO transitam aqui.
  * Uma revisão FM-09 não certifica o último checkpoint operacional.
  */
-export type Ac02DocumentarySection="FM-03"|"FM-08"|"FM-09";
+export type Ac02DocumentarySection="FM-03"|"FM-08"|"FM-09"|"FM-10";
 export type Ac02DocumentaryRevision=Readonly<{
  sectionCode:Ac02DocumentarySection;
  id:string;
@@ -29,7 +29,7 @@ export type Ac02DocumentaryCoverage=Readonly<{
  operationalCheckpointVerified:false;
  distinctMethodAndEcosystemVerified:false;
 }>;
-const sections=["FM-03","FM-08","FM-09"] as const;
+const sections=["FM-03","FM-08","FM-09","FM-10"] as const;
 const uuidExact=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const stateSet=new Set(["rascunho","proposta","homologado","historico","vigente","em_evolucao"]);
 const isDate=(v:string)=>/^\d{4}-\d\d-\d\dT/.test(v)&&Number.isFinite(Date.parse(v));
@@ -68,6 +68,8 @@ export function describeAc02DocumentaryCoverage(
  if(!grouped.has("FM-08"))warnings.push("FM-08: método/ecossistema sem revisão na leitura");
  else warnings.push("FM-08: uma única seção não comprova documentos distintos de método e ecossistema");
  if(!grouped.has("FM-09"))warnings.push("FM-09: checkpoint documental sem revisão na leitura");
+ if(!grouped.has("FM-10"))warnings.push("FM-10: aprendizagem sem revisão na leitura");
+ warnings.push("FM-10 no Core não comprova uma experiência real ou lição homologada");
  warnings.push("FM-09 no Core não comprova o último checkpoint operacional");
  if(entries.some(e=>e.status==="referencia_core_declarada"&&e.sourceReference==="ausente"))
   warnings.push("Existe revisão sem referência de fonte preenchida");
