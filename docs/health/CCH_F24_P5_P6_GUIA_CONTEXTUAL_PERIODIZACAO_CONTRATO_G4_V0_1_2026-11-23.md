@@ -176,3 +176,62 @@ Estado inicial: sem card. Estado pronto/descanso elegível: card compacto opcion
 
 ### 12.5 Handoff para U06/P6
 Usar E3 existente e U02 para continuidade: revisão por objetivo/estímulo/exposição válida, comparação planejado-realizado com lacunas, escolha de horizonte informativo, opções alternativas e draft E2 revisável. Não criar novo calendário, motor ou coleta. Próximo refinamento independente: especificar sequência de revisão flexível e critérios para manter/consolidar/rever/considerar ajuste, preservando portão G4. Nenhum dos cenários acima foi executado como teste ou homologado; a decisão de adiar contraprovas não autoriza ativação.
+
+
+## 13. U06/P6 — contrato de periodização individualizada V0.3 (24/11/2026)
+Autoridade: V6.0 FROZEN, U06/P6/G4. E3 consultiva existente em `src/modules/health/cch/periodizationFlexibleE3.ts`; reutilizar `assessFlexiblePeriodizationE3`, `E3Result`, leitura E3 e editor E2/M3/F22. Este adendo é exclusivamente especificação, sem código executável, novos dados, calendário, motor ou fila.
+
+### 13.1 Jornada de revisão
+1. Atleta solicita revisão ou ocorre checkpoint E3 contextual. Não encerrar ciclo, criar sessão ou alterar objetivo por passagem de dias.
+2. Identificar atleta, programa, versão publicada, origem da auditoria e, se existir, versão proposta. Separar plano vigente de rascunho. Se origem divergir ou leitura falhar, mostrar estado indeterminado e oferecer recarga; nenhuma proposta específica.
+3. Exibir sequência de estímulos previstos, observados, ainda não identificados e não previstos, usando `coverage.stimulusSequence`. Exibir sessões válidas e comparáveis separadamente. A razão de cobertura mede códigos distintos, não cumprimento de frequência semanal nem séries realizadas. Dados ausentes não são zero; não chamar estímulo não identificado de treino perdido.
+4. Atleta confirma objetivo atual e disponibilidade percebida. Semana, quinzena ou próximas exposições são horizontes opcionais de visualização; sem número compulsório de sessões. Não gerar datas fictícias nem transformar indisponibilidade em débito de treino.
+5. Mostrar opções E3 com motivo, origem e limitações; oferecer revisão humana, não prescrição em execução. O objetivo escolhido orienta a interpretação sem rebaixar experiência por confiança baixa.
+6. Se o atleta desejar alteração, encaminhar ao fluxo existente U02/E2/M3, com criação explícita de rascunho pelos contratos autorizados, diff, revisão e publicação manual F22. Sem proposta existente, E3 atual não declara elegibilidade para progressão; não usar ausência de draft como permissão para criar um automaticamente. Mostrar “revisar possibilidades” como caminho informativo, não como autorização de intensificação.
+7. Retomar plano vigente enquanto não houver publicação válida; preservar históricos, sessões ativas, prioridades e recuperação. Registrar decisão somente pelo mecanismo existente quando autorizado.
+
+### 13.2 Tradução fiel do contrato E3 atual
+| Campo/estado real | Apresentação proposta | Limite |
+|---|---|---|
+| review_recovery | Revisar recuperação e desempenho antes de intensificar | Ausência de informação também pode produzir esse estado; não afirmar fadiga/dor presente |
+| review_evidence | Evidências ainda insuficientes para revisão específica | Mostrar motivos e lacunas, sem reduzir nível ou prescrição automaticamente |
+| eligible_for_manual_review | Alternativa disponível para revisão humana | Não significa progressão recomendada, publicação ou eficácia comprovada |
+| readiness insufficient/conditional | Insuficiente/condicional | Nunca traduzir como diagnóstico ou aptidão física |
+| completedSessions/comparableSessions | Sessões observadas válidas/comparáveis | Contagem da versão de origem, não meta universal |
+| observedWorkingSets | Séries observadas quando íntegro | null = não consolidável; não usar 0 como substituto |
+| observedSpanDays/actualDaysWithSessions | Janela observada/dias com sessão | Não converter em frequência prescrita ou obrigação |
+| checkpoint.type/criteria | Rever agora ou na próxima exposição comparável/mudança contextual | calendarDeadline e mandatorySessionCount permanecem null |
+| alternatives | Consolidar, rever recuperação, considerar progressão seletiva quando elegível | automaticChange=false; draftOnly=true; generatesQueue=false |
+
+A interface deve preservar status original, explicações de E3 e limites de leitura. Não adicionar algoritmo de periodização concorrente. Não confundir rótulo confirmado com identidade física de aparelho.
+
+### 13.3 Opções por objetivo e revisão
+| Objetivo ou contexto | Pergunta útil ao atleta | Alternativas consultivas |
+|---|---|---|
+| Força | Qual padrão ou desempenho deseja desenvolver? | Manter especificidade, consolidar técnica/esforço, considerar ajuste seletivo via E2 se elegível |
+| Hipertrofia | Quais estímulos e grupos deseja desenvolver? | Manter distribuição, revisar cobertura/volume observado, considerar ajuste de prioridade em draft |
+| Manutenção | Quais estímulos deseja preservar na disponibilidade atual? | Consolidar e revisar continuidade sem reduzir automaticamente a dose |
+| Técnica | Qual movimento merece atenção? | Revisar execução e alternativas M2, sem diagnosticar ou alterar carga |
+| Recuperação | Há contexto autorizado que justifique revisão? | Rever sinais, adiar intensificação, manter alternativas abertas; não coletar E5 |
+| Objetivo indefinido | Qual objetivo deseja escolher? | Explicação de opções; não inferir por peso/aparência |
+
+Esses rótulos são editoriais, não novos valores do enum Goal, nem novas estratégias persistidas. Mapear aos objetivos existentes somente após integração autorizada; técnica/recuperação podem ser contexto de revisão, não obrigatoriamente novo goal. Nenhum novo kg, RIR, faixa de reps ou volume é calculado por este contrato.
+
+### 13.4 Cenários fictícios para aceite final
+| ID | Cenário | Esperado |
+|---|---|---|
+| U06-C01 | Mesma sequência A1/B1/C1/D1/E1, atleta realiza três estímulos em uma janela e cinco em outra | Exibir observações por versão; não penalizar três dias, não inferir dose ótima |
+| U06-C02 | Pausa de disponibilidade entre B1 e C1 | Preservar continuidade; não criar reposição compulsória ou reset |
+| U06-C03 | A1 executado duas vezes e B1 uma | Contar três sessões distintas e dois códigos observados; não confundir cobertura com frequência |
+| U06-C04 | Sessões de versão anterior, anuladas ou ativas | Não inflar cobertura da versão avaliada |
+| U06-C05 | Histórico truncado ou data inválida ou identidade conflitante | Limitação explícita, nenhuma elegibilidade específica baseada em fonte incompleta |
+| U06-C06 | Atleta avançado com baixa confiança | Nível preservado; alternativas gerais de consolidação/revisão |
+| U06-C07 | Recuperação desconhecida ou sinais desfavoráveis | Revisar contexto sem afirmar doença/fadiga ou aumentar automaticamente |
+| U06-C08 | Mudança de objetivo ou disponibilidade | Novo checkpoint consultivo, sem alterar programa publicado |
+| U06-C09 | Atleta deseja considerar ajuste, origem alinhada e draft existente | Encaminhar E2/M3 com diff; publicação somente F22 humana |
+| U06-C10 | Atleta solicita planejamento quinzenal sem dados suficientes | Horizonte informativo, lacunas explícitas, sem calendário rígido nem proposta numérica |
+| U06-C11 | Troca de atleta/versão durante leitura | Suprimir snapshot antigo, invalidar decisão pendente |
+| U06-C12 | Atleta opta por manter programa | Nenhuma mutação, nova fila ou publicação |
+
+### 13.5 Aceite de produto e passagem U07
+Na contraprova final, verificar se o atleta entende o que realizou, o que ainda não está identificado, por que existem alternativas e como retomar/decidir sem perder contexto. Reutilizar P6-AC01–05 e G4-AC01; cenários U06-C01–12 são extensão documental, não resultados executados. Exigir comparação com E3 real, não fabricar evidência. Referências científicas permanecem as da seção 9, não reavaliadas nesta etapa. U07/E5 seguinte: recuperar contratos #994/#995/#996/#998/#999 e lacunas de consentimento, proveniência e recuperação; apenas preparação autorizada, sem consentimento inferido, novos registros reais ou ativação. Não avançar U08 produtivamente sem reconciliar mapas adjacentes. Nenhuma alteração do V6.0 FROZEN.
