@@ -13,6 +13,10 @@ import {
 
 const API_BASE = 'https://partner.shopeemobile.com';
 const SHIPPING_PATH = '/api/v2/logistics/ship_order';
+const CELIVIO_C7_ACCOUNT='d26c7a30-aa4a-4441-8012-600d70453689';
+const CELIVIO_C7_SHOP=1357031949;
+const CELIVIO_C7_ORDER='2611258Y00VM5U';
+const CELIVIO_C7_PACKAGE='OFG249308165846906';
 
 /** Shopee's ship_order success contract does not require a response object. */
 const SAFE_SHOPEE_ERRORS = new Set([
@@ -176,13 +180,24 @@ export function createGuardedShopeeShipOrder({
         || !/^[A-Za-z0-9_-]{1,100}$/.test(String(proof.package_number ?? ''))) {
       return { ok: false, code: 'preflight_not_eligible' };
     }
-    // The Shopee split_up flag controls the outgoing ship_order shape.
-    // Package identity stays in the durable claim for both variants.
-    // Do not infer unsplit from missing fields, or change the old pilot.
-    if (automaticScope !== null && typeof proof.split_up !== 'boolean') {
+    // Only the evidenced Celivio C7 recovery may omit package_number in
+    // the legacy one-pilot path. All other pilots retain their old contract.
+    const celivioC7Recovery = automaticScope === null
+      && channelAccountId === CELIVIO_C7_ACCOUNT
+      && pilotShopId === CELIVIO_C7_SHOP
+      && orderSn === CELIVIO_C7_ORDER
+      && pilotPackageNumber === CELIVIO_C7_PACKAGE
+      && proof.package_number === CELIVIO_C7_PACKAGE
+      && proof.shop_id === CELIVIO_C7_SHOP
+      && fiscalMode === 'cpf_no_invoice_step';
+    // The Shopee split_up flag must be explicit. Missing evidence never
+    // authorizes a corrected request, and the Core claim remains mandatory.
+    if ((automaticScope !== null || celivioC7Recovery)
+        && typeof proof.split_up !== 'boolean') {
       return { ok: false, code: 'order_split_state_unknown' };
     }
-    const omitPackageNumber = automaticScope !== null && proof.split_up === false;
+    const omitPackageNumber = (automaticScope !== null || celivioC7Recovery)
+      && proof.split_up === false;
     const shopId = positiveSafeInteger(proof.shop_id);
     if (!shopId) return { ok: false, code: 'preflight_shop_missing' };
     const oauth = await readConnection({ channel_account_id: channelAccountId });
