@@ -7,6 +7,11 @@ import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 import { createCelivioPreviewBatchReader } from './shopee-celivio-preview-read-budget.mjs';
 
 export const CELIVIO_C4G_PILOT_ORDER_SN = '261121TBS6BHE6';
+// C6: separately discovered and previewed order. Exact allowlist, no batch unlock.
+export const CELIVIO_C6_ORDER_SN = '2611258Y00VM5U';
+const CELIVIO_ALLOWED_COMMIT_ORDERS = new Set([
+  CELIVIO_C4G_PILOT_ORDER_SN, CELIVIO_C6_ORDER_SN,
+]);
 
 export function createCelivioPilotCommitOne({
   readBatch = readLiveShopeeOrderIntakeBatch,
@@ -19,7 +24,7 @@ export function createCelivioPilotCommitOne({
 
   return ({ channelAccountId, expectedOrderSn, mode, limit } = {}) => {
     if (channelAccountId !== CELIVIO_C4C_ACCOUNT_ID
-      || expectedOrderSn !== CELIVIO_C4G_PILOT_ORDER_SN
+      || !CELIVIO_ALLOWED_COMMIT_ORDERS.has(expectedOrderSn)
       || mode !== 'commit'
       || limit !== 5) {
       return {
@@ -29,7 +34,7 @@ export function createCelivioPilotCommitOne({
     }
     return intake({
       channelAccountId: CELIVIO_C4C_ACCOUNT_ID,
-      expectedOrderSn: CELIVIO_C4G_PILOT_ORDER_SN,
+      expectedOrderSn,
       limit: 5,
       mode: 'commit',
       verifyExisting: true,
