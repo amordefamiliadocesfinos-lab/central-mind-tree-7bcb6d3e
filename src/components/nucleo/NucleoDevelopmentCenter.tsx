@@ -366,6 +366,15 @@ export default function NucleoDevelopmentCenter() {
     return true;
   };
 
+  const openTreeItem = (id: string) => {
+    if (!choose(id)) return;
+    requestAnimationFrame(() => {
+      const detail = document.getElementById("nucleo-m3-workstream-detail");
+      detail?.focus({preventScroll:true});
+      detail?.scrollIntoView({behavior:"auto",block:"start"});
+    });
+  };
+
   const addItem = async () => {
     if (readError || loading) { toast.error("Atualize a leitura M3 antes de registrar."); return; }
     if (saving) return;
@@ -993,17 +1002,17 @@ export default function NucleoDevelopmentCenter() {
         </p>
         {items.filter(i => i.kind === "modulo").map(mod => (
           <div key={mod.id} className="rounded-md border px-3 py-2 space-y-1">
-            <button type="button" className="text-sm font-medium hover:underline" onClick={() => choose(mod.id)}>
+            <button type="button" className="text-sm font-medium hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===mod.id?"true":undefined} onClick={() => openTreeItem(mod.id)}>
               {mod.code} — {mod.title}
             </button>
             {items.filter(i => i.parent_id === mod.id).map(front => (
               <div key={front.id} className="ml-3 pl-3 border-l space-y-1">
-                <button type="button" className="text-xs font-medium hover:underline" onClick={() => choose(front.id)}>
+                <button type="button" className="text-xs font-medium hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===front.id?"true":undefined} onClick={() => openTreeItem(front.id)}>
                   {front.code} — {front.title}
                 </button>
                 {items.filter(i => i.parent_id === front.id).map(sub => (
                   <div key={sub.id} className="ml-3 pl-3 border-l">
-                    <button type="button" className="text-xs hover:underline" onClick={() => choose(sub.id)}>
+                    <button type="button" className="text-xs hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===sub.id?"true":undefined} onClick={() => openTreeItem(sub.id)}>
                       {sub.code} — {sub.title}
                     </button>
                   </div>
@@ -1192,7 +1201,7 @@ export default function NucleoDevelopmentCenter() {
           })}
         </div>
       </section>}
-        <Card id="nucleo-m3-workstream-detail" tabIndex={-1} className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full">
+        <Card id="nucleo-m3-workstream-detail" tabIndex={-1} className="p-4 md:p-5 space-y-4 min-w-0 scroll-mt-28 w-full focus-visible:ring-2 focus-visible:ring-ring">
           {!selected ? (
             <div>
               <h3 className="font-semibold text-sm">Ficha da frente</h3>
