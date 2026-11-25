@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { preparedReferences } from "@/lib/nucleo/preparedReferences";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * AC-02 / CA-16/29 — consumidor funcional do endpoint protegido já existente.
@@ -109,21 +111,31 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
  moduleId:string;moduleCode:string;
  onViewWorkstreams?:()=>void;onViewDocuments?:()=>void;onViewMandates?:()=>void;
 }){
+ const {session,loading}=useAuth();
+ const sessionUid=loading?null:session?.user?.id??null;
+ const scopeRef=useRef({sessionUid,moduleId,moduleCode});
+ scopeRef.current={sessionUid,moduleId,moduleCode};
+ const [owner,setOwner]=useState<{uid:string;moduleId:string;moduleCode:string}|null>(null);
  const [busy,setBusy]=useState(false);
  const [draft,setDraft]=useState<SafeExport|null>(null);
  const [registry,setRegistry]=useState<RegistryProjection|null>(null);
  const [error,setError]=useState("");
  const [copied,setCopied]=useState(false);
  const counter=useRef(0);
+ const visibleDraft=owner?.uid===sessionUid&&owner?.moduleId===moduleId&&owner?.moduleCode===moduleCode?draft:null;
+ const sources=visibleDraft?preparedReferences.filter(p=>p.moduleId===moduleId):[];
  useEffect(()=>{
-  counter.current++;setDraft(null);setRegistry(null);setError("");setCopied(false);setBusy(false);
+  counter.current++;setOwner(null);setDraft(null);setRegistry(null);setError("");setCopied(false);setBusy(false);
   return ()=>{counter.current++;};
- },[moduleId,moduleCode]);
+ },[moduleId,moduleCode,sessionUid]);
  async function prepare(){
   const id=++counter.current;
-  setBusy(true);setError("");setDraft(null);setRegistry(null);setCopied(false);
+  setBusy(true);setError("");setOwner(null);setDraft(null);setRegistry(null);setCopied(false);
   try{
    if(!/^[A-Z]{3}$/.test(moduleCode)||moduleCode==="NUC")throw new Error("Módulo incompatível com o contrato consultivo.");
+   const user=await supabase.auth.getUser();
+   if(id!==counter.current)return;
+   if(!sessionUid||user.error||user.data.user?.id!==sessionUid)throw new Error("Sessão pessoal não comprovada.");
    const {data,error:invokeError}=await supabase.functions.invoke("nucleo-knowledge-read",{
     body:{module_code:moduleCode,include_ac02:true,include_assumption_export:true},
    });
@@ -139,6 +151,10 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
       !isSafe(response.ac02_assumption_export)||!isRegistry(response.ac02)){
      throw new Error("Resposta de continuidade ausente, parcial ou incompatível; nenhum pacote preparado.");
    }
+   const current=await supabase.auth.getUser();
+   if(id!==counter.current||scopeRef.current.sessionUid!==sessionUid||scopeRef.current.moduleId!==moduleId||scopeRef.current.moduleCode!==moduleCode)return;
+   if(current.error||current.data.user?.id!==sessionUid)throw new Error("Identidade da consulta não confirmada.");
+   setOwner({uid:sessionUid,moduleId,moduleCode});
    setRegistry(response.ac02.global);
    setDraft(response.ac02_assumption_export);
   }catch(e){
@@ -148,9 +164,11 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
   }
  }
  async function copy(){
-  if(!draft)return;
+  if(!draft||!visibleDraft||!sessionUid)return;
   setCopied(false);
   try{
+   const current=await supabase.auth.getUser();
+   if(current.error||current.data.user?.id!==sessionUid||scopeRef.current.sessionUid!==sessionUid||scopeRef.current.moduleId!==moduleId||scopeRef.current.moduleCode!==moduleCode)return;
    await navigator.clipboard.writeText(draft.text);
    setCopied(true);
   }catch{
@@ -185,7 +203,7 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     Consultando contexto AC-02 no Core. O resultado ainda não foi validado e nenhum pacote foi preparado.
   </p>}
   {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
-  {draft&&<div className="space-y-3">
+  {visibleDraft&&draft&&<div className="space-y-3">
    <p role="status" className="text-xs">
     Contexto recebido do endpoint. {draft.unresolved.length} ressalva(s) de continuidade.
     O texto permanece NÃO HOMOLOGADO até verificação humana.
@@ -229,6 +247,17 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
        </details>}
      <p className="text-xs text-muted-foreground">{registry.usageLimit}</p>
    </div>}
+   <details className="rounded-md border p-3 space-y-2" aria-label="Índice consultivo de fontes versionadas">
+    <summary className="cursor-pointer text-sm font-semibold">Fontes versionadas para recuperar conhecimento</summary>
+    <p className="text-xs text-muted-foreground">Catálogo estático de referências preparadas, separado do pacote oficial. Os links identificam commits e os checksums registram a origem inventariada. Não certificam vigência, leitura atual, permissão externa ou registro AC-01 nesta consulta.</p>
+    {sources.length===0?<p className="text-xs">Nenhuma referência preparada neste catálogo para o módulo. Consulte AC-01; não significa ausência de fontes.</p>:
+     <ul className="space-y-2">{sources.map(ref=><li key={ref.requestId} className="rounded-md border p-2 text-xs space-y-1">
+       <a className="font-semibold underline break-words" href={ref.locator} target="_blank" rel="noopener noreferrer">{ref.title}</a>
+       <p className="break-all">SHA-256 inventariado: {ref.checksum}</p>
+       <p className="text-muted-foreground">{ref.note}</p>
+     </li>)}</ul>}
+    <p className="text-xs text-muted-foreground">Abra a origem com sua própria autorização; confira método, versões, FM-09/10 e decisões no Core. Nenhum conteúdo privado é copiado ou transferido por este índice.</p>
+   </details>
    <section aria-label="Etapas de assunção — comprovações" className="rounded-xl border p-3">
      <h6 className="text-sm font-semibold">Situação do Pacote Oficial de Assunção</h6>
      <p className="text-xs text-muted-foreground">Preparação é somente um rascunho da sessão. Não existe aqui registro de disponibilização, entrega, recebimento ou aceite.</p>
