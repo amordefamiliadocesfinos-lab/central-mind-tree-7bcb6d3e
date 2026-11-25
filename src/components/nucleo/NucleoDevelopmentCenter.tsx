@@ -103,7 +103,7 @@ const preparedCheckpointP2 = [
 
 const emptyDraft = {
   code: "", title: "", parent_id: "", kind: "modulo" as DevelopmentKind,
-  description: "", specialist: "", acceptance_criteria: "",
+  description: "", specialist: "", acceptance_criteria: "", next_action: "",
 };
 function cleanCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 60);
@@ -385,6 +385,7 @@ export default function NucleoDevelopmentCenter() {
       code: draft.code, title: draft.title.trim(), kind: draft.kind,
       parent_id: draft.parent_id || null, description: draft.description,
       specialist: draft.specialist, acceptance_criteria: draft.acceptance_criteria,
+      next_action: draft.next_action.trim(),
     };
     setSaving(true);
     try {
@@ -903,6 +904,10 @@ export default function NucleoDevelopmentCenter() {
           </div>
           <label className="text-xs space-y-1 block">Escopo original
             <Textarea value={draft.description} onChange={e => setDraft(v => ({...v,description:e.target.value}))}/>
+          </label>
+          <label className="text-xs space-y-1 block">Próxima ação (se conhecida)
+            <Textarea value={draft.next_action} onChange={e => setDraft(v => ({...v,next_action:e.target.value}))}
+              placeholder="Ação concreta para continuar a frente; deixe em branco se ainda não definida."/>
           </label>
           </fieldset>
           <Button size="sm" disabled={saving} onClick={addItem}>Salvar sem substituir histórico</Button>
