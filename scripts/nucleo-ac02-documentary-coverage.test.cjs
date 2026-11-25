@@ -13,7 +13,14 @@ const input=[
  {sectionCode:"FM-09",id:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",versionNo:5,authorityState:"vigente",evidenceLevel:null,recordedAt:"2026-11-14T14:00:00Z",sourcePresent:true},
 ];
 const x=docs.describeAc02DocumentaryCoverage(input,true);
-assert.equal(x.entries.length,3);
+assert.equal(x.entries.length,4);
+assert.equal(x.entries[3].sectionCode,"FM-10");
+assert.equal(x.entries[3].status,"sem_registro");
+const lesson={...input[2],sectionCode:"FM-10",id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",authorityState:"rascunho",sourcePresent:true};
+const withLesson=docs.describeAc02DocumentaryCoverage([...input,lesson],true);
+assert.equal(withLesson.entries[3].status,"referencia_core_declarada");
+assert.equal(withLesson.entries[3].authorityState,"rascunho");
+assert.ok(withLesson.warnings.some(v=>v.includes("não comprova uma experiência real")));
 assert.equal(x.entries[2].versionNo,5);
 assert.equal(x.operationalCheckpointVerified,false);
 assert.equal(x.distinctMethodAndEcosystemVerified,false);
@@ -38,10 +45,11 @@ const exp=load("supabase/functions/_shared/nucleo/ac02-assumption-export.ts",nam
 const packet=exp.composeAc02AssumptionExport({
  projection:registry.buildAc02Registry([],"2026-11-14T19:00:00Z"),
  specialist:{moduleId:id,moduleCode:"CRM",methodRef:null,ecosystemRef:null,scopeRef:null,checkpointRef:null,specialistRole:"",sourceRefs:["token=SECRET"],checkedAt:null,access:"nao_verificado"},
- moduleTitle:"private=secret",preparedAt:"2026-11-14T19:00:00Z",documentary:input,documentaryReadComplete:true,
+ moduleTitle:"private=secret",preparedAt:"2026-11-14T19:00:00Z",documentary:[...input,lesson],documentaryReadComplete:true,
 });
 assert.match(packet.text,/Cobertura documental e checkpoint/);
 assert.match(packet.text,/FM-09: referencia_core_declarada/);
+assert.match(packet.text,/FM-10: referencia_core_declarada/);
 assert.ok(packet.text.includes("Último checkpoint operacional comprovado: NÃO"));
 assert.ok(!packet.text.includes("SECRET")&&!packet.text.includes("private=secret"));
 const endpoint=fs.readFileSync("supabase/functions/nucleo-knowledge-read/index.ts","utf8");
