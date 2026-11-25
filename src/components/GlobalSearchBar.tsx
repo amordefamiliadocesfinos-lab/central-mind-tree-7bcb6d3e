@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Search, FileText, Box, X, GripVertical, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { getCrmRouteBlockReason } from "@/lib/crm/crmRouteNavigationGuards";
@@ -89,6 +89,10 @@ export function GlobalSearchBar({ onNodeSelect }: GlobalSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Only the Núcleo docks the existing global search in the page flow.
+  // Keep the draggable position and all search/navigation contracts elsewhere.
+  const dockedInNucleo = /^\/nucleo\/?$/.test(pathname);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -314,24 +318,27 @@ export function GlobalSearchBar({ onNodeSelect }: GlobalSearchBarProps) {
   return (
     <div
       ref={containerRef}
-      style={{
+      aria-label="Busca global de nós e tarefas"
+      style={dockedInNucleo ? undefined : {
         left: position.x,
         top: position.y,
         width: isFocused ? expandedWidth : collapsedWidth,
         maxWidth: 'calc(100vw - 16px)',
       }}
-      className={`fixed z-50 transition-[width] duration-200 ${isDragging ? 'cursor-grabbing' : ''}`}
+      className={dockedInNucleo
+        ? "relative mx-auto flex w-full max-w-[1580px] justify-end px-3 pt-2 sm:px-5"
+        : `fixed z-50 transition-[width] duration-200 ${isDragging ? 'cursor-grabbing' : ''}`}
     >
-      <div className="bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg">
+      <div className={`bg-background/95 backdrop-blur-sm border rounded-lg ${dockedInNucleo ? "w-full max-w-xs" : "shadow-lg"}`}>
         <div className="relative p-2 flex items-center gap-1">
-          <div
+          {!dockedInNucleo && <div
             onMouseDown={handleDragStart}
             onTouchStart={handleDragStart}
             className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded touch-none select-none"
             title="Arrastar"
           >
             <GripVertical className="h-4 w-4 text-muted-foreground" />
-          </div>
+          </div>}
           
           <div className="relative flex-1">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -349,7 +356,8 @@ export function GlobalSearchBar({ onNodeSelect }: GlobalSearchBarProps) {
               onBlur={() => {
                 if (!query) setIsFocused(false);
               }}
-              placeholder="Pesquisar..."
+              aria-label="Pesquisar nós e tarefas"
+              placeholder={dockedInNucleo ? "Busca global: nós e tarefas" : "Pesquisar..."}
               className="pl-7 pr-7 h-8 text-sm"
             />
             {!isFocused && !query && (
