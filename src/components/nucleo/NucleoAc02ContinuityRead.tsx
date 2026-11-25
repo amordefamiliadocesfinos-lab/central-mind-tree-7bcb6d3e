@@ -214,6 +214,9 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
    Consulta o Core pela sessão autenticada e concessão nucleo_manage. Não concede acesso,
    não transmite conteúdo automaticamente e não certifica fontes, método ou recebimento.
   </p>
+  <Button type="button" className="min-h-11" onClick={prepare} disabled={busy}>
+   {busy?"Consultando Core…":"Preparar contexto de continuidade"}
+  </Button>
   <nav aria-label="Conferir contexto antes da assunção" className="rounded-md border p-3 space-y-2">
    <p className="text-xs font-semibold">Localizar o contexto para continuar</p>
    <p className="text-xs text-muted-foreground">
@@ -226,9 +229,6 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     {onViewMandates&&<Button type="button" size="sm" variant="outline" onClick={onViewMandates}>Mandatos e limites</Button>}
    </div>
   </nav>
-  <Button type="button" size="sm" variant="outline" onClick={prepare} disabled={busy}>
-   {busy?"Consultando Core…":"Preparar contexto de continuidade"}
-  </Button>
   {busy&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
     Consultando contexto AC-02 no Core. O resultado ainda não foi validado e nenhum pacote foi preparado.
   </p>}

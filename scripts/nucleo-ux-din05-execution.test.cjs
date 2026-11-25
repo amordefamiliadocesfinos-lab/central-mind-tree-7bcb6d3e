@@ -46,3 +46,15 @@ assert(editor.includes('Editar próxima ação'),"Editing is explicit");
 assert(editor.includes('Responsável declarado')&&editor.includes('Bloqueio registrado'),"Declared actor and blocker visible");
 assert(editor.includes('Voltar à visão geral')&&src.includes('id="nucleo-overview-heading"'),"Direct overview return with focus");
 console.log("UX-DIN-05: priority action, progressive editor, M4 on demand and history safety PASS");
+
+const ts=require("typescript"),vm=require("node:vm");
+const helper=fs.readFileSync("src/lib/nucleo/managerActionV13.ts","utf8");
+const out=ts.transpileModule(helper,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const env={exports:{}};vm.runInNewContext(out,env);
+const excerpt=env.exports.explicitNextActionExcerpt;
+const literal="reconciliar método com o especialista, sem fabricar resultado. Não equivale a homologação.";
+assert.equal(excerpt("Contexto histórico. Próxima ação: "+literal+"\n\nRevisão documental posterior."),literal);
+assert.equal(excerpt("Somente texto sem marcador."),null);
+assert.equal(excerpt("Próxima ação: Conferir fonte. Próxima ação: Conferir outro dado."),null);
+assert(editor.includes("Registro integral, contexto e ressalvas")&&editor.includes("{selected.next_action}"),"Full source still visible on demand");
+assert(src.includes("Atalhos de acompanhamento dos outros módulos")&&src.includes("Panorama detalhado das frentes"),"Reduce repeated blocks without dropping callbacks");

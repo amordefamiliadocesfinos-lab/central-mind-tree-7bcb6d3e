@@ -565,9 +565,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <label className="relative block max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
-              placeholder="Buscar CRM, Financeiro, Operações…" />
+            <Input id="nucleo-atlas-module-search" aria-label="Buscar somente módulos no catálogo" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
+              placeholder="Filtrar catálogo: CRM, Financeiro, Operações…" aria-describedby="nucleo-atlas-search-scope" />
           </label>
+          <p id="nucleo-atlas-search-scope" className="text-sm text-muted-foreground">Esta busca filtra somente os cartões de módulos deste catálogo, não as frentes ou documentos de toda a página.</p>
           <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} onOpenWorkstream={onSelectWorkstream} />
           {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
             {catalog.length===0
@@ -1154,11 +1155,15 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           {selectedRecord && (moduleSection==="especialista" || specialistVisited) && (
             <section hidden={moduleSection!=="especialista"} className="rounded-lg border p-3 md:p-4 space-y-3" aria-label="Especialista, método e autoridade formal">
               <div className="space-y-1">
-                <h4 className="text-sm font-semibold">Especialista, método e frentes vinculadas</h4>
+                <h4 className="text-base font-semibold">Quem acompanha e como continuar</h4>
                 <p className="text-xs text-muted-foreground">
-                  A responsabilidade textual do M3, a proveniência do método e o mandato
-                  registrado no Core são evidências diferentes. Nenhuma é promovida automaticamente.
+                  Responsabilidade declarada, método e mandato são registros distintos. Nenhuma autoridade é presumida.
                 </p>
+              </div>
+              <div className="rounded-lg border p-3 space-y-2">
+                <p className="text-sm font-medium">Responsável declarado: {selectedRecord.specialist.trim()||"Não identificado no registro"}</p>
+                <p className="text-sm text-muted-foreground">O nome ou papel declarado não comprova mandato. A falta de vínculo por nome não significa que ninguém acompanhe o módulo.</p>
+                {specialistPanel!=="continuidade"&&<Button type="button" className="min-h-11" size="sm" onClick={()=>openSpecialistPanel("continuidade")}>Retomar trabalho e contexto</Button>}
               </div>
               {selectedRecord.code==="CRM"&&<section aria-label="Atalho de continuidade documental CRM" className="rounded-lg border p-3 space-y-2">
                 <p className="text-sm font-semibold">Jornada do CRM · Especialista → AC-01 → AC-02</p>
@@ -1192,7 +1197,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {([
                   {id:"papel",label:"Papel e método"},
                   {id:"mandato",label:"Mandatos e limites"},
-                  {id:"continuidade",label:"Continuidade AC-02"},
+                  {id:"continuidade",label:"Retomar trabalho e contexto"},
                   {id:"documentos",label:"Documentos AC-01"},
                 ] as const).map(item=>(
                   <button key={item.id} type="button"
@@ -1238,6 +1243,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     {specialistWork.length} frente(s)/subfrente(s) com vínculo textual exato;
                     {" "}{specialistPending.length} pendente(s);
                     {" "}{specialistPending.filter(item=>item.evidence_state!=="comprovada").length} pendente(s) sem prova marcada como comprovada no M3.
+                    {specialistWork.length===0&&" Nenhum vínculo textual encontrado nesta leitura; isso não significa ausência de trabalho."}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Último evento M3 localizado para esse vínculo: {specialistLatestEvent
@@ -1289,6 +1295,12 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <div id="nucleo-specialist-continuidade" hidden={specialistPanel!=="continuidade"}
                 aria-hidden={specialistPanel!=="continuidade"} className="space-y-3">
                 {specialistPanelVisited.includes("continuidade")&&<>
+                  <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
+                    onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
+                    onViewDocuments={()=>openSpecialistPanel("documentos")}
+                    onViewResume={()=>focusContinuityRegion("nucleo-resume-module-context")}
+                    onViewLearning={openContinuityFm}
+                    onViewMandates={()=>openSpecialistPanel("mandato")}/>
                   <section className="rounded-xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 space-y-2 dark:border-blue-900 dark:bg-blue-950/20"
                     aria-label="F5 — checkpoints e próximos passos M3 do módulo">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1417,12 +1429,6 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     onOpenWorkstream={onSelectWorkstream}
                     onOpenDocuments={()=>openSpecialistPanel("documentos")}
                     onOpenMandates={()=>openSpecialistPanel("mandato")}/>
-                  <NucleoAc02ContinuityRead key={selectedRecord.id} moduleId={selectedRecord.id} moduleCode={selectedRecord.code}
-                    onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}
-                    onViewDocuments={()=>openSpecialistPanel("documentos")}
-                    onViewResume={()=>focusContinuityRegion("nucleo-resume-module-context")}
-                    onViewLearning={openContinuityFm}
-                    onViewMandates={()=>openSpecialistPanel("mandato")}/>
                 </>}
               </div>
               <div id="nucleo-specialist-documentos" hidden={specialistPanel!=="documentos"}

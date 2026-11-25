@@ -93,6 +93,7 @@ test('F6-O.1b inspects invoice and logistics parameters without mutation', async
     shipping_carrier: 'SPX',
     package_number: 'PKG-123',
     package_count: 1,
+    split_up: null,
     package_logistics_status: 'LOGISTICS_READY',
     invoice_status: 'valid',
     invoice_pending_reason: '',
@@ -117,6 +118,7 @@ test('F6-O.1b inspects invoice and logistics parameters without mutation', async
     'package_list',
     'shipping_carrier',
     'invoice_data',
+    'split_up',
   ]);
   assert.equal(calls[1][0], 'shipping');
   assert.equal(calls[1][1].packageNumber, 'PKG-123');

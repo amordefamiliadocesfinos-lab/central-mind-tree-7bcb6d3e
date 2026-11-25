@@ -59,3 +59,16 @@ assert(chooseSection.indexOf('    setReturnToAtlas(false);\n    setSelectedId(id
 assert(s.includes('if (!choose(id)) return;\n              setReturnToAtlas(true);'),"Atlas só registra origem após seleção aceita");
 console.log("UX V2.7: filters are actionable; unsafe scroll prevented");
 console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contracts");
+
+/* P6 H03-R/H08-R: identity-based deduplication and route-local docking. */
+assert(s.includes('resumeItem.id===crmAttention.id'),"Deduplicate by stable ID, not by label");
+assert(s.includes('resumeIsCrmAttention')&&s.includes('A próxima ação e o registro integral estão no cartão acima.'),"Same action is presented only in CRM card");
+assert(s.includes('<OverviewAction value={crmAttention.next_action||""}/>')&&s.includes('<OverviewAction value={resumeItem.next_action?.trim()||""}/>'),"Reuse literal excerpt for distinct fronts");
+assert(s.includes('const excerpt=explicitNextActionExcerpt(value)')&&s.includes('Registro integral e ressalvas')&&s.includes('{value}</p>'),"Keep complete original and limitations");
+assert(s.includes('Ver alterações do checkpoint')&&s.includes('resumeCheckpointSummary.changes.slice(0,2)'),"Historical text remains expandable");
+const globalSearch=fs.readFileSync("src/components/GlobalSearchBar.tsx","utf8");
+assert(globalSearch.includes('const dockedInNucleo = /^\\/nucleo\\/?$/.test(pathname);'),"Dock only Núcleo route");
+assert(globalSearch.includes('style={dockedInNucleo ? undefined : {')&&globalSearch.includes('relative mx-auto flex w-full'),"In-flow search, not overlay");
+assert(globalSearch.includes('!dockedInNucleo && <div')&&globalSearch.includes('fixed z-50 transition-[width]'),"Dragging elsewhere unchanged");
+assert(globalSearch.includes('const POSITION_KEY = "pc.searchbar.position"')&&globalSearch.includes('getCrmRouteBlockReason()')&&globalSearch.includes('e.key === "/"'),"Position, navigation protection and shortcut retained");
+assert(globalSearch.includes('if (isMobile) return null;'),"Existing mobile policy unchanged");

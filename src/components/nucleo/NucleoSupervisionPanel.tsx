@@ -259,12 +259,11 @@ export default function NucleoSupervisionPanel({
                   <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir dependência {target.code}</Button>
                 ))}
                 {finding.evidenceIds.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    {finding.evidenceIds.length} evidência(s) associada(s), com origem verificável:
-                  </p>
-                )}
+                  <details className="mt-2 rounded-md border p-2">
+                    <summary className="cursor-pointer text-sm font-medium">Ver {finding.evidenceIds.length} evidência(s) associada(s)</summary>
+                    <div className="mt-2 space-y-3">
                 {findNucleoFindingSources(finding, evidence).map(source => (
-                  <div key={source.id} className="text-[11px] text-muted-foreground space-y-0.5">
+                  <div key={source.id} className="text-sm text-muted-foreground space-y-1 break-words">
                     <p>{source.source}/{source.kind} · {source.externalKey} · {source.title}</p>
                     <p>Registro: {source.recordedAt} · conferência: {source.checkedAt ?? "não informada"}</p>
                     {source.referenceUrl && (
@@ -273,6 +272,9 @@ export default function NucleoSupervisionPanel({
                     )}
                   </div>
                 ))}
+                    </div>
+                  </details>
+                )}
               </div>
             ))}
           </div>
