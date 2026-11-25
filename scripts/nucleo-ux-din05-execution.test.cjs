@@ -6,10 +6,10 @@ const editor=src.slice(src.indexOf('id="nucleo-m3-workstream-detail"'));
 assert(editor.length>8000,"Existing complete M3 editor still present");
 const requirements=[
   "NÚCLEO / FOCO / EXECUÇÃO",
-  "PRÓXIMA AÇÃO · EDITÁVEL",
+  "O que fazer agora",
   "Atualizar próxima ação",
   "Alterações não salvas nesta frente",
-  "Voltar ao foco",
+  "Voltar aos filtros de frentes",
   "Editar demais dados da frente",
   "Consultar provas M4",
   "Consulta de evidências técnicas M4",
@@ -26,7 +26,7 @@ const requirements=[
 for(const req of requirements)assert(src.includes(req),"DIN-05 inherited functional guarantee: "+req);
 assert.equal(editor.split('value={edit.next_action||""}').length-1,1,"One controlled Next Action input");
 assert.equal(editor.split('onClick={saveItem}').length-1,1,"One visible save action");
-assert(editor.indexOf("PRÓXIMA AÇÃO · EDITÁVEL")<editor.indexOf("Editar demais dados da frente"),
+assert(editor.indexOf("O que fazer agora")<editor.indexOf("Editar demais dados da frente"),
   "Next Action must be above advanced editor fields");
 assert(editor.indexOf("Consultar provas M4")>editor.indexOf("Editar demais dados da frente"),
   "Evidence remains an optional detail");
@@ -40,4 +40,9 @@ assert(create.includes('.insert(payload).select("id").maybeSingle()'),"Existing 
 assert(create.includes('Object.entries(payload).every(([key,value])=>record[key]===value)'),"Readback includes action");
 assert(create.includes('matches(audit.data.after_state as Record<string,unknown>)'),"Creation event verifies action");
 assert(create.includes("setDraft(emptyDraft)"),"Successful creation clears draft");
+assert(editor.indexOf('aria-label="O que fazer agora"')<editor.indexOf('aria-label="Navegação operacional das frentes CRM"'),"Canonical action precedes module shortcuts");
+assert(editor.includes('selected.next_action.trim()||"Nenhuma próxima ação registrada nesta frente."'),"Read mode uses persisted record, not draft");
+assert(editor.includes('Editar próxima ação'),"Editing is explicit");
+assert(editor.includes('Responsável declarado')&&editor.includes('Bloqueio registrado'),"Declared actor and blocker visible");
+assert(editor.includes('Voltar à visão geral')&&src.includes('id="nucleo-overview-heading"'),"Direct overview return with focus");
 console.log("UX-DIN-05: priority action, progressive editor, M4 on demand and history safety PASS");
