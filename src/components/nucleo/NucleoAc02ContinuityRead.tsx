@@ -31,7 +31,34 @@ type RegistryProjection={
   conflicts:string[];missingChecks:string[];usageLimit:string;
 };
 type RegistryEnvelope={kind:"nucleo_ac02_assuncao_rascunho";global:RegistryProjection};
+// Only the existing authenticated response; no new query, storage or portable export.
+type LearningSection="FM-09"|"FM-10";
+type LearningRevision={id:string;version:number;title:string;body:string;authority:string;evidence:string;recordedAt:string;sourcePresent:boolean};
+type LearningView={section:LearningSection;state:"presente"|"ausente"|"indeterminado";revision?:LearningRevision};
+export function readLearningSections(value:unknown,moduleId:string):LearningView[]{
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ const record=(v:unknown):Record<string,unknown>|null=>v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
+ return (["FM-09","FM-10"] as const).map((section):LearningView=>{
+  const unknown:LearningView={section,state:"indeterminado"};
+  if(!Array.isArray(value)||value.length!==10)return unknown;
+  const rows=value.map(record);
+  if(rows.some(r=>!r)||new Set(rows.map(r=>r?.section_code)).size!==10||
+    !rows.every(r=>typeof r?.section_code==="string"&&/^FM-(0[1-9]|10)$/.test(r.section_code)))return unknown;
+  const row=rows.find(r=>r?.section_code===section);
+  if(row?.state==="sem_registro"&&row.revision===null)return {section,state:"ausente"};
+  const r=record(row?.revision);
+  if(row?.state!=="registro_core"||!r||r.module_id!==moduleId||r.section_code!==section||
+   typeof r.id!=="string"||!uuid.test(r.id)||typeof r.version_no!=="number"||!Number.isSafeInteger(r.version_no)||r.version_no<1||
+   typeof r.title!=="string"||r.title.length>1000||typeof r.body!=="string"||r.body.length>100000||
+   typeof r.authority_state!=="string"||!["rascunho","proposta","homologado","historico"].includes(r.authority_state)||
+   typeof r.evidence_level!=="string"||!["declarado","codigo_verificado","uso_real_verificado","proposta","nao_verificado"].includes(r.evidence_level)||
+   typeof r.recorded_at!=="string"||!Number.isFinite(Date.parse(r.recorded_at)))return unknown;
+  return {section,state:"presente",revision:{id:r.id,version:r.version_no,title:r.title,body:r.body,authority:r.authority_state,evidence:r.evidence_level,recordedAt:r.recorded_at,sourcePresent:typeof r.source_reference==="string"&&r.source_reference.trim().length>0}};
+ });
+}
+
 type ReadResponse={
+ sections?:unknown;
  contract:string;
  module?:{id:string;code:string};
  ac02_assumption_export?:SafeExport;
@@ -119,18 +146,19 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
  const [busy,setBusy]=useState(false);
  const [draft,setDraft]=useState<SafeExport|null>(null);
  const [registry,setRegistry]=useState<RegistryProjection|null>(null);
+ const [learning,setLearning]=useState<LearningView[]>([]);
  const [error,setError]=useState("");
  const [copied,setCopied]=useState(false);
  const counter=useRef(0);
  const visibleDraft=owner?.uid===sessionUid&&owner?.moduleId===moduleId&&owner?.moduleCode===moduleCode?draft:null;
  const sources=visibleDraft?preparedReferences.filter(p=>p.moduleId===moduleId):[];
  useEffect(()=>{
-  counter.current++;setOwner(null);setDraft(null);setRegistry(null);setError("");setCopied(false);setBusy(false);
+  counter.current++;setOwner(null);setDraft(null);setRegistry(null);setLearning([]);setError("");setCopied(false);setBusy(false);
   return ()=>{counter.current++;};
  },[moduleId,moduleCode,sessionUid]);
  async function prepare(){
   const id=++counter.current;
-  setBusy(true);setError("");setOwner(null);setDraft(null);setRegistry(null);setCopied(false);
+  setBusy(true);setError("");setOwner(null);setDraft(null);setRegistry(null);setLearning([]);setCopied(false);
   try{
    if(!/^[A-Z]{3}$/.test(moduleCode)||moduleCode==="NUC")throw new Error("Módulo incompatível com o contrato consultivo.");
    const user=await supabase.auth.getUser();
@@ -156,6 +184,7 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
    if(current.error||current.data.user?.id!==sessionUid)throw new Error("Identidade da consulta não confirmada.");
    setOwner({uid:sessionUid,moduleId,moduleCode});
    setRegistry(response.ac02.global);
+   setLearning(readLearningSections(response.sections,moduleId));
    setDraft(response.ac02_assumption_export);
   }catch(e){
    if(id===counter.current)setError(e instanceof Error?e.message:"Falha indeterminada ao consultar o Core.");
@@ -247,6 +276,26 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
        </details>}
      <p className="text-xs text-muted-foreground">{registry.usageLimit}</p>
    </div>}
+   <section className="rounded-md border p-3 space-y-3" aria-label="Experiências e checkpoints F5">
+    <h6 className="font-semibold text-sm">Evolução e aprendizagem · F5</h6>
+    <p className="text-xs text-muted-foreground">Revisões retornadas pela leitura autorizada do Core. O conteúdo consultado nesta sessão não integra o pacote portátil. Estado e evidência são declarados na revisão, não verificados por este painel.</p>
+    {learning.map(item=><article key={item.section} className="rounded-md border p-2 space-y-2 text-xs">
+     <p className="font-semibold">{item.section} · {item.section==="FM-09"?"Evolução e checkpoint":"Erros, acertos e aprendizagem"}</p>
+     {item.state==="ausente"&&<p>Sem revisão retornada neste recorte autorizado; não significa ausência global de conhecimento.</p>}
+     {item.state==="indeterminado"&&<p>Leitura ausente ou incompatível. Consulte a Ficha Viva na origem.</p>}
+     {item.revision&&<>
+      <p className="font-medium">{item.revision.title} · v{item.revision.version}</p>
+      <p>Autoridade declarada: {item.revision.authority} · Evidência declarada: {item.revision.evidence}</p>
+      <p className="break-all">Revisão {item.revision.id} · {new Date(item.revision.recordedAt).toLocaleString("pt-BR")}</p>
+      <p>Referência de origem: {item.revision.sourcePresent?"preenchida, conferir na Ficha Viva":"ausente na revisão"}</p>
+      <details><summary className="cursor-pointer font-medium">Ler conteúdo original da revisão retornada</summary>
+       <p className="whitespace-pre-wrap break-words max-h-80 overflow-auto mt-2">{item.revision.body}</p>
+      </details>
+     </>}
+    </article>)}
+    <p className="text-xs text-muted-foreground">Confronte FM-09/10 com fatos M3/M4 e versões anteriores antes de reutilizar uma lição ou retomar uma frente. Nenhuma decisão ou aceite é inferido.</p>
+    {onViewWorkstreams&&<Button type="button" variant="outline" size="sm" onClick={onViewWorkstreams}>Conferir frentes e evidências M3/M4</Button>}
+   </section>
    <details className="rounded-md border p-3 space-y-2" aria-label="Índice consultivo de fontes versionadas">
     <summary className="cursor-pointer text-sm font-semibold">Fontes versionadas para recuperar conhecimento</summary>
     <p className="text-xs text-muted-foreground">Catálogo estático de referências preparadas, separado do pacote oficial. Os links identificam commits e os checksums registram a origem inventariada. Não certificam vigência, leitura atual, permissão externa ou registro AC-01 nesta consulta.</p>

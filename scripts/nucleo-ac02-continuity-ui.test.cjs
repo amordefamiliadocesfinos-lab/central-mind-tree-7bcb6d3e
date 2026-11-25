@@ -20,4 +20,20 @@ assert(!/\.from\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(ui),
 assert(ui.includes('onClick={prepare}'),"Consult only on explicit action");
 assert(ui.includes("setDraft(null)"),"Clear prior result on retry or module switch");
 assert(atlas.includes("<NucleoAc02ContinuityRead key={selectedRecord.id}"),"Mount in existing specialist area");
+// Execute the pure parser independently of React and auth mocks.
+const helper=ui.slice(ui.indexOf('type LearningSection='),ui.indexOf('type ReadResponse='));
+const mod={exports:{}};
+new Function('exports',ts.transpileModule(helper,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(mod.exports);
+const read=mod.exports.readLearningSections;
+const id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const rows=Array.from({length:10},(_,i)=>({section_code:"FM-"+String(i+1).padStart(2,"0"),state:"sem_registro",revision:null}));
+const revision={id,module_id:id,section_code:"FM-10",version_no:1,title:"Lição",body:"Texto autorizado",authority_state:"rascunho",evidence_level:"declarado",recorded_at:"2026-11-24T00:00:00Z",source_reference:"origem"};
+rows[9]={section_code:"FM-10",state:"registro_core",revision};
+assert.equal(read(rows,id)[0].state,"ausente");
+assert.equal(read(rows,id)[1].revision.body,"Texto autorizado");
+assert.equal(read(rows,"different")[1].state,"indeterminado");
+assert.equal(read(rows.slice(1),id)[1].state,"indeterminado");
+assert.equal(read([...rows.slice(0,9),rows[8]],id)[1].state,"indeterminado");
+assert(ui.includes("setLearning([])")&&ui.includes("readLearningSections(response.sections,moduleId)"));
+assert.equal((ui.match(/navigator.clipboard.writeText\(/g)||[]).length,1);
 console.log("AC02 continuity UI: guarded read, no implicit write/delivery, safe module scoping.");
