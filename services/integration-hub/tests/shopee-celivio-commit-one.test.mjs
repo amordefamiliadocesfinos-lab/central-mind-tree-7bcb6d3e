@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCelivioPilotCommitOne, CELIVIO_C4G_PILOT_ORDER_SN } from '../src/shopee-celivio-commit-one.mjs';
+import { createCelivioPilotCommitOne, CELIVIO_C4G_PILOT_ORDER_SN, CELIVIO_C6_ORDER_SN } from '../src/shopee-celivio-commit-one.mjs';
 import {CELIVIO_C4C_ACCOUNT_ID} from '../src/shopee-celivio-c4c-preflight.mjs';
 import {handleRequest} from '../src/app.mjs';
 
@@ -89,4 +89,31 @@ test('commit-one routes Celivio through scoped runner, leaves another account on
  assert.equal(uses[0][0],'celivio');
  assert.equal(uses[1][0],'shared');
  assert.deepEqual(uses[0][1],call);
+});
+
+
+test('C6 exact approved order uses the same scoped Core reader and refuses all other orders',async()=>{
+ assert.equal(CELIVIO_C6_ORDER_SN,'2611258Y00VM5U');
+ const reads=[];
+ let writes=0;
+ const run=createCelivioPilotCommitOne({
+   readBatch:async(data, options)=>{
+     reads.push({data,options});
+     return {ok:false,status:503};
+   },
+   persistOrder:async()=>{writes++;throw Error('unexpected write');},
+ });
+ const result=await run({...call,expectedOrderSn:CELIVIO_C6_ORDER_SN});
+ assert.equal(result.ok,false);
+ assert.equal(result.written,0);
+ assert.equal(writes,0);
+ assert.deepEqual(reads,[{
+   data:{channel_account_id:CELIVIO_C4C_ACCOUNT_ID,limit:5,order_sn:CELIVIO_C6_ORDER_SN},
+   options:{timeoutMs:12_000},
+ }]);
+ for(const sn of ['2611258Y00VM5V','2611258Y00VM5U,261121TBS6BHE6','']){
+   const rejected=await run({...call,expectedOrderSn:sn});
+   assert.equal(rejected.code,'celivio_c4g_scope_invalid');
+ }
+ assert.equal(reads.length,1);
 });
