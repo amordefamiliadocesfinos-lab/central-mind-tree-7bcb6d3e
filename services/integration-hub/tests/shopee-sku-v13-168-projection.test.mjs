@@ -23,7 +23,7 @@ test('Jornada SKU 168: 4 contas x 42 models, 42 SKUs sem colisao semantica',()=>
 });
 test('Jornada SKU 168: conserva Item/Model e nao escreve observacao ou estado publicado',()=>{
   for(const r of rows){
-    assert.equal(r.official_key,\`official:item:\${r.item_id}|model:\${r.model_id}\`);
+    assert.equal(r.official_key,`official:item:${r.item_id}|model:${r.model_id}`);
     assert.equal(r.observation_kind,'UNKNOWN');
     assert.equal(r.observed_sku,null);
     assert.equal(r.publication_allowed,false);
