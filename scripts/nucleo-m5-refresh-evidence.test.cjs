@@ -6,7 +6,12 @@ const code=fs.readFileSync("src/components/nucleo/NucleoSupervisionPanel.tsx","u
 let checks=0;
 function check(name,fn){fn();checks++;console.log("PASS "+checks+" — "+name)}
 check("Reavaliar inicia novo ciclo de consulta",()=>{
- assert.match(code,/onClick=\{\(\) => setReloadKey\(k => k \+ 1\)\}/);
+ assert.match(code,/onClick=\{reavaliar\}/);
+ const refresh=code.slice(code.indexOf("const reavaliar ="),code.indexOf("// Never infer missing evidence"));
+ assert.match(refresh,/requestGuard\.current\.invalidate\(\)/);
+ assert.match(refresh,/setLoaded\(false\)/);
+ assert.match(refresh,/setLastSuccessfulRead\(null\)/);
+ assert.match(refresh,/setReloadKey\(k => k \+ 1\)/);
  assert.match(code,/\}, \[reloadKey\]\);/);
 });
 check("cada leitura valida identidade e capacidade",()=>{
@@ -32,6 +37,8 @@ check("reavaliação mostra contador apenas no relatório aprovado",()=>{
  assert.ok(render>=0 && indicator>render);
  assert.ok(code.includes("setAuthorizedReadCount(previous => previous + 1)"));
  assert.ok(code.includes("consultas válidas nesta sessão:"));
+ assert.ok(code.includes("<time dateTime={lastSuccessfulRead}>"));
+ assert.ok(code.includes("({lastSuccessfulRead})"));
 });
 check("logout e troca de foco invalidam timestamp",()=>{
  assert.ok(code.includes("onAuthStateChange"));

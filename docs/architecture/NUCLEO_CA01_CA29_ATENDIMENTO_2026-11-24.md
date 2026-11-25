@@ -109,3 +109,16 @@ CA-06/08/20: lacuna de apresentação identificada no código M4 — SHA existen
 | Operações/Shopee/Saúde | Provas produtivas pertencem às respectivas especialidades | Não executar compra, envio ou treino pelo Núcleo |
 
 Saldo de autoria/atualidade: os textos de próxima ação de algumas raízes ainda registram antigas contagens de FM; são checkpoints históricos, não contagens dinâmicas. Atualizar apenas pelo escritor autenticado M3 e preservar histórico. CA-02/10/11/22: contagem atual de cobertura não é homologação. Nenhum CA ganha aceite humano por este delta.
+
+## Contraprova publicada do Work e saldo final — 25/11/2026
+
+Relato do Work recebido do proprietário: revisão servida 2134f2ab66b0e84cd86b1d9294a78b2f041faa33. GitHub compare independente contra merge #1116 0fe173e6567047733e6f04180fe9f54290267946: ahead 1, behind 0. Quatro checks do head #1116 0457debfd1837d3d044aba0757a491fb5579bc30 concluídos com success (integrated-counterproof, typescript-app-no-emit, postgres, build). A prova de interface é atribuída ao Work, não a uma nova sessão autenticada do especialista técnico.
+
+- CA-06/08: M4 OPE-03 #948 e SHO-F12-2 #625/#789 — recarga, isolamento de fichas, fonte e SHA de merge visualizados na publicação. Contraprova específica concluída; não repetir nem regravar. Compra real e operação da fila seguem nos portões próprios.
+- CA-03/07/10/21: Work relatou atualização da raiz NUC pelo escritor autenticado com texto anterior preservado e autoria confirmada no Core, evento ec10b2f0-5b05-4e7e-b9b6-e9fd8df91be7. Não repetir escrita.
+- CA-04/19: seleção, lista, quadro por estado e busca SHO-F12-2 com pai SHO-F12 demonstrados; árvore e histórico ponta a ponta ainda pendentes. Delta técnico desta continuidade: seleção pela árvore reutiliza choose com proteção de rascunho, indica item atual, move foco para a ficha e oferece foco visível. Não equivale a UAT.
+- CA-08: 10 alertas sobre 24 registros M3 e 54 evidências no Work; clique Reavaliar realizado sem segundo carimbo confirmado. Código já reconfirma sessão/grant, consulta três fontes e conta leituras autorizadas. Não atribuir causa à ausência de prova. Delta mínimo: invalidação imediata do relatório anterior no clique e carimbo ISO com precisão, mantendo contador apenas após leitura válida. Sem mudança RLS, regra de alerta, writer ou permissões.
+- CA-20: quadro por teclado e viewport 500px sem rolagem horizontal demonstrados; foco/contraste integral e celular físico pendentes.
+- CA-15: operador independente ainda pendente; sessão do proprietário não substitui esse requisito. F1/F2 individual adiado por decisão do proprietário. F6/F7/B fechadas.
+
+Saldo Work concentrado após integração e publicação do delta: árvore SHO → SHO-F12 → SHO-F12-2 → ficha e histórico; raiz NUC → evento já registrado; M5 Reavaliar com comparação explícita do contador e carimbo antes/depois (ou erro real); foco/contraste/teclado. Operador independente e celular físico somente quando realmente disponíveis. Sem novo aceite automático de CA e sem reabrir M4 ou repetir provas já obtidas.
