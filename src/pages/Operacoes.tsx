@@ -2005,7 +2005,7 @@ export default function Operacoes() {
             <DialogTitle>Etiqueta Shopee + Composição Interna</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Documento preparado no Painel. Confira a etiqueta e a composição antes de abrir a impressão.
+            Documento preparado em {combinedPrintPreview?.pages.length ?? 0} folha(s) A4. Confira todas as páginas oficiais e a composição antes de abrir a impressão.
           </p>
           <div className="max-h-[58vh] space-y-3 overflow-y-auto rounded border bg-muted/40 p-2">
             {combinedPrintPreview?.urls.map((url, index) => (
@@ -2013,6 +2013,7 @@ export default function Operacoes() {
                 key={url}
                 src={url}
                 alt={`Página ${index + 1} da etiqueta combinada`}
+                 title={`Folha ${index + 1} de ${combinedPrintPreview?.pages.length ?? 0}`}
                 className="mx-auto w-full max-w-[550px] bg-white shadow-sm"
               />
             ))}
