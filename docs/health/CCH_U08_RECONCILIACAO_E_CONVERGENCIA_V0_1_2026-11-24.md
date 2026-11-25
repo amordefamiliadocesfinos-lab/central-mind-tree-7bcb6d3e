@@ -26,3 +26,39 @@ C) Ciência, fotos, exames e eventual ponte mental: apenas proposta; exigir regr
 D) Contraprovas CCH U01–U07 continuam registradas na #966, adiadas até últimas sequências possíveis, sem dispensar gates. Próximo ato sugerido: consolidar backlog de homologação e reconciliar heads/diffs antes de qualquer integração autorizada; não iniciar outro módulo sem despacho.
 ## 6. Estado
 Inventário de rotas e contratos principais confirmado no código; não exaustivo de migrations, políticas, testes, versões de mapas adjacentes ou execução real. Nenhuma evidência de publicação remota ou eficácia individual produzida. U08 permanece estratégica. V6.0 FROZEN intacto.
+
+
+## 7. Continuidade U08 — contrato de passagem entre especialidades V0.2
+Autoridade: V6.0 FROZEN. Refinamento exclusivamente documental da convergência existente. Não cria API, tabela, fila, motor, telemetria, consentimento ou nova autorização. Não confundir proposta abaixo com campos efetivamente persistidos.
+
+### 7.1 Passagem de responsabilidade e evidência
+| Origem | Entrega consultiva mínima | Destino e limite |
+|---|---|---|
+| 01 Treino M3/M4/F21/E3 | versão de origem, exposições válidas, cobertura e comparabilidade, limitações | F10/F13/F14; revisão de prescrição exclusivamente E2/M3/F22 |
+| 02 Alimentação M5/M6/M7 | janela, cobertura alimentar, método de estimativa, estado nutricional e decisão vigente | F10/F11/F13/F14; revisão de plano no especialista, não no treino |
+| 03 Físico M8 | tendência, protocolo de medida, cobertura e incerteza | F10/F11/F13/F14; não encaminhar bytes de fotos, inferir percentual de gordura ou diagnosticar |
+| 04 Recuperação M9 | observações declaradas/medidas, janela e cobertura | F10/F11/F13/F14; não converter ordinal em revisão E5 por sessão |
+| 05 Exames M9 | disponibilidade, fonte, unidade, referência e necessidade de avaliação apropriada | F10 e especialista de saúde; não introduzir domínio clínico em F14 |
+| 07 Ciência | referência, população, desfecho, qualidade, aplicabilidade, limites | suporte à interpretação humana; catálogo M2 não substitui acervo científico |
+| 00/06 Central e planejamento | revisão, decisão humana, origem e pendências | devolver decisão ao especialista responsável; não duplicar registro ou autopublicar |
+
+### 7.2 Regras de junção consultiva
+- Mesmo atleta e escopo autorizado em cada fonte. Fonte ausente, erro, desatualização ou divergência de janela devem permanecer distintos; nenhuma substituição por zero, dado anterior sem rótulo ou observação de outro atleta.
+- F10 é visão atual, não diagnóstico. F11 continua limitado ao escopo nutricional observado. F13 é revisão longitudinal conforme contrato existente. F14 mantém domínios goal/training/nutrition/body/recovery. Não ampliar por analogia.
+- Não exigir que todos os domínios estejam completos para registrar treino ou alimentação. Bloquear apenas a conclusão específica dependente da fonte ausente, mantendo ações independentes válidas.
+- Conexão entre tendências de peso, desempenho, alimentação e sono é motivo para investigação, não causalidade. Manter hipóteses, fatos e decisões humanas separados. Não usar exame ou imagem para decidir medicamento, diagnóstico ou prescrição automática.
+- Reavaliar origem, versão e atualidade antes de decisão. Nenhuma passagem documental autoriza leitura de dados reais adicionais, chamada RPC de escrita ou uso de E5.
+
+### 7.3 Casos de continuidade a homologar posteriormente
+| ID | Caso sintético | Resultado esperado |
+|---|---|---|
+| U08-C01 | Nutrição indisponível e treino disponível | preservar registro de treino; não concluir adequação energética |
+| U08-C02 | Peso e treino em janelas divergentes | mostrar fontes separadas; não afirmar relação temporal |
+| U08-C03 | Troca de atleta durante leitura | descartar contexto anterior, impedir decisão cruzada |
+| U08-C04 | Revisão nutricional elegível no F11 | encaminhar especialista existente, sem alteração automática |
+| U08-C05 | Exame potencialmente relevante | encaminhar avaliação apropriada, sem item clínico novo F14 |
+| U08-C06 | Recuperação ordinal disponível sem vínculo explícito | contexto M9 permitido conforme contrato, E5 continua bloqueada |
+| U08-C07 | Atleta decide manter plano | preservar versão, histórico e decisão humana |
+| U08-C08 | Fonte científica não revisada | indicar lacuna, não apresentar hipótese como evidência validada |
+
+Casos preparados documentalmente, não executados. A U08 mantém caráter estratégico; implementação adicional exige autoridade das especialidades e decisão explícita. Sem alterar V6.0. Homologações gerais seguem postergadas por determinação do proprietário.
