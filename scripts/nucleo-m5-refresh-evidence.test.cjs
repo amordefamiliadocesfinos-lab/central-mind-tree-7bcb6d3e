@@ -14,6 +14,18 @@ check("Reavaliar inicia novo ciclo de consulta",()=>{
  assert.match(refresh,/setReloadKey\(k => k \+ 1\)/);
  assert.match(code,/\}, \[reloadKey\]\);/);
 });
+check("Reavaliar preserva foco e bloqueia reentrada durante leitura",()=>{
+ const refresh=code.slice(code.indexOf("const reavaliar ="),code.indexOf("// Never infer missing evidence"));
+ assert.match(refresh,/if \(loading\) return;/);
+ assert.ok(refresh.indexOf("if (loading) return;")<refresh.indexOf("requestGuard.current.invalidate()"));
+ const button=code.slice(code.indexOf('<Button type="button" size="sm" variant="outline"'),code.indexOf("Reavaliar\n        </Button>"));
+ assert.match(button,/aria-disabled=\{loading\}/);
+ assert.match(button,/aria-busy=\{loading\}/);
+ assert.match(button,/onClick=\{reavaliar\}/);
+ assert.doesNotMatch(button,/(?:^|\s)disabled=/);
+ assert.match(button,/focus-visible:ring-2/);
+ assert.doesNotMatch(refresh,/\.focus\(/);
+});
 check("cada leitura valida identidade e capacidade",()=>{
  for(const marker of ['client.auth.getUser()','app_admin_capabilities','"nucleo_manage"',
   'eq("active", true)','is("revoked_at", null)'])assert.ok(code.includes(marker));
