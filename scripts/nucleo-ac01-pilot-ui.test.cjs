@@ -20,3 +20,16 @@ assert.match(component,/setStatus\("uncertain"\)/);
 assert.match(component,/status!=="ready"/);
 assert.match(component,/function NucleoAc01PilotRegistration|default function NucleoAc01PilotRegistration/);
 console.log("PASS UI NUC AC01: único ponto de entrada, JWT da sessão, gate, confirmação, idempotência local, readback sem writer paralelo");
+
+const shared=fs.readFileSync("src/components/nucleo/NucleoSpecialistContributions.tsx","utf8");
+assert.match(host,/selected\.code==="NUC"&&selected\.kind==="modulo"&&selected\.id==="636768e6-e782-4c7d-8132-e7381621be12"/);
+assert.match(host,/id="nucleo-ac01-revisoes"/);
+assert.match(host,/nucAc01Visited&&<NucleoSpecialistContributions key=\{selected\.id\} moduleId=\{selected\.id\}/);
+assert.match(host,/onDraftStateChange=\{reportNucAc01Draft\}/);
+assert.match(host,/if\(nucAc01Draft\.current\.dirty\|\|nucAc01Draft\.current\.busy\)/);
+assert.match(host,/if \(nucAc01Draft\.current\.busy \|\| nucAc01Draft\.current\.dirty\)/);
+assert.match(shared,/Descartar minuta local/);
+assert.match(shared,/fence\.blocked\|\|!window\.confirm\("Descartar somente a minuta local AC-01\?"\)/);
+assert.match(shared,/setParentId\(""\);setRole\(declaredRole\|\|""\);setKind\("metodo"\);setSourceKind\("referencia_privada"\)/);
+assert.match(shared,/latestByLineage\.get\(parent\.lineage_id\)\?\.id!==parent\.id/);
+console.log("PASS NUC AC01: exact root, existing revision writer, dirty/busy guard and explicit local discard");

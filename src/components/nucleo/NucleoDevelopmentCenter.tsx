@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import NucleoTechnicalEvidence from "@/components/nucleo/NucleoTechnicalEvidence";
 import NucleoAc01PilotRegistration from "@/components/nucleo/NucleoAc01PilotRegistration";
+import NucleoSpecialistContributions from "@/components/nucleo/NucleoSpecialistContributions";
 import NucleoAc02NucContextRead from "@/components/nucleo/NucleoAc02NucContextRead";
 import NucleoIdentityContext from "@/components/nucleo/NucleoIdentityContext";
 import NucleoModuleKnowledge from "@/components/nucleo/NucleoModuleKnowledge";
@@ -151,11 +152,20 @@ export default function NucleoDevelopmentCenter() {
   const [edit, setEdit] = useState<Partial<DevelopmentWorkstream>>({});
   const [nucKnowledgeVisited,setNucKnowledgeVisited]=useState(false);
   const nucKnowledgeDraft=useRef({dirty:false,busy:false});
+  const nucAc01Draft=useRef({dirty:false,busy:false});
+  const [nucAc01Visited,setNucAc01Visited]=useState(false);
+  const reportNucAc01Draft=useCallback((value:{dirty:boolean;busy:boolean})=>{
+    nucAc01Draft.current=value;
+  },[]);
   const reportNucKnowledgeDraft=useCallback((value:{dirty:boolean;busy:boolean})=>{
     nucKnowledgeDraft.current=value;
   },[]);
 
   const refresh = useCallback(async () => {
+    if(nucAc01Draft.current.dirty||nucAc01Draft.current.busy){
+      toast.warning("Conclua ou reconcilie a revisão AC-01 do Núcleo antes de atualizar o M3.");
+      return;
+    }
     if(nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy){
       toast.warning("Conclua ou reconcilie a Ficha Viva do Núcleo antes de atualizar o M3.");
       return;
@@ -327,6 +337,10 @@ export default function NucleoDevelopmentCenter() {
     if (id === selectedId) { setReturnToAtlas(false); return true; }
     if (saving) {
       toast.warning("Aguarde a conclusão do registro antes de trocar de frente.");
+      return false;
+    }
+    if (nucAc01Draft.current.busy || nucAc01Draft.current.dirty) {
+      toast.warning("Conclua ou reconcilie o registro AC-01 antes de trocar de frente.");
       return false;
     }
     if (hasPendingChanges && !window.confirm(
@@ -1372,10 +1386,12 @@ export default function NucleoDevelopmentCenter() {
                 <div className="flex flex-wrap gap-2">
                   {([
                     ["nucleo-ac01-piloto","1 · Origem AC-01"],
-                    ["nucleo-ac02-consulta","2 · Contexto AC-02"],
+                    ["nucleo-ac01-revisoes","2 · Revisões e consolidação AC-01"],
+                    ["nucleo-ac02-consulta","3 · Contexto AC-02"],
                   ] as const).map(([target,label])=><Button key={target} type="button" variant="outline" size="sm"
                     onClick={()=>{
                       const element=document.getElementById(target);
+                      if(target==="nucleo-ac01-revisoes"&&element instanceof HTMLDetailsElement){element.open=true;setNucAc01Visited(true);}
                       element?.scrollIntoView({behavior:"smooth",block:"start"});
                       element?.focus({preventScroll:true});
                     }}>{label}</Button>)}
@@ -1385,6 +1401,14 @@ export default function NucleoDevelopmentCenter() {
               {moduleIdForWorkstream(selected,byId)&&<NucleoIdentityContext key={selected.id}
                 moduleId={moduleIdForWorkstream(selected,byId)!} frontId={selected.kind==="modulo"?null:selected.id} />}
               {selected.code==="NUC"&&<NucleoAc01PilotRegistration />}
+              {selected.code==="NUC"&&selected.kind==="modulo"&&selected.id==="636768e6-e782-4c7d-8132-e7381621be12"&&
+                <details id="nucleo-ac01-revisoes" tabIndex={-1} className="rounded-xl border p-3 scroll-mt-28"
+                  onToggle={event=>{if(event.currentTarget.open)setNucAc01Visited(true);}}>
+                  <summary className="cursor-pointer font-semibold text-sm">Revisões e consolidação documental AC-01 do Núcleo</summary>
+                  <p className="text-xs text-muted-foreground mt-2">Selecione a contribuição existente como versão de origem. Revisão não concede mandato, vigência ou acesso AC-02.</p>
+                  {nucAc01Visited&&<NucleoSpecialistContributions key={selected.id} moduleId={selected.id}
+                    moduleName={selected.title} declaredRole={selected.specialist||""} onDraftStateChange={reportNucAc01Draft}/>}
+                </details>}
               {selected.code==="NUC"&&<NucleoAc02NucContextRead />}
               {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
                 Alterações não salvas nesta frente. Salve ou confirme descarte antes de navegar para outro registro.
