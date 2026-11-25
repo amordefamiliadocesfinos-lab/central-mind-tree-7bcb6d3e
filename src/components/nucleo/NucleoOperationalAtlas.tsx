@@ -1270,7 +1270,6 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     onViewResume={()=>focusContinuityRegion("nucleo-resume-module-context")}
                     onViewLearning={openContinuityFm}
                     onViewMandates={()=>openSpecialistPanel("mandato")}/>
-                </>
                   <section className="rounded-xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 space-y-2 dark:border-blue-900 dark:bg-blue-950/20"
                     aria-label="F5 — checkpoints e próximos passos M3 do módulo">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1399,7 +1398,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     onOpenWorkstream={onSelectWorkstream}
                     onOpenDocuments={()=>openSpecialistPanel("documentos")}
                     onOpenMandates={()=>openSpecialistPanel("mandato")}/>
-}
+                </>}
               </div>
               <div id="nucleo-specialist-documentos" hidden={specialistPanel!=="documentos"}
                 aria-hidden={specialistPanel!=="documentos"}>
