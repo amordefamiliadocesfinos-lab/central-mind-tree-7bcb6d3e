@@ -34,6 +34,13 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
       item.parent_id!==null&&byId.get(item.parent_id)?.parent_id===moduleId
     )
   )),[workstreams,moduleId,byId]);
+  // Relações explícitas envolvendo a raiz ou as frentes deste módulo.
+  // Incluir vínculos de entrada e saída sem inferir relações pela nomenclatura.
+  const moduleConnections=useMemo(()=>{
+    if(!moduleId)return [];
+    const ids=new Set([moduleId,...entries.map(item=>item.id)]);
+    return dependencies.filter(edge=>ids.has(edge.workstream_id)||ids.has(edge.depends_on_id));
+  },[moduleId,entries,dependencies]);
   const eventsByFront=useMemo(()=>{
     const index=new Map<string,DevelopmentEvent[]>();
     for(const event of events){
@@ -90,6 +97,30 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
       </div>
       <Badge variant="outline">Leitura M3 · provas M4 sob demanda</Badge>
     </div>
+    {moduleId&&<section aria-label="Como este módulo se conecta" className="rounded-xl border p-3 space-y-2">
+      <h4 className="text-base font-semibold">Como este módulo se conecta</h4>
+      <p className="text-sm">{moduleConnections.length===0
+        ?"Nenhuma dependência registrada neste recorte."
+        :moduleConnections.length+" relação(ões) registrada(s) envolvendo o módulo ou suas frentes."}</p>
+      <p className="text-sm text-muted-foreground">Até 500 vínculos globais carregados; ausência de registro não significa independência entre módulos.</p>
+      {moduleConnections.length>0&&<details className="rounded-md border p-3">
+        <summary className="cursor-pointer text-sm font-semibold">Ver direção, motivo e registros relacionados</summary>
+        <div className="mt-3 space-y-2">
+          {moduleConnections.map(edge=>{
+            const origin=byId.get(edge.workstream_id),target=byId.get(edge.depends_on_id);
+            return <article key={edge.id} className="rounded-md border p-3 space-y-2 text-sm">
+              <p className="break-words font-medium">{origin?origin.code+" · "+origin.title:"Origem não localizada"} depende de {target?target.code+" · "+target.title:"Destino não localizado"}</p>
+              <p className="text-muted-foreground">{text(edge.description)}</p>
+              <div className="flex flex-wrap gap-2">
+                {origin&&<Button type="button" size="sm" variant="outline" onClick={()=>onOpenWorkstream(origin.id)}>Abrir origem</Button>}
+                {target&&<Button type="button" size="sm" variant="outline" onClick={()=>onOpenWorkstream(target.id)}>Abrir dependência</Button>}
+              </div>
+            </article>;
+          })}
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">Vínculo registrado não implica bloqueio automático, cronograma aprovado ou integração homologada.</p>
+      </details>}
+    </section>}
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-2" aria-label="Indicadores executivos de registros carregados">
       {[
         ["Bloqueadas",counts.blocked],

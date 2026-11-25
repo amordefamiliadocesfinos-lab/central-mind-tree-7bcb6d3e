@@ -60,3 +60,11 @@ for(const token of styleTokens)assertHas(css,token,"Shared scoped style "+token)
 assert.match(css,/\.dark \.nucleo-v22/,"Dark mode considered");
 assert.match(css,/@media \(max-width: 640px\)/,"Mobile density rules");
 console.log("Núcleo V2.2: identidade visual escopada, estados reais e contratos documentais preservados");
+
+// P6 UX-H07/H08: vínculos de entrada/saída no módulo e contraste escopado.
+assertHas(executive,'Como este módulo se conecta',"Contextual connection summary");
+assertHas(executive,'ids.has(edge.workstream_id)||ids.has(edge.depends_on_id)',"Explicit direction, no inferred relations");
+assertHas(executive,'Nenhuma dependência registrada neste recorte.',"Truthful empty");
+assertHas(executive,'onClick={()=>onOpenWorkstream(target.id)}',"Navigate to actual registered target");
+assertHas(css,'.nucleo-v22 p.text-xs.text-muted-foreground { font-size: 0.875rem; line-height: 1.5; }',"Readable explanatory text");
+assertHas(css,'.dark .nucleo-v22 p.text-muted-foreground',"Scoped dark contrast");
