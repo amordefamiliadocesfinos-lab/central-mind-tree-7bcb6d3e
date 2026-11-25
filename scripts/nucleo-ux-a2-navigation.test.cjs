@@ -57,3 +57,6 @@ const supervisor=fs.readFileSync("src/components/nucleo/NucleoSupervisionPanel.t
 assert(supervisor.indexOf("O que pede atenção")<supervisor.indexOf("findingsShown.map(finding"),"Alert queue heading");
 assert(supervisor.indexOf("findingsShown.map(finding")<supervisor.indexOf("<NucleoM2M4Reconciliation"),"Alerts before diagnostic panels");
 assert(supervisor.includes("Detalhes da leitura e da governança")&&supervisor.includes("SIMULAÇÃO — DADOS FICTÍCIOS"),"Details and demo stay distinct");
+
+assert(source.includes('aria-describedby="nucleo-atlas-search-scope"')&&source.includes("Esta busca filtra somente os cartões"),"Catalog search scope");
+assert(supervisor.includes("Ver {finding.evidenceIds.length} evidência(s) associada(s)")&&supervisor.includes("Abrir fonte original"),"Sources collapsed per alert, provenance retained");
