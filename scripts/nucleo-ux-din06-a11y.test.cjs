@@ -19,7 +19,15 @@ const must=[
 for(const term of must)assert(src.includes(term),"DIN-06: "+term);
 assert.equal(src.includes('Mostrar todas as situações</Button>'),false,"No duplicate situation notice");
 assert.equal(src.split('Explorar árvore completa de módulos e frentes').length-1,1);
-assert(src.includes('onClick={() => choose(sub.id)}'),"Original hierarchy navigation preserved");
+// The tree wrapper must preserve the original guarded selection and then focus its detail.
+for(const node of ["mod","front","sub"]){
+  assert(src.includes("onClick={() => openTreeItem("+node+".id)}"),"Hierarchy selection preserved: "+node);
+}
+assert(src.includes('items.filter(i => i.parent_id === mod.id).map(front =>'),"Module-to-front relationship preserved");
+assert(src.includes('items.filter(i => i.parent_id === front.id).map(sub =>'),"Front-to-subfront relationship preserved");
+const treeHandler=src.slice(src.indexOf("const openTreeItem ="),src.indexOf("const addItem ="));
+assert.match(treeHandler,/if \(!choose\(id\)\) return;/,"Guarded original selection preserved");
+assert.match(treeHandler,/detail\?\.focus\(\{preventScroll:true\}\)/,"Focus only after successful selection");
 assert(src.includes('<NucleoSupervisionPanel'),"Original supervision preserved");
 assert(src.includes('NucleoExecutiveDevelopment'),"Original executive preserved");
 assert.equal(src.split('<NucleoModuleKnowledge ').length-1,1,"One existing FM writer for governance only");
