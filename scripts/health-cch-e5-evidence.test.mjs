@@ -60,3 +60,16 @@ test("range is descriptive and never mixed across machines or versions",()=>{
  assert.deepEqual(r.observedLoadRange,{min:70,max:85});
  assert.equal(r.causalClaim,false);assert.equal(r.autoAdapt,false);
 });
+
+test("contradictory same-session observations block review regardless of order",()=>{
+ const bad=obs("1",{id:"other",symptoms:"pain"});
+ for(const observations of [[obs("1"),bad,obs("2")],[bad,obs("1"),obs("2")]]){
+  const r=assess({...base,observations});
+  assert.equal(r.state,"blocked");assert.equal(r.comparableSessions,1);
+  assert.equal(r.autoAdapt,false);
+ }
+});
+test("impossible calendar dates cannot count as comparable evidence",()=>{
+ const r=assess({...base,observations:[obs("1"),obs("2",{occurredAt:"2026-02-30T12:00:00Z"})]});
+ assert.equal(r.comparableSessions,1);assert.equal(r.state,"blocked");
+});
