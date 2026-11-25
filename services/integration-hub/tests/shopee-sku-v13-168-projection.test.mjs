@@ -58,3 +58,20 @@ test('piloto Celivio exato preservado e fisicamente consistente',()=>{
   assert.equal(p.physical_components.length,1);
   assert.equal(p.physical_components[0].variant_sku,'TRF-ART-030-BRG');
 });
+
+
+test('G04: Store/Shop ID fica amarrado a uma unica conta em todos os 168 Models',()=>{
+  const shopToAccount=new Map();
+  for(const r of rows){
+    assert.match(r.shop_id,/^[0-9]+$/);
+    assert.ok(r.channel_account_id);
+    assert.ok(r.account);
+    const previous=shopToAccount.get(r.shop_id);
+    if(previous!==undefined)assert.equal(previous,r.channel_account_id);
+    shopToAccount.set(r.shop_id,r.channel_account_id);
+  }
+  assert.equal(shopToAccount.size,4);
+  assert.deepEqual([...shopToAccount.keys()].sort(),
+    ['1156446003','1357031949','255964662','531736366'].sort());
+  assert.equal(new Set(shopToAccount.values()).size,4);
+});
