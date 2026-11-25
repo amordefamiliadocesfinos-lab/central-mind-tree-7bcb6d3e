@@ -565,9 +565,10 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           </div>
           <label className="relative block max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
-              placeholder="Buscar CRM, Financeiro, Operações…" />
+            <Input id="nucleo-atlas-module-search" aria-label="Buscar somente módulos no catálogo" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
+              placeholder="Filtrar catálogo: CRM, Financeiro, Operações…" aria-describedby="nucleo-atlas-search-scope" />
           </label>
+          <p id="nucleo-atlas-search-scope" className="text-sm text-muted-foreground">Esta busca filtra somente os cartões de módulos deste catálogo, não as frentes ou documentos de toda a página.</p>
           <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} onOpenWorkstream={onSelectWorkstream} />
           {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
             {catalog.length===0
@@ -1196,7 +1197,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {([
                   {id:"papel",label:"Papel e método"},
                   {id:"mandato",label:"Mandatos e limites"},
-                  {id:"continuidade",label:"Continuidade AC-02"},
+                  {id:"continuidade",label:"Retomar trabalho e contexto"},
                   {id:"documentos",label:"Documentos AC-01"},
                 ] as const).map(item=>(
                   <button key={item.id} type="button"
