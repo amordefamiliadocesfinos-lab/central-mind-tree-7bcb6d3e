@@ -21,10 +21,12 @@ interface Props {
   onOpenSources: () => void;
   onOpenDocuments: () => void;
   onOpenMandates: () => void;
+  onOpenContinuity?: () => void;
+  onOpenLearning?: (section:"FM-09"|"FM-10") => void;
 }
 export default function NucleoResumeBrief({
   module, workstreams, events, provenance, focusedWorkstreamId, onOpenWorkstream,
-  onOpenSources, onOpenDocuments, onOpenMandates,
+  onOpenSources, onOpenDocuments, onOpenMandates, onOpenContinuity, onOpenLearning,
 }: Props) {
   const [pendingFilter,setPendingFilter]=useState<"todos"|"bloqueadas"|"sem_acao"|"sem_responsavel"|"sem_aceite"|"evidencia">("todos");
   const [pendingLimit,setPendingLimit]=useState(5);
@@ -54,7 +56,7 @@ export default function NucleoResumeBrief({
   const retainedCount=preparedForModule.filter(source=>source.retained).length;
   const latest = context.recent;
   const latestCode = latest ? workstreams.find(item => item.id === latest.workstream_id)?.code ?? "Não localizado" : null;
-  return <section className="rounded-xl border p-3 space-y-3"
+  return <section id="nucleo-resume-module-context" tabIndex={-1} className="rounded-xl border p-3 space-y-3 scroll-mt-28 focus-visible:ring-2 focus-visible:ring-ring"
     aria-label="P4-B — resumo consultivo de retomada por módulo">
     <div className="space-y-1">
       <h4 className="font-semibold text-sm">P4-B · Resumo de retomada por módulo</h4>
@@ -63,6 +65,11 @@ export default function NucleoResumeBrief({
         Não é um pacote de assunção AC-02, decisão da Camada Mestre ou autorização de execução.
       </p>
     </div>
+    <nav className="flex flex-wrap gap-2" aria-label="Retomar conhecimento e contexto">
+      {onOpenLearning&&<><Button type="button" size="sm" variant="outline" onClick={()=>onOpenLearning("FM-09")}>Conferir evolução FM-09</Button>
+      <Button type="button" size="sm" variant="outline" onClick={()=>onOpenLearning("FM-10")}>Conferir aprendizagem FM-10</Button></>}
+      {onOpenContinuity&&<Button type="button" size="sm" variant="outline" onClick={onOpenContinuity}>Ir ao contexto AC-02</Button>}
+    </nav>
     <div className="rounded-lg border p-2 text-xs space-y-1">
       <p><strong>Módulo M3:</strong> {module.code} · {module.title}</p>
       <p><strong>Especialista declarado:</strong> {module.specialist.trim() || "Não registrado na ficha M3"}</p>
