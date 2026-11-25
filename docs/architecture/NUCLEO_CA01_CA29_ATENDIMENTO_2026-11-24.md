@@ -148,3 +148,14 @@ PR #1119 integrada em 505ceb6ad81a5126a49fc6def115c21f6c09272c, cinco checks apr
 | CA-04/19 e M4 | Contraprovas específicas já concluídas; não repetir |
 
 Encerramento do ciclo corrente somente após comprovar o saldo ativo acima, sem declarar homologação integral dos critérios adiados. Se a prova visual depender da sessão Work, repassar apenas esse delta e não abrir nova auditoria. Decisão de escopo não altera papéis, permissões, Core ou estado formal de homologação.
+
+## Encerramento do escopo ativo A+ — 25/11/2026
+
+**Parecer de encerramento: escopo ativo concluído.** Conforme contraprova autenticada do Work recebida do proprietário, a rota oficial /nucleo serviu e260cef9d295006e22f2d438484debac1478a350, revisão esperada que contém #1119 e #1120. Lovable consultado pelo especialista técnico: mesmo latest_commit_sha, ready e published=true. A prova da revisão efetivamente servida e da interação é atribuída ao Work, não à consulta administrativa.
+
+- CA-08/CA-20 desktop: Tab selecionou Reavaliar, Enter iniciou a consulta; foco permaneceu durante o carregamento e após a resposta. Relatório anterior saiu de exibição; aria-disabled=true durante a consulta. Bloqueio de reentrada confirmado no código publicado (não foi relatada ativação duplicada efetiva). Contador 1→2, carimbo 15:21:42→15:22:19 BRT. Contraste informado do texto habilitado 20,01:1 e contorno azul de foco 4,51:1 sobre branco, foco visível antes/depois. Nenhuma gravação realizada na rodada Work.
+- CA-04/19 e M4: preservar contraprovas específicas já concluídas; não repetir. CA-08/CA-20 desktop: saldo ativo comprovado no caminho delimitado, sem generalizar a acessibilidade integral.
+- Celular físico (CA-20 móvel), operador independente (CA-15) e F1/F2 individual: adiados por decisão explícita do proprietário, fora do escopo ativo, não homologados. F6/F7 e Entrega B fechadas.
+- Próxima etapa: uso cotidiano do Núcleo e evolução por achados reais, sob autoridade e mapa vigente; nenhuma nova frente, reauditoria ou alteração de permissões automática.
+
+**Estado executivo:** desenvolvimento, integração, publicação e contraprovas do escopo ativo encerrados. Homologação integral não declarada; critérios adiados e limites históricos permanecem registrados. Este fechamento documental não modifica status, eventos, permissões ou autoridade no Core, não substitui aceite formal do proprietário e não representa homologação operacional dos módulos especializados.
