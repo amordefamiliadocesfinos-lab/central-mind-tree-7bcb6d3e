@@ -8753,6 +8753,118 @@ export type Database = {
           },
         ]
       }
+      marketplace_seller_sku_events: {
+        Row: {
+          actor_auth_user_id: string
+          created_at: string
+          event_kind: string
+          event_note: string | null
+          evidence_ref: string | null
+          id: string
+          mapping_id: string
+          request_hash: string
+          revision: number
+          state_after: Json
+          state_before: Json | null
+        }
+        Insert: {
+          actor_auth_user_id: string
+          created_at?: string
+          event_kind: string
+          event_note?: string | null
+          evidence_ref?: string | null
+          id: string
+          mapping_id: string
+          request_hash: string
+          revision: number
+          state_after: Json
+          state_before?: Json | null
+        }
+        Update: {
+          actor_auth_user_id?: string
+          created_at?: string
+          event_kind?: string
+          event_note?: string | null
+          evidence_ref?: string | null
+          id?: string
+          mapping_id?: string
+          request_hash?: string
+          revision?: number
+          state_after?: Json
+          state_before?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_seller_sku_events_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_seller_sku_state"
+            referencedColumns: ["mapping_id"]
+          },
+        ]
+      }
+      marketplace_seller_sku_state: {
+        Row: {
+          canonical_decided_at: string | null
+          canonical_decision_source: string
+          canonical_sku: string
+          created_at: string
+          last_evidence_ref: string | null
+          mapping_id: string
+          observation_kind: string
+          observed_at: string | null
+          observed_sku: string | null
+          observed_source: string | null
+          offer_architecture: string
+          offer_family: string
+          reconciliation_status: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          canonical_decided_at?: string | null
+          canonical_decision_source: string
+          canonical_sku: string
+          created_at?: string
+          last_evidence_ref?: string | null
+          mapping_id: string
+          observation_kind?: string
+          observed_at?: string | null
+          observed_sku?: string | null
+          observed_source?: string | null
+          offer_architecture: string
+          offer_family: string
+          reconciliation_status?: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          canonical_decided_at?: string | null
+          canonical_decision_source?: string
+          canonical_sku?: string
+          created_at?: string
+          last_evidence_ref?: string | null
+          mapping_id?: string
+          observation_kind?: string
+          observed_at?: string | null
+          observed_sku?: string | null
+          observed_source?: string | null
+          offer_architecture?: string
+          offer_family?: string
+          reconciliation_status?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_seller_sku_state_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: true
+            referencedRelation: "marketplace_product_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_settlement_orders: {
         Row: {
           created_at: string
@@ -16435,6 +16547,14 @@ export type Database = {
         }
         Returns: Json
       }
+      read_marketplace_seller_sku_consultive: {
+        Args: {
+          p_channel_account_id: string
+          p_external_item_id: string
+          p_external_model_id: string
+        }
+        Returns: Json
+      }
       recalculate_contact_payment_metrics: {
         Args: { p_contact_id: string }
         Returns: undefined
@@ -16473,6 +16593,15 @@ export type Database = {
           p_quantity: number
           p_to_location: string
           p_variant_id: string
+        }
+        Returns: Json
+      }
+      record_marketplace_seller_sku_state: {
+        Args: {
+          p_event_id: string
+          p_expected_revision: number
+          p_mapping_id: string
+          p_payload: Json
         }
         Returns: Json
       }
