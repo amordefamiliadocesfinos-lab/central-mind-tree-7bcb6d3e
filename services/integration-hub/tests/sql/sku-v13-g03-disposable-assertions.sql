@@ -50,6 +50,22 @@ BEGIN
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM<>'seller_sku_physical_exception' THEN RAISE; END IF;
  END;
+ BEGIN
+  PERFORM public.record_marketplace_seller_sku_state(
+   '30000000-0000-0000-0000-000000000006','980cb680-5296-4342-b83d-4e09584a3fe1',0,
+   payload||'{"canonical_sku":"AF-TRF30-KT-030-AMD","offer_architecture":"T40-2"}'::jsonb);
+  RAISE EXCEPTION 'architecture spoof must fail';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'seller_sku_architecture_mismatch' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.record_marketplace_seller_sku_state(
+   '30000000-0000-0000-0000-000000000007','980cb680-5296-4342-b83d-4e09584a3fe0',1,
+   payload||'{"reconciliation_status":"PRONTO_PARA_PUBLICAR"}'::jsonb);
+  RAISE EXCEPTION 'publication readiness without evidence must fail';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'seller_sku_publication_evidence_required' THEN RAISE; END IF;
+ END;
  reply:=public.record_marketplace_seller_sku_state(
   '30000000-0000-0000-0000-000000000004','980cb680-5296-4342-b83d-4e09584a3fe1',0,
   payload||'{"canonical_sku":"AF-TRF30-KT-030-AMD","reconciliation_status":"BLOQUEADO_LOCAL","event_kind":"BLOQUEIO"}'::jsonb);
