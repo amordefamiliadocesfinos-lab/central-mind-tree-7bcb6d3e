@@ -235,3 +235,31 @@ Esses rótulos são editoriais, não novos valores do enum Goal, nem novas estra
 
 ### 13.5 Aceite de produto e passagem U07
 Na contraprova final, verificar se o atleta entende o que realizou, o que ainda não está identificado, por que existem alternativas e como retomar/decidir sem perder contexto. Reutilizar P6-AC01–05 e G4-AC01; cenários U06-C01–12 são extensão documental, não resultados executados. Exigir comparação com E3 real, não fabricar evidência. Referências científicas permanecem as da seção 9, não reavaliadas nesta etapa. U07/E5 seguinte: recuperar contratos #994/#995/#996/#998/#999 e lacunas de consentimento, proveniência e recuperação; apenas preparação autorizada, sem consentimento inferido, novos registros reais ou ativação. Não avançar U08 produtivamente sem reconciliar mapas adjacentes. Nenhuma alteração do V6.0 FROZEN.
+
+
+## 14. Continuidade U05/U06 — fronteira de integração V0.4 (24/11/2026)
+A autorização de merge sem aguardar comprovação do proprietário não amplia G4. Este refinamento prepara a futura integração de experiência, sem implementar ou ativar IA, ler dados reais, criar persistência ou alterar F19/M3/M4. Reutilizar E2/E3/F21/F22.
+
+### 14.1 Contrato de passagem contextual (conceitual)
+| Estado da interface | Comportamento permitido | Transição |
+|---|---|---|
+| sem atleta, escopo desconhecido, loading/erro | nenhuma dica e nenhuma ação contextual | nova leitura válida |
+| sessão/versão/exercício trocado | invalidar dica e ação antiga, descartar resposta tardia | identificar novo contexto |
+| série ativa, pausa ou resultado ainda não consolidado | nenhuma interrupção | descanso/pronto confirmado |
+| descanso/pronto, escolha D2 pendente | priorizar escolha do atleta; nenhuma dica que induza extras | decisão explícita do atleta |
+| descanso/pronto elegível, sem dica relevante | não reservar espaço visual | reavaliar somente em novo contexto |
+| dica elegível | uma frase, Por quê?, ignorar/adiar/silenciar | escolha humana |
+| adiada | acesso voluntário enquanto contexto for válido | consulta explícita ou invalidação |
+| silenciada | nenhuma nova oferta | reativação explícita; não por exercício ou reload automático |
+| consideração de alteração | direcionar revisão E2/M3 existente, sem gravação no treino | confirmação separada e F22 |
+
+Identidade conceitual da oferta: atleta + sessão + versão publicada + exercício + momento inequívoco + código editorial. Não usar horário isolado, índice da lista, texto do exercício ou rótulo de aparelho como identidade. A permissão de mostrar uma dica é diferente da permissão de consultar fonte, criar draft ou publicar. Preferência de silêncio local nesta fase; não prometer persistência entre dispositivos/reloads. Estado deve ser separado de evidência de saúde e não virar telemetria E5.
+
+### 14.2 Passagem U05 → U06, sem motor paralelo
+Quando uma orientação indicar revisão de objetivo, recuperação ou estratégia, oferecer navegação voluntária à revisão já existente. Não transportar proposta quantitativa de contexto expirado. Revalidar atleta, versão, auditoria, objetivo e permissões ao entrar no planejamento. E3 continua autoridade consultiva para cobertura, checkpoints e alternativas; E2 para prescrição por exercício; M3/F22 para revisão/publicação. Sem nova fila, calendário obrigatório, cálculo de dose ou ação automática.
+- Exemplo fictício: histórico de aparelho diferente → aviso contextual curto → atleta decide revisar → E3 mostra limitações de cobertura → E2 somente se evidência aplicável → revisão humana. Se atleta ignorar, seguir treino normalmente.
+- Exemplo fictício: recuperação não documentada → não afirmar fadiga → opção de revisar contexto sob demanda → não intensificar automaticamente.
+- Exemplo fictício: objetivo alterado durante leitura → invalidar antiga sugestão e não habilitar revisão com contexto obsoleto.
+
+### 14.3 Critérios de prontidão da futura integração
+Separar três aceites: (A) contrato editorial e estados; (B) engenharia autorizada com isolamento e fontes reais permitidas; (C) homologação de uso real. A integração documental não comprova B ou C. Antes de B, exigir decisão expressa sobre montagem F19, comportamento local de preferências, escopo de fontes, revisão científica/editorial e acessibilidade. Não introduzir código produtivo por interpretação de autorização de merge. Contraprovas posteriores incluem troca de atleta/versão, retorno assíncrono fora de ordem, pausa, D2, silêncio, navegação e retorno, contexto obsoleto, falha de fonte e ausência de escrita automática. Não repetir testes já aprovados sem delta. V6.0 FROZEN preservado.
