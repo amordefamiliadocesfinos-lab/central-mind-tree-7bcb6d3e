@@ -45,7 +45,7 @@ export function createCelivioC7LabelSync({
       || order.package_count!==1
       || !/^[A-Za-z0-9_-]{1,100}$/.test(String(packageNumber??''))
       || order.package_logistics_status!=='LOGISTICS_REQUEST_CREATED'
-      || order.invoice_status==='pending'
+      || order.invoice_status!=='valid'
       || live.shipping_document_parameter?.ok!==true
       || !Array.isArray(results) || results.length!==1
       || results[0]?.order_sn!==CELIVIO_C7_ORDER_SN
