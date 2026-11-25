@@ -60,6 +60,46 @@ function changedEditableFields(
   return changes;
 }
 
+// Minutas pontuais P2: escopo exato e baseline textual conferido no Core em 24/11.
+const preparedCheckpointP2 = [
+  {
+    "code": "CRM-UX02",
+    "id": "1dd253ad-0e64-4bfe-8b93-c20872daacc1",
+    "parent": "f07bb967-788a-45eb-bce7-242581d74cd4",
+    "kind": "frente",
+    "previous": "Núcleo em 24/11/2026: 3 contribuições AC-01 CRM e 10 seções FM registradas como rascunhos, com autoria e origem preservadas. Próxima ação: reconciliar autoridade e atualidade do método comercial com o especialista e realizar ensaio do operador independente na Inbox/ficha, sem fabricar atendimento ou resultado. Documentação e evidência GitHub não equivalem a homologação da operação comercial.",
+    "delta": "Revisão documental 24/11: mapa UX02 registra 8/8 incrementos integrados, inclusive escritor canônico #296 e ficha responsiva #297. Na contraprova final, conferir Inbox/ficha, proteção de edição, Próxima Ação canônica, opt-out e preservação das ações essenciais. Não inferir UAT, deploy ou resultado comercial.",
+    "sources": [
+      296,
+      297
+    ]
+  },
+  {
+    "code": "OPE-03",
+    "id": "1606589c-bb1b-4164-9823-4f4041396788",
+    "parent": "db57b5cf-b621-4c05-8d80-054e7289c878",
+    "kind": "frente",
+    "previous": "Em uso operacional autorizado, comprovar persistência/readback e contexto planning_source=mrp/planning_context em pedido real; verificar separadamente recebimento, fato físico de estoque e integração financeira. Submeter homologação integral à autoridade competente; não criar compra de teste nem alterar estoque.",
+    "delta": "Revisão documental 24/11: PR #948 integrou roteiro CA-14/15 MRP → Preparar compra → Compras, sem gravação automática. Conferir editor somente com falta real; a prova do roteiro não substitui readback de compra real nem autoriza criação de demanda. Contraprova final conforme mapa.",
+    "sources": [
+      948
+    ]
+  },
+  {
+    "code": "SHO-F12-2",
+    "id": "8f00631a-397e-4781-9451-e227de5beeb8",
+    "parent": "078fcd0b-3e45-4c76-878d-1a9e14a50b64",
+    "kind": "subfrente",
+    "previous": "Reconciliar com especialista provas do build/deploy isolado de #625, prioridades por prazo/idade e justiça entre páginas; não alterar Scheduler ou writer pelo Núcleo.",
+    "delta": "Revisão documental 24/11: #623/#625/#789 integradas; #789 conserva reserva da última vaga até página terminal efetivamente descoberta, sob flag opt-in e orçamento de 48s. Descoberta truncada não prova justiça global; vaga pode ficar inutilizada. Reconciliar provas Live e estado efetivo com especialista, sem habilitar flags ou alterar Scheduler. Homologação permanece separada.",
+    "sources": [
+      623,
+      625,
+      789
+    ]
+  }
+] as const;
+
 const emptyDraft = {
   code: "", title: "", parent_id: "", kind: "modulo" as DevelopmentKind,
   description: "", specialist: "", acceptance_criteria: "",
@@ -1356,6 +1396,21 @@ export default function NucleoDevelopmentCenter() {
                 <p className="whitespace-pre-wrap break-words text-sm">
                   {(edit.next_action||"").trim()||"Nenhuma próxima ação registrada nesta frente."}
                 </p>
+                {preparedCheckpointP2.filter(p=>p.id===selected.id&&p.code===selected.code&&p.parent===selected.parent_id&&p.kind===selected.kind).map(p=>(
+                  <details key={p.id} className="rounded-md border p-2 space-y-2">
+                    <summary className="cursor-pointer text-xs font-semibold">Checkpoint documental preparado · 24/11/2026</summary>
+                    <p className="text-xs whitespace-pre-wrap">{p.delta}</p>
+                    <div className="flex flex-wrap gap-2">{p.sources.map(n=><a key={n} className="text-xs underline" href={"https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/"+n} target="_blank" rel="noreferrer">PR #{n}</a>)}</div>
+                    <p className="text-xs text-muted-foreground">Acrescenta a minuta à próxima ação original, sem alterar situação, responsável ou evidência. Revise antes de salvar. Se a base mudou, reconcilie manualmente.</p>
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={saving||hasPendingChanges||selected.next_action!==p.previous}
+                      onClick={()=>{
+                        if(!authorized||saving||loading||readError||hasPendingChanges||selected.next_action!==p.previous||nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy)return;
+                        setEdit(v=>({...v,next_action:p.previous+"\n\n"+p.delta}));
+                      }}>Carregar complemento de próxima ação</Button>
+                    {selected.next_action!==p.previous&&<p className="text-xs text-muted-foreground">Base atual diferente da fotografia preparada; nenhuma substituição automática.</p>}
+                  </details>
+                ))}
                 <label className="block space-y-1 text-xs font-medium">Atualizar próxima ação
                   <Input className="min-h-11" value={edit.next_action||""}
                     onChange={e=>setEdit(v=>({...v,next_action:e.target.value}))}/>
