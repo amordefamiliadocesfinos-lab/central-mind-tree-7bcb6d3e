@@ -40,7 +40,7 @@ function fixture(split_up, overrides={}){
    access_token_expires_at:'2026-11-25T22:00:00Z',access_token_ciphertext:'safe-test'
   }}),
   decryptToken:async()=> 'test-only-token',
-  claim:async data=>{claimed=data;claims++;return {ok:false,payload:{status:'uncertain_requires_reconciliation'}};},
+  claim:async data=>{claimed=data;claims++;return {ok:true,payload:{status:'uncertain_requires_reconciliation',code:'uncertain_requires_reconciliation'}};},
   ship:async()=>{transports++;throw Error('not authorized to transport');},
  });
  return {run,claim:()=>claimed,claims:()=>claims,transports:()=>transports};
