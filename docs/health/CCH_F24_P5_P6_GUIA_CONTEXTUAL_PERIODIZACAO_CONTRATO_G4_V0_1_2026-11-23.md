@@ -131,3 +131,48 @@ Registrar no **artefato consultivo de revisão existente**, quando houver aprova
 
 ## 11. Continuidade
 P0/P1 engenharia na PR #1025, P2/P4 na #1027, P3 somente contrato/protótipo na #1028, documento base F24 V0.2 na PR #1022: **nenhuma dessas PRs é integrada por este documento**. Histórico Issue #966 aberto. Não alterar mapas FROZEN nem usar construtor visual Lovable.
+
+
+## 12. Refinamento U05/P5 — contrato de experiência e decisão V0.2 (24/11/2026)
+Autoridade: Mapa Soberano Unificado V6.0 FROZEN, PR #1040 integrada. G4 permanece exclusivamente especificação; não autoriza código de IA, execução de motor novo ou conexão com atletas. G1/G2 já integradas; U01/U02/U04 têm checkpoints próprios na #966. Contraprovas ficam nas últimas sequências possíveis, sem remover portões.
+
+### 12.1 Sequência determinística de avaliação conceitual (não executável)
+| Ordem | Condição | Resposta esperada |
+|---|---|---|
+| 1 | Escopo de atleta/sessão/versão inválido, fonte não autorizada ou identidade indeterminada | Suprimir orientação contextual; não mostrar dado do contexto anterior. |
+| 2 | Treino ativo em série, pausa de sessão, erro, estado desconhecido ou transição ainda pendente | Não interromper; aguardar estado pronto/descanso confirmado. |
+| 3 | Silenciado, mesma dica recusada ou já exibida no mesmo momento | Não emitir novamente. |
+| 4 | Sinal adverso autorizado ou contraditório | Se atleta solicitar revisão ou momento adequado, apresentar opção de revisão, sem intensificação; não substituir avaliação profissional. |
+| 5 | Proveniência incompleta, histórico truncado ou máquina não comprovada | Apenas explicação geral rotulada; não sugerir números novos. |
+| 6 | Objetivo não escolhido | Oferecer opções somente sob demanda, sem definir objetivo. |
+| 7 | Contexto elegível, fonte válida e objetivo explícito | Escolher no máximo uma orientação relevante do patrimônio E2/E3/F21, priorizando clareza e necessidade; sem modificar M3/M4. |
+| 8 | Nenhuma orientação acrescenta valor | Nenhum card; silêncio é resultado válido. |
+
+Prioridade de apresentação: segurança/revisão > esclarecer limitação material > referência factual útil > alternativa por objetivo > técnica geral. Nenhum ranking implica melhor exercício universal ou resultado individual. Controles essenciais F19 e escolhas D2 têm prioridade visual; dica nunca substitui a decisão de série extra.
+
+### 12.2 Estados e escolhas humanas — wireflow documental
+Estado inicial: sem card. Estado pronto/descanso elegível: card compacto opcional, título, uma frase curta e ação "Por quê?". Expandir revela origem, data quando disponível, qualidade, limitações e alternativas. "Ignorar" descarta a dica do contexto atual; "Ver depois" fecha e mantém apenas possibilidade de consulta voluntária no mesmo contexto; "Silenciar dicas" impede novas ofertas enquanto a preferência local estiver ativa. Não reabrir automaticamente após recusa. Retomar dicas exige ação humana. Não gravar preferências nem sinais sensíveis nesta fase. A troca de atleta/sessão/versão/exercício invalida conteúdo, referências e ações pendentes; silenciamento não pode ser automaticamente desfeito por troca de exercício. Nenhum estado local de recusa é evidência clínica. Cooldown futuro é controle de UX, não regra fisiológica; duração ainda não definida.
+
+### 12.3 Catálogo editorial inicial — cenários inteiramente fictícios
+| ID | Momento / objetivo | Texto curto candidato | Por quê / limite |
+|---|---|---|---|
+| U05-C01 | Descanso / força | Descanse o suficiente para preservar a qualidade da próxima série. | Referência geral ACSM e revisão de descanso da seção 9; não alterar timer, nem fixar segundos. |
+| U05-C02 | Pronto / hipertrofia, dados limitados | Mantenha a faixa planejada como referência; ajustes podem ser revisados depois. | Não deduzir dose ótima por quantidade de séries; sem novo RIR, reps ou kg. |
+| U05-C03 | Descanso / equipamento divergente | A carga anterior não é diretamente comparável neste aparelho. | F21/V8; rótulo não prova identidade física. |
+| U05-C04 | Pronto / avançado, histórico escasso | Seu nível permanece avançado. Faltam dados comparáveis para uma proposta individual. | Separar experiência de confiança F22. |
+| U05-C05 | Descanso / recuperação incerta | Antes de intensificar, considere revisar como está se recuperando. | Não inferir fadiga nem coletar E5. |
+| U05-C06 | Pronto / técnica, mídia ausente | Consulte a orientação geral do movimento; a ausência de vídeo não impede o treino. | M2/P3, sem diagnóstico biomecânico ou instrução específica não revisada. |
+| U05-C07 | Meta de séries atingida | Sem dica automática: manter duas escolhas equivalentes do F19. | Evitar duplicação ou indução à série extra. |
+| U05-C08 | Objetivo indefinido, pedido explícito | Você pode revisar alternativas de força, hipertrofia ou manutenção antes de escolher. | Não inferir objetivo de peso/fotos. |
+| U05-C09 | Dados de outro atleta ou versão | Nenhum texto contextual. | Falha fechada; não revelar dado cruzado. |
+
+### 12.4 Critérios adicionais para contraprova futura
+- U05-AC09: resposta tardia de contexto A após seleção B não aparece nem habilita ação; troca de versão invalida proposta.
+- U05-AC10: recusar, adiar e silenciar são distintos; não insistir nem reativar dicas em troca de exercício.
+- U05-AC11: nenhuma sugestão útil resulta em ausência de card, sem placeholder de IA.
+- U05-AC12: referência factual não vira prescrição; qualquer consideração de alteração remete à revisão E2/M3 existente, sem write durante M4.
+- U05-AC13: foco, timer, campos e ações D2 continuam operáveis sem card; contraste, teclado e leitores de tela avaliados quando houver implementação autorizada.
+- U05-AC14: corpus editorial exige revisão de ciência, aplicabilidade, linguagem e origem antes de publicação; referências herdadas da seção 9 não foram reavaliadas nesta revisão documental.
+
+### 12.5 Handoff para U06/P6
+Usar E3 existente e U02 para continuidade: revisão por objetivo/estímulo/exposição válida, comparação planejado-realizado com lacunas, escolha de horizonte informativo, opções alternativas e draft E2 revisável. Não criar novo calendário, motor ou coleta. Próximo refinamento independente: especificar sequência de revisão flexível e critérios para manter/consolidar/rever/considerar ajuste, preservando portão G4. Nenhum dos cenários acima foi executado como teste ou homologado; a decisão de adiar contraprovas não autoriza ativação.
