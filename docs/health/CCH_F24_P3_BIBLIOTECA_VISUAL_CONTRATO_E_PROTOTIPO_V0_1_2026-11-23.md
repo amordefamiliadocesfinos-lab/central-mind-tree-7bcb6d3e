@@ -1,7 +1,7 @@
 # CCH F24 — G3/P3 · Contrato de Biblioteca Visual e Protótipo Isolado V0.1
 **Data:** 23/11/2026 · **Estado:** PROPOSTA TÉCNICA / PROTÓTIPO NÃO CONECTADO · **Portão G3:** somente projeto e protótipo, sem persistência nem deploy.
 **Autoridades:** CCH v5.4 FROZEN; Evolução do Motor V1.0 FROZEN; deliberação F24 da Camada Mestre na PR #1022; Issue #966.
-**Invariantes:** F23 fechada, E5 real bloqueada, M2/M3/M4/F19/F21/F22 preservados. As PRs técnicas P0/P1 #1025 e P2/P4 #1027 NÃO estão integradas.
+**Invariantes:** F23 fechada, E5 real bloqueada, M2/M3/M4/F19/F21/F22 preservados. Checkpoint histórico de 23/11: G1/G2 posteriormente integradas por #1025/#1027; autoridade atual: Mapa Soberano Unificado V6.0 FROZEN, U04/G3.
 
 ## 1. Decisão de produto já aprovada
 D1: mostrar **somente ícone acessível “Ver movimento”** no card ativo F19; nenhuma miniatura de exercício ou aparelho permanente.
@@ -73,3 +73,7 @@ Esta ilustração é **wireframe documental**, sem arquivo visual real. Não há
 | P3-A07 | F19/M4/M3 e atletas inalterados | diff apenas documentos, helper e teste |
 
 **Portão de entrada na implementação produtiva:** Camada Mestre aprovar arquitetura final de mídia e custos, natureza da licença, evidências da revisão, persistência/Storage/RLS, UI e critérios de implantação. A deliberação F24 G3 de 23/11 **não** concede essa autorização.
+
+
+## 9. Continuidade U04 — protótipo interativo isolado (24/11/2026)
+Autorização: V6.0 FROZEN e decisão do proprietário de avançar em U04, reservando contraprovas para a sequência final. `scripts/health-cch-f24-p3-preview/index.html` é uma página HTML autônoma, fora do bundle produtivo, sem rede, API, Storage ou dados reais. Abre por ícone acessível, modal nativo com Escape e retorno de foco, cenários sintéticos de variante confirmada/geral/ausente, marcador gráfico abstrato sem alegação didática real, simulação de movimento iniciada explicitamente e interrompível, respeito à preferência de movimento reduzido e cronômetro simulado independente. Nenhuma mídia real ou integração F19. Abrir o HTML localmente para revisão futura. O seletor de cenários é fixture manual, não consulta M2 nem invoca o seletor puro de elegibilidade. Critérios P3-A01/A02/A05 passam de wireframe para implementação candidata de interação; permanecem não homologados. P3-A03/A04/A06 e integração real seguem portões originais. Contraprova final deverá validar foco, Escape, fechamento, ausência de autoplay, pausa, fallback, movimento reduzido, responsividade e timer, sem promover o protótipo a produção.
