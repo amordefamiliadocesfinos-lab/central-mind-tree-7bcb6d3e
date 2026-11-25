@@ -19,7 +19,8 @@ const fm=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8
 for(const token of [
  'const [fmSectionRequest,setFmSectionRequest]',
  'const openFm09Continuity=()=>',
- 'setFmSectionRequest(previous=>({section:"FM-09",seq:(previous?.seq??0)+1}))',
+ 'setFmSectionRequest(previous=>({section,seq:(previous?.seq??0)+1}))',
+ 'const openFm09Continuity=()=>openContinuityFm("FM-09")',
  'onClick={openFm09Continuity}',
  'onOpenWorkstream={onSelectWorkstream}',
  'requestedSection={fmSectionRequest}',
@@ -34,11 +35,20 @@ for(const token of [
 ])assert(fm.includes(token),"Ficha FM-09: "+token);
 assert(text.includes('selectedRecord && (moduleSection==="conhecimento" || knowledgeVisited)'),"Preservar a Ficha Viva montada");
 // A+ FM-09: navegação não deve sobrepor rascunho nem salvar por inferência.
-const fm09Handler=text.slice(text.indexOf('  const openFm09Continuity=()=>{'),text.indexOf('  const openAc01FromFm='));
+const fm09Handler=text.slice(text.indexOf('  const openContinuityFm=(section:'),text.indexOf('  const openFm09Continuity=()=>'));
 assert(fm09Handler.includes('if(fmDraftState.busy||specialistDraftState.busy)'),"Bloquear atalhos durante gravação");
 assert(fm09Handler.includes('if(fmDraftState.dirty)'),"Bloquear remapeamento de rascunho");
 assert(fm09Handler.indexOf('if(fmDraftState.dirty)')<fm09Handler.indexOf('setFmSectionRequest(previous=>'),"Verificar rascunho antes de alterar seção");
 assert(fm.includes('requestedSection?.section && !saving && !draftDirty'),"Guarda defensiva no efeito FM");
+// Exercitar o mesmo handler para FM-09 e FM-10, inclusive as guardas originais.
+const runHandler=require("node:vm");
+for(const section of ["FM-09","FM-10"]){
+ for(const [dirty,busy,otherBusy,expected] of [[false,false,false,true],[true,false,false,false],[false,true,false,false],[false,false,true,false]]){
+  const calls=[];
+  runHandler.runInNewContext(fm09Handler.replace('(section:"FM-09"|"FM-10")','(section)')+"; openContinuityFm(target);",{target:section,fmDraftState:{dirty,busy},specialistDraftState:{busy:otherBusy},window:{alert:()=>calls.push("alert")},setFmSectionRequest:fn=>calls.push(fn({seq:5})),selectModuleArea:area=>calls.push(area)});
+  assert.equal(JSON.stringify(calls),JSON.stringify(expected?[{section,seq:6},"conhecimento"]:["alert"]));
+ }
+}
 // A troca confirmada deve limpar os três campos ANTES de alterar a seção.
 const switchFn=fm.slice(fm.indexOf('  const changeSection = (next: FMSection) => {'),fm.indexOf('  const prepareReference = () => {'));
 assert(switchFn.includes('if (next === section || saving || writeUncertain || fence.blocked) return;'),"Sem troca durante gravação ou sem mudança");

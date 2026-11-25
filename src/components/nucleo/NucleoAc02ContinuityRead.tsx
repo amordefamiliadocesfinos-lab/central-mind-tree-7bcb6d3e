@@ -134,9 +134,10 @@ async function classifyAc02ContractRejection(error:unknown):Promise<string|null>
   }
  }catch{return null;}
 }
-export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWorkstreams,onViewDocuments,onViewMandates}:{
+export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWorkstreams,onViewDocuments,onViewMandates,onViewResume,onViewLearning}:{
  moduleId:string;moduleCode:string;
  onViewWorkstreams?:()=>void;onViewDocuments?:()=>void;onViewMandates?:()=>void;
+ onViewResume?:()=>void;onViewLearning?:(section:LearningSection)=>void;
 }){
  const {session,loading}=useAuth();
  const sessionUid=loading?null:session?.user?.id??null;
@@ -204,7 +205,7 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
    setError("Não foi possível copiar. O rascunho continua disponível para revisão manual nesta sessão.");
   }
  }
- return <section className="rounded-md border p-3 space-y-3" aria-label="Continuidade do especialista AC-02">
+ return <section id="nucleo-ac02-module-context" tabIndex={-1} className="rounded-md border p-3 space-y-3 scroll-mt-28 focus-visible:ring-2 focus-visible:ring-ring" aria-label="Continuidade do especialista AC-02">
   <div className="flex flex-wrap gap-2 items-center justify-between">
    <h5 className="font-semibold text-sm">Continuidade do especialista · AC-02</h5>
    <Badge variant="outline">Rascunho consultivo, não mandato</Badge>
@@ -292,9 +293,11 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
        <p className="whitespace-pre-wrap break-words max-h-80 overflow-auto mt-2">{item.revision.body}</p>
       </details>
      </>}
+     {onViewLearning&&<Button type="button" size="sm" variant="outline" onClick={()=>onViewLearning(item.section)}>Abrir seção {item.section} e versões na Ficha Viva</Button>}
     </article>)}
     <p className="text-xs text-muted-foreground">Confronte FM-09/10 com fatos M3/M4 e versões anteriores antes de reutilizar uma lição ou retomar uma frente. Nenhuma decisão ou aceite é inferido.</p>
     {onViewWorkstreams&&<Button type="button" variant="outline" size="sm" onClick={onViewWorkstreams}>Conferir frentes e evidências M3/M4</Button>}
+    {onViewResume&&<Button type="button" variant="outline" size="sm" onClick={onViewResume}>Retomar próximas ações registradas</Button>}
    </section>
    <details className="rounded-md border p-3 space-y-2" aria-label="Índice consultivo de fontes versionadas">
     <summary className="cursor-pointer text-sm font-semibold">Fontes versionadas para recuperar conhecimento</summary>
