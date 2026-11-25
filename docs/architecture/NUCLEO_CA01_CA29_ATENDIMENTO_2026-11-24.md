@@ -86,3 +86,26 @@ Este delta atualiza fatos voláteis da matriz, sem alterar os 29 critérios lite
 - **CA-15/16/09/17/23/29:** operador independente ainda não comprovado; prova individual F1/F2, isolamento e sucessor distinto adiados por decisão do proprietário. Não renovar grant, ampliar acesso ou transformar sessão do proprietário em prova individual. F6/F7 e Entrega B permanecem fechadas.
 
 **Estado:** saldo M4 de três vínculos concluído com readback; Entrega A+ em homologação. Nenhum CA promovido automaticamente a aceite humano. Contraprovas operacionais permanecem separadas por domínio; próximo passo residual visual/autenticado: verificar os três vínculos recém-gravados na ficha existente quando houver sessão apropriada, sem regravar.
+
+## Fechamento técnico residual — 25/11/2026 (continuidade após #1115)
+
+Releitura administrativa do Core: 10 módulos, 10 frentes, 4 subfrentes, 57 eventos, 54 evidências M4. 100 seções FM distintas (10 por módulo), 102 revisões (NUC FM-09 v2 e SAU FM-08 v2, ambas rascunho com autoria). AC-01: 28 revisões distribuídas pelos 10 módulos; linhagem do mapa NUC existente com v1 proposta 80f64bfb-cfa0-4012-a2ad-b75226881c2d e v2 em_evolucao db8c07c0-6065-4444-80c9-627039a6f332, parent correto, autoria registrada, fonte GitHub fixada por SHA e checksum registrado; não regravar nem afirmar checksum recomputado nesta leitura. NUC FM-09 v2: 3e4834aa-094b-4b40-acca-b9077915d281. CA-07/21/24/29: preservação de versões confirmada por readback administrativo; nenhuma homologação normativa presumida.
+
+CA-06/08/20: lacuna de apresentação identificada no código M4 — SHA existente no snapshot não era mostrado na ficha e rejeição de consulta podia deixar loading ativo. Delta de engenharia nesta branch: projeção somente de SHA técnico permitido (merge_commit_sha/merge_sha/head_sha/commit), conflitos explícitos, sem expor snapshot bruto; tratamento de rejeição, encerramento do carregamento, recorte isolado por frente/reconsulta e ordenação determinística. Testes direcionados no contrato NT-06; publicação e contraprova visual ainda separadas. Nenhum writer, tabela ou grant alterado.
+
+### Mapa executivo atualizado de continuidade (sem substituir V1.3)
+
+| Eixo | Estado | Próxima ação |
+|---|---|---|
+| M0–M2 / Entrega A | Aceites técnicos restritos preservados | Não reabrir inventário/importação; conferência M2 em sessão autorizada se necessária |
+| M3 / D1–D2 | Engenharia e dados reais, 5 módulos com frente; outros 5 sem vínculo | Work: seleção, filtros/lista/árvore/Kanban/timeline, ficha e próxima ação; reconciliar textos históricos dos módulos pelo escritor vigente, sem inventar frentes ou mandatos |
+| M4 / D3 | 54 evidências, três vínculos novos conferidos; correção de detalhes e falha de consulta | Work: abrir OPE-03 e SHO-F12-2, conferir IDs/SHAs e recarga após publicação |
+| M5 / D4 | Base consultiva integrada | Work: observar alertas reais e limites; revogação avançada adiada |
+| F4 / AC-01 | Revisão NUC v2 e histórico comprovados no Core; Work comparou metadados | Não repetir revisão; contraste/diff de conteúdo apenas quando fonte disponível e não idêntica; decisão de autoridade permanece separada |
+| F3/F5 / AC-02 | Consulta Work reportada; FM e fontes disponíveis | Work: consultar pacote e verificar origem/limites se necessário; não criar mandato |
+| F1/F2 | Infraestrutura instalada; teste individual adiado pelo proprietário | Não renovar grant, ampliar privilégio ou simular JWT |
+| CA-15/20 | Operador independente, celular físico, teclado e contraste integral não comprovados | Contraprova humana concentrada, sem transformar viewport 500 px em celular real |
+| F6/F7 / B | Fechadas | Não abrir |
+| Operações/Shopee/Saúde | Provas produtivas pertencem às respectivas especialidades | Não executar compra, envio ou treino pelo Núcleo |
+
+Saldo de autoria/atualidade: os textos de próxima ação de algumas raízes ainda registram antigas contagens de FM; são checkpoints históricos, não contagens dinâmicas. Atualizar apenas pelo escritor autenticado M3 e preservar histórico. CA-02/10/11/22: contagem atual de cobertura não é homologação. Nenhum CA ganha aceite humano por este delta.
