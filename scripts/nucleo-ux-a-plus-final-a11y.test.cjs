@@ -21,4 +21,13 @@ for(const [s,word,why] of [
  [g,'somente leitura, não comprova execução',"No fictitious completion"],
  [g,'aria-pressed={index===activeIndex}',"Guide keyboard active state"],
 ])assert(s.includes(word),why);
+const m3=fs.readFileSync("src/components/nucleo/NucleoDevelopmentCenter.tsx","utf8");
+assert(m3.includes("const openTreeItem = (id: string) => {"));
+assert(m3.includes("if (!choose(id)) return;"));
+assert(m3.includes('detail?.focus({preventScroll:true})'));
+assert(m3.includes('detail?.scrollIntoView({behavior:"auto",block:"start"})'));
+for(const item of ["mod","front","sub"]){
+ assert(m3.includes("onClick={() => openTreeItem("+item+".id)}"));
+ assert(m3.includes('aria-current={selectedId==='+item+'.id?"true":undefined}'));
+}
 console.log("UX A+ final: module location, focus and non-operational guide accessibility PASS");
