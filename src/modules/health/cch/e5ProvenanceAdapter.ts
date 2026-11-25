@@ -3,6 +3,7 @@
  * Recovery check-ins have no session FK: NEVER infer per-session recovery
  * from calendar proximity or ordinal scores without explicit reviewed mapping.
  */
+import {validE5Date} from "./longitudinalEvidenceE5.js";
 import type {E5Context,E5Observation} from "./longitudinalEvidenceE5";
 import type {RecoveryReport,SymptomReport} from "./cycleDecisionModel";
 
@@ -50,7 +51,7 @@ export type E5ProvenanceResult={
  writes:false;recoveryInferred:false;consentInferred:false;
 };
 
-const isDate=(value:string|null)=>!!value&&!Number.isNaN(Date.parse(value));
+const isDate=validE5Date;
 const measured=(value:number|null)=>value!==null&&Number.isFinite(value)&&value>=0;
 const decisionType="e5_personalized_review";
 
@@ -63,9 +64,11 @@ export function hasCurrentE5Consent(
  // Offline review cannot infer a registry version. With no explicitly
  // verified active policy, fail closed exactly like the candidate SQL.
  if(!activePolicyVersion||!activePolicyVersion.trim())return false;
- const events=rows.filter(r=>r.athlete_id===athleteId&&
-  r.consent_type===decisionType&&isDate(r.occurred_at))
-  .sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
+ const events=rows.filter(r=>r.athlete_id===athleteId&&r.consent_type===decisionType);
+ // A malformed decision might be a revocation; its chronology is unknowable.
+ if(events.some(r=>!isDate(r.occurred_at)||!r.policy_version.trim()||
+  !["granted","denied","revoked"].includes(r.decision)))return false;
+ events.sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
  if(!events.length)return false;
  const top=Date.parse(events[0].occurred_at);
  const tied=events.filter(r=>Date.parse(r.occurred_at)===top);
@@ -84,10 +87,22 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   JSON.stringify(["confirmed_execution_label",input.exerciseId,label,targetUnit]):null;
  if(!equipmentKey)missing.add("equipment_label_or_unit_missing");
 
- const sessionById=new Map(input.sessions.filter(s=>s.athlete_id===input.athleteId&&
-  s.status==="completed"&&s.record_status==="active"&&
-  !!input.sourceVersionId&&s.program_version_id===input.sourceVersionId&&isDate(s.started_at))
-  .map(s=>[s.id,s]));
+ const scopedSessions=input.sessions.filter(s=>s.athlete_id===input.athleteId);
+ const sessionById=new Map<string,E5SessionRow>();
+ const ambiguousSessions=new Set<string>();
+ for(const s of scopedSessions){
+  if(!s.id||ambiguousSessions.has(s.id))continue;
+  const prior=sessionById.get(s.id);
+  if(prior&&JSON.stringify([prior.program_version_id,prior.started_at,prior.status,prior.record_status])!==
+   JSON.stringify([s.program_version_id,s.started_at,s.status,s.record_status])){
+   ambiguousSessions.add(s.id);sessionById.delete(s.id);
+  }else sessionById.set(s.id,s);
+ }
+ for(const [id,s] of sessionById){
+  if(s.status!=="completed"||s.record_status!=="active"||!input.sourceVersionId||
+   s.program_version_id!==input.sourceVersionId||!isDate(s.started_at))sessionById.delete(id);
+ }
+ if(ambiguousSessions.size)missing.add("ambiguous_session_identity");
  const exerciseBySession=new Map<string,E5WorkoutExerciseRow[]>();
  for(const e of input.exercises){
   if(e.athlete_id!==input.athleteId||e.exercise_id!==input.exerciseId||
@@ -102,27 +117,26 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   const ex=items[0];const session=sessionById.get(sessionId)!;
   const confirmation=input.equipment.filter(eq=>
    eq.athlete_id===input.athleteId&&eq.session_id===sessionId&&
-   eq.workout_exercise_id===ex.id&&eq.exercise_id===input.exerciseId&&
-   eq.equipment_label.trim()===label&&isDate(eq.confirmed_at));
-  if(!equipmentKey||confirmation.length!==1){
+   eq.workout_exercise_id===ex.id&&eq.exercise_id===input.exerciseId);
+  if(!equipmentKey||confirmation.length!==1||
+   confirmation[0].equipment_label.trim()!==label||!isDate(confirmation[0].confirmed_at)){
    missing.add("execution_equipment_unconfirmed_or_ambiguous");skipped++;continue;
   }
   const working=input.sets.filter(s=>s.athlete_id===input.athleteId&&
    s.session_id===sessionId&&s.workout_exercise_id===ex.id&&
    s.status==="completed"&&s.set_type==="working");
-  if(!working.length||working.some(s=>!s.id||!measured(s.load_value)||
+  if(!working.length||new Set(working.map(s=>s.id)).size!==working.length||working.some(s=>!s.id||!measured(s.load_value)||
    !measured(s.reps)||s.reps===0||!measured(s.rir)||s.load_unit!==targetUnit)||
    new Set(working.map(s=>s.load_value)).size!==1){
    // No arbitrary representative load when sets differ or are incomplete.
    missing.add("complete_same_unit_and_load_sets_missing");skipped++;continue;
   }
   const reviews=input.sessionReviews.filter(r=>r.athlete_id===input.athleteId&&
-   r.session_id===sessionId&&r.source==="explicit_session_review"&&
-   isDate(r.reviewed_at));
+   r.session_id===sessionId&&r.source==="explicit_session_review");
   const latest=reviews.sort((a,b)=>Date.parse(b.reviewed_at)-Date.parse(a.reviewed_at));
   const topTime=latest.length?Date.parse(latest[0].reviewed_at):null;
   const tied=latest.filter(r=>Date.parse(r.reviewed_at)===topTime);
-  const review=tied.length===1?latest[0]:null;
+  const review=reviews.every(r=>isDate(r.reviewed_at))&&tied.length===1?latest[0]:null;
   if(!review)missing.add("session_recovery_review_missing");
   // The descriptive values below summarize multiple sets conservatively;
   // the gate E5-A still NEVER prescribes volume or load.
@@ -144,7 +158,7 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   athleteId:input.athleteId,sourceVersionId:input.sourceVersionId,
   exerciseId:input.exerciseId,equipmentId:equipmentKey,loadUnit:targetUnit,
   trainingLevel:input.trainingLevel,goalChosen:input.goalChosenInCurrentReview,
-  consentToPersonalizedReview:consent,dataQuality:input.dataQuality,
+  consentToPersonalizedReview:consent,dataQuality:ambiguousSessions.size?"limited":input.dataQuality,
   adverseSignals:input.adverseSignals,observations:results
  };
  return {contract:"cch-e5-provenance-v1",context,
