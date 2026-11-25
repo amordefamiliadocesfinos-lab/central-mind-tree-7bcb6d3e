@@ -22,7 +22,7 @@ import NucleoFocusPreviewV30 from "@/components/nucleo/NucleoFocusPreviewV30";
 import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { selectAttention } from "@/lib/nucleo/workstreamPriority";
 import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
-import { managerActionExplanation } from "@/lib/nucleo/managerActionV13";
+import { explicitNextActionExcerpt, managerActionExplanation } from "@/lib/nucleo/managerActionV13";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -673,8 +673,10 @@ export default function NucleoDevelopmentCenter() {
               </Button>
             </div>
           </Card>
-          <section className="rounded-2xl border border-[#dce5f1] p-4 space-y-3 dark:border-slate-700"
+          <details className="rounded-2xl border border-[#dce5f1] p-4 dark:border-slate-700"
             aria-label="Acompanhamento transversal dos módulos no Core M3">
+            <summary className="cursor-pointer text-sm font-semibold">Atalhos de acompanhamento dos outros módulos</summary>
+            <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="text-sm font-semibold">Acompanhar outros módulos</h4>
@@ -710,7 +712,8 @@ export default function NucleoDevelopmentCenter() {
                   Nenhum outro módulo operacional encontrado neste recorte M3; consulte o Atlas antes de concluir ausência de cadastro.
                 </p>}
             </div>
-          </section>
+            </div>
+          </details>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
               <h4 className="text-sm font-semibold">De onde continuar</h4>
@@ -779,6 +782,9 @@ export default function NucleoDevelopmentCenter() {
                 onClick={()=>setWorkspaceView("frentes")}>Ver frentes e próximas ações</Button>
             </Card>
           </div>
+          <details className="rounded-xl border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">Panorama detalhado das frentes</summary>
+            <div className="mt-3">
           <NucleoPanoramaDinV30 workstreams={items}
             onFocusModule={moduleId=>{
               setFilter("");
@@ -794,6 +800,8 @@ export default function NucleoDevelopmentCenter() {
               setAttentionStatus(status);
               setWorkspaceView("frentes");
             }}/>
+            </div>
+          </details>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <div>
               <h4 className="text-sm font-semibold">Precisa explorar um módulo?</h4>
@@ -1266,7 +1274,14 @@ export default function NucleoDevelopmentCenter() {
                 <div className="border-t pt-3 space-y-2">
                   <p className="text-sm font-semibold">Próxima ação registrada</p>
                   {managerActionExplanation(selected)&&<p className="text-sm leading-relaxed"><strong>O que verificar:</strong> {managerActionExplanation(selected)}</p>}
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>
+                  {explicitNextActionExcerpt(selected.next_action)?<>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed font-medium">{explicitNextActionExcerpt(selected.next_action)}</p>
+                    <details className="rounded-lg border p-3">
+                      <summary className="cursor-pointer text-sm font-medium">Registro integral, contexto e ressalvas</summary>
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action}</p>
+                    </details>
+                    <p className="text-sm text-muted-foreground">Trecho literal após o marcador “Próxima ação”. Consulte o registro integral e as decisões vigentes antes de executar.</p>
+                  </>:<p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>}
                   <p className="text-sm text-muted-foreground">Registro do Core; pode conter contexto e checkpoints. Consulte o histórico para distinguir eventos e alterações.</p>
                 </div>
               {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
