@@ -3,7 +3,7 @@
  * Recovery check-ins have no session FK: NEVER infer per-session recovery
  * from calendar proximity or ordinal scores without explicit reviewed mapping.
  */
-import {validE5Date} from "./longitudinalEvidenceE5";
+import {validE5Date} from "./longitudinalEvidenceE5.js";
 import type {E5Context,E5Observation} from "./longitudinalEvidenceE5";
 import type {RecoveryReport,SymptomReport} from "./cycleDecisionModel";
 
