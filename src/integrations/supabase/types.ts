@@ -16357,6 +16357,14 @@ export type Database = {
         Args: { p_grant_id: string }
         Returns: boolean
       }
+      nucleo_identity_assignments_read: {
+        Args: { module_id: string }
+        Returns: Json
+      }
+      nucleo_identity_context_read: {
+        Args: { assignment_id: string }
+        Returns: Json
+      }
       owns_campaign: { Args: { _campaign_id: string }; Returns: boolean }
       p2_four_apply_internal: {
         Args: {
