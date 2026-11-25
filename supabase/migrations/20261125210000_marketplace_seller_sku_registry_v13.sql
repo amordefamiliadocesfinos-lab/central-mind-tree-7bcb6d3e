@@ -97,6 +97,13 @@ BEGIN
  IF NOT FOUND OR v_map.marketplace<>'shopee' OR v_map.channel_account_id IS NULL
  OR v_map.external_item_id IS NULL OR v_map.external_model_id IS NULL THEN
  RAISE EXCEPTION 'seller_sku_official_identity_required'; END IF;
+ -- Family/architecture cannot be spoofed to bypass a known physical exception.
+ IF (v_map.external_item_id IN ('23093522370','22798142097','23094148715','23194255040')
+     AND v_arch<>'T30-2') OR
+    (v_map.external_item_id IN ('21999552311','23293645454','22398650119','22194274841')
+     AND v_arch<>'T40-2') THEN
+   RAISE EXCEPTION 'seller_sku_architecture_mismatch';
+ END IF;
  IF v_sku IS NULL OR length(v_sku) NOT BETWEEN 3 AND 128 OR v_sku<>upper(v_sku)
  OR length(btrim(coalesce(v_family,''))) NOT BETWEEN 2 AND 32
  OR length(btrim(coalesce(v_arch,''))) NOT BETWEEN 2 AND 32
@@ -114,6 +121,10 @@ BEGIN
  RAISE EXCEPTION 'seller_sku_observation_unverified'; END IF;
  IF v_status='PUBLICADO_CONFERIDO' AND (v_kind<>'VALUE' OR v_observed<>v_sku OR v_evidence IS NULL) THEN
  RAISE EXCEPTION 'seller_sku_publication_unverified'; END IF;
+ IF v_status IN ('PRONTO_PARA_PUBLICAR','PUBLICADO_A_CONFERIR') AND v_evidence IS NULL THEN
+   RAISE EXCEPTION 'seller_sku_publication_evidence_required'; END IF;
+ IF v_status='LEGADO_PRESERVADO' AND (v_kind<>'VALUE' OR v_observed=v_sku) THEN
+   RAISE EXCEPTION 'seller_sku_legacy_observation_required'; END IF;
  -- Os 24 casos T30-2/Amendoim com componentes de 40g permanecem bloqueados.
  IF (v_arch='T30-2' AND EXISTS(SELECT 1 FROM public.marketplace_product_mapping_items mi
  JOIN public.products pr ON pr.id=mi.product_id WHERE mi.mapping_id=p_mapping_id AND pr.sku='TRF-ART-040-M'))
