@@ -109,7 +109,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
    window.addEventListener("beforeunload",warn);
    return ()=>window.removeEventListener("beforeunload",warn);
  },[draftDirty,draftBusy]);
- useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");requestRef.current=null;uncertainRef.current=false;pendingAttemptRef.current=null;setFeedback("");},[moduleId,declaredRole]);
+ useEffect(()=>{setArea("contribuicoes");setFlowStep(null);setGovernanceTarget(null);setRequestedReview(null);setFocusedCycleContribution(null);setRole(declaredRole||"");setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");requestRef.current=null;uncertainRef.current=false;pendingAttemptRef.current=null;setFeedback("");},[moduleId,declaredRole]);
  useEffect(()=>{
    let mounted=true;setReading(true);setReadError("");setRows([]);setReadAt("");
    void Promise.resolve(db.from("nucleo_specialist_contributions").select("*")
@@ -126,7 +126,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
           if(prior&&attempt&&isMatchingPendingAttempt(prior,attempt)&&fence.clearConfirmed(attempt.witness)){
             setFeedback("Proposta previamente enviada localizada e integralmente conferida no Core (v"+prior.version_no+"). Não reenviar.");
             uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
-            setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+            setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");
           }else if(prior){
             setFeedback("Registro com o mesmo identificador localizado, mas os dados da tentativa não foram integralmente confirmados. Estado indeterminado; não repetir nem trocar o identificador.");
           }else{
@@ -244,7 +244,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        setFeedback("Registro confirmado, mas a trava local permaneceu ativa. Não repetir; reconcilie a sessão.");
        return;
      }
-     requestRef.current=null;pendingAttemptRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+     requestRef.current=null;pendingAttemptRef.current=null;setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");
      setFeedback("Contribuição confirmada no Core por readback. Não homologada; versões anteriores preservadas na origem.");
      setRefresh(n=>n+1);
    }catch{
@@ -294,7 +294,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        return;
      }
      uncertainRef.current=false;requestRef.current=null;pendingAttemptRef.current=null;
-     setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");
+     setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");
      setFeedback("Contribuição anterior conferida integralmente no Core. Trava liberada; não reenviar a tentativa.");
      setRefresh(n=>n+1);
    }catch{
@@ -500,6 +500,10 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        <Textarea className="text-sm" value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} rows={3} disabled={saving||reading||Boolean(readError)}/>
      </label>
      <p className="text-xs text-muted-foreground">Nova contribuição: v1/proposta. Revisão: versão incrementada pelo Core, em evolução e append-only. A comparação exibe somente metadados; homologação e alteração de vigência exigem processos separados.</p>
+     <Button type="button" size="sm" variant="outline" disabled={saving||reading||draftBusy||!draftDirty} onClick={()=>{
+       if(saving||reading||uncertainRef.current||fence.blocked||!window.confirm("Descartar somente a minuta local AC-01?"))return;
+       setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");setFeedback("Minuta local descartada. Nenhum registro do Core alterado.");
+     }}>Descartar minuta local</Button>
      <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked}>
        {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
      </Button>
