@@ -99,3 +99,32 @@ test("duplicate or conflicting equipment confirmations are blocked",()=>{
  const r=map({...base,equipment:[equipment(1),equipment(1),equipment(2)]});
  assert.equal(r.context.observations.length,1);assert.equal(assess(r.context).state,"blocked");
 });
+
+test("malformed consent chronology must not revive an older grant",()=>{
+ for(const occurred_at of ["invalid","2026-02-30T10:00:00Z"]){
+  const consents=[consent,{...consent,decision:"revoked",occurred_at}];
+  assert.equal(hasCurrentE5Consent(consents,"a","e5-v1"),false);
+  assert.equal(assess(map({...base,consents}).context).state,"blocked");
+ }
+});
+test("contradictory completed and voided session rows fail closed in both orders",()=>{
+ for(const sessions of [[session(1),session(1,{record_status:"voided"}),session(2)],
+ [session(1,{record_status:"voided"}),session(1),session(2)]]){
+  const r=map({...base,sessions});
+  assert.deepEqual(r.provenance.eligibleSessionIds,["s2"]);
+  assert.ok(r.provenance.missing.includes("ambiguous_session_identity"));
+  assert.equal(assess(r.context).state,"blocked");
+ }
+});
+test("duplicate set IDs and conflicting equipment labels cannot inflate comparisons",()=>{
+ for(const change of [{sets:[...base.sets,set(1,1)]},
+ {equipment:[...base.equipment,equipment(1,{equipment_label:"Machine B"})]}]){
+  const r=map({...base,...change});
+  assert.equal(r.context.observations.length,1);
+  assert.equal(assess(r.context).state,"blocked");
+ }
+});
+test("invalid session review chronology cannot revive earlier recovery report",()=>{
+ const r=map({...base,sessionReviews:[...base.sessionReviews,review(1,{reviewed_at:"invalid",symptoms:"pain"})]});
+ assert.equal(assess(r.context).state,"blocked");
+});
