@@ -138,6 +138,8 @@ export default function NucleoSupervisionPanel({
   }, []);
 
   const reavaliar = () => {
+    // Keep the focused control in the tab sequence; aria-disabled alone does not block clicks.
+    if (loading) return;
     // Retire the previous authorized report synchronously before scheduling a new read.
     requestGuard.current.invalidate();
     setLoaded(false); setPermissionConfirmed(false); setLastSuccessfulRead(null);
@@ -187,7 +189,8 @@ export default function NucleoSupervisionPanel({
           </p>
         </div>
         <Button type="button" size="sm" variant="outline"
-          disabled={loading} onClick={reavaliar}>
+          aria-disabled={loading} aria-busy={loading} onClick={reavaliar}
+          className="aria-disabled:cursor-wait aria-disabled:opacity-70 focus-visible:ring-2 focus-visible:ring-ring">
           <RefreshCw className="h-3.5 w-3.5 mr-1"/> Reavaliar
         </Button>
       </div>
