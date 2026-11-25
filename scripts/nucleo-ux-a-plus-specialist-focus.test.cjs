@@ -156,3 +156,9 @@ for(const [field,value] of [
  ["recorded_by_auth_uid","user-b"],["recorded_at","invalid"],["lineage_id","lineage-b"]
 ])assert.equal(matcher({...row,[field]:value},attempt),false,"Rejeitar divergência: "+field);
 console.log("UX A+ specialist: progressive identity, mandates, AC-01 and AC-02 with preserved draft guards PASS");
+
+// P6 UX-H05: human-facing role and primary continuation without altering AC02 contract.
+assert(src.includes("Quem acompanha e como continuar")&&src.includes("Retomar trabalho e contexto"),"Human role and resume");
+assert(src.includes("Nenhum vínculo textual encontrado nesta leitura; isso não significa ausência de trabalho."),"No absence inference");
+assert(src.indexOf("<NucleoAc02ContinuityRead key={selectedRecord.id}")<src.indexOf('aria-label="F5 — checkpoints e próximos passos M3 do módulo"'),"Preparation precedes historical details");
+assert(continuation.indexOf("Preparar contexto de continuidade")<continuation.indexOf('aria-label="Conferir contexto antes da assunção"'),"Primary prepare action before ancillary navigation");
