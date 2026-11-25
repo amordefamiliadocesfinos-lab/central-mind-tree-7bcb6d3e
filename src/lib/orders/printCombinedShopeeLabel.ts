@@ -3,16 +3,15 @@
  * The Shopee PDF in private Storage is NEVER modified or overwritten.
  *
  * pdfjs renders at 4 pixels per PDF point (roughly 288 dpi on A4).
- * The COMBINED option uses only the first official label page and places
- * the picking composition/observations below it on one A4 sheet.
- * The original full PDF, including any DACE page, remains available unchanged
- * through the regular official-document print action.
+ * The COMBINED option renders every official PDF page faithfully on its own
+ * A4 sheet; composition fits below the label only if safely readable or uses
+ * as many additional A4 picking sheets as necessary. Original PDF is unchanged.
  */
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { supabase } from '@/integrations/supabase/client';
 import { createSeparationDisplayEntries } from '@/lib/orders/separationDisplay';
-import { fitOfficialPdfPage, fitCompactCompositionScale } from './printCombinedShopeeLabelLayout.mjs';
+import { fitOfficialPdfPage, fitCompactCompositionScale, planCombinedCompositionPages } from './printCombinedShopeeLabelLayout.mjs';
 import type { Order } from '@/hooks/useOrders';
 import type { OrderDocument } from '@/hooks/useOrderSeparation';
 
@@ -24,7 +23,7 @@ const A4_WIDTH = Math.round(595.28 * SCALE);
 const A4_HEIGHT = Math.round(841.89 * SCALE);
 const MARGIN = 32 * SCALE;
 const BOTTOM_GAP = 18 * SCALE;
-const MAX_PAGES = 8;
+const MAX_PAGES = 16;
 
 type PrintLine = { value: string; height: number; font: string; before: number };
 type PrintPage = { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D };
@@ -136,8 +135,8 @@ function blankPage(width: number, height: number): PrintPage {
 }
 
 /** On the print-only A4 copy, fit the picking details below the last label ink.
- * Never place text over official barcodes, silently crop rows or add another
- * sheet in the combined one-page action. Existing official PDF remains intact.
+ * Never place text over official barcodes or silently crop rows.
+ * Existing official PDF remains intact.
  */
 function drawCompactFirstSheet(rows: PrintLine[], page: PrintPage, startY: number): void {
   const totalHeight = rows.reduce((sum, row) => sum + row.before + row.height, 0);
@@ -210,25 +209,61 @@ export async function prepareCombinedShopeeLabel(order: Order, official: OrderDo
     const pdf = await task.promise;
     if (pdf.numPages < 1 || pdf.numPages > 4) throw new Error('Formato de etiqueta não suportado.');
 
-    // The COMBINED button is a compact picking sheet: retain the first official
-    // label page only. The original Shopee PDF, including page 2 (DACE when
-    // present), remains unchanged and available under normal 'IMPRIMIR'.
-    const first = await pdf.getPage(1);
-    const source = first.getViewport({ scale: 1 });
-    const placement = fitOfficialPdfPage(source.width, source.height, 595.28, 841.89);
-    const viewport = first.getViewport({ scale: placement.scale * SCALE });
-    const sheet = blankPage(A4_WIDTH, A4_HEIGHT);
-    await first.render({
-      canvas: sheet.canvas,
-      canvasContext: sheet.context,
-      viewport,
-      // Top-align: the spare A4 area belongs to composition/observations.
-      transform: [1, 0, 0, 1, placement.x * SCALE, 0],
-    }).promise;
-    const lastInk = lastInkY(sheet.context, A4_WIDTH, A4_HEIGHT);
-    const rows = buildTextRows(sheet.context, order, A4_WIDTH - 2 * MARGIN);
-    drawCompactFirstSheet(rows, sheet, lastInk + BOTTOM_GAP);
-    const pages = [sheet];
+    // Render EVERY official PDF page. Never discard DACE or extra official
+    // pages just because the original PDF happens to have multiple sheets.
+    const pages: PrintPage[] = [];
+    let lastInk = 0;
+    for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex++) {
+      const officialPage = await pdf.getPage(pageIndex);
+      const source = officialPage.getViewport({ scale: 1 });
+      const placement = fitOfficialPdfPage(source.width, source.height, 595.28, 841.89);
+      const viewport = officialPage.getViewport({ scale: placement.scale * SCALE });
+      const sheet = blankPage(A4_WIDTH, A4_HEIGHT);
+      await officialPage.render({
+        canvas: sheet.canvas,
+        canvasContext: sheet.context,
+        viewport,
+        transform: [1, 0, 0, 1, placement.x * SCALE, 0],
+      }).promise;
+      if (pageIndex === 1) lastInk = lastInkY(sheet.context, A4_WIDTH, A4_HEIGHT);
+      pages.push(sheet);
+    }
+
+    const rows = buildTextRows(pages[0].context, order, A4_WIDTH - 2 * MARGIN);
+    const compositionStart = lastInk + BOTTOM_GAP;
+    const plan = planCombinedCompositionPages({
+      officialPageCount: pdf.numPages,
+      rows,
+      firstPageAvailableHeight: A4_HEIGHT - MARGIN - compositionStart,
+      printableHeight: A4_HEIGHT - 2 * MARGIN,
+      maxPages: MAX_PAGES,
+    });
+
+    if (plan.compactScale !== null) {
+      // Only one official page, with enough white space for readable text.
+      drawCompactFirstSheet(rows, pages[0], compositionStart);
+    } else {
+      // Official pages are unchanged; composition starts AFTER the final one.
+      // Pagination is based on measured row heights and uses unscaled fonts.
+      for (const rowIndices of plan.compositionPages) {
+        const sheet = blankPage(A4_WIDTH, A4_HEIGHT);
+        const ctx = sheet.context;
+        let y = MARGIN;
+        for (const rowIndex of rowIndices) {
+          const row = rows[rowIndex];
+          y += row.before;
+          ctx.font = row.font;
+          ctx.fillStyle = '#111';
+          ctx.textBaseline = 'top';
+          ctx.fillText(row.value, MARGIN, y);
+          y += row.height;
+        }
+        pages.push(sheet);
+      }
+    }
+    if (pages.length !== plan.totalPages) {
+      throw new Error('Falha ao conferir paginação da etiqueta e composição.');
+    }
 
     // Fully render images before opening ANY new tab. This is the core fix.
     return await Promise.all(pages.map(page => asPngBlob(page.canvas)));

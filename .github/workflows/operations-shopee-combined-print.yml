@@ -1,0 +1,24 @@
+name: Operations Shopee Combined Print Validation
+on:
+  pull_request:
+    paths:
+      - 'src/lib/orders/printCombinedShopeeLabel.ts'
+      - 'src/lib/orders/printCombinedShopeeLabelLayout.mjs'
+      - 'src/lib/orders/printCombinedShopeeLabelLayout.test.mjs'
+      - 'src/pages/Operacoes.tsx'
+      - '.github/workflows/operations-shopee-combined-print.yml'
+permissions:
+  contents: read
+jobs:
+  print-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test src/lib/orders/printCombinedShopeeLabelLayout.test.mjs
+      - run: npm run build
