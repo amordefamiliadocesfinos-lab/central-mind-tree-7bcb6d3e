@@ -56,6 +56,7 @@ test('C7 prevents document task for unorganized shipment, wrong package, wrong s
   x=>{x.order.package_count=2;return x;},
   x=>{x.shop_id=1156446003;return x;},
   x=>{x.order.invoice_status='pending';return x;},
+  x=>{x.order.invoice_status=null;return x;},
   x=>{x.shipping_document_parameter.results[0].package_number='OTHER';return x;},
   x=>{x.shipping_document_parameter.results[0].selectable_shipping_document_type=[];return x;},
  ]){
