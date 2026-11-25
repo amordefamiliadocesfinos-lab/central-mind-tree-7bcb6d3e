@@ -53,16 +53,23 @@ export function assessE5Evidence(input:E5Context):E5Assessment{
  if(!Number.isFinite(input.adverseSignals)||input.adverseSignals<0||input.adverseSignals>0)
   blockers.push("Sinais adversos desconhecidos ou presentes exigem revisão humana.");
  const unique=new Map<string,E5Observation>();
+ const scoped=new Map<string,E5Observation>();
  const conflicted=new Set<string>();
  const fingerprint=(o:E5Observation)=>JSON.stringify([o.occurredAt,o.workingSets,o.reps,o.rir,o.load,o.recovery,o.symptoms,o.completed,o.voided]);
  for(const o of input.observations){
   if(o.athleteId!==input.athleteId||!input.sourceVersionId||
     o.programVersionId!==input.sourceVersionId||o.exerciseId!==input.exerciseId||
     !input.equipmentId||o.equipmentId!==input.equipmentId||
-    !input.loadUnit||o.loadUnit!==input.loadUnit||
-    !o.completed||o.voided||!dateValid(o.occurredAt)||
-    !nonNegative(o.workingSets)||o.workingSets===0||
-    !nonNegative(o.reps)||o.reps===0||!nonNegative(o.rir)||
+    !input.loadUnit||o.loadUnit!==input.loadUnit||!o.sessionId)continue;
+  // Compare scoped rows before validity filtering: a voided or incomplete
+  // duplicate must not silently disappear behind a completed observation.
+  const prior=scoped.get(o.sessionId);
+  if(prior&&fingerprint(prior)!==fingerprint(o)){
+   conflicted.add(o.sessionId);unique.delete(o.sessionId);
+  }else if(!prior)scoped.set(o.sessionId,o);
+  if(conflicted.has(o.sessionId)||!o.completed||o.voided||!dateValid(o.occurredAt)||
+    !nonNegative(o.workingSets)||!Number.isInteger(o.workingSets)||o.workingSets===0||
+    !nonNegative(o.reps)||!Number.isInteger(o.reps)||o.reps===0||!nonNegative(o.rir)||
     !nonNegative(o.load)||!o.sessionId||!o.id)continue;
   // A session is one exposure. A duplicate set cannot falsely multiply exposures.
   if(conflicted.has(o.sessionId))continue;

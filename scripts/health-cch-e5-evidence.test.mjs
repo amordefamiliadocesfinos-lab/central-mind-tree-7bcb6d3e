@@ -73,3 +73,18 @@ test("impossible calendar dates cannot count as comparable evidence",()=>{
  const r=assess({...base,observations:[obs("1"),obs("2",{occurredAt:"2026-02-30T12:00:00Z"})]});
  assert.equal(r.comparableSessions,1);assert.equal(r.state,"blocked");
 });
+
+test("voided or incomplete duplicate cannot disappear before conflict detection",()=>{
+ for(const bad of [obs("1",{voided:true}),obs("1",{completed:false}),obs("1",{rir:null})]){
+  for(const observations of [[obs("1"),bad,obs("2"),obs("3")],[bad,obs("1"),obs("2"),obs("3")]]){
+   const r=assess({...base,observations});
+   assert.equal(r.state,"blocked");assert.equal(r.comparableSessions,2);
+  }
+ }
+});
+test("fractional working set or repetition counts are not comparable exposures",()=>{
+ for(const change of [{workingSets:2.5},{reps:7.5}]){
+  const r=assess({...base,observations:[obs("1"),obs("2",change)]});
+  assert.equal(r.state,"blocked");assert.equal(r.comparableSessions,1);
+ }
+});
