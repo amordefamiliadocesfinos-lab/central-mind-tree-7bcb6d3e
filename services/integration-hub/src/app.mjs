@@ -23,7 +23,7 @@ import {
 } from './shopee-intake-policy.mjs';
 import { randomUUID } from 'node:crypto';
 import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
-import { captureCelivioC4ERawOnce } from './shopee-celivio-c4e-raw-once.mjs';
+import { captureCelivioC4ERawOnce, captureCelivioC6RawOnce } from './shopee-celivio-c4e-raw-once.mjs';
 import { runCelivioPreview } from './shopee-celivio-preview-read-budget.mjs';
 import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 import { runCelivioPilotCommitOne } from './shopee-celivio-commit-one.mjs';
@@ -62,6 +62,7 @@ export async function handleRequest(
     refreshShopeeOauth = refreshShopeeOauthOnce,
     readCelivioC4B = readCelivioC4BReadOnly,
     captureCelivioC4E = captureCelivioC4ERawOnce,
+    captureCelivioC6 = captureCelivioC6RawOnce,
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
     shipShopeeOrderOnce = guardedShopeeShipOrder,
@@ -271,6 +272,33 @@ export async function handleRequest(
         document_id: result?.ok === true ? result.document_id ?? null : null,
       });
     } catch { return json(503, { error: 'label_preparation_unavailable' }); }
+  }
+
+  // C6: one reviewed Celivio order, same C4-E Core Raw adapter.
+  // Explicitly OFF by default. No caller-selected SN, no scheduler or order writes.
+  if (normalizedPath === '/internal/shopee/celivio/c6/raw-once') {
+    if (normalizedMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
+    if (Object.keys(request.query ?? {}).length > 0
+      || request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined
+        && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) {
+      return json(400, { error: 'query_or_body_not_allowed' });
+    }
+    if (String(getEnv('SHOPEE_CELIVIO_C6_RAW_ONCE_ENABLED') ?? '')
+      .trim().toLowerCase() !== 'true') {
+      return json(503, { status:'blocked', code:'c6_not_enabled', raw_persist_attempted:0 });
+    }
+    try {
+      const result = await captureCelivioC6();
+      return json(result?.ok ? 200 : 503, result?.ok
+        ? {status:'ok', ...result}
+        : {status:'blocked',code:result?.code ?? 'c6_unavailable',
+           raw_persist_attempted:0,orders_written:0,items_written:0});
+    } catch {
+      return json(503,{status:'blocked',code:'c6_unavailable',
+        raw_persist_attempted:0,orders_written:0,items_written:0});
+    }
   }
 
   // C4-E Celivio-only: explicit gate to exactly one redacted eligible-order
