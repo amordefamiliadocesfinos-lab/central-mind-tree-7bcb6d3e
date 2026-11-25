@@ -133,3 +133,18 @@ Work relatou revisão efetivamente servida d744dd0dc048705d614b605d541df1e7934a1
 - CA-15: operador independente não participou; pendência humana isolada. F1/F2 individual adiado; F6/F7/B fechadas.
 
 Saldo: contraprova concentrada exclusivamente no botão M5 (foco permanece durante/após leitura, reentrada bloqueada e relatório anterior indisponível durante loading), e prova em celular físico/contraste integral conforme disponibilidade. A+ permanece em homologação, sem promoção de autoridade ou aceite humano automático. Sem alteração de schema, permissões, regras dos alertas ou dados produtivos.
+
+## Decisão do proprietário — fechamento residual delimitado · 25/11/2026
+
+Por instrução explícita do proprietário, retirar do escopo ativo da entrega corrente, mantendo como adiados e não homologados: (1) teste em celular físico/dispositivo real (CA-20, recorte móvel); (2) operador independente (CA-15); (3) prova individual F1/F2. Não simular operador, dispositivo, identidade ou aceite; não reabrir essas pendências sem decisão posterior. F6/F7 e Entrega B permanecem fechadas.
+
+PR #1119 integrada em 505ceb6ad81a5126a49fc6def115c21f6c09272c, cinco checks aprovados (TypeScript, frontend, build-and-rules, PostgreSQL M3 e contraprova integrada). Preservação de foco do botão M5 e bloqueio de reentrada implementados; não equivalem à confirmação visual em sessão autenticada.
+
+| Saldo ativo delimitado | Estado |
+|---|---|
+| Integração técnica M5 | Concluída com CI aprovada |
+| Publicação | Confirmar revisão servida contendo #1119 |
+| CA-08 / CA-20 desktop | Contraprova única do foco durante/depois de Reavaliar, reentrada bloqueada e ocultação do relatório anterior durante consulta; registrar foco/contraste no caminho específico |
+| CA-04/19 e M4 | Contraprovas específicas já concluídas; não repetir |
+
+Encerramento do ciclo corrente somente após comprovar o saldo ativo acima, sem declarar homologação integral dos critérios adiados. Se a prova visual depender da sessão Work, repassar apenas esse delta e não abrir nova auditoria. Decisão de escopo não altera papéis, permissões, Core ou estado formal de homologação.
