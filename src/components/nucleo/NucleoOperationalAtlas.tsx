@@ -555,6 +555,61 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
       </Card>
 
       {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4" aria-label="Módulos operacionais acompanhados">
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div>
+              <h3 className="font-semibold text-base">Módulos do Painel Central</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{catalog.length} módulo(s) identificado(s) no catálogo · {registeredModules.length} cadastrado(s) no Core. O Núcleo de governança não entra nesta contagem. Para módulos sem frentes vinculadas, o inventário de fontes é apenas diagnóstico para reconciliação humana; não cadastra nem homologa frentes.</p>
+            </div>
+            <Badge variant="secondary">Não representa progresso global</Badge>
+          </div>
+          <label className="relative block max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
+              placeholder="Buscar CRM, Financeiro, Operações…" />
+          </label>
+          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} onOpenWorkstream={onSelectWorkstream} />
+          {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
+            {catalog.length===0
+              ? "Nenhum módulo identificado no catálogo deste recorte. Não comprova ausência de módulos na organização."
+              : search.trim()
+                ? "Nenhum módulo corresponde à busca atual. Altere ou limpe o termo para consultar os módulos identificados."
+                : "Nenhum módulo disponível no recorte consultado. Consulte as fontes antes de concluir ausência de cadastro."}
+          </p>}
+        </Card>
+      )}
+
+      {level==="overview" && (
+        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4 border-l-4 border-l-[#1a73e8]" aria-label="Núcleo — ambiente de governança">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-muted p-2"><FolderTree className="h-5 w-5" aria-hidden="true" /></div>
+              <div>
+                <h3 className="text-base font-semibold">Núcleo — ambiente de governança</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Supervisiona a arquitetura, os especialistas e a evolução dos módulos. Não é um módulo operacional do catálogo abaixo.</p>
+              </div>
+            </div>
+            <Badge variant="outline">Estrutura separada</Badge>
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <span className="inline-flex items-center gap-1.5"><GitBranch className="h-4 w-4" aria-hidden="true" /> {governanceFronts.length} frentes do Núcleo no Core</span>
+            <span className="text-muted-foreground">Navegue pela árvore e pela ficha de governança abaixo, sem duplicar seus registros.</span>
+          </div>
+          {governanceRoot && (
+            <div className="pl-12 sm:pl-0 pt-2 pb-4">
+              <Button type="button" variant="outline" size="sm" className="min-h-11 px-5"
+                onClick={() => onSelectWorkstream(governanceRoot.id)}>
+                Abrir ficha de governança
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Indicadores e distribuição das frentes</summary>
+          <div className="mt-3">
         <section aria-label="Indicadores do acompanhamento" className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold">Leitura rápida do gestor</h3>
@@ -576,9 +631,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             ))}
           </div>
         </section>
+          </div>
+        </details>
       )}
 
       {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Prioridades sugeridas e pontos de atenção</summary>
+          <div className="mt-3">
         <section className="space-y-3" aria-label="Por onde começar — atenção do gestor">
           <div className="flex flex-wrap justify-between items-start gap-2">
             <div>
@@ -611,9 +671,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             ))}
           </div>
         </section>
+          </div>
+        </details>
       )}
 
       {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Detalhes da cobertura dos módulos</summary>
+          <div className="mt-3">
         <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
           aria-label="P2-A — matriz de cobertura real por módulo">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -692,9 +757,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             Sem homologação de implantação, cobertura integral, responsabilidade formal ou operação real.
           </p>
         </Card>
+          </div>
+        </details>
       )}
 
       {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Documentos e fontes em conferência</summary>
+          <div className="mt-3">
         <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
           aria-label="P3-A — reconciliação documental por módulo">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -789,9 +859,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             não provam conflito — exigem avaliação documental humana.
           </p>
         </Card>
+          </div>
+        </details>
       )}
 
       {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Inventário de lacunas e referências</summary>
+          <div className="mt-3">
         <Card className="nucleo-v22-surface p-4 md:p-5 space-y-3"
           aria-label="Inventário de lacunas M0 e fontes M2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -917,61 +992,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             Somente leitura. Registrar novas fontes, métodos ou frentes exige procedimento autorizado; não inferir vigência ou mandato.
           </p>
         </Card>
+          </div>
+        </details>
       )}
 
       {level==="overview" && (
-        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4 border-l-4 border-l-[#1a73e8]" aria-label="Núcleo — ambiente de governança">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="rounded-md bg-muted p-2"><FolderTree className="h-5 w-5" aria-hidden="true" /></div>
-              <div>
-                <h3 className="text-base font-semibold">Núcleo — ambiente de governança</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Supervisiona a arquitetura, os especialistas e a evolução dos módulos. Não é um módulo operacional do catálogo abaixo.</p>
-              </div>
-            </div>
-            <Badge variant="outline">Estrutura separada</Badge>
-          </div>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <span className="inline-flex items-center gap-1.5"><GitBranch className="h-4 w-4" aria-hidden="true" /> {governanceFronts.length} frentes do Núcleo no Core</span>
-            <span className="text-muted-foreground">Navegue pela árvore e pela ficha de governança abaixo, sem duplicar seus registros.</span>
-          </div>
-          {governanceRoot && (
-            <div className="pl-12 sm:pl-0 pt-2 pb-4">
-              <Button type="button" variant="outline" size="sm" className="min-h-11 px-5"
-                onClick={() => onSelectWorkstream(governanceRoot.id)}>
-                Abrir ficha de governança
-              </Button>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {level==="overview" && (
-        <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4" aria-label="Módulos operacionais acompanhados">
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <div>
-              <h3 className="font-semibold text-base">Módulos do Painel Central</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{catalog.length} módulo(s) identificado(s) no catálogo · {registeredModules.length} cadastrado(s) no Core. O Núcleo de governança não entra nesta contagem. Para módulos sem frentes vinculadas, o inventário de fontes é apenas diagnóstico para reconciliação humana; não cadastra nem homologa frentes.</p>
-            </div>
-            <Badge variant="secondary">Não representa progresso global</Badge>
-          </div>
-          <label className="relative block max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <Input id="nucleo-atlas-module-search" aria-label="Buscar módulo ou domínio" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)}
-              placeholder="Buscar CRM, Financeiro, Operações…" />
-          </label>
-          <NucleoCrossModuleCoverage modules={modules} workstreams={workstreams} onOpenModule={choose} onPrepareModule={onPrepareModule} onOpenWorkstream={onSelectWorkstream} />
-          {modules.length===0 && <p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
-            {catalog.length===0
-              ? "Nenhum módulo identificado no catálogo deste recorte. Não comprova ausência de módulos na organização."
-              : search.trim()
-                ? "Nenhum módulo corresponde à busca atual. Altere ou limpe o termo para consultar os módulos identificados."
-                : "Nenhum módulo disponível no recorte consultado. Consulte as fontes antes de concluir ausência de cadastro."}
-          </p>}
-        </Card>
-      )}
-
-      {level==="overview" && (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Atividade recente e histórico</summary>
+          <div className="mt-3">
         <Card className="nucleo-v22-surface p-4 md:p-5 space-y-4" aria-label="Atividade recente registrada no Core">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1011,6 +1039,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             </ol>
           )}
         </Card>
+          </div>
+        </details>
       )}
 
       {/* A ficha permanece montada no panorama e na jornada CRM; a seleção persiste. */}
