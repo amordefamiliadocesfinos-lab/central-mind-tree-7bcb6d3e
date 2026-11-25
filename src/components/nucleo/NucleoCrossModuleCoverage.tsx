@@ -71,6 +71,9 @@ export default function NucleoCrossModuleCoverage({
         <Badge variant="outline">{missing} sem frente vinculada</Badge>
         <Badge variant="outline">{notRegistered} somente no catálogo</Badge>
       </div>
+      <details className="rounded-lg border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Sobre a cobertura e referências preparadas</summary>
+        <div className="mt-2 space-y-2">
       <div className="rounded-lg border p-3 space-y-1" aria-label="Inventário documental preparado AC-01">
         <h4 className="text-sm font-semibold">Alimentação documental preparada</h4>
         <p className="text-xs">{preparedCount} referência(s) candidata(s) · {retainedCount} retida(s) para conciliação</p>
@@ -85,6 +88,8 @@ export default function NucleoCrossModuleCoverage({
         não significa trabalho inexistente. Referências de código e método não são
         evidências M4, mandato formal, deploy ou homologação.
       </p>
+        </div>
+      </details>
       <div className="flex flex-wrap gap-2" aria-label="Filtrar cobertura">
         <Button type="button" size="sm" variant={filter==="todos"?"default":"outline"}
           aria-pressed={filter==="todos"} onClick={()=>setFilter("todos")}>Todos</Button>
@@ -108,6 +113,14 @@ export default function NucleoCrossModuleCoverage({
               </Badge>
             </div>
             <h4 className="text-sm font-semibold">{module.name}</h4>
+            <p className="text-sm">Estado registrado: {record?.status.replaceAll("_"," ") ?? "não cadastrado"}</p>
+            <p className="text-sm text-muted-foreground">{fronts.length} frente(s) · {subfronts.length} subfrente(s){attentionFront? " · Em atenção: "+attentionFront.code:""}</p>
+            <Button type="button" size="sm" className="min-h-11" onClick={()=>onOpenModule(module)}>
+              Abrir módulo e fontes
+            </Button>
+            <details className="rounded-lg border p-2">
+              <summary className="cursor-pointer text-sm font-medium">Ver frentes, próxima ação e fontes</summary>
+              <div className="mt-2 space-y-2">
             <p className="text-xs leading-relaxed"><span className="font-medium">Especialista:</span> {record?.specialist.trim()||module.specialist||"não identificado no cadastro"}</p>
             <p className="text-xs text-muted-foreground">
               Estado do módulo: {record?.status.replaceAll("_"," ") ?? "não cadastrado"} — declarativo
@@ -181,9 +194,6 @@ export default function NucleoCrossModuleCoverage({
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={()=>onOpenModule(module)}>
-                Abrir módulo e fontes
-              </Button>
               {attentionFront && <Button type="button" variant="outline" size="sm"
                 onClick={()=>onOpenWorkstream(attentionFront.id)}>
                 {attentionFront.kind==="subfrente" ? <>Abrir ficha da subfrente {attentionFront.code}</> : <>Abrir ficha da frente {attentionFront.code}</>}
@@ -197,6 +207,8 @@ export default function NucleoCrossModuleCoverage({
                   Preparar referências AC-01
                 </Button>}
             </div>
+              </div>
+            </details>
           </article>
         ))}
       </div>

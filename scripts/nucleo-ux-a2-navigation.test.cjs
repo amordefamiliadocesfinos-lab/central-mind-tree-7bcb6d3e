@@ -48,3 +48,12 @@ assert.match(coverage, /attentionFront && <Button/);
 assert.match(coverage, /onClick=\{\(\)=>onOpenWorkstream\(attentionFront\.id\)\}/);
 assert.match(coverage, /Abrir ficha da frente \{attentionFront\.code\}/);
 console.log("UX-A2/UX-01: navegação, contexto e ficha executiva real preservados");
+
+// P6 UX-H03/H04: ordem de leitura, sem duplicar fontes ou alterar callbacks.
+assert(source.indexOf('aria-label="Módulos operacionais acompanhados"')<source.indexOf('aria-label="P2-A — matriz de cobertura real por módulo"'),"Catalog first");
+assert(source.includes("Detalhes da cobertura dos módulos")&&source.includes("Atividade recente e histórico"),"Technical details progressive");
+assert(coverage.includes("Ver frentes, próxima ação e fontes"),"Compact module card retains details");
+const supervisor=fs.readFileSync("src/components/nucleo/NucleoSupervisionPanel.tsx","utf8");
+assert(supervisor.indexOf("O que pede atenção")<supervisor.indexOf("findingsShown.map(finding"),"Alert queue heading");
+assert(supervisor.indexOf("findingsShown.map(finding")<supervisor.indexOf("<NucleoM2M4Reconciliation"),"Alerts before diagnostic panels");
+assert(supervisor.includes("Detalhes da leitura e da governança")&&supervisor.includes("SIMULAÇÃO — DADOS FICTÍCIOS"),"Details and demo stay distinct");
