@@ -37,3 +37,10 @@ assert.equal(read([...rows.slice(0,9),rows[8]],id)[1].state,"indeterminado");
 assert(ui.includes("setLearning([])")&&ui.includes("readLearningSections(response.sections,moduleId)"));
 assert.equal((ui.match(/navigator.clipboard.writeText\(/g)||[]).length,1);
 console.log("AC02 continuity UI: guarded read, no implicit write/delivery, safe module scoping.");
+
+assert(ui.includes("onViewLearning(item.section)")&&ui.includes("onClick={onViewResume}"));
+assert(atlas.includes("onViewLearning={openContinuityFm}")&&atlas.includes("onOpenLearning={openContinuityFm}"));
+assert(atlas.includes("setFmSectionRequest(previous=>({section,seq:"));
+const resume=fs.readFileSync("src/components/nucleo/NucleoResumeBrief.tsx","utf8");
+assert(resume.includes('onOpenLearning("FM-09")')&&resume.includes('onOpenLearning("FM-10")'));
+assert(resume.includes('id="nucleo-resume-module-context"')&&ui.includes('id="nucleo-ac02-module-context"'));
