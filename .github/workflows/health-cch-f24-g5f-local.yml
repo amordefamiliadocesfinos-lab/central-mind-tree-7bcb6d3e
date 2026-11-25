@@ -1,0 +1,115 @@
+name: CCH F24 G5-F Auth/RLS/F19 Local Disposable
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/health-cch-f24-g5f-local/**'
+      - '.github/workflows/health-cch-f24-g5f-local.yml'
+      - 'supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql'
+concurrency:
+  group: cch-g5f-local-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  local-auth:
+    name: Disposable real GoTrue PostgREST PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Install pinned local Supabase CLI (no hosted login)
+        run: npm install --no-save --no-package-lock --ignore-scripts=false supabase@3.1.0 @playwright/test@1.56.1
+      - name: PostgreSQL client for disposable database inspection
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Install ephemeral Chromium
+        run: npx playwright install chromium --with-deps
+      - name: Run one ephemeral local Auth/RLS/F19 verification and teardown
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_URL
+          unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+          tmp="$(mktemp -d /tmp/cch-g5f-auth-XXXXXX)"
+          export SUPABASE_WORKDIR="$tmp"
+          cli="$GITHUB_WORKSPACE/node_modules/.bin/supabase"
+          test -x "$cli"
+          mkdir -p test-results
+          export G5F_RPC_SQL="$tmp/f19-functions.sql"
+          export G5F_EVIDENCE="$tmp/evidence.json"
+          export G5F_LOGIN_JSON="$tmp/login.json"
+          teardown(){
+            set +e
+            (cd "$tmp" && timeout 180s "$cli" stop --no-backup --project-id "cch-g5f-${GITHUB_RUN_ID}") >/dev/null 2>&1
+            remaining="$(docker ps -a --format '{{.Names}}' | grep -F "cch-g5f-${GITHUB_RUN_ID}" || true)"
+            volumes="$(docker volume ls --format '{{.Name}}' | grep -F "cch-g5f-${GITHUB_RUN_ID}" || true)"
+            rm -rf "$tmp"
+            if [ -n "$remaining" ] || [ -n "$volumes" ]; then
+              echo "G5-F teardown incomplete: local resources detected"
+              return 1
+            fi
+            echo "G5-F teardown verified: zero local project containers and zero volumes"
+          }
+          trap teardown EXIT
+          (cd "$tmp" && "$cli" init)
+          # Never use the repository's real Supabase project configuration.
+          sed -i "s/^project_id *=.*/project_id = \"cch-g5f-${GITHUB_RUN_ID}\"/" "$tmp/supabase/config.toml"
+          grep -Fx "project_id = \"cch-g5f-${GITHUB_RUN_ID}\"" "$tmp/supabase/config.toml" >/dev/null
+          "$cli" --help >/dev/null
+          "$cli" start --help >/dev/null
+          (cd "$tmp" && timeout 1100s "$cli" start) >"$tmp/start.log" 2>&1 || {
+            echo "G5-F local Supabase failed to start; no remote fallback"
+            tail -25 "$tmp/start.log" | sed -E 's/(eyJ[A-Za-z0-9_-]{24})[A-Za-z0-9_-]+/[REDACTED]/g'
+            exit 1
+          }
+          # Verify the Docker project identity; never accept repository production ref names.
+          containers="$(docker ps --format '{{.Names}}')"
+          echo "G5-F active Supabase container names:"
+          echo "$containers" | grep '^supabase_' | sed -E 's/[[:space:]]+//g' | head -25
+          echo "$containers" | grep -F "supabase_db_cch-g5f-${GITHUB_RUN_ID}" >/dev/null || {
+            echo "G5-F local Docker project ID mismatch; aborting"; exit 1;
+          }
+          if echo "$containers" | grep -F "xkskyutmtlhivvpfxkjg" >/dev/null; then
+            echo "G5-F official project identifier detected in active containers"; exit 1
+          fi
+          echo "G5-F Docker project identity confirmed"
+          (cd "$tmp" && "$cli" status -o env) >"$tmp/status.env"
+          chmod 600 "$tmp/status.env"
+          set -a
+          source "$tmp/status.env"
+          set +a
+          test "${API_URL:-}" = "http://127.0.0.1:54321"
+          case "${DB_URL:-}" in
+            postgresql://postgres:*@127.0.0.1:54322/postgres) ;;
+            *) echo "G5-F DB not confirmed as local"; exit 1;;
+          esac
+          test -n "${ANON_KEY:-}" && test -n "${SERVICE_ROLE_KEY:-}"
+          echo "G5-F isolated local stack is ready; keys and DSN not logged"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f scripts/health-cch-f24-g5f-local/fixture.sql
+          node scripts/health-cch-f24-g5f-local/extract-rpcs.mjs
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$G5F_RPC_SQL"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -c "NOTIFY pgrst, 'reload schema';"
+          node scripts/health-cch-f24-g5f-local/verify-auth.mjs
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" npx playwright test --config scripts/health-cch-f24-g5f-local/ui/playwright.config.mjs
+          cp "$G5F_EVIDENCE" test-results/g5f-auth-local.json
+      - name: Upload sanitized local evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cch-f24-g5f-auth-local-evidence
+          path: |
+            test-results/g5f-auth-local.json
+            scripts/health-cch-f24-g5f-local/ui/test-results/g5f-browser-results.json
+            scripts/health-cch-f24-g5f-local/ui/test-results/g5f-auth-*.png
+          if-no-files-found: warn
+          retention-days: 7
