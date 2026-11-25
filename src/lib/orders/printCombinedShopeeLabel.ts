@@ -23,7 +23,7 @@ const A4_WIDTH = Math.round(595.28 * SCALE);
 const A4_HEIGHT = Math.round(841.89 * SCALE);
 const MARGIN = 32 * SCALE;
 const BOTTOM_GAP = 18 * SCALE;
-const MAX_PAGES = 8;
+const MAX_PAGES = 16;
 
 type PrintLine = { value: string; height: number; font: string; before: number };
 type PrintPage = { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D };
