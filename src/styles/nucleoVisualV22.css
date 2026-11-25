@@ -238,3 +238,9 @@
   background: #18263b;
   border-color: #38516f;
 }
+
+/* P6 UX-H08: informações explicativas legíveis na superfície de gestão.
+ * Escopo restrito ao Núcleo; não altera tabelas, badges ou tokens globais. */
+.nucleo-v22 p.text-muted-foreground { color: #475569; }
+.nucleo-v22 p.text-xs.text-muted-foreground { font-size: 0.875rem; line-height: 1.5; }
+.dark .nucleo-v22 p.text-muted-foreground { color: #cbd5e1; }
