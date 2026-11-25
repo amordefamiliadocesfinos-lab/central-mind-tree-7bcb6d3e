@@ -178,3 +178,50 @@ BEGIN RAISE EXCEPTION 'seller_sku_events_append_only'; END; $$;
 REVOKE ALL ON FUNCTION sku_private.deny_event_mutation() FROM PUBLIC, anon, authenticated, service_role;
 CREATE TRIGGER seller_sku_events_immutable BEFORE UPDATE OR DELETE ON public.marketplace_seller_sku_events
  FOR EACH ROW EXECUTE FUNCTION sku_private.deny_event_mutation();
+
+
+-- E05: consulta consultiva exata, somente service_role, sem gravacao no Core.
+-- SECURITY DEFINER em public e usado exclusivamente com EXECUTE revogado
+-- de PUBLIC/anon/authenticated; Core Bridge verifica HMAC + conta Shopee ativa.
+CREATE FUNCTION public.read_marketplace_seller_sku_consultive(
+  p_channel_account_id uuid,
+  p_external_item_id text,
+  p_external_model_id text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $consult$
+DECLARE
+ v jsonb;
+BEGIN
+ IF p_channel_account_id IS NULL OR
+    p_external_item_id IS NULL OR p_external_item_id !~ '^[0-9]{1,30}$' OR
+    p_external_model_id IS NULL OR p_external_model_id !~ '^[0-9]{1,30}$' THEN
+   RAISE EXCEPTION 'seller_sku_invalid_official_identity' USING ERRCODE='22023';
+ END IF;
+
+ SELECT jsonb_build_object(
+   'mapping_found', true,
+   'registry_found', s.mapping_id IS NOT NULL,
+   'mapping_id', m.id,
+   'canonical_sku', s.canonical_sku,
+   'observed_sku', s.observed_sku,
+   'observation_kind', COALESCE(s.observation_kind,'UNKNOWN'),
+   'reconciliation_status', COALESCE(s.reconciliation_status,'NAO_PREPARADO'),
+   'revision', s.revision,
+   'observed_at', s.observed_at,
+   'evidence_ref', s.last_evidence_ref
+ ) INTO v
+ FROM public.marketplace_product_mappings AS m
+ LEFT JOIN public.marketplace_seller_sku_state AS s ON s.mapping_id=m.id
+ WHERE m.marketplace='shopee' AND m.channel_account_id=p_channel_account_id
+   AND m.external_item_id=p_external_item_id
+   AND m.external_model_id=p_external_model_id;
+
+ RETURN COALESCE(v,jsonb_build_object('mapping_found',false,'registry_found',false));
+END;
+$consult$;
+
+REVOKE ALL ON FUNCTION public.read_marketplace_seller_sku_consultive(uuid,text,text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.read_marketplace_seller_sku_consultive(uuid,text,text)
+  TO service_role;
