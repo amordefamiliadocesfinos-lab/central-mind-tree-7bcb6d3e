@@ -226,19 +226,10 @@ export default function NucleoSupervisionPanel({
                 ? `${focusedFronts} frente(s)/subfrente(s) no recorte M5 · ${findingsShown.length} alerta(s) encontrados pelas regras atuais.`
                 : "O módulo não foi localizado no snapshot M5 completo. Nenhuma conclusão sobre suas frentes pode ser feita."}
             </p>
-            <p className="text-xs text-muted-foreground">Os demais painéis abaixo continuam globais. Este foco filtra somente a lista de alertas, não a autorização de leitura.</p>
+            <p className="text-xs text-muted-foreground">Os detalhes da leitura continuam globais. Este foco filtra somente a lista de alertas, não a autorização de leitura.</p>
           </section>}
-          <NucleoM2M4Reconciliation workstreams={latestFronts} evidence={evidence} />
-          <NucleoKnowledgeReviewConsole workstreams={latestFronts} evidence={evidence} />
-          <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
-          <NucleoAuthorityCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
-          <NucleoMandateRegistry key={mandateVersion} modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
-          <NucleoMandateProposal modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} onCreated={() => setMandateVersion(v=>v+1)} />
-          {snapshot.declaredDependencies === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Não há dependências explícitas cadastradas. O mapa arquitetural não foi convertido em vínculos por inferência.
-            </p>
-          )}
+          <h4 className="text-base font-semibold">O que pede atenção</h4>
+          <p className="text-sm text-muted-foreground">Alertas do recorte consultado; nenhuma sugestão altera o sistema.</p>
           {findingsShown.length === 0 && <p className="text-xs text-muted-foreground">
             {focusModuleId
               ? "Nenhum alerta retornado para este módulo pelas regras atuais, nesta leitura completa. Isso não comprova conclusão."
@@ -247,12 +238,12 @@ export default function NucleoSupervisionPanel({
           <div className="space-y-2">
             {findingsShown.map(finding => (
               <div className="rounded-md border p-3 space-y-1" key={finding.id}>
-                <p className="text-xs font-semibold flex items-center gap-2">
+                <p className="text-sm font-semibold flex items-center gap-2">
                   <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
                   {finding.workstreamCode} — {finding.title}
                 </p>
-                <p className="text-xs text-muted-foreground">{finding.explanation}</p>
-                <p className="text-xs"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{finding.explanation}</p>
+                <p className="text-sm leading-relaxed"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
                 {onOpenWorkstream&&latestFronts.some(front=>front.code===finding.workstreamCode)&&
                   <Button type="button" variant="outline" size="sm" className="min-h-9"
                     onClick={()=>{
@@ -285,6 +276,22 @@ export default function NucleoSupervisionPanel({
               </div>
             ))}
           </div>
+          <details className="rounded-xl border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">Detalhes da leitura e da governança</summary>
+            <div className="mt-3 space-y-3">
+          <NucleoM2M4Reconciliation workstreams={latestFronts} evidence={evidence} />
+          <NucleoKnowledgeReviewConsole workstreams={latestFronts} evidence={evidence} />
+          <NucleoKnowledgeCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoAuthorityCoverage modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoMandateRegistry key={mandateVersion} modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} />
+          <NucleoMandateProposal modules={latestFronts.filter(item => item.kind === "modulo" && item.code !== "NUC")} onCreated={() => setMandateVersion(v=>v+1)} />
+          {snapshot.declaredDependencies === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Não há dependências explícitas cadastradas. O mapa arquitetural não foi convertido em vínculos por inferência.
+            </p>
+          )}
+            </div>
+          </details>
           <p className="text-[11px] text-muted-foreground">
             Avaliação local, sem LLM e sem envio de dados a serviços externos. A verificação do GitHub
             não ocorre em tempo real; registros M4 são snapshots com proveniência própria.
