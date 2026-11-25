@@ -38,6 +38,7 @@ export function buildAc02AssumptionGuide(
  };
  const scope=referenceState("FM-03"),method=referenceState("FM-08");
  const checkpoint=referenceState("FM-09");
+ const learning=referenceState("FM-10");
  const m3:Ac02AssumptionGuideStep["state"]=continuity
   ?continuity.completeness==="recorte_incompleto"?"recorte_incompleto":continuity.frontsWithEvidence+continuity.frontsWithoutEvidence>0?"referencia_disponivel":"consulta_necessaria"
   :"consulta_necessaria";
@@ -55,8 +56,8 @@ export function buildAc02AssumptionGuide(
     "Localizar FM-08 e verificar nas fontes se método e ecossistema têm identidade e vigência próprias.",
     "FM-08 é compartilhada; não comprova dois documentos independentes."),
   step(4,"checkpoint",checkpoint,
-    "Localizar FM-09, consultar o checkpoint registrado e confrontar com evidência de trabalho concluído antes de retomar.",
-    "Revisão FM-09 não comprova o último checkpoint operacional."),
+    "Localizar FM-09, consultar o checkpoint registrado e confrontar com evidência de trabalho concluído antes de retomar. Consultar FM-10 para recuperar erros, acertos e soluções na origem, sem inferir homologação.",
+    "Revisão FM-09 não comprova o último checkpoint operacional. FM-10: "+learning+"; referência não comprova a experiência."),
   step(5,"frentes",m3,
     "Conferir o inventário M3 e as referências M4 no Core e nos provedores; separar concluído declarado, em execução e bloqueado.",
     "Estados M3/M4 são declarados; bloqueios permanecem bloqueios."),
