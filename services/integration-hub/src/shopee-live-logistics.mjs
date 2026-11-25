@@ -155,6 +155,7 @@ export function createShopeeLiveLogisticsInspector({
         'package_list',
         'shipping_carrier',
         'invoice_data',
+        'split_up',
       ],
     });
 
@@ -249,6 +250,7 @@ export function createShopeeLiveLogisticsInspector({
       shipping_carrier: typeof order.shipping_carrier === 'string' ? order.shipping_carrier : null,
       package_number: packageNumber,
       package_count: Array.isArray(order.package_list) ? order.package_list.length : null,
+      split_up: typeof order.split_up === 'boolean' ? order.split_up : null,
       package_logistics_status: inferPackageLogisticsStatus(order, packageNumber),
       invoice_status: typeof order?.invoice_data?.status === 'string' ? order.invoice_data.status : null,
       invoice_pending_reason: typeof order?.invoice_data?.pending_reason === 'string'
