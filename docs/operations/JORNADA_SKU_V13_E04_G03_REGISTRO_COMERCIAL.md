@@ -80,3 +80,52 @@ regressão adicional e TypeScript.
 **G03 concluível apenas após CI verde e revisão da PR.**
 Merge, migração no Lovable Cloud, deploy, registro dos 42 códigos, exportação
 para Shopee e upload em massa são **gates separados**, não autorizados por esta PR.
+
+
+## E05 — contrato de leitura consultiva, preparado na mesma PR
+
+O desenvolvimento E05 não consulta Seller Center nem prova publicação;
+apenas torna consultável o estado do cadastro comercial **quando** a
+migração e os serviços forem implantados por autorização independente.
+
+**Caminho técnico, exclusivamente de leitura:**
+
+1. Cloud Run / Integration Hub: \`POST /internal/shopee/live/sku-registry/preview\`.
+   Exige IAM, não recebe corpo nem query, fica OFF por padrão.
+2. Operador de infraestrutura poderá configurar, em etapa futura, exatamente:
+   \`SHOPEE_SKU_REGISTRY_PREVIEW_ENABLED=true\`,
+   \`SHOPEE_SKU_REGISTRY_CHANNEL_ACCOUNT_ID\`,
+   \`SHOPEE_SKU_REGISTRY_ITEM_ID\`, \`SHOPEE_SKU_REGISTRY_MODEL_ID\`.
+   **Não configurar nem habilitar nesta PR.**
+3. Hub chama \`shopee.seller_sku_registry.read\` pelo Core Bridge com HMAC,
+   chaves exatas e limites. A assinatura é verificada antes da ação.
+4. Core Bridge confere conta Shopee ativa e executa a RPC
+   \`public.read_marketplace_seller_sku_consultive\` com \`service_role\`.
+   A função pública é \`SECURITY INVOKER\`; a leitura privilegiada
+   está em \`sku_private.read_marketplace_seller_sku_exact\` (não exposta
+   no Data API), com EXECUTE revogado a \`anon\` e \`authenticated\`.
+5. Resposta contém apenas \`mapping_found\`, \`registry_found\`,
+   \`mapping_id\`, SKU canônico, SKU observado, tipo/status e revisão,
+   além da identidade oficial usada. \`written:0\` obrigatório.
+6. Ausência de registro retorna \`registry_found=false\`,
+   \`reconciliation_status=NAO_PREPARADO\`: **nunca é confundida com
+   publicação confirmada**.
+
+**Fail-closed:** conta, Item/Model ou eco da resposta divergentes,
+corpo/query, credencial inválida, RPC indisponível e retorno malformado
+falham sem escrita. A leitura não aciona \`order_intake\`, \`commit-one\`,
+OAuth, etiqueta ou atualização de estoque.
+
+**Testes:** \`shopee-seller-sku-v13-consultive.test.mjs\`,
+\`shopee-seller-sku-v13-bridge-auth.test.mjs\` e assertions SQL E05
+em PostgreSQL 17 descartável. A suíte existente do Hub segue ativa.
+
+**Sequência de publicação futura (não autorizada):**
+migração Core → Core Bridge → Hub. Mesmo após o deploy, o preview
+permanece default-off até habilitação específica. As contas Shopee são
+a última etapa, via Edição em Massa, após o dicionário consolidado.
+Os 24 casos de Amendoim T30-2/40 g continuam em \`BLOQUEADO_LOCAL\`
+até decisão de Produto Mestre; o piloto Brigadeiro não é afetado.
+
+**Estado:** implementação em branch, CI de verificação, sem produção,
+sem escrituração dos 168 registros, sem upload Shopee.
