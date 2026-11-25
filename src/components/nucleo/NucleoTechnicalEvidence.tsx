@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { NucleoDevelopmentDatabase, TechnicalEvidence } from "@/lib/nucleo/development.types";
-import { M4_EVIDENCE_VISIBLE_LIMIT, projectM4EvidenceWindow } from "@/lib/nucleo/m4EvidenceWindow";
+import { M4_EVIDENCE_VISIBLE_LIMIT, projectM4EvidenceWindow, projectM4SourceDetails } from "@/lib/nucleo/m4EvidenceWindow";
 
 const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const officialRepo = "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/";
@@ -33,6 +33,9 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
   const [expandedGroups, setExpandedGroups] = useState<TechnicalEvidence["kind"][]>([]);
   const [expandedRecords, setExpandedRecords] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [loadedScope, setLoadedScope] = useState("");
+  const scope = workstreamId + ":" + reloadKey;
+  const current = loadedScope === scope;
 
   useEffect(() => {
     let cancelled = false;
@@ -43,19 +46,29 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
     setExpandedGroups([]);
     setExpandedRecords([]);
     void (async () => {
+      try {
       const result = await client.from("nucleo_development_evidence")
         .select("*").eq("workstream_id", workstreamId)
-        .order("recorded_at", { ascending: false }).limit(M4_EVIDENCE_VISIBLE_LIMIT + 1);
+        .order("recorded_at", { ascending: false }).order("id", { ascending: false }).limit(M4_EVIDENCE_VISIBLE_LIMIT + 1);
       if (cancelled) return;
-      setError(!!result.error);
+      setError(!!result.error || !Array.isArray(result.data));
       const returned = result.error ? [] : result.data ?? [];
       const window = projectM4EvidenceWindow(returned);
       setRecords(window.visible);
       setHasMore(!result.error && window.hasMore);
-      setLoading(false);
+      setLoadedScope(scope);
+      } catch {
+        if (cancelled) return;
+        setRecords([]);
+        setHasMore(false);
+        setError(true);
+        setLoadedScope(scope);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, [workstreamId, reloadKey]);
+  }, [workstreamId, reloadKey, scope]);
 
   const groups = useMemo(() => kinds.map(kind => ({
     kind, items: records.filter(record => record.kind === kind),
@@ -77,22 +90,22 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recarregar
         </Button>
       </div>
-      {!loading && !error && <p className="text-xs text-muted-foreground">
+      {current && !loading && !error && <p className="text-xs text-muted-foreground">
         {records.length} evidência(s) exibida(s) neste recorte autorizado{hasMore ? " (limite de 100 atingido; há mais registros acessíveis)" : ""}.
         Registros de uma conferência anterior, não são sincronização ao vivo nem aprovam a frente automaticamente.
       </p>}
-      {!loading && !error && hasMore && <p role="status" className="text-xs font-medium text-amber-800 dark:text-amber-200">
+      {current && !loading && !error && hasMore && <p role="status" className="text-xs font-medium text-amber-800 dark:text-amber-200">
         Recorte parcial: existem mais de 100 evidências acessíveis nesta frente. A lista não representa o histórico completo.
       </p>}
-      {lastChecked && <p className="text-xs text-muted-foreground">
+      {current && !loading && !error && lastChecked && <p className="text-xs text-muted-foreground">
         Última conferência registrada: {new Date(lastChecked).toLocaleString("pt-BR")}
       </p>}
-      {loading && <p role="status" className="text-xs text-muted-foreground">Consultando evidências…</p>}
-      {error && <p role="status" className="text-xs text-muted-foreground">Evidências temporariamente indisponíveis.</p>}
-      {!loading && !error && records.length === 0 && (
+      {(!current || loading) && <p role="status" className="text-xs text-muted-foreground">Consultando evidências…</p>}
+      {current && !loading && error && <p role="status" className="text-xs text-muted-foreground">Evidências temporariamente indisponíveis.</p>}
+      {current && !loading && !error && records.length === 0 && (
         <p className="text-xs text-muted-foreground">Nenhuma evidência encontrada no recorte autorizado. Isso não comprova ausência em outras fontes.</p>
       )}
-      {!loading && !error && groups.map(group => {
+      {current && !loading && !error && groups.map(group => {
         const open = expandedGroups.includes(group.kind);
         return (
           <div key={group.kind} className="rounded-lg border overflow-hidden">
@@ -106,6 +119,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
               {group.items.map(record => {
                 const detailsOpen = expandedRecords.includes(record.id);
                 const link = officialLink(record);
+                const sourceDetails = projectM4SourceDetails(record.kind, record.snapshot, record.external_key);
                 return (
                   <div key={record.id} className="p-3 space-y-2">
                     <div className="flex flex-wrap items-start justify-between gap-1">
@@ -128,6 +142,8 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
                       <p>Observada na origem: {record.source_observed_at?new Date(record.source_observed_at).toLocaleString("pt-BR"):"Não informada"}</p>
                       {record.checked_at && <p>Conferida: {new Date(record.checked_at).toLocaleString("pt-BR")}</p>}
                       <p>Registrada: {new Date(record.recorded_at).toLocaleString("pt-BR")}</p>
+                      {record.kind !== "migration" && <p className="break-all">{sourceDetails.shaLabel}: {sourceDetails.sha ?? (sourceDetails.conflict ? "metadados inconsistentes" : "não informado no snapshot")}</p>}
+                      {record.kind === "migration" && <p>Versão da migration: {record.external_key}</p>}
                       {record.evidence_note && <p className="break-words">{record.evidence_note}</p>}
                     </div>}
                   </div>
