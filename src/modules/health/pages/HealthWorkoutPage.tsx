@@ -432,7 +432,21 @@ export function HealthWorkoutPage() {
           <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{workout.error}</CardContent></Card>
         ) : null}
 
-        {workout.nextQueue ? (
+        {workout.error || program.error ? (
+          <Card data-testid="cch-u02-queue-read-error">
+            <CardContent className="space-y-3 py-5">
+              <p role="alert" className="text-sm font-medium">Não foi possível confirmar o próximo treino</p>
+              <p className="text-xs text-muted-foreground">
+                Seus registros permanecem preservados. Atualize a leitura antes de iniciar uma sessão ou preparar o próximo ciclo.
+              </p>
+              <Button variant="outline" className="min-h-11 w-full"
+                disabled={workout.loading || program.loading || workout.saving || program.saving}
+                onClick={() => void Promise.all([workout.reload(), program.reload()])}>
+                Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
+        ) : workout.nextQueue ? (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><Dumbbell className="h-4 w-4 text-primary" /> Próximo treino</CardTitle>

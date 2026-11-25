@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, Dumbbell, Layers3, ListOrdered, Loader2, Plus, ShieldCheck, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,20 @@ export function HealthProgramPage() {
   const [incrementLabel,setIncrementLabel]=useState("");
   const [incrementAmount,setIncrementAmount]=useState("");
   const [incrementUnit,setIncrementUnit]=useState("kg");
+  // A new athlete or source program/version requires a fresh human decision.
+  useEffect(()=>{
+    setGoalChoice("unsure");
+    setStrategyChoice("continue_progression");
+    setPriorityMuscleId("");
+    setAllowTargetedSets(false);
+    setRecoveryReport("unknown");
+    setSymptomReport("unknown");
+    setIncrementExercise("");
+    setIncrementChoiceKey("");
+    setIncrementLabel("");
+    setIncrementAmount("");
+    setIncrementUnit("kg");
+  },[athlete?.id,program.program?.id,program.program?.current_version_id]);
   const machineChoices=useMemo(()=>confirmedEquipmentChoices(cycleAdvisor.assessment.equipment_provenance?.evidence),
     [cycleAdvisor.assessment.equipment_provenance?.evidence]);
   const volumeComparisons=useMemo(()=>compareVolume(cycleAdvisor.assessment.multi_cycle_volume??[]),[cycleAdvisor.assessment.multi_cycle_volume]);
@@ -127,6 +141,28 @@ export function HealthProgramPage() {
       <div className="flex min-h-56 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  // A failed read is not evidence that the athlete has no program.
+  // Do not expose creation, renewal or publication using an unknown snapshot.
+  if (program.error) {
+    return (
+      <Card data-testid="cch-u02-program-read-error">
+        <CardHeader>
+          <CardTitle className="text-base">Não foi possível consultar seu programa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p role="alert" className="text-sm text-muted-foreground">
+            Não foi possível confirmar o estado atual do programa. Tente novamente antes de criar, revisar ou publicar uma versão.
+          </p>
+          <Button variant="outline" className="min-h-11 w-full"
+            disabled={program.loading || program.saving}
+            onClick={() => void program.reload()}>
+            Tentar novamente
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -336,7 +372,7 @@ export function HealthProgramPage() {
           <CardContent className="space-y-4">
             <p className="text-sm">O CCH utiliza os registros válidos do seu último ciclo para orientar a estratégia seguinte. Nenhuma sessão será criada antes de você escolher o objetivo.</p>
             {cycleAdvisor.loading ? <p className="text-xs text-muted-foreground">Auditando histórico...</p> : null}
-            {cycleAdvisor.error ? <p className="text-xs text-destructive">Auditoria indisponível: {cycleAdvisor.error}</p> : (
+            {cycleAdvisor.loading ? null : cycleAdvisor.error ? <p className="text-xs text-destructive">Auditoria indisponível: {cycleAdvisor.error}</p> : (
               <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-1">
                 <p className="font-medium">Evidências da auditoria</p>
                 <p>{cycleAdvisor.assessment.completed_sessions} sessões · {cycleAdvisor.assessment.completed_sets} séries · {cycleAdvisor.assessment.measured_sets} séries com carga, reps e RIR</p>
@@ -525,7 +561,8 @@ export function HealthProgramPage() {
             {goalChoice === "unsure" ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium">Estratégias com justificativa do CCH V9</p>
-                {decisionV9.options.map((item) => (
+                {cycleAdvisor.loading || cycleAdvisor.error ? <p className="text-xs text-muted-foreground">Aguarde a auditoria atual para consultar as recomendações.</p> : null}
+                {!cycleAdvisor.loading && !cycleAdvisor.error && decisionV9.options.map((item) => (
                   <button key={item.goal + item.strategy} type="button"
                     className="w-full rounded-lg border p-3 text-left hover:border-primary/50"
                     onClick={() => { setGoalChoice(item.goal); setStrategyChoice(item.strategy); }}>
