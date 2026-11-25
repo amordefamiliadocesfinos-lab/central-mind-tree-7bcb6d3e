@@ -166,7 +166,7 @@ export default function NucleoExecutiveDevelopment({workstreams,dependencies,eve
           <p><strong>Bloqueio:</strong> {text(item.blocker)}</p>
           <p><strong>Última alteração M3:</strong> {when(item.updated_at)}</p>
           <p><strong>Último evento carregado:</strong> {latest?when(latest.recorded_at)+" · "+latest.event_type:"Não localizado na janela de 200 eventos globais"}</p>
-          <p><strong>Dependências cadastradas:</strong> {linked.length?linked.map(({target})=>target?.code||"Alvo não localizado").join(", "):"Nenhuma na leitura (até 500 vínculos globais)"}</p>
+          <p><strong>Dependências cadastradas:</strong> {linked.length?linked.map(({target})=>target?.code||"Alvo não localizado").join(", "):"Nenhuma dependência registrada neste recorte"}</p>
         </div>
         {linked.length>0&&<details className="rounded border p-2 text-xs">
           <summary className="font-medium cursor-pointer">Ver dependências e contexto</summary>
