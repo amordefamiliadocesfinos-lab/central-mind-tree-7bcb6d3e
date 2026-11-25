@@ -42,6 +42,19 @@ const priorityNames: Record<Priority, string> = {
 const evidenceNames: Record<EvidenceState, string> = {
   sem_evidencia: "Sem evidência", relatada: "Relatada", comprovada: "Comprovada",
 };
+// Reuse the same literal action extraction used by the workstream detail.
+function OverviewAction({ value }: { value: string }) {
+  const excerpt=explicitNextActionExcerpt(value);
+  return <div className="space-y-1">
+    <p className="break-words whitespace-pre-wrap text-sm leading-relaxed"><strong>Próxima ação registrada:</strong>{" "}{excerpt||value.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>
+    {excerpt&&<details className="rounded-md border p-2">
+      <summary className="cursor-pointer text-sm font-medium">Registro integral e ressalvas</summary>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{value}</p>
+    </details>}
+    {excerpt&&<p className="text-xs text-muted-foreground">Trecho literal; confira o registro integral e as decisões vigentes antes de executar.</p>}
+  </div>;
+}
+
 const EDITABLE_KEYS = [
   "title", "description", "specialist", "status", "priority", "next_action",
   "blocker", "acceptance_criteria", "evidence_state", "evidence_note",
@@ -271,6 +284,7 @@ export default function NucleoDevelopmentCenter() {
     return rank(a)-rank(b)||a.code.localeCompare(b.code,"pt-BR");
   });
   const crmAttention=selectAttention([...crmFronts,...crmSubfronts]);
+  const resumeIsCrmAttention=!!resumeItem&&!!crmAttention&&resumeItem.id===crmAttention.id;
   const crmSelectedPosition=crmQueue.findIndex(item=>item.id===selectedId);
   // P2/P4: a mesma navegação M3/M4/M5/AC-01/AC-02 pode servir qualquer
   // módulo operacional cadastrado. CRM mantém o atalho do piloto original.
@@ -663,7 +677,7 @@ export default function NucleoDevelopmentCenter() {
                 {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhuma frente pendente localizada neste recorte M3. Consulte a fila para acessar as fichas existentes.</p>}
                 {crmAttention&&<>
                   <p className="break-words text-sm font-medium">{crmAttention.code} · {crmAttention.title}</p>
-                  <p className="break-words text-xs"><strong>Próxima ação:</strong> {crmAttention.next_action?.trim()||"Não registrada no Core."}</p>
+                  <div id="nucleo-crm-overview-action"><OverviewAction value={crmAttention.next_action||""}/></div>
                   <p className="text-xs text-muted-foreground">Situação: {states.find(v=>v.key===crmAttention.status)?.label||crmAttention.status}
                     {" · "}Responsável declarado: {crmAttention.specialist?.trim()||"não informado"}</p>
                 </>}
@@ -724,19 +738,23 @@ export default function NucleoDevelopmentCenter() {
                   Situação: <strong>{states.find(v=>v.key===resumeItem.status)?.label}</strong>
                   {" · "}Atualizada em {new Date(resumeItem.updated_at).toLocaleString("pt-BR")}
                 </p>
-                <p className="break-words rounded-xl bg-[#f5f9ff] p-3 text-sm dark:bg-slate-800">
-                  <strong>Próxima ação registrada:</strong>{" "}
-                  {resumeItem.next_action?.trim()||"Nenhuma próxima ação registrada nesta frente."}
-                </p>
+                {resumeIsCrmAttention
+                  ? <p className="text-sm text-muted-foreground">Esta é a mesma frente do acompanhamento direto do CRM. A próxima ação e o registro integral estão no cartão acima.</p>
+                  : <div className="rounded-xl bg-[#f5f9ff] p-3 dark:bg-slate-800">
+                      <OverviewAction value={resumeItem.next_action?.trim()||""}/>
+                    </div>}
                 <div className="rounded-xl border p-3 space-y-1" aria-label="Último checkpoint M3 localizado">
                   <p className="text-xs font-semibold">Último checkpoint M3 localizado nesta leitura</p>
                   {resumeCheckpoint && resumeCheckpointSummary ? <>
                     <p className="text-sm">{resumeCheckpointSummary.label} · {new Date(resumeCheckpoint.recorded_at).toLocaleString("pt-BR")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {resumeCheckpointSummary.changes.length>0
-                        ? resumeCheckpointSummary.changes.slice(0,2).map(change=>change.field+": "+change.after).join(" · ")
-                        : "Este evento não contém campos comparáveis para resumir."}
-                    </p>
+                    <details className="rounded-md border p-2">
+                      <summary className="cursor-pointer text-sm font-medium">Ver alterações do checkpoint</summary>
+                      <p className="mt-2 break-words text-sm text-muted-foreground">
+                        {resumeCheckpointSummary.changes.length>0
+                          ? resumeCheckpointSummary.changes.slice(0,2).map(change=>change.field+": "+change.after).join(" · ")
+                          : "Este evento não contém campos comparáveis para resumir."}
+                      </p>
+                    </details>
                     <p className="text-xs text-muted-foreground">Evento administrativo; não equivale a aceite, deploy ou homologação.</p>
                   </> : <p className="text-xs text-muted-foreground">
                     Nenhum evento desta frente localizado na janela global de 200 registros. Histórico anterior pode existir.
