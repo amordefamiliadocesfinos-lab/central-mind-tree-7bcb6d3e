@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -29,20 +29,31 @@ const emptyState: State = {
 };
 
 export function useHealthProgramM3(athleteId: string | null | undefined) {
-  const [state, setState] = useState<State>(emptyState);
-  const [loading, setLoading] = useState(Boolean(athleteId));
+  const scope = athleteId ?? null;
+  const [snapshot, setSnapshot] = useState<{ scope: string | null; state: State; loading: boolean; error: string | null }>({scope: null, state: emptyState, loading: false, error: null});
+  const generation = useRef(0);
+  const currentScope = useRef<string | null | undefined>(undefined);
+  const state = snapshot.scope === scope ? snapshot.state : emptyState;
+  const loading = Boolean(scope) && (snapshot.scope !== scope || snapshot.loading);
+  const error = snapshot.scope === scope ? snapshot.error : null;
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const setError = useCallback((message: string | null) => {
+    setSnapshot(previous => previous.scope === scope ? {...previous, error: message} : previous);
+  }, [scope]);
 
   const reload = useCallback(async () => {
+    if (currentScope.current !== scope) return;
+    const request = ++generation.current;
+    const finish = (state: State, error: string | null = null) => {
+      if (request === generation.current) setSnapshot({scope, state, loading: false, error});
+    };
     if (!athleteId) {
-      setState(emptyState);
-      setLoading(false);
+      finish(emptyState);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    setSnapshot(previous => ({scope, state: previous.scope === scope ? previous.state : emptyState, loading: true, error: null}));
+    try {
 
     const { data: program, error: programError } = await supabase
       .from("health_programs")
@@ -54,14 +65,12 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       .maybeSingle();
 
     if (programError) {
-      setError(programError.message);
-      setLoading(false);
+      finish(emptyState, programError.message);
       return;
     }
 
     if (!program) {
-      setState(emptyState);
-      setLoading(false);
+      finish(emptyState);
       return;
     }
 
@@ -73,8 +82,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       .order("version_number", { ascending: false });
 
     if (versionsError) {
-      setError(versionsError.message);
-      setLoading(false);
+      finish(emptyState, versionsError.message);
       return;
     }
 
@@ -85,8 +93,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       null;
 
     if (!version) {
-      setState({ ...emptyState, program });
-      setLoading(false);
+      finish({ ...emptyState, program });
       return;
     }
 
@@ -123,14 +130,13 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     ].find(Boolean);
 
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      finish(emptyState, firstError.message);
       return;
     }
 
     const templateIds = new Set((templatesResult.data ?? []).map((item) => item.id));
 
-    setState({
+    finish({
       program,
       version,
       priorities: prioritiesResult.data ?? [],
@@ -140,12 +146,16 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
       ),
       queue: queueResult.data ?? [],
     });
-    setLoading(false);
-  }, [athleteId]);
+    } catch (cause) {
+      finish(emptyState, cause instanceof Error ? cause.message : "Consulta do programa indisponível.");
+    }
+  }, [athleteId, scope]);
 
   useEffect(() => {
+    currentScope.current = scope;
     void reload();
-  }, [reload]);
+    return () => { currentScope.current = undefined; generation.current++; };
+  }, [reload, scope]);
 
   const mutate = useCallback(
     async (operation: () => Promise<{ error: { message: string } | null }>) => {
@@ -159,7 +169,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
         setSaving(false);
       }
     },
-    [reload],
+    [reload, setError],
   );
 
   const createProgram = useCallback(
@@ -178,7 +188,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
         setSaving(false);
       }
     },
-    [athleteId, reload],
+    [athleteId, reload, setError],
   );
 
   const addPriority = useCallback(
@@ -313,7 +323,7 @@ export function useHealthProgramM3(athleteId: string | null | undefined) {
     } finally {
       setSaving(false);
     }
-  }, [reload, state.version]);
+  }, [reload, state.version, setError]);
 
   const isDraft = state.version?.status === "draft";
   const publishedQueue = state.queue.filter(q => q.program_version_id === state.program?.current_version_id);
