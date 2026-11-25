@@ -297,6 +297,7 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     </article>)}
     <p className="text-xs text-muted-foreground">Confronte FM-09/10 com fatos M3/M4 e versões anteriores antes de reutilizar uma lição ou retomar uma frente. Nenhuma decisão ou aceite é inferido.</p>
     {onViewWorkstreams&&<Button type="button" variant="outline" size="sm" onClick={onViewWorkstreams}>Conferir frentes e evidências M3/M4</Button>}
+    {onViewResume&&<Button type="button" variant="outline" size="sm" onClick={onViewResume}>Retomar próximas ações registradas</Button>}
    </section>
    <details className="rounded-md border p-3 space-y-2" aria-label="Índice consultivo de fontes versionadas">
     <summary className="cursor-pointer text-sm font-semibold">Fontes versionadas para recuperar conhecimento</summary>
