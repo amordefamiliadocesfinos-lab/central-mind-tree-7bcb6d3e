@@ -4137,7 +4137,7 @@ export default function Nucleo() {
     <div className="min-h-screen bg-[#f6f9ff] pb-28 text-[#202124]">
       {/* Cabeçalho integrado à navegação existente. */}
       <header className="sticky top-0 z-30 border-b border-[#e4eaf3] bg-[#f6f9ff]/95 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div className="mx-auto flex max-w-[1580px] flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:gap-6">
+        <div className={cn("mx-auto flex max-w-[1580px] flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:gap-4", developmentMode && "sm:flex-row sm:flex-wrap sm:items-center")}>
           <div className="flex min-w-0 items-center gap-3 lg:w-[238px] lg:shrink-0">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f0fe] text-[#1a73e8]">
               <Brain className="h-5 w-5" />
@@ -4147,9 +4147,9 @@ export default function Nucleo() {
               <p className="truncate text-xs text-[#5f6368]">Painel Central · Gestão e conhecimento</p>
             </div>
           </div>
-          <div className="min-w-0 flex-1">
+          <div className={cn("min-w-0 flex-1",developmentMode && "sr-only")}>
             {developmentMode ? (
-              <div className="flex min-h-11 items-center gap-2 rounded-full bg-[#e8f0fe] px-4 text-sm text-[#174ea6]">
+              <div className="sr-only">
                 <LayoutDashboard className="h-4 w-4 shrink-0" />
                 Acompanhamento de módulos e frentes · dados autorizados do Core
               </div>
@@ -4194,26 +4194,9 @@ export default function Nucleo() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[1580px] grid-cols-1 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[252px_minmax(0,1fr)] lg:gap-5">
+      <main className={cn("mx-auto grid max-w-[1580px] grid-cols-1 gap-4 px-3 py-3 sm:px-5 lg:gap-5", !developmentMode && "lg:grid-cols-[252px_minmax(0,1fr)]")}>
         {/* Navegação lateral de áreas, como na referência; sem criar segunda Biblioteca. */}
-        <aside className="space-y-3" aria-label="Navegação do Núcleo">
-          {developmentMode ? (
-            <div className="space-y-3 rounded-2xl border border-[#d2e3fc] bg-white p-4 shadow-sm" aria-label="Contexto da Central Visual">
-              <div className="rounded-xl bg-[#e8f0fe] p-3">
-                <h2 className="text-sm font-semibold text-[#174ea6]">Acompanhar trabalho</h2>
-                <p className="mt-1 text-xs leading-relaxed text-[#3c4043]">
-                  Encontre módulos, frentes, especialistas e próximas ações. Os registros consultados vêm do Core autorizado.
-                </p>
-              </div>
-              <p className="text-xs text-[#5f6368]">
-                Biblioteca local: páginas deste navegador, separadas do conhecimento registrado no Core.
-              </p>
-              <Button type="button" variant="outline" onClick={() => setDevelopmentMode(false)}
-                className="min-h-11 w-full whitespace-normal rounded-full border-[#1a73e8] text-sm font-semibold text-[#174ea6] hover:bg-[#e8f0fe]">
-                Abrir Biblioteca local
-              </Button>
-            </div>
-          ) : (
+        {!developmentMode && <aside className="space-y-3" aria-label="Navegação do Núcleo">
             <div className="space-y-3" aria-label="Áreas da Biblioteca local">
 
           <Button type="button" onClick={() => {setDevelopmentMode(false);createPage();}}
@@ -4246,8 +4229,7 @@ export default function Nucleo() {
           </div>
 
             </div>
-          )}
-                </aside>
+        </aside>}
 
         {(developmentMode || developmentVisited) && (
           <section hidden={!developmentMode} aria-hidden={!developmentMode}
