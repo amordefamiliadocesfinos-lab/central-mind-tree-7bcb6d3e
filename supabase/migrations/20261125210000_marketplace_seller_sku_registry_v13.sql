@@ -180,10 +180,10 @@ CREATE TRIGGER seller_sku_events_immutable BEFORE UPDATE OR DELETE ON public.mar
  FOR EACH ROW EXECUTE FUNCTION sku_private.deny_event_mutation();
 
 
--- E05: consulta consultiva exata, somente service_role, sem gravacao no Core.
--- SECURITY DEFINER em public e usado exclusivamente com EXECUTE revogado
--- de PUBLIC/anon/authenticated; Core Bridge verifica HMAC + conta Shopee ativa.
-CREATE FUNCTION public.read_marketplace_seller_sku_consultive(
+-- E05: consulta consultiva exata, sem exposicao direta da funcao privilegiada.
+-- Definer fica no schema privado; public tem somente wrapper INVOKER
+-- com EXECUTE exclusivo para service_role (Core Bridge usa HMAC).
+CREATE FUNCTION sku_private.read_marketplace_seller_sku_exact(
   p_channel_account_id uuid,
   p_external_item_id text,
   p_external_model_id text
@@ -220,6 +220,21 @@ BEGIN
  RETURN COALESCE(v,jsonb_build_object('mapping_found',false,'registry_found',false));
 END;
 $consult$;
+
+REVOKE ALL ON FUNCTION sku_private.read_marketplace_seller_sku_exact(uuid,text,text)
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA sku_private TO service_role;
+GRANT EXECUTE ON FUNCTION sku_private.read_marketplace_seller_sku_exact(uuid,text,text)
+  TO service_role;
+
+CREATE FUNCTION public.read_marketplace_seller_sku_consultive(
+  p_channel_account_id uuid,
+  p_external_item_id text,
+  p_external_model_id text
+) RETURNS jsonb LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
+  SELECT sku_private.read_marketplace_seller_sku_exact(
+    p_channel_account_id,p_external_item_id,p_external_model_id);
+$$;
 
 REVOKE ALL ON FUNCTION public.read_marketplace_seller_sku_consultive(uuid,text,text)
   FROM PUBLIC, anon, authenticated, service_role;
