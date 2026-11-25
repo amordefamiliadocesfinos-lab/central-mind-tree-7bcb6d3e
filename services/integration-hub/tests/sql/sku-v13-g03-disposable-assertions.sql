@@ -108,3 +108,41 @@ BEGIN
  END;
 END $$;
 SELECT 'SKU V1.3 G03 DISPOSABLE POSTGRES PASS' AS outcome;
+
+
+-- E05 consultative RPC is service_role-only, precise and non-mutating.
+SET ROLE authenticated;
+DO $$
+BEGIN
+ BEGIN
+  PERFORM public.read_marketplace_seller_sku_consultive(
+   'd26c7a30-aa4a-4441-8012-600d70453689','23094148715','129843489972');
+  RAISE EXCEPTION 'authenticated must not execute consultative RPC';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+END $$;
+RESET ROLE;
+SET ROLE service_role;
+DO $$
+DECLARE
+ a jsonb; b jsonb; c jsonb;
+BEGIN
+ a := public.read_marketplace_seller_sku_consultive(
+   'd26c7a30-aa4a-4441-8012-600d70453689','23094148715','129843489972');
+ IF a->>'mapping_found'<>'true' OR a->>'registry_found'<>'true'
+ OR a->>'canonical_sku'<>'AF-TRF30-KT-030-BRG'
+ OR a->>'observation_kind'<>'UNKNOWN' OR a->>'reconciliation_status'<>'PREPARADO_NO_CORE'
+ THEN RAISE EXCEPTION 'service_role should see exact planned SKU without falsely observing publication'; END IF;
+ b := public.read_marketplace_seller_sku_consultive(
+   '8a8ad166-0317-4597-8be6-e43fb46b4d1b','23094148715','129843489972');
+ c := public.read_marketplace_seller_sku_consultive(
+   'd26c7a30-aa4a-4441-8012-600d70453689','23094148715','999999999999');
+ IF b->>'mapping_found'<>'false' OR c->>'mapping_found'<>'false' THEN
+ RAISE EXCEPTION 'cross-account or wrong Model must not resolve'; END IF;
+END $$;
+RESET ROLE;
+DO $$
+BEGIN
+ IF (SELECT count(*) FROM public.marketplace_seller_sku_events)<>2 THEN
+  RAISE EXCEPTION 'reader must not write event history'; END IF;
+END $$;
