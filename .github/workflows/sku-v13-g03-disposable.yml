@@ -5,6 +5,12 @@ on:
     paths:
       - 'supabase/migrations/*marketplace_seller_sku_registry_v13.sql'
       - 'services/integration-hub/tests/shopee-seller-sku-v13-offline.test.mjs'
+      - 'services/integration-hub/tests/shopee-seller-sku-v13-consultive.test.mjs'
+      - 'services/integration-hub/tests/shopee-seller-sku-v13-bridge-auth.test.mjs'
+      - 'services/integration-hub/src/core-bridge.mjs'
+      - 'services/integration-hub/src/app.mjs'
+      - 'supabase/functions/integration-core-bridge/index.ts'
+      - 'supabase/functions/integration-core-bridge/handler.mjs'
       - 'services/integration-hub/tests/sql/sku-v13-g03-disposable-*.sql'
       - '.github/workflows/sku-v13-g03-disposable.yml'
 permissions:
@@ -53,4 +59,4 @@ jobs:
           node-version: '22'
       - name: Run SKU compatibility tests without network or writes
         working-directory: services/integration-hub
-        run: node --test tests/shopee-seller-sku-v13-offline.test.mjs
+        run: node --test tests/shopee-seller-sku-v13-offline.test.mjs tests/shopee-seller-sku-v13-consultive.test.mjs tests/shopee-seller-sku-v13-bridge-auth.test.mjs
