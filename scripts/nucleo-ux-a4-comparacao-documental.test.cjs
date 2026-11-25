@@ -34,3 +34,11 @@ assert.match(ui,/SourceReferences reference=\{newer\.source_reference\}/);
 assert.match(ui,/role="region" tabIndex=\{0\}/);
 assert.match(ui,/\.eq\("id",result\.data\.id\)\.maybeSingle\(\)/);
 console.log("UX-A4: linhas A/B reais, origem, limitações e autoridade preservadas");
+
+// P6 UX-H06: leitura antes de edição, abertura explícita e cancelamento protegido.
+assert(ui.includes('const [editorOpen,setEditorOpen]=useState(false)'),"Default read mode");
+assert(ui.includes('aria-label="Leitura da revisão atual"')&&ui.includes('Criar rascunho'),"Read and explicit draft action");
+assert(ui.includes('hidden={!editorOpen}')&&ui.includes('onClick={cancelDraftEditor}'),"Progressive form and cancellation");
+assert(ui.includes('if(draftDirty&&!window.confirm("Descartar este rascunho não salvo?'),"Do not silently discard unsaved text");
+assert(ui.includes('setValidationError(null);\n    openDraftEditor();'),"Refining a version opens draft explicitly");
+assert(ui.includes('aria-label="Comparação de versões AC-01"')&&ui.includes('Comparar versões'),"Comparison remains available");

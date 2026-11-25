@@ -124,6 +124,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   const [error,setError]=useState<string|null>(null);
   const [validationError,setValidationError]=useState<string|null>(null);
   const [reload,setReload]=useState(0);
+  const [editorOpen,setEditorOpen]=useState(false);
   const [title,setTitle]=useState("");
   const [body,setBody]=useState("");
   const [source,setSource]=useState("");
@@ -189,7 +190,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     return()=>{current=false};
   },[moduleId,reload]);
 
-  useEffect(()=>{setTitle("");setBody("");setSource("");setValidationError(null);},[moduleId,section]);
+  useEffect(()=>{setTitle("");setBody("");setSource("");setValidationError(null);setEditorOpen(false);},[moduleId,section]);
   const history=useMemo(()=>revisions
     .filter(r=>r.section_code===section).sort((a,b)=>b.version_no-a.version_no),[revisions,section]);
   const latest=history[0];
@@ -199,8 +200,22 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     ?compareDocumentVersionsV13(older.body,newer.body):null;
   const numberedComparisonLines=comparison?.state==="completo"
     ?numberDocumentDiffLinesV13(comparison.lines):[];
+  const openDraftEditor=()=>{
+    if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked)return;
+    setEditorOpen(true);
+    requestAnimationFrame(()=>{
+      const editor=document.getElementById("nucleo-fm-draft-"+moduleId);
+      editor?.scrollIntoView({behavior:"smooth",block:"start"});
+      editor?.focus({preventScroll:true});
+    });
+  };
+  const cancelDraftEditor=()=>{
+    if(saving||writeUncertain||fence.blocked)return;
+    if(draftDirty&&!window.confirm("Descartar este rascunho não salvo? Nenhuma revisão registrada será alterada."))return;
+    setTitle("");setBody("");setSource("");setValidationError(null);setEditorOpen(false);
+  };
   const refine=(revision:Revision)=>{
-    if(loading||error||saving)return;
+    if(loading||error||saving||writeUncertain||!fence.ready||fence.blocked)return;
     if((title.trim()||body.trim()||source.trim())&&!window.confirm(
       "Existe um rascunho não salvo. Substituí-lo pelo conteúdo da revisão selecionada?"
     ))return;
@@ -208,6 +223,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
     setBody(revision.body);
     setSource(revision.source_reference);
     setValidationError(null);
+    openDraftEditor();
   };
   const templates = {
     CRM: CRM_DRAFTS, SAU: CCH_DRAFTS, SHO: SHOPEE_DRAFTS,
@@ -303,7 +319,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         return;
       }
       pendingAttemptRef.current=null;
-      setTitle("");setBody("");setSource("");
+      setTitle("");setBody("");setSource("");setEditorOpen(false);
       setReload(n=>n+1);
     } catch {
       setWriteUncertain(true);
@@ -376,6 +392,27 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           ))}
         </div>
       </section>
+      {!loading&&!error&&<section aria-label="Leitura da revisão atual" className="space-y-3">
+          {latest?<div className="nucleo-v22-soft-surface p-3 text-sm space-y-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <strong>{latest.title}</strong><Badge variant="secondary">v{latest.version_no}</Badge>
+              <Badge variant="outline">{latest.authority_state}</Badge>
+            </div>
+            <p className="whitespace-pre-wrap break-words">{latest.body}</p>
+            <p className="text-xs text-muted-foreground">Prova: {latest.evidence_level} · Registrada: {new Date(latest.recorded_at).toLocaleString("pt-BR")}</p>
+            <p className="text-xs text-muted-foreground">
+              Autoria do registro: {latest.recorded_by_auth_uid ? `identificador autenticado ${latest.recorded_by_auth_uid.slice(0,8)}…` : "não identificada no registro"}.
+              {latest.reviewed_by ? ` Revisão declarada por: ${latest.reviewed_by} (não certifica aprovação).` : " Sem revisor declarado."}
+            </p>
+            <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
+          </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
+        <Button type="button" className="min-h-11" disabled={saving||writeUncertain||!fence.ready||fence.blocked}
+          aria-expanded={editorOpen} aria-controls={"nucleo-fm-draft-"+moduleId} onClick={openDraftEditor}>
+          {draftDirty?"Retomar rascunho":"Criar rascunho"}
+        </Button>
+        {latest&&<Button type="button" size="sm" variant="outline" className="ml-2 min-h-11" disabled={saving||writeUncertain||!fence.ready||fence.blocked}
+          onClick={()=>refine(latest)}>Refinar a última versão em novo rascunho</Button>}
+      </section>}
       {onOpenAc01Stage&&
         <div className="rounded-md border p-3 space-y-2" aria-label="Continuidade entre Ficha Viva e AC-01">
           <p className="text-sm font-semibold">Continuar no ciclo documental do especialista</p>
@@ -605,20 +642,8 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
       <Button type="button" size="sm" variant="outline" className="min-h-11" disabled={loading||saving} onClick={()=>{setError(null);setReload(n=>n+1);}}>Atualizar ficha</Button>
       {!loading&&!error&&(
         <>
-          {latest?<div className="nucleo-v22-soft-surface p-3 text-sm space-y-2">
-            <div className="flex flex-wrap gap-2 items-center">
-              <strong>{latest.title}</strong><Badge variant="secondary">v{latest.version_no}</Badge>
-              <Badge variant="outline">{latest.authority_state}</Badge>
-            </div>
-            <p className="whitespace-pre-wrap break-words">{latest.body}</p>
-            <p className="text-xs text-muted-foreground">Prova: {latest.evidence_level} · Registrada: {new Date(latest.recorded_at).toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-muted-foreground">
-              Autoria do registro: {latest.recorded_by_auth_uid ? `identificador autenticado ${latest.recorded_by_auth_uid.slice(0,8)}…` : "não identificada no registro"}.
-              {latest.reviewed_by ? ` Revisão declarada por: ${latest.reviewed_by} (não certifica aprovação).` : " Sem revisor declarado."}
-            </p>
-            <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
-          </div>:<p className="text-sm text-muted-foreground">Esta seção não tem versões no Core. Isso não significa que o conhecimento não exista em outras fontes.</p>}
-          {history.length>1&&<section className="nucleo-v22-surface p-3 md:p-4 space-y-4" aria-label="Comparação de versões AC-01">
+          {history.length>1&&<details className="nucleo-v22-surface p-3 md:p-4 space-y-4" aria-label="Comparação de versões AC-01">
+            <summary className="cursor-pointer text-sm font-semibold">Comparar versões</summary>
             <div className="space-y-1">
               <h5 className="nucleo-v22-title text-base">Conhecimento e Evolução — comparar versões</h5>
               <p className="text-sm text-muted-foreground">Comparação local dos corpos textuais FM registrados no Core, sem acesso automático a arquivos originais. Diferenças textuais não comprovam conflitos semânticos, aprovação ou vigência.</p>
@@ -694,9 +719,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               <Button type="button" size="sm" variant="outline" disabled={saving}
                 onClick={()=>newer&&refine(newer)}>Preparar refinamento da versão selecionada</Button>
             </div>}
-          </section>}
-           {latest&&<Button type="button" size="sm" variant="outline" disabled={saving}
-             onClick={()=>refine(latest)}>Refinar a última versão em novo rascunho</Button>}
+          </details>}
            {history.length>1&&<details className="border rounded-md p-3 text-xs">
             <summary className="cursor-pointer">Histórico preservado ({history.length-1} revisão(ões) anterior(es))</summary>
             <div className="space-y-3 mt-2">
@@ -708,8 +731,8 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               </div>)}
             </div>
           </details>}
-          <div className="border-t pt-3 space-y-2">
-            <h5 className="font-medium text-sm">Registrar nova revisão — rascunho não homologado</h5>
+          <div id={"nucleo-fm-draft-"+moduleId} tabIndex={-1} hidden={!editorOpen} className={"scroll-mt-28 rounded-lg border p-3 space-y-2 "+(!editorOpen?"hidden":"")}>
+            <h5 className="font-medium text-base">Registrar nova revisão — rascunho não homologado</h5>
             {referenceDraft && (
               <div className="rounded-lg border border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20 p-3 space-y-2">
                 <p className="text-sm font-semibold">Modelo de referência {moduleCode} — {section}</p>
@@ -736,6 +759,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             <Button type="button" size="sm" className="min-h-11" disabled={saving||loading||Boolean(error)||writeUncertain||!fence.ready||fence.blocked} onClick={()=>void save()}>
               {saving?"Registrando…":"Registrar revisão e conferir"}
             </Button>
+            <Button type="button" size="sm" variant="outline" className="ml-2 min-h-11" disabled={saving||writeUncertain||fence.blocked} onClick={cancelDraftEditor}>Cancelar rascunho</Button>
           </div>
         </>
       )}
