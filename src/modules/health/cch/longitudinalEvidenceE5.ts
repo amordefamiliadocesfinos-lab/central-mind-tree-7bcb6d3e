@@ -32,7 +32,17 @@ export type E5Assessment={
  requiresAthleteApproval:true;
 };
 const nonNegative=(n:number|null):n is number=>n!==null&&Number.isFinite(n)&&n>=0;
-const dateValid=(s:string|null)=>!!s&&!Number.isNaN(Date.parse(s));
+// Date.parse silently repairs impossible calendar dates; reject those first.
+export function validE5Date(s:string|null):boolean {
+ if(!s)return false;
+ const m=/^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(s);
+ if(!m)return false;
+ const y=Number(m[1]),month=Number(m[2]),day=Number(m[3]);
+ const date=new Date(Date.UTC(y,month-1,day));
+ return date.getUTCFullYear()===y&&date.getUTCMonth()===month-1&&
+  date.getUTCDate()===day&&Number.isFinite(Date.parse(s));
+}
+const dateValid=validE5Date;
 export function assessE5Evidence(input:E5Context):E5Assessment{
  const blockers:string[]=[];
  if(!input.consentToPersonalizedReview)blockers.push("Consentimento para revisão personalizada não confirmado.");
@@ -43,6 +53,8 @@ export function assessE5Evidence(input:E5Context):E5Assessment{
  if(!Number.isFinite(input.adverseSignals)||input.adverseSignals<0||input.adverseSignals>0)
   blockers.push("Sinais adversos desconhecidos ou presentes exigem revisão humana.");
  const unique=new Map<string,E5Observation>();
+ const conflicted=new Set<string>();
+ const fingerprint=(o:E5Observation)=>JSON.stringify([o.occurredAt,o.workingSets,o.reps,o.rir,o.load,o.recovery,o.symptoms,o.completed,o.voided]);
  for(const o of input.observations){
   if(o.athleteId!==input.athleteId||!input.sourceVersionId||
     o.programVersionId!==input.sourceVersionId||o.exerciseId!==input.exerciseId||
@@ -53,8 +65,13 @@ export function assessE5Evidence(input:E5Context):E5Assessment{
     !nonNegative(o.reps)||o.reps===0||!nonNegative(o.rir)||
     !nonNegative(o.load)||!o.sessionId||!o.id)continue;
   // A session is one exposure. A duplicate set cannot falsely multiply exposures.
-  if(!unique.has(o.sessionId))unique.set(o.sessionId,o);
+  if(conflicted.has(o.sessionId))continue;
+  const previous=unique.get(o.sessionId);
+  if(previous&&fingerprint(previous)!==fingerprint(o)){
+   unique.delete(o.sessionId);conflicted.add(o.sessionId);
+  }else if(!previous||o.id.localeCompare(previous.id)<0)unique.set(o.sessionId,o);
  }
+ if(conflicted.size)blockers.push("Observações contraditórias da mesma sessão exigem revisão de origem.");
  const sessions=[...unique.values()].sort((a,b)=>
   (Date.parse(a.occurredAt!)-Date.parse(b.occurredAt!))||a.sessionId.localeCompare(b.sessionId));
  const recoveryObserved=sessions.filter(s=>s.recovery!=="unknown"&&s.symptoms!=="unknown").length;
