@@ -122,3 +122,14 @@ Relato do Work recebido do proprietário: revisão servida 2134f2ab66b0e84cd86b1
 - CA-15: operador independente ainda pendente; sessão do proprietário não substitui esse requisito. F1/F2 individual adiado por decisão do proprietário. F6/F7/B fechadas.
 
 Saldo Work concentrado após integração e publicação do delta: árvore SHO → SHO-F12 → SHO-F12-2 → ficha e histórico; raiz NUC → evento já registrado; M5 Reavaliar com comparação explícita do contador e carimbo antes/depois (ou erro real); foco/contraste/teclado. Operador independente e celular físico somente quando realmente disponíveis. Sem novo aceite automático de CA e sem reabrir M4 ou repetir provas já obtidas.
+
+## Contraprova residual publicada — PR #1118 · 25/11/2026
+
+Work relatou revisão efetivamente servida d744dd0dc048705d614b605d541df1e7934a18b0, igual ao merge #1118 (3/3 checks aprovados), após deploy ed532732-6bb6-4f13-8a94-1c5cc670251d. Resultados atribuídos ao Work; não constituem nova sessão autenticada do especialista técnico.
+
+- CA-04/19: contraprova específica concluída por teclado, Árvore → SHO → SHO-F12 → SHO-F12-2, ficha correta visível e focada, histórico no recorte; raiz NUC apresentou evento ec10b2f0-5b05-4e7e-b9b6-e9fd8df91be7. Não repetir.
+- CA-08: um clique Reavaliar mudou contador 1→2 e horário 15:12:50→15:13:08 BRT; 10 alertas mantidos e zero eventos M3 no intervalo consultado segundo Work. Nova leitura funcional comprovada. Invalidação visual durante loading não capturada; preservar limite, não inferir revogação global.
+- CA-20: foco visível no histórico M3, contraste informado 4,51:1 do contorno azul sobre branco; Reavaliar por Enter e texto 20,01:1 sobre branco. Foco não permaneceu no botão após atualização; destino não observado. Celular físico não testado. Achado de código: disabled nativo durante loading pode retirar o foco. Delta mínimo: manter botão montado e focável, aria-disabled/aria-busy durante consulta, retorno imediato do handler se loading, foco visível, sem forçar foco após conclusão ou roubar foco de quem navegou. Teste contratual não substitui prova visual. Não repetir M3/M4 nem gravar registros.
+- CA-15: operador independente não participou; pendência humana isolada. F1/F2 individual adiado; F6/F7/B fechadas.
+
+Saldo: contraprova concentrada exclusivamente no botão M5 (foco permanece durante/após leitura, reentrada bloqueada e relatório anterior indisponível durante loading), e prova em celular físico/contraste integral conforme disponibilidade. A+ permanece em homologação, sem promoção de autoridade ou aceite humano automático. Sem alteração de schema, permissões, regras dos alertas ou dados produtivos.
