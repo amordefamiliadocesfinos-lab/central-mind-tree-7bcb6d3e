@@ -639,7 +639,7 @@ export default function NucleoDevelopmentCenter() {
         <section className="space-y-3" aria-label="Início do acompanhamento do Núcleo">
           <div className="rounded-2xl border border-[#d2e3fc] bg-[#e8f0fe] p-4 dark:border-blue-900 dark:bg-blue-950/30">
             <p className="text-xs font-bold text-[#174ea6] dark:text-blue-200">CENTRAL VISUAL / INÍCIO</p>
-            <h3 className="mt-1 text-xl font-bold text-[#202124] dark:text-slate-50">Onde estamos e como continuar</h3>
+            <h3 id="nucleo-overview-heading" tabIndex={-1} className="mt-1 scroll-mt-28 text-xl font-bold text-[#202124] focus-visible:ring-2 focus-visible:ring-ring dark:text-slate-50">Onde estamos e como continuar</h3>
             <p className="mt-1 text-sm text-[#3c4043] dark:text-slate-200">
               Resumo do Core M3 e da navegação deste navegador. Não indica homologação, vigência nem publicação.
             </p>
@@ -1229,6 +1229,15 @@ export default function NucleoDevelopmentCenter() {
                       {" · "}Situação registrada: {states.find(state=>state.key===selected.status)?.label}
                     </p>
                   </div>
+                  <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
+                    onClick={()=>{
+                      setWorkspaceView("geral");
+                      requestAnimationFrame(()=>{
+                        const overview=document.getElementById("nucleo-overview-heading");
+                        overview?.scrollIntoView({behavior:"smooth",block:"start"});
+                        overview?.focus({preventScroll:true});
+                      });
+                    }}>Voltar à visão geral</Button>
                   {returnToAtlas&&<Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
                     onClick={()=>{
                       setWorkspaceView("geral");
@@ -1243,10 +1252,55 @@ export default function NucleoDevelopmentCenter() {
                   </Button>}
                   <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full"
                     onClick={()=>document.getElementById("nucleo-din-focus")?.scrollIntoView({behavior:"smooth",block:"start"})}>
-                    Voltar ao foco
+                    Voltar aos filtros de frentes
                   </Button>
                 </div>
               </div>
+              <section aria-label="O que fazer agora" className="space-y-3 rounded-xl border border-[#c6dcfb] bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                <h4 className="text-base font-semibold">O que fazer agora</h4>
+                <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                  <div><dt className="font-medium">Prioridade</dt><dd>{priorityNames[selected.priority]}</dd></div>
+                  <div><dt className="font-medium">Responsável declarado</dt><dd className="break-words">{selected.specialist.trim()||"Não informado no registro"}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-medium">Bloqueio registrado</dt><dd className="break-words">{selected.blocker.trim()||(selected.status==="bloqueado"?"Motivo não informado":"Nenhum motivo registrado")}</dd></div>
+                </dl>
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-sm font-semibold">Próxima ação registrada</p>
+                  {managerActionExplanation(selected)&&<p className="text-sm leading-relaxed"><strong>O que verificar:</strong> {managerActionExplanation(selected)}</p>}
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>
+                  <p className="text-sm text-muted-foreground">Registro do Core; pode conter contexto e checkpoints. Consulte o histórico para distinguir eventos e alterações.</p>
+                </div>
+              {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+                Alterações não salvas nesta frente. Salve ou confirme descarte antes de navegar para outro registro.
+              </p>}
+                <details key={selected.id} className="rounded-lg border p-3 space-y-2">
+                  <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">Editar próxima ação</summary>
+                  <div className="mt-2 space-y-2">
+                {preparedCheckpointP2.filter(p=>p.id===selected.id&&p.code===selected.code&&p.parent===selected.parent_id&&p.kind===selected.kind).map(p=>(
+                  <details key={p.id} className="rounded-md border p-2 space-y-2">
+                    <summary className="cursor-pointer text-xs font-semibold">Checkpoint documental preparado · 24/11/2026</summary>
+                    <p className="text-xs whitespace-pre-wrap">{p.delta}</p>
+                    <div className="flex flex-wrap gap-2">{p.sources.map(n=><a key={n} className="text-xs underline" href={"https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/"+n} target="_blank" rel="noreferrer">PR #{n}</a>)}</div>
+                    <p className="text-xs text-muted-foreground">Acrescenta a minuta à próxima ação original, sem alterar situação, responsável ou evidência. Revise antes de salvar. Se a base mudou, reconcilie manualmente.</p>
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={saving||hasPendingChanges||selected.next_action!==p.previous}
+                      onClick={()=>{
+                        if(!authorized||saving||loading||readError||hasPendingChanges||selected.next_action!==p.previous||nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy)return;
+                        setEdit(v=>({...v,next_action:p.previous+"\n\n"+p.delta}));
+                      }}>Carregar complemento de próxima ação</Button>
+                    {selected.next_action!==p.previous&&<p className="text-xs text-muted-foreground">Base atual diferente da fotografia preparada; nenhuma substituição automática.</p>}
+                  </details>
+                ))}
+                    <label className="block space-y-1 text-sm font-medium">Atualizar próxima ação
+                      <Textarea className="min-h-24" value={edit.next_action||""}
+                        onChange={e=>setEdit(v=>({...v,next_action:e.target.value}))}/>
+                    </label>
+                    <p className="text-sm text-muted-foreground">A edição é uma minuta até a gravação confirmada.</p>
+                  </div>
+                </details>
+                <Button size="sm" className="min-h-10 rounded-full" disabled={saving || !hasPendingChanges} onClick={saveItem}>
+                  {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
+                </Button>
+              </section>
               {crmModule && moduleIdForWorkstream(selected,byId)===crmModule.id &&
                 <section className="space-y-3 rounded-xl border border-[#c6dcfb] bg-[#f5f9ff] p-3 dark:border-blue-900 dark:bg-blue-950/20"
                   aria-label="Navegação operacional das frentes CRM">
@@ -1332,9 +1386,6 @@ export default function NucleoDevelopmentCenter() {
                     <p className="text-xs text-muted-foreground">
                       {selectedModuleFronts.length} frente(s) e {selectedModuleSubfronts.length} subfrente(s)
                       vinculada(s) diretamente às frentes no Core M3. Vínculos, checkpoints e prioridades são declarados, não homologados.
-                    </p>
-                    <p className="text-xs">
-                      <strong>Próxima ação da ficha:</strong> {selected.next_action.trim()||"Não registrada no M3."}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Checkpoint desta frente: {selectedModuleLastEvent
@@ -1424,39 +1475,6 @@ export default function NucleoDevelopmentCenter() {
                     moduleName={selected.title} declaredRole={selected.specialist||""} onDraftStateChange={reportNucAc01Draft}/>}
                 </details>}
               {selected.code==="NUC"&&<NucleoAc02NucContextRead />}
-              {hasPendingChanges&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-                Alterações não salvas nesta frente. Salve ou confirme descarte antes de navegar para outro registro.
-              </p>}
-              <div className="space-y-2 rounded-xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                <p className="text-xs font-semibold text-[#174ea6] dark:text-blue-200">PRÓXIMA AÇÃO · EDITÁVEL</p>
-                {managerActionExplanation(selected)&&<p className="text-sm leading-relaxed"><strong>O que verificar:</strong> {managerActionExplanation(selected)}</p>}
-                {managerActionExplanation(selected)&&<p className="text-xs text-muted-foreground">Registro técnico original preservado abaixo:</p>}
-                <p className="whitespace-pre-wrap break-words text-sm">
-                  {(edit.next_action||"").trim()||"Nenhuma próxima ação registrada nesta frente."}
-                </p>
-                {preparedCheckpointP2.filter(p=>p.id===selected.id&&p.code===selected.code&&p.parent===selected.parent_id&&p.kind===selected.kind).map(p=>(
-                  <details key={p.id} className="rounded-md border p-2 space-y-2">
-                    <summary className="cursor-pointer text-xs font-semibold">Checkpoint documental preparado · 24/11/2026</summary>
-                    <p className="text-xs whitespace-pre-wrap">{p.delta}</p>
-                    <div className="flex flex-wrap gap-2">{p.sources.map(n=><a key={n} className="text-xs underline" href={"https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/pull/"+n} target="_blank" rel="noreferrer">PR #{n}</a>)}</div>
-                    <p className="text-xs text-muted-foreground">Acrescenta a minuta à próxima ação original, sem alterar situação, responsável ou evidência. Revise antes de salvar. Se a base mudou, reconcilie manualmente.</p>
-                    <Button type="button" size="sm" variant="outline"
-                      disabled={saving||hasPendingChanges||selected.next_action!==p.previous}
-                      onClick={()=>{
-                        if(!authorized||saving||loading||readError||hasPendingChanges||selected.next_action!==p.previous||nucKnowledgeDraft.current.dirty||nucKnowledgeDraft.current.busy)return;
-                        setEdit(v=>({...v,next_action:p.previous+"\n\n"+p.delta}));
-                      }}>Carregar complemento de próxima ação</Button>
-                    {selected.next_action!==p.previous&&<p className="text-xs text-muted-foreground">Base atual diferente da fotografia preparada; nenhuma substituição automática.</p>}
-                  </details>
-                ))}
-                <label className="block space-y-1 text-xs font-medium">Atualizar próxima ação
-                  <Input className="min-h-11" value={edit.next_action||""}
-                    onChange={e=>setEdit(v=>({...v,next_action:e.target.value}))}/>
-                </label>
-                <Button size="sm" className="min-h-10 rounded-full" disabled={saving || !hasPendingChanges} onClick={saveItem}>
-                  {hasPendingChanges ? "Salvar e registrar histórico" : "Sem alterações"}
-                </Button>
-              </div>
               <details className="rounded-xl border border-[#dce5f1] bg-[#f8fbff] p-3 dark:border-slate-700 dark:bg-slate-900">
                 <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">
                   Editar demais dados da frente
