@@ -694,6 +694,54 @@ async function executeAction(payload: Record<string, unknown>) {
     return syncLogisticsReadState(core, String(payload.channel_account_id),
       payload.entries as Array<{order_sn:string;state:string;reason:string|null}>);
   }
+  // SKU V1.3/E05: strict, read-only and account-scoped.
+  // A new SKU registry does not authorize order intake, shipping or any write.
+  if (payload.action === 'shopee.seller_sku_registry.read') {
+    const permitted = ['action', 'channel_account_id', 'item_id', 'model_id'];
+    if (Object.keys(payload).some((key) => !permitted.includes(key))) {
+      return { status: 400, body: { error: 'sku_registry_query_invalid' } };
+    }
+    const channelAccountId = nullableString(payload.channel_account_id);
+    const itemId = nullableString(payload.item_id);
+    const modelId = nullableString(payload.model_id);
+    if (!channelAccountId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelAccountId)
+      || !itemId || !/^[0-9]{1,30}$/.test(itemId)
+      || !modelId || !/^[0-9]{1,30}$/.test(modelId)) {
+      return { status: 400, body: { error: 'sku_registry_identity_invalid' } };
+    }
+
+    const canonical = await canonicalShopeeChannelAccount(core, channelAccountId);
+    if (canonical.unavailable) return { status: 503, body: { error: 'core_unavailable' } };
+    if (!canonical.account) return { status: 409, body: { error: 'channel_account_unavailable' } };
+
+    const { data, error } = await core.rpc('read_marketplace_seller_sku_consultive', {
+      p_channel_account_id: channelAccountId,
+      p_external_item_id: itemId,
+      p_external_model_id: modelId,
+    });
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)
+      || typeof data.mapping_found !== 'boolean'
+      || typeof data.registry_found !== 'boolean'
+      || (data.registry_found && !data.mapping_found)) {
+      return { status: 503, body: { error: 'sku_registry_read_unavailable' } };
+    }
+    return { status: 200, body: {
+      status: 'ok', action: payload.action,
+      channel_account_id: channelAccountId, item_id: itemId, model_id: modelId,
+      mapping_found: data.mapping_found,
+      registry_found: data.registry_found,
+      ...(data.mapping_found ? {
+        mapping_id: data.mapping_id ?? null,
+        canonical_sku: data.canonical_sku ?? null,
+        observed_sku: data.observed_sku ?? null,
+        observation_kind: data.observation_kind ?? 'UNKNOWN',
+        reconciliation_status: data.reconciliation_status ?? 'NAO_PREPARADO',
+        revision: data.revision ?? null,
+      } : {}),
+      written: 0,
+    } };
+  }
+
   if (payload.action === 'shopee.order_intake_batch.read') {
     const channelAccountId = String(payload.channel_account_id);
     const limit = payload.limit == null ? 5 : Number(payload.limit);
