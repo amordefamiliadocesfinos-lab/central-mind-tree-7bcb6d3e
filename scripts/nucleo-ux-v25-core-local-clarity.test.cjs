@@ -4,7 +4,14 @@ const assert=require("node:assert/strict"),fs=require("node:fs");
 const page=fs.readFileSync("src/pages/Nucleo.tsx","utf8");
 const governance=fs.readFileSync("src/components/nucleo/NucleoAC01DocumentGovernance.tsx","utf8");
 for(const [src,fragment,why] of [
-[page,'{developmentMode ? "Biblioteca local" : "Central Visual · Core"}',"Current context in header"],
+[page,'const [developmentMode, setDevelopmentMode] = useState(true)',"Management is the default"],
+[page,'aria-label="Ambientes do Núcleo"',"Explicit environment navigation"],
+[page,'aria-pressed={developmentMode}',"Work selection state"],
+[page,'aria-pressed={!developmentMode}',"Library selection state"],
+[page,'Acompanhar trabalho',"Human-facing work entry"],
+[page,'Biblioteca local',"Local library entry"],
+[page,'Buscar páginas locais · ',"Search scope is explicit"],
+[page,'{!developmentMode && <Button',"Backup kept in library context"],
 [page,'{developmentMode ? (',"Core-specific sidebar conditional"],
 [page,'Contexto da Central Visual',"Core side heading"],
 [page,'Abrir Biblioteca local',"Action to existing local view"],
