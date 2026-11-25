@@ -380,7 +380,7 @@ export function HealthWorkoutPage() {
   if (
     athleteLoading ||
     catalogs.loading ||
-    (workout.loading && !workout.session)
+    ((workout.loading || program.loading) && !workout.session)
   ) {
     return (
       <div className="flex min-h-56 items-center justify-center">
