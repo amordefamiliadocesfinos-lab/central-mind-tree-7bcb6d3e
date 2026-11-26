@@ -116,6 +116,8 @@ export function useHealthIntegratedDecisionF11(
   const [snapshot,setSnapshot]=useState({scope:null as string|null,...empty,loading:false});
   const [action,setAction]=useState({scope:null as string|null,evaluating:false,error:null as string|null});
   const request=useRef(0);
+  const actionEpoch=useRef(0);
+  const actionLock=useRef(false);
   const currentScope=useRef<string|null|undefined>(undefined);
   const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
   const visibleAction=action.scope===scope?action:{evaluating:false,error:null};
@@ -209,28 +211,33 @@ export function useHealthIntegratedDecisionF11(
   },[athleteId,scope]);
   useEffect(()=>{
     currentScope.current=scope;
+    actionEpoch.current++;
+    actionLock.current=false;
     setAction({scope,evaluating:false,error:null});
     void reload();
-    return ()=>{currentScope.current=undefined;request.current++;};
+    return ()=>{currentScope.current=undefined;request.current++;actionEpoch.current++;actionLock.current=false;};
   },[reload,scope]);
   const evaluate=useCallback(async()=>{
-    if(!athleteId||currentScope.current!==scope||visible.loading||visibleAction.evaluating)
+    if(!athleteId||currentScope.current!==scope||visible.loading||!visible.backendAvailable||visibleAction.evaluating||actionLock.current)
       throw new Error("Aguarde a leitura do atleta atual.");
+    actionLock.current=true;
+    const token=actionEpoch.current;
+    const active=()=>currentScope.current===scope&&token===actionEpoch.current;
     setAction({scope,evaluating:true,error:null});
     try{
       const result=await db.rpc("health_f11_evaluate_integrated_decision",{
         p_athlete_id:athleteId,p_as_of_date:localDateIso(),p_window_days:7
       });
       if(result.error)throw new Error(result.error.message);
-      if(currentScope.current===scope)await reload();
+      if(active())await reload();
       return result.data;
     }catch(cause){
-      if(currentScope.current===scope)setAction({scope,evaluating:false,error:cause instanceof Error?cause.message:"Avaliação indisponível."});
+      if(active())setAction({scope,evaluating:false,error:cause instanceof Error?cause.message:"Avaliação indisponível."});
       throw cause;
     }finally{
-      if(currentScope.current===scope)setAction(previous=>previous.scope===scope?{...previous,evaluating:false}:previous);
+      if(active()){actionLock.current=false;setAction(previous=>previous.scope===scope?{...previous,evaluating:false}:previous);}
     }
-  },[athleteId,scope,visible.loading,visibleAction.evaluating,reload]);
+  },[athleteId,scope,visible.loading,visible.backendAvailable,visibleAction.evaluating,reload]);
   return {run:visible.run,loading:visible.loading,error:visible.error,backendAvailable:visible.backendAvailable,
     evaluating:visibleAction.evaluating,evaluationError:visibleAction.error,reload,evaluate};
 }
