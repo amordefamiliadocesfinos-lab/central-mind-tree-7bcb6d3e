@@ -313,12 +313,13 @@ export function HealthProgramPage() {
 
       <Card data-testid="cch-e3-consultative-plan">
         <CardHeader>
-          <CardTitle className="text-base">E3 · Continuidade flexível — estudo consultivo</CardTitle>
+          <CardTitle className="text-base">E3 · Planejamento e continuidade do ciclo</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {e3Observed.loading? <p className="text-muted-foreground">Lendo registros M3/M4/F21 existentes...</p>:null}
           {e3Observed.error?
             <p className="text-destructive">Leitura E3 indisponível: {e3Observed.error}</p> : null}
+          {e3Observed.error ? <Button type="button" variant="outline" className="min-h-11" onClick={()=>void e3Observed.reload()}>Atualizar histórico</Button> : null}
           {!e3Observed.loading&&!e3Observed.error?(
             <>
               <p data-testid="cch-e3-state">
@@ -326,6 +327,17 @@ export function HealthProgramPage() {
                   e3Periodization.status==="eligible_for_manual_review"?"Evidências para revisão humana":
                   "Acompanhar continuidade e completar evidências"}
               </p>
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="font-medium">Objetivo da revisão</p>
+                <Select value={goalChoice} onValueChange={value=>{setGoalChoice(value as GuidedGoal|"unsure");setPriorityMuscleId("");setAllowTargetedSets(false);}}>
+                  <SelectTrigger className="min-h-11" aria-label="Objetivo da revisão do ciclo"><SelectValue/></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unsure">Ainda não escolhido</SelectItem>
+                    {guidedGoals.map(goal=><SelectItem key={goal.value} value={goal.value}>{goal.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Escolha local para avaliar alternativas. Não altera seu objetivo registrado nem o programa publicado.</p>
+              </div>
               <p className="text-muted-foreground">
                 Sessões válidas observadas: {e3Periodization.cycle.completedSessions};
                 comparáveis: {e3Periodization.cycle.comparableSessions};
@@ -339,6 +351,32 @@ export function HealthProgramPage() {
                 Ainda não identificados na observação: {e3Periodization.coverage.stimulusSequence.pending.join(", ")||"nenhum"};
                 outros estímulos observados: {e3Periodization.coverage.stimulusSequence.unplanned.join(", ")||"nenhum"}.
               </p>
+              {e3Periodization.publishedSourceAligned && !e3Observed.sourceTruncated && !draft && !cycleAdvisor.loading && !cycleAdvisor.error ? (
+                <div className="space-y-2 rounded-lg border p-3" data-testid="cch-u06-stimulus-coverage">
+                  <p className="font-medium">Cobertura dos estímulos do programa vigente</p>
+                  <div className="flex flex-wrap gap-2">
+                    {e3Periodization.coverage.stimulusSequence.planned.map(code=>
+                      <Badge key={code} variant="outline">{code} · {e3Periodization.coverage.stimulusSequence.performed.includes(code)?"observado":"ainda não identificado"}</Badge>)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Dias distintos com sessões: {e3Periodization.cycle.actualDaysWithSessions??"não verificáveis"} · janela observada: {e3Periodization.cycle.observedSpanDays??"não verificável"} dias. Não é frequência prescrita.</p>
+                </div>
+              ):null}
+              <div className="space-y-2" data-testid="cch-u06-review-options">
+                <p className="font-medium">Alternativas para revisão</p>
+                {e3Periodization.alternatives.map(option=>(
+                  <div key={option.strategy} className="rounded-lg border p-3 space-y-1">
+                    <p className="font-medium">{option.label}</p>
+                    <p className="text-xs text-muted-foreground">{option.reason}</p>
+                    {program.cycleComplete&&!draft&&goalChoice!=="unsure"&&option.strategy!=="continue_progression"&&!cycleAdvisor.loading&&!cycleAdvisor.error&&!e3Observed.sourceTruncated&&e3Periodization.publishedSourceAligned?(
+                      <Button type="button" variant="outline" className="min-h-11" disabled={program.saving||cycleAdvisor.generating}
+                        onClick={()=>{setStrategyChoice(option.strategy);setAllowTargetedSets(false);document.getElementById("cch-cycle-renewal")?.scrollIntoView({block:"start"});}}>
+                        Usar estratégia na revisão
+                      </Button>
+                    ):null}
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">Nenhuma alternativa altera o programa automaticamente.</p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Próxima revisão: {e3Periodization.checkpoint.criteria.join("; ")}.
                 Sem semana obrigatória, data-limite ou contador universal de sessões.
@@ -367,7 +405,7 @@ export function HealthProgramPage() {
       ) : null}
 
       {program.cycleComplete && !draft ? (
-        <Card className="border-primary/30">
+        <Card id="cch-cycle-renewal" className="border-primary/30 scroll-mt-4">
           <CardHeader><CardTitle className="text-base">Ciclo concluído — planejar próxima etapa</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm">O CCH utiliza os registros válidos do seu último ciclo para orientar a estratégia seguinte. Nenhuma sessão será criada antes de você escolher o objetivo.</p>
