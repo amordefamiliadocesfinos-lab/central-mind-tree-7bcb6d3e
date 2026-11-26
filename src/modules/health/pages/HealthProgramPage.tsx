@@ -656,6 +656,26 @@ export function HealthProgramPage() {
               Gerar rascunho orientado V9
             </Button>
             <p className="text-[11px] text-muted-foreground">Prescrições sem evidência suficiente serão mantidas para revisão. A publicação da nova versão é separada e não ocorre automaticamente.</p>
+            <div className="space-y-2 rounded-lg border p-3" data-testid="cch-u02-conservative-cycle">
+              <p className="text-sm font-medium">Continuar com o programa atual</p>
+              <p className="text-xs text-muted-foreground">
+                Se preferir manter as prescrições ou se a auditoria não permitir uma proposta de progressão,
+                prepare uma nova versão com a estrutura vigente. Esta opção não aplica a escolha de um novo
+                objetivo, não aumenta cargas ou séries e não publica o programa. Revise o rascunho antes de publicar.
+              </p>
+              {cycleAdvisor.error ? (
+                <Button type="button" variant="outline" className="min-h-11 w-full"
+                  disabled={cycleAdvisor.loading || cycleAdvisor.generating || program.saving}
+                  onClick={() => void cycleAdvisor.refresh()}>
+                  Tentar auditoria novamente
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" className="min-h-11 w-full"
+                disabled={program.loading || program.saving || cycleAdvisor.generating || !!program.error}
+                onClick={() => void save("Programa vigente copiado para revisão; nenhuma sessão foi publicada.", program.prepareNextCycle)}>
+                Preparar próximo ciclo mantendo o programa
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : null}
