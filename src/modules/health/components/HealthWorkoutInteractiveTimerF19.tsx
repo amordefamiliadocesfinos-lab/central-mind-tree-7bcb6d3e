@@ -986,7 +986,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
           <CardContent className="space-y-4">
             <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
-              context={JSON.stringify([guidanceScope,viewedExercise.id,activeRest?.id??"ready","equipment-reference"])}
+              context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
               eligible={Boolean(guidanceScope && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
                 !timer.loading && !timer.saving && !timer.error && !historyLoading && !showEndConfirm &&
                 !activeWork && (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
