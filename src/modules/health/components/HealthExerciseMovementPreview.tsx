@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { f24ApprovedAssets, selectF24BundledAssets } from "../cch/f24MediaPrototype";
 import { Info } from "lucide-react";
+import { HealthMovementSample } from "./HealthMovementSample";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { ExerciseCatalogItem } from "../hooks/useHealthCatalogs";
@@ -25,6 +26,7 @@ export function HealthExerciseMovementPreview({exercise,name}:{exercise?:Exercis
    <div className="space-y-3 text-sm">
     <p><strong>Músculos principais:</strong> {muscles.length?muscles.join(", "):"Informação não disponível."}</p>
     <p><strong>Equipamentos do catálogo:</strong> {equipment.length?equipment.join(", "):"Informação não disponível."}</p>
+    {open && exercise && media.length===0?<HealthMovementSample key={exercise.id} exerciseId={exercise.id}/>:null}
     {open?media.filter(asset=>!failed.includes(asset.mediaId)).map(asset=><div key={asset.mediaId} className="space-y-2">
       {asset.kind==="image"?<img src={asset.path} alt={asset.altText} className="max-h-64 w-full object-contain" loading="lazy" onError={()=>setFailed(prev=>[...prev,asset.mediaId])}/>:
         asset.kind==="video"?<video src={asset.path} controls muted playsInline preload="none" aria-label={asset.altText} className="max-h-64 w-full" onError={()=>setFailed(prev=>[...prev,asset.mediaId])}/>:
