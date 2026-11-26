@@ -11,7 +11,10 @@ export function managerActionExplanation(item: Pick<DevelopmentWorkstream, "code
 /** Literal excerpt from an explicit marker; the complete record remains accessible. */
 export function explicitNextActionExcerpt(value: string): string | null {
   const text=value.trim();
-  const matches=[...text.matchAll(/(?:^|[.!?;\n]\s*)Próxima ação:\s*/giu)];
+  // A ação explicitamente declarada vigente prevalece sobre marcadores históricos.
+  // Se houver ambiguidade, exibir o registro integral, sem escolher por inferência.
+  const current=[...text.matchAll(/(?:^|[.!?;\n]\s*)Ação vigente:\s*/giu)];
+  const matches=current.length>0?current:[...text.matchAll(/(?:^|[.!?;\n]\s*)Próxima ação:\s*/giu)];
   if(matches.length!==1)return null;
   const match=matches[0];
   const start=(match.index??0)+match[0].length;
