@@ -1,0 +1,1688 @@
+{
+  "schema": "jornada-sku-v1.3-g055-admin-writer",
+  "authority": "Matriz Unica V40 + Dicionario E03; derived only; never Shopee live observation",
+  "source": "docs/operations/jornada-sku-v13/sku-v13-168-models-core-projection.json",
+  "snapshot_date": "2026-11-25",
+  "rows": [
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651441",
+      "mapping_id": "253976f1-e8f3-491e-97fc-7824416b8181",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651442",
+      "mapping_id": "3c666afa-dad3-4f33-a23f-dbe21b459f5b",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651443",
+      "mapping_id": "6ded790a-5fb5-4e0a-a817-ec86aa593029",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651444",
+      "mapping_id": "e4465bb1-f55a-4450-b337-6ae4648a44d3",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651445",
+      "mapping_id": "d8e19e00-8466-414f-b7e4-a3acbef5f107",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651446",
+      "mapping_id": "c323eebf-eaa3-42ef-9ee7-dfa1c075f106",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651447",
+      "mapping_id": "81bd3e60-e593-4c8d-b536-e1a206fed986",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651448",
+      "mapping_id": "7ecc8605-be6e-4de5-877c-038540dbce50",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651449",
+      "mapping_id": "f1081801-a0ea-40f0-b7d3-9fc240d059c9",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651450",
+      "mapping_id": "1859c252-137b-489d-971a-ee0e99392ea9",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651451",
+      "mapping_id": "1c785d68-fa17-4eae-a535-963b08590d34",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651452",
+      "mapping_id": "677caac4-43f4-44c3-8ff3-3dac381cab1a",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651453",
+      "mapping_id": "497c52cc-0284-41f2-a34b-e31a009427a0",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651454",
+      "mapping_id": "23dbd870-c575-43ce-901d-9afb3d972bb2",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651455",
+      "mapping_id": "c342e740-ae9b-43d3-b8aa-6e261e5e5649",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651456",
+      "mapping_id": "27e3fb2a-4295-4f99-aff2-d5ebf9a4c1e6",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651457",
+      "mapping_id": "6e4ae17e-f535-4619-a9ab-8ba4a8469098",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651458",
+      "mapping_id": "778bcac8-afb0-41c5-b500-76b0969ccf7e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651459",
+      "mapping_id": "e95c42f8-d332-449c-a43e-82e5290c5805",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651460",
+      "mapping_id": "6bd1764d-cbc4-4792-b4b5-04afdeea040e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "21999552311",
+      "model_id": "238816651461",
+      "mapping_id": "ac9c2c87-be3e-47c7-8219-0efefdabcd34",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611469",
+      "mapping_id": "447d8320-c002-4499-b532-cc86902aa927",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611470",
+      "mapping_id": "dec69eb4-217b-4b5a-8d42-303b47da7700",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611471",
+      "mapping_id": "0bb7de45-9ddb-4cd4-b099-1cfc2b55448e",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611472",
+      "mapping_id": "3824880d-6bb2-4f9b-980d-e4838357b5f2",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611473",
+      "mapping_id": "eb991425-0186-4603-b175-a6f99d087c51",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611474",
+      "mapping_id": "d4b82328-1894-44a8-839d-eb83fb0f08e1",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611475",
+      "mapping_id": "7d48c7f8-7bc6-4608-8542-0af6e3c55f97",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611476",
+      "mapping_id": "b76dc1c8-17d2-40fb-81a3-ee2e85cf815a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611477",
+      "mapping_id": "2dcdbc7a-f25a-4371-a56f-2bace053b491",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611478",
+      "mapping_id": "c4bba953-eca7-45e1-be64-258fe0a5e03a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611479",
+      "mapping_id": "1b337735-4d3d-4b99-8a14-ae05db8e4e7d",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611480",
+      "mapping_id": "4ca8f41f-3c73-43be-a557-382affcf0a8b",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611481",
+      "mapping_id": "eb1b01c9-4ccd-4adb-8cc1-9b8a0a67061a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611482",
+      "mapping_id": "df0b1bf0-b4dc-442d-8713-f6d85ea0ef25",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611483",
+      "mapping_id": "36b268fb-9386-4e90-b855-d506a1673577",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611484",
+      "mapping_id": "a757cfc3-2e93-4262-9c69-2b17c090a544",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611485",
+      "mapping_id": "0d31ffc5-d76f-4e32-a6d8-259afafaa636",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611486",
+      "mapping_id": "45ace81e-a0d4-4099-b571-6a261060b2d5",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611487",
+      "mapping_id": "157ba27b-eae3-4185-aa00-24748f691b83",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611488",
+      "mapping_id": "22eab0ba-c683-4c0a-8649-d0cec7819888",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE ADÃO",
+      "channel_account_id": "b4027369-5abf-4ac1-ab24-862334fae892",
+      "item_id": "23093522370",
+      "model_id": "238816611489",
+      "mapping_id": "c7bea492-b8e5-4965-9c0e-05de00b9a462",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562432",
+      "mapping_id": "67d0b289-2f04-4c3e-8694-65208538b3b9",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562433",
+      "mapping_id": "fc4996ec-0ef3-46cd-ade2-cf373a4f60fe",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562434",
+      "mapping_id": "72652556-74bf-4e6a-ad7b-52c911ef664d",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562435",
+      "mapping_id": "fdc61cfb-d859-4da5-b50f-80928cb2cab1",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562436",
+      "mapping_id": "ed171d9c-6b34-4f1e-a974-f50c15c3d02e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562437",
+      "mapping_id": "1f5f260c-cd68-4a7b-a415-31095ce42ae7",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562438",
+      "mapping_id": "c11d6d4c-f845-4699-abfe-9fd0ea27271a",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562439",
+      "mapping_id": "a6d1d903-030c-4add-a3f8-a6146421343b",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562440",
+      "mapping_id": "0779ec0b-34b4-4853-8d6d-14d645f21ebd",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562441",
+      "mapping_id": "0c3213d1-0112-43d8-839d-39b6ed26bdd3",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562442",
+      "mapping_id": "b13eb9a0-2c5e-4b36-b5f4-4a62e7e2899d",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562443",
+      "mapping_id": "4a2cab42-dd58-47a1-b188-cd3d6442383b",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562444",
+      "mapping_id": "35fd71ee-71a8-40c2-91c3-c44541cbb5f4",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562445",
+      "mapping_id": "3dc8b497-4838-4cd8-a16b-87fe295012c9",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562446",
+      "mapping_id": "8e84c096-218f-45d2-9691-f5b5cf1943e2",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562447",
+      "mapping_id": "04da8d9d-5efb-423c-b4dc-d4ca5fd961af",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562448",
+      "mapping_id": "8e58ee30-c528-4d61-a121-1ff86c8815e7",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562449",
+      "mapping_id": "254ef376-e4b0-49cb-a034-bee455526fcc",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562450",
+      "mapping_id": "405e205f-4593-4e63-9b40-6bffca036896",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562451",
+      "mapping_id": "c9badb5d-adab-4ce4-b117-b29bac9ba8a1",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "22398650119",
+      "model_id": "228816562452",
+      "mapping_id": "d637f35d-1803-4f99-a0ba-251e8b7cdccd",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489963",
+      "mapping_id": "826bab59-7822-429d-b084-43325a9057bb",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489964",
+      "mapping_id": "2cfd526c-80a2-441b-abce-34e5328b9408",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489965",
+      "mapping_id": "36ed1074-fcbf-4e25-9faf-eab12df659ed",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489966",
+      "mapping_id": "eba99880-14d0-49e1-b0f6-bcd3a8985697",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489967",
+      "mapping_id": "9ea9ad3d-8d4e-4e0e-aa2f-6d9e37214dfb",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489968",
+      "mapping_id": "9ad8213a-bbfb-4c4b-89e1-7ea2f9f14e78",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489969",
+      "mapping_id": "ff6088b9-123a-476b-84e0-c9b07fa39b33",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489970",
+      "mapping_id": "b91f7f14-8277-4c94-9feb-8d0568dbf1e9",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489971",
+      "mapping_id": "d962ba83-027c-4d74-8edd-3609ab1e9b43",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489972",
+      "mapping_id": "980cb680-5296-4342-b83d-4e09584a3fe0",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489973",
+      "mapping_id": "ee49caef-cb3e-4ce0-82e4-057c4446a0e7",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489974",
+      "mapping_id": "96eb79a1-d190-40ad-9007-7727b79bb48f",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489975",
+      "mapping_id": "f12a3cbb-dc99-4383-afa2-c2077d6422da",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489976",
+      "mapping_id": "e476acaa-6de1-4398-8555-a6f476a7c8e7",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489977",
+      "mapping_id": "e5a5e2c7-30bb-4132-9e45-8ebd54879193",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489978",
+      "mapping_id": "a620f015-3a12-4222-bff6-542da065dd7c",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489979",
+      "mapping_id": "6879f828-2d8e-49ea-977f-49d69cd106ab",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489980",
+      "mapping_id": "114e6d11-a7bb-4445-8748-704e38bc70e7",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489981",
+      "mapping_id": "7bae2812-4067-4a00-afa5-92916140fbae",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489982",
+      "mapping_id": "53918420-87d5-4609-9052-b05c6a6a03ba",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE CELIVIO",
+      "channel_account_id": "d26c7a30-aa4a-4441-8012-600d70453689",
+      "item_id": "23094148715",
+      "model_id": "129843489983",
+      "mapping_id": "0025e9b9-3baa-4715-a333-372ad39ca9ae",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610076",
+      "mapping_id": "6dbc64f7-c351-4a5e-9b35-740a236621b8",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610077",
+      "mapping_id": "0e613498-dea4-4741-90f5-1f5ccc66c6f3",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610078",
+      "mapping_id": "3456f6fb-e2f9-415e-acd4-e9dcb3dfbe9d",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610079",
+      "mapping_id": "62d8483d-9b44-4e11-aa03-05fa1d2c4e08",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610080",
+      "mapping_id": "f5423d98-43f8-459a-b002-5beaec1b4ba9",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610081",
+      "mapping_id": "15788362-afa1-46a2-9489-5b4e01f1c037",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "209197610082",
+      "mapping_id": "a921443e-e809-4516-a741-7f114979d551",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100940",
+      "mapping_id": "9f347bcc-08a9-4ddf-a29b-64d3684741b5",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100941",
+      "mapping_id": "0d11550a-80c4-4f49-b398-0fbca2c21448",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100942",
+      "mapping_id": "f30666d4-3a73-4997-a6ea-8c27cafb7f7b",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100943",
+      "mapping_id": "28eaf537-92ae-4d13-ade5-fc92744127b0",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100944",
+      "mapping_id": "3a1467df-e0a6-4dc9-a197-47d4448fc064",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100945",
+      "mapping_id": "2931999e-fccd-4521-8195-93b622675430",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100946",
+      "mapping_id": "23809821-c34b-415c-89d6-0bc725332df1",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100947",
+      "mapping_id": "9edbeffa-b2d2-4409-a102-7342643bf105",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100948",
+      "mapping_id": "58a6a4b3-4a34-431d-a027-bf8f5d7e9897",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100949",
+      "mapping_id": "98303db7-144f-4b3e-aca9-323787977a6e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100950",
+      "mapping_id": "183fc175-1138-4b07-8849-a8bfb4cbd838",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100951",
+      "mapping_id": "360ca5a2-f81d-44b3-bab3-d7c64a26dc2f",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100952",
+      "mapping_id": "4c6fd649-35f9-4e8c-99a9-43cc13a1b2a2",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "22194274841",
+      "model_id": "228817100953",
+      "mapping_id": "c26e1a8e-e8fb-4276-8da0-0886525b4758",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049308",
+      "mapping_id": "4f5a00ba-39eb-4ad5-bee8-5fd17915e001",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049309",
+      "mapping_id": "2fa66d7d-becd-41ab-9bfd-3100b8866dbe",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049310",
+      "mapping_id": "bcd7f13e-8027-441a-b707-6fa89e91ae80",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049311",
+      "mapping_id": "00c89f13-ab3f-4b96-8c28-eddb913a1223",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049312",
+      "mapping_id": "8e0d1cc3-916b-4c17-9001-c6eb81b05991",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049313",
+      "mapping_id": "36095fa8-b800-47cd-874f-93159a4b3b42",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049314",
+      "mapping_id": "26a6b297-d06f-4bed-894e-3f7e947d672a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049315",
+      "mapping_id": "615f11df-fca0-4652-bf9b-0e950ad0e69f",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049316",
+      "mapping_id": "203e4ffd-90df-42e7-8dfb-a48e477f852a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049317",
+      "mapping_id": "8b5d65cf-0517-463c-9ec7-e8e9415a4c9f",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049318",
+      "mapping_id": "96e09c34-8ed6-4167-bef8-129050dce0f8",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049319",
+      "mapping_id": "743a896e-1e5c-4fc8-b7f3-63dab9ee03d6",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049320",
+      "mapping_id": "611fd8fc-9c55-49c5-91b9-74c62da94d6e",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630049321",
+      "mapping_id": "42a0547f-4883-4792-9aeb-8100a71b33cc",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052754",
+      "mapping_id": "2ebec9ad-2078-4dac-a9ca-4dc74a9a0655",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052755",
+      "mapping_id": "d439c83b-8a1f-44d5-a221-01a2f53918e6",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052756",
+      "mapping_id": "9709879f-6510-4037-8a24-c6ab9db4db36",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052757",
+      "mapping_id": "2895a155-3c0a-44ba-b930-681d4f7b96c3",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052758",
+      "mapping_id": "d80de27b-58c0-42a9-911d-719e6674f63d",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052759",
+      "mapping_id": "e6c7ea3b-eccb-49f4-a0fc-87919fa0909f",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE PRISCILA",
+      "channel_account_id": "f81cb160-badf-4382-863e-b8fd78bdfe7a",
+      "item_id": "23194255040",
+      "model_id": "219630052760",
+      "mapping_id": "2bc1532f-5c9e-42e9-baaa-bdedd45a947e",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558326",
+      "mapping_id": "8b312f45-81ca-421c-b6f5-6098882287cc",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558327",
+      "mapping_id": "a280c417-5209-4a25-aeb9-8fe856dea393",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558328",
+      "mapping_id": "110d50bd-90fa-4ed7-9ed8-6b346f71edfb",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558329",
+      "mapping_id": "a1647f24-63de-42a4-a95d-5e99a55a4d15",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558330",
+      "mapping_id": "26dadf39-a69b-4a87-b220-262c7c43af5c",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558331",
+      "mapping_id": "bf78ab53-2d68-4820-81e6-1e1471cd6a16",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558332",
+      "mapping_id": "9441fdda-18c3-49b3-baf8-d2ef3c9eebac",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558333",
+      "mapping_id": "4432860b-4d4e-4732-a36f-ccbc92e7df15",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558334",
+      "mapping_id": "33eb6f4e-b4d0-4666-b398-188e98b450f6",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558335",
+      "mapping_id": "033110d7-4f01-44c2-82db-261f6fe0a899",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558336",
+      "mapping_id": "febf8519-ee5f-4417-b26e-9acfbcb9864d",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558337",
+      "mapping_id": "87f16ecc-318b-43e0-9ebf-1be63613c9e8",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "109731558338",
+      "mapping_id": "584a2409-d203-47eb-9fd5-1f9cc2be0315",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "119876409347",
+      "mapping_id": "4882ebba-398e-43f5-9a1d-1b88f4bdf9f7",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723842",
+      "mapping_id": "bd6dda7e-c602-454b-ae8b-aa5ca2c6cb06",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723843",
+      "mapping_id": "11eba3e4-b2b9-436a-bc1f-4b322c7e65e6",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-AMD",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723844",
+      "mapping_id": "98e69afb-ef9e-4531-9ec8-0d182b996fed",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723845",
+      "mapping_id": "5df60a14-215a-41df-8693-e5b000b9b419",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723846",
+      "mapping_id": "ceb33fe2-a4ff-42e4-b2e9-aecabc99c83a",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723847",
+      "mapping_id": "5fdb6ff8-fe76-4e4e-a9c2-035961de91c6",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "22798142097",
+      "model_id": "169421723849",
+      "mapping_id": "9e18ea49-6a0d-401f-8f4e-8e16bb6ac138",
+      "architecture": "T30-2",
+      "canonical_sku": "AF-TRF30-KT-030-MX",
+      "reconciliation_status": "BLOQUEADO_LOCAL"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897946",
+      "mapping_id": "61a17ffc-2593-4b8b-9d37-2de8fd16d394",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897947",
+      "mapping_id": "b80a9e4c-ec83-46d9-9a62-628cdcf8b1bd",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897948",
+      "mapping_id": "383cd776-2669-49a0-9b4a-6235e49d9796",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897949",
+      "mapping_id": "d11882a7-6d6c-47d6-92e8-cc1360e83072",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897951",
+      "mapping_id": "b67c4322-4663-4377-ad6f-84d1f1004409",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897952",
+      "mapping_id": "823b0154-e0b1-4526-8fd6-a96e33eceac2",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "189196897953",
+      "mapping_id": "61ce341e-5295-4241-8ee7-00ef859bab9e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-030-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916600",
+      "mapping_id": "f9ed62d6-11c6-40f4-90ff-d0d5df71deed",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916601",
+      "mapping_id": "842b9c47-40c2-424e-8dbb-99367ed36a03",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916602",
+      "mapping_id": "bccc34ce-b2d9-4634-adf6-016386214bff",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916603",
+      "mapping_id": "da9bcaf9-2127-4bf1-8963-68fd1b4b62df",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-BEI",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916604",
+      "mapping_id": "aeadf06f-3dbe-486a-bbe2-675bb5ea78b5",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916605",
+      "mapping_id": "784bf8cb-95e8-4a4e-81d2-9bd88946f5e6",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MX",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916606",
+      "mapping_id": "9df6f19a-2266-4ade-b77d-ca7ae98cac5f",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916607",
+      "mapping_id": "313f71f6-b6e6-4c1f-8e89-580d709f8418",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916608",
+      "mapping_id": "65c303a8-263e-4ed0-9668-e039ed0eaa8a",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MAR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916609",
+      "mapping_id": "4d1d0ef4-6647-4b63-8f0c-1892581672de",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-AMD",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916610",
+      "mapping_id": "1638fbc8-ff88-44ad-bc34-d1b32bf0284b",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-BRG",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916611",
+      "mapping_id": "033a0693-6460-4018-9826-bb4b14a78988",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-MOR",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916612",
+      "mapping_id": "e8279e6f-03ff-440a-80ff-71a89181dac8",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-060-LEP",
+      "reconciliation_status": "PLANEJADO"
+    },
+    {
+      "account": "SHOPEE VIVIANE",
+      "channel_account_id": "8a8ad166-0317-4597-8be6-e43fb46b4d1b",
+      "item_id": "23293645454",
+      "model_id": "239453916613",
+      "mapping_id": "61d428eb-35d5-4e22-9c81-68a578d6009e",
+      "architecture": "T40-2",
+      "canonical_sku": "AF-TRF40-KT-120-MX",
+      "reconciliation_status": "PLANEJADO"
+    }
+  ]
+}
