@@ -24,7 +24,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { readCelivioC4BReadOnly } from './shopee-celivio-c4b-readonly.mjs';
 import { syncCelivioC7LabelOnce, CELIVIO_C7_ORDER_SN } from './shopee-celivio-c7-label-sync.mjs';
-import { captureCelivioC4ERawOnce, captureCelivioC6RawOnce } from './shopee-celivio-c4e-raw-once.mjs';
+import { captureCelivioC4ERawOnce, captureCelivioC6RawOnce, captureCelivioNewPilotRawOnce } from './shopee-celivio-c4e-raw-once.mjs';
 import { runCelivioPreview } from './shopee-celivio-preview-read-budget.mjs';
 import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 import { runCelivioPilotCommitOne } from './shopee-celivio-commit-one.mjs';
@@ -66,6 +66,7 @@ export async function handleRequest(
     readCelivioC4B = readCelivioC4BReadOnly,
     captureCelivioC4E = captureCelivioC4ERawOnce,
     captureCelivioC6 = captureCelivioC6RawOnce,
+    captureCelivioNewPilot = captureCelivioNewPilotRawOnce,
     syncShopeeLabel = syncReadyShopeeLabel,
     inspectShippingPreflight = inspectShopeeShippingPreflight,
     shipShopeeOrderOnce = guardedShopeeShipOrder,
@@ -275,6 +276,23 @@ export async function handleRequest(
         document_id: result?.ok === true ? result.document_id ?? null : null,
       });
     } catch { return json(503, { error: 'label_preparation_unavailable' }); }
+  }
+
+  // Isolated new Celivio pilot, never callable with arbitrary target.
+  if (normalizedPath === '/internal/shopee/celivio/new-pilot/raw-once') {
+    if (normalizedMethod !== 'POST') return json(405, {error:'method_not_allowed'});
+    if (Object.keys(request.query ?? {}).length > 0 || request.headers?.['transfer-encoding']
+      || (request.headers?.['content-length'] !== undefined && request.headers['content-length'] !== '0')
+      || (request.body != null && request.body !== '')) return json(400,{error:'query_or_body_not_allowed'});
+    if (getEnv('SHOPEE_CELIVIO_NEW_PILOT_RAW_ENABLED') !== 'true'
+      || getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== 'd26c7a30-aa4a-4441-8012-600d70453689'
+      || getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN') !== '261126AB2EH6V0')
+      return json(503,{status:'blocked',code:'celivio_new_pilot_scope_invalid'});
+    try {
+      const result = await captureCelivioNewPilot();
+      return json(result?.ok ? 200 : 503, result?.ok ? {status:'ok', ...result}
+        : {status:'blocked',code:result?.code ?? 'raw_unavailable'});
+    } catch { return json(503,{status:'blocked',code:'raw_unavailable'}); }
   }
 
   // C6: one reviewed Celivio order, same C4-E Core Raw adapter.
