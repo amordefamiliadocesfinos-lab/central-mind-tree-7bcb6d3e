@@ -3,6 +3,7 @@
  * This validator prepares a future E5SessionReview after authorized persistence.
  */
 import type {E5SessionReview} from "./e5ProvenanceAdapter";
+import {validE5Date} from "./longitudinalEvidenceE5.js";
 export type M4ReviewEvent={
  id:string;athlete_id:string;session_id:string;
  event_type:string;source:string;occurred_at:string;
@@ -23,7 +24,7 @@ export const consentPlan:ConsentPlan={
  requiresVersionedMigration:true,requiresExplicitAthleteAction:true,
  mayReuseGenericProcessingConsent:false,writeAuthorized:false
 };
-const validTime=(s:string)=>!!s&&!Number.isNaN(Date.parse(s));
+const validTime=(s:string)=>validE5Date(s)&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(s);
 const object=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==="object"&&!Array.isArray(x);
 /** Refuses third-party, system, cross-athlete, unsourced and ambiguous notes.
  * The event already persisted in M4 would be immutable audit provenance.
@@ -33,13 +34,13 @@ export function reviewFromExistingM4Event(
  event:M4ReviewEvent,session:SessionReviewSource,authorizedActorId:string
 ):{review:E5SessionReview|null;missing:string[]}{
  const missing:string[]=[];
- if(!session.athlete_id||!session.session_id||
+ if(!session.athlete_id.trim()||!session.session_id.trim()||
    event.athlete_id!==session.athlete_id||event.session_id!==session.session_id)
   missing.push("athlete_session_mismatch");
  if(session.status!=="completed"||session.record_status!=="active")
   missing.push("session_not_valid");
- if(event.event_type!=="note"||event.source!=="user"||!event.id||
-   !event.created_by_auth_user_id||event.created_by_auth_user_id!==authorizedActorId)
+ if(event.event_type!=="note"||event.source!=="user"||!event.id.trim()||
+   !authorizedActorId.trim()||!event.created_by_auth_user_id?.trim()||event.created_by_auth_user_id!==authorizedActorId)
   missing.push("authored_user_note_required");
  if(!validTime(event.occurred_at))missing.push("invalid_event_time");
  const p=object(event.payload)?event.payload:{};
