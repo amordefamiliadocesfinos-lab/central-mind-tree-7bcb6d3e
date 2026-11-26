@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {pickF24MediaPrototype as pick} from "../.tmp-cch-f24-p3/f24MediaPrototype.js";
+import {pickF24MediaPrototype as pick, selectF24BundledAssets, f24ApprovedAssets} from "../.tmp-cch-f24-p3/f24MediaPrototype.js";
 const item=(x={})=>({mediaId:"img-1",exerciseId:"exercise-1",equipmentId:null,
  locale:"pt-BR",kind:"image",mime:"image/webp",status:"approved",
  licenseProof:true,technicalReview:true,altText:"Aparelho de treino",hasAudio:false,...x});
@@ -53,4 +53,13 @@ test("ambiguous general media does not select by ordering",()=>{
  assert.deepEqual(pick("exercise-1",null,[a,b]),[]);
  assert.deepEqual(pick("exercise-1",null,[b,a]),[]);
  assert.deepEqual(pick(" ",null,[item({exerciseId:" "})]),[]);
+});
+
+test("bundled media requires local path, valid metadata and explicit approval",()=>{
+ const row=item({path:"/health-media/example.webp",bytes:1000,width:640,height:360,durationMs:null,sha256:"a".repeat(64),author:"Synthetic author",licenseId:"test",sourceUrl:"https://example.org/source",rightsProofRef:"synthetic-proof",reviewedBy:"synthetic-reviewer",reviewedAt:"2026-11-25T12:00:00Z",safetyReviewedAt:"2026-11-25T12:00:00Z",version:1});
+ assert.equal(selectF24BundledAssets("exercise-1",[row]).length,1);
+ for(const patch of [{path:"https://example.org/a.webp"},{path:"/health-media/../a.webp"},{bytes:600000},{sha256:""},{reviewedBy:""},{status:"draft"},{equipmentId:"not-confirmed"}]){
+  assert.deepEqual(selectF24BundledAssets("exercise-1",[{...row,...patch}]),[]);
+ }
+ assert.deepEqual(f24ApprovedAssets,[]);
 });
