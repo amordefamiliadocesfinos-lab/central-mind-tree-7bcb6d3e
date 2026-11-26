@@ -74,7 +74,7 @@ export function createCelivioC4ERawOnce({
     const accessToken=await decryptToken(c.access_token_ciphertext,cryptoKey);
     const common={apiBaseUrl:API,partnerId:PARTNER,partnerKey,accessToken,shopId:CELIVIO_C4E_SHOP};
     // Exact pilot only; skip order-list discovery. Any failure blocks closed.
-    if (![CELIVIO_C4E_TARGET_ORDER_SN, CELIVIO_C6_TARGET_ORDER_SN].includes(targetOrderSn))
+    if (![CELIVIO_C4E_TARGET_ORDER_SN, CELIVIO_C6_TARGET_ORDER_SN, CELIVIO_NEW_PILOT_ORDER_SN].includes(targetOrderSn))
       return {ok:false,code:'target_not_allowlisted'};
     const selected={ok:true,orderSn:targetOrderSn};
     const detail=await detailOrders({...common,
@@ -113,3 +113,15 @@ export const captureCelivioC4ERawOnce=createCelivioC4ERawOnce();
 // Reuse the C4-E redaction, OAuth no-refresh and Core snapshot idempotency.
 export const CELIVIO_C6_TARGET_ORDER_SN='2611258Y00VM5U';
 export const captureCelivioC6RawOnce=createCelivioC4ERawOnce({targetOrderSn:CELIVIO_C6_TARGET_ORDER_SN});
+
+// Owner-approved new pilot; isolated from historical routes and disabled by default.
+export const CELIVIO_NEW_PILOT_ORDER_SN = '261126AB2EH6V0';
+export function createCelivioNewPilotRawOnce(options = {}) {
+  const getEnv = options.getEnv ?? (k => process.env[k]);
+  const capture = createCelivioC4ERawOnce({...options, getEnv, targetOrderSn: CELIVIO_NEW_PILOT_ORDER_SN});
+  return async () => {
+    if (getEnv('SHOPEE_CELIVIO_NEW_PILOT_RAW_ENABLED') !== 'true' || getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID') !== CELIVIO_C4E_ACCOUNT || getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN') !== CELIVIO_NEW_PILOT_ORDER_SN) return {ok:false,code:'celivio_new_pilot_scope_invalid'};
+    return capture();
+  };
+}
+export const captureCelivioNewPilotRawOnce = createCelivioNewPilotRawOnce();

@@ -17,44 +17,49 @@ export function createCelivioC7LabelSync({
   readConnection=readLiveShopeeOauthConnection,
   makeInspector=createShopeeLiveLogisticsInspector,
   makeSync=createShopeeLabelSynchronizer,
+  newPilot=false,
 }={}){
+  const target = newPilot ? '261126AB2EH6V0' : CELIVIO_C7_ORDER_SN;
+  const gate = newPilot ? 'SHOPEE_CELIVIO_NEW_PILOT_LABEL_ENABLED' : 'SHOPEE_CELIVIO_C7_LABEL_SYNC_ENABLED';
   return async function syncCelivioC7Label(){
-    if(getEnv('SHOPEE_CELIVIO_C7_LABEL_SYNC_ENABLED')!=='true')
+    if(getEnv(gate)!=='true')
       return {ok:false,code:'celivio_c7_label_disabled'};
     if(getEnv('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID')!==CELIVIO_C7_ACCOUNT_ID
-      || Number(getEnv('SHOPEE_LIVE_PARTNER_ID'))!==PARTNER_ID)
+      || Number(getEnv('SHOPEE_LIVE_PARTNER_ID'))!==PARTNER_ID
+      || (newPilot && getEnv('SHOPEE_LIVE_LOGISTICS_PROBE_ORDER_SN')!==target))
       return {ok:false,code:'celivio_c7_identity_mismatch'};
     const tombstones=await readTombstones({
-      channel_account_id:CELIVIO_C7_ACCOUNT_ID,order_sns:[CELIVIO_C7_ORDER_SN],
+      channel_account_id:CELIVIO_C7_ACCOUNT_ID,order_sns:[target],
     },{timeoutMs:12_000});
     if(!tombstones?.ok || !Array.isArray(tombstones.payload?.deleted_order_sns))
       return {ok:false,code:'tombstone_unavailable'};
-    if(tombstones.payload.deleted_order_sns.includes(CELIVIO_C7_ORDER_SN))
+    if(tombstones.payload.deleted_order_sns.includes(target))
       return {ok:false,code:'order_deleted'};
 
     // Live identity before any document writer. No OAuth refresh or ship_order.
     const inspect=makeInspector({getEnv});
-    const live=await inspect({orderSn:CELIVIO_C7_ORDER_SN});
+    const live=await inspect({orderSn:target});
     if(!live?.ok || Number(live.shop_id)!==CELIVIO_C7_SHOP_ID)
       return {ok:false,code:'live_inspection_unavailable'};
     const order=live.order??{};
     const results=live.shipping_document_parameter?.results;
     const packageNumber=order.package_number;
-    if(order.order_sn!==CELIVIO_C7_ORDER_SN
+    if(order.order_sn!==target
       || order.order_status!=='PROCESSED'
       || order.package_count!==1
+      || (newPilot && packageNumber!=='OFG249355491866091')
       || !/^[A-Za-z0-9_-]{1,100}$/.test(String(packageNumber??''))
       || order.package_logistics_status!=='LOGISTICS_REQUEST_CREATED'
       || order.invoice_status!=='valid'
       || live.shipping_document_parameter?.ok!==true
       || !Array.isArray(results) || results.length!==1
-      || results[0]?.order_sn!==CELIVIO_C7_ORDER_SN
+      || results[0]?.order_sn!==target
       || results[0]?.package_number!==packageNumber
       || !results[0]?.selectable_shipping_document_type?.includes(AIRWAYBILL))
       return {ok:false,code:'celivio_c7_label_not_ready'};
     const scopedEnv=k=>{
       if(k==='SHOPEE_LIVE_CHANNEL_ACCOUNT_ID')return CELIVIO_C7_ACCOUNT_ID;
-      if(k==='SHOPEE_LIVE_LABEL_ORDER_SN')return CELIVIO_C7_ORDER_SN;
+      if(k==='SHOPEE_LIVE_LABEL_ORDER_SN')return target;
       if(k==='SHOPEE_LIVE_LABEL_SHOP_ID')return String(CELIVIO_C7_SHOP_ID);
       if(k==='SHOPEE_LIVE_LABEL_PACKAGE_NUMBER')return packageNumber;
       return getEnv(k);
@@ -73,3 +78,6 @@ export function createCelivioC7LabelSync({
   };
 }
 export const syncCelivioC7LabelOnce=createCelivioC7LabelSync();
+
+// Dedicated opt-in; historical C7 defaults remain unchanged.
+export const syncCelivioNewPilotLabelOnce=createCelivioC7LabelSync({newPilot:true});
