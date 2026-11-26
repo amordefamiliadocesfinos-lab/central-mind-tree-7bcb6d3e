@@ -176,13 +176,18 @@ function PageSkeleton() {
 }
 
 export function HealthReplanningPage() {
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const review = useHealthLongitudinalReviewF13(athlete?.id);
-  const replanning = useHealthReplanningF14(athlete?.id);
+  const {athlete,loading}=useHealthAthlete();
+  if(loading)return <PageSkeleton/>;
+  if(!athlete)return <p className="text-sm text-muted-foreground">Selecione um perfil de saúde.</p>;
+  return <HealthReplanningPageScoped key={athlete.id} athleteId={athlete.id}/>;
+}
+function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
+  const review = useHealthLongitudinalReviewF13(athleteId);
+  const replanning = useHealthReplanningF14(athleteId);
   const [voidReason, setVoidReason] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
-  if (athleteLoading || review.loading || replanning.loading) {
+  if (review.loading || replanning.loading) {
     return <PageSkeleton />;
   }
 
