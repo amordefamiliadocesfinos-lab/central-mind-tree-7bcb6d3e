@@ -334,6 +334,35 @@ SELECT public.e5_expect_failure($q$
  UPDATE public.health_cch_e5_policy_registry
  SET policy_document='tampered' WHERE status='active'
 $q$,ARRAY['23514']::text[]);
+-- Restore active consent BEFORE negative tests: revocation must not mask
+-- a defect in the independent voided-session or corrupt-chain checks.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review',
+ 'granted','e5-lab-v1','{"contract":"cch-e5-consent-v1","explicit_action":true}');
+DO $BEGIN
+ IF NOT public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ OR (SELECT count(*) FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff'))<>1
+ THEN RAISE EXCEPTION 'positive control before corruption test failed'; END IF;
+END $;
+-- The delegated coach and athlete B cannot see A's E5 data even when A has consented.
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $BEGIN
+ IF EXISTS(SELECT 1 FROM public.health_workout_events
+ WHERE athlete_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload->>'contract'='cch-e5-session-review-v1')
+ OR EXISTS(SELECT 1 FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff'))
+ THEN RAISE EXCEPTION 'cross-athlete active-consent disclosure'; END IF;
+END $;
+SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+DO $BEGIN
+ IF EXISTS(SELECT 1 FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff'))
+ THEN RAISE EXCEPTION 'coach accessed E5 projection'; END IF;
+END $;
+RESET ROLE;
 -- Fail closed for voided sessions and an orphan correction injected *only*
 -- by fixture administrator to represent legacy corruption (not via E5 trigger).
 RESET ROLE;
@@ -466,4 +495,34 @@ DO $$BEGIN
     (SELECT count(*) FROM public.health_cch_queue_entries)<>1 THEN
   RAISE EXCEPTION 'M3/F21 fixtures changed by E5 candidate'; END IF;
 END $$;
+-- Regression: NULL and absent contract are ordinary M4 notes, not E5.
+-- Confirm ordinary read/write remains available after revoking active E5.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+INSERT INTO public.health_consents(athlete_id,consent_type,decision,policy_version,details)
+ VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','e5_personalized_review','revoked','e5-lab-v2',
+ '{"contract":"cch-e5-consent-v1","explicit_action":true}');
+SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+INSERT INTO public.health_workout_events(athlete_id,session_id,event_type,source,client_event_id,payload,created_by_auth_user_id)
+ VALUES
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff','note','user',
+ 'dddddddd-6000-4000-8000-ddddddddab01',NULL,auth.uid()),
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff','note','user',
+ 'dddddddd-6000-4000-8000-ddddddddab02','{}',auth.uid());
+DO $BEGIN
+ IF (SELECT count(*) FROM public.health_workout_events
+ WHERE client_event_id IN ('dddddddd-6000-4000-8000-ddddddddab01','dddddddd-6000-4000-8000-ddddddddab02'))<>2
+ OR EXISTS(SELECT 1 FROM public.health_workout_events WHERE payload->>'contract'='cch-e5-session-review-v1')
+ THEN RAISE EXCEPTION 'ordinary notes regression or E5 disclosure after revocation'; END IF;
+END $;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $BEGIN
+ IF public.health_cch_e5_has_explicit_consent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ OR EXISTS(SELECT 1 FROM public.health_cch_e5_current_session_review(
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','ffffffff-1000-4000-8000-ffffffffffff'))
+ OR (SELECT count(*) FROM public.health_workout_events
+ WHERE client_event_id IN ('dddddddd-6000-4000-8000-ddddddddab01','dddddddd-6000-4000-8000-ddddddddab02'))<>2
+ THEN RAISE EXCEPTION 'owner revocation or ordinary M4 access regression'; END IF;
+END $;
+RESET ROLE;
 SELECT 'CCH_E5E_PERSISTENT_CONTRACT_PASS' AS result;
