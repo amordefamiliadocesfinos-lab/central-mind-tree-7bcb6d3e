@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { HealthExerciseMovementPreview } from "./HealthExerciseMovementPreview";
+import { HealthWorkoutContextualGuidance } from "./HealthWorkoutContextualGuidance";
 import type { ExerciseCatalogItem } from "../hooks/useHealthCatalogs";
 import { canOfferExtraSeries, preserveF24ExtraChoice } from "../cch/f24ExtraSeriesChoice";
 import type {F24ExerciseHistoryStatus} from "../hooks/useF24WorkoutHistory";
@@ -208,6 +209,8 @@ function PerformedSetLine({ set }: { set: WorkoutSet }) {
 
 export function HealthWorkoutInteractiveTimerF19({
   sessionTitle,
+  guidanceScope,
+  guidanceReadReady,
   fallbackStartedAt,
   exercises,
   setsByExercise,
@@ -220,6 +223,8 @@ export function HealthWorkoutInteractiveTimerF19({
   onConfirmEquipment,
 }: {
   sessionTitle: string;
+  guidanceScope?: string;
+  guidanceReadReady?: boolean;
   fallbackStartedAt: string;
   exercises: WorkoutExercise[];
   setsByExercise: Map<string, WorkoutSet[]>;
@@ -982,6 +987,14 @@ export function HealthWorkoutInteractiveTimerF19({
           </CardHeader>
 
           <CardContent className="space-y-4">
+            <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
+              context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
+              eligible={Boolean(guidanceScope && guidanceReadReady && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
+                !timer.loading && !timer.saving && !timer.error && !historyLoading && !showEndConfirm &&
+                !activeWork && (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
+                completedOnActive < maxSets)}
+              unconfirmed={historicalReferences.get(viewedExercise.id)?.reason==="equipment_unconfirmed" &&
+                !equipmentConfirmed.includes(viewedExercise.id)}/>
             {!timer.activeInterval && viewedSets.length===0 && !equipmentConfirmed.includes(viewedExercise.id) ? (
               <div className="space-y-2 rounded-lg border p-3">
                 <Label>Máquina usada neste exercício (opcional)</Label>
