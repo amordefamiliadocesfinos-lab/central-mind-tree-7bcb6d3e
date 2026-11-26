@@ -52,6 +52,7 @@ export type E5ProvenanceResult={
 };
 
 const isDate=validE5Date;
+const explicitTime=(s:string|null):boolean=>!!s&&validE5Date(s)&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(s);
 const measured=(value:number|null)=>value!==null&&Number.isFinite(value)&&value>=0;
 const decisionType="e5_personalized_review";
 
@@ -66,7 +67,7 @@ export function hasCurrentE5Consent(
  if(!activePolicyVersion||!activePolicyVersion.trim())return false;
  const events=rows.filter(r=>r.athlete_id===athleteId&&r.consent_type===decisionType);
  // A malformed decision might be a revocation; its chronology is unknowable.
- if(events.some(r=>!isDate(r.occurred_at)||!r.policy_version.trim()||
+ if(events.some(r=>!explicitTime(r.occurred_at)||!r.policy_version.trim()||
   !["granted","denied","revoked"].includes(r.decision)))return false;
  events.sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
  if(!events.length)return false;
@@ -78,6 +79,18 @@ export function hasCurrentE5Consent(
 }
 export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
  const missing=new Set<string>();
+ // Consent must be resolved before any personalized evidence is assembled.
+ const consent=hasCurrentE5Consent(input.consents,input.athleteId,input.activePolicyVersion);
+ if(!consent){
+  if(!input.activePolicyVersion?.trim())missing.add("active_e5_policy_version_missing");
+  missing.add("explicit_e5_consent_missing");
+  return {contract:"cch-e5-provenance-v1",
+   context:{athleteId:input.athleteId,sourceVersionId:input.sourceVersionId,exerciseId:input.exerciseId,
+    equipmentId:null,loadUnit:null,trainingLevel:input.trainingLevel,goalChosen:input.goalChosenInCurrentReview,
+    consentToPersonalizedReview:false,dataQuality:"limited",adverseSignals:0,observations:[]},
+   provenance:{equipmentKey:null,equipmentBasis:"unconfirmed",eligibleSessionIds:[],missing:[...missing].sort(),skippedSessions:0},
+   writes:false,recoveryInferred:false,consentInferred:false};
+ }
  const label=input.equipmentLabel?.trim()??"";
  const targetUnit=input.loadUnit;
  // This is a *provenance comparison key* from the execution label, not a
@@ -126,7 +139,7 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
    s.session_id===sessionId&&s.workout_exercise_id===ex.id&&
    s.status==="completed"&&s.set_type==="working");
   if(!working.length||new Set(working.map(s=>s.id)).size!==working.length||working.some(s=>!s.id||!measured(s.load_value)||
-   !measured(s.reps)||s.reps===0||!measured(s.rir)||s.load_unit!==targetUnit)||
+   !measured(s.reps)||!Number.isInteger(s.reps)||s.reps===0||!measured(s.rir)||s.load_unit!==targetUnit)||
    new Set(working.map(s=>s.load_value)).size!==1){
    // No arbitrary representative load when sets differ or are incomplete.
    missing.add("complete_same_unit_and_load_sets_missing");skipped++;continue;
@@ -136,7 +149,7 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   const latest=reviews.sort((a,b)=>Date.parse(b.reviewed_at)-Date.parse(a.reviewed_at));
   const topTime=latest.length?Date.parse(latest[0].reviewed_at):null;
   const tied=latest.filter(r=>Date.parse(r.reviewed_at)===topTime);
-  const review=reviews.every(r=>isDate(r.reviewed_at))&&tied.length===1?latest[0]:null;
+  const review=reviews.every(r=>explicitTime(r.reviewed_at)&&Date.parse(r.reviewed_at)>=Date.parse(session.started_at!))&&tied.length===1?latest[0]:null;
   if(!review)missing.add("session_recovery_review_missing");
   // The descriptive values below summarize multiple sets conservatively;
   // the gate E5-A still NEVER prescribes volume or load.
@@ -150,9 +163,7 @@ export function mapE5Provenance(input:E5ProvenanceInput):E5ProvenanceResult{
   });
  }
  if(results.length<2)missing.add("repeated_comparable_sessions_missing");
- const consent=hasCurrentE5Consent(input.consents,input.athleteId,input.activePolicyVersion);
- if(!input.activePolicyVersion?.trim())missing.add("active_e5_policy_version_missing");
- if(!consent)missing.add("explicit_e5_consent_missing");
+
  if(!input.goalChosenInCurrentReview)missing.add("current_goal_confirmation_missing");
  const context:E5Context={
   athleteId:input.athleteId,sourceVersionId:input.sourceVersionId,

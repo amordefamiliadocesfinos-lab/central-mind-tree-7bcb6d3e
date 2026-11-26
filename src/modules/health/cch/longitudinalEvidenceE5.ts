@@ -56,7 +56,8 @@ export function assessE5Evidence(input:E5Context):E5Assessment{
  const scoped=new Map<string,E5Observation>();
  const conflicted=new Set<string>();
  const fingerprint=(o:E5Observation)=>JSON.stringify([o.occurredAt,o.workingSets,o.reps,o.rir,o.load,o.recovery,o.symptoms,o.completed,o.voided]);
- for(const o of input.observations){
+ // Independent defense: do not disclose personalized evidence after refusal or revocation.
+ for(const o of input.consentToPersonalizedReview===true?input.observations:[]){
   if(o.athleteId!==input.athleteId||!input.sourceVersionId||
     o.programVersionId!==input.sourceVersionId||o.exerciseId!==input.exerciseId||
     !input.equipmentId||o.equipmentId!==input.equipmentId||

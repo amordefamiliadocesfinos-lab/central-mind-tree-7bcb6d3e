@@ -88,3 +88,10 @@ test("fractional working set or repetition counts are not comparable exposures",
   assert.equal(r.state,"blocked");assert.equal(r.comparableSessions,1);
  }
 });
+
+test("missing consent suppresses personalized evidence outputs",()=>{
+ const result=assess({...base,consentToPersonalizedReview:false});
+ assert.equal(result.state,"blocked");assert.equal(result.comparableSessions,0);
+ assert.equal(result.observationsWithRecovery,0);assert.equal(result.observedLoadRange,null);
+ assert.deepEqual(result.evidenceIds,[]);
+});
