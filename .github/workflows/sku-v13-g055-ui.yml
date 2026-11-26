@@ -1,0 +1,43 @@
+name: Jornada SKU V1.3 G05.5 authenticated writer UI
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/data/sellerSkuG055Projection.json'
+      - 'src/lib/sku/sellerSkuG055.ts'
+      - 'src/pages/SellerSkuAdminG055.tsx'
+      - 'src/App.tsx'
+      - 'src/pages/AdminUsers.tsx'
+      - 'tests/sku/g055-projection.test.mjs'
+      - '.github/workflows/sku-v13-g055-ui.yml'
+permissions:
+  contents: read
+jobs:
+  ui-offline:
+    name: G05.5 UI / No Cloud writes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Canonical mapping projections
+        run: node --test tests/sku/g055-projection.test.mjs
+      - name: Lint scoped UI / guards
+        run: npx eslint src/lib/sku/sellerSkuG055.ts src/pages/SellerSkuAdminG055.tsx src/pages/AdminUsers.tsx src/App.tsx
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Build
+        run: npm run build
+      - name: Guard against privileged secrets in browser assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'createSupabaseAdminClient|client\.server\.ts|process\.env\.SUPABASE_SERVICE_ROLE_KEY|sb_secret_[A-Za-z0-9_-]{15,}' dist/client/assets --include='*.js'; then
+            echo 'Privileged material in browser assets'; exit 1
+          fi
