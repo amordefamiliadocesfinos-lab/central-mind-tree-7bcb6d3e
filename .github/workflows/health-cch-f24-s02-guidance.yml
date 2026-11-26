@@ -1,0 +1,20 @@
+name: CCH F24 S02 Contextual Guidance
+on:
+  pull_request:
+    paths:
+      - 'src/modules/health/cch/executionEvidence.ts'
+      - 'src/modules/health/cch/cycleDecisionModel.ts'
+      - 'scripts/health-cch-f24-s02-*.test.mjs'
+      - '.github/workflows/health-cch-f24-s02-guidance.yml'
+permissions:
+  contents: read
+jobs:
+  guidance-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --experimental-strip-types --test scripts/health-cch-f24-s02-execution.test.mjs scripts/health-cch-f24-s02-recovery.test.mjs
