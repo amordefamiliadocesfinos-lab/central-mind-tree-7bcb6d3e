@@ -190,13 +190,26 @@ export function createGuardedShopeeShipOrder({
       && proof.package_number === CELIVIO_C7_PACKAGE
       && proof.shop_id === CELIVIO_C7_SHOP
       && fiscalMode === 'cpf_no_invoice_step';
+    // New owner-approved Celivio pilot: keep the same fresh preflight,
+    // split evidence and durable claim contract as Adão; never arm implicitly.
+    const celivioNewPilot = automaticScope === null
+      && channelAccountId === CELIVIO_C7_ACCOUNT
+      && pilotShopId === CELIVIO_C7_SHOP
+      && orderSn === '261126AB2EH6V0';
+    if (celivioNewPilot
+        && (getEnv('SHOPEE_CELIVIO_NEW_PILOT_SHIP_ENABLED') !== 'true'
+          || pilotPackageNumber !== 'OFG249355491866091'
+          || proof.package_number !== 'OFG249355491866091'
+          || fiscalMode !== 'cpf_no_invoice_step')) {
+      return { ok: false, code: 'celivio_new_pilot_scope_invalid' };
+    }
     // The Shopee split_up flag must be explicit. Missing evidence never
     // authorizes a corrected request, and the Core claim remains mandatory.
-    if ((automaticScope !== null || celivioC7Recovery)
+    if ((automaticScope !== null || celivioC7Recovery || celivioNewPilot)
         && typeof proof.split_up !== 'boolean') {
       return { ok: false, code: 'order_split_state_unknown' };
     }
-    const omitPackageNumber = (automaticScope !== null || celivioC7Recovery)
+    const omitPackageNumber = (automaticScope !== null || celivioC7Recovery || celivioNewPilot)
       && proof.split_up === false;
     const shopId = positiveSafeInteger(proof.shop_id);
     if (!shopId) return { ok: false, code: 'preflight_shop_missing' };
