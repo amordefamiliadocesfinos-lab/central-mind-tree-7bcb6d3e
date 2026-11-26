@@ -12,3 +12,21 @@ export function interpretExecution(x:ExerciseExecution){
  return {signal,rangeAdherence:ratio,repsCoverage:coverage,rirCoverage,
   caveat:"Adherence and RIR do not establish exercise technique or physiological readiness."};
 }
+
+/** F24 P5: compare recorded work within one exercise/session, never infer fatigue or prescribe dose. */
+export type F24GuidanceSet={id:string;status:string;set_type:string;reps:number|null;rir:number|null;load_value:number|null;load_unit:string};
+export type F24ExecutionSignal="below_reps"|"below_rir"|null;
+export function assessF24ExecutionSignal(sets:readonly F24GuidanceSet[],minimum:number|null,rirTarget:number|null):F24ExecutionSignal{
+ const work=sets.filter(s=>s.status==="completed"&&s.set_type==="working");
+ if(work.length<2||new Set(work.map(s=>s.id)).size!==work.length||work.some(s=>!s.id.trim()))return null;
+ // Compare only measured sets at the same recorded load and unit. No cross-machine or cross-session trend.
+ const first=work[0];
+ if(first.load_value===null||!Number.isFinite(first.load_value)||first.load_value<0||
+    !["kg","lb"].includes(first.load_unit)||
+    work.some(s=>s.load_value!==first.load_value||s.load_unit!==first.load_unit))return null;
+ if(minimum!==null&&Number.isInteger(minimum)&&minimum>0&&
+    work.every(s=>s.reps!==null&&Number.isInteger(s.reps)&&s.reps>0&&s.reps<minimum))return "below_reps";
+ if(rirTarget!==null&&Number.isFinite(rirTarget)&&rirTarget>0&&
+    work.every(s=>s.rir!==null&&Number.isFinite(s.rir)&&s.rir>=0&&s.rir<rirTarget))return "below_rir";
+ return null;
+}
