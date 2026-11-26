@@ -16,15 +16,15 @@ export type CurrentSkuState = {
   mapping_id: string;
   canonical_sku: string;
   reconciliation_status: string;
-  observation_kind: 'UNKNOWN' | 'BLANK' | 'VALUE';
+  observation_kind: string;
   revision: number;
 };
 export type CoreMapping = {
   id: string;
   marketplace: string;
-  channel_account_id: string;
-  external_item_id: string;
-  external_model_id: string;
+  channel_account_id: string | null;
+  external_item_id: string | null;
+  external_model_id: string | null;
 };
 export const G055_SOURCE = projection.source;
 export const G055_ROWS = projection.rows as CanonicalSkuRow[];
