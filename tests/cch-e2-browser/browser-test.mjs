@@ -37,7 +37,13 @@ try{
  // flexible E3 consultation, without using real-athlete data or network hooks.
  await page.getByTestId("cch-e2-build-revision").waitFor();
  await page.getByTestId("cch-e2-source-fingerprint").waitFor();
- await page.getByText("E3 · Continuidade flexível — estudo consultivo").waitFor();
+ const e3=page.getByTestId("cch-e3-consultative-plan");
+ await e3.waitFor();
+ await e3.getByRole("heading",{name:"E3 · Planejamento e continuidade do ciclo"}).waitFor();
+ await e3.getByTestId("cch-e3-state").waitFor();
+ await e3.getByTestId("cch-u06-review-options").waitFor();
+ check((await e3.innerText()).includes("Nenhuma alternativa altera o programa automaticamente."),"E3 human review boundary missing");
+ check((await e3.innerText()).includes("não gera fila e não publica versões"),"E3 read-only boundary missing");
 
  await snap("01-e2-rascunho");
  const initial=await audit();
@@ -120,4 +126,8 @@ try{
  console.log(JSON.stringify({status:"passed",frontend:"real HealthProgramPage with isolated hook bindings",
   auth:"two synthetic cookie sessions and PostgreSQL RLS",snapshots:6,
   checked:["draft","evidence","cancel","save","order","replace","F22","publish","idempotency","cross-user"]}));
+}catch(cause){
+ await fs.writeFile(output+"/failure.json",JSON.stringify({error:String(cause),reactErrors:errors,body:(await page.locator("body").innerText().catch(()=>"unavailable")).slice(0,12000)},null,2));
+ await snap("failure").catch(()=>{});
+ throw cause;
 }finally{await browser.close();}
