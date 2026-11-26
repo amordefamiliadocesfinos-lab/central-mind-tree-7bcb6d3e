@@ -22,6 +22,7 @@ import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import { useHealthDashboardF10 } from "../hooks/useHealthDashboardF10";
 import { useHealthJourneyF12 } from "../hooks/useHealthJourneyF12";
 import { HealthJourneyF12 } from "../ui/HealthJourneyF12";
+import { HealthIntegratedDomainHandoff } from "../components/HealthIntegratedDomainHandoff";
 import {
   integratedDecisionCodeLabel,
   integratedReasonLabel,
@@ -230,6 +231,12 @@ export function HealthDashboardPage() {
   }).format(new Date());
 
   if (athleteLoading || dashboard.loading) return <DashboardSkeleton />;
+  if (!athlete) return <p className="text-sm text-muted-foreground">Selecione um perfil para consultar a saúde.</p>;
+  if (dashboard.readFailed) return <Card><CardContent className="space-y-3 p-4" role="alert">
+    <p>Não foi possível carregar a visão integrada. Isso não significa ausência de registros.</p>
+    <Button onClick={()=>void dashboard.reload()} className="min-h-11">Tentar novamente</Button>
+    <Button asChild variant="outline" className="min-h-11"><Link to="/saude/treino">Abrir treino</Link></Button>
+  </CardContent></Card>;
 
   const visibleIssues = dashboard.issues.slice(0, 3);
   const extraIssueCount = Math.max(0, dashboard.issues.length - visibleIssues.length);
@@ -260,6 +267,8 @@ export function HealthDashboardPage() {
           Atualizar
         </Button>
       </div>
+
+      <HealthIntegratedDomainHandoff dashboard={dashboard}/>
 
       <HealthJourneyF12
         stages={journey.stages}

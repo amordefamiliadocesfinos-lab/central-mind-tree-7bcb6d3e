@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -195,17 +195,22 @@ const emptyDashboard: HealthDashboardF10 = {
 };
 
 export function useHealthDashboardF10(athleteId: string | null | undefined) {
-  const [dashboard, setDashboard] = useState<HealthDashboardF10>(emptyDashboard);
-  const [loading, setLoading] = useState(Boolean(athleteId));
+  const scope=athleteId??null;
+  const [snapshot,setSnapshot]=useState<{scope:string|null;data:HealthDashboardF10;loading:boolean;failed:boolean}>({scope:null,data:emptyDashboard,loading:false,failed:false});
+  const generation=useRef(0);
+  const dashboard=snapshot.scope===scope?snapshot.data:emptyDashboard;
+  const loading=Boolean(scope)&&(snapshot.scope!==scope||snapshot.loading);
+  const readFailed=snapshot.scope===scope&&snapshot.failed;
 
   const reload = useCallback(async () => {
+    const request=++generation.current;
     if (!athleteId) {
-      setDashboard(emptyDashboard);
-      setLoading(false);
+      setSnapshot({scope:null,data:emptyDashboard,loading:false,failed:false});
       return;
     }
 
-    setLoading(true);
+    setSnapshot({scope,data:emptyDashboard,loading:true,failed:false});
+    try {
     const today = localDateIso();
 
     const [
@@ -592,12 +597,15 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
       },
     };
 
-    setDashboard(nextDashboard);
-    setLoading(false);
-  }, [athleteId]);
+    if(request===generation.current)setSnapshot({scope,data:nextDashboard,loading:false,failed:false});
+    }catch{
+      if(request===generation.current)setSnapshot({scope,data:emptyDashboard,loading:false,failed:true});
+    }
+  }, [athleteId,scope]);
 
   useEffect(() => {
     void reload();
+    return ()=>{generation.current++;};
   }, [reload]);
 
   const issues = useMemo(() => buildDashboardIssues({
@@ -636,8 +644,9 @@ export function useHealthDashboardF10(athleteId: string | null | undefined) {
 
   return {
     ...dashboard,
-    issues,
+    issues:readFailed?[]:issues,
     loading,
+    readFailed,
     reload,
   };
 }
