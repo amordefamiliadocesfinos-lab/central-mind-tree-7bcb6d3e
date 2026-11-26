@@ -210,6 +210,7 @@ function PerformedSetLine({ set }: { set: WorkoutSet }) {
 export function HealthWorkoutInteractiveTimerF19({
   sessionTitle,
   guidanceScope,
+  guidanceReadReady,
   fallbackStartedAt,
   exercises,
   setsByExercise,
@@ -223,6 +224,7 @@ export function HealthWorkoutInteractiveTimerF19({
 }: {
   sessionTitle: string;
   guidanceScope?: string;
+  guidanceReadReady?: boolean;
   fallbackStartedAt: string;
   exercises: WorkoutExercise[];
   setsByExercise: Map<string, WorkoutSet[]>;
@@ -987,7 +989,7 @@ export function HealthWorkoutInteractiveTimerF19({
           <CardContent className="space-y-4">
             <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
               context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
-              eligible={Boolean(guidanceScope && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
+              eligible={Boolean(guidanceScope && guidanceReadReady && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
                 !timer.loading && !timer.saving && !timer.error && !historyLoading && !showEndConfirm &&
                 !activeWork && (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
                 completedOnActive < maxSets)}
