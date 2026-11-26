@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { localDateIso } from "../dashboard/dashboardModel";
@@ -94,17 +94,22 @@ export function useHealthJourneyF12(
   athleteId: string | null | undefined,
   integrated: IntegratedJourneySource,
 ) {
-  const [sources, setSources] = useState<JourneySourceState>(emptySources);
-  const [loading, setLoading] = useState(Boolean(athleteId));
+  const scope=athleteId??null;
+  const [snapshot,setSnapshot]=useState<{scope:string|null;sources:JourneySourceState;loading:boolean}>({scope:null,sources:emptySources,loading:false});
+  const request=useRef(0);
+  const currentScope=useRef<string|null|undefined>(undefined);
+  const sources=snapshot.scope===scope?snapshot.sources:emptySources;
+  const loading=Boolean(scope)&&(snapshot.scope!==scope||snapshot.loading);
 
   const reload = useCallback(async () => {
-    if (!athleteId) {
-      setSources(emptySources);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+    if(currentScope.current!==scope)return;
+    const token=++request.current;
+    const finish=(sources:JourneySourceState)=>{
+      if(token===request.current)setSnapshot({scope,sources,loading:false});
+    };
+    if(!athleteId){finish(emptySources);return;}
+    setSnapshot({scope,sources:emptySources,loading:true});
+    try{
     const today = localDateIso();
 
     const [
@@ -241,7 +246,7 @@ export function useHealthJourneyF12(
       average_readiness: number | null;
     } | null;
 
-    setSources({
+    finish({
       profile: {
         hasProfile: Boolean(profileResult.data),
         hasActiveGoal: Boolean(goalResult.data),
@@ -289,12 +294,20 @@ export function useHealthJourneyF12(
       },
     });
 
-    setLoading(false);
-  }, [athleteId]);
-
-  useEffect(() => {
+    }catch{
+      const error="Consulta da jornada indisponível.";
+      finish({
+        profile:{...emptySources.profile,error},program:{...emptySources.program,error},
+        execution:{...emptySources.execution,error},nutrition:{...emptySources.nutrition,error},
+        body:{...emptySources.body,error},recovery:{...emptySources.recovery,error}
+      });
+    }
+  },[athleteId,scope]);
+  useEffect(()=>{
+    currentScope.current=scope;
     void reload();
-  }, [reload]);
+    return ()=>{currentScope.current=undefined;request.current++;};
+  },[reload,scope]);
 
   const model = useMemo(
     () =>

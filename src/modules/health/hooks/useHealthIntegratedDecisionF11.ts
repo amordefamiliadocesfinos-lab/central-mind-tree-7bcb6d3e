@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { localDateIso } from "../dashboard/dashboardModel";
@@ -111,25 +111,25 @@ export function integratedReasonLabel(code: string) {
 export function useHealthIntegratedDecisionF11(
   athleteId: string | null | undefined,
 ) {
-  const [run, setRun] = useState<IntegratedDecisionRunF11 | null>(null);
-  const [loading, setLoading] = useState(Boolean(athleteId));
-  const [error, setError] = useState<string | null>(null);
-  const [backendAvailable, setBackendAvailable] = useState(true);
-  const [evaluating, setEvaluating] = useState(false);
-  const [evaluationError, setEvaluationError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    if (!athleteId) {
-      setRun(null);
-      setLoading(false);
-      setError(null);
-      setBackendAvailable(true);
-      setEvaluationError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+  const scope=athleteId??null;
+  const empty={run:null as IntegratedDecisionRunF11|null,error:null as string|null,backendAvailable:true};
+  const [snapshot,setSnapshot]=useState({scope:null as string|null,...empty,loading:false});
+  const [action,setAction]=useState({scope:null as string|null,evaluating:false,error:null as string|null});
+  const request=useRef(0);
+  const actionEpoch=useRef(0);
+  const actionLock=useRef(false);
+  const currentScope=useRef<string|null|undefined>(undefined);
+  const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
+  const visibleAction=action.scope===scope?action:{evaluating:false,error:null};
+  const reload=useCallback(async()=>{
+    if(currentScope.current!==scope)return;
+    const token=++request.current;
+    const finish=(run:IntegratedDecisionRunF11|null,error:string|null=null,backendAvailable=true)=>{
+      if(token===request.current)setSnapshot({scope,run,error,backendAvailable,loading:false});
+    };
+    if(!athleteId){finish(null);return;}
+    setSnapshot({scope,run:null,error:null,backendAvailable:true,loading:true});
+    try{
     const today = localDateIso();
 
     const runResult = await db
@@ -145,14 +145,9 @@ export function useHealthIntegratedDecisionF11(
       .maybeSingle();
 
     if (runResult.error) {
-      setRun(null);
-      setBackendAvailable(!isBackendUnavailableError(runResult.error));
-      setError(errorMessage(runResult.error));
-      setLoading(false);
+      finish(null,errorMessage(runResult.error),!isBackendUnavailableError(runResult.error));
       return;
     }
-
-    setBackendAvailable(true);
 
     const rawRun = runResult.data as {
       id: string;
@@ -164,8 +159,7 @@ export function useHealthIntegratedDecisionF11(
     } | null;
 
     if (!rawRun) {
-      setRun(null);
-      setLoading(false);
+      finish(null);
       return;
     }
 
@@ -177,10 +171,7 @@ export function useHealthIntegratedDecisionF11(
       .order("decision_scope", { ascending: true });
 
     if (decisionsResult.error) {
-      setRun(null);
-      setBackendAvailable(!isBackendUnavailableError(decisionsResult.error));
-      setError(errorMessage(decisionsResult.error));
-      setLoading(false);
+      finish(null,errorMessage(decisionsResult.error),!isBackendUnavailableError(decisionsResult.error));
       return;
     }
 
@@ -204,7 +195,7 @@ export function useHealthIntegratedDecisionF11(
       actionStatus: decision.action_status,
     }));
 
-    setRun({
+    finish({
       id: rawRun.id,
       asOfDate: rawRun.as_of_date,
       windowDays: rawRun.window_days,
@@ -214,50 +205,39 @@ export function useHealthIntegratedDecisionF11(
       historical: rawRun.as_of_date !== today,
       decisions,
     });
-    setLoading(false);
-  }, [athleteId]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const evaluate = useCallback(async () => {
-    if (!athleteId) throw new Error("Atleta não disponível.");
-
-    setEvaluating(true);
-    setEvaluationError(null);
-    try {
-      const today = localDateIso();
-      const result = await db.rpc("health_f11_evaluate_integrated_decision", {
-        p_athlete_id: athleteId,
-        p_as_of_date: today,
-        p_window_days: 7,
-      });
-
-      if (result.error) {
-        if (isBackendUnavailableError(result.error)) {
-          setBackendAvailable(false);
-        }
-        setEvaluationError(result.error.message);
-        throw new Error(result.error.message);
-      }
-
-      setBackendAvailable(true);
-      await reload();
-      return result.data;
-    } finally {
-      setEvaluating(false);
+    }catch(cause){
+      finish(null,cause instanceof Error?cause.message:"Leitura F11 indisponível.");
     }
-  }, [athleteId, reload]);
-
-  return {
-    run,
-    loading,
-    error,
-    backendAvailable,
-    evaluating,
-    evaluationError,
-    reload,
-    evaluate,
-  };
+  },[athleteId,scope]);
+  useEffect(()=>{
+    currentScope.current=scope;
+    actionEpoch.current++;
+    actionLock.current=false;
+    setAction({scope,evaluating:false,error:null});
+    void reload();
+    return ()=>{currentScope.current=undefined;request.current++;actionEpoch.current++;actionLock.current=false;};
+  },[reload,scope]);
+  const evaluate=useCallback(async()=>{
+    if(!athleteId||currentScope.current!==scope||visible.loading||!visible.backendAvailable||visibleAction.evaluating||actionLock.current)
+      throw new Error("Aguarde a leitura do atleta atual.");
+    actionLock.current=true;
+    const token=actionEpoch.current;
+    const active=()=>currentScope.current===scope&&token===actionEpoch.current;
+    setAction({scope,evaluating:true,error:null});
+    try{
+      const result=await db.rpc("health_f11_evaluate_integrated_decision",{
+        p_athlete_id:athleteId,p_as_of_date:localDateIso(),p_window_days:7
+      });
+      if(result.error)throw new Error(result.error.message);
+      if(active())await reload();
+      return result.data;
+    }catch(cause){
+      if(active())setAction({scope,evaluating:false,error:cause instanceof Error?cause.message:"Avaliação indisponível."});
+      throw cause;
+    }finally{
+      if(active()){actionLock.current=false;setAction(previous=>previous.scope===scope?{...previous,evaluating:false}:previous);}
+    }
+  },[athleteId,scope,visible.loading,visible.backendAvailable,visibleAction.evaluating,reload]);
+  return {run:visible.run,loading:visible.loading,error:visible.error,backendAvailable:visible.backendAvailable,
+    evaluating:visibleAction.evaluating,evaluationError:visibleAction.error,reload,evaluate};
 }
