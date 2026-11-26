@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -173,28 +173,21 @@ export function replanningCaseStatusLabel(value: string) {
 export function useHealthReplanningF14(
   athleteId: string | null | undefined,
 ) {
-  const [currentCase, setCurrentCase] = useState<ReplanningCase | null>(null);
-  const [items, setItems] = useState<ReplanningItem[]>([]);
-  const [history, setHistory] = useState<ReplanningCase[]>([]);
-  const [loading, setLoading] = useState(Boolean(athleteId));
-  const [saving, setSaving] = useState(false);
-  const [backendAvailable, setBackendAvailable] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    if (!athleteId) {
-      setCurrentCase(null);
-      setItems([]);
-      setHistory([]);
-      setLoading(false);
-      setBackendAvailable(true);
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
+  const scope=athleteId??null;
+  const empty={currentCase:null as ReplanningCase|null,items:[] as ReplanningItem[],history:[] as ReplanningCase[],error:null as string|null,backendAvailable:true};
+  const [snapshot,setSnapshot]=useState({scope:null as string|null,...empty,loading:false});
+  const [action,setAction]=useState({scope:null as string|null,saving:false,error:null as string|null});
+  const request=useRef(0),epoch=useRef(0),locked=useRef(false);
+  const activeScope=useRef<string|null|undefined>(undefined);
+  const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
+  const currentAction=action.scope===scope?action:{saving:false,error:null};
+  const reload=useCallback(async()=>{
+    if(activeScope.current!==scope)return;
+    const token=++request.current;
+    const finish=(value:typeof empty)=>{if(token===request.current)setSnapshot({scope,...value,loading:false});};
+    if(!athleteId){finish(empty);return;}
+    setSnapshot({scope,...empty,loading:true});
+    try{
     const [currentResult, historyResult] = await Promise.all([
       db
         .from("health_replanning_cases")
@@ -216,37 +209,14 @@ export function useHealthReplanningF14(
         .limit(10),
     ]);
 
-    if (currentResult.error) {
-      setCurrentCase(null);
-      setItems([]);
-      setHistory([]);
-      setBackendAvailable(!isBackendUnavailable(currentResult.error));
-      setError(currentResult.error.message);
-      setLoading(false);
+    if(currentResult.error||historyResult.error){
+      const error=currentResult.error??historyResult.error;
+      finish({...empty,backendAvailable:!isBackendUnavailable(error),error:error?.message??"Replanejamento indisponível."});
       return;
     }
-
-    setBackendAvailable(true);
-    const mappedCurrent = currentResult.data
-      ? mapCase(currentResult.data)
-      : null;
-    setCurrentCase(mappedCurrent);
-    setHistory(
-      historyResult.error
-        ? []
-        : ((historyResult.data ?? []) as unknown[]).map(mapCase),
-    );
-
-    if (historyResult.error) {
-      setError(historyResult.error.message);
-    }
-
-    if (!mappedCurrent) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-
+    const mappedCurrent=currentResult.data?mapCase(currentResult.data):null;
+    const history=((historyResult.data??[]) as unknown[]).map(mapCase);
+    if(!mappedCurrent){finish({...empty,history});return;}
     const itemResult = await db
       .from("health_replanning_items")
       .select(
@@ -257,36 +227,34 @@ export function useHealthReplanningF14(
       .eq("record_status", "current")
       .order("created_at", { ascending: true });
 
-    if (itemResult.error) {
-      setItems([]);
-      setBackendAvailable(!isBackendUnavailable(itemResult.error));
-      setError(itemResult.error.message);
-    } else {
-      setItems(((itemResult.data ?? []) as unknown[]).map(mapItem));
-    }
-
-    setLoading(false);
-  }, [athleteId]);
-
-  useEffect(() => {
+    if(itemResult.error){finish({...empty,backendAvailable:!isBackendUnavailable(itemResult.error),error:itemResult.error.message});return;}
+    finish({...empty,currentCase:mappedCurrent,history,items:((itemResult.data??[]) as unknown[]).map(mapItem)});
+    }catch(cause){finish({...empty,error:cause instanceof Error?cause.message:"Replanejamento indisponível."});}
+  },[athleteId,scope]);
+  useEffect(()=>{
+    activeScope.current=scope;epoch.current++;locked.current=false;
+    setAction({scope,saving:false,error:null});
     void reload();
-  }, [reload]);
-
-  const runAction = useCallback(
-    async <T,>(operation: () => Promise<T>) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const value = await operation();
-        await reload();
-        return value;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [reload],
-  );
-
+    return ()=>{activeScope.current=undefined;request.current++;epoch.current++;locked.current=false;};
+  },[reload,scope]);
+  const runAction=useCallback(async<T,>(operation:()=>Promise<T>)=>{
+    if(!athleteId||activeScope.current!==scope||visible.loading||visible.error||!visible.backendAvailable||locked.current)
+      throw new Error("Aguarde uma leitura válida do atleta atual.");
+    locked.current=true;
+    const token=epoch.current;
+    const active=()=>activeScope.current===scope&&token===epoch.current;
+    setAction({scope,saving:true,error:null});
+    try{
+      const value=await operation();
+      if(active())await reload();
+      return value;
+    }catch(cause){
+      if(active())setAction({scope,saving:false,error:cause instanceof Error?cause.message:"Operação indisponível."});
+      throw cause;
+    }finally{
+      if(active()){locked.current=false;setAction(previous=>previous.scope===scope?{...previous,saving:false}:previous);}
+    }
+  },[athleteId,scope,visible.loading,visible.error,visible.backendAvailable,reload]);
   const openCase = useCallback(
     async (reviewRunId: string) =>
       runAction(async () => {
@@ -294,14 +262,11 @@ export function useHealthReplanningF14(
           p_review_run_id: reviewRunId,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
       }),
-    [runAction],
+    [runAction,visible.currentCase,visible.items],
   );
 
   const recordDecision = useCallback(
@@ -317,6 +282,8 @@ export function useHealthReplanningF14(
       notes?: string | null;
     }) =>
       runAction(async () => {
+        if(visible.currentCase?.id!==caseId||!visible.items.some(item=>item.domain===domain))
+          throw new Error("Caso ou domínio fora da leitura atual.");
         const result = await db.rpc(
           "health_f14_record_replanning_item_decision",
           {
@@ -327,63 +294,45 @@ export function useHealthReplanningF14(
           },
         );
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
       }),
-    [runAction],
+    [runAction,visible.currentCase,visible.items],
   );
 
   const completeCase = useCallback(
     async (caseId: string) =>
       runAction(async () => {
+        if(visible.currentCase?.id!==caseId)throw new Error("Caso fora da leitura atual.");
         const result = await db.rpc("health_f14_complete_replanning_case", {
           p_case_id: caseId,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
       }),
-    [runAction],
+    [runAction,visible.currentCase,visible.items],
   );
 
   const voidCase = useCallback(
     async (caseId: string, reason: string) =>
       runAction(async () => {
+        if(visible.currentCase?.id!==caseId)throw new Error("Caso fora da leitura atual.");
         const result = await db.rpc("health_f14_void_replanning_case", {
           p_case_id: caseId,
           p_reason: reason,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
       }),
-    [runAction],
+    [runAction,visible.currentCase,visible.items],
   );
 
-  return {
-    currentCase,
-    items,
-    history,
-    loading,
-    saving,
-    backendAvailable,
-    error,
-    reload,
-    openCase,
-    recordDecision,
-    completeCase,
-    voidCase,
-  };
+  return {currentCase:visible.currentCase,items:visible.items,history:visible.history,loading:visible.loading,
+    saving:currentAction.saving,backendAvailable:visible.backendAvailable,error:visible.error??currentAction.error,
+    reload,openCase,recordDecision,completeCase,voidCase};
 }

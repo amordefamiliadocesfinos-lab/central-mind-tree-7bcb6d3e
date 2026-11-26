@@ -192,8 +192,13 @@ function automaticTargets(code: LongitudinalReviewOutcome["outcomeCode"]) {
 }
 
 export function HealthLongitudinalReviewPage() {
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const review = useHealthLongitudinalReviewF13(athlete?.id);
+  const {athlete,loading}=useHealthAthlete();
+  if(loading)return <PageSkeleton/>;
+  if(!athlete)return <p className="text-sm text-muted-foreground">Selecione um perfil de saúde.</p>;
+  return <HealthLongitudinalReviewPageScoped key={athlete.id} athleteId={athlete.id}/>;
+}
+function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
+  const review = useHealthLongitudinalReviewF13(athleteId);
   const [outcomeCode, setOutcomeCode] =
     useState<LongitudinalReviewOutcome["outcomeCode"]>("continue_observation");
   const [targets, setTargets] = useState<string[]>([]);
@@ -208,7 +213,7 @@ export function HealthLongitudinalReviewPage() {
     [outcomeCode, selectableTargets, targets],
   );
 
-  if (athleteLoading || review.loading) return <PageSkeleton />;
+  if (review.loading) return <PageSkeleton />;
 
   const evidence = review.run?.evidence;
   const training = evidence?.training;
