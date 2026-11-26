@@ -486,6 +486,7 @@ export function HealthWorkoutPage() {
     <div className="space-y-4 pb-4">
       <HealthWorkoutInteractiveTimerF19
         sessionTitle={`${workout.nextTemplate?.code ?? "Sessão"} · ${workout.nextTemplate?.name ?? "Treino"}`}
+        guidanceScope={athlete?.id && workout.session.program_version_id ? JSON.stringify([athlete.id,workout.session.id,workout.session.program_version_id]) : undefined}
         fallbackStartedAt={workout.session.started_at}
         exercises={workout.exercises}
         setsByExercise={workout.setsByExercise}
