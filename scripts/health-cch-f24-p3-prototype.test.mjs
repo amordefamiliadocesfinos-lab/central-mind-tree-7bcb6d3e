@@ -56,10 +56,14 @@ test("ambiguous general media does not select by ordering",()=>{
 });
 
 test("bundled media requires local path, valid metadata and explicit approval",()=>{
- const row=item({path:"/health-media/example.webp",bytes:1000,width:640,height:360,durationMs:null,sha256:"a".repeat(64),author:"Synthetic author",licenseId:"test",sourceUrl:"https://example.org/source",rightsProofRef:"synthetic-proof",reviewedBy:"synthetic-reviewer",reviewedAt:"2026-11-25T12:00:00Z",safetyReviewedAt:"2026-11-25T12:00:00Z",version:1});
+ const row=item({path:"/health-media/example.webp",bytes:1000,width:640,height:360,durationMs:null,sha256:"a".repeat(64),author:"Synthetic author",licenseId:"test",licenseUrl:"https://example.org/license",changesDescription:"Nenhuma",sourceUrl:"https://example.org/source",rightsProofRef:"synthetic-proof",reviewedBy:"synthetic-reviewer",reviewedAt:"2026-11-25T12:00:00Z",safetyReviewedAt:"2026-11-25T12:00:00Z",version:1});
  assert.equal(selectF24BundledAssets("exercise-1",[row]).length,1);
- for(const patch of [{path:"https://example.org/a.webp"},{path:"/health-media/../a.webp"},{bytes:600000},{sha256:""},{reviewedBy:""},{status:"draft"},{equipmentId:"not-confirmed"}]){
+ for(const patch of [{path:"https://example.org/a.webp"},{path:"/health-media/../a.webp"},{bytes:600000},{sha256:""},{reviewedBy:""},{licenseUrl:"javascript:alert(1)"},{changesDescription:""},{status:"draft"},{equipmentId:"not-confirmed"}]){
   assert.deepEqual(selectF24BundledAssets("exercise-1",[{...row,...patch}]),[]);
  }
+ const gif={...row,mediaId:"gif",kind:"gif",mime:"image/gif",path:"/health-media/example.gif",durationMs:3000};
+ const badVideo={...row,mediaId:"video",kind:"video",mime:"video/mp4",path:"/health-media/example.mp4",durationMs:15000};
+ assert.deepEqual(selectF24BundledAssets("exercise-1",[badVideo,gif]).map(x=>x.mediaId),["gif"]);
+ assert.deepEqual(selectF24BundledAssets("exercise-1",[row,{...row,bytes:0}]),[]);
  assert.deepEqual(f24ApprovedAssets,[]);
 });
