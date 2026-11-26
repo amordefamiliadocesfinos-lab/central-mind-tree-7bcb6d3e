@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { HealthExerciseMovementPreview } from "./HealthExerciseMovementPreview";
+import { assessF24ExecutionSignal } from "../cch/executionEvidence";
 import { HealthWorkoutContextualGuidance } from "./HealthWorkoutContextualGuidance";
 import type { ExerciseCatalogItem } from "../hooks/useHealthCatalogs";
 import { canOfferExtraSeries, preserveF24ExtraChoice } from "../cch/f24ExtraSeriesChoice";
@@ -993,7 +994,7 @@ export function HealthWorkoutInteractiveTimerF19({
                 !timer.loading && !timer.saving && !timer.error && !historyLoading && !showEndConfirm &&
                 !activeWork && (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
                 completedOnActive < maxSets)}
-              belowRange={Boolean(viewedExercise.planned_reps_min!=null && viewedExercise.planned_reps_min>0 && viewedSets.filter(s=>s.status==="completed" && s.set_type==="working").length>=2 && viewedSets.filter(s=>s.status==="completed" && s.set_type==="working").every(s=>s.reps!=null && Number.isInteger(s.reps) && s.reps>0 && s.reps<viewedExercise.planned_reps_min!))}
+              executionSignal={assessF24ExecutionSignal(viewedSets,viewedExercise.planned_reps_min,viewedExercise.planned_rir_target)}
               unconfirmed={historicalReferences.get(viewedExercise.id)?.reason==="equipment_unconfirmed" &&
                 !equipmentConfirmed.includes(viewedExercise.id)}/>
             {!timer.activeInterval && viewedSets.length===0 && !equipmentConfirmed.includes(viewedExercise.id) ? (
