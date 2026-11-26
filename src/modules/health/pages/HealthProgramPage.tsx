@@ -534,8 +534,8 @@ export function HealthProgramPage() {
                     ))}
                   </div>
                 ) : null}
-                {cycleAdvisor.assessment.goal_specific_guidance?.[goalChoice === "unsure" ? "hypertrophy" : goalChoice] ? (
-                  <p className="text-muted-foreground">{cycleAdvisor.assessment.goal_specific_guidance[goalChoice === "unsure" ? "hypertrophy" : goalChoice]}</p>
+                {goalChoice !== "unsure" && cycleAdvisor.assessment.goal_specific_guidance?.[goalChoice] ? (
+                  <p className="text-muted-foreground">{cycleAdvisor.assessment.goal_specific_guidance[goalChoice]}</p>
                 ) : null}
                 {cycleAdvisor.assessment.recovery_context ? <p className="text-muted-foreground">Recuperação: existe registro recente de {cycleAdvisor.assessment.recovery_context.as_of_date}; interpretar cobertura e percepção antes de alterar estímulos.</p> : <p className="text-muted-foreground">Recuperação: sem informação recente suficiente para justificar mudanças.</p>}
                 {cycleAdvisor.assessment.limitations.map((text, index) => <p key={index} className="text-muted-foreground">{text}</p>)}
