@@ -16,7 +16,7 @@ import {
 
 // The RPC enforces auth.uid()+ADMINISTRADOR itself. Never use service_role, SQL
 // console, set_config, token extraction, bypasses, or direct table inserts here.
-const db = supabase as any;
+const db = supabase;
 type Outcome = 'created' | 'already';
 const PILOT = G055_ROWS.find(row => row.mapping_id === G055_PILOT)!;
 const BATCH_SIZE = 40;
@@ -104,7 +104,8 @@ async function recordOne(row: CanonicalSkuRow, authId: string): Promise<Outcome>
     if (await verifyWrittenEvent(row, eventId, authId)) return 'created';
     throw new Error('RPC rejeitou a decisão ' + row.mapping_id + ': ' + error.message);
   }
-  if (data?.mapping_id !== row.mapping_id || data?.revision !== 1) {
+  const response = data as { mapping_id?: string; revision?: number } | null;
+  if (response?.mapping_id !== row.mapping_id || response?.revision !== 1) {
     throw new Error('RPC retornou identificação/revisão inesperada para ' + row.mapping_id);
   }
   if (!(await verifyWrittenEvent(row, eventId, authId))) {
