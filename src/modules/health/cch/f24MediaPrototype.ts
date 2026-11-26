@@ -57,28 +57,31 @@ export function pickF24MediaPrototype(exerciseId:string,equipmentId:string|null,
 /** Bundled editorial assets only. No network resolver or Storage credentials. */
 export type F24ApprovedAsset=F24MediaDraft&{
  path:string; bytes:number; width:number;height:number;durationMs:number|null;
- sha256:string;author:string;licenseId:string;sourceUrl:string;rightsProofRef:string;
+ sha256:string;author:string;licenseId:string;licenseUrl:string;changesDescription:string;sourceUrl:string;rightsProofRef:string;
  reviewedBy:string;reviewedAt:string;safetyReviewedAt:string;version:number;
 };
 export function selectF24BundledAssets(exerciseId:string,rows:F24ApprovedAsset[]):F24ApprovedAsset[]{
- const selected=pickF24MediaPrototype(exerciseId,null,rows);
- return selected.flatMap(selection=>{
-  const row=rows.find(x=>x.mediaId===selection.mediaId);
-  if(!row)return [];
+ // Count identities before filtering metadata so conflicts never revive an asset.
+ const counts=new Map<string,number>();
+ for(const row of rows)counts.set(row.mediaId,(counts.get(row.mediaId)??0)+1);
+ const verified=rows.filter(row=>{
+  if(counts.get(row.mediaId)!==1)return false;
   const extensions:Record<string,string>={"image/webp":"webp","image/avif":"avif","image/png":"png","image/jpeg":"jpg","video/mp4":"mp4","video/webm":"webm","image/gif":"gif"};
   const ext=extensions[row.mime];
-  if(!ext||!/^\/health-media\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(row.path)||!row.path.endsWith("."+ext))return [];
+  if(!ext||!/^\/health-media\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(row.path)||!row.path.endsWith("."+ext))return false;
   const limit=row.kind==="image"?500*1024:row.kind==="video"?4*1024*1024:1.5*1024*1024;
   if(!Number.isInteger(row.bytes)||row.bytes<=0||row.bytes>limit||
     !Number.isInteger(row.width)||!Number.isInteger(row.height)||row.width<=0||row.height<=0||
-    Math.max(row.width,row.height)>1280||Math.min(row.width,row.height)>720)return [];
-  if(row.kind==="image"?row.durationMs!==null:(!Number.isInteger(row.durationMs)||row.durationMs!<=0||row.durationMs!>(row.kind==="video"?12000:6000)))return [];
+    Math.max(row.width,row.height)>1280||Math.min(row.width,row.height)>720)return false;
+  if(row.kind==="image"?row.durationMs!==null:(!Number.isInteger(row.durationMs)||row.durationMs!<=0||row.durationMs!>(row.kind==="video"?12000:6000)))return false;
   if(!/^[a-f0-9]{64}$/.test(row.sha256)||!Number.isInteger(row.version)||row.version<1||
-   ![row.author,row.licenseId,row.rightsProofRef,row.reviewedBy,row.reviewedAt,row.safetyReviewedAt].every(x=>typeof x==="string"&&x.trim())||
-   !Number.isFinite(Date.parse(row.reviewedAt))||!Number.isFinite(Date.parse(row.safetyReviewedAt)))return [];
-  try{if(new URL(row.sourceUrl).protocol!=="https:")return [];}catch{return [];}
-  return [row];
+   ![row.author,row.licenseId,row.licenseUrl,row.changesDescription,row.rightsProofRef,row.reviewedBy,row.reviewedAt,row.safetyReviewedAt].every(x=>typeof x==="string"&&x.trim())||
+   !Number.isFinite(Date.parse(row.reviewedAt))||!Number.isFinite(Date.parse(row.safetyReviewedAt)))return false;
+  try{if(new URL(row.sourceUrl).protocol!=="https:"||new URL(row.licenseUrl).protocol!=="https:")return false;}catch{return false;}
+  return true;
  });
+ const selected=pickF24MediaPrototype(exerciseId,null,verified);
+ return selected.map(selection=>verified.find(row=>row.mediaId===selection.mediaId)!);
 }
 // Deliberately empty until asset bytes, rights and professional review are approved.
 export const f24ApprovedAssets: F24ApprovedAsset[]=[];

@@ -31,7 +31,7 @@ export function HealthExerciseMovementPreview({exercise,name}:{exercise?:Exercis
         <><Button type="button" variant="outline" className="min-h-11" onClick={()=>setPlayingGif(playingGif===asset.mediaId?null:asset.mediaId)}>{playingGif===asset.mediaId?"Parar animação":"Reproduzir animação"}</Button>
         {playingGif===asset.mediaId?<img src={asset.path} alt={asset.altText} className="max-h-64 w-full object-contain" onError={()=>setFailed(prev=>[...prev,asset.mediaId])}/>:null}</>}
       <p className="text-xs">{asset.altText}</p>
-      <p className="text-xs text-muted-foreground">Demonstração geral · {asset.author} · {asset.licenseId} · <a className="underline" href={asset.sourceUrl} target="_blank" rel="noopener noreferrer">Origem</a></p>
+      <p className="text-xs text-muted-foreground">Demonstração geral · {asset.author} · <a className="underline" href={asset.licenseUrl} target="_blank" rel="noopener noreferrer">{asset.licenseId}</a> · <a className="underline" href={asset.sourceUrl} target="_blank" rel="noopener noreferrer">Origem</a> · Alterações: {asset.changesDescription}</p>
     </div>):null}
     <p className="text-xs text-muted-foreground">O catálogo não confirma qual aparelho físico você está utilizando. {media.length===0?"Demonstração visual aprovada ainda não disponível.":failed.length?"Algumas mídias não puderam ser carregadas; consulte a referência textual.":""}</p>
    </div>
