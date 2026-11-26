@@ -32,6 +32,30 @@ for(const width of [320,360,390,430,1280]){
  });
 }
 
+test("S01 original sample: explicit play, stop, focus and reduced motion",async({page})=>{
+ await page.setViewportSize({width:320,height:900});
+ await open(page);
+ const trigger=page.getByRole("button",{name:"Ver movimento: Amostra S01 sintética"});
+ await trigger.click();
+ const dialog=page.getByRole("dialog");
+ await expect(dialog).toContainText("Amostra visual · protótipo");
+ await expect(dialog.getByText("Quadro A",{exact:true})).toBeVisible();
+ await expect(dialog.getByText("Quadro B",{exact:true})).toBeVisible();
+ await dialog.getByRole("button",{name:/Reproduzir amostra/}).click();
+ await expect(dialog.getByRole("button",{name:"Parar amostra"})).toBeVisible();
+ await dialog.getByRole("button",{name:"Parar amostra"}).click();
+ await expect(dialog.getByText("Quadro A",{exact:true})).toBeVisible();
+ await page.keyboard.press("Escape");
+ await expect(dialog).toHaveCount(0);
+ await expect(trigger).toBeFocused();
+ await page.emulateMedia({reducedMotion:"reduce"});
+ await trigger.click();
+ await expect(dialog.getByText("Movimento reduzido: quadros estáticos.")).toBeVisible();
+ await expect(dialog.getByRole("button",{name:/Reproduzir amostra/})).toHaveCount(0);
+ await page.keyboard.press("Escape");
+ await expect(page.getByTestId("g5f-count")).toContainText("3");
+});
+
 test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({page})=>{
  const setPatches=[];
  page.on("response",res=>{if(res.request().method()==="PATCH" && res.url().includes("health_workout_sets")) setPatches.push(res.status());});
@@ -41,6 +65,13 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await page.getByRole("button",{name:"Exercício anterior",exact:true}).click();
  await expect(selected(page)).toBeEnabled();
  await selected(page).click();
+ const movement=page.getByRole("button",{name:"Ver movimento: Supino máquina"});
+ await movement.click();
+ await expect(page.getByRole("dialog")).toContainText("Demonstração visual aprovada ainda não disponível.");
+ await page.keyboard.press("Escape");
+ await expect(page.getByRole("dialog")).toHaveCount(0);
+ await expect(movement).toBeFocused();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
  await page.getByRole("button",{name:"Concluir série"}).click();
  await expect(page.getByTestId("g5f-count")).toContainText("4");
  await page.reload();
