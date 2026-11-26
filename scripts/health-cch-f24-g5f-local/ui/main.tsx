@@ -2,6 +2,8 @@ import React, {useCallback,useEffect,useMemo,useState} from "react";
 import {createRoot} from "react-dom/client";
 import {supabase} from "@/integrations/supabase/client";
 import {HealthWorkoutInteractiveTimerF19} from "@/modules/health/components/HealthWorkoutInteractiveTimerF19";
+import {HealthExerciseMovementPreview} from "@/modules/health/components/HealthExerciseMovementPreview";
+import type {ExerciseCatalogItem} from "@/modules/health/hooks/useHealthCatalogs";
 import {useHealthWorkoutTimerF19} from "@/modules/health/hooks/useHealthWorkoutTimerF19";
 import "@/index.css";
 import type {WorkoutExercise,WorkoutSet} from "@/modules/health/hooks/useHealthWorkoutM4";
@@ -61,6 +63,9 @@ function App(){
     exerciseNameById={new Map([["cat-g5f-1","Supino máquina"],["cat-g5f-2","Remada"]])}
     historicalReferences={new Map()} historyLoading={false} timer={timer}
     onCompleteWorkout={async()=>{}} onConfirmEquipment={async()=>{}}/>
+   <section aria-label="Fixture editorial isolada">
+     <HealthExerciseMovementPreview name="Amostra S01 sintética" exercise={{id:"cbbf1aa6-b906-46e8-84ce-b13f67aa4f0a",muscles:[],equipment:[],equivalences:[]} as ExerciseCatalogItem}/>
+   </section>
  </main>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);
