@@ -275,7 +275,7 @@ DROP POLICY health_workout_events_select ON public.health_workout_events;
 CREATE POLICY health_workout_events_select ON public.health_workout_events
  FOR SELECT TO authenticated USING (
  public.health_can_read_athlete(athlete_id)
- AND (NOT (event_type='note' AND payload->>'contract'='cch-e5-session-review-v1')
+ AND (NOT (event_type='note' AND (payload->>'contract') IS NOT DISTINCT FROM 'cch-e5-session-review-v1')
    OR (EXISTS (SELECT 1 FROM public.health_athletes a WHERE a.id=athlete_id
        AND a.auth_user_id=auth.uid() AND a.status='active')
     AND public.health_cch_e5_has_explicit_consent(athlete_id)))
@@ -288,7 +288,7 @@ CREATE POLICY health_workout_events_insert ON public.health_workout_events
  FOR INSERT TO authenticated WITH CHECK (
  public.health_can_write_athlete(athlete_id)
  AND (created_by_auth_user_id IS NULL OR created_by_auth_user_id=auth.uid())
- AND (NOT (event_type='note' AND payload->>'contract'='cch-e5-session-review-v1')
+ AND (NOT (event_type='note' AND (payload->>'contract') IS NOT DISTINCT FROM 'cch-e5-session-review-v1')
   OR (public.health_cch_e5_has_explicit_consent(athlete_id)
    AND created_by_auth_user_id=auth.uid() AND
    EXISTS (SELECT 1 FROM public.health_athletes a
