@@ -35,7 +35,7 @@ assert.match(endpoint,/count:"exact",head:true/);
 assert.match(endpoint,/status:"consultivo_nao_homologado"/);
 const executable=endpoint.replace(/\/\*[\s\S]*?\*\//g,"").replace(/^\s*\/\/.*$/gm,"");
 assert.doesNotMatch(executable,/service.role|SUPABASE_SERVICE_ROLE|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
-assert.doesNotMatch(executable,/snapshot|source_reference|evidence_note/);
+assert.doesNotMatch(executable,/snapshot|evidence_note/); // FM source_reference is now returned in authenticated contextual projection, not portable export.
 assert.match(host,/selected\.code==="NUC"&&<NucleoAc02NucContextRead\s*\/>/);
 assert.match(ui,/supabase\.functions\.invoke\("nucleo-ac02-context-read"/);
 assert.match(ui,/getUser\(\)/);
@@ -64,3 +64,14 @@ assert.match(ui,/esta projeção descritiva não certifica o cadastro relacional
 assert.match(ui,/Método geral/);
 assert.match(ui,/Adaptação contextual/);
 assert.match(ui,/A consulta não herda autoridade e não cria vínculo de atuação/);
+
+// U06: preserve the original F5 checkpoint while adding authorized current context.
+assert.match(endpoint,/continuity_context:currentContext/);
+assert.match(endpoint,/next_action_record:root.next_action/);
+assert.match(endpoint,/updated_at:root.updated_at/);
+assert.match(endpoint,/\.eq\("module_id",NUC_MODULE_ID\)\.in\("section_code",\["FM-03","FM-08","FM-09","FM-10"\]\)/);
+assert.match(endpoint,/previous.version_no<row.version_no/);
+assert.match(endpoint,/Revisões FM conflitantes/);
+assert.match(endpoint,/authority:"consultivo_nao_homologado"/);
+assert.match(endpoint,/ac01_revisions:revisionRead.data/);
+assert.match(endpoint,/M3 para checkpoint; FM\/AC-01 para revisão documental; AC-02 somente consulta/);
