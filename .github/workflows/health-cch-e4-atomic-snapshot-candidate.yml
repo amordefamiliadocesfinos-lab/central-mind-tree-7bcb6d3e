@@ -1,0 +1,43 @@
+name: CCH E4 Atomic Snapshot Candidate
+on:
+  pull_request:
+    paths:
+      - 'supabase/candidates/health_cch_e4_atomic_snapshot_candidate.sql'
+      - 'supabase/tests/health_cch_e4_atomic_snapshot_*.sql'
+      - '.github/workflows/health-cch-e4-atomic-snapshot-candidate.yml'
+permissions:
+  contents: read
+jobs:
+  disposable-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: local-cch-e4-only
+          POSTGRES_DB: cch_e4_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: local-cch-e4-only
+      PGDATABASE: cch_e4_lab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify disposable database identity
+        run: |
+          test "$(psql -XAtc 'select current_database()')" = cch_e4_lab
+          test "$(psql -XAtc 'select inet_server_port()')" = 5432
+      - name: Candidate contract (no production configuration or credentials)
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_cch_e4_atomic_snapshot_fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/candidates/health_cch_e4_atomic_snapshot_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/health_cch_e4_atomic_snapshot_contract.sql
