@@ -359,6 +359,7 @@ export function HealthWorkoutPage() {
   const [extraExerciseId, setExtraExerciseId] = useState("");
   const history = useF24WorkoutHistory(athlete?.id,workout.session?.id,workout.exercises);
 
+  const exerciseCatalogById = useMemo(() => new Map(catalogs.exercises.map(item => [item.id, item])), [catalogs.exercises]);
   const exerciseNameById = useMemo(
     () => new Map(catalogs.exercises.map((item) => [item.id, item.name])),
     [catalogs.exercises],
@@ -489,6 +490,7 @@ export function HealthWorkoutPage() {
         exercises={workout.exercises}
         setsByExercise={workout.setsByExercise}
         exerciseNameById={exerciseNameById}
+        exerciseCatalogById={exerciseCatalogById}
         historicalReferences={history.records}
         historyLoading={history.loading}
         timer={timer}

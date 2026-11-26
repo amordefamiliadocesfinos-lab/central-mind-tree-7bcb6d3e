@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { HealthExerciseMovementPreview } from "./HealthExerciseMovementPreview";
+import type { ExerciseCatalogItem } from "../hooks/useHealthCatalogs";
 import { canOfferExtraSeries, preserveF24ExtraChoice } from "../cch/f24ExtraSeriesChoice";
 import type {F24ExerciseHistoryStatus} from "../hooks/useF24WorkoutHistory";
 import type {
@@ -210,6 +212,7 @@ export function HealthWorkoutInteractiveTimerF19({
   exercises,
   setsByExercise,
   exerciseNameById,
+  exerciseCatalogById,
   historicalReferences,
   historyLoading,
   timer,
@@ -221,6 +224,7 @@ export function HealthWorkoutInteractiveTimerF19({
   exercises: WorkoutExercise[];
   setsByExercise: Map<string, WorkoutSet[]>;
   exerciseNameById: Map<string, string>;
+  exerciseCatalogById?: Map<string, ExerciseCatalogItem>;
   historicalReferences: Map<string,F24ExerciseHistoryStatus>;
   historyLoading: boolean;
   timer: HealthWorkoutTimerF19Controller;
@@ -928,10 +932,14 @@ export function HealthWorkoutInteractiveTimerF19({
                     ? "Exercício atual em execução"
                     : "Visualização do exercício"}
                 </p>
-                <CardTitle className="mt-1 text-xl">
-                  {exerciseNameById.get(viewedExercise.exercise_id) ??
-                    "Exercício"}
-                </CardTitle>
+                <div className="flex items-center gap-1">
+                  <CardTitle className="mt-1 min-w-0 text-xl">
+                    {exerciseNameById.get(viewedExercise.exercise_id) ?? "Exercício"}
+                  </CardTitle>
+                  <HealthExerciseMovementPreview key={viewedExercise.id}
+                    exercise={exerciseCatalogById?.get(viewedExercise.exercise_id)}
+                    name={exerciseNameById.get(viewedExercise.exercise_id) ?? "Exercício"}/>
+                </div>
                 {historyLoading ? (
                   <p className="mt-1 text-xs text-muted-foreground">Consultando referência anterior…</p>
                 ) : historicalReferences.get(viewedExercise.id)?.reference ? (
