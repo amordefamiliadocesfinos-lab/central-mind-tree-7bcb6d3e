@@ -43,7 +43,7 @@ Deno.serve(async request=>{
   if(grant.error||grant.data?.length!==1||grant.data[0].auth_user_id!==uid)
     return json({error:"Permissão de consulta não demonstrada"},403);
   const moduleResult=await db.from("nucleo_development_workstreams")
-   .select("id,code,kind").eq("id",NUC_MODULE_ID).eq("code","NUC").eq("kind","modulo").limit(2);
+   .select("id,code,kind,title,status,next_action,updated_at").eq("id",NUC_MODULE_ID).eq("code","NUC").eq("kind","modulo").limit(2);
   if(moduleResult.error||moduleResult.data?.length!==1)
     return json({error:"Módulo não verificável"},503);
   const [frontResult,contributionResult]=await Promise.all([
@@ -90,6 +90,43 @@ Deno.serve(async request=>{
     source_scope:"Core M3 evento auditado + referências GitHub já verificadas",
     authority:"consultivo_nao_homologado"};
   }
+  // U06: contexto documental consultivo, na mesma sessão e sob a mesma RLS.
+  // Não incluir corpos no pacote portátil legado. A projeção de consulta é separada.
+  const [fmRead,revisionRead]=await Promise.all([
+   db.from("nucleo_module_knowledge_revisions")
+    .select("id,section_code,version_no,title,body,source_reference,authority_state,evidence_level,recorded_at")
+    .eq("module_id",NUC_MODULE_ID).in("section_code",["FM-03","FM-08","FM-09","FM-10"]).limit(300),
+   db.from("nucleo_specialist_contributions")
+    .select("id,lineage_id,version_no,authority_state,title")
+    .eq("module_id",NUC_MODULE_ID).limit(100),
+  ]);
+  if(fmRead.error||revisionRead.error||!fmRead.data||!revisionRead.data||
+    fmRead.data.length>=300||revisionRead.data.length>=100)
+   return json({error:"Leitura de continuidade incompleta ou protegida"},503);
+  const latest=new Map<string,(typeof fmRead.data)[number]>();
+  for(const row of fmRead.data){
+   const previous=latest.get(row.section_code);
+   if(previous&&previous.version_no===row.version_no&&previous.id!==row.id)
+    return json({error:"Revisões FM conflitantes"},503);
+   if(!previous||previous.version_no<row.version_no)latest.set(row.section_code,row);
+  }
+  const root=moduleResult.data[0];
+  const currentContext={
+   kind:"nucleo_ac02_leitura_contextual_u06",
+   authority:"consultivo_nao_homologado",
+   root:{id:root.id,code:root.code,title:root.title,status:root.status,
+    next_action_record:root.next_action,updated_at:root.updated_at,
+    source:"nucleo_development_workstreams",
+    interpretation:"Registro integral; distinguir ação vigente de histórico e confrontar fontes antes de executar."},
+   sections:["FM-03","FM-08","FM-09","FM-10"].map(section_code=>({
+    section_code,state:latest.has(section_code)?"registro_core":"nao_localizado_no_recorte",
+    revision:latest.get(section_code)??null,
+   })),
+   ac01_revisions:revisionRead.data,
+   limits:["Conteúdo documental autorizado pela sessão e RLS; não transfere acesso a fontes externas.",
+    "Estado declarado não certifica vigência, mandato ou autorização de execução.",
+    "M3 para checkpoint; FM/AC-01 para revisão documental; AC-02 somente consulta."],
+  };
   // Expor somente o recorte permitido e contagens, nunca evidência bruta ou
   // notas, snapshots, tokens, fonte privada, identidade de terceiros.
   return json({
@@ -99,6 +136,7 @@ Deno.serve(async request=>{
    specialist:{role:"Especialista Núcleo 2.0",specialty:"Governança e Continuidade do Núcleo",
      specialty_state:"descricao_proposta",mandate:"nao_certificado",successor:"nao_certificado"},
    contribution:contributionResult.data[0],
+   continuity_context:currentContext,
    ...(checkpoint?{checkpoint}:{}),
    fronts:fronts.map((row,i)=>({
      code:row.code,title:row.title,status:row.status,evidence_state:row.evidence_state,
