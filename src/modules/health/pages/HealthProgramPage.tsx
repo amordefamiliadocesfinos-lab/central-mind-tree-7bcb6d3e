@@ -21,7 +21,7 @@ import { useHealthLongitudinalReviewF13 } from "../hooks/useHealthLongitudinalRe
 import { useHealthReplanningF14 } from "../hooks/useHealthReplanningF14";
 import { guidedGoals, guidedStrategies, useCchCycleAdvisor } from "../hooks/useCchCycleAdvisor";
 import type { GuidedGoal, GuidedStrategy } from "../hooks/useCchCycleAdvisor";
-import { buildCycleDecisionBrief } from "../cch/cycleDecisionModel";
+import { buildCycleDecisionBrief, describeRecoveryContext } from "../cch/cycleDecisionModel";
 import { evaluateV9 } from "../cch/motorV9Decision";
 import { interpretExecution } from "../cch/executionEvidence";
 import { proposePrescriptionE2 } from "../cch/prescriptionE2";
@@ -89,6 +89,9 @@ export function HealthProgramPage() {
     cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice),
     [cycleAdvisor.assessment,recoveryReport,symptomReport,goalChoice,strategyChoice]);
 
+  const auditAligned=Boolean(!program.loading && !program.error && !cycleAdvisor.loading && !cycleAdvisor.error &&
+    program.program?.current_version_id && cycleAdvisor.assessment.source_version_id===program.program.current_version_id);
+  const recoveryContext=describeRecoveryContext({sourceAligned:auditAligned,state:cycleAdvisor.assessment.recovery_evidence_state,context:cycleAdvisor.assessment.recovery_context});
   const [programName, setProgramName] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [e2Reason,setE2Reason]=useState<{id:string;reason:string}|null>(null);
@@ -537,7 +540,10 @@ export function HealthProgramPage() {
                 {goalChoice !== "unsure" && cycleAdvisor.assessment.goal_specific_guidance?.[goalChoice] ? (
                   <p className="text-muted-foreground">{cycleAdvisor.assessment.goal_specific_guidance[goalChoice]}</p>
                 ) : null}
-                {cycleAdvisor.assessment.recovery_context ? <p className="text-muted-foreground">Recuperação: existe registro recente de {cycleAdvisor.assessment.recovery_context.as_of_date}; interpretar cobertura e percepção antes de alterar estímulos.</p> : <p className="text-muted-foreground">Recuperação: sem informação recente suficiente para justificar mudanças.</p>}
+                <div className="space-y-1" data-testid="cch-s02-recovery-source">
+                  <p className="font-medium">{recoveryContext.summary}</p>
+                  <p className="text-muted-foreground">{recoveryContext.detail}</p>
+                </div>
                 {cycleAdvisor.assessment.limitations.map((text, index) => <p key={index} className="text-muted-foreground">{text}</p>)}
                 <p className="text-muted-foreground">Fase registrada: {phaseLabel}. Nível: {trainingProfile.profile?.training_level ?? "não informado"}.</p>
                 <p className="text-muted-foreground">
@@ -648,6 +654,7 @@ export function HealthProgramPage() {
             ) : null}
             <div className="space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium">Antes de gerar: como você está agora?</p>
+              <p className="text-xs text-muted-foreground">{recoveryContext.summary} · {recoveryContext.detail}</p>
               <Label>Recuperação recente</Label>
               <Select value={recoveryReport} onValueChange={value => setRecoveryReport(value as RecoveryReport)}>
                 <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
@@ -673,6 +680,12 @@ export function HealthProgramPage() {
               {decisionBrief.reasons.map((reason,index) => (
                 <p className="text-xs text-muted-foreground" key={index}>{reason}</p>
               ))}
+              {auditAligned && goalChoice !== "unsure" && strategyChoice !== decisionBrief.recommendation ? (
+                <Button type="button" variant="outline" className="min-h-11 w-full"
+                  onClick={()=>{setStrategyChoice(decisionBrief.recommendation);setAllowTargetedSets(false);}}>
+                  Selecionar estratégia sugerida para revisão
+                </Button>
+              ) : null}
               {symptomReport === "pain" ? <p className="text-xs text-destructive">
                 O CCH não substituirá avaliação profissional quando há dor que interfere no treino; ajuste ou interrompa exercícios que agravem os sintomas.
               </p> : null}
@@ -684,7 +697,7 @@ export function HealthProgramPage() {
               <p className="text-muted-foreground">O novo ciclo será um rascunho conservador para revisão. Mesmo quando você selecionar progressão, alterações de carga, repetições e séries não serão aplicadas sem validação específica por exercício.</p>
             </div>
             <p className="text-xs">Disponibilidade: <strong>flexível</strong> — o programa preserva a sequência de estímulos sem fixar dias da semana.</p>
-            <Button className="w-full min-h-11" disabled={goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
+            <Button className="w-full min-h-11" disabled={!auditAligned || goalChoice === "unsure" || (goalChoice === "muscle_priority" && !priorityMuscleId) || cycleAdvisor.loading ||
               !!cycleAdvisor.error || cycleAdvisor.generating || program.saving ||
               ((strategyChoice === "continue_progression" && !decisionBrief.allowProgression) ||
                 (goalChoice === "muscle_priority" && allowTargetedSets && !decisionBrief.allowVolumeProposal))}
