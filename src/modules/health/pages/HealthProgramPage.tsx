@@ -31,6 +31,7 @@ import { cchBuildProvenance } from "../cch/buildProvenance";
 import { assessE2Preflight } from "../cch/e2Preflight";
 import { assessFlexiblePeriodizationE3 } from "../cch/periodizationFlexibleE3";
 import { useHealthE3ReadOnly } from "../hooks/useHealthE3ReadOnly";
+import { HealthPersonalizationReadiness } from "../components/HealthPersonalizationReadiness";
 import { confirmedEquipmentChoices } from "../cch/equipmentChoices";
 import { validIncrement,compareVolume,reviewPhase } from "../cch/motorV7Model";
 import type { RecoveryReport, SymptomReport } from "../cch/cycleDecisionModel";
@@ -310,6 +311,8 @@ export function HealthProgramPage() {
           </p>
         </CardContent>
       </Card>
+
+      <HealthPersonalizationReadiness />
 
       <Card data-testid="cch-e3-consultative-plan">
         <CardHeader>
