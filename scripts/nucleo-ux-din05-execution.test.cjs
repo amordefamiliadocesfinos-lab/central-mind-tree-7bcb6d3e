@@ -58,3 +58,11 @@ assert.equal(excerpt("Somente texto sem marcador."),null);
 assert.equal(excerpt("Próxima ação: Conferir fonte. Próxima ação: Conferir outro dado."),null);
 assert(editor.includes("Registro integral, contexto e ressalvas")&&editor.includes("{selected.next_action}"),"Full source still visible on demand");
 assert(src.includes("Atalhos de acompanhamento dos outros módulos")&&src.includes("Panorama detalhado das frentes"),"Reduce repeated blocks without dropping callbacks");
+
+/* U06: a atualização auditada pode declarar ação vigente após histórico. */
+const currentAction="reconciliar campanha existente com Digital, sem disparos. Operador independente/CA15 continua adiado; orientações anteriores são históricas.";
+assert.equal(excerpt("Histórico. Próxima ação: ensaio do operador independente.\n\nCheckpoint U03. Ação vigente: "+currentAction),currentAction);
+assert.equal(excerpt("Próxima ação: etapa antiga.\n\nPróxima ação: outra etapa antiga.\n\nCheckpoint. Ação vigente: "+currentAction),currentAction);
+assert.equal(excerpt("Próxima ação: etapa antiga.\n\nAção vigente: Conferir fonte.\n\nAção vigente: Conferir outra fonte."),null);
+assert.equal(excerpt("Próxima ação: etapa antiga.\n\nAção vigente:"),null);
+assert(editor.includes("Trecho literal da ação explicitamente registrada."),"Label does not misidentify marker");

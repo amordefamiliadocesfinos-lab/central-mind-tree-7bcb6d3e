@@ -1298,7 +1298,7 @@ export default function NucleoDevelopmentCenter() {
                       <summary className="cursor-pointer text-sm font-medium">Registro integral, contexto e ressalvas</summary>
                       <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action}</p>
                     </details>
-                    <p className="text-sm text-muted-foreground">Trecho literal após o marcador “Próxima ação”. Consulte o registro integral e as decisões vigentes antes de executar.</p>
+                    <p className="text-sm text-muted-foreground">Trecho literal da ação explicitamente registrada. Consulte o registro integral e as decisões vigentes antes de executar.</p>
                   </>:<p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.next_action.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>}
                   <p className="text-sm text-muted-foreground">Registro do Core; pode conter contexto e checkpoints. Consulte o histórico para distinguir eventos e alterações.</p>
                 </div>
