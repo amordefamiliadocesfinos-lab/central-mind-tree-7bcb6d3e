@@ -4,6 +4,12 @@ on:
     branches: [main]
     paths:
       - 'scripts/health-cch-f24-g5f-local/**'
+      - 'src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx'
+      - 'src/modules/health/components/HealthExerciseMovementPreview.tsx'
+      - 'src/modules/health/components/HealthMovementSample.tsx'
+      - 'src/modules/health/components/HealthWorkoutContextualGuidance.tsx'
+      - 'src/modules/health/cch/f24MediaPrototype.ts'
+      - 'src/modules/health/cch/executionEvidence.ts'
       - '.github/workflows/health-cch-f24-g5f-local.yml'
       - 'supabase/migrations/20261110005023_health_f19_interactive_workout_timers.sql'
 concurrency:
