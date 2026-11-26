@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CheckCircle2, KeyRound, Loader2, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,10 @@ export default function AdminUsers() {
             Crie acessos Auth e vincule cadastros existentes sem recriar dados operacionais ou de Saúde.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/admin/skus-comerciais">Seller SKUs</Link>
+          </Button>
           <Button variant="outline" className="min-h-11" onClick={() => void load()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar

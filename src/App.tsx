@@ -54,6 +54,7 @@ import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import NotFound from "./pages/NotFound";
 import HealthModule from "./modules/health/HealthModule";
 import AdminUsers from "./pages/AdminUsers";
+import SellerSkuAdminG055 from "./pages/SellerSkuAdminG055";
 import { CapturaCentralFAB } from "@/components/CapturaCentralFAB";
 import { RoutineAlertOverlay } from "@/components/routine/RoutineAlertOverlay";
 import { CustomAlarmsRuntime } from "@/components/routine/CustomAlarmsRuntime";
@@ -97,6 +98,7 @@ function AnimatedRoutes() {
           <Route path="/academia" element={<Academia />} />
           <Route path="/saude/*" element={<HealthModule />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
+          <Route path="/admin/skus-comerciais" element={<SellerSkuAdminG055 />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/oportunidades" element={<Oportunidades />} />
           <Route path="/nucleo" element={<Nucleo />} />
