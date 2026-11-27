@@ -357,6 +357,8 @@ export function HealthWorkoutPage() {
     workout.reload,
   );
   const [extraExerciseId, setExtraExerciseId] = useState("");
+  // A presentation preference, scoped to the session; never modifies its state.
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const history = useF24WorkoutHistory(athlete?.id,workout.session?.id,workout.exercises);
 
   const exerciseCatalogById = useMemo(() => new Map(catalogs.exercises.map(item => [item.id, item])), [catalogs.exercises]);
@@ -480,11 +482,14 @@ export function HealthWorkoutPage() {
     );
   }
 
-  const completedSetCount = workout.sets.filter((item) => item.status === "completed").length;
+  const sessionId = workout.session.id;
+  const focusMode = timer.available && expandedSessionId !== sessionId;
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3 pb-4" data-cch-focus={focusMode ? "true" : undefined}>
       <HealthWorkoutInteractiveTimerF19
+        focusMode={focusMode}
+        onToggleFocus={() => setExpandedSessionId(focusMode ? sessionId : null)}
         sessionTitle={`${workout.nextTemplate?.code ?? "Sessão"} · ${workout.nextTemplate?.name ?? "Treino"}`}
         guidanceScope={athlete?.id && workout.session.athlete_id===athlete.id && workout.session.program_version_id ? JSON.stringify([athlete.id,workout.session.id,workout.session.program_version_id]) : undefined}
         guidanceReadReady={!workout.error && !workout.loading}
@@ -500,9 +505,9 @@ export function HealthWorkoutPage() {
         onConfirmEquipment={workout.confirmEquipment}
       />
 
-      <details className="rounded-xl border bg-muted/10 p-3">
+      <details className="rounded-xl border bg-muted/10 p-3" data-testid="cch-advanced-tools">
         <summary className="cursor-pointer text-sm font-medium">
-          Correções e ferramentas avançadas
+          Mais opções · Correções e ferramentas
         </summary>
         <p className="mt-2 text-xs text-muted-foreground">
           A execução normal fica travada no exercício selecionado acima e a troca

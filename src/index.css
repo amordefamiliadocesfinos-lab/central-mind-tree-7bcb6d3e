@@ -392,3 +392,10 @@ html:has([data-global-footer-dock="true"]) {
     scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* CCH F24 R01: presentation only; keep mounted shell, session and safety alerts. */
+body:has([data-cch-focus="true"]) [data-cch-focus-chrome] { display: none; }
+body:has([data-cch-focus="true"]) [data-cch-health-shell] { padding-bottom: env(safe-area-inset-bottom, 0px); }
+body:has([data-cch-focus="true"]) [data-cch-health-main] { max-width: 42rem; padding-top: .5rem; padding-bottom: .5rem; }
+html:has([data-cch-focus="true"]) { scroll-padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); scroll-padding-top: calc(5rem + env(safe-area-inset-top, 0px)); }
+[data-cch-focus="true"] [data-cch-session-bar] { top: env(safe-area-inset-top, 0px); }

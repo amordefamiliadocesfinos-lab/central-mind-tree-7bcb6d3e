@@ -13,6 +13,7 @@ declare global {interface Window {__G5F_TEST_AUTH__?:Config}}
 const cfg=window.__G5F_TEST_AUTH__;
 function App(){
  const [logged,setLogged]=useState(false);
+ const [focusMode,setFocusMode]=useState(true);
  const [error,setError]=useState("");
  const [exercises,setExercises]=useState<WorkoutExercise[]>([]);
  const [sets,setSets]=useState<WorkoutSet[]>([]);
@@ -57,12 +58,15 @@ function App(){
      <div data-testid="g5f-count">Séries concluídas: {sets.filter(s=>s.workout_exercise_id===exercises[0]?.id).length}</div>
      <div>Ambiente efêmero; não é o Painel Central hospedado</div>
    </header>
-   <HealthWorkoutInteractiveTimerF19
+   <div data-cch-focus-chrome data-testid="g5f-navigation-chrome">Menu de teste</div>
+   <div data-cch-focus={focusMode?"true":undefined}>
+   <HealthWorkoutInteractiveTimerF19 focusMode={focusMode} onToggleFocus={()=>setFocusMode(v=>!v)}
     sessionTitle="Treino F19 autenticação local" fallbackStartedAt={sessionStart}
     exercises={exercises} setsByExercise={byExercise}
     exerciseNameById={new Map([["cat-g5f-1","Supino máquina"],["cat-g5f-2","Remada"]])}
     historicalReferences={new Map()} historyLoading={false} timer={timer}
     onCompleteWorkout={async()=>{}} onConfirmEquipment={async()=>{}}/>
+   </div>
    <section aria-label="Fixture editorial isolada">
      <HealthExerciseMovementPreview name="Amostra S01 sintética" exercise={{id:"cbbf1aa6-b906-46e8-84ce-b13f67aa4f0a",muscles:[],equipment:[],equivalences:[]} as ExerciseCatalogItem}/>
    </section>
