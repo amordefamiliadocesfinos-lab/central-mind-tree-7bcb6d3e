@@ -32,8 +32,8 @@ const primaryItems = [
 
 export function HealthShell() {
   return (
-    <div className="min-h-[100dvh] bg-background pb-36 md:pb-20 print:min-h-0 print:pb-0">
-      <header className="sticky top-0 z-30 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur print:hidden">
+    <div data-cch-health-shell className="min-h-[100dvh] bg-background pb-36 md:pb-20 print:min-h-0 print:pb-0">
+      <header data-cch-focus-chrome className="sticky top-0 z-30 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-3 sm:px-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <HeartPulse className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function HealthShell() {
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6 print:max-w-none print:p-0">
+      <main data-cch-health-main className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6 print:max-w-none print:p-0">
         <Outlet />
       </main>
     </div>
