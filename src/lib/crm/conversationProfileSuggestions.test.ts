@@ -176,4 +176,8 @@ test('B6 validates conversation identity before any message page and discards st
   assert.match(panel, /analysisRequestRef\.current \+= 1/);
   assert.match(panel, /if \(!isCurrentRequest\(\)\) return/);
   assert.match(panel, /if \(isCurrentRequest\(\)\) setLoading\(false\)/);
+  // Guard both before reading the conversation and immediately before saving.
+  assert.ok(panel.split("from('service_conversations')").length - 1 >= 2);
+  assert.match(panel, /if \(scopeError \|\| !activeConversation\) throw/);
+  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| !conversationId/);
 });
