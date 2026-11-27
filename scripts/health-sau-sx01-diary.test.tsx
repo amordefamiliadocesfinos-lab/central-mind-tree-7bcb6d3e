@@ -11,7 +11,7 @@ const item:MealItem={id:"item-a",athlete_id:"athlete-a",meal_log_id:"meal-a",ite
 function fixture(overrides:Partial<Nutrition>={}):Nutrition{
  const plan={id:"plan-a",athlete_id:"athlete-a",current_version_id:"v1",name:"Plano teste",status:"active"};
  const version={id:"v1",plan_id:plan.id,athlete_id:plan.athlete_id,version_number:1,status:"published",strategy_type:"maintenance",title:"V1",rationale:null};
- return {plan,version,target:{id:"target-a",plan_version_id:"v1",athlete_id:"athlete-a",energy_kcal_min:2200,energy_kcal_max:2400,protein_g_min:120,protein_g_max:150,carbohydrate_g_min:null,carbohydrate_g_max:null,fat_g_min:null,fat_g_max:null,fiber_g_min:null,fiber_g_max:null},
+ return {readDate:date(),plan,version,target:{id:"target-a",plan_version_id:"v1",athlete_id:"athlete-a",energy_kcal_min:2200,energy_kcal_max:2400,protein_g_min:120,protein_g_max:150,carbohydrate_g_min:null,carbohydrate_g_max:null,fat_g_min:null,fat_g_max:null,fiber_g_min:null,fiber_g_max:null},
   day:{id:"day-a",athlete_id:"athlete-a",log_date:date(),completeness_status:"partial",registration_level:"intermediate",confidence:"moderate"},
   meals:[{id:"meal-a",athlete_id:"athlete-a",food_log_day_id:"day-a",meal_type:"lunch",occurred_at:null},{id:"meal-b",athlete_id:"athlete-a",food_log_day_id:"day-a",meal_type:"snack",occurred_at:null}],
   foods:[{id:"food-a",canonical_name:"Alimento A",brand:null,basis_amount:100,basis_unit:"g",energy_kcal:200,protein_g:15},{id:"food-b",canonical_name:"Bebida B",brand:null,basis_amount:100,basis_unit:"ml",energy_kcal:30,protein_g:null}],
@@ -42,14 +42,14 @@ describe("SX01 diary — synthetic existing M5/M6 controllers",()=>{
   expect(screen.queryByRole("button",{name:"Registrar alimento"})).toBeNull();
   fireEvent.change(screen.getByLabelText("Refeição"),{target:{value:"meal-b"}});
   fireEvent.change(screen.getByLabelText("Alimento do catálogo"),{target:{value:"food-b"}});
-  const input=screen.getByLabelText("Quantidade medida (ml)");
+  const input=screen.getByLabelText("Quantidade (ml)");
   const button=screen.getByRole("button",{name:"Registrar alimento"});
   fireEvent.change(input,{target:{value:"0"}});
   expect((button as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(input,{target:{value:"125,5"}});
   fireEvent.click(button);fireEvent.click(button);
   expect(n.logFoodItem).toHaveBeenCalledTimes(1);
-  expect(n.logFoodItem).toHaveBeenCalledWith("meal-b",n.foods[1],125.5,"ml");
+  expect(n.logFoodItem).toHaveBeenCalledWith("meal-b",n.foods[1],125.5,"ml","declared_quantity");
   resolve();await waitFor(()=>expect(s.refresh).toHaveBeenCalledTimes(1));
  });
  it("confirms completion and reopens explicitly; cancel does not write",async()=>{
@@ -96,5 +96,46 @@ describe("SX01 diary — synthetic existing M5/M6 controllers",()=>{
   expect(n.voidItem).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button",{name:"Confirmar anulação"}));
   await waitFor(()=>expect(n.voidItem).toHaveBeenCalledWith("item-a"));
+ });
+});
+
+describe("SX01 residual safety",()=>{
+ it("records weighed grams only when explicitly chosen and preserves visual estimates",async()=>{
+  const n=fixture();show(n);
+  fireEvent.change(screen.getByLabelText("Refeição"),{target:{value:"meal-a"}});
+  fireEvent.change(screen.getByLabelText("Alimento do catálogo"),{target:{value:"food-a"}});
+  fireEvent.change(screen.getByLabelText("Quantidade (g)"),{target:{value:"100"}});
+  fireEvent.change(screen.getByLabelText("Origem da quantidade"),{target:{value:"weighed"}});
+  fireEvent.click(screen.getByRole("button",{name:"Registrar alimento"}));
+  await waitFor(()=>expect(n.logFoodItem).toHaveBeenCalledWith("meal-a",n.foods[0],100,"g","weighed"));
+  await waitFor(()=>expect(screen.getByLabelText("Alimento do catálogo").getAttribute("disabled")).toBeNull());
+  fireEvent.change(screen.getByLabelText("Alimento do catálogo"),{target:{value:"food-b"}});
+  expect(within(screen.getByLabelText("Origem da quantidade")).queryByText("Pesada em balança")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Quantidade (ml)"),{target:{value:"80"}});
+  fireEvent.change(screen.getByLabelText("Origem da quantidade"),{target:{value:"visual_estimate"}});
+  fireEvent.click(screen.getByRole("button",{name:"Registrar alimento"}));
+  await waitFor(()=>expect(n.logFoodItem).toHaveBeenCalledWith("meal-a",n.foods[1],80,"ml","visual_estimate"));
+ });
+ it("blocks ambiguous retry until readback and human review, never replays",async()=>{
+  const n=fixture({logFoodItem:vi.fn(async()=>{throw Error("Resposta perdida");})});show(n);
+  fireEvent.change(screen.getByLabelText("Refeição"),{target:{value:"meal-a"}});
+  fireEvent.change(screen.getByLabelText("Alimento do catálogo"),{target:{value:"food-a"}});
+  fireEvent.change(screen.getByLabelText("Quantidade (g)"),{target:{value:"100"}});
+  fireEvent.click(screen.getByRole("button",{name:"Registrar alimento"}));
+  await waitFor(()=>expect(screen.getByText(/Resultado da última gravação não confirmado/)).toBeTruthy());
+  expect((screen.getByRole("button",{name:"Registrar alimento"}) as HTMLButtonElement).disabled).toBe(true);
+  const review=screen.getByRole("button",{name:"Conferi os registros; liberar nova ação"});
+  expect((review as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Atualizar diário"}));
+  await waitFor(()=>expect((review as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(review);
+  expect(n.logFoodItem).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole("button",{name:"Registrar alimento"}) as HTMLButtonElement).disabled).toBe(true);
+ });
+ it("blocks stale date even when no diary existed",()=>{
+  const n=fixture({readDate:"2000-01-01",day:null,meals:[],items:[],activeItems:[]});show(n);
+  expect(screen.getByText(/Diário não confirmado/)).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Concluir dia"})).toBeNull();
+  expect(n.completeToday).not.toHaveBeenCalled();
  });
 });
