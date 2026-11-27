@@ -103,7 +103,8 @@ function ActivitiesContent({athleteId}:{athleteId:string}){
   const activities=useHealthActivitiesF20(athleteId);
   const lock=useRef(false);
   const [busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[reviewed,setReviewed]=useState(false);
-  const blocked=busy||failed||activities.saving||activities.loading||!activities.available||Boolean(activities.error);
+  const scopeOk=activities.activitiesToday.every(a=>a.athlete_id===athleteId)&&(!activities.activeActivity||activities.activeActivity.athlete_id===athleteId);
+  const blocked=!scopeOk||busy||failed||activities.saving||activities.loading||!activities.available||Boolean(activities.error);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [modalityCode, setModalityCode] = useState("");
@@ -296,7 +297,7 @@ function ActivitiesContent({athleteId}:{athleteId:string}){
     );
   }
 
-  const active = activities.available&&!activities.error?activities.activeActivity:null;
+  const active = activities.available&&!activities.error&&(!activities.activeActivity||activities.activeActivity.athlete_id===athleteId)?activities.activeActivity:null;
   const activeModality = active
     ? modalityByCode.get(active.modality_code)
     : null;
@@ -340,8 +341,8 @@ function ActivitiesContent({athleteId}:{athleteId:string}){
         </Card>
       ) : null}
 
-      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Confira a atividade e o histórico antes de repetir.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||activities.loading} onClick={()=>void(async()=>{if(lock.current)return;lock.current=true;setBusy(true);setReviewed(false);try{await activities.reload(true);setReviewed(true);}catch{toast({title:"Consulta não confirmada"});}finally{lock.current=false;setBusy(false);}})()}>Conferir registros</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||busy||Boolean(activities.error)||!activities.available} onClick={()=>{setFailed(false);setReviewed(false);setShowFinish(false);setManualOpen(false);setSegmentOpen(false);}}>Conferi; liberar nova ação</Button></div>:null}
-      {!activities.available||activities.error ? ( 
+      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Confira a atividade e o histórico antes de repetir.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||activities.loading} onClick={()=>void(async()=>{if(lock.current)return;lock.current=true;setBusy(true);setReviewed(false);try{await activities.reload(true);setReviewed(true);}catch{toast({title:"Consulta não confirmada"});}finally{lock.current=false;setBusy(false);}})()}>Conferir registros</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||busy||Boolean(activities.error)||!activities.available} onClick={()=>{setFailed(false);setReviewed(false);setShowFinish(false);setManualOpen(false);setSegmentOpen(false);setDistanceKm("");setCalories("");setAvgHr("");setMaxHr("");setRpe("");setCadence("");setElevation("");setSteps("");setNotes("");setManualModality("");setManualStartedAt("");setManualDurationMin("");setManualDistanceKm("");setManualCalories("");setManualAvgHr("");setManualMaxHr("");setManualRpe("");setManualCadence("");setManualElevation("");setManualSteps("");setManualNotes("");setSegmentLabel("");setSegmentDurationSec("");setSegmentDistanceM("");setSegmentAvgHr("");setSegmentCadence("");}}>Conferi; liberar nova ação</Button></div>:null}
+      {!scopeOk||!activities.available||activities.error ? ( 
         <Card className="border-amber-500/30">
           <CardContent className="py-4 text-sm">
             Consulta de atividades indisponível. Atualize para conferir os registros.
@@ -860,7 +861,7 @@ function ActivitiesContent({athleteId}:{athleteId:string}){
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
-          {activities.error||!activities.available||activities.loading?<p className="text-sm">Linha do tempo não confirmada.</p>:timeline.length ? (
+          {!scopeOk||activities.error||!activities.available||activities.loading?<p className="text-sm">Linha do tempo não confirmada.</p>:timeline.length ? (
             timeline.map((item) => {
               if (item.kind === "strength") {
                 const strength = item.strength;
