@@ -18,14 +18,14 @@ for(const term of [
  'PREPARADO","DISPONIBILIZADO","ENTREGUE","RECEBIDO","ACEITO',
  'Não comprovado pelo backend consultado',
  'não transmitido',
- 'Registro Mestre do ecossistema · AC-02',
+ 'Identidade e fontes oficiais',
  'Verificação independente:',
  'Divergências e conferências pendentes',
  'Conferências pendentes',
  'Copiar rascunho revisado',
  'Recebimento e aceite NÃO comprovados',
 ]){const match=term==="não transmitido"?ui.includes("não transmite conteúdo automaticamente"):term==="Conferências pendentes"?ui.includes("Divergências e conferências pendentes"):ui.includes(term);assert(match,"Missing AC02 UX contract "+term);}
-for(const term of ["Localizar o contexto para continuar","Frentes e checkpoints M3","Documentos e versões AC-01","Mandatos e limites","onViewWorkstreams","onViewDocuments","onViewMandates"]){
+for(const term of ["Localizar o contexto para continuar","Trabalhos e últimas atualizações","Documentos e versões","Mandatos e limites","onViewWorkstreams","onViewDocuments","onViewMandates"]){
  assert(ui.includes(term),"Missing continuity context link: "+term);
 }
 assert(atlas.includes('onViewWorkstreams={()=>selectModuleArea("desenvolvimento")}'),"M3 navigation reuses existing module area");
