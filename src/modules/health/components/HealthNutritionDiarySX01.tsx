@@ -112,7 +112,7 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
   const review=async()=>{
     if(lock.current||pending)return;
     lock.current=true;setBusy(true);setReviewLoaded(false);
-    try{await nutrition.reload();setReviewLoaded(true);}catch{setActionError("Não foi possível conferir o diário. Tente atualizar novamente.");}
+    try{await nutrition.reload(true);setReviewLoaded(true);}catch{setActionError("Não foi possível conferir o diário. Tente atualizar novamente.");}
     finally{lock.current=false;setBusy(false);}
   };
   return <div className="space-y-3" data-testid="sau-sx01-diary">
