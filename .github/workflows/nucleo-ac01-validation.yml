@@ -100,6 +100,8 @@ on:
       - "scripts/nucleo-ac01-review-events.test.sql"
       - "scripts/nucleo-ac01-schema.test.sql"
       - "scripts/nucleo-ac01-auth-pilot.test.sql"
+      - "docs/architecture/proposals/NUCLEO_U06F_AC01_SHO_PILOT_CANDIDATE_NAO_APLICAR.sql"
+      - "scripts/nucleo-u06f-ac01-sho-pilot-disposable.test.sql"
       - ".github/workflows/nucleo-ac01-validation.yml"
   workflow_dispatch:
 permissions:
@@ -179,6 +181,10 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_AC02_FECHAMENTO_WRITE_DIRECT_PROPOSTA_NAO_APLICAR.sql
       - name: Verify no direct write path remains for JWT or service role
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac02-direct-write-gate-disposable.test.sql
+      - name: Apply U06-F candidate ONLY after historical regressions on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_U06F_AC01_SHO_PILOT_CANDIDATE_NAO_APLICAR.sql
+      - name: Exercise U06-F narrow administrative import and human authorship
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-ac01-sho-pilot-disposable.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
