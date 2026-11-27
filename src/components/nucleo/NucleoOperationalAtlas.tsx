@@ -1,3 +1,4 @@
+import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent, DevelopmentDependency } from "@/lib/nucleo/development.types";
@@ -657,7 +658,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 </div>
                 <p className="font-semibold text-sm mt-3">{module.name}</p>
                 <p className="text-xs text-muted-foreground mt-1 min-h-12 leading-relaxed">{reason}</p>
-                {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">{focusFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção:</span> {focusFront.code} · {focusFront.title}</p>}
+                {focusFront && <p className="text-xs mt-2 leading-relaxed"><span className="font-medium">{focusFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção:</span> {humanWorkName(focusFront.code,focusFront.title)}</p>}
                 {focusFront?.blocker.trim() && <p className="text-xs mt-1 leading-relaxed"><span className="font-medium">Bloqueio declarado:</span> {focusFront.blocker}</p>}
                 {focusFront && <p className="text-xs mt-1"><span className="font-medium">Situação:</span> {focusFront.status.replaceAll("_"," ")==="em validacao"?"Em validação":focusFront.status.replaceAll("_"," ")==="em andamento"?"Em andamento":focusFront.status.replaceAll("_"," ")}</p>}
                 <p className="text-xs mt-2 leading-relaxed line-clamp-3" title={actionOwner?.next_action||undefined}><span className="font-medium">Próxima ação {focusFront?(focusFront.kind==="subfrente"?"da subfrente":"da frente"):"do módulo"}:</span> {actionOwner?.next_action.trim()||"não cadastrada no Core para este recorte"}</p>
@@ -666,7 +667,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   {focusFront && <Button type="button" size="sm" onClick={()=>{
                     if(fmDraftState.busy || specialistDraftState.busy){window.alert("Gravação em andamento ou registro indeterminado. Reconcilie antes de abrir a ficha.");return;}
                     onSelectWorkstream(focusFront.id);
-                  }}>Abrir ficha {focusFront.code}</Button>}
+                  }}>Abrir ficha do trabalho</Button>}
                 </div>
               </article>
             ))}
@@ -747,7 +748,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <p>{unmappedWorkstreams.length} frente(s)/subfrente(s) sem pai do tipo esperado na leitura
                 {" · "}{unknownDependencyEndpoints.length} dependência(s) com origem ou destino não identificado.</p>
               {unmappedWorkstreams.slice(0,5).map(item=><p key={item.id}>
-                {item.code} · {item.title} · pai não localizado com tipo esperado
+                {humanWorkName(item.code,item.title)} · pai não localizado com tipo esperado
               </p>)}
               <p className="text-muted-foreground">
                 O diagnóstico não altera vínculos e não considera o histórico fora deste recorte.
@@ -1051,7 +1052,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
           <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-muted-foreground">Ficha do módulo selecionado</p>
-              <p className="text-sm font-medium">{selected.id} · {selected.name}</p>
+              <p className="text-sm font-medium">{humanWorkName(selected.id,selected.name)}</p>
             </div>
             <Button type="button" variant="outline" size="sm"
               onClick={returnToModuleResults}>Voltar ao Painel Geral</Button>
@@ -1060,7 +1061,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             className="flex flex-wrap items-center gap-2 rounded-xl bg-[#f5f9ff] px-3 py-2 text-xs dark:bg-slate-800">
             <span className="text-muted-foreground">Núcleo / Painel Geral</span>
             <span aria-hidden="true" className="text-[#1a73e8]">›</span>
-            <span className="font-semibold">{selected.name}</span>
+            <span className="font-semibold">{humanWorkName(selected.id,selected.name)}</span>
             <span aria-hidden="true" className="text-[#1a73e8]">›</span>
             <span aria-current="page" className="font-semibold text-[#174ea6] dark:text-blue-200">{currentModuleArea.label}</span>
           </nav>
@@ -1068,8 +1069,8 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
             className="scroll-mt-28 flex flex-wrap items-start justify-between gap-3"
             tabIndex={selected.id==="CRM"?-1:undefined}>
             <div>
-              <p className="font-mono text-xs text-muted-foreground">{selected.id} · {selected.domain}</p>
-              <h3 id="nucleo-atlas-module-heading" tabIndex={-1} className="scroll-mt-24 font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">{selected.name}</h3>
+              <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Identificação técnica</summary><p>{selected.id} · {selected.name} · {selected.domain}</p></details>
+              <h3 id="nucleo-atlas-module-heading" tabIndex={-1} className="scroll-mt-24 font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]">{humanWorkName(selected.id,selected.name)}</h3>
               <p className="text-sm leading-relaxed mt-1">{selected.purpose}</p>
             </div>
             <Badge variant={selected.coverage==="piloto_parcial"?"secondary":"outline"}>
@@ -1252,7 +1253,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   </p>
                   {specialistPriority.length>0 ? <div className="space-y-2">
                     {specialistPriority.map(item=><div key={item.id} className="rounded-md border p-2 space-y-1 text-xs">
-                      <p className="font-semibold">{item.code} · {item.title}</p>
+                      <p className="font-semibold">{humanWorkName(item.code,item.title)}</p>
                       <p>Situação: {item.status.replaceAll("_"," ")} · Prova M3: {item.evidence_state.replaceAll("_"," ")}</p>
                       <p>Bloqueio: {item.blocker.trim()||"Não registrado"}</p>
                       <p>Próxima ação: {item.next_action.trim()||"Não registrada"}</p>
@@ -1387,7 +1388,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                     {handoffPriority.length>0
                       ? <div className="space-y-2">
                           {handoffPriority.map(item=><div key={item.id} className="rounded-lg border bg-background p-2 space-y-1 text-xs">
-                            <p className="font-semibold">{item.code} · {item.title}</p>
+                            <p className="font-semibold">{humanWorkName(item.code,item.title)}</p>
                             <p>Estado declarado: {item.status.replaceAll("_"," ")} · responsável: {item.specialist.trim()||"não informado"}</p>
                             <p className="break-words"><strong>Próxima ação:</strong> {item.next_action.trim()||"Não registrada no Core M3."}</p>
                             {item.blocker.trim()&&<p className="break-words">Bloqueio: {item.blocker}</p>}
@@ -1522,7 +1523,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                       {attentionItems.map(item => (
                         <div key={item.id} className="rounded border p-2 flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0 flex-1 space-y-1">
-                            <p className="text-sm font-medium">{item.code} · {item.title}</p>
+                            <p className="text-sm font-medium">{humanWorkName(item.code,item.title)}</p>
                             <div className="flex flex-wrap gap-1">
                               <Badge variant="outline">{item.status.replaceAll("_", " ")}</Badge>
                               <Badge variant="secondary">Prioridade: {item.priority}</Badge>
@@ -1580,7 +1581,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                 {selectedFronts.length ? selectedFronts.map(front => (
                   <div key={front.id} className="rounded-md border p-3 flex flex-wrap justify-between items-start gap-3">
                     <div className="space-y-1 min-w-0 flex-1">
-                      <p className="font-medium text-sm">{front.code} · {front.title}</p>
+                      <p className="font-medium text-sm">{humanWorkName(front.code,front.title)}</p>
                       <p className="text-xs text-muted-foreground">{front.status.replaceAll("_", " ")} · {front.evidence_state.replaceAll("_", " ")} · {front.specialist || "Especialista não informado"}</p>
                       <p className="text-xs">Próxima ação: {managerActionExplanation(front) || front.next_action || "Não registrada"}</p>
                       {managerActionExplanation(front)&&<details className="text-xs"><summary className="cursor-pointer font-medium">Ver registro técnico original</summary><p className="mt-1 break-words whitespace-pre-wrap">{front.next_action}</p></details>}
@@ -1699,7 +1700,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
                   Nenhuma frente CRM vinculada nesta consulta; não inferir progresso.
                 </p>}
                 {selectedFronts.map(front=><div key={front.id} className="rounded border p-3 space-y-2">
-                  <p className="text-sm font-medium">{front.code} · {front.title}</p>
+                  <p className="text-sm font-medium">{humanWorkName(front.code,front.title)}</p>
                   <p className="text-xs">Estado: {front.status.replaceAll("_"," ")} · Próxima ação: {front.next_action||"não informada"}</p>
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" size="sm" variant="outline" onClick={()=>onSelectWorkstream(front.id)}>
