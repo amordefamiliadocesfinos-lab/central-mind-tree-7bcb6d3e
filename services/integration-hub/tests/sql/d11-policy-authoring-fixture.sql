@@ -1,15 +1,25 @@
 -- Disposable database only; role and JWT fixtures are synthetic.
+\if :{?d11_real_auth}
+-- The consolidated candidate is applied later as a single local migration.
+\else
 \ir d11-policy-storage-schema.sql
+\endif
 ALTER TABLE public.shopee_oauth_connections ADD COLUMN shop_status text,
  ADD COLUMN authorization_expires_at timestamptz;
 ALTER TABLE public.orders ADD COLUMN status text, ADD COLUMN operational_status text;
 ALTER TABLE public.marketplace_raw_snapshots ADD COLUMN observed_at timestamptz;
+\if :{?d11_real_auth}
+\else
 \ir d11-policy-lease-schema.sql
 \ir d11-policy-acquire-candidate.sql
+\endif
 \ir ../../../../supabase/migrations/20261015233000_shopee_shipping_arrangement_idempotency.sql
 \ir ../../../../supabase/migrations/20261111160000_f11_adao_shipping_claim_operational_state.sql
 \ir ../../../../supabase/migrations/20261111180000_f11_adao_rejected_shipping_recovery.sql
+\if :{?d11_real_auth}
+\else
 \ir d11-policy-claim-candidate.sql
+\endif
 
 \if :{?d11_real_auth}
 -- Real Auth: use the existing local GoTrue auth schema and auth.uid().
@@ -49,7 +59,10 @@ GRANT SELECT ON public.app_admin_capabilities TO authenticated;
 CREATE POLICY app_admin_capabilities_select_own ON public.app_admin_capabilities FOR SELECT TO authenticated
  USING(auth_user_id=(SELECT auth.uid()) AND active AND revoked_at IS NULL);
 
+\if :{?d11_real_auth}
+\else
 \ir d11-policy-authoring-candidate.sql
+\endif
 
 \if :{?d11_real_auth}
 -- Real Auth identities and test grants are created after local sign-in.
