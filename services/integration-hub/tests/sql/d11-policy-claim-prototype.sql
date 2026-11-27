@@ -4,13 +4,15 @@ BEGIN;
 ALTER TABLE public.shopee_oauth_connections ADD COLUMN shop_status text,
   ADD COLUMN authorization_expires_at timestamptz;
 ALTER TABLE public.orders ADD COLUMN status text, ADD COLUMN operational_status text;
-ALTER TABLE public.marketplace_raw_snapshots ADD COLUMN observed_at timestamptz;
+\ir d11-observation-raw-fixture.sql
 \ir d11-policy-lease-schema.sql
 \ir d11-policy-acquire-candidate.sql
 \ir ../../../../supabase/migrations/20261015233000_shopee_shipping_arrangement_idempotency.sql
 \ir ../../../../supabase/migrations/20261111160000_f11_adao_shipping_claim_operational_state.sql
 \ir ../../../../supabase/migrations/20261111180000_f11_adao_rejected_shipping_recovery.sql
+\ir d11-observation-candidate.sql
 \ir d11-policy-claim-candidate.sql
+\ir d11-observation-fixture-helper.sql
 
 INSERT INTO public.channel_accounts(id,name,is_active,platform_id) VALUES
 ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','D11 synthetic A',true,'11111111-1111-4111-8111-111111111111'),
@@ -34,75 +36,84 @@ INSERT INTO public.orders(id,channel_account_id,order_number,channel,sale_origin
 ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','D11SYNTHETIC1','shopee','shopee_open_platform',null,'pendente','todo'),
 ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','D11SYNTHETIC1','shopee','shopee_open_platform',null,'pendente','todo');
 DO $$ BEGIN
- ASSERT NOT has_function_privilege('anon','public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text)','EXECUTE');
- ASSERT NOT has_function_privilege('authenticated','public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text)','EXECUTE');
- ASSERT NOT (SELECT prosecdef FROM pg_proc WHERE oid='public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text)'::regprocedure);
+ ASSERT NOT has_function_privilege('anon','public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid)','EXECUTE');
+ ASSERT NOT has_function_privilege('authenticated','public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid)','EXECUTE');
+ ASSERT NOT (SELECT prosecdef FROM pg_proc WHERE oid='public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid)'::regprocedure);
 END $$;
 SET LOCAL ROLE service_role;
 DO $$
 DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
- b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid; x jsonb;
+ b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid; x jsonb; obs uuid:='ffffffff-ffff-4fff-8fff-ffffffffffff';
 BEGIN
  x:=public.acquire_shopee_cycle(a); l:=(x->>'lease_id')::uuid;
  ASSERT x->>'candidate_order_sn'='D11SYNTHETIC1';
  ASSERT public.acquire_shopee_cycle(b)->>'status'='acquired';
- ASSERT public.claim_shopee_cycle_effect(b,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='policy_lease_refused';
- ASSERT public.claim_shopee_cycle_effect(a,l,2,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='policy_lease_refused';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='policy_admission_refused';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC2','PKG1',repeat('a',64))->>'status'='policy_lease_refused';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='policy_raw_not_fresh';
+ ASSERT public.claim_shopee_cycle_effect(b,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_lease_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,2,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_lease_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_admission_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC2','PKG1',repeat('a',64),obs)->>'status'='policy_lease_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_observation_refused';
 END $$;
 RESET ROLE;
 
-INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,observed_at)
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
 SELECT 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','shopee_open_platform','live','order','/api/v2/order/get_order_detail','D11SYNTHETIC1',
  jsonb_build_object('response',jsonb_build_object('order_list',jsonb_build_array(jsonb_build_object(
  'order_sn','D11SYNTHETIC1','create_time',floor(extract(epoch FROM clock_timestamp()))::bigint-60,
  'order_status','READY_TO_SHIP','split_up',false,'package_list',jsonb_build_array(jsonb_build_object('package_number','PKG1','logistics_status','LOGISTICS_READY')))))),
- clock_timestamp();
+ repeat('a',64),clock_timestamp()-interval '1 minute';
 
 SET LOCAL ROLE service_role;
 DO $$
-DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; x jsonb; attempt uuid;
+DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; x jsonb; attempt uuid; obs uuid; old_obs uuid;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64))->>'status'='policy_external_state_refused';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','OTHERPKG',repeat('a',64))->>'status'='policy_history_or_package_refused';
- x:=public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64));
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),'ffffffff-ffff-4fff-8fff-ffffffffffff')->>'status'='policy_observation_refused';
+ old_obs:=public.d11_fixture_observe(a,'fixture_claim_1');
+ obs:=public.d11_fixture_observe(a,'fixture_claim_2');
+ ASSERT old_obs<>obs;
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),old_obs)->>'status'='policy_observation_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_external_state_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','OTHERPKG',repeat('a',64),obs)->>'status'='policy_history_or_package_refused';
+ x:=public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean; attempt:=(x->>'attempt_id')::uuid;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='already_claimed';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='already_claimed';
  ASSERT public.resolve_shopee_shipping_arrangement(attempt,repeat('a',64),'uncertain')->>'state'='uncertain';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='uncertain_requires_reconciliation';
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('c',64))->>'status'='claim_fingerprint_mismatch';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='uncertain_requires_reconciliation';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('c',64),obs)->>'status'='claim_fingerprint_mismatch';
  ASSERT (SELECT count(*) FROM public.shopee_shipping_arrangement_attempts WHERE channel_account_id=a)=1;
 END $$;
 RESET ROLE;
 
 -- A changed package must not reopen an uncertain shipment.
-UPDATE public.marketplace_raw_snapshots SET payload=jsonb_set(payload,'{response,order_list,0,package_list,0,package_number}','"PKG2"'),observed_at=clock_timestamp()
- WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
+SELECT channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,
+ jsonb_set(payload,'{response,order_list,0,package_list,0,package_number}','"PKG2"'),repeat('b',64),clock_timestamp()
+ FROM public.marketplace_raw_snapshots WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload_hash=repeat('a',64);
 SET LOCAL ROLE service_role;
 DO $$
-DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid;
+DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; obs uuid;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG2',repeat('a',64))->>'status'='policy_prior_scope_requires_reconciliation';
+ obs:=public.d11_fixture_observe(a,'fixture_claim_3');
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG2',repeat('a',64),obs)->>'status'='policy_prior_scope_requires_reconciliation';
 END $$;
 RESET ROLE;
 -- Independently observed PROCESSED does not prove the uncertain POST caused it.
-UPDATE public.marketplace_raw_snapshots SET
- payload=jsonb_set(jsonb_set(jsonb_set(payload,'{response,order_list,0,package_list,0,package_number}','"PKG1"'),
- '{response,order_list,0,order_status}','"PROCESSED"'),'{response,order_list,0,package_list,0,logistics_status}','"LOGISTICS_REQUEST_CREATED"'),
- observed_at=clock_timestamp() WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
+SELECT channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,
+ jsonb_set(jsonb_set(payload,'{response,order_list,0,order_status}','"PROCESSED"'),'{response,order_list,0,package_list,0,logistics_status}','"LOGISTICS_REQUEST_CREATED"'),
+ repeat('c',64),clock_timestamp() FROM public.marketplace_raw_snapshots
+ WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload_hash=repeat('a',64);
 SET LOCAL ROLE service_role;
 DO $$
 DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; x jsonb;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64))->>'status'='policy_external_state_refused';
- x:=public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64));
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_external_state_refused';
+ x:=public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64))->>'status'='already_claimed';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='already_claimed';
 END $$;
 RESET ROLE;
 
@@ -111,11 +122,12 @@ INSERT INTO public.shopee_cycle_policy_revisions(channel_account_id,revision,env
 VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,'live',123,2047685,1);
 SET LOCAL ROLE service_role;
 DO $$
-DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; d uuid;
+DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; d uuid; obs uuid;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
+ SELECT id INTO obs FROM public.shopee_cycle_observations WHERE channel_account_id=a ORDER BY recorded_at DESC LIMIT 1;
  SELECT id INTO d FROM public.shopee_shipping_document_attempts WHERE channel_account_id=a;
- ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64))->>'status'='policy_admission_refused';
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_admission_refused';
  -- Resolve existing committed attempt without issuing a new claim.
  ASSERT public.resolve_shopee_shipping_document(d,repeat('b',64),'succeeded')->>'state'='succeeded';
  ASSERT public.finish_shopee_cycle(a,l,null,'D11SYNTHETIC1','blocked','policy_paused')->>'status'='finished';
