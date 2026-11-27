@@ -22,7 +22,7 @@ export function HealthWorkoutContextualGuidance({context,sessionContext,eligible
  useEffect(()=>{
   setExpanded(null);
   setExplaining(false);
- },[identity,eligible]);
+ },[identity,context,eligible]);
  const choose=(value:"ignored"|"later")=>{
   setDecisions(previous=>({...previous,[identity]:value}));
   close();
