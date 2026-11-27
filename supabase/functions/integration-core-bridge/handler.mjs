@@ -1,3 +1,4 @@
+import { D11_ACTIONS, validateD11Payload } from './d11-bridge.mjs';
 const LEGACY_MAX_BODY_BYTES = 1024;
 const LIVE_MAX_BODY_BYTES = 64 * 1024;
 const JSON_CONTENT_TYPE = 'application/json';
@@ -11,6 +12,7 @@ const POSITIVE_INTEGER_TEXT = /^[1-9]\d{0,18}$/;
 const encoder = new TextEncoder();
 
 const LIVE_ACTIONS = new Set([
+  ...D11_ACTIONS,
   'shopee.cycle.acquire',
   'shopee.cycle.finish',
   'shopee.adao_f12.acquire',
@@ -93,6 +95,7 @@ function validateActionPayload(payload, nowMs) {
   }
 
   if (!LIVE_ACTIONS.has(payload.action)) return false;
+  if (D11_ACTIONS.includes(payload.action)) return validateD11Payload(payload);
 
 
   // F12.3 is restricted to Adão even before hitting the SQL account check.
