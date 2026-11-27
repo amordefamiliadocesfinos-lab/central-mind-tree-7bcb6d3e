@@ -53,9 +53,11 @@ BEGIN
       AND p->>'partner_id'='2047685' AND o->>'shop_status'='NORMAL'
       AND (o->>'authorization_expires_at')::timestamptz>t
       AND (p->>'authorized_at')::timestamptz<=t AND (p->>'expires_at')::timestamptz>t
-      AND p->>'evidence_ref' ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:/#-]{0,299}$'
+      AND length(p->>'evidence_ref') BETWEEN 1 AND 300
+      AND p->>'evidence_ref' ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:/#-]*$'
       AND ((p->'capabilities'->>'ship')::boolean=false OR
-        p->>'shipping_evidence_ref' ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:/#-]{0,299}$')
+        (length(p->>'shipping_evidence_ref') BETWEEN 1 AND 300
+        AND p->>'shipping_evidence_ref' ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:/#-]*$'))
       AND (p->>'history_cutoff')::bigint<=floor(extract(epoch FROM t))
     ,false) THEN RETURN NULL; END IF;
   RETURN p;
