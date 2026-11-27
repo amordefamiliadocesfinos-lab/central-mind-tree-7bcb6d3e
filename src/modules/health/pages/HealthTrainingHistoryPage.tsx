@@ -275,9 +275,9 @@ function StrengthCard({
     if (minutes == null || minutes < 0) {
       throw new Error("Informe uma duração válida.");
     }
-    const startedAt = new Date(start).toISOString();
+    const startedAt = start===localDateTimeInput(session.started_at)?session.started_at:new Date(start).toISOString();
     const endedAt = new Date(
-      new Date(startedAt).getTime() + minutes * 60_000,
+      new Date(startedAt).getTime() + Math.round(minutes * 60_000),
     ).toISOString();
     const ok=await onUpdateSession({
       startedAt,
@@ -552,7 +552,7 @@ function ActivityCard({
     const ok=await onUpdate({
       modalityCode: modality,
       title: title.trim(),
-      startedAt: new Date(start).toISOString(),
+      startedAt: start===localDateTimeInput(session.started_at)?session.started_at:new Date(start).toISOString(),
       durationSeconds: Math.round(minutes * 60),
       distanceMeters:
         numberOrNull(distanceKm) == null
@@ -722,7 +722,7 @@ function VoidPanel({
   onReasonChange: (value: string) => void;
   saving: boolean;
   onCancel: () => void;
-  onConfirm: () => Promise<boolean>;
+  onConfirm: () => Promise<void>;
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-destructive/30 p-3">
@@ -813,6 +813,7 @@ function HistoryContent({athleteId}:{athleteId:string}){
   const history=useHealthTrainingHistoryF21(athleteId);
   const [kind,setKind]=useState("all"),[query,setQuery]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
   const [busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[reviewed,setReviewed]=useState(false);
+  const [editorEpoch,setEditorEpoch]=useState(0);
   const lock=useRef(false);
   const usable=history.available&&!history.error&&!history.loading;
   const blocked=!usable||busy||history.saving||failed;
@@ -905,7 +906,7 @@ function HistoryContent({athleteId}:{athleteId:string}){
         </Card>
       ) : null}
 
-      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Atualize e confira antes de repetir a correção.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||history.loading} onClick={()=>void review()}>Conferir histórico</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||!usable||busy} onClick={()=>{setFailed(false);setReviewed(false);}}>Conferi; liberar nova ação</Button></div>:null}
+      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Atualize e confira antes de repetir a correção.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||history.loading} onClick={()=>void review()}>Conferir histórico</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||!usable||busy} onClick={()=>{setFailed(false);setReviewed(false);setEditorEpoch(v=>v+1);}}>Conferi; liberar nova ação</Button></div>:null}
       <section className="space-y-2" aria-label="Filtros do histórico">
         <p className="text-xs text-muted-foreground">Até 300 sessões de cada tipo consultadas; filtros atuam sobre esses registros.</p>
         <div className="grid grid-cols-3 gap-1">{[["all","Todos"],["strength","Musculação"],["activity","Atividades"]].map(([id,label])=><Button key={id} variant={kind===id?"default":"outline"} aria-pressed={kind===id} className="min-h-11 px-1 text-xs" onClick={()=>setKind(id)}>{label}</Button>)}</div>
@@ -923,7 +924,7 @@ function HistoryContent({athleteId}:{athleteId:string}){
       ) : history.sessions.length ? (
         <div className="space-y-4">
           {filtered.length===0?<p className="text-sm">Nenhum registro corresponde aos filtros.</p>:null}
-          {history.sessions.map((session) => <div key={session.kind+session.id} hidden={!matches(session)}>
+          {history.sessions.map((session) => <div key={editorEpoch+session.kind+session.id} hidden={!matches(session)}>
             {session.kind === "strength" ? (
               <StrengthCard
                 key={"strength-" + session.id}
