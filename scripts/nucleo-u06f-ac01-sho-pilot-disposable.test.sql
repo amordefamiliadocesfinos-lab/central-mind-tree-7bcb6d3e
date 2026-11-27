@@ -68,5 +68,59 @@ BEGIN
 END $human$;
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub','',false);
+-- Reproduzir no banco descartável o bypass RLS do service_role observado no Cloud.
+ALTER ROLE service_role BYPASSRLS;
+DO $acl_dml$
+BEGIN
+ IF NOT has_table_privilege('service_role','public.nucleo_specialist_contributions','UPDATE')
+ OR NOT has_table_privilege('service_role','public.nucleo_specialist_contributions','DELETE')
+ THEN RAISE EXCEPTION 'fixture sem grants efetivos de DML administrativo'; END IF;
+END $acl_dml$;
+SET ROLE service_role;
+DO $immutable$
+BEGIN
+ BEGIN
+  UPDATE public.nucleo_specialist_contributions SET title='Tentativa de alteração'
+  WHERE request_id='87d4757e-9391-4fbd-a111-b3a8cf86aa06';
+  RAISE EXCEPTION 'alteração do piloto aceita';
+ EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM<>'U06-F proposta administrativa imutavel' THEN RAISE; END IF;
+ END;
+ BEGIN
+  DELETE FROM public.nucleo_specialist_contributions
+  WHERE request_id='87d4757e-9391-4fbd-a111-b3a8cf86aa06';
+  RAISE EXCEPTION 'exclusão do piloto aceita';
+ EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM<>'U06-F proposta administrativa imutavel' THEN RAISE; END IF;
+ END;
+ BEGIN
+  UPDATE public.nucleo_specialist_contributions
+  SET recorded_by_auth_uid='77777777-7777-4777-8777-777777777777'
+  WHERE request_id='55555555-5555-4555-8555-555555555555';
+  RAISE EXCEPTION 'reatribuição da autoria humana aceita';
+ EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM<>'U06-F autoria e origem imutaveis' THEN RAISE; END IF;
+ END;
+END $immutable$;
+RESET ROLE;
+DO $truncate_guard$
+BEGIN
+ BEGIN
+  TRUNCATE public.nucleo_specialist_contributions CASCADE;
+  RAISE EXCEPTION 'truncamento aceito';
+ EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM<>'U06-F AC-01 historico nao pode ser truncado' THEN RAISE; END IF;
+ END;
+ IF NOT EXISTS(SELECT 1 FROM public.nucleo_specialist_contributions
+ WHERE request_id='87d4757e-9391-4fbd-a111-b3a8cf86aa06'
+ AND title='Refinamento do Método de Integração Shopee Multicontas V2.0'
+ AND recorded_by_auth_uid IS NULL AND registration_origin='administrativo_lovable')
+ THEN RAISE EXCEPTION 'piloto perdeu integridade'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.nucleo_specialist_contributions
+ WHERE request_id='55555555-5555-4555-8555-555555555555'
+ AND recorded_by_auth_uid='33333333-3333-4333-8333-333333333333')
+ THEN RAISE EXCEPTION 'autoria humana perdeu integridade'; END IF;
+END $truncate_guard$;
+SELECT 'PASS U06-F: inherited service_role DML cannot mutate pilot or reassign authorship; truncate denied' AS result;
 ROLLBACK;
 SELECT 'PASS U06-F: one proposal, replay, scope, no UID fabrication, denied roles, human authorship' AS result;
