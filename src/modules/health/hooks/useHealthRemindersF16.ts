@@ -295,7 +295,7 @@ export function useHealthRemindersF16(
           throw new Error(result.error.message);
         }
         return result.data;
-      }, (snapshot,id)=>snapshot.rules.some(rule=>rule.id===id));
+      }, (snapshot,id)=>snapshot.rules.some(rule=>rule.id===id && (!input.ruleId || rule.id===input.ruleId) && rule.reminderType===input.reminderType && rule.label===(input.label?.trim()||null) && rule.enabled===input.enabled && rule.scheduleKind===input.scheduleKind && [...rule.daysOfWeek].sort().join(",")===[...new Set(input.daysOfWeek)].sort().join(",") && rule.localTime.slice(0,5)===input.localTime.slice(0,5) && rule.intervalDays===(input.intervalDays??null) && rule.startOn===input.startOn && rule.timezone===input.timezone));
     },
     [athleteId, runAction,visible.rules],
   );
@@ -311,7 +311,7 @@ export function useHealthRemindersF16(
           throw new Error(result.error.message);
         }
         return result.data;
-      }, (snapshot)=>!snapshot.rules.some(rule=>rule.id===ruleId)),
+      }, (snapshot,id)=>id===ruleId && !snapshot.rules.some(rule=>rule.id===ruleId)),
     [runAction,visible.rules],
   );
 
@@ -334,7 +334,7 @@ export function useHealthRemindersF16(
           throw new Error(result.error.message);
         }
         return result.data;
-      }, (snapshot,id)=>snapshot.events.some(event=>event.id===id&&event.ruleId===ruleId&&event.eventType===eventType&&event.eventDate===eventDate)),
+      }, (snapshot,id)=>{const event=snapshot.events.find(event=>event.ruleId===ruleId&&event.eventDate===eventDate);return event?.id===id&&event.eventType===eventType&&event.notes===(notes?.trim()||null);}),
     [runAction,visible.rules],
   );
 
