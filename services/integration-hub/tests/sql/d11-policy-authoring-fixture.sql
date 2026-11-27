@@ -11,16 +11,30 @@ ALTER TABLE public.marketplace_raw_snapshots ADD COLUMN observed_at timestamptz;
 \ir ../../../../supabase/migrations/20261111180000_f11_adao_rejected_shipping_recovery.sql
 \ir d11-policy-claim-candidate.sql
 
+\if :{?d11_real_auth}
+-- Real Auth: use the existing local GoTrue auth schema and auth.uid().
+\else
 CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
  SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
 $$;
 GRANT USAGE ON SCHEMA auth TO authenticated;
 CREATE TABLE auth.users(id uuid PRIMARY KEY);
+\endif
 CREATE TABLE public.app_users(id uuid PRIMARY KEY,auth_user_id uuid,role text,is_active boolean);
+\if :{?d11_real_auth}
+-- The HTTP proof will create users through real GoTrue.
+\else
 INSERT INTO auth.users VALUES
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),('dddddddd-dddd-4ddd-8ddd-dddddddddddd'),('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
 INSERT INTO public.app_users SELECT id,id,'Administrador',id<>'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' FROM auth.users;
+\endif
+-- Match the relevant RLS boundary observed in Core, even in synthetic CI.
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shopee_oauth_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.channel_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.digital_platforms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shopee_oauth_connections ADD COLUMN fixture_ciphertext text;
 -- Same registry constraints and privileges as canonical administrative capability.
 CREATE TABLE public.app_admin_capabilities(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),auth_user_id uuid NOT NULL REFERENCES auth.users(id),
@@ -37,11 +51,15 @@ CREATE POLICY app_admin_capabilities_select_own ON public.app_admin_capabilities
 
 \ir d11-policy-authoring-candidate.sql
 
+\if :{?d11_real_auth}
+-- Real Auth identities and test grants are created after local sign-in.
+\else
 -- Solely synthetic author grant: no corresponding production grant is created.
 INSERT INTO public.app_admin_capabilities(auth_user_id,capability) VALUES
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','shopee_manage_cycle_policy'),
  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','provision_users'),
  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','shopee_manage_cycle_policy');
+\endif
 INSERT INTO public.channel_accounts(id,name,is_active,platform_id) VALUES
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','D11 synthetic A',true,'11111111-1111-4111-8111-111111111111'),
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','D11 synthetic B',true,'11111111-1111-4111-8111-111111111111');
