@@ -7,6 +7,7 @@ on:
       - 'src/lib/orders/commercialOrderItem.test.ts'
       - 'src/lib/orders/commercialSaleDraft.ts'
       - 'src/lib/orders/commercialSaleDraft.test.ts'
+      - 'tests/crm-ux-real-responsive-layout.test.mjs'
       - 'src/pages/Operacoes.tsx'
       - 'src/components/operations/OrderSeparationBoard.tsx'
       - 'src/lib/orders/separationDisplay.ts'
@@ -32,6 +33,8 @@ jobs:
         run: |
           npx esbuild src/lib/orders/commercialOrderItem.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/commercial-order-expansion-tests.mjs
           node --test /tmp/commercial-order-expansion-tests.mjs
+      - name: Commercial order modal responsive layout regression
+        run: node --test tests/crm-ux-real-responsive-layout.test.mjs
       - name: Shared CRM/Operations commercial sale draft tests
         run: |
           npx esbuild src/lib/orders/commercialSaleDraft.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/commercial-sale-draft-tests.mjs
