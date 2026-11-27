@@ -1286,7 +1286,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     </div>
 
                     <div className="space-y-2" data-testid="cch-rest-next-action">
-                      {!canContinuePlanned ? (
+                      {!canContinuePlanned && (nextDifferentExercise || (activeExercise && canOfferExtraSeries(completedOnActive,maxSets,activeExercise.status))) ? (
                         <>
                           <p className="text-xs font-medium text-muted-foreground">
                             {plannedNextExercise ? "Escolha confirmada. Inicie quando estiver pronto." : "Escolha como deseja continuar"}
@@ -1317,7 +1317,7 @@ export function HealthWorkoutInteractiveTimerF19({
                           <Play className="mr-2 h-5 w-5 shrink-0"/>
                           {plannedNextExercise ? `Iniciar ${exerciseNameById.get(nextWorkDestination.exercise_id)??"exercício escolhido"}` : "Iniciar próxima série"}
                         </Button>
-                      ):recommendedNextExercise || plannedNextExerciseId ? (
+                      ):recommendedNextExercise ? (
                         <p className="text-xs text-muted-foreground">Escolha como deseja continuar. Nenhuma série será iniciada automaticamente.</p>
                       ):(
                         <Button className="min-h-12 w-full"
@@ -1326,14 +1326,14 @@ export function HealthWorkoutInteractiveTimerF19({
                           <CheckCircle2 className="mr-2 h-5 w-5"/>Encerrar descanso
                         </Button>
                       )}
-                      {canContinuePlanned && nextDifferentExercise ? (
+                      {canContinuePlanned && (nextDifferentExercise || plannedNextExerciseId) ? (
                         <details className="rounded-lg border px-2">
                           <summary className="flex min-h-11 cursor-pointer items-center text-xs font-medium">Trocar exercício</summary>
                           <div className="space-y-2 pb-2">
-                            <Button type="button" variant="outline" className="min-h-11 w-full whitespace-normal"
+                            {nextDifferentExercise?<Button type="button" variant="outline" className="min-h-11 w-full whitespace-normal"
                               disabled={disabled||timer.loading} onClick={()=>chooseNextExercise(nextDifferentExercise)}>
                               Escolher próximo da grade
-                            </Button>
+                            </Button>:null}
                             {plannedNextExerciseId && plannedNextExerciseId!==activeExercise?.id ? (
                               <Button type="button" variant="ghost" className="min-h-11 w-full"
                                 disabled={disabled||timer.loading} onClick={()=>{setPlannedNextExerciseId(null);setExtraExerciseId(null);}}>
