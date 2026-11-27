@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { duplicateCommercialSaleLine, type CommercialSaleDraftLine } from './commercialSaleDraft';
+import { duplicateCommercialSaleLine, selectCommercialSaleLineVariant, type CommercialSaleDraftLine } from './commercialSaleDraft';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 
 const presentation = (variantId: string | null, compositionMode: 'single' | 'composite' = 'single'): CommercialPresentation => ({
@@ -64,4 +64,32 @@ test('quantidade inválida na origem não propaga lote inválido', () => {
   const duplicated = duplicateCommercialSaleLine([invalid], 0)[1];
   assert.equal(duplicated.commercial_quantity, 1);
   assert.equal(duplicated.quantity, 1);
+});
+
+test('linha direta duplicada preserva quantidade ao escolher novo sabor', () => {
+  const copied = duplicateCommercialSaleLine([line(null)], 0)[1];
+  const next = selectCommercialSaleLineVariant(copied, 'beijinho', 1.6);
+  assert.equal(next.variant_id, 'beijinho');
+  assert.equal(next.commercial_quantity, 3);
+  assert.equal(next.quantity, 3);
+  assert.equal(next.unit_price, 1.6);
+  assert.equal(copied.variant_id, null);
+});
+
+test('troca de sabor de apresentação vinculada não transforma caixas em unidades', () => {
+  const packed = line(presentation('brigadeiro'));
+  const next = selectCommercialSaleLineVariant(packed, 'beijinho', 1.75);
+  assert.equal(next.commercial_quantity, 1);
+  assert.equal(next.quantity, 1);
+  assert.equal(next.commercial_presentation, null);
+  assert.equal(next.unit_price, 1.75);
+  assert.equal(packed.commercial_quantity, 3);
+});
+
+test('preço digitado do sabor anterior não acompanha seleção de nova variante', () => {
+  const original = line(null);
+  const next = selectCommercialSaleLineVariant(original, 'morango', 0);
+  assert.equal(next._unit_price_text, undefined);
+  assert.equal(next.unit_price, 0);
+  assert.equal(original._unit_price_text, '42,00');
 });
