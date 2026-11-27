@@ -7,8 +7,8 @@ const now=Date.parse('2026-11-27T20:00:00Z');
 function fixture(){
   return {accountId:account,action:'ship',now,
     channel:{id:account,is_active:true,marketplace:'shopee'},
-    connection:{channel_account_id:account,environment:'live',shop_id:123,partner_id:456},
-    policy:{channel_account_id:account,environment:'live',shop_id:123,partner_id:456,
+    connection:{channel_account_id:account,environment:'live',shop_id:123,partner_id:2047685,shop_status:'NORMAL',authorization_expires_at:'2027-11-27T20:00:00Z'},
+    policy:{channel_account_id:account,environment:'live',shop_id:123,partner_id:2047685,
       enabled:true,paused:false,revision:1,authorized_by:other,evidence_ref:'approval/fixture-1',
       authorized_at:'2026-11-27T19:00:00Z',expires_at:'2026-11-28T20:00:00Z',
       capabilities:{discover:true,intake:true,ship:true,label:true,refresh:true},
@@ -38,6 +38,11 @@ test('D11 rejects cross-account, shop, partner, environment and inactive channel
     ['connection',{environment:'test'}],['channel',{is_active:false}],['channel',{marketplace:'other'}]]){
     const f=fixture();Object.assign(f[target],change);
     assert.equal(resolveCyclePolicy(f).code,'policy_identity_mismatch');
+  }
+});
+test('D11 rejects expired authorization and unavailable shop',()=>{
+  for(const change of [{shop_status:'FROZEN'},{authorization_expires_at:'2026-11-27T20:00:00Z'},{authorization_expires_at:null}]){
+    const f=fixture();Object.assign(f.connection,change);assert.equal(resolveCyclePolicy(f).code,'policy_connection_unavailable');
   }
 });
 test('D11 rejects expired, future, missing authority and invalid timestamps',()=>{
