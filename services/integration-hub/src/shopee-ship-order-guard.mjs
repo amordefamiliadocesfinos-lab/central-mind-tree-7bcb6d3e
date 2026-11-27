@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { resolveD10Profile, validD10AutomaticScope } from './shopee-d10-profile.mjs';
 import {
   claimShopeeShippingArrangement,
   resolveShopeeShippingArrangement,
@@ -99,11 +100,14 @@ export function createGuardedShopeeShipOrder({
     let orderSn, channelAccountId, pilotPackageNumber, pilotShopId, fiscalMode, windowExpiresAt;
     try {
       if (automaticScope !== null) {
-        if (typeof automaticScope !== 'object'
-            || !/^[A-Za-z0-9]{8,100}$/.test(automaticScope.orderSn ?? '')
-            || automaticScope.channelAccountId !== 'b4027369-5abf-4ac1-ab24-862334fae892'
-            || automaticScope.shopId !== 1156446003
-            || automaticScope.fiscalMode !== 'cpf_no_invoice_step') {
+        const legacyAdao = typeof automaticScope === 'object'
+          && automaticScope.profileMode === undefined
+          && /^[A-Za-z0-9]{8,100}$/.test(automaticScope.orderSn ?? '')
+          && automaticScope.channelAccountId === 'b4027369-5abf-4ac1-ab24-862334fae892'
+          && automaticScope.shopId === 1156446003
+          && automaticScope.fiscalMode === 'cpf_no_invoice_step';
+        const d10 = validD10AutomaticScope(automaticScope, getEnv, now());
+        if (!legacyAdao && !d10) {
           return { ok: false, code: 'automatic_account_scope_mismatch' };
         }
         orderSn = automaticScope.orderSn;
@@ -113,7 +117,7 @@ export function createGuardedShopeeShipOrder({
         fiscalMode = automaticScope.fiscalMode;
         // This short deadline bounds the *one current request*, not a recurring
         // authorization of arbitrary orders. Fresh live preflight is still mandatory.
-        windowExpiresAt = now() + 2 * 60_000;
+        windowExpiresAt = d10 ? Math.min(resolveD10Profile(getEnv, now())?.expiry ?? 0, now() + 2 * 60_000) : now() + 2 * 60_000;
       } else {
       orderSn = envRequired(getEnv, 'SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN');
       channelAccountId = envRequired(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
