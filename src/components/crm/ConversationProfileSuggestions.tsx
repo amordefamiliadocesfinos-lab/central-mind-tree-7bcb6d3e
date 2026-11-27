@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Contact } from '@/hooks/useContacts';
 import { supabase } from '@/integrations/supabase/client';
+import { saveContactProfile } from '@/lib/crm/contactProfileWriter';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   proposeCrmConversationProfileFields,
   type CrmConversationProfileMessage,
+  type CrmConversationProfileField,
   type CrmConversationProfileSuggestion,
 } from '@/lib/crm/conversationProfileSuggestions';
 
@@ -20,21 +23,31 @@ const states = {
 };
 
 export function ConversationProfileSuggestions({
-  contact, conversationId, editing,
-}: { contact: Contact; conversationId?: string | null; editing: boolean }) {
+  contact, conversationId, editing, onSaved, onReviewChange,
+}: { contact: Contact; conversationId?: string | null; editing: boolean;
+  onSaved?: (contact: Contact) => void; onReviewChange?: (active: boolean) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<CrmConversationProfileSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFields, setSelectedFields] = useState<CrmConversationProfileField[]>([]);
+  const [saving, setSaving] = useState(false);
+  const saveRef = useRef(false);
+  useEffect(() => {
+    onReviewChange?.(selectedFields.length > 0 || saving);
+  }, [selectedFields, saving, onReviewChange]);
 
   // Evidência consultiva só serve para o par contato/conversa atualmente aberto.
   useEffect(() => {
     setSuggestions(null);
+    setSelectedFields([]);
     setError(null);
   }, [contact.id, conversationId]);
 
   const analyze = async () => {
     if (!conversationId || editing || loading) return;
     setLoading(true);
+    setSelectedFields([]);
     setSuggestions(null);
     setError(null);
     const requestedContactId = contact.id;
@@ -60,6 +73,32 @@ export function ConversationProfileSuggestions({
     }
   };
 
+  const confirmSelected = async () => {
+    if (saveRef.current || !suggestions || !selectedFields.length || editing) return;
+    const accepted = suggestions.filter(item => selectedFields.includes(item.field) && item.state === 'empty');
+    if (!accepted.length || accepted.length !== selectedFields.length) return;
+    const patch: Partial<Contact> = {};
+    for (const item of accepted) {
+      if (String(contact[item.field] ?? '').trim()) return;
+      (patch as Record<string, unknown>)[item.field] = item.value;
+    }
+    saveRef.current = true;
+    setSaving(true);
+    try {
+      // Escritor oficial: releitura, delta e comparação de versão antes de salvar.
+      const saved = await saveContactProfile({ contactId: contact.id, baseline: contact, draft: patch });
+      onSaved?.(saved.contact);
+      setSelectedFields([]);
+      setSuggestions(null);
+      toast.success(`${saved.changedFields.length} campo(s) confirmado(s) na ficha.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Dados não confirmados; confira a ficha antes de tentar novamente.');
+    } finally {
+      saveRef.current = false;
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="space-y-2 rounded-lg border p-3" aria-label="Sugestões cadastrais da conversa">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -82,7 +121,14 @@ export function ConversationProfileSuggestions({
       )}
       {suggestions?.map(item => (
         <div key={item.field} className="rounded-md border bg-muted/20 p-2 text-xs">
-          <p className="font-semibold">{labels[item.field]}: {item.value}</p>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5" aria-label={`Selecionar ${labels[item.field]}`}
+              checked={selectedFields.includes(item.field)}
+              disabled={item.state !== 'empty' || editing || saving}
+              onChange={event => setSelectedFields(current => event.target.checked
+                ? [...current, item.field] : current.filter(field => field !== item.field))} />
+            <span className="font-semibold">{labels[item.field]}: {item.value}</span>
+          </label>
           <p className="text-muted-foreground">{states[item.state]}</p>
           <p className="text-[10px] text-muted-foreground">
             Fonte: mensagem {item.messageId} · {item.createdAt}
@@ -90,10 +136,18 @@ export function ConversationProfileSuggestions({
         </div>
       ))}
       {suggestions && suggestions.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">
+        <div className="space-y-1.5">
+          <Button type="button" size="sm" disabled={saving || !selectedFields.length || editing}
+            onClick={() => void confirmSelected()}>
+            {saving ? 'Confirmando campos...' : `Confirmar e preencher ${selectedFields.length} campo(s) vazio(s)`}
+          </Button>
+          {selectedFields.length > 0 && <Button type="button" size="sm" variant="ghost" disabled={saving}
+            onClick={() => setSelectedFields([])}>Cancelar seleção</Button>}
+          <p className="text-[11px] text-muted-foreground">
           Revise autoria, finalidade do endereço e conflitos antes de usar dados. CPF/CNPJ,
           opt-out, Próxima Ação e campos financeiros não são preenchidos nesta etapa.
-        </p>
+          </p>
+        </div>
       )}
     </section>
   );
