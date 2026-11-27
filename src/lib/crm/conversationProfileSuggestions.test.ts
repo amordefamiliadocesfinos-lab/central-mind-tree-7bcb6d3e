@@ -110,7 +110,7 @@ test('B3 ignores third-party and delivery-only address evidence', () => {
 
 test('B3 marks conflicting values inside one customer message ambiguous', () => {
   const evidence = proposeCrmConversationProfileFields([
-    msg('multi', 'customer', 'Cidade: Itapema\\nCidade: Porto Belo'),
+    msg('multi', 'customer', 'Cidade: Itapema\nCidade: Porto Belo'),
   ], {});
   assert.equal(evidence.length, 1);
   assert.equal(evidence[0].field, 'city');
