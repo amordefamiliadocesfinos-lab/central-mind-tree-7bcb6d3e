@@ -9,6 +9,7 @@ import {
   Dumbbell,
   FlaskConical,
   History,
+  ListChecks,
   MoonStar,
   RefreshCw,
   TrendingUp,
@@ -127,6 +128,7 @@ function DomainCard({
   asOf,
   confidence,
   coverage,
+  primary=false,
   children,
 }: {
   title: string;
@@ -138,13 +140,14 @@ function DomainCard({
   asOf?: string | null;
   confidence?: string | null;
   coverage?: string | null;
+  primary?: boolean;
   children: ReactNode;
 }) {
   const historical = historicalNote(freshness, asOf ?? null);
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="px-3 pt-3 pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             {icon}
             {title}
@@ -157,7 +160,7 @@ function DomainCard({
         {historical ? <p className="text-xs text-muted-foreground">{historical}</p> : null}
         {coverage ? <p className="text-xs text-muted-foreground">{coverageLabel(coverage)}</p> : null}
       </CardHeader>
-      <CardContent className="flex h-[calc(100%-4rem)] flex-col gap-3">
+      <CardContent className="flex flex-1 flex-col gap-2 px-3 pb-3">
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             <div className="flex gap-2">
@@ -167,7 +170,7 @@ function DomainCard({
           </div>
         ) : children}
         <div className="mt-auto pt-1">
-          <Button asChild variant="outline" className="min-h-11 w-full justify-between">
+          <Button asChild variant={primary?"default":"outline"} className="min-h-11 w-full justify-between whitespace-normal">
             <Link to={href}>
               {cta}
               <ChevronRight className="h-4 w-4" />
@@ -242,12 +245,12 @@ export function HealthDashboardPage() {
   const extraIssueCount = Math.max(0, dashboard.issues.length - visibleIssues.length);
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <div className="space-y-3 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">Hoje</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Visão integrada dos seus dados. Cada área mantém sua própria fonte e confiança.
+            Seu acompanhamento diário, com acesso às áreas e às suas informações registradas.
           </p>
           <p className="mt-1 flex items-center gap-1.5 text-xs capitalize text-muted-foreground">
             <CalendarDays className="h-3.5 w-3.5" />
@@ -258,7 +261,7 @@ export function HealthDashboardPage() {
         <Button
           variant="outline"
           size="sm"
-          className="min-h-10 shrink-0"
+          className="min-h-11 shrink-0"
           onClick={() =>
             void Promise.all([dashboard.reload(), integrated.reload(), journey.reload()])
           }
@@ -268,57 +271,170 @@ export function HealthDashboardPage() {
         </Button>
       </div>
 
-      <HealthIntegratedDomainHandoff dashboard={dashboard}/>
+        <div data-testid="sau-sx03-training-priority">
+          <DomainCard
+            title="Treino"
+            icon={<Dumbbell className="h-4 w-4 text-primary" />}
+            href="/saude/treino"
+            cta={!dashboard.training.error&&dashboard.training.activeSession ? "Continuar treino" : dashboard.training.error ? "Abrir área de treino" : dashboard.training.nextQueue ? "Acessar próximo treino" : "Ver treino"}
+            primary={!dashboard.training.error&&Boolean(dashboard.training.activeSession||dashboard.training.nextQueue)}
+            error={dashboard.training.error}
+            freshness={dashboard.training.freshness}
+            asOf={dashboard.training.asOf}
+          >
+            {dashboard.training.activeSession ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Metric label="Estado" value={dashboard.training.activeSession.status === "paused" ? "Pausado" : "Em andamento"} />
+                <Metric label="Sessão" value={dashboard.training.activeSession.templateName ?? "Sessão atual"} />
+                <Metric label="Início" value={dateTimeLabel(dashboard.training.activeSession.startedAt) ?? "Não informado"} />
+              </div>
+            ) : dashboard.training.nextQueue ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Metric label="Próximo treino" value={dashboard.training.nextQueue.templateName ?? "Sessão programada"} />
+                <Metric label="Fila" value={`Posição ${dashboard.training.nextQueue.queuePosition}`} />
+                <Metric label="Estado da fila" value={dashboard.training.nextQueue.state==="pending"?"Pendente":dashboard.training.nextQueue.state} />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum treino ativo ou programado.</p>
+            )}
+          </DomainCard>
+        </div>
 
-      <HealthJourneyF12
-        stages={journey.stages}
-        nextAction={journey.nextAction}
-        loading={journey.loading || integrated.loading}
-        evaluating={integrated.evaluating}
-        evaluationError={integrated.evaluationError}
-        onEvaluate={integrated.evaluate}
-      />
-
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <History className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-medium">Revisão longitudinal</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Compare períodos de 28 dias e registre uma revisão humana, sem mudanças automáticas.
-              </p>
-            </div>
+      <section aria-label="Áreas de saúde" className="space-y-2">
+        <h3 className="text-sm font-semibold">Seu acompanhamento</h3>
+        <div className="grid gap-3 sm:grid-cols-2" data-testid="sau-sx03-domains">
+        <DomainCard
+          title="Alimentação"
+          icon={<Utensils className="h-4 w-4 text-primary" />}
+          href="/saude/alimentacao"
+          cta="Abrir diário alimentar"
+          error={dashboard.nutrition.error}
+          freshness={dashboard.nutrition.freshness}
+          asOf={dashboard.nutrition.asOf}
+          confidence={dashboard.nutrition.confidence}
+          coverage={dashboard.nutrition.coverage}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <Metric label="Refeições hoje" value={dashboard.nutrition.daily ? dashboard.nutrition.daily.observedMealCount : "Não observado"} />
+            <Metric label="Itens hoje" value={dashboard.nutrition.daily ? dashboard.nutrition.daily.observedItemCount : "Não observado"} />
+            <Metric label="Energia" value={dashboard.nutrition.daily?.energyKcal == null ? "Não observado" : `${numberLabel(dashboard.nutrition.daily.energyKcal, 0)} kcal`} />
+            <Metric label="Proteína" value={dashboard.nutrition.daily?.proteinG == null ? "Não observado" : `${numberLabel(dashboard.nutrition.daily.proteinG)} g`} />
           </div>
-          <Button asChild variant="outline" className="min-h-11 shrink-0">
-            <Link to="/saude/revisao">
-              Abrir revisão
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-medium">Analytics e histórico</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Veja gráficos de treino, alimentação, corpo e recuperação sem alterar os dados de origem.
-              </p>
+          <div className="rounded-xl border p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Decisão nutricional</span>
+              <span className="font-medium">{decisionLabel(dashboard.nutrition.decision?.status)}</span>
             </div>
+            {dashboard.nutrition.rolling7 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                7 dias: {dashboard.nutrition.rolling7.observedDayCount} dias observados · {coverageLabel(dashboard.nutrition.rolling7.coverageStatus)}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">Sem estado longitudinal de 7 dias.</p>
+            )}
           </div>
-          <Button asChild variant="outline" className="min-h-11 shrink-0">
-            <Link to="/saude/analytics">
-              Abrir gráficos
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+        </DomainCard>
 
+        <DomainCard
+          title="Sono e recuperação"
+          icon={<MoonStar className="h-4 w-4 text-primary" />}
+          href="/saude/recuperacao"
+          cta="Abrir recuperação"
+          error={dashboard.recovery.error}
+          freshness={dashboard.recovery.freshness}
+          asOf={dashboard.recovery.asOf}
+          confidence={dashboard.recovery.confidence}
+          coverage={dashboard.recovery.coverage}
+        >
+          {dashboard.recovery.state ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Metric label="Sono médio" value={formatMinutes(dashboard.recovery.state.averageSleepMinutes) ?? "Dados insuficientes"} />
+              <Metric label="Sono observado" value={`${dashboard.recovery.state.sleepDurationObservedDays} dias`} />
+              <Metric label="Recuperação" value={dashboard.recovery.state.averageRecovery == null ? "Dados insuficientes" : numberLabel(dashboard.recovery.state.averageRecovery, 2)} />
+              <Metric label="Fadiga" value={dashboard.recovery.state.averageFatigue == null ? "Dados insuficientes" : numberLabel(dashboard.recovery.state.averageFatigue, 2)} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sono e recuperação ainda sem cobertura observada.</p>
+          )}
+          <p className="text-xs text-muted-foreground">Este card não autoriza ou altera treino.</p>
+        </DomainCard>
+
+        <DomainCard
+          title="Evolução corporal"
+          icon={<TrendingUp className="h-4 w-4 text-primary" />}
+          href="/saude/evolucao"
+          cta="Abrir evolução corporal"
+          error={dashboard.body.error}
+          freshness={dashboard.body.freshness}
+          asOf={dashboard.body.asOf}
+          confidence={dashboard.body.confidence}
+          coverage={dashboard.body.coverage}
+        >
+          {dashboard.body.state ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Metric label="Peso" value={dashboard.body.state.weightLatestKg == null ? "Não observado" : `${numberLabel(dashboard.body.state.weightLatestKg)} kg`} />
+              <Metric label="Tendência" value={dashboard.body.state.weightTrendKgPerWeek == null ? "Não observado" : `${numberLabel(dashboard.body.state.weightTrendKgPerWeek)} kg/sem`} />
+              <Metric label="Cintura" value={dashboard.body.state.waistLatestCm == null ? "Não observado" : `${numberLabel(dashboard.body.state.waistLatestCm)} cm`} />
+              <Metric label="Gordura corporal" value={dashboard.body.state.bodyFatLatestPct == null ? "Não observado" : `${numberLabel(dashboard.body.state.bodyFatLatestPct)}%`} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Estado corporal ainda não observado.</p>
+          )}
+          <p className="text-xs text-muted-foreground">Estado corporal não é recomendação nutricional.</p>
+        </DomainCard>
+
+        <DomainCard
+          title="Exames e biomarcadores"
+          icon={<FlaskConical className="h-4 w-4 text-primary" />}
+          href="/saude/exames"
+          cta="Abrir exames"
+          error={dashboard.exams.error}
+          freshness={dashboard.exams.freshness}
+          asOf={dashboard.exams.asOf}
+          confidence={dashboard.exams.confidence}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <Metric
+              label="Último exame"
+              value={
+                dashboard.exams.latestReport
+                  ? dateLabel(
+                      dashboard.exams.latestReport.collectedAt ??
+                      dashboard.exams.latestReport.resultedAt ??
+                      dashboard.exams.latestReport.createdAt,
+                    )
+                  : "Nenhum confirmado"
+              }
+            />
+            <Metric
+              label="Marcadores"
+              value={dashboard.exams.latestReportMarkerCount == null ? "Não observado" : dashboard.exams.latestReportMarkerCount}
+            />
+            <Metric
+              label="Estados longitudinais"
+              value={dashboard.exams.longitudinalStateCount}
+            />
+            <Metric
+              label="Último sinal"
+              value={
+                dashboard.exams.latestVital
+                  ? `${vitalLabel(dashboard.exams.latestVital.metricCode)} · ${dateLabel(dashboard.exams.latestVital.observedOn)}`
+                  : "Nenhum registro"
+              }
+            />
+          </div>
+          {dashboard.exams.pendingReviewCount > 0 ? (
+            <div className="rounded-xl border p-3 text-sm">
+              {dashboard.exams.pendingReviewCount === 1
+                ? "1 documento aguarda revisão."
+                : `${dashboard.exams.pendingReviewCount} documentos aguardam revisão.`}
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground">Resultados estruturados não são diagnóstico.</p>
+        </DomainCard>
+
+        </div>
+      </section>
       {visibleIssues.length ? (
         <Card>
           <CardHeader className="pb-2">
@@ -335,15 +451,26 @@ export function HealthDashboardPage() {
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </Link>
             ))}
-            {extraIssueCount > 0 ? (
-              <p className="px-1 text-xs text-muted-foreground">
-                +{extraIssueCount} {extraIssueCount > 1 ? "pendências disponíveis" : "pendência disponível"} nos módulos especialistas.
-              </p>
-            ) : null}
+            {extraIssueCount > 0 ? <details className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">Ver mais {extraIssueCount} pendências</summary><div className="space-y-2 pb-2">{dashboard.issues.slice(3).map(issue=><Link key={issue.id} to={issue.href} className="flex min-h-11 items-center justify-between gap-2 rounded-lg border p-2 text-sm">{issue.message}<ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/></Link>)}</div></details>:null}
           </CardContent>
         </Card>
       ) : null}
 
+      <section aria-label="Planejamento e análise" className="space-y-2">
+        <h3 className="text-sm font-semibold">Planejamento e análise</h3>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {([{to:"/saude/revisao",label:"Revisão",icon:History},{to:"/saude/replanejamento",label:"Replanejamento",icon:ListChecks},{to:"/saude/rotina",label:"Rotina",icon:CalendarDays},{to:"/saude/analytics",label:"Gráficos",icon:TrendingUp}] as const).map(({to,label,icon:Icon})=><Button key={to} asChild variant="outline" className="min-h-12 h-auto whitespace-normal justify-start px-2 text-left"><Link to={to}><Icon className="mr-2 h-4 w-4 shrink-0" aria-hidden="true"/><span className="min-w-0 break-words">{label}</span></Link></Button>)}
+        </div>
+        <p className="text-xs text-muted-foreground">Revise períodos e evidências antes de alterar o planejamento. Nenhuma alteração é automática.</p>
+      </section>
+      <HealthJourneyF12
+        stages={journey.stages}
+        nextAction={journey.nextAction}
+        loading={journey.loading || integrated.loading}
+        evaluating={integrated.evaluating}
+        evaluationError={integrated.evaluationError}
+        onEvaluate={integrated.evaluate}
+      />
       <Card id="decisao-integrada">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
@@ -441,165 +568,10 @@ export function HealthDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-2">
-          <DomainCard
-            title="Treino"
-            icon={<Dumbbell className="h-4 w-4 text-primary" />}
-            href="/saude/treino"
-            cta={dashboard.training.activeSession ? "Continuar treino" : "Ver treino"}
-            error={dashboard.training.error}
-            freshness={dashboard.training.freshness}
-            asOf={dashboard.training.asOf}
-          >
-            {dashboard.training.activeSession ? (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <Metric label="Estado" value={dashboard.training.activeSession.status === "paused" ? "Pausado" : "Em andamento"} />
-                <Metric label="Sessão" value={dashboard.training.activeSession.templateName ?? "Sessão atual"} />
-                <Metric label="Início" value={dateTimeLabel(dashboard.training.activeSession.startedAt) ?? "Não informado"} />
-              </div>
-            ) : dashboard.training.nextQueue ? (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <Metric label="Próximo treino" value={dashboard.training.nextQueue.templateName ?? "Sessão programada"} />
-                <Metric label="Fila" value={`Posição ${dashboard.training.nextQueue.queuePosition}`} />
-                <Metric label="Estado" value={dashboard.training.nextQueue.state} />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhum treino ativo ou programado.</p>
-            )}
-          </DomainCard>
-        </div>
-
-        <DomainCard
-          title="Alimentação"
-          icon={<Utensils className="h-4 w-4 text-primary" />}
-          href="/saude/alimentacao"
-          cta="Ver alimentação"
-          error={dashboard.nutrition.error}
-          freshness={dashboard.nutrition.freshness}
-          asOf={dashboard.nutrition.asOf}
-          confidence={dashboard.nutrition.confidence}
-          coverage={dashboard.nutrition.coverage}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Refeições hoje" value={dashboard.nutrition.daily ? dashboard.nutrition.daily.observedMealCount : "Não observado"} />
-            <Metric label="Itens hoje" value={dashboard.nutrition.daily ? dashboard.nutrition.daily.observedItemCount : "Não observado"} />
-            <Metric label="Energia" value={dashboard.nutrition.daily?.energyKcal == null ? "Não observado" : `${numberLabel(dashboard.nutrition.daily.energyKcal, 0)} kcal`} />
-            <Metric label="Proteína" value={dashboard.nutrition.daily?.proteinG == null ? "Não observado" : `${numberLabel(dashboard.nutrition.daily.proteinG)} g`} />
-          </div>
-          <div className="rounded-xl border p-3 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Decisão nutricional</span>
-              <span className="font-medium">{decisionLabel(dashboard.nutrition.decision?.status)}</span>
-            </div>
-            {dashboard.nutrition.rolling7 ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                7 dias: {dashboard.nutrition.rolling7.observedDayCount} dias observados · {coverageLabel(dashboard.nutrition.rolling7.coverageStatus)}
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">Sem estado longitudinal de 7 dias.</p>
-            )}
-          </div>
-        </DomainCard>
-
-        <DomainCard
-          title="Sono e recuperação"
-          icon={<MoonStar className="h-4 w-4 text-primary" />}
-          href="/saude/recuperacao"
-          cta="Ver recuperação"
-          error={dashboard.recovery.error}
-          freshness={dashboard.recovery.freshness}
-          asOf={dashboard.recovery.asOf}
-          confidence={dashboard.recovery.confidence}
-          coverage={dashboard.recovery.coverage}
-        >
-          {dashboard.recovery.state ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Metric label="Sono médio" value={formatMinutes(dashboard.recovery.state.averageSleepMinutes) ?? "Dados insuficientes"} />
-              <Metric label="Sono observado" value={`${dashboard.recovery.state.sleepDurationObservedDays} dias`} />
-              <Metric label="Recuperação" value={dashboard.recovery.state.averageRecovery == null ? "Dados insuficientes" : numberLabel(dashboard.recovery.state.averageRecovery, 2)} />
-              <Metric label="Fadiga" value={dashboard.recovery.state.averageFatigue == null ? "Dados insuficientes" : numberLabel(dashboard.recovery.state.averageFatigue, 2)} />
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Sono e recuperação ainda sem cobertura observada.</p>
-          )}
-          <p className="text-xs text-muted-foreground">Este card não autoriza ou altera treino.</p>
-        </DomainCard>
-
-        <DomainCard
-          title="Evolução corporal"
-          icon={<TrendingUp className="h-4 w-4 text-primary" />}
-          href="/saude/evolucao"
-          cta="Ver evolução"
-          error={dashboard.body.error}
-          freshness={dashboard.body.freshness}
-          asOf={dashboard.body.asOf}
-          confidence={dashboard.body.confidence}
-          coverage={dashboard.body.coverage}
-        >
-          {dashboard.body.state ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Metric label="Peso" value={dashboard.body.state.weightLatestKg == null ? "Não observado" : `${numberLabel(dashboard.body.state.weightLatestKg)} kg`} />
-              <Metric label="Tendência" value={dashboard.body.state.weightTrendKgPerWeek == null ? "Não observado" : `${numberLabel(dashboard.body.state.weightTrendKgPerWeek)} kg/sem`} />
-              <Metric label="Cintura" value={dashboard.body.state.waistLatestCm == null ? "Não observado" : `${numberLabel(dashboard.body.state.waistLatestCm)} cm`} />
-              <Metric label="Gordura corporal" value={dashboard.body.state.bodyFatLatestPct == null ? "Não observado" : `${numberLabel(dashboard.body.state.bodyFatLatestPct)}%`} />
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Estado corporal ainda não observado.</p>
-          )}
-          <p className="text-xs text-muted-foreground">Estado corporal não é recomendação nutricional.</p>
-        </DomainCard>
-
-        <DomainCard
-          title="Exames e biomarcadores"
-          icon={<FlaskConical className="h-4 w-4 text-primary" />}
-          href="/saude/exames"
-          cta="Ver exames"
-          error={dashboard.exams.error}
-          freshness={dashboard.exams.freshness}
-          asOf={dashboard.exams.asOf}
-          confidence={dashboard.exams.confidence}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <Metric
-              label="Último exame"
-              value={
-                dashboard.exams.latestReport
-                  ? dateLabel(
-                      dashboard.exams.latestReport.collectedAt ??
-                      dashboard.exams.latestReport.resultedAt ??
-                      dashboard.exams.latestReport.createdAt,
-                    )
-                  : "Nenhum confirmado"
-              }
-            />
-            <Metric
-              label="Marcadores"
-              value={dashboard.exams.latestReportMarkerCount == null ? "Não observado" : dashboard.exams.latestReportMarkerCount}
-            />
-            <Metric
-              label="Estados longitudinais"
-              value={dashboard.exams.longitudinalStateCount || "Nenhum"}
-            />
-            <Metric
-              label="Último sinal"
-              value={
-                dashboard.exams.latestVital
-                  ? `${vitalLabel(dashboard.exams.latestVital.metricCode)} · ${dateLabel(dashboard.exams.latestVital.observedOn)}`
-                  : "Nenhum registro"
-              }
-            />
-          </div>
-          {dashboard.exams.pendingReviewCount > 0 ? (
-            <div className="rounded-xl border p-3 text-sm">
-              {dashboard.exams.pendingReviewCount === 1
-                ? "1 documento aguarda revisão."
-                : `${dashboard.exams.pendingReviewCount} documentos aguardam revisão.`}
-            </div>
-          ) : null}
-          <p className="text-xs text-muted-foreground">Resultados estruturados não são diagnóstico.</p>
-        </DomainCard>
-
+      <details className="rounded-xl border px-2">
+        <summary className="min-h-11 cursor-pointer py-3 px-1 text-sm font-medium">Fontes, cobertura e detalhes técnicos</summary>
+        <div className="space-y-3 pb-2">
+          <HealthIntegratedDomainHandoff dashboard={dashboard}/>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -612,7 +584,8 @@ export function HealthDashboardPage() {
             <p>Ausência de dado permanece “não observado”; o Dashboard não preenche lacunas nem cria score geral.</p>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </details>
     </div>
   );
 }
