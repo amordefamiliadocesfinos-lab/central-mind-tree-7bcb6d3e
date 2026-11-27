@@ -164,13 +164,12 @@ function AuthenticatedShell() {
   return (
     <>
       <CrmBrowserNavigationProtection />
-      <GlobalSearchBar />
+      <div className="contents" data-cch-focus-chrome><GlobalSearchBar /></div>
       <OperationalContextTracker />
       <SwipeNavigationWrapper>
         <AnimatedRoutes />
       </SwipeNavigationWrapper>
-      <GlobalFooterBar />
-      <CapturaCentralFAB />
+      <div className="contents" data-cch-focus-chrome><GlobalFooterBar /><CapturaCentralFAB /></div>
       <StockCheckWizard />
       <RoutineAlertOverlay />
       <CustomAlarmsRuntime />
@@ -230,7 +229,7 @@ function ScopedUserApp() {
   }
   return (
     <>
-      <header className="flex items-center justify-between border-b p-3">
+      <header data-cch-focus-chrome className="flex items-center justify-between border-b p-3">
         <span className="font-semibold">Painel Central — Saúde</span>
         <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void signOut()}>
           Sair
