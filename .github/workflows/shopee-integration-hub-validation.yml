@@ -116,6 +116,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-lease-prototype.sql
       - name: D11 policy-bound durable claims proof (disposable, rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-claim-prototype.sql
+      - name: D11 fresh observation receipt proof (disposable, rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-observation-prototype.sql
       - name: D11 authenticated policy authoring and concurrent pause versus claim (disposable)
         run: |
           createdb d11_policy_test
