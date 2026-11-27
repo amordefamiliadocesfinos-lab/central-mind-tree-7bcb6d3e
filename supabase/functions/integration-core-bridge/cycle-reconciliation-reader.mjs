@@ -41,15 +41,19 @@ export function createProtectedReconciliationReader(core,{
     .eq('channel_account_id',accountId).eq('order_sn',orderSn).maybeSingle();
    if(queue.error||queue.data?.state!=='pending'||queue.data.channel_account_id!==accountId||queue.data.order_sn!==orderSn)
      return denied('reconcile_candidate_refused');
-   const raw=await core.from('marketplace_raw_snapshots')
-    .select('channel_account_id,external_entity_id,observed_at,created_at,payload,payload_hash')
-    .eq('channel_account_id',accountId).eq('source','shopee_open_platform').eq('environment','live')
-    .eq('external_entity_type','order').eq('endpoint','/api/v2/order/get_order_detail')
-    .eq('external_entity_id',orderSn).order('observed_at',{ascending:false}).limit(2);
-   if(raw.error||!Array.isArray(raw.data)||!raw.data.length)return denied('reconcile_raw_unavailable');
-   const row=raw.data[0], t=Date.parse(row?.observed_at);
-   if(!Number.isFinite(t)||t<Date.parse(v.updated_at)||t>now())return denied('reconcile_raw_not_fresh');
-   if(raw.data.length>1&&Date.parse(raw.data[1]?.observed_at)===t)return denied('reconcile_raw_ambiguous');
+   // A new official receipt can reference an unchanged historical Raw.
+   // The timestamp of the original Raw is never rewritten or used as proof.
+   const raw=await core.rpc('read_shopee_cycle_observation',{
+     p_account:accountId,p_lease:leaseId,p_revision:revision,p_action:'intake'});
+   const e=raw.data;
+   if(raw.error||!e||!UUID.test(e.observation_id??'')||!UUID.test(e.raw_id??'')
+     ||e.channel_account_id!==accountId||e.shop_id!==p.shop||e.order_sn!==orderSn)
+     return denied('reconcile_observation_unavailable');
+   const t=Date.parse(e.response_received_at),recorded=Date.parse(e.recorded_at),original=Date.parse(e.original_observed_at);
+   if(!Number.isFinite(t)||!Number.isFinite(recorded)||!Number.isFinite(original)
+     ||t<Date.parse(v.updated_at)||original>t||t>recorded||recorded>now()||now()-t>30000)
+     return denied('reconcile_raw_not_fresh');
+   const row={...e,external_entity_id:e.order_sn,observed_at:e.response_received_at};
    const list=row.payload?.response?.order_list, o=list?.[0], pkg=o?.package_list?.[0];
    if(row.channel_account_id!==accountId||row.external_entity_id!==orderSn||!Array.isArray(list)||list.length!==1
      ||o?.order_sn!==orderSn||!Number.isSafeInteger(o.create_time)||o.create_time<=p.history_cutoff
@@ -60,10 +64,11 @@ export function createProtectedReconciliationReader(core,{
      ||typeof row.payload_hash!=='string'||!/^[0-9a-f]{64}$/.test(row.payload_hash))
       return denied('reconcile_raw_identity_refused');
    if(!(await checkLease(core,scope))?.ok)return denied('reconcile_lease_refused');
-   return {ok:true,row,orderSn,shop:p.shop,packageNumber:pkg.package_number,observedAt:row.observed_at,hash:row.payload_hash};
+   return {ok:true,row,orderSn,shop:p.shop,packageNumber:pkg.package_number,observedAt:row.observed_at,hash:row.payload_hash,observationId:e.observation_id,rawId:e.raw_id};
   }
   const unchanged=x=>x?.ok===true&&x.orderSn===initial.orderSn&&x.shop===initial.shop
-   &&x.packageNumber===initial.packageNumber&&x.hash===initial.hash&&x.observedAt===initial.observedAt;
+   &&x.packageNumber===initial.packageNumber&&x.hash===initial.hash&&x.observedAt===initial.observedAt
+   &&x.observationId===initial.observationId&&x.rawId===initial.rawId;
   try{
    initial=await inspect();
    if(!initial.ok)return initial;

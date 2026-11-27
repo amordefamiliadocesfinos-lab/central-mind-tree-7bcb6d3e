@@ -12,7 +12,14 @@ function fixture(){
    payload:{response:{order_list:[{order_sn:S,create_time:NOW/1000-120,order_status:'READY_TO_SHIP',split_up:false,
    recipient_address:{name:'private fixture'},item_list:[{item_id:123,model_id:456,buyer_private:'redact'}],
    package_list:[{package_number:'PKG1',logistics_status:'LOGISTICS_READY'}]}]}}}]};
- const core={from(table){
+ const core={rpc:async(name,args)=>{
+  assert.equal(name,'read_shopee_cycle_observation');
+  assert.deepEqual(args,{p_account:A,p_lease:L,p_revision:1,p_action:'intake'});
+  const row=f.rows[0];
+  if(!row||f.rows.length!==1||f.noReceipt)return {data:null};
+  return {data:{...row,observation_id:f.observationId??I,raw_id:L,shop_id:123,order_sn:row.external_entity_id,
+    original_observed_at:iso(NOW-60000),response_received_at:row.observed_at,recorded_at:iso(NOW-500)}};
+ },from(table){
   f.calls.push(table);
   const q={select(){return q},eq(){return q},order(){return q},limit(n){assert.equal(n,2);return Promise.resolve({data:f.rows})},
    maybeSingle(){return Promise.resolve({data:table==='shopee_cycle_state'?f.state:f.queue})}};
@@ -62,7 +69,7 @@ test('D11 denies missing policy, lease, different revision and legacy scope',asy
  assert.equal((await fixture().run({...scope,accountId:'b4027369-5abf-4ac1-ab24-862334fae892'})).ok,false);
 });
 test('D11 policy pause and Raw drift after batch invalidate reconciliation',async()=>{
- for(const alter of [f=>f.valid=false,f=>f.rows[0].payload_hash='b'.repeat(64),f=>f.state.lease_id=I]){
+ for(const alter of [f=>f.valid=false,f=>f.rows[0].payload_hash='b'.repeat(64),f=>f.state.lease_id=I,f=>f.observationId=A,f=>f.noReceipt=true]){
  const f=fixture(),r=await f.run(scope);assert.equal((await r.readExistingBatch(batch)).ok,true);
  alter(f);assert.equal((await r.verifyCanonicalOrder(projection)).ok,false);assert.equal(f.calls.includes('verify'),false);}
 });
@@ -71,4 +78,11 @@ test('shared sanitizer preserves original mapping fields while removing raw priv
  assert.equal(o.item_list[0].item_id,123);assert.equal(o.item_list[0].model_id,456);
  assert.equal(o.recipient_address,undefined);assert.equal(o.package_list,undefined);
  assert.equal(s.external_entity_id,S);
+});
+
+test('D11 identical historic Raw can be reconciled only with current receipt; no receipt has no fallback',async()=>{
+ const f=fixture();f.noReceipt=true;assert.equal((await f.run(scope)).code,'reconcile_observation_unavailable');
+ f.noReceipt=false;const r=await f.run(scope);assert.equal(r.ok,true);
+ const b=await r.readExistingBatch(batch);assert.equal(b.ok,true);
+ assert.equal(b.payload.snapshots[0].observed_at,iso(NOW-1000));
 });
