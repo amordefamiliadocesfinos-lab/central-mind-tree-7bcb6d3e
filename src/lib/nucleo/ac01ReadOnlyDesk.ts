@@ -3,7 +3,7 @@
 export type ContributionMetadata = {
   id:string;module_id:string;specialist_role:string;contribution_kind:string;
   title:string;source_kind:string;source_locator:string;source_checksum_sha256:string|null;
-  note:string;authority_state:string;recorded_at:string;recorded_by_auth_uid:string;
+  note:string;authority_state:string;recorded_at:string;recorded_by_auth_uid:string|null;registration_origin?:string;registration_reference?:string|null;
   lineage_id:string;version_no:number;parent_revision_id:string|null;
 };
 export type DeskState = "todas"|"proposta"|"em_evolucao";
@@ -42,7 +42,7 @@ export function continuityContext(
     id:row.id,lineage_id:row.lineage_id,version:row.version_no,
     title:row.title,role:row.specialist_role,kind:row.contribution_kind,
     source:row.source_kind,locator:row.source_locator,hash_declared:row.source_checksum_sha256,
-    state:row.authority_state,author_uid:row.recorded_by_auth_uid,recorded_at:row.recorded_at,
+    state:row.authority_state,author_uid:row.recorded_by_auth_uid,registration_origin:row.registration_origin??null,registration_reference:row.registration_reference??null,recorded_at:row.recorded_at,
     previous_revision_id:row.parent_revision_id,
   })),
   history:rows.map(row=>({id:row.id,lineage_id:row.lineage_id,version:row.version_no,
