@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRealizedCash } from '@/hooks/useRealizedCash';
+import type { CashMovementRow } from '@/lib/financial/realizedCash';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -92,7 +94,7 @@ function TypeSummary({ title, summary, type }: { title: string; summary: Financi
           </div>
           <div className="rounded-md bg-emerald-500/10 p-2">
             <div className="flex items-center gap-1 text-[11px] text-emerald-500">
-              <CheckCircle className="h-3 w-3" />{type === 'receber' ? 'Recebido' : 'Pago'}
+              <CheckCircle className="h-3 w-3" />{type === 'receber' ? 'Recebido acum.' : 'Pago acum.'}
             </div>
             <p className="text-sm font-semibold text-emerald-500">{formatCurrency(summary.total_paid, { compact: true })}</p>
             <p className="text-[10px] text-muted-foreground">{summary.count_paid}</p>
@@ -117,7 +119,7 @@ const PALETTE = [
   '#a855f7', '#22c55e', '#eab308', '#0ea5e9',
 ];
 
-function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
+function InteractiveBreakdown({ entries }: { entries: (CashMovementRow & { entry: NonNullable<CashMovementRow['entry']> })[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'pagar' | 'receber'>('all');
@@ -129,15 +131,15 @@ function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
     const s = search.trim().toLowerCase();
     return entries.filter((e) => {
       // O dashboard analítico representa resultado realizado, não previsão.
-      if (Number(e.value_paid || 0) <= 0) return false;
-      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
+      if (Number(e.value) <= 0) return false;
+      if (typeFilter !== 'all' && e.entry.type !== typeFilter) return false;
       if (!s) return true;
       return (
-        e.description?.toLowerCase().includes(s) ||
-        e.category?.name?.toLowerCase().includes(s) ||
-        e.contact?.name?.toLowerCase().includes(s)
-        || e.sales_channel?.toLowerCase().includes(s)
-        || e.marketplace_account?.toLowerCase().includes(s)
+        e.entry.description?.toLowerCase().includes(s) ||
+        e.entry.category?.name?.toLowerCase().includes(s) ||
+        e.entry.contact?.name?.toLowerCase().includes(s)
+        || e.entry.sales_channel?.toLowerCase().includes(s)
+        || e.entry.marketplace_account?.toLowerCase().includes(s)
       );
     });
   }, [entries, search, typeFilter]);
@@ -147,19 +149,19 @@ function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
     return filteredList.filter((e) => selected.has(e.id));
   }, [filteredList, selected]);
 
-  const getValue = (e: FinancialEntry) => {
-    return Number(e.value_paid || 0);
+  const getValue = (e: CashMovementRow) => {
+    return Number(e.value);
   };
 
-  const groupKey = (e: FinancialEntry): string => {
+  const groupKey = (e: CashMovementRow & {entry: NonNullable<CashMovementRow['entry']>}): string => {
     switch (groupBy) {
-      case 'category': return e.category?.name || 'Sem categoria';
-      case 'contact': return e.contact?.name || 'Sem contato';
+      case 'category': return e.entry.category?.name || 'Sem categoria';
+      case 'contact': return e.entry.contact?.name || 'Sem contato';
       case 'account': return e.account?.name || 'Sem conta';
-      case 'channel': return salesChannelLabel(e.sales_channel);
-      case 'channel_account': return e.marketplace_account || 'Sem conta do canal';
-      case 'type': return e.type === 'pagar' ? 'A Pagar' : 'A Receber';
-      case 'status': return getEntryStatus(e);
+      case 'channel': return salesChannelLabel(e.entry.sales_channel);
+      case 'channel_account': return e.entry.marketplace_account || 'Sem conta do canal';
+      case 'type': return e.entry.type === 'pagar' ? 'A Pagar' : 'A Receber';
+      case 'status': return getEntryStatus(e.entry as FinancialEntry);
     }
   };
 
@@ -196,11 +198,11 @@ function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-sm">
             <BarChart3 className="h-4 w-4 text-primary" />
-            Análise interativa de gastos
+            Análise interativa de movimentos
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-[10px] h-5">
-              {selected.size > 0 ? `${selected.size} selecionadas` : `${filteredList.length} lançamentos`}
+              {selected.size > 0 ? `${selected.size} selecionadas` : `${filteredList.length} movimentos`}
             </Badge>
             <span className="text-xs font-semibold">{formatCurrency(totalValue)}</span>
           </div>
@@ -325,7 +327,7 @@ function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
                   <p className="p-4 text-sm text-muted-foreground text-center">Nenhum lançamento</p>
                 ) : (
                   filteredList.map((e) => {
-                    const status = getEntryStatus(e);
+                    const status = getEntryStatus(e.entry as FinancialEntry);
                     const isSel = selected.has(e.id);
                     return (
                       <label
@@ -335,21 +337,21 @@ function InteractiveBreakdown({ entries }: { entries: FinancialEntry[] }) {
                         <Checkbox checked={isSel} onCheckedChange={() => toggle(e.id)} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium truncate">{e.description}</span>
-                            <Badge variant={e.type === 'receber' ? 'default' : 'destructive'} className="text-[10px] h-4">
-                              {e.type === 'receber' ? 'R' : 'P'}
+                            <span className="text-sm font-medium truncate">{e.entry.description}</span>
+                            <Badge variant={e.entry.type === 'receber' ? 'default' : 'destructive'} className="text-[10px] h-4">
+                              {e.entry.type === 'receber' ? 'R' : 'P'}
                             </Badge>
                           </div>
                           <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2">
-                            <span>{format(parseISO(e.due_date), 'dd/MM/yyyy')}</span>
-                            {e.category?.name && <span>· {e.category.name}</span>}
-                            {e.contact?.name && <span>· {e.contact.name}</span>}
-                            {e.sales_channel && <span>· {salesChannelLabel(e.sales_channel)}</span>}
-                            {e.marketplace_account && <span>· {e.marketplace_account}</span>}
+                            <span>{format(parseISO(e.movement_date), 'dd/MM/yyyy')}</span>
+                            {e.entry.category?.name && <span>· {e.entry.category.name}</span>}
+                            {e.entry.contact?.name && <span>· {e.entry.contact.name}</span>}
+                            {e.entry.sales_channel && <span>· {salesChannelLabel(e.entry.sales_channel)}</span>}
+                            {e.entry.marketplace_account && <span>· {e.entry.marketplace_account}</span>}
                             <span>· {status}</span>
                           </div>
                         </div>
-                        <span className={`text-sm font-semibold ${e.type === 'receber' ? 'text-emerald-500' : 'text-red-500'}`}>
+                        <span className={`text-sm font-semibold ${e.entry.type === 'receber' ? 'text-emerald-500' : 'text-red-500'}`}>
                           {formatCurrency(getValue(e))}
                         </span>
                       </label>
@@ -405,6 +407,7 @@ export function FinancialDashboard(props: FinancialDashboardProps = {}) {
   const entries = props.entries ?? hook.entries;
   const accounts = props.accounts ?? hook.accounts;
   const summary = props.summary ?? hook.getDashboardSummary();
+  const cash = useRealizedCash(props.filters ?? hook.filters, entries);
   const [settlementTotals, setSettlementTotals] = useState({ gross: 0, fees: 0, net: 0 });
   const sales = entries.filter(e => e.type === 'receber');
   const withoutChannel = sales.filter(e => !e.sales_channel).length;
@@ -425,17 +428,20 @@ export function FinancialDashboard(props: FinancialDashboardProps = {}) {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-2 grid-cols-3">
-        <SummaryCard title="Entradas realizadas" value={summary.totalEntradas}
+      <p className="text-xs text-muted-foreground">Caixa realizado pela data do movimento, independentemente da base temporal das obrigações.</p>
+      {cash.loading && <p role="status">Consultando movimentos financeiros…</p>}
+      {cash.error && <p role="alert" className="text-destructive text-sm">Caixa indisponível: {cash.error}</p>}
+      {cash.report && <div className="grid gap-2 grid-cols-3">
+        <SummaryCard title="Entradas realizadas" value={cash.report.incoming}
           subtitle="Somente valores efetivamente recebidos"
           icon={<TrendingUp />} variant="success" />
-        <SummaryCard title="Saídas realizadas" value={summary.totalSaidas}
+        <SummaryCard title="Saídas realizadas" value={cash.report.outgoing}
           subtitle="Somente valores efetivamente pagos"
           icon={<TrendingDown />} variant="danger" />
-        <SummaryCard title="Resultado realizado" value={summary.saldo}
+        <SummaryCard title="Resultado realizado" value={cash.report.net}
           subtitle="Entradas realizadas menos saídas realizadas"
-          icon={<Wallet />} variant={summary.saldo >= 0 ? 'success' : 'danger'} />
-      </div>
+          icon={<Wallet />} variant={cash.report.net >= 0 ? 'success' : 'danger'} />
+      </div>}
 
       <div className="grid gap-2 grid-cols-3">
         <SummaryCard title="Marketplace bruto conciliado" value={settlementTotals.gross} icon={<TrendingUp />} />
@@ -449,7 +455,7 @@ export function FinancialDashboard(props: FinancialDashboardProps = {}) {
         <TypeSummary title="Contas a Pagar" summary={summary.pagar} type="pagar" />
       </div>
 
-      <InteractiveBreakdown entries={entries} />
+      {cash.report && <InteractiveBreakdown key={JSON.stringify([props.filters ?? hook.filters])} entries={cash.report.movements} />}
 
       <Card>
         <CardHeader className="p-3 pb-1.5">
