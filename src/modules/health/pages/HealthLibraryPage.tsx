@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { HealthMovementSample } from "../components/HealthMovementSample";
 import { ExerciseCatalogItem, useHealthCatalogs } from "../hooks/useHealthCatalogs";
 
 type CatalogMode = "training" | "nutrition";
@@ -57,25 +59,30 @@ function StatCard({ label, value }: { label: string; value: number }) {
 }
 
 function ExerciseCard({ item }: { item: ExerciseCatalogItem }) {
+  const [showSample,setShowSample]=useState(false);
   const primaryMuscles = item.muscles.filter((entry) => entry.role === "primary");
   const secondaryMuscles = item.muscles.filter((entry) => entry.role === "secondary");
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="px-3 pt-3 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-base">{item.name}</CardTitle>
+            <CardTitle className="text-base break-words">{item.name}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               {patternLabels[item.movement_pattern] ?? item.movement_pattern}
             </p>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="max-w-[45%] break-all text-[10px]">
             {item.code}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 px-3 pb-3">
+        <p className="text-xs text-muted-foreground">{primaryMuscles.map(m=>m.muscle?.name).filter(Boolean).join(", ")||"Músculo principal não confirmado"} · {item.equipment.map(e=>e.equipmentItem?.name).filter(Boolean).join(", ")||"Equipamento não confirmado"}</p>
+        <Button className="min-h-11 w-full" variant="outline" aria-expanded={showSample} onClick={()=>setShowSample(v=>!v)}>{showSample?"Recolher referência visual":"Ver movimento"}</Button>
+        {showSample?<div className="space-y-2"><HealthMovementSample exerciseId={item.id}/><p className="text-xs text-muted-foreground">Demonstração aprovada não confirmada nesta biblioteca. As amostras existentes são provisórias, vinculadas ao ID exato, não instruções de técnica.</p></div>:null}
+        <details className="rounded-md border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Músculos, equipamentos e equivalências</summary><div className="space-y-3 pb-2">
         <div>
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Músculos
@@ -123,6 +130,7 @@ function ExerciseCard({ item }: { item: ExerciseCatalogItem }) {
             </div>
           </div>
         ) : null}
+        </div></details>
       </CardContent>
     </Card>
   );
@@ -131,13 +139,19 @@ function ExerciseCard({ item }: { item: ExerciseCatalogItem }) {
 export function HealthLibraryPage() {
   const catalogs = useHealthCatalogs();
   const [mode, setMode] = useState<CatalogMode>("training");
-  const [query, setQuery] = useState("");
+  const [trainingQuery,setTrainingQuery]=useState("");
+  const [foodQuery,setFoodQuery]=useState("");
+  const [muscle,setMuscle]=useState("");
+  const [equipment,setEquipment]=useState("");
+  const query=mode==="training"?trainingQuery:foodQuery;
+  const setQuery=mode==="training"?setTrainingQuery:setFoodQuery;
 
   const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
 
   const filteredExercises = useMemo(() => {
-    if (!normalizedQuery) return catalogs.exercises;
     return catalogs.exercises.filter((exercise) => {
+      if(muscle&&!exercise.muscles.some(m=>m.muscle_group_id===muscle&&m.muscle))return false;
+      if(equipment&&!exercise.equipment.some(e=>e.equipment_id===equipment&&e.equipmentItem))return false;
       const haystack = [
         exercise.name,
         exercise.code,
@@ -149,7 +163,7 @@ export function HealthLibraryPage() {
         .toLocaleLowerCase("pt-BR");
       return haystack.includes(normalizedQuery);
     });
-  }, [catalogs.exercises, normalizedQuery]);
+  }, [catalogs.exercises, normalizedQuery,muscle,equipment]);
 
   const filteredFoods = useMemo(() => {
     if (!normalizedQuery) return catalogs.foods;
@@ -174,7 +188,7 @@ export function HealthLibraryPage() {
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Biblioteca</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Catálogos soberanos que os motores de Saúde poderão consumir.
+          Consulte exercícios, equipamentos e alimentos cadastrados. Biblioteca não é prescrição.
         </p>
       </div>
 
@@ -190,7 +204,7 @@ export function HealthLibraryPage() {
           variant={mode === "training" ? "default" : "outline"}
           onClick={() => {
             setMode("training");
-            setQuery("");
+
           }}
         >
           <Dumbbell className="mr-2 h-4 w-4" />
@@ -220,8 +234,11 @@ export function HealthLibraryPage() {
         />
       </div>
 
-      {mode === "training" ? (
+      <div className="grid grid-cols-2 gap-2"><Button asChild variant="outline" className="min-h-11"><Link to="/saude/treino">Voltar ao treino</Link></Button><Button variant="outline" className="min-h-11" onClick={()=>void catalogs.reload()}>Atualizar catálogo</Button></div>
+      {catalogs.error?<p role="alert" className="text-sm">Catálogo não confirmado. Atualize para consultar.</p>:mode === "training" ? (
         <>
+          <div className="grid grid-cols-2 gap-2"><div className="min-w-0"><label htmlFor="sx08-muscle" className="text-xs">Músculo</label><select id="sx08-muscle" className="min-h-11 w-full rounded-md border bg-background px-2 text-sm" value={muscle} onChange={e=>setMuscle(e.target.value)}><option value="">Todos</option>{catalogs.muscles.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></div><div className="min-w-0"><label htmlFor="sx08-equipment" className="text-xs">Equipamento</label><select id="sx08-equipment" className="min-h-11 w-full rounded-md border bg-background px-2 text-sm" value={equipment} onChange={e=>setEquipment(e.target.value)}><option value="">Todos</option>{catalogs.equipment.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></div></div>
+          <p role="status" className="text-xs">{filteredExercises.length} exercícios na consulta filtrada.</p>
           <div className="grid grid-cols-3 gap-2">
             <StatCard label="Exercícios" value={catalogs.counts.exercises} />
             <StatCard label="Músculos" value={catalogs.counts.muscles} />
@@ -303,12 +320,13 @@ export function HealthLibraryPage() {
             </Card>
           ) : (
             <div className="space-y-3">
+              {filteredFoods.length===0?<p className="text-sm">Nenhum alimento encontrado na consulta.</p>:null}
               {filteredFoods.map((food) => (
                 <Card key={food.id}>
                   <CardContent className="py-3">
                     <p className="text-sm font-medium">{food.canonical_name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {food.energy_kcal ?? "—"} kcal · P {food.protein_g ?? "—"} g · C {food.carbohydrate_g ?? "—"} g · G {food.fat_g ?? "—"} g
+                      Base registrada: {food.basis_amount} {food.basis_unit} · {food.energy_kcal ?? "—"} kcal · P {food.protein_g ?? "—"} g · C {food.carbohydrate_g ?? "—"} g · G {food.fat_g ?? "—"} g
                     </p>
                   </CardContent>
                 </Card>
@@ -319,7 +337,7 @@ export function HealthLibraryPage() {
       )}
 
       <p className={cn("text-[11px] leading-relaxed text-muted-foreground", mode === "training" && "pt-1")}>
-        Catálogos globais são somente leitura para o usuário autenticado nesta fase. Alterações técnicas
+        Contagens e filtros referem-se às linhas consultadas, não garantem catálogo completo. Catálogos globais são somente leitura para o usuário autenticado nesta fase. Alterações técnicas
         entram por migrations/revisão administrativa para preservar versionamento e rastreabilidade.
       </p>
     </div>
