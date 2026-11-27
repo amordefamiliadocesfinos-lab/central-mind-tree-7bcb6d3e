@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -36,7 +36,8 @@ import type { HealthActivitySessionF20 } from "../hooks/useHealthActivitiesF20";
 
 function num(value: string): number | null {
   if (!value.trim()) return null;
-  const parsed = Number(value);
+  if(!/^\d+(?:[.,]\d+)?$/.test(value.trim()))return null;
+  const parsed = Number(value.replace(",","."));
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -56,11 +57,6 @@ function formatPace(secondsPerKm: number | null | undefined) {
   if (secondsPerKm == null) return null;
   const total = Math.max(0, Math.round(secondsPerKm));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}/km`;
-}
-
-function localDateTimeInput(date = new Date()) {
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function activityElapsed(
@@ -97,12 +93,20 @@ function modalityIcon(code: string) {
 }
 
 export function HealthActivitiesPage() {
-  const { toast } = useToast();
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const activities = useHealthActivitiesF20(athlete?.id);
+  const {athlete,loading}=useHealthAthlete();
+  if(loading)return <p role="status">Carregando perfil…</p>;
+  if(!athlete?.id)return <p>Perfil indisponível.</p>;
+  return <ActivitiesContent key={athlete.id} athleteId={athlete.id}/>;
+}
+function ActivitiesContent({athleteId}:{athleteId:string}){
+  const {toast}=useToast();
+  const activities=useHealthActivitiesF20(athleteId);
+  const lock=useRef(false);
+  const [busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[reviewed,setReviewed]=useState(false);
+  const blocked=busy||failed||activities.saving||activities.loading||!activities.available||Boolean(activities.error);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [modalityCode, setModalityCode] = useState("running");
+  const [modalityCode, setModalityCode] = useState("");
   const [title, setTitle] = useState("");
 
   const [showFinish, setShowFinish] = useState(false);
@@ -117,10 +121,10 @@ export function HealthActivitiesPage() {
   const [notes, setNotes] = useState("");
 
   const [manualOpen, setManualOpen] = useState(false);
-  const [manualModality, setManualModality] = useState("running");
+  const [manualModality, setManualModality] = useState("");
   const [manualTitle, setManualTitle] = useState("");
   const [manualStartedAt, setManualStartedAt] = useState(() =>
-    localDateTimeInput(),
+    "",
   );
   const [manualDurationMin, setManualDurationMin] = useState("");
   const [manualDistanceKm, setManualDistanceKm] = useState("");
@@ -189,19 +193,26 @@ export function HealthActivitiesPage() {
   }, [activities.activitiesToday, activities.strengthToday]);
 
   const run = async (label: string, action: () => Promise<void>) => {
+    if(blocked||lock.current)return;
+    lock.current=true;setBusy(true);
     try {
       await action();
       toast({ title: "Atividade atualizada", description: label });
     } catch (cause) {
+      setFailed(true);setReviewed(false);
       toast({
         variant: "destructive",
         title: "Não foi possível concluir",
         description:
-          cause instanceof Error ? cause.message : "Tente novamente.",
+          cause instanceof Error ? cause.message : "Confira os registros antes de repetir.",
       });
-    }
+    }finally{lock.current=false;setBusy(false);}
   };
 
+  const validOptional=(fields:string[])=>fields.every(v=>!v.trim()||num(v)!==null);
+  const validLive=validOptional([distanceKm,calories,avgHr,maxHr,rpe,cadence,elevation,steps])&&(num(rpe)??0)<=10&&(num(avgHr)===null||num(maxHr)===null||num(avgHr)!<=num(maxHr)!)&&(num(steps)===null||Number.isInteger(num(steps)));
+  const validManual=validOptional([manualDurationMin,manualDistanceKm,manualCalories,manualAvgHr,manualMaxHr,manualRpe,manualCadence,manualElevation,manualSteps])&&(num(manualDurationMin)??0)>0&&(num(manualRpe)??0)<=10&&(num(manualAvgHr)===null||num(manualMaxHr)===null||num(manualAvgHr)!<=num(manualMaxHr)!)&&(num(manualSteps)===null||Number.isInteger(num(manualSteps)))&&activities.modalities.some(m=>m.code===manualModality)&&Number.isFinite(Date.parse(manualStartedAt))&&Date.parse(manualStartedAt)+(num(manualDurationMin)??0)*60000<=Date.now();
+  const validSegment=validOptional([segmentDurationSec,segmentDistanceM,segmentAvgHr,segmentCadence]);
   const completeLive = async () => {
     if (!activities.activeActivity) return;
     await activities.completeActivity(activities.activeActivity.id, {
@@ -254,7 +265,7 @@ export function HealthActivitiesPage() {
     setManualElevation("");
     setManualSteps("");
     setManualNotes("");
-    setManualStartedAt(localDateTimeInput());
+    setManualStartedAt("");
     setManualOpen(false);
   };
 
@@ -277,7 +288,7 @@ export function HealthActivitiesPage() {
     setSegmentCadence("");
   };
 
-  if (athleteLoading || activities.loading) {
+  if (activities.loading && !activities.activeActivity && !activities.modalities.length) {
     return (
       <div className="flex min-h-56 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -285,7 +296,7 @@ export function HealthActivitiesPage() {
     );
   }
 
-  const active = activities.activeActivity;
+  const active = activities.available&&!activities.error?activities.activeActivity:null;
   const activeModality = active
     ? modalityByCode.get(active.modality_code)
     : null;
@@ -297,8 +308,8 @@ export function HealthActivitiesPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">
             Atividades e sessões
           </h2>
@@ -307,7 +318,7 @@ export function HealthActivitiesPage() {
             registrar várias sessões no mesmo dia.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" className="min-h-11">
             <Link to="/saude/treino/historico">Histórico</Link>
           </Button>
@@ -320,6 +331,7 @@ export function HealthActivitiesPage() {
         </div>
       </div>
 
+      <Button variant="outline" className="min-h-11 w-full" disabled={busy||activities.loading||activities.saving} onClick={()=>void activities.reload()}>Atualizar atividades</Button>
       {activities.error ? (
         <Card className="border-destructive/40">
           <CardContent className="py-3 text-sm text-destructive">
@@ -328,10 +340,11 @@ export function HealthActivitiesPage() {
         </Card>
       ) : null}
 
-      {!activities.available ? (
+      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Confira a atividade e o histórico antes de repetir.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||activities.loading} onClick={()=>void(async()=>{if(lock.current)return;lock.current=true;setBusy(true);setReviewed(false);try{await activities.reload(true);setReviewed(true);}catch{toast({title:"Consulta não confirmada"});}finally{lock.current=false;setBusy(false);}})()}>Conferir registros</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||busy||Boolean(activities.error)||!activities.available} onClick={()=>{setFailed(false);setReviewed(false);setShowFinish(false);setManualOpen(false);setSegmentOpen(false);}}>Conferi; liberar nova ação</Button></div>:null}
+      {!activities.available||activities.error ? ( 
         <Card className="border-amber-500/30">
           <CardContent className="py-4 text-sm">
-            A camada F20 ainda não está disponível neste ambiente.
+            Consulta de atividades indisponível. Atualize para conferir os registros.
           </CardContent>
         </Card>
       ) : active ? (
@@ -361,7 +374,7 @@ export function HealthActivitiesPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/20 px-4 py-4">
+            <div data-testid="sx08-active-clock" className="flex flex-col items-center gap-2 rounded-xl border bg-muted/20 px-3 py-5 text-center">
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   Tempo ativo
@@ -370,7 +383,7 @@ export function HealthActivitiesPage() {
                   Pausas não entram na duração.
                 </p>
               </div>
-              <p className="font-mono text-3xl font-semibold">
+              <p className="font-mono text-5xl font-semibold tabular-nums">
                 {formatDuration(activeSeconds)}
               </p>
             </div>
@@ -378,7 +391,7 @@ export function HealthActivitiesPage() {
             <Button
               variant={active.status === "paused" ? "default" : "outline"}
               className="min-h-11 w-full"
-              disabled={activities.saving}
+              disabled={blocked}
               onClick={() =>
                 void run(
                   active.status === "paused"
@@ -406,7 +419,7 @@ export function HealthActivitiesPage() {
                 setSegmentOpen((event.currentTarget as HTMLDetailsElement).open)
               }
             >
-              <summary className="cursor-pointer text-sm font-medium">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">
                 Voltas / segmentos
               </summary>
 
@@ -446,7 +459,7 @@ export function HealthActivitiesPage() {
                     <Label className="text-xs">Tipo</Label>
                     <Select value={segmentType} onValueChange={setSegmentType}>
                       <SelectTrigger className="min-h-11">
-                        <SelectValue />
+                        <SelectValue placeholder="Escolha"/>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lap">Volta</SelectItem>
@@ -513,7 +526,7 @@ export function HealthActivitiesPage() {
                 <Button
                   variant="secondary"
                   className="min-h-11 w-full"
-                  disabled={activities.saving}
+                  disabled={blocked||!validSegment}
                   onClick={() =>
                     void run("Segmento registrado.", addSegment)
                   }
@@ -601,10 +614,11 @@ export function HealthActivitiesPage() {
                   />
                 </div>
 
+                {!validLive?<p className="text-xs">Confira os valores, RPE e frequência cardíaca. Campos vazios permanecem desconhecidos.</p>:null}
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Button
                     className="min-h-11"
-                    disabled={activities.saving}
+                    disabled={blocked||!validLive}
                     onClick={() =>
                       void run("Atividade concluída.", completeLive)
                     }
@@ -648,7 +662,7 @@ export function HealthActivitiesPage() {
                     onValueChange={setModalityCode}
                   >
                     <SelectTrigger className="min-h-11">
-                      <SelectValue />
+                      <SelectValue placeholder="Escolha"/>
                     </SelectTrigger>
                     <SelectContent>
                       {activities.modalities.map((item) => (
@@ -673,9 +687,9 @@ export function HealthActivitiesPage() {
               <Button
                 className="min-h-12 w-full"
                 disabled={
-                  activities.saving ||
+                  blocked ||
                   Boolean(activities.openStrengthSessionId) ||
-                  !modalityCode
+                  !activities.modalities.some(m=>m.code===modalityCode)
                 }
                 onClick={() =>
                   void run("Atividade iniciada.", () =>
@@ -715,7 +729,7 @@ export function HealthActivitiesPage() {
                         onValueChange={setManualModality}
                       >
                         <SelectTrigger className="min-h-11">
-                          <SelectValue />
+                          <SelectValue placeholder="Escolha"/>
                         </SelectTrigger>
                         <SelectContent>
                           {activities.modalities.map((item) => (
@@ -808,10 +822,11 @@ export function HealthActivitiesPage() {
                     />
                   </div>
 
+                  {!validManual?<p className="text-xs">Escolha modalidade, início e duração já concluída; confira métricas opcionais.</p>:null}
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Button
                       className="min-h-11"
-                      disabled={activities.saving}
+                      disabled={blocked||!validManual}
                       onClick={() =>
                         void run("Atividade registrada.", createManual)
                       }
@@ -845,7 +860,7 @@ export function HealthActivitiesPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
-          {timeline.length ? (
+          {activities.error||!activities.available||activities.loading?<p className="text-sm">Linha do tempo não confirmada.</p>:timeline.length ? (
             timeline.map((item) => {
               if (item.kind === "strength") {
                 const strength = item.strength;
@@ -964,10 +979,11 @@ function MetricInput({
   onChange: (value: string) => void;
   mode?: "numeric" | "decimal";
 }) {
+  const id=useId();
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      <Input
+      <Label htmlFor={id} className="text-xs">{label}</Label>
+      <Input id={id}
         className="min-h-11"
         inputMode={mode}
         value={value}
