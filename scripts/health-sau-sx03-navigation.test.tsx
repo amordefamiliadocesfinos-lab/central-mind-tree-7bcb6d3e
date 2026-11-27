@@ -26,7 +26,7 @@ describe("SX03 navigation",()=>{
   expect(more().getAttribute("data-active")).toBe("true");
   fireEvent.click(screen.getByRole("button",{name:"Voltar fixture"}));
   expect(screen.getByTestId("route").textContent).toBe("/saude/hoje");
-  expect(within(menu).getByRole("link",{name:"Hoje"}).getAttribute("aria-current")).toBe("page");
+  expect(screen.getByRole("link",{name:"Hoje"}).getAttribute("aria-current")).toBe("page");
  });
  it("preserves parent selection, Escape return focus and focus-mode chrome markers",()=>{
   nav("/saude/treino/programa");
@@ -40,9 +40,9 @@ describe("SX03 navigation",()=>{
   expect(document.querySelector("[data-cch-health-main] [data-cch-focus=true]")).toBeTruthy();
  });
 });
-const meta={availability:"unknown",freshness:"not_applicable",asOf:null,error:null,confidence:null,coverage:null,reasonCodes:[]} as const;
+const meta:Pick<HealthDashboardF10["training"],"availability"|"freshness"|"asOf"|"error"|"confidence"|"coverage"|"reasonCodes">={availability:"unknown",freshness:"not_applicable",asOf:null,error:null,confidence:null,coverage:null,reasonCodes:[]};
 function fixture(overrides:Partial<HealthDashboardF10>={}){
- return {training:{...meta,availability:"available",activeSession:{id:"s",status:"paused",templateName:"Treino fixture",startedAt:"2026-11-27T12:00:00Z"},nextQueue:null},nutrition:{...meta,daily:null,rolling7:null,decision:null},body:{...meta,state:null},recovery:{...meta,state:null},exams:{...meta,latestReport:null,latestReportMarkerCount:null,longitudinalStateCount:0,latestLongitudinalAsOf:null,latestVital:null,pendingReviewCount:0},...overrides,issues:[],loading:false,readFailed:false,reload:mocks.reload};
+ return {training:{...meta,availability:"available" as const,activeSession:{id:"s",status:"paused",templateName:"Treino fixture",startedAt:"2026-11-27T12:00:00Z"},nextQueue:null},nutrition:{...meta,daily:null,rolling7:null,decision:null},body:{...meta,state:null},recovery:{...meta,state:null},exams:{...meta,latestReport:null,latestReportMarkerCount:null,longitudinalStateCount:0,latestLongitudinalAsOf:null,latestVital:null,pendingReviewCount:0},...overrides,issues:[],loading:false,readFailed:false,reload:mocks.reload};
 }
 function setup(d=fixture()){
  mocks.athlete.mockReturnValue({athlete:{id:"a",display_name:"Fixture"},loading:false});
