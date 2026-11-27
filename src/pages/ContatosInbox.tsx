@@ -44,6 +44,7 @@ import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { compareCrmPriority, getCrmPriority, isWaitingCustomerState, type CrmPriorityInput } from '@/lib/crm/priority';
 import { getCrmInboxAttendanceTone, getCrmInboxBadgeToneClass, getCrmInboxPriorityRailClass, getCrmInboxPriorityTone, getCrmInboxStageTone } from '@/lib/crm/inboxVisualHierarchy';
 import { getCrmInboxFilterClass } from '@/lib/crm/inboxFilterVisualHierarchy';
+import { readCrmInboxFilterSession, writeCrmInboxFilterSession } from '@/lib/crm/inboxFilterSession';
 import { indexCrmOperationalTasks, projectCrmOperationalState, toCrmOperationalPriorityInput, type CrmOperationalSource } from '@/lib/crm/operationalProjection';
 import { getCrmInboxOrientation, getCrmOrientationShortcut, prepareCrmSupervisedAction } from '@/lib/crm/inboxOrientation';
 import { getCrmPostResultGuidance, type CrmPostResultGuidance } from '@/lib/crm/postResultGuidance';
@@ -142,11 +143,16 @@ export default function ContatosInbox() {
   // O estado "Carregando..." pertence somente à primeira carga desta tela.
   const hasLoadedInboxRef = useRef(false);
   const [search, setSearch] = useState('');
-  const [inboxFilter, setInboxFilter] = useState<InboxFilter>('priority');
-  const [conversationScope, setConversationScope] = useState<ConversationScope>('commercial');
-  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('all');
-  const [stageFilter, setStageFilter] = useState('all');
-  const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(false);
+  // U4-A: recuperar apenas seletores permitidos, sem persistir busca livre nem identidade.
+  const [initialFilters] = useState(readCrmInboxFilterSession);
+  const [inboxFilter, setInboxFilter] = useState<InboxFilter>(initialFilters.inboxFilter);
+  const [conversationScope, setConversationScope] = useState<ConversationScope>(initialFilters.conversationScope);
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(initialFilters.assignmentFilter);
+  const [stageFilter, setStageFilter] = useState(initialFilters.stageFilter);
+  const [waitingCustomerOnly, setWaitingCustomerOnly] = useState(initialFilters.waitingCustomerOnly);
+  useEffect(() => {
+    writeCrmInboxFilterSession({ inboxFilter, conversationScope, assignmentFilter, stageFilter, waitingCustomerOnly });
+  }, [inboxFilter, conversationScope, assignmentFilter, stageFilter, waitingCustomerOnly]);
   const [loadLimit, setLoadLimit] = useState(200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const attendanceWriteGateRef = useRef(createAttendanceWriteGate());
