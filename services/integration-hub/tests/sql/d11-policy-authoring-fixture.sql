@@ -7,7 +7,7 @@
 ALTER TABLE public.shopee_oauth_connections ADD COLUMN shop_status text,
  ADD COLUMN authorization_expires_at timestamptz;
 ALTER TABLE public.orders ADD COLUMN status text, ADD COLUMN operational_status text;
-ALTER TABLE public.marketplace_raw_snapshots ADD COLUMN observed_at timestamptz;
+\ir d11-observation-raw-fixture.sql
 \if :{?d11_real_auth}
 \else
 \ir d11-policy-lease-schema.sql
@@ -18,7 +18,9 @@ ALTER TABLE public.marketplace_raw_snapshots ADD COLUMN observed_at timestamptz;
 \ir ../../../../supabase/migrations/20261111180000_f11_adao_rejected_shipping_recovery.sql
 \if :{?d11_real_auth}
 \else
+\ir d11-observation-candidate.sql
 \ir d11-policy-claim-candidate.sql
+\ir d11-observation-fixture-helper.sql
 \endif
 
 \if :{?d11_real_auth}
