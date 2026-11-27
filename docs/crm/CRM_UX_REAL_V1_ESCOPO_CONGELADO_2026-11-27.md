@@ -29,3 +29,10 @@ Sem novo Pedido, tabela, RPC, migration, RLS, writer financeiro ou preço oficia
 - As evidências foram captadas na versão publicada **anterior** à PR #1176; não são homologação da interface da branch.
 - Ajuste de engenharia U1-A: selecionar variante numa linha direta duplicada preserva quantidade informada; quando apresentação vinculada é removida, reinicia quantidade com aviso; preço da nova variante sempre vem da referência canônica. Não mostrar referência/preço oficial antes de variante necessária.
 - Portão pendente: contraprova da PR realmente servida em CRM e Operações, sem criar Pedido de teste na produção.
+
+## Contraprova complementar — 27/11/2026, Operações / Novo Pedido
+- Captura fornecida pelo proprietário mostra modal Novo Pedido com scrollbar horizontal interno, parte esquerda do formulário deslocada e campos de preço/botões parcialmente fora da área útil.
+- Na versão publicada observada, a grade de item tentava renderizar seis controles lado a lado; a PR ainda é draft e não está publicada, portanto esta captura caracteriza o problema em produção, não UAT da branch.
+- Delta aplicado nesta PR: grade responsiva de uma coluna em largura pequena e duas em telas maiores; os preços não impõem largura mínima, os selects podem encolher, e a região rolável da janela fica limitada à rolagem vertical. Mesmas regras para CRM e Operações.
+- Regressão estática de grade e overflow: `tests/crm-ux-real-responsive-layout.test.mjs`, executada na CI. Ela não substitui teste visual interativo em janela estreita, desktop e mobile.
+- Critério de aceite pendente: em ambas as telas nenhum controle fica inacessível por deslocamento/scroll horizontal, e o pedido real não é criado em teste produtivo.
