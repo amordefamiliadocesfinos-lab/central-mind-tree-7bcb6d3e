@@ -248,8 +248,9 @@ function HealthDashboardContent({athlete}:{athlete:{id:string;display_name?:stri
     <div className="grid grid-cols-2 gap-2">{[{to:"/saude/treino",label:"Treino"},{to:"/saude/alimentacao",label:"Alimentação"},{to:"/saude/evolucao",label:"Evolução"},{to:"/saude/recuperacao",label:"Recuperação"},{to:"/saude/exames",label:"Exames"}].map(item=><Button key={item.to} asChild variant="outline" className="min-h-11 whitespace-normal"><Link to={item.to}>{item.label}</Link></Button>)}</div>
   </CardContent></Card>;
 
-  const visibleIssues = dashboard.issues.slice(0, 3);
-  const extraIssueCount = Math.max(0, dashboard.issues.length - visibleIssues.length);
+  const issues = [...dashboard.issues].sort((a,b)=>Number(b.domain==="exams")-Number(a.domain==="exams"));
+  const visibleIssues = issues.slice(0, 3);
+  const extraIssueCount = Math.max(0, issues.length - visibleIssues.length);
 
   return (
     <div className="space-y-3 pb-4">
@@ -283,7 +284,7 @@ function HealthDashboardContent({athlete}:{athlete:{id:string;display_name?:stri
             title="Treino"
             icon={<Dumbbell className="h-4 w-4 text-primary" />}
             href="/saude/treino"
-            cta={dashboard.training.availability==="available"&&!dashboard.training.error&&dashboard.training.activeSession ? "Continuar treino" : dashboard.training.error||dashboard.training.availability==="error" ? "Abrir área de treino" : dashboard.training.nextQueue ? "Acessar próximo treino" : "Ver treino"}
+            cta={dashboard.training.availability==="available"&&!dashboard.training.error&&dashboard.training.activeSession ? "Continuar treino" : dashboard.training.error||dashboard.training.availability==="error" ? "Abrir área de treino" : dashboard.training.availability==="available"&&dashboard.training.nextQueue ? "Acessar próximo treino" : "Ver treino"}
             primary={dashboard.training.availability==="available"&&!dashboard.training.error&&Boolean(dashboard.training.activeSession||dashboard.training.nextQueue)}
             availability={dashboard.training.availability}
           error={dashboard.training.error}
@@ -463,7 +464,7 @@ function HealthDashboardContent({athlete}:{athlete:{id:string;display_name?:stri
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </Link>
             ))}
-            {extraIssueCount > 0 ? <details className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">Ver mais {extraIssueCount} pendências</summary><div className="space-y-2 pb-2">{dashboard.issues.slice(3).map(issue=><Link key={issue.id} to={issue.href} className="flex min-h-11 items-center justify-between gap-2 rounded-lg border p-2 text-sm">{issue.message}<ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/></Link>)}</div></details>:null}
+            {extraIssueCount > 0 ? <details className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">Ver mais {extraIssueCount} pendências</summary><div className="space-y-2 pb-2">{issues.slice(3).map(issue=><Link key={issue.id} to={issue.href} className="flex min-h-11 items-center justify-between gap-2 rounded-lg border p-2 text-sm">{issue.message}<ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/></Link>)}</div></details>:null}
           </CardContent>
         </Card>
       ) : null}
