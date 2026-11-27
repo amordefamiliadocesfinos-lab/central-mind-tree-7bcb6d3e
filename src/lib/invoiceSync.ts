@@ -1,6 +1,6 @@
 /**
  * Sincronização automática pós-emissão de Nota Fiscal.
- * Conecta: Pedido → Faturado, Financeiro → Receita confirmada,
+ * Conecta: Pedido → Faturado; não confirma recebimento ou conciliação,
  * CRM → Pedido concluído, Timeline → Nota fiscal emitida.
  */
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +19,7 @@ export interface InvoiceSyncInput {
 
 export interface InvoiceSyncResult {
   orderUpdated: boolean;
-  financialConfirmed: number; // qty de lançamentos conciliados
+  financialConfirmed: number; // legado: emissão fiscal não concilia lançamentos
   contactUpdated: boolean;
   timelineLogged: boolean;
   errors: string[];
@@ -46,32 +46,8 @@ export async function syncInvoiceIssued(input: InvoiceSyncInput): Promise<Invoic
     else result.orderUpdated = true;
   }
 
-  // 2. FINANCEIRO → Receita confirmada (concilia lançamentos a receber do pedido)
-  if (input.orderId) {
-    const { data: entries, error: fetchErr } = await supabase
-      .from('financial_entries')
-      .select('id, is_conciliated')
-      .eq('order_id', input.orderId)
-      .eq('type', 'receber');
-
-    if (fetchErr) {
-      result.errors.push(`Financeiro (busca): ${fetchErr.message}`);
-    } else if (entries && entries.length > 0) {
-      const toConfirm = entries.filter((e) => !e.is_conciliated);
-      if (toConfirm.length > 0) {
-        const { error: updErr } = await supabase
-          .from('financial_entries')
-          .update({
-            is_conciliated: true,
-            conciliated_at: nowIso,
-            notes: `Confirmado por emissão de NF ${input.invoiceNumber}`,
-          })
-          .in('id', toConfirm.map((e) => e.id));
-        if (updErr) result.errors.push(`Financeiro: ${updErr.message}`);
-        else result.financialConfirmed = toConfirm.length;
-      }
-    }
-  }
+  // 2. FINANCEIRO — emissão fiscal não comprova recebimento nem conciliação.
+  // financialConfirmed permanece zero para compatibilidade do contrato de retorno.
 
   // 3. CRM → Pedido concluído (marca contato como cliente convertido)
   if (input.contactId) {
