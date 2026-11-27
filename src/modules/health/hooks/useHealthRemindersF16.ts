@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { localDateIso } from "../dashboard/dashboardModel";
@@ -209,93 +209,74 @@ export function reminderScheduleLabel(rule: ReminderRule) {
 export function useHealthRemindersF16(
   athleteId: string | null | undefined,
 ) {
-  const [rules, setRules] = useState<ReminderRule[]>([]);
-  const [events, setEvents] = useState<ReminderEvent[]>([]);
-  const [loading, setLoading] = useState(Boolean(athleteId));
-  const [saving, setSaving] = useState(false);
-  const [backendAvailable, setBackendAvailable] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    if (!athleteId) {
-      setRules([]);
-      setEvents([]);
-      setLoading(false);
-      setBackendAvailable(true);
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const [rulesResult, eventsResult] = await Promise.all([
-      db
-        .from("health_reminder_rules")
-        .select(
-          "id,reminder_type,label,enabled,schedule_kind,days_of_week,local_time,interval_days,start_on,timezone,status,created_at,updated_at",
-        )
-        .eq("athlete_id", athleteId)
-        .eq("status", "active")
-        .order("local_time", { ascending: true })
-        .order("created_at", { ascending: true }),
-      db
-        .from("health_reminder_events")
-        .select(
-          "id,reminder_rule_id,event_type,event_date,notes,occurred_at",
-        )
-        .eq("athlete_id", athleteId)
-        .gte("event_date", dateMinusDaysIso(14))
-        .order("event_date", { ascending: false })
-        .order("occurred_at", { ascending: false })
-        .limit(200),
-    ]);
-
-    if (rulesResult.error) {
-      setRules([]);
-      setEvents([]);
-      setBackendAvailable(!isBackendUnavailable(rulesResult.error));
-      setError(rulesResult.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setBackendAvailable(true);
-    setRules(((rulesResult.data ?? []) as unknown[]).map(mapRule));
-
-    if (eventsResult.error) {
-      setEvents([]);
-      setBackendAvailable(!isBackendUnavailable(eventsResult.error));
-      setError(eventsResult.error.message);
-    } else {
-      setEvents(((eventsResult.data ?? []) as unknown[]).map(mapEvent));
-    }
-
-    setLoading(false);
-  }, [athleteId]);
-
-  useEffect(() => {
+  const scope=athleteId??null;
+  const empty={rules:[] as ReminderRule[],events:[] as ReminderEvent[],backendAvailable:true,error:null as string|null};
+  const [snapshot,setSnapshot]=useState({scope:null as string|null,...empty,loading:false});
+  const [action,setAction]=useState({scope:null as string|null,saving:false,error:null as string|null});
+  const request=useRef(0),epoch=useRef(0),locked=useRef(false);
+  const activeScope=useRef<string|null|undefined>(undefined);
+  const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
+  const currentAction=action.scope===scope?action:{saving:false,error:null};
+  const readSnapshot=useCallback(async()=>{
+    if(activeScope.current!==scope)return;
+    const token=++request.current;
+    const finish=(value:typeof empty)=>{
+      if(token!==request.current)return undefined;
+      setSnapshot({scope,...value,loading:false});
+      return value;
+    };
+    if(!athleteId)return finish(empty);
+    setSnapshot({scope,...empty,loading:true});
+    try {
+      const [rulesResult,eventsResult]=await Promise.all([
+        db.from("health_reminder_rules").select("id,reminder_type,label,enabled,schedule_kind,days_of_week,local_time,interval_days,start_on,timezone,status,created_at,updated_at",{count:"exact"}).eq("athlete_id",athleteId).eq("status","active").order("local_time",{ascending:true}).order("created_at",{ascending:true}),
+        db.from("health_reminder_events").select("id,reminder_rule_id,event_type,event_date,notes,occurred_at",{count:"exact"}).eq("athlete_id",athleteId).gte("event_date",dateMinusDaysIso(14)).order("event_date",{ascending:false}).order("occurred_at",{ascending:false}).limit(200),
+      ]);
+      const error=rulesResult.error??eventsResult.error;
+      if(error)return finish({...empty,backendAvailable:!isBackendUnavailable(error),error:error.message});
+      const rules=rulesResult.data??[],events=eventsResult.data??[];
+      if(rulesResult.count!==rules.length||eventsResult.count!==events.length)
+        return finish({...empty,error:"Consulta da rotina incompleta. Atualize antes de registrar."});
+      return finish({...empty,rules:rules.map(mapRule),events:events.map(mapEvent)});
+    }catch(cause){return finish({...empty,error:cause instanceof Error?cause.message:"Rotina indisponível."});}
+  },[athleteId,scope]);
+  const reload=useCallback(async()=>{
+    const value=await readSnapshot();
+    if(value&&!value.error&&value.backendAvailable&&!locked.current)
+      setAction(previous=>previous.scope===scope?{...previous,error:null}:previous);
+  },[readSnapshot,scope]);
+  useEffect(()=>{
+    activeScope.current=scope;epoch.current++;locked.current=false;
+    setAction({scope,saving:false,error:null});
     void reload();
-  }, [reload]);
-
-  const runAction = useCallback(
-    async <T,>(operation: () => Promise<T>) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const value = await operation();
-        await reload();
-        return value;
-      } finally {
-        setSaving(false);
+    return ()=>{activeScope.current=undefined;request.current++;epoch.current++;locked.current=false;};
+  },[reload,scope]);
+  const runAction=useCallback(async<T,>(operation:()=>Promise<T>,confirm:(value:typeof empty,result:T)=>boolean)=>{
+    if(!athleteId||activeScope.current!==scope||visible.loading||visible.error||!visible.backendAvailable||currentAction.error||locked.current)
+      throw new Error("Aguarde uma leitura válida do atleta atual.");
+    locked.current=true;
+    const token=epoch.current;
+    const active=()=>activeScope.current===scope&&token===epoch.current;
+    setAction({scope,saving:true,error:null});
+    try{
+      const result=await operation();
+      if(active()){
+        const confirmed=await readSnapshot();
+        if(!confirmed||confirmed.error||!confirmed.backendAvailable||!confirm(confirmed,result))
+          throw new Error("Gravação não confirmada. Atualize e confira a rotina antes de repetir.");
       }
-    },
-    [reload],
-  );
+      return result;
+    }catch(cause){
+      if(active())setAction({scope,saving:false,error:cause instanceof Error?cause.message:"Operação indisponível."});
+      throw cause;
+    }finally{
+      if(active()){locked.current=false;setAction(previous=>previous.scope===scope?{...previous,saving:false}:previous);}
+    }
+  },[athleteId,scope,visible.loading,visible.error,visible.backendAvailable,currentAction.error,readSnapshot]);
 
   const saveRule = useCallback(
     async (input: SaveReminderRuleInput) => {
-      if (!athleteId) throw new Error("Atleta não disponível.");
+      if (!athleteId || (input.ruleId && !visible.rules.some(rule=>rule.id===input.ruleId))) throw new Error("Atleta ou regra fora da consulta atual.");
       return runAction(async () => {
         const result = await db.rpc("health_f16_save_reminder_rule", {
           p_athlete_id: athleteId,
@@ -311,32 +292,27 @@ export function useHealthRemindersF16(
           p_rule_id: input.ruleId ?? null,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
-      });
+      }, (snapshot,id)=>snapshot.rules.some(rule=>rule.id===id));
     },
-    [athleteId, runAction],
+    [athleteId, runAction,visible.rules],
   );
 
   const archiveRule = useCallback(
     async (ruleId: string) =>
       runAction(async () => {
+        if(!visible.rules.some(rule=>rule.id===ruleId))throw new Error("Regra fora da consulta atual.");
         const result = await db.rpc("health_f16_archive_reminder_rule", {
           p_rule_id: ruleId,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
-      }),
-    [runAction],
+      }, (snapshot)=>!snapshot.rules.some(rule=>rule.id===ruleId)),
+    [runAction,visible.rules],
   );
 
   const recordEvent = useCallback(
@@ -347,6 +323,7 @@ export function useHealthRemindersF16(
       notes?: string | null,
     ) =>
       runAction(async () => {
+        if(!visible.rules.some(rule=>rule.id===ruleId))throw new Error("Regra fora da consulta atual.");
         const result = await db.rpc("health_f16_record_reminder_event", {
           p_rule_id: ruleId,
           p_event_type: eventType,
@@ -354,23 +331,20 @@ export function useHealthRemindersF16(
           p_notes: notes ?? null,
         });
         if (result.error) {
-          setBackendAvailable(!isBackendUnavailable(result.error));
-          setError(result.error.message);
           throw new Error(result.error.message);
         }
-        setBackendAvailable(true);
         return result.data;
-      }),
-    [runAction],
+      }, (snapshot,id)=>snapshot.events.some(event=>event.id===id&&event.ruleId===ruleId&&event.eventType===eventType&&event.eventDate===eventDate)),
+    [runAction,visible.rules],
   );
 
   return {
-    rules,
-    events,
-    loading,
-    saving,
-    backendAvailable,
-    error,
+    rules:visible.rules,
+    events:visible.events,
+    loading:visible.loading,
+    saving:currentAction.saving,
+    backendAvailable:visible.backendAvailable,
+    error:visible.error??currentAction.error,
     reload,
     saveRule,
     archiveRule,
