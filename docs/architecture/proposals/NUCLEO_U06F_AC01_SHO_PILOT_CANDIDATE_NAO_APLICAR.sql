@@ -98,3 +98,33 @@ BEGIN
 END;$$;
 REVOKE ALL ON FUNCTION nucleo_u06f_private.register_sho_ac01_pilot() FROM PUBLIC,anon,authenticated,service_role;
 COMMENT ON FUNCTION nucleo_u06f_private.register_sho_ac01_pilot() IS 'Candidata U06-F: proposta única, fonte e autorização conferidas externamente; não atesta identidade individual nem consulta GitHub pelo banco.';
+
+-- Proteção residual A04.3: a concessão histórica de service_role não é revogada.
+-- Proteger a proposta piloto de alteração/exclusão, a autoria/origem de qualquer
+-- registro de reatribuição, e impedir TRUNCATE (que não executa triggers de linha).
+CREATE FUNCTION nucleo_u06f_private.guard_ac01_registration_history()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ IF TG_OP='TRUNCATE' THEN
+   RAISE EXCEPTION 'U06-F AC-01 historico nao pode ser truncado' USING ERRCODE='42501';
+ END IF;
+ IF OLD.registration_origin='administrativo_lovable' THEN
+   RAISE EXCEPTION 'U06-F proposta administrativa imutavel' USING ERRCODE='42501';
+ END IF;
+ IF TG_OP='UPDATE' THEN
+   IF NEW.registration_origin IS DISTINCT FROM OLD.registration_origin
+      OR NEW.registration_reference IS DISTINCT FROM OLD.registration_reference
+      OR NEW.recorded_by_auth_uid IS DISTINCT FROM OLD.recorded_by_auth_uid THEN
+     RAISE EXCEPTION 'U06-F autoria e origem imutaveis' USING ERRCODE='42501';
+   END IF;
+   RETURN NEW;
+ END IF;
+ RETURN OLD;
+END;$$;
+REVOKE ALL ON FUNCTION nucleo_u06f_private.guard_ac01_registration_history() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER nucleo_u06f_ac01_registration_immutable
+ BEFORE UPDATE OR DELETE ON public.nucleo_specialist_contributions
+ FOR EACH ROW EXECUTE FUNCTION nucleo_u06f_private.guard_ac01_registration_history();
+CREATE TRIGGER nucleo_u06f_ac01_no_truncate
+ BEFORE TRUNCATE ON public.nucleo_specialist_contributions
+ FOR EACH STATEMENT EXECUTE FUNCTION nucleo_u06f_private.guard_ac01_registration_history();
