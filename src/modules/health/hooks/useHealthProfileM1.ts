@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -43,6 +43,7 @@ const emptyData: M1Data = {
 
 export function useHealthProfileM1(athleteId: string | null | undefined) {
   const [data, setData] = useState<M1Data>(emptyData);
+  const generation=useRef(0);
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,10 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
     [data.locations],
   );
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setError(message);setLoading(false);setData(emptyData);}if(strict)throw Error(message);};
+    try {
     if (!athleteId) {
       setData(emptyData);
       setLoading(false);
@@ -100,7 +104,7 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
       supabase.from("health_athlete_preferences").select("*").eq("athlete_id", athleteId).maybeSingle(),
       supabase
         .from("health_consents")
-        .select("*")
+        .select("*", {count:"exact"})
         .eq("athlete_id", athleteId)
         .order("occurred_at", { ascending: false }),
     ]);
@@ -116,11 +120,14 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
     ].find(Boolean);
 
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
+    const rows=[profileResult.data,goalResult.data,phaseResult.data,preferencesResult.data,...(locationsResult.data??[]),...(equipmentResult.data??[]),...(consentsResult.data??[])];
+    if(rows.some(row=>row&&row.athlete_id!==athleteId)){fail("Escopo do perfil não confirmado.");return;}
+    if(consentsResult.count!==(consentsResult.data??[]).length){fail("Histórico de consentimentos incompleto. Atualize antes de alterar decisões.");return;}
     const latestConsents: Partial<Record<ConsentType, HealthConsent>> = {};
     for (const consent of consentsResult.data ?? []) {
       const type = consent.consent_type as ConsentType;
@@ -137,10 +144,11 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
       latestConsents,
     });
     setLoading(false);
+    } catch(cause){fail(cause instanceof Error?cause.message:"Consulta do perfil indisponível.");}
   }, [athleteId]);
 
   useEffect(() => {
-    void reload();
+    void reload();return ()=>{generation.current++;};
   }, [reload]);
 
   const runMutation = useCallback(
@@ -150,7 +158,7 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
       try {
         const result = await operation();
         if (result.error) throw new Error(result.error.message);
-        await reload();
+        await reload(true);
       } finally {
         setSaving(false);
       }
@@ -296,15 +304,15 @@ export function useHealthProfileM1(athleteId: string | null | undefined) {
         supabase.from("health_athlete_preferences").upsert(
           {
             athlete_id: athleteId,
-            unit_system: "metric",
-            default_location_id: primaryLocation?.id ?? null,
+            unit_system: data.preferences?.unit_system ?? "metric",
+            default_location_id: data.preferences ? data.preferences.default_location_id : primaryLocation?.id ?? null,
             ...values,
           },
           { onConflict: "athlete_id" },
         ),
       );
     },
-    [athleteId, primaryLocation?.id, runMutation],
+    [athleteId, primaryLocation?.id, data.preferences, runMutation],
   );
 
   const recordConsent = useCallback(
