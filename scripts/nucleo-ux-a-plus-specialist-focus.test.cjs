@@ -71,7 +71,7 @@ for(const token of [
  'role={uncertainRef.current?"alert":"status"}',
 ])assert(contributions.includes(token),"AC-01 status visual ausente: "+token);
 assert(contributions.indexOf('Resultado indeterminado. Reconsulte o Core')<contributions.indexOf('<nav aria-label="Ciclo documental AC-01'),"Alerta de reconciliação precisa anteceder navegação");
-assert(ac02.includes('Consultando contexto AC-02 no Core.'),"Consulta AC-02 precisa de status explícito");
+assert(ac02.includes('Consultando informações para continuidade.'),"Consulta AC-02 precisa de status explícito");
 assert(ac02.includes('{error&&<p role="alert"'),"Erro AC-02 permanece alerta");
 // AC-01: seleção de versão deve ser transacional para a minuta local.
 const selector=contributions.slice(contributions.indexOf(' const chooseReference=(id:string)=>{'),contributions.indexOf(' const parent=rows.find(item=>item.id===parentId);'));
