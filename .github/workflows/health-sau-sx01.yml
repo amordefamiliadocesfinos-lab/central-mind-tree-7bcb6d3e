@@ -1,0 +1,35 @@
+name: SAU SX01 SX02 Nutrition UX
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/components/HealthNutritionDiarySX01.tsx'
+      - 'src/modules/health/pages/HealthNutritionPage.tsx'
+      - 'src/modules/health/hooks/useHealthNutritionM5.ts'
+      - 'src/modules/health/hooks/useHealthNutritionStateM6.ts'
+      - 'src/modules/health/components/HealthNutrition*SX02.tsx'
+      - 'src/modules/health/cch/nutritionReviewSX02.ts'
+      - 'scripts/health-sau-sx01-*'
+      - 'scripts/health-sau-sx02-*'
+      - '.github/workflows/health-sau-sx01.yml'
+permissions:
+  contents: read
+jobs:
+  sx01:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Targeted lint
+        run: npx eslint src/modules/health/components/HealthNutritionDiarySX01.tsx src/modules/health/pages/HealthNutritionPage.tsx src/modules/health/hooks/useHealthNutritionM5.ts src/modules/health/hooks/useHealthNutritionStateM6.ts src/modules/health/components/HealthNutritionPlanSX02.tsx src/modules/health/components/HealthNutritionRecipesSX02.tsx src/modules/health/components/HealthNutritionEvolutionSX02.tsx src/modules/health/cch/nutritionReviewSX02.ts
+      - name: Production build
+        run: npm run build
+      - name: Synthetic interaction tests (no live data)
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts vitest@3.2.4 jsdom@26.1.0 @testing-library/react@16.3.0
+          npx vitest run --config scripts/health-sau-sx01-vitest.config.ts

@@ -36,6 +36,7 @@ export interface FinancialEntry {
   account_id?: string;
   contact_id?: string;
   order_id?: string;
+  purchase_order_id?: string | null;
   document_number?: string;
   notes?: string;
   is_conciliated: boolean;

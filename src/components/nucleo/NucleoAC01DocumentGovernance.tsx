@@ -329,7 +329,7 @@ export default function NucleoAC01DocumentGovernance({
    {selected&&<div id="nucleo-ac01-selected-evidence" className="rounded border p-3 space-y-1 text-xs">
     <strong>Referência selecionada: {selected.title} · v{selected.version_no}</strong>
     <p>Especialidade: {selected.specialist_role}; categoria: {selected.contribution_kind}</p>
-    <p>Autor autenticado: {selected.recorded_by_auth_uid.slice(0,8)}… · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
+    <p>{selected.recorded_by_auth_uid ? `Autor autenticado: ${selected.recorded_by_auth_uid.slice(0,8)}…` : selected.registration_origin==='administrativo_lovable' ? 'Registro administrativo Lovable · sem autoria humana Auth' : 'Autoria indeterminada'} · registrado em {new Date(selected.recorded_at).toLocaleString("pt-BR")}</p>
     <p className="break-all">Original preservado em: {selected.source_kind} · {selected.source_locator}</p>
     <p className="text-muted-foreground">Qualquer comparação de conteúdo requer acesso válido à fonte original. Sem diffs fictícios nem aprovação implícita.</p>
     {lineage&&<details className="rounded-md border p-3 space-y-2" aria-label="Linhagem documental e atos registrados">

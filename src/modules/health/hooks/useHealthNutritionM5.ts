@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,7 +43,7 @@ export type NutritionTarget = {
 };
 export type Recipe = { id: string; athlete_id: string | null; name: string; status: string; current_version_id: string | null; owner_scope: string; };
 export type RecipeVersion = {
-  id: string; recipe_id: string; athlete_id: string | null; status: string; title: string;
+  id: string; recipe_id: string; athlete_id: string | null; status: string; title: string; version_number?: number;
   yield_amount: number | null; yield_unit: string | null; servings: number | null;
 };
 export type Food = { id: string; canonical_name: string; brand: string | null; basis_amount: number; basis_unit: string; energy_kcal: number | null; protein_g: number | null; };
@@ -52,10 +52,13 @@ export type MealLog = { id: string; food_log_day_id: string; athlete_id: string;
 export type MealItem = {
   id: string; meal_log_id: string; athlete_id: string; item_name_snapshot: string; quantity: number | null;
   unit_code: string | null; energy_kcal_snapshot: number | null; protein_g_snapshot: number | null;
-  carbohydrate_g_snapshot: number | null; fat_g_snapshot: number | null; status: string;
+  carbohydrate_g_snapshot: number | null; fat_g_snapshot: number | null; fiber_g_snapshot?: number | null; status: string;
 };
 
+export type FoodLogOrigin = "declared_quantity" | "weighed" | "visual_estimate";
+
 type State = {
+  readDate: string | null;
   plan: NutritionPlan | null;
   version: NutritionPlanVersion | null;
   target: NutritionTarget | null;
@@ -68,7 +71,7 @@ type State = {
 };
 
 const emptyState: State = {
-  plan: null, version: null, target: null, recipes: [], recipeVersions: [], foods: [], day: null, meals: [], items: [],
+  readDate: null, plan: null, version: null, target: null, recipes: [], recipeVersions: [], foods: [], day: null, meals: [], items: [],
 };
 
 function clientEventId() {
@@ -86,8 +89,10 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const generation = useRef(0);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
     if (!athleteId) {
       setState(emptyState);
       setLoading(false);
@@ -97,6 +102,11 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     setLoading(true);
     setError(null);
     const today = todayIso();
+    const fail=(message:string)=>{
+      if(request===generation.current){setError(message);setLoading(false);}
+      if(strict)throw new Error(message);
+    };
+    try {
 
     const [planResult, recipesResult, foodsResult, dayResult] = await Promise.all([
       db.from("health_nutrition_plans").select("*").eq("athlete_id", athleteId)
@@ -110,8 +120,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
 
     const firstError = planResult.error ?? recipesResult.error ?? foodsResult.error ?? dayResult.error;
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
@@ -123,9 +132,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       const versionsResult = await db.from("health_nutrition_plan_versions").select("*")
         .eq("plan_id", plan.id).eq("athlete_id", athleteId).order("version_number", { ascending: false });
       if (versionsResult.error) {
-        setError(versionsResult.error.message);
-        setLoading(false);
-        return;
+        fail(versionsResult.error.message);
+      return;
       }
       const versions = (versionsResult.data ?? []) as NutritionPlanVersion[];
       version = versions.find((item) => item.id === plan.current_version_id)
@@ -136,9 +144,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
         const targetResult = await db.from("health_nutrition_targets").select("*")
           .eq("plan_version_id", version.id).eq("athlete_id", athleteId).maybeSingle();
         if (targetResult.error) {
-          setError(targetResult.error.message);
-          setLoading(false);
-          return;
+          fail(targetResult.error.message);
+      return;
         }
         target = targetResult.data as NutritionTarget | null;
       }
@@ -151,9 +158,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       const rv = await db.from("health_recipe_versions").select("*").in("recipe_id", recipeIds)
         .order("version_number", { ascending: false });
       if (rv.error) {
-        setError(rv.error.message);
-        setLoading(false);
-        return;
+        fail(rv.error.message);
+      return;
       }
       recipeVersions = (rv.data ?? []) as RecipeVersion[];
     }
@@ -162,27 +168,30 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     let meals: MealLog[] = [];
     let items: MealItem[] = [];
     if (day) {
-      const mealResult = await db.from("health_meal_logs").select("*")
+      const mealResult = await db.from("health_meal_logs").select("*", { count: "exact" })
         .eq("food_log_day_id", day.id).eq("athlete_id", athleteId).order("occurred_at", { ascending: true });
       if (mealResult.error) {
-        setError(mealResult.error.message);
-        setLoading(false);
-        return;
+        fail(mealResult.error.message);
+      return;
       }
       meals = (mealResult.data ?? []) as MealLog[];
+      if(mealResult.count!==meals.length){fail("Consulta de refeições incompleta. Atualize antes de registrar.");return;}
       if (meals.length) {
-        const itemResult = await db.from("health_meal_items").select("*").in("meal_log_id", meals.map((meal) => meal.id))
+        const itemResult = await db.from("health_meal_items").select("*", { count: "exact" }).in("meal_log_id", meals.map((meal) => meal.id))
           .eq("athlete_id", athleteId).order("created_at", { ascending: true });
         if (itemResult.error) {
-          setError(itemResult.error.message);
-          setLoading(false);
-          return;
+          fail(itemResult.error.message);
+      return;
         }
         items = (itemResult.data ?? []) as MealItem[];
+        if(itemResult.count!==items.length){fail("Consulta de itens incompleta. Atualize antes de registrar.");return;}
       }
     }
 
+    if(request!==generation.current){if(strict)throw new Error("Consulta substituída. Confira o diário atualizado.");return;}
+    if(today!==todayIso()){fail("A data mudou durante a consulta. Atualize o diário.");return;}
     setState({
+      readDate: today,
       plan,
       version,
       target,
@@ -194,9 +203,12 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       items,
     });
     setLoading(false);
+    } catch(cause) {
+      fail(cause instanceof Error?cause.message:"Falha ao consultar alimentação.");
+    }
   }, [athleteId]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => { void reload(); return ()=>{generation.current++;}; }, [reload]);
 
   const run = useCallback(async (operation: () => PromiseLike<LooseOperationResult>) => {
     setSaving(true);
@@ -204,7 +216,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     try {
       const result = await operation();
       if (result?.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
       return result?.data;
     } finally {
       setSaving(false);
@@ -272,20 +284,26 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     await run(() => db.rpc("health_m5_publish_recipe_version", { p_recipe_version_id: versionId }));
   }, [run]);
 
+  const assertDiaryDate = useCallback(() => {
+    if(!athleteId || state.readDate!==todayIso() || (state.day && (state.day.athlete_id!==athleteId || state.day.log_date!==state.readDate))) throw new Error("Atualize o diário da data atual antes de continuar.");
+    return state.readDate;
+  }, [athleteId,state.readDate,state.day]);
+
   const ensureToday = useCallback(async () => {
+    const date=assertDiaryDate();
     if (!athleteId) throw new Error("Atleta não disponível.");
     if (state.day) return state.day.id;
     const result = await db.from("health_food_log_days").insert({
       athlete_id: athleteId,
-      log_date: todayIso(),
+      log_date: date,
       completeness_status: "partial",
       registration_level: "intermediate",
       confidence: "moderate",
     }).select("id").single();
     if (result.error) throw new Error(result.error.message);
-    await reload();
+    await reload(true);
     return result.data.id as string;
-  }, [athleteId, reload, state.day]);
+  }, [athleteId, reload, state.day, assertDiaryDate]);
 
   const createMeal = useCallback(async (mealType: string) => {
     if (!athleteId) throw new Error("Atleta não disponível.");
@@ -293,6 +311,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     setError(null);
     try {
       const dayId = await ensureToday();
+      assertDiaryDate();
       const result = await db.from("health_meal_logs").insert({
         food_log_day_id: dayId,
         athlete_id: athleteId,
@@ -301,13 +320,16 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
         data_source: "USER_REPORTED",
       });
       if (result.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
-  }, [athleteId, ensureToday, reload]);
+  }, [athleteId, ensureToday, reload, assertDiaryDate]);
 
-  const logFoodItem = useCallback(async (mealId: string, food: Food, quantity: number, unitCode: string) => {
+  const logFoodItem = useCallback(async (mealId: string, food: Food, quantity: number, unitCode: string, origin: FoodLogOrigin = "declared_quantity") => {
+    assertDiaryDate();
+    if(!state.meals.some(m=>m.id===mealId&&m.athlete_id===athleteId&&m.food_log_day_id===state.day?.id)||state.day?.completeness_status==="complete")throw new Error("Refeição indisponível para registro.");
+    if(!["g","ml","unit"].includes(unitCode)||unitCode!==food.basis_unit||!Number.isFinite(quantity)||quantity<=0||!["declared_quantity","weighed","visual_estimate"].includes(origin)||(origin==="weighed"&&unitCode!=="g"))throw new Error("Confira quantidade, unidade e origem.");
     await run(() => db.rpc("health_m5_log_meal_item", {
       p_meal_log_id: mealId,
       p_client_event_id: clientEventId(),
@@ -316,37 +338,41 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       p_unit_code: unitCode,
       p_food_id: food.id,
       p_recipe_version_id: null,
-      p_estimation_method: "weighed",
-      p_data_source: "MEASURED",
-      p_confidence: "high",
+      p_estimation_method: origin,
+      p_data_source: origin==="weighed"?"MEASURED":"USER_REPORTED",
+      p_confidence: origin==="weighed"?"high":origin==="visual_estimate"?"low":"moderate",
       p_household_measure_text: null,
-      p_preparation_state: "prepared",
+      p_preparation_state: "unknown",
     }));
-  }, [run]);
+  }, [run, assertDiaryDate, state.meals, state.day, athleteId]);
 
   const voidItem = useCallback(async (itemId: string) => {
+    assertDiaryDate();
+    if(state.day?.completeness_status==="complete"||!state.items.some(i=>i.id===itemId&&i.athlete_id===athleteId&&i.status==="active"))throw new Error("Item indisponível para correção.");
     await run(() => db.rpc("health_m5_void_meal_item", {
       p_item_id: itemId,
       p_client_event_id: clientEventId(),
       p_reason: "Removido pelo usuário",
     }));
-  }, [run]);
+  }, [run, assertDiaryDate, state.day, state.items, athleteId]);
 
   const completeToday = useCallback(async () => {
     const dayId = await ensureToday();
+    assertDiaryDate();
     await run(() => db.rpc("health_m5_complete_food_log_day", {
       p_day_id: dayId,
       p_client_event_id: clientEventId(),
     }));
-  }, [ensureToday, run]);
+  }, [ensureToday, run, assertDiaryDate]);
 
   const reopenToday = useCallback(async () => {
+    assertDiaryDate();
     if (!state.day) throw new Error("Diário de hoje não disponível.");
     await run(() => db.rpc("health_m5_reopen_food_log_day", {
       p_day_id: state.day!.id,
       p_client_event_id: clientEventId(),
     }));
-  }, [run, state.day]);
+  }, [run, state.day, assertDiaryDate]);
 
   const activeItems = useMemo(() => state.items.filter((item) => item.status === "active"), [state.items]);
 
@@ -378,4 +404,45 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     completeToday,
     reopenToday,
   };
+}
+
+export type RecipeIngredientReferenceSX02={id:string;recipe_version_id:string;athlete_id:string|null;food_id:string;quantity:number;unit_code:string;sequence_order:number};
+export type RecipeSnapshotSX02={recipe_version_id:string;athlete_id:string|null;basis_amount:number|null;basis_unit:string|null;energy_kcal:number|null;protein_g:number|null;carbohydrate_g:number|null;fat_g:number|null;fiber_g:number|null;calculation_method:string;confidence:string;calculated_at:string;algorithm_version:string|null};
+export type RecipeFrozenIngredientSX02={id:string;recipe_version_id:string;athlete_id:string|null;food_name_snapshot:string;quantity:number;unit_code:string;data_quality_snapshot:string|null;source_version_snapshot:string|null};
+export type RecipeReferenceSX02={status:"idle"|"loading"|"ready"|"unavailable";ingredients:RecipeIngredientReferenceSX02[];frozenIngredients:RecipeFrozenIngredientSX02[];snapshot:RecipeSnapshotSX02|null};
+const emptyRecipeReference:RecipeReferenceSX02={status:"idle",ingredients:[],frozenIngredients:[],snapshot:null};
+/** Existing RLS-protected tables, read only, by exact selected version and owner. */
+export function useHealthRecipeReferenceSX02(version:RecipeVersion|null,recipe:Recipe|null,athleteId:string,revision:number){
+ const id=version?.id;
+ const owner=recipe?.owner_scope==="global"?null:athleteId;
+ const valid=Boolean(id&&recipe&&version?.recipe_id===recipe.id&&version?.athlete_id===owner&&recipe.athlete_id===owner);
+ const published=version?.status==="published";
+ const key=JSON.stringify([athleteId,id,owner,published,revision,valid]);
+ const [read,setRead]=useState<{key:string;value:RecipeReferenceSX02}>({key:"",value:emptyRecipeReference});
+ useEffect(()=>{
+  if(!valid||!id)return;
+  let active=true;
+  const load=async()=>{
+   try{
+    if(published){
+     const [snapshot,ingredients]=await Promise.all([
+      db.from("health_recipe_nutrition_snapshots").select("*").eq("recipe_version_id",id).maybeSingle(),
+      db.from("health_recipe_ingredient_snapshots").select("*",{count:"exact"}).eq("recipe_version_id",id).order("id"),
+     ]);
+     const rows=(ingredients.data??[]) as RecipeFrozenIngredientSX02[];
+     const snap=snapshot.data as RecipeSnapshotSX02|null;
+     if(snapshot.error||ingredients.error||ingredients.count!==rows.length||!snap||snap.recipe_version_id!==id||snap.athlete_id!==owner||rows.some(row=>row.recipe_version_id!==id||row.athlete_id!==owner))throw Error("Referência não confirmada.");
+     if(active)setRead({key,value:{status:"ready",ingredients:[],frozenIngredients:rows,snapshot:snap}});
+    }else{
+     const result=await db.from("health_recipe_ingredients").select("*",{count:"exact"}).eq("recipe_version_id",id).order("sequence_order");
+     const rows=(result.data??[]) as RecipeIngredientReferenceSX02[];
+     if(result.error||result.count!==rows.length||rows.some(row=>row.recipe_version_id!==id||row.athlete_id!==owner))throw Error("Ingredientes não confirmados.");
+     if(active)setRead({key,value:{status:"ready",ingredients:rows,frozenIngredients:[],snapshot:null}});
+    }
+   }catch{if(active)setRead({key,value:{...emptyRecipeReference,status:"unavailable"}});}
+  };
+  void load();
+  return ()=>{active=false;};
+ },[key,id,valid,owner,published]);
+ return !valid?emptyRecipeReference:read.key===key?read.value:{...emptyRecipeReference,status:"loading"} as RecipeReferenceSX02;
 }

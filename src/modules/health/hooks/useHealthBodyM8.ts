@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -141,7 +141,7 @@ function bodyFileExtension(type: string) {
   return "jpg";
 }
 
-export function useHealthBodyM8(athleteId: string | null | undefined) {
+export function useHealthBodyM8(athleteId: string | null | undefined, includePhotoUrls = false) {
   const [assessments, setAssessments] = useState<BodyAssessment[]>([]);
   const [states, setStates] = useState<BodyRollingState[]>([]);
   const [photoSets, setPhotoSets] = useState<BodyPhotoSet[]>([]);
@@ -149,7 +149,11 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const generation=useRef(0);
+  const load = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setError(message);setLoading(false);}if(strict)throw new Error(message);};
+    try {
     if (!athleteId) {
       setAssessments([]);
       setStates([]);
@@ -185,11 +189,11 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
 
     const firstError = assessmentsResult.error ?? statesResult.error ?? photoSetsResult.error;
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
+    if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
     const rawAssessments = (assessmentsResult.data ?? []) as unknown as Omit<BodyAssessment, "measurements">[];
     const assessmentIds = rawAssessments.map((item) => item.id);
 
@@ -202,8 +206,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
         .order("created_at", { ascending: true });
 
       if (measurementResult.error) {
-        setError(measurementResult.error.message);
-        setLoading(false);
+        fail(measurementResult.error.message);
         return;
       }
 
@@ -230,21 +233,22 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
         .order("capture_order", { ascending: true });
 
       if (photosResult.error) {
-        setError(photosResult.error.message);
-        setLoading(false);
+        fail(photosResult.error.message);
         return;
       }
 
+      if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
       const rawPhotos = (photosResult.data ?? []) as unknown as Omit<BodyPhoto, "signed_url">[];
       photos = await Promise.all(
         rawPhotos.map(async (photo) => {
+          if(!includePhotoUrls || photo.athlete_id!==athleteId || !photo.object_path.startsWith(athleteId+"/progress/"))return {...photo,signed_url:null};
           const { data, error: signedError } = await supabase.storage
             .from("health-private")
             .createSignedUrl(photo.object_path, 3600);
 
           return {
             ...photo,
-            signed_url: signedError ? null : data.signedUrl,
+            signed_url: signedError ? null : data?.signedUrl??null,
           };
         }),
       );
@@ -257,6 +261,8 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
       photosBySet.set(photo.photo_set_id, bucket);
     }
 
+    if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
+    if(((statesResult.data??[]) as unknown as BodyRollingState[]).some(x=>x.athlete_id!==athleteId)||rawAssessments.some(x=>x.athlete_id!==athleteId)||measurements.some(x=>x.athlete_id!==athleteId)||rawPhotoSets.some(x=>x.athlete_id!==athleteId)||photos.some(x=>x.athlete_id!==athleteId)){fail("Escopo da consulta não confirmado.");return;}
     setAssessments(
       rawAssessments.map((assessment) => ({
         ...assessment,
@@ -271,7 +277,8 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
       })),
     );
     setLoading(false);
-  }, [athleteId]);
+    } catch(cause){fail(cause instanceof Error?cause.message:"Consulta corporal indisponível.");}
+  }, [athleteId,includePhotoUrls]);
 
   const refreshStates = useCallback(async () => {
     if (!athleteId) return;
@@ -294,6 +301,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
       conditions?: Record<string, unknown> | null;
       notes?: string | null;
       supersedesAssessmentId?: string | null;
+      dataSource?: "USER_REPORTED" | "MEASURED" | "PROFESSIONAL_RECORDED";
     }) => {
       if (!athleteId) throw new Error("Atleta não disponível.");
       if (!input.measurements.length) throw new Error("Informe ao menos uma medida corporal.");
@@ -309,14 +317,14 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
           p_measurements: input.measurements,
           p_conditions: input.conditions ?? null,
           p_notes: input.notes ?? null,
-          p_data_source: "MEASURED",
-          p_confidence: "high",
+          p_data_source: input.dataSource ?? (input.measurements.some(m=>m.method==="estimated"||m.method==="other")?"USER_REPORTED":"MEASURED"),
+          p_confidence: input.measurements.some(m=>m.confidence==="low")?"low":input.measurements.some(m=>m.confidence==="moderate")?"moderate":"high",
           p_supersedes_assessment_id: input.supersedesAssessmentId ?? null,
         });
 
         if (rpcError) throw new Error(rpcError.message);
         await refreshStates();
-        await load();
+        await load(true);
       } finally {
         setSaving(false);
       }
@@ -335,7 +343,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
         });
         if (rpcError) throw new Error(rpcError.message);
         await refreshStates();
-        await load();
+        await load(true);
       } finally {
         setSaving(false);
       }
@@ -357,6 +365,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
 
       const photoSetId = crypto.randomUUID();
       const uploadedPaths: string[] = [];
+      let registrationAttempted=false;
 
       try {
         const photoRows: Array<{
@@ -395,6 +404,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
           });
         }
 
+        registrationAttempted=true;
         const { error: registerError } = await db.rpc("health_m8_register_body_photo_set", {
           p_athlete_id: athleteId,
           p_photo_set_id: photoSetId,
@@ -407,14 +417,15 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
         });
 
         if (registerError) {
-          await supabase.storage.from("health-private").remove(uploadedPaths);
           throw new Error(registerError.message);
         }
 
         await refreshStates();
-        await load();
+        await load(true);
       } catch (cause) {
-        if (uploadedPaths.length) {
+        // Once registry was attempted, an ambiguous response may conceal a committed registry.
+        // Never delete potentially registered bytes after a failed readback; orphan reconciliation is separate.
+        if (!registrationAttempted && uploadedPaths.length) {
           await supabase.storage.from("health-private").remove(uploadedPaths);
         }
         throw cause;
@@ -427,6 +438,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
 
   useEffect(() => {
     void load();
+    return ()=>{generation.current++;};
   }, [load]);
 
   return {
@@ -439,7 +451,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined) {
     reload: load,
     refreshStates: async () => {
       await refreshStates();
-      await load();
+      await load(true);
     },
     recordAssessment,
     voidAssessment,
