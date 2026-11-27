@@ -41,6 +41,17 @@ function shortDate(value: string) {
   }).format(parsed);
 }
 
+// Calendar gaps are nulls, never invented zeroes. Keep observed rows unchanged.
+function calendarSeries<T extends {date:string}>(rows:T[],days:number):Array<T|{date:string}> {
+  const byDate=new Map(rows.map(row=>[row.date,row]));
+  const now=new Date();
+  return Array.from({length:days},(_,index)=>{
+    const date=new Date(now.getFullYear(),now.getMonth(),now.getDate()-days+1+index,12);
+    const key=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    return byDate.get(key)??{date:key};
+  });
+}
+
 function numberLabel(value: number | null | undefined, digits = 1) {
   if (value == null) return "—";
   return new Intl.NumberFormat("pt-BR", {
@@ -123,7 +134,7 @@ function DomainEmpty({
     <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed p-5 text-center">
       <div className="max-w-sm">
         <p className="text-sm font-medium">
-          {error ? "Não foi possível carregar este histórico." : message}
+          {error ? (error.includes("incompleta") ? "Consulta incompleta. Histórico não confirmado." : "Não foi possível carregar este histórico.") : message}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {error
@@ -151,10 +162,16 @@ function PageSkeleton() {
 
 export function HealthAnalyticsPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
+  if (athleteLoading) return <PageSkeleton />;
+  if (!athlete) return <p className="text-sm text-muted-foreground">Selecione um perfil de saúde.</p>;
+  return <HealthAnalyticsPageScoped key={athlete.id} athleteId={athlete.id} />;
+}
+function HealthAnalyticsPageScoped({athleteId}:{athleteId:string}) {
   const [windowDays, setWindowDays] = useState<AnalyticsWindowDays>(90);
-  const analytics = useHealthAnalyticsF17(athlete?.id, windowDays);
+  const [domain,setDomain]=useState<"all"|"training"|"nutrition"|"body"|"recovery">("all");
+  const analytics = useHealthAnalyticsF17(athleteId, windowDays);
 
-  if (athleteLoading || analytics.loading) return <PageSkeleton />;
+  if (analytics.loading) return <PageSkeleton />;
 
   const latestTraining =
     analytics.training.data[analytics.training.data.length - 1] ?? null;
@@ -210,35 +227,40 @@ export function HealthAnalyticsPage() {
         </CardContent>
       </Card>
 
+      <p className="text-xs text-muted-foreground">Cobertura: dias com registros observados dentro da janela, não uma nota de saúde. Zero significa consulta sem registros; falha não é zero.</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Dias com treino</p>
           <p className="mt-1 text-lg font-semibold">
-            {analytics.coverage.training}
+            {analytics.coverage.training == null ? "Não confirmado" : `${analytics.coverage.training} / ${windowDays}`}
           </p>
         </div>
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Dias alimentares</p>
           <p className="mt-1 text-lg font-semibold">
-            {analytics.coverage.nutrition}
+            {analytics.coverage.nutrition == null ? "Não confirmado" : `${analytics.coverage.nutrition} / ${windowDays}`}
           </p>
         </div>
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Dias corporais</p>
           <p className="mt-1 text-lg font-semibold">
-            {analytics.coverage.body}
+            {analytics.coverage.body == null ? "Não confirmado" : `${analytics.coverage.body} / ${windowDays}`}
           </p>
         </div>
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Dias recuperação</p>
           <p className="mt-1 text-lg font-semibold">
-            {analytics.coverage.recovery}
+            {analytics.coverage.recovery == null ? "Não confirmado" : `${analytics.coverage.recovery} / ${windowDays}`}
           </p>
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2" aria-label="Filtrar domínio">
+        {([["all","Todos"],["training","Treino"],["nutrition","Alimentação"],["body","Corpo"],["recovery","Recuperação"]] as const).map(([id,label])=><Button key={id} variant={domain===id?"default":"outline"} className="min-h-11" aria-pressed={domain===id} onClick={()=>setDomain(id)}>{label}</Button>)}
+      </div>
+      <p className="text-xs text-muted-foreground">Dias sem observação interrompem as linhas. Registros parciais não representam consumo completo; séries não demonstram causalidade.</p>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card hidden={domain!=="all" && domain!=="training"}>
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -267,7 +289,7 @@ export function HealthAnalyticsPage() {
                   className="h-[300px] w-full aspect-auto"
                 >
                   <LineChart
-                    data={analytics.training.data}
+                    data={calendarSeries(analytics.training.data,windowDays)}
                     margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} />
@@ -303,38 +325,38 @@ export function HealthAnalyticsPage() {
                     <ChartLegend content={<ChartLegendContent />} />
                     <Line
                       yAxisId="counts"
-                      type="monotone"
+                      type="linear"
                       dataKey="sessionCount"
                       stroke="var(--color-sessionCount)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="counts"
-                      type="monotone"
+                      type="linear"
                       dataKey="setCount"
                       stroke="var(--color-setCount)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="counts"
-                      type="monotone"
+                      type="linear"
                       dataKey="reps"
                       stroke="var(--color-reps)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="volume"
-                      type="monotone"
+                      type="linear"
                       dataKey="kgVolume"
                       stroke="var(--color-kgVolume)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                   </LineChart>
@@ -348,7 +370,7 @@ export function HealthAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card hidden={domain!=="all" && domain!=="nutrition"}>
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -376,7 +398,7 @@ export function HealthAnalyticsPage() {
                   className="h-[300px] w-full aspect-auto"
                 >
                   <LineChart
-                    data={analytics.nutrition.data}
+                    data={calendarSeries(analytics.nutrition.data,windowDays)}
                     margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} />
@@ -412,20 +434,20 @@ export function HealthAnalyticsPage() {
                     <ChartLegend content={<ChartLegendContent />} />
                     <Line
                       yAxisId="energy"
-                      type="monotone"
+                      type="linear"
                       dataKey="energyKcal"
                       stroke="var(--color-energyKcal)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="protein"
-                      type="monotone"
+                      type="linear"
                       dataKey="proteinG"
                       stroke="var(--color-proteinG)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                   </LineChart>
@@ -461,7 +483,7 @@ export function HealthAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card hidden={domain!=="all" && domain!=="body"}>
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -491,7 +513,7 @@ export function HealthAnalyticsPage() {
                   className="h-[300px] w-full aspect-auto"
                 >
                   <LineChart
-                    data={analytics.body.data}
+                    data={calendarSeries(analytics.body.data,windowDays)}
                     margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} />
@@ -529,29 +551,29 @@ export function HealthAnalyticsPage() {
                     <ChartLegend content={<ChartLegendContent />} />
                     <Line
                       yAxisId="measure"
-                      type="monotone"
+                      type="linear"
                       dataKey="weightKg"
                       stroke="var(--color-weightKg)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="measure"
-                      type="monotone"
+                      type="linear"
                       dataKey="waistCm"
                       stroke="var(--color-waistCm)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="fat"
-                      type="monotone"
+                      type="linear"
                       dataKey="bodyFatPct"
                       stroke="var(--color-bodyFatPct)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                   </LineChart>
@@ -565,7 +587,7 @@ export function HealthAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card hidden={domain!=="all" && domain!=="recovery"}>
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -596,7 +618,7 @@ export function HealthAnalyticsPage() {
                   className="h-[300px] w-full aspect-auto"
                 >
                   <LineChart
-                    data={analytics.recovery.data}
+                    data={calendarSeries(analytics.recovery.data,windowDays)}
                     margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} />
@@ -634,38 +656,38 @@ export function HealthAnalyticsPage() {
                     <ChartLegend content={<ChartLegendContent />} />
                     <Line
                       yAxisId="sleep"
-                      type="monotone"
+                      type="linear"
                       dataKey="sleepMinutes"
                       stroke="var(--color-sleepMinutes)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="ordinal"
-                      type="monotone"
+                      type="linear"
                       dataKey="physicalRecovery"
                       stroke="var(--color-physicalRecovery)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="ordinal"
-                      type="monotone"
+                      type="linear"
                       dataKey="trainingReadiness"
                       stroke="var(--color-trainingReadiness)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                     <Line
                       yAxisId="ordinal"
-                      type="monotone"
+                      type="linear"
                       dataKey="generalFatigue"
                       stroke="var(--color-generalFatigue)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{r:2}}
                       connectNulls={false}
                     />
                   </LineChart>

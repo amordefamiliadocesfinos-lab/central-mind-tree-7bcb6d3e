@@ -5,6 +5,7 @@ import {
   Download,
   FileText,
   Printer,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,7 @@ function dateLabel(value: string | null | undefined) {
 }
 
 function valueLabel(value: unknown, suffix = "", digits = 1) {
-  if (value == null) return "Não observado";
-  if (typeof value !== "number") return String(value);
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Não observado";
   return (
     new Intl.NumberFormat("pt-BR", {
       maximumFractionDigits: digits,
@@ -45,7 +45,7 @@ function valueLabel(value: unknown, suffix = "", digits = 1) {
 }
 
 function signedLabel(value: unknown, suffix = "", digits = 1) {
-  if (value == null || typeof value !== "number") return "Não comparável";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Não comparável";
   return (
     new Intl.NumberFormat("pt-BR", {
       maximumFractionDigits: digits,
@@ -65,6 +65,7 @@ type MetricDefinition = {
   label: string;
   key: string;
   suffix?: string;
+  deltaSuffix?: string;
   digits?: number;
 };
 
@@ -96,6 +97,7 @@ function ReportDomain({
           </p>
         ) : (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Cobertura atual: {String(block?.current?.coverage_status ?? "não informada")} · anterior: {String(block?.prior?.coverage_status ?? "não informada")}</p>
             <div className="hidden grid-cols-[1.4fr_repeat(3,1fr)] gap-2 text-xs font-medium text-muted-foreground sm:grid">
               <span>Métrica</span>
               <span>Atual</span>
@@ -139,7 +141,7 @@ function ReportDomain({
                   <p className="text-sm">
                     {signedLabel(
                       metric(block?.delta, item.key),
-                      item.suffix,
+                      item.deltaSuffix ?? item.suffix,
                       item.digits,
                     )}
                   </p>
@@ -168,10 +170,15 @@ export function HealthReportsPage() {
   const review = useHealthLongitudinalReviewF13(athlete?.id);
   const replanning = useHealthReplanningF14(athlete?.id);
 
+  const reviewConfirmed = !!athlete && review.backendAvailable && !review.error;
+  const replanningConfirmed = replanning.backendAvailable && !replanning.error;
+  const reportReady = reviewConfirmed && replanningConfirmed && !!review.run;
   const caseForReport =
+    replanningConfirmed &&
     replanning.currentCase &&
     review.run &&
-    replanning.currentCase.sourceReviewRunId === review.run.id
+    replanning.currentCase.sourceReviewRunId === review.run.id &&
+    replanning.currentCase.sourceReviewOutcomeId === review.outcome?.id
       ? replanning.currentCase
       : null;
 
@@ -208,7 +215,9 @@ export function HealthReportsPage() {
     return <PageSkeleton />;
   }
 
+  if (!athlete) return <p className="text-sm text-muted-foreground">Selecione um perfil de saúde.</p>;
   const exportJson = () => {
+    if (!reportReady) return;
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
       type: "application/json;charset=utf-8",
     });
@@ -238,12 +247,13 @@ export function HealthReportsPage() {
             preservados.
           </p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <Button variant="outline" className="min-h-11" onClick={() => void Promise.all([review.reload(), replanning.reload()])}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button>
           <Button
             variant="outline"
             className="min-h-11"
-            disabled={!review.run}
-            onClick={() => window.print()}
+            disabled={!reportReady}
+            onClick={() => { if (reportReady) window.print(); }}
           >
             <Printer className="mr-2 h-4 w-4" />
             Imprimir / PDF
@@ -251,7 +261,7 @@ export function HealthReportsPage() {
           <Button
             variant="outline"
             className="min-h-11"
-            disabled={!review.run}
+            disabled={!reportReady}
             onClick={exportJson}
           >
             <Download className="mr-2 h-4 w-4" />
@@ -279,7 +289,9 @@ export function HealthReportsPage() {
         </Card>
       ) : null}
 
-      {!review.run ? (
+      {!reviewConfirmed ? (
+        <Card><CardContent className="p-4 text-sm" role="alert">Consulta da revisão não confirmada. Atualize antes de interpretar ou exportar.</CardContent></Card>
+      ) : !review.run ? (
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
@@ -292,6 +304,13 @@ export function HealthReportsPage() {
         </Card>
       ) : (
         <>
+          <Card className="break-inside-avoid"><CardHeader className="pb-3"><CardTitle className="text-base">Síntese do acompanhamento</CardTitle></CardHeader><CardContent className="space-y-2 text-sm">
+            <p>{review.run.availableDomains.length} domínios comparáveis · {review.run.unavailableDomains.length} indisponíveis · janela de {review.run.windowDays} dias.</p>
+            <p>Resultado humano: {review.outcome ? longitudinalOutcomeLabel(review.outcome.outcomeCode) : "Ainda não registrado"}.</p>
+            <p className="text-xs text-muted-foreground">Fonte: snapshot F13 · {review.run.algorithmVersion} · {review.run.historical ? "Histórico" : "Atual"}. Sem inferência causal.</p>
+            {!replanningConfirmed && <p role="alert" className="text-sm">Consulta F14 não confirmada. Impressão e exportação bloqueadas até atualização.</p>}
+            <Button asChild variant="outline" className="min-h-11 print:hidden"><Link to="/saude/revisao">Abrir revisão de origem</Link></Button>
+          </CardContent></Card>
           <Card className="break-inside-avoid">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -426,6 +445,7 @@ export function HealthReportsPage() {
                 label: "Gordura corporal",
                 key: "body_fat_latest_pct",
                 suffix: " %",
+                deltaSuffix: " p.p.",
                 digits: 1,
               },
             ]}
@@ -493,13 +513,13 @@ export function HealthReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {!replanning.backendAvailable ? (
+              {!replanningConfirmed ? (
                 <p className="text-sm text-muted-foreground">
-                  F14 ainda não está operacional neste ambiente.
+                  Consulta F14 não confirmada; não é possível afirmar ausência de caso.
                 </p>
               ) : !caseForReport ? (
                 <p className="text-sm text-muted-foreground">
-                  Não há caso F14 vinculado a esta revisão.
+                  Não há caso F14 vinculado ao resultado humano atual desta revisão.
                 </p>
               ) : (
                 <>

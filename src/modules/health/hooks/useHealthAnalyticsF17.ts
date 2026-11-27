@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -66,6 +66,12 @@ type AnalyticsState = {
   recovery: AnalyticsDomain<RecoveryAnalyticsPoint>;
 };
 
+function readError(result:{data:unknown[]|null;error:{message:string}|null;count?:number|null}){
+  if(result.error)return result.error.message;
+  if(result.count!==undefined && result.count!==(result.data?.length??0))return "Consulta incompleta: limite de registros atingido.";
+  return null;
+}
+
 const emptyState: AnalyticsState = {
   training: { data: [], error: null },
   nutrition: { data: [], error: null },
@@ -120,19 +126,23 @@ export function useHealthAnalyticsF17(
   athleteId: string | null | undefined,
   windowDays: AnalyticsWindowDays,
 ) {
-  const [state, setState] = useState<AnalyticsState>(emptyState);
-  const [loading, setLoading] = useState(Boolean(athleteId));
+  const scope=athleteId?`${athleteId}:${windowDays}`:null;
+  const [snapshot,setSnapshot]=useState({scope:null as string|null,state:emptyState,loading:false});
+  const request=useRef(0);
+  const visible=snapshot.scope===scope?snapshot:{state:emptyState,loading:Boolean(scope)};
+  const {state,loading}=visible;
 
   const reload = useCallback(async () => {
-    if (!athleteId) {
-      setState(emptyState);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+    const token=++request.current;
+    const finish=(state:AnalyticsState)=>{if(token===request.current)setSnapshot({scope,state,loading:false});};
+    if(!athleteId){finish(emptyState);return;}
+    setSnapshot({scope,state:emptyState,loading:true});
+    try {
     const fromDate = startDateIso(windowDays);
     const fromTimestamp = startTimestamp(windowDays);
+    const now=new Date();
+    const toDate=localIsoDate(now);
+    const untilTimestamp=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).toISOString();
 
     const [
       sessionsResult,
@@ -143,46 +153,51 @@ export function useHealthAnalyticsF17(
     ] = await Promise.all([
       db
         .from("health_workout_sessions")
-        .select("id,started_at,ended_at,status")
+        .select("id,started_at,ended_at,status",{count:"exact"})
         .eq("athlete_id", athleteId)
         .eq("record_status", "active")
         .eq("status", "completed")
         .gte("started_at", fromTimestamp)
+        .lt("started_at", untilTimestamp)
         .order("started_at", { ascending: true })
         .limit(5000),
       db
         .from("health_food_log_days")
-        .select("id,log_date,completeness_status")
+        .select("id,log_date,completeness_status",{count:"exact"})
         .eq("athlete_id", athleteId)
         .gte("log_date", fromDate)
+        .lte("log_date", toDate)
         .order("log_date", { ascending: true })
         .limit(1000),
       db
         .from("health_body_assessments")
-        .select("id,observed_on,observed_at,status")
+        .select("id,observed_on,observed_at,status",{count:"exact"})
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("observed_on", fromDate)
+        .lte("observed_on", toDate)
         .order("observed_at", { ascending: true })
         .limit(1000),
       db
         .from("health_sleep_periods")
         .select(
-          "id,sleep_date,declared_sleep_minutes,calculated_sleep_minutes,status",
+          "id,sleep_date,declared_sleep_minutes,calculated_sleep_minutes,status",{count:"exact"},
         )
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("sleep_date", fromDate)
+        .lte("sleep_date", toDate)
         .order("sleep_date", { ascending: true })
         .limit(1000),
       db
         .from("health_recovery_checkins")
         .select(
-          "id,observed_on,observed_at,metric_code,value_ordinal,status",
+          "id,observed_on,observed_at,metric_code,value_ordinal,status",{count:"exact"},
         )
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("observed_on", fromDate)
+        .lte("observed_on", toDate)
         .in("metric_code", [
           "physical_recovery",
           "training_readiness",
@@ -193,16 +208,16 @@ export function useHealthAnalyticsF17(
     ]);
 
     const next: AnalyticsState = {
-      training: { data: [], error: sessionsResult.error?.message ?? null },
-      nutrition: { data: [], error: foodDaysResult.error?.message ?? null },
-      body: { data: [], error: bodyAssessmentsResult.error?.message ?? null },
+      training: { data: [], error: readError(sessionsResult) },
+      nutrition: { data: [], error: readError(foodDaysResult) },
+      body: { data: [], error: readError(bodyAssessmentsResult) },
       recovery: {
         data: [],
-        error: sleepResult.error?.message ?? recoveryResult.error?.message ?? null,
+        error: readError(sleepResult) ?? readError(recoveryResult),
       },
     };
 
-    if (!sessionsResult.error) {
+    if (!readError(sessionsResult)) {
       const sessions = (sessionsResult.data ?? []) as unknown as Array<{
         id: string;
         started_at: string;
@@ -214,7 +229,7 @@ export function useHealthAnalyticsF17(
       const setsResult = sessionIds.length
         ? await db
             .from("health_workout_sets")
-            .select("session_id,status,load_value,load_unit,reps,completed_at")
+            .select("session_id,status,load_value,load_unit,reps,completed_at",{count:"exact"})
             .eq("athlete_id", athleteId)
             .eq("status", "completed")
             .in("session_id", sessionIds)
@@ -222,8 +237,8 @@ export function useHealthAnalyticsF17(
             .limit(10000)
         : { data: [], error: null };
 
-      if (setsResult.error) {
-        next.training.error = setsResult.error.message;
+      if (readError(setsResult)) {
+        next.training.error = readError(setsResult);
       } else {
         const dayMap = new Map<
           string,
@@ -293,7 +308,7 @@ export function useHealthAnalyticsF17(
       }
     }
 
-    if (!foodDaysResult.error) {
+    if (!readError(foodDaysResult)) {
       const days = (foodDaysResult.data ?? []) as unknown as Array<{
         id: string;
         log_date: string;
@@ -304,14 +319,14 @@ export function useHealthAnalyticsF17(
       const mealResult = dayIds.length
         ? await db
             .from("health_meal_logs")
-            .select("id,food_log_day_id")
+            .select("id,food_log_day_id",{count:"exact"})
             .eq("athlete_id", athleteId)
             .in("food_log_day_id", dayIds)
             .limit(5000)
         : { data: [], error: null };
 
-      if (mealResult.error) {
-        next.nutrition.error = mealResult.error.message;
+      if (readError(mealResult)) {
+        next.nutrition.error = readError(mealResult);
       } else {
         const meals = (mealResult.data ?? []) as unknown as Array<{
           id: string;
@@ -326,17 +341,17 @@ export function useHealthAnalyticsF17(
           ? await db
               .from("health_meal_items")
               .select(
-                "meal_log_id,status,energy_kcal_snapshot,protein_g_snapshot,created_at",
+                "meal_log_id,status,energy_kcal_snapshot,protein_g_snapshot,created_at",{count:"exact"},
               )
               .eq("athlete_id", athleteId)
               .eq("status", "active")
-              .gte("created_at", fromTimestamp)
+              .in("meal_log_id", mealIds)
               .order("created_at", { ascending: true })
               .limit(10000)
           : { data: [], error: null };
 
-        if (itemsResult.error) {
-          next.nutrition.error = itemsResult.error.message;
+        if (readError(itemsResult)) {
+          next.nutrition.error = readError(itemsResult);
         } else {
           const totalsByDay = new Map<
             string,
@@ -401,7 +416,7 @@ export function useHealthAnalyticsF17(
       }
     }
 
-    if (!bodyAssessmentsResult.error) {
+    if (!readError(bodyAssessmentsResult)) {
       const assessments = (bodyAssessmentsResult.data ?? []) as unknown as Array<{
         id: string;
         observed_on: string;
@@ -412,7 +427,7 @@ export function useHealthAnalyticsF17(
       const measurementsResult = assessmentIds.length
         ? await db
             .from("health_body_measurements")
-            .select("assessment_id,metric_code,value,created_at")
+            .select("assessment_id,metric_code,value,created_at",{count:"exact"})
             .eq("athlete_id", athleteId)
             .in("assessment_id", assessmentIds)
             .in("metric_code", ["weight_kg", "waist_cm", "body_fat_pct"])
@@ -420,8 +435,8 @@ export function useHealthAnalyticsF17(
             .limit(5000)
         : { data: [], error: null };
 
-      if (measurementsResult.error) {
-        next.body.error = measurementsResult.error.message;
+      if (readError(measurementsResult)) {
+        next.body.error = readError(measurementsResult);
       } else {
         const assessmentDate = new Map(
           assessments.map((item) => [item.id, item.observed_on]),
@@ -465,7 +480,7 @@ export function useHealthAnalyticsF17(
       }
     }
 
-    if (!sleepResult.error && !recoveryResult.error) {
+    if (!readError(sleepResult) && !readError(recoveryResult)) {
       const recoveryMap = new Map<
         string,
         {
@@ -530,20 +545,24 @@ export function useHealthAnalyticsF17(
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    setState(next);
-    setLoading(false);
-  }, [athleteId, windowDays]);
+    finish(next);
+    } catch {
+      const error="Consulta não confirmada. Atualize para tentar novamente.";
+      finish({training:{data:[],error},nutrition:{data:[],error},body:{data:[],error},recovery:{data:[],error}});
+    }
+  }, [athleteId, windowDays,scope]);
 
   useEffect(() => {
     void reload();
+    return ()=>{request.current++;};
   }, [reload]);
 
   const coverage = useMemo(
     () => ({
-      training: state.training.data.length,
-      nutrition: state.nutrition.data.length,
-      body: state.body.data.length,
-      recovery: state.recovery.data.length,
+      training: state.training.error ? null : state.training.data.length,
+      nutrition: state.nutrition.error ? null : state.nutrition.data.length,
+      body: state.body.error ? null : state.body.data.length,
+      recovery: state.recovery.error ? null : state.recovery.data.length,
     }),
     [state],
   );
