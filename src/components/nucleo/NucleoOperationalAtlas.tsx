@@ -1,4 +1,4 @@
-import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
+import { humanWorkName, matchesHumanWork } from "@/lib/nucleo/humanLanguageV1";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { DevelopmentWorkstream, DevelopmentEvent, DevelopmentDependency } from "@/lib/nucleo/development.types";
@@ -172,8 +172,7 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
   }, [workstreams]);
   const modules = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
-    return catalog.filter(item => !term ||
-      [item.name, item.domain, item.id, item.specialist ?? ""].some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
+    return catalog.filter(item => matchesHumanWork(term,item.id,item.name,item.domain,item.specialist ?? ""));
   }, [catalog, search]);
   // Prioridades de CONSULTA: cartões ordenados por lacunas verificáveis M3.
   // Não representa prioridade comercial calculada, progresso ou homologação.
