@@ -1161,6 +1161,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         )}
                       </div>
 
+                      <p role="status" className="sr-only">{restReached?"Meta de descanso atingida.":""}</p>
                       <p className="font-mono text-5xl font-semibold tabular-nums">
                         {formatElapsed(activeElapsed)}
                       </p>
@@ -1297,7 +1298,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-3">
+                      <div className="mt-3 grid grid-cols-2 gap-1.5 min-[400px]:grid-cols-4 sm:gap-3">
                         <div className="min-w-0 space-y-1">
                           <Label className="text-xs">Carga</Label>
                           <Input
