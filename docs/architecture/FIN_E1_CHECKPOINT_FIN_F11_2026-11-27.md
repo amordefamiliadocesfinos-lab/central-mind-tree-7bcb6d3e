@@ -25,4 +25,7 @@ Gate funcional: abrir Financeiro autenticado, selecionar cada período sem filtr
 ## Pendências
 E1.1 PC-00054 natureza dos R$45 não comprovada; retificação transacional pendente. E1.3 outros writers. E1.4–6 25 registros fracionados, quatro resíduos, divergência Caixa Principal: diagnóstico, não correção. E1.7 persistência principal versus caixa requer decisão transversal. E1.8 emissão NF não deve conciliar; decisão transversal pendente. E1.9 e E1.10 contraprovas autenticadas. E1 não encerrada.
 Errata da baseline PC-00034: presença e quitação comprovadas; causa da ausência anterior na interface não comprovada. Não atribuir definitivamente ao filtro temporal.
-Nenhuma regularização histórica autorizada. Próximo gate: contraprova funcional FIN-F11 e ferramenta de integridade, preparar decisões transversais separadas. Preservar V2.1 e REG-FIN-01.
+Nenhuma regularização histórica autorizada. Próximo desenvolvimento: prova descartável de persistência E1.7/E1.1 e decisões transversais separadas. Preservar V2.1 e REG-FIN-01.
+
+## Diretriz do proprietário — 27/11/2026
+Contraprovas operacionais autenticadas acumuladas para rodada conjunta, não impeditivas do desenvolvimento. Testes automatizados, TypeScript e build continuam obrigatórios para integração de código. Não confundir merge com publicação ou homologação. Manter gates de autoridade, segurança e dados históricos.
