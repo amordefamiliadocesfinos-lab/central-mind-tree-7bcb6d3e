@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -110,7 +110,11 @@ export function useHealthTrainingHistoryF21(
   const [available, setAvailable] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const generation=useRef(0);
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setAvailable(false);setError(message);setLoading(false);}if(strict)throw Error(message);};
+    try {
     if (!athleteId) {
       setSessions([]);
       setModalities([]);
@@ -152,9 +156,7 @@ export function useHealthTrainingHistoryF21(
       workoutResult.error ?? activityResult.error ?? modalitiesResult.error;
 
     if (firstError) {
-      setAvailable(false);
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
@@ -223,9 +225,7 @@ export function useHealthTrainingHistoryF21(
       workoutIntervalsResult.error;
 
     if (childError) {
-      setAvailable(false);
-      setError(childError.message);
-      setLoading(false);
+      fail(childError.message);
       return;
     }
 
@@ -244,9 +244,7 @@ export function useHealthTrainingHistoryF21(
       : ({ data: [], error: null } as LooseOperationResult);
 
     if (exerciseCatalogResult.error) {
-      setAvailable(false);
-      setError(exerciseCatalogResult.error.message);
-      setLoading(false);
+      fail(exerciseCatalogResult.error.message);
       return;
     }
 
@@ -416,12 +414,14 @@ export function useHealthTrainingHistoryF21(
         }),
       ),
     );
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
     setAvailable(true);
     setLoading(false);
+    }catch(cause){fail(cause instanceof Error?cause.message:"Consulta indisponível.");}
   }, [athleteId]);
 
   useEffect(() => {
-    void reload();
+    void reload();return ()=>{generation.current++;};
   }, [reload]);
 
   const call = useCallback(
@@ -431,7 +431,7 @@ export function useHealthTrainingHistoryF21(
       try {
         const result = await operation();
         if (result?.error) throw new Error(result.error.message);
-        await reload();
+        await reload(true);
         return result?.data;
       } finally {
         setSaving(false);
