@@ -45,7 +45,11 @@ test('B1/B2 scoped read is separate from explicit canonical save', () => {
   const profile = readFileSync('src/components/crm/ContactProfileOverview.tsx', 'utf8');
   assert.match(panel, /\.eq\('conversation_id', requestedConversationId\)/);
   assert.match(panel, /\.eq\('sender', 'customer'\)/);
-  assert.match(panel, /\.limit\(200\)/);
+  assert.match(panel, /CRM_CONVERSATION_REVIEW_LIMIT = 1000/);
+  assert.match(panel, /CRM_CONVERSATION_PAGE_SIZE = 200/);
+  assert.match(panel, /\.range\(offset, offset \+ CRM_CONVERSATION_PAGE_SIZE - 1\)/);
+  assert.match(panel, /\.order\('id', \{ ascending: false \}\)/);
+  assert.match(panel, /setScanLimitReached\(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT\)/);
   assert.match(panel, /onClick=\{\(\) => void analyze\(\)\}/);
   assert.doesNotMatch(panel, /\.update\(|\.insert\(|\.upsert\(|functions\.invoke\(/);
   assert.match(panel, /onClick=\{\(\) => void confirmSelected\(\)\}/);
@@ -138,4 +142,16 @@ test('B4 phone and CEP formatting do not manufacture a conflict', () => {
   ], { phone: '47999999999', zip_code: '88220000' });
   assert.equal(result.find(p => p.field === 'phone')?.state, 'same');
   assert.equal(result.find(p => p.field === 'zip_code')?.state, 'same');
+});
+
+test('B5 pagination never permits an unscoped or unlimited history query', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  const start = panel.indexOf('for (let offset = 0;');
+  const stop = panel.indexOf('if (queryError) throw queryError;', start);
+  assert.ok(start >= 0 && stop > start);
+  const scope = panel.slice(start, stop);
+  assert.match(scope, /offset < CRM_CONVERSATION_REVIEW_LIMIT/);
+  assert.match(scope, /\.eq\('conversation_id', requestedConversationId\)/);
+  assert.match(scope, /\.eq\('sender', 'customer'\)/);
+  assert.match(panel, /Limite de 1\.000 atingido/);
 });
