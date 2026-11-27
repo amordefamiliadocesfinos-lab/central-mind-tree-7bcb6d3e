@@ -44,6 +44,8 @@ export function ConversationProfileSuggestions({
   const [saving, setSaving] = useState(false);
   const saveRef = useRef(false);
   const analysisRequestRef = useRef(0);
+  // Apenas RAM da aba atual; nenhuma cópia adicional em storage ou no servidor.
+  const analyzedHistoryRef = useRef<string | null>(null);
   useEffect(() => {
     onReviewChange?.(selectedFields.length > 0 || saving);
   }, [selectedFields, saving, onReviewChange]);
@@ -56,6 +58,7 @@ export function ConversationProfileSuggestions({
     setScannedCount(0);
     setScanLimitReached(false);
     setAnalyzedLatestMessageId(null);
+    analyzedHistoryRef.current = null;
     setError(null);
     return () => { analysisRequestRef.current += 1; };
   }, [contact.id, conversationId]);
@@ -68,6 +71,7 @@ export function ConversationProfileSuggestions({
     setScannedCount(0);
     setScanLimitReached(false);
     setAnalyzedLatestMessageId(null);
+    analyzedHistoryRef.current = null;
     setError(null);
     const requestedContactId = contact.id;
     const requestedConversationId = conversationId;
@@ -101,6 +105,7 @@ export function ConversationProfileSuggestions({
       }
       // Mudança de atendimento invalida a evidência (a instância também é keyed pelo contato).
       if (!isCurrentRequest()) return;
+      analyzedHistoryRef.current = JSON.stringify(collected);
       setScannedCount(collected.length);
       setAnalyzedLatestMessageId(collected[0]?.id ?? null);
       setScanLimitReached(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT);
@@ -113,7 +118,7 @@ export function ConversationProfileSuggestions({
   };
 
   const confirmSelected = async () => {
-    if (saveRef.current || loading || scanLimitReached || !analyzedLatestMessageId || !conversationId || !suggestions || !selectedFields.length || editing) return;
+    if (saveRef.current || loading || scanLimitReached || !analyzedHistoryRef.current || !analyzedLatestMessageId || !conversationId || !suggestions || !selectedFields.length || editing) return;
     const accepted = suggestions.filter(item => selectedFields.includes(item.field) && item.state === 'empty');
     if (!accepted.length || accepted.length !== selectedFields.length) return;
     const patch: Partial<Contact> = {};
@@ -143,11 +148,31 @@ export function ConversationProfileSuggestions({
       if (latestError || !latestMessage || latestMessage.id !== analyzedLatestMessageId) {
         throw new Error('Novas mensagens ou alterações no histórico exigem conferir novamente os dados da conversa.');
       }
+      // Contraprova de toda a janela examinada: edição, exclusão ou mudança de ordem
+      // em mensagem antiga também invalida a proposta, não só um novo último ID.
+      const currentHistory: CrmConversationProfileMessage[] = [];
+      for (let offset = 0; offset < CRM_CONVERSATION_REVIEW_LIMIT; offset += CRM_CONVERSATION_PAGE_SIZE) {
+        const { data: pageData, error: historyError } = await supabase.from('service_messages')
+          .select('id,sender,content,created_at')
+          .eq('conversation_id', conversationId)
+          .eq('sender', 'customer')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(offset, offset + CRM_CONVERSATION_PAGE_SIZE - 1);
+        if (historyError) throw historyError;
+        const page = (pageData ?? []) as CrmConversationProfileMessage[];
+        currentHistory.push(...page);
+        if (page.length < CRM_CONVERSATION_PAGE_SIZE) break;
+      }
+      if (currentHistory.length >= CRM_CONVERSATION_REVIEW_LIMIT || JSON.stringify(currentHistory) !== analyzedHistoryRef.current) {
+        throw new Error('O histórico mudou desde a análise ou está incompleto. Confira novamente antes de preencher.');
+      }
       // Escritor oficial: releitura, delta e comparação de versão antes de salvar.
       const saved = await saveContactProfile({ contactId: contact.id, baseline: contact, draft: patch });
       onSaved?.(saved.contact);
       setSelectedFields([]);
       setSuggestions(null);
+      analyzedHistoryRef.current = null;
       toast.success(`${saved.changedFields.length} campo(s) confirmado(s) na ficha.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Dados não confirmados; confira a ficha antes de tentar novamente.');
@@ -165,7 +190,7 @@ export function ConversationProfileSuggestions({
           <p className="text-[11px] text-muted-foreground">Consulta de evidências. Nenhum dado é salvo automaticamente.</p>
         </div>
         <Button type="button" size="sm" variant="outline"
-          disabled={!conversationId || editing || loading}
+          disabled={!conversationId || editing || loading || saving}
           onClick={() => void analyze()}>
           {loading ? 'Conferindo...' : 'Conferir dados da conversa'}
         </Button>
