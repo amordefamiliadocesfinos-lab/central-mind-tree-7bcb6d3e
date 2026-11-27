@@ -181,3 +181,20 @@ test('B6 validates conversation identity before any message page and discards st
   assert.match(panel, /if \(scopeError \|\| !activeConversation\) throw/);
   assert.match(panel, /if \(saveRef\.current \|\| loading \|\| !conversationId/);
 });
+
+test('B7 blocks confirmation for truncated history and requires a fresh customer-message snapshot', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /setAnalyzedLatestMessageId\(collected\[0\]\?\.id \?\? null\)/);
+  assert.match(panel, /scanLimitReached \|\| !analyzedLatestMessageId/);
+  assert.match(panel, /item\.state !== 'empty' \|\| scanLimitReached/);
+  assert.match(panel, /Histórico parcialmente examinado: preenchimento automático bloqueado/);
+  const confirmation = panel.slice(panel.indexOf('const confirmSelected = async'));
+  const freshness = confirmation.indexOf("const { data: latestMessage, error: latestError }");
+  const writer = confirmation.indexOf('await saveContactProfile(');
+  assert.ok(freshness >= 0 && writer > freshness, 'message snapshot must be checked before canonical writer');
+  assert.match(confirmation, /latestMessage\.id !== analyzedLatestMessageId/);
+  assert.match(confirmation, /\.eq\('conversation_id', conversationId\)/);
+  assert.match(confirmation, /\.eq\('sender', 'customer'\)/);
+  assert.match(confirmation, /\.limit\(1\)/);
+  assert.match(confirmation, /Novas mensagens ou alterações no histórico exigem conferir novamente/);
+});
