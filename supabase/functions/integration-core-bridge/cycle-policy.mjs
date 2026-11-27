@@ -21,8 +21,10 @@ export function resolveCyclePolicy({accountId,action,policy,channel,connection,n
     ||channel.marketplace!=='shopee'||connection?.channel_account_id!==accountId
     ||connection.environment!=='live'||policy.environment!=='live'
     ||!integer(policy.shop_id)||connection.shop_id!==policy.shop_id
-    ||!integer(policy.partner_id)||connection.partner_id!==policy.partner_id)
+    ||policy.partner_id!==2047685||connection.partner_id!==policy.partner_id)
     return denied('policy_identity_mismatch');
+  if(connection.shop_status!=='NORMAL'||!(instant(connection.authorization_expires_at)>now))
+    return denied('policy_connection_unavailable');
   if(!integer(policy.revision)||!id(policy.authorized_by)
     ||typeof policy.evidence_ref!=='string'||!EVIDENCE.test(policy.evidence_ref)
     ||!(instant(policy.authorized_at)<=now)||!(instant(policy.expires_at)>now)
