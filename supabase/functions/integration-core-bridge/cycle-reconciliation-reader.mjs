@@ -14,8 +14,8 @@ export function createProtectedReconciliationReader(core,{
  readAccount=canonicalShopeeChannelAccount,readMappings=readShopeeScopedMappingCatalog,
  attachPhysical=attachMappingPhysicalCatalog,verifyOrder=verifyCycleExistingOrder
 }={}){
- return async function prepare({accountId,leaseId,revision}={}){
-  if(!UUID.test(accountId??'')||!UUID.test(leaseId??'')||!Number.isSafeInteger(revision)||revision<1||legacy.has(accountId))
+ return async function prepare({accountId,leaseId,revision,expectedObservationId=null}={}){
+  if(!UUID.test(accountId??'')||!UUID.test(leaseId??'')||!Number.isSafeInteger(revision)||revision<1||legacy.has(accountId)||(expectedObservationId!==null&&!UUID.test(expectedObservationId)))
     return denied('reconcile_scope_invalid');
   const scope={accountId,leaseId,revision,action:'intake'};
   let initial=null, attempted=false, served=false, consumed=false;
@@ -47,7 +47,8 @@ export function createProtectedReconciliationReader(core,{
      p_account:accountId,p_lease:leaseId,p_revision:revision,p_action:'intake'});
    const e=raw.data;
    if(raw.error||!e||!UUID.test(e.observation_id??'')||!UUID.test(e.raw_id??'')
-     ||e.channel_account_id!==accountId||e.shop_id!==p.shop||e.order_sn!==orderSn)
+     ||e.channel_account_id!==accountId||e.shop_id!==p.shop||e.order_sn!==orderSn
+     ||(expectedObservationId!==null&&e.observation_id!==expectedObservationId))
      return denied('reconcile_observation_unavailable');
    const t=Date.parse(e.response_received_at),recorded=Date.parse(e.recorded_at),original=Date.parse(e.original_observed_at);
    if(!Number.isFinite(t)||!Number.isFinite(recorded)||!Number.isFinite(original)
@@ -81,7 +82,7 @@ export function createProtectedReconciliationReader(core,{
    if(physical?.error||!Array.isArray(physical?.mappings))return denied('reconcile_mapping_unavailable');
    if(!unchanged(await inspect()))return denied('reconcile_scope_changed');
    const snapshot=sanitizeIntakeSnapshot(initial.row);
-   return {ok:true,code:'reconcile_reader_prepared',orderSn:initial.orderSn,
+   return {ok:true,code:'reconcile_reader_prepared',orderSn:initial.orderSn,observationId:initial.observationId,rawId:initial.rawId,shopId:initial.shop,
     readExistingBatch:async request=>{
      if(attempted||request?.channel_account_id!==accountId||request?.order_sn!==initial.orderSn||request?.limit!==1)
       return denied('reconcile_scope_invalid');
