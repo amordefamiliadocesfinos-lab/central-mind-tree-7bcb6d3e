@@ -6,6 +6,8 @@ import {
   Clock3,
   Dumbbell,
   Loader2,
+  Maximize2,
+  Minimize2,
   Pause,
   Play,
   Save,
@@ -210,6 +212,8 @@ function PerformedSetLine({ set }: { set: WorkoutSet }) {
 
 export function HealthWorkoutInteractiveTimerF19({
   sessionTitle,
+  focusMode=false,
+  onToggleFocus,
   guidanceScope,
   guidanceReadReady,
   fallbackStartedAt,
@@ -224,6 +228,8 @@ export function HealthWorkoutInteractiveTimerF19({
   onConfirmEquipment,
 }: {
   sessionTitle: string;
+  focusMode?: boolean;
+  onToggleFocus?: () => void;
   guidanceScope?: string;
   guidanceReadReady?: boolean;
   fallbackStartedAt: string;
@@ -247,6 +253,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const [rir, setRir] = useState("");
   const [resultDirty, setResultDirty] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [feedback,setFeedback]=useState("");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [viewedExerciseId, setViewedExerciseId] = useState<string | null>(null);
   const [plannedNextExerciseId, setPlannedNextExerciseId] = useState<string | null>(null);
@@ -548,7 +555,7 @@ export function HealthWorkoutInteractiveTimerF19({
     actionPending.current = true;
     try {
       await action();
-      toast({ title: "Treino atualizado", description: label });
+      setFeedback(label);
     } catch (cause) {
       toast({
         variant: "destructive",
@@ -564,10 +571,7 @@ export function HealthWorkoutInteractiveTimerF19({
   const chooseNextExercise = (exercise: WorkoutExercise) => {
     setExtraExerciseId(null);
     setPlannedNextExerciseId(exercise.id);
-    toast({
-      title: "Próxima ação escolhida",
-      description: `${exerciseNameById.get(exercise.exercise_id) ?? "Exercício"} foi preparado. O cronômetro ainda não iniciou.`,
-    });
+    setFeedback("Próxima ação escolhida.");
   };
 
   const chooseExtraSeries = (exercise: WorkoutExercise) => {
@@ -576,7 +580,7 @@ export function HealthWorkoutInteractiveTimerF19({
     setSelectedExerciseId(exercise.id);
     setViewedExerciseId(exercise.id);
     if (activeRest) setPlannedNextExerciseId(exercise.id);
-    toast({ title: "Série extra escolhida", description: "A próxima série permanece aqui; o plano publicado não muda." });
+    setFeedback("Série extra escolhida. Plano preservado.");
   };
 
   const sessionPaused = timer.sessionTiming?.status === "paused";
@@ -709,8 +713,8 @@ export function HealthWorkoutInteractiveTimerF19({
 
   return (
     <div className="space-y-3">
-      <div className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
-        <div className="flex items-center gap-3">
+      <div data-cch-session-bar className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-2 py-2 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Tempo ativo</span>
@@ -721,7 +725,7 @@ export function HealthWorkoutInteractiveTimerF19({
             <p className="truncate text-sm font-semibold">{sessionTitle}</p>
           </div>
 
-          <div className="rounded-lg bg-muted px-3 py-2 font-mono text-lg font-semibold">
+          <div className="shrink-0 rounded-lg bg-muted px-2 py-2 font-mono text-base font-semibold tabular-nums sm:text-lg">
             {formatElapsed(sessionElapsed)}
           </div>
 
@@ -746,12 +750,14 @@ export function HealthWorkoutInteractiveTimerF19({
           </Button>
         </div>
 
-        <div className="mt-2 flex justify-end">
+        <div className="flex items-center justify-between gap-1">
+          {onToggleFocus?<Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label={focusMode?"Sair do modo focado":"Ativar modo focado"} onClick={onToggleFocus}>{focusMode?<Minimize2 className="h-4 w-4"/>:<Maximize2 className="h-4 w-4"/>}</Button>:null}
+          <p role="status" className="min-w-0 flex-1 text-xs text-muted-foreground">{feedback}</p>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 px-2 text-xs text-destructive hover:text-destructive"
+            className="min-h-11 shrink-0 px-2 text-xs text-destructive hover:text-destructive"
             disabled={timer.saving}
             onClick={() => setShowEndConfirm(true)}
           >
@@ -775,7 +781,7 @@ export function HealthWorkoutInteractiveTimerF19({
               <Button
                 size="icon"
                 variant="ghost"
-                className="min-h-9 min-w-9"
+                className="min-h-11 min-w-11"
                 disabled={timer.saving}
                 onClick={() => setShowEndConfirm(false)}
                 aria-label="Cancelar encerramento"
@@ -864,12 +870,7 @@ export function HealthWorkoutInteractiveTimerF19({
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 Exercício {viewedIndex + 1} de {orderedExercises.length}
               </p>
-              <p className="truncate text-base font-semibold">
-                {viewedExercise
-                  ? exerciseNameById.get(viewedExercise.exercise_id) ??
-                    "Exercício"
-                  : "—"}
-              </p>
+              <p className="text-xs font-medium text-muted-foreground">{viewingActiveExercise?"Exercício atual":"Visualizando outro exercício"}</p>
 
               {viewingActiveExercise ? (
                 <div className="mt-1 flex items-center justify-center gap-2">
@@ -930,7 +931,7 @@ export function HealthWorkoutInteractiveTimerF19({
             viewingActiveExercise ? "ring-1 ring-primary/25" : undefined
           }
         >
-          <CardHeader className="pb-3">
+          <CardHeader className="px-3 pt-3 pb-2">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">
@@ -987,7 +988,7 @@ export function HealthWorkoutInteractiveTimerF19({
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 px-3 pb-3">
             <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
               context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
               eligible={Boolean(guidanceScope && guidanceReadReady && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
@@ -998,8 +999,9 @@ export function HealthWorkoutInteractiveTimerF19({
               unconfirmed={historicalReferences.get(viewedExercise.id)?.reason==="equipment_unconfirmed" &&
                 !equipmentConfirmed.includes(viewedExercise.id)}/>
             {!timer.activeInterval && viewedSets.length===0 && !equipmentConfirmed.includes(viewedExercise.id) ? (
-              <div className="space-y-2 rounded-lg border p-3">
-                <Label>Máquina usada neste exercício (opcional)</Label>
+              <details className="space-y-2 rounded-lg border px-3 py-1">
+                <summary className="flex min-h-11 cursor-pointer items-center text-xs font-medium">Máquina usada (opcional)</summary>
+                <Label>Identificação do aparelho</Label>
                 <Input placeholder="Ex.: Supino máquina A" value={equipmentLabels[viewedExercise.id]??""}
                   onChange={event=>setEquipmentLabels(prev=>({...prev,[viewedExercise.id]:event.target.value}))}/>
                 <Button className="min-h-11" variant="outline"
@@ -1009,7 +1011,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     setEquipmentConfirmed(prev=>[...prev,viewedExercise.id]);
                   })}>Confirmar máquina antes da primeira série</Button>
                 <p className="text-xs text-muted-foreground">O CCH só compara cargas entre execuções que tenham identificação de máquina compatível. Você pode continuar sem informar.</p>
-              </div>
+              </details>
             ) : null}
             {!viewingActiveExercise ? (
               <>
@@ -1092,7 +1094,7 @@ export function HealthWorkoutInteractiveTimerF19({
               <>
                 {activeWork ? (
                   <>
-                    <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/25 px-4 py-3">
+                    <div className="flex flex-col items-center gap-1 rounded-xl border bg-muted/25 px-3 py-3 text-center" data-testid="cch-work-clock">
                       <div>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Execução
@@ -1101,11 +1103,11 @@ export function HealthWorkoutInteractiveTimerF19({
                           Apenas execute. O resultado será preenchido ao terminar.
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <div className="text-center">
+                        <p className="sr-only">
                           Tempo da série
                         </p>
-                        <p className="font-mono text-3xl font-semibold">
+                        <p className="font-mono text-5xl font-semibold tabular-nums">
                           {formatElapsed(activeElapsed)}
                         </p>
                       </div>
@@ -1129,8 +1131,8 @@ export function HealthWorkoutInteractiveTimerF19({
                 ) : activeRest ? (
                   <>
                     <div
-                      className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
-                      aria-live="polite"
+                      className="flex flex-col items-center gap-1 rounded-xl border bg-muted/15 px-3 py-3 text-center"
+                      data-testid="cch-rest-clock"
                     >
                       <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1159,7 +1161,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         )}
                       </div>
 
-                      <p className="shrink-0 font-mono text-2xl font-semibold">
+                      <p className="font-mono text-5xl font-semibold tabular-nums">
                         {formatElapsed(activeElapsed)}
                       </p>
                     </div>
@@ -1200,7 +1202,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         )}
                       </div>
 
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {activeExercise &&
                         performedCount(activeExercise.id) < plannedMax(activeExercise) ? (
                           <Button
@@ -1210,7 +1212,7 @@ export function HealthWorkoutInteractiveTimerF19({
                                 ? "default"
                                 : "outline"
                             }
-                            className="min-h-11"
+                            className="min-h-11 whitespace-normal px-2 text-xs sm:text-sm"
                             disabled={timer.saving}
                             aria-pressed={plannedNextExerciseId === activeExercise.id}
                             onClick={() => chooseNextExercise(activeExercise)}
@@ -1227,7 +1229,7 @@ export function HealthWorkoutInteractiveTimerF19({
                           <Button
                             type="button"
                             variant={plannedNextExerciseId === activeExercise.id ? "default" : "outline"}
-                            className="min-h-11 w-full"
+                            className="min-h-11 w-full whitespace-normal px-2 text-xs sm:text-sm"
                             disabled={timer.saving}
                             aria-pressed={plannedNextExerciseId === activeExercise.id}
                             onClick={() => chooseExtraSeries(activeExercise)}>
@@ -1295,11 +1297,11 @@ export function HealthWorkoutInteractiveTimerF19({
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <div className="space-y-1">
+                      <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-3">
+                        <div className="min-w-0 space-y-1">
                           <Label className="text-xs">Carga</Label>
                           <Input
-                            className="min-h-11"
+                            className="min-h-11 px-2 text-sm"
                             inputMode="decimal"
                             value={load}
                             onChange={(event) => {
@@ -1319,7 +1321,7 @@ export function HealthWorkoutInteractiveTimerF19({
                               setResultDirty(true);
                             }}
                           >
-                            <SelectTrigger className="min-h-11">
+                            <SelectTrigger className="min-h-11 px-2 text-sm">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
