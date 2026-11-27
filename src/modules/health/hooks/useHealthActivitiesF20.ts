@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -142,7 +142,11 @@ export function useHealthActivitiesF20(
   const [available, setAvailable] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const generation=useRef(0);
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setAvailable(false);setError(message);setLoading(false);}if(strict)throw Error(message);};
+    try {
     if (!athleteId) {
       setState(emptyState);
       setLoading(false);
@@ -209,9 +213,7 @@ export function useHealthActivitiesF20(
       openStrengthResult.error;
 
     if (firstError) {
-      setAvailable(false);
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
@@ -237,9 +239,7 @@ export function useHealthActivitiesF20(
       : ({ data: [], error: null } as LooseOperationResult);
 
     if (segmentsResult.error) {
-      setAvailable(false);
-      setError(segmentsResult.error.message);
-      setLoading(false);
+      fail(segmentsResult.error.message);
       return;
     }
 
@@ -262,9 +262,7 @@ export function useHealthActivitiesF20(
       : ({ data: [], error: null } as LooseOperationResult);
 
     if (templatesResult.error) {
-      setAvailable(false);
-      setError(templatesResult.error.message);
-      setLoading(false);
+      fail(templatesResult.error.message);
       return;
     }
 
@@ -303,6 +301,7 @@ export function useHealthActivitiesF20(
       },
     );
 
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
     setAvailable(true);
     setState({
       modalities:
@@ -319,10 +318,11 @@ export function useHealthActivitiesF20(
           : null,
     });
     setLoading(false);
+    }catch(cause){fail(cause instanceof Error?cause.message:"Consulta indisponível.");}
   }, [athleteId]);
 
   useEffect(() => {
-    void reload();
+    void reload();return ()=>{generation.current++;};
   }, [reload]);
 
   useEffect(() => {
@@ -347,7 +347,7 @@ export function useHealthActivitiesF20(
       try {
         const result = await operation();
         if (result?.error) throw new Error(result.error.message);
-        await reload();
+        await reload(true);
         return result?.data;
       } finally {
         setSaving(false);
