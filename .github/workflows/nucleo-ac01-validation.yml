@@ -101,6 +101,7 @@ on:
       - "scripts/nucleo-ac01-schema.test.sql"
       - "scripts/nucleo-ac01-auth-pilot.test.sql"
       - "docs/architecture/proposals/NUCLEO_U06F_AC01_SHO_PILOT_CANDIDATE_NAO_APLICAR.sql"
+      - "supabase/migrations/20261127155401_nucleo_u06f_ac01_sho_pilot.sql"
       - "scripts/nucleo-u06f-ac01-sho-pilot-disposable.test.sql"
       - ".github/workflows/nucleo-ac01-validation.yml"
   workflow_dispatch:
@@ -181,8 +182,11 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_AC02_FECHAMENTO_WRITE_DIRECT_PROPOSTA_NAO_APLICAR.sql
       - name: Verify no direct write path remains for JWT or service role
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-ac02-direct-write-gate-disposable.test.sql
-      - name: Apply U06-F candidate ONLY after historical regressions on disposable PostgreSQL
-        run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_U06F_AC01_SHO_PILOT_CANDIDATE_NAO_APLICAR.sql
+      - name: Confirm official U06-F migration matches the validated candidate except its header
+        run: |
+          diff -u <(tail -n +2 docs/architecture/proposals/NUCLEO_U06F_AC01_SHO_PILOT_CANDIDATE_NAO_APLICAR.sql) <(tail -n +2 supabase/migrations/20261127155401_nucleo_u06f_ac01_sho_pilot.sql)
+      - name: Apply official U06-F migration ONLY after historical regressions on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127155401_nucleo_u06f_ac01_sho_pilot.sql
       - name: Exercise U06-F narrow administrative import and human authorship
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-ac01-sho-pilot-disposable.test.sql
   ui-build:
