@@ -128,8 +128,15 @@ function PageSkeleton() {
 
 export function HealthRoutinePage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const reminders = useHealthRemindersF16(athlete?.id);
+  if (athleteLoading) return <PageSkeleton />;
+  if (!athlete) return <p className="text-sm text-muted-foreground">Selecione um perfil de saúde.</p>;
+  return <HealthRoutinePageScoped key={athlete.id} athleteId={athlete.id} />;
+}
 
+function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
+  const reminders = useHealthRemindersF16(athleteId);
+
+  const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [reminderType, setReminderType] = useState<ReminderType>("training");
   const [label, setLabel] = useState("");
@@ -151,11 +158,12 @@ export function HealthRoutinePage() {
     return isScheduledToday(rule, clock.dateIso, clock.weekday);
   });
 
-  if (athleteLoading || reminders.loading) {
+  if (reminders.loading) {
     return <PageSkeleton />;
   }
 
   const resetForm = () => {
+    setFormOpen(false);
     setEditingId(null);
     setReminderType("training");
     setLabel("");
@@ -170,6 +178,7 @@ export function HealthRoutinePage() {
   };
 
   const editRule = (rule: ReminderRule) => {
+    setFormOpen(true);
     setEditingId(rule.id);
     setReminderType(rule.reminderType);
     setLabel(rule.label ?? "");
@@ -193,6 +202,7 @@ export function HealthRoutinePage() {
 
   const saveRule = async () => {
     setLocalError(null);
+    if (!formOpen || reminders.error || !reminders.backendAvailable || reminders.saving) return;
 
     if (scheduleKind === "weekly" && daysOfWeek.length === 0) {
       setLocalError("Selecione pelo menos um dia da semana.");
@@ -282,7 +292,7 @@ export function HealthRoutinePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {todayRules.length === 0 ? (
+          {reminders.error || !reminders.backendAvailable ? <p role="alert" className="text-sm">Rotina não confirmada. Atualize para consultar.</p> : todayRules.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum lembrete ativo está programado para hoje.
             </p>
@@ -326,7 +336,7 @@ export function HealthRoutinePage() {
                           ? "secondary"
                           : "default"
                       }
-                      disabled={reminders.saving}
+                      disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                       onClick={() =>
                         void reminders.recordEvent(
                           rule.id,
@@ -341,7 +351,7 @@ export function HealthRoutinePage() {
                     <Button
                       variant="outline"
                       className="min-h-11"
-                      disabled={reminders.saving}
+                      disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                       onClick={() =>
                         void reminders.recordEvent(
                           rule.id,
@@ -378,6 +388,7 @@ export function HealthRoutinePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!formOpen ? <Button variant="outline" className="min-h-11" disabled={!!reminders.error || !reminders.backendAvailable} onClick={() => setFormOpen(true)}>Configurar lembrete opcional</Button> : <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="f16-type">Tipo</Label>
@@ -509,22 +520,23 @@ export function HealthRoutinePage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               className="min-h-11 flex-1"
-              disabled={reminders.saving || !reminders.backendAvailable}
+              disabled={reminders.saving || !reminders.backendAvailable || !!reminders.error}
               onClick={() => void saveRule()}
             >
               {editingId ? "Salvar alterações" : "Criar lembrete"}
             </Button>
-            {editingId ? (
+            {formOpen ? (
               <Button
                 variant="outline"
                 className="min-h-11 flex-1"
-                disabled={reminders.saving}
+                disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                 onClick={resetForm}
               >
-                Cancelar edição
+                Cancelar
               </Button>
             ) : null}
           </div>
+          </>}
         </CardContent>
       </Card>
 
@@ -561,7 +573,7 @@ export function HealthRoutinePage() {
                   <Button
                     variant="outline"
                     className="min-h-11 flex-1"
-                    disabled={reminders.saving}
+                    disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                     onClick={() => editRule(rule)}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
@@ -570,7 +582,7 @@ export function HealthRoutinePage() {
                   <Button
                     variant="outline"
                     className="min-h-11 flex-1"
-                    disabled={reminders.saving}
+                    disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                     onClick={() =>
                       void reminders.archiveRule(rule.id)
                     }
