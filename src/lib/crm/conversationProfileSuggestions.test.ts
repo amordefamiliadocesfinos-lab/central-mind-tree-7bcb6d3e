@@ -155,3 +155,25 @@ test('B5 pagination never permits an unscoped or unlimited history query', () =>
   assert.match(scope, /\.eq\('sender', 'customer'\)/);
   assert.match(panel, /Limite de 1\.000 atingido/);
 });
+
+test('B6 does not assign third-party labelled blocks to the contact', () => {
+  const items = proposeCrmConversationProfileFields([
+    msg('third', 'customer', ['Dados da minha mãe:', 'Nome completo: Pessoa de Terceiro', 'Cidade: Itapema'].join(String.fromCharCode(10))),
+    msg('forward', 'customer', ['Mensagem encaminhada', 'E-mail: outro@example.com'].join(String.fromCharCode(10))),
+    msg('primary', 'customer', 'Meu nome é Ana Cliente'),
+  ], {});
+  assert.equal(items.length, 1);
+  assert.equal(items[0].field, 'name');
+  assert.equal(items[0].value, 'Ana Cliente');
+});
+
+test('B6 validates conversation identity before any message page and discards stale requests', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /from\('service_conversations'\)/);
+  assert.match(panel, /\.eq\('contact_id', requestedContactId\)/);
+  assert.match(panel, /\.eq\('id', requestedConversationId\)/);
+  assert.match(panel, /if \(boundError \|\| !boundConversation\) throw/);
+  assert.match(panel, /analysisRequestRef\.current \+= 1/);
+  assert.match(panel, /if \(!isCurrentRequest\(\)\) return/);
+  assert.match(panel, /if \(isCurrentRequest\(\)\) setLoading\(false\)/);
+});
