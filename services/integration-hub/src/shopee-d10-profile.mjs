@@ -3,7 +3,7 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const D10_ORDER_RE = /^[A-Za-z0-9]{8,40}$/;
 const int = value => /^\d+$/.test(String(value ?? '')) && Number.isSafeInteger(Number(value)) ? Number(value) : NaN;
-export function resolveD10Profile(env, now = Date.now()) {
+export function resolveD10Profile(env, now = Date.now(), { discovery = false } = {}) {
   if (env('SHOPEE_D10_ENABLED') !== 'true') return null;
   const account = env('SHOPEE_D10_ACCOUNT_ID');
   const shop = int(env('SHOPEE_D10_SHOP_ID'));
@@ -16,9 +16,18 @@ export function resolveD10Profile(env, now = Date.now()) {
   if (!UUID.test(account ?? '') || account !== env('SHOPEE_LIVE_CHANNEL_ACCOUNT_ID')
       || !(shop > 0) || partner !== 2047685
       || !['cpf_no_invoice_step','pj_shopee_issuer'].includes(fiscalMode)
-      || !(from >= seconds - 86400 && to > from && to <= seconds && to-from <= 3600)
+      || !(from >= seconds - 86400 && to > from && to <= seconds && to-from <= (discovery ? 86400 : 3600))
       || !(expiry > now + 60000 && expiry <= now + 1800000)) return null;
-  return Object.freeze({account,shop,partner,fiscalMode,from,to,expiry});
+  if (discovery) {
+    if (env('SHOPEE_D10_DISCOVERY_ENABLED') !== 'true'
+        || env('SHOPEE_D10_SHIP_ENABLED') === 'true'
+        || env('SHOPEE_D10_LABEL_ENABLED') === 'true') return null;
+  } else if (env('SHOPEE_D10_DISCOVERY_ENABLED') === 'true') return null;
+  const expectedOrder = env('SHOPEE_D10_EXPECTED_ORDER_SN');
+  const expectedPackage = env('SHOPEE_D10_EXPECTED_PACKAGE_NUMBER');
+  if (!discovery && (!D10_ORDER_RE.test(expectedOrder ?? '')
+      || !/^[A-Za-z0-9_-]{1,100}$/.test(expectedPackage ?? ''))) return null;
+  return Object.freeze({account,shop,partner,fiscalMode,from,to,expiry,expectedOrder,expectedPackage});
 }
 export function d10CandidateInWindow(profile, candidate) {
   return D10_ORDER_RE.test(candidate?.orderSn ?? '')
@@ -31,5 +40,6 @@ export function validD10AutomaticScope(scope, env, now) {
   return Boolean(p && env('SHOPEE_D10_SHIP_ENABLED') === 'true'
     && scope?.profileMode === 'd10'
     && scope.channelAccountId === p.account && scope.shopId === p.shop
-    && scope.fiscalMode === p.fiscalMode && d10CandidateInWindow(p, scope));
+    && scope.fiscalMode === p.fiscalMode && scope.orderSn === p.expectedOrder
+    && d10CandidateInWindow(p, scope));
 }

@@ -32,8 +32,8 @@ export function createD10Pilot({
   makeShip=createGuardedShopeeShipOrder, makeLabel=createShopeeLabelSynchronizer,
 }={}) {
   return async function runD10(mode) {
-    if (!['inspect','ship','label'].includes(mode)) return failed('d10_mode_invalid');
-    const p=resolveD10Profile(getEnv,now());
+    if (!['discover','inspect','ship','label'].includes(mode)) return failed('d10_mode_invalid');
+    const p=resolveD10Profile(getEnv,now(),{discovery:mode==='discover'});
     if (!p) return failed('d10_profile_invalid_or_disabled');
     if (WRITER_FLAGS.some(k=>String(getEnv(k)??'').trim().toLowerCase()==='true'))
       return failed('d10_competing_writer_enabled');
@@ -50,6 +50,73 @@ export function createD10Pilot({
     if (!partnerKey || !cryptoKey) return failed('d10_runtime_not_configured');
     const signed={apiBaseUrl:API,partnerId:p.partner,partnerKey,shopId:p.shop,
       accessToken:await decryptToken(c.access_token_ciphertext,cryptoKey)};
+    if (mode==='discover') {
+      // Read-only, bounded search. The final writer profile is pinned to
+      // the exact candidate and package returned here, not a rolling filter.
+      let cursor=null, examined=0;
+      const seen=new Set(), cursors=new Set();
+      const budget=now()+90_000;
+      for(let page=0;page<3;page++) {
+        if(now()>=budget) return {...failed('d10_discovery_budget_exhausted'),examined,written:0};
+        const list=await listOrders({...signed,orderListPath:'/api/v2/order/get_order_list',
+          timeRangeField:'create_time',timeFrom:p.from,timeTo:p.to,pageSize:5,
+          orderStatus:'READY_TO_SHIP',cursor});
+        const entries=list?.payload?.response?.order_list, more=list?.payload?.response?.more;
+        if(!good(list)||!Array.isArray(entries)||entries.length>5||typeof more!=='boolean')
+          return {...failed('d10_discovery_list_invalid'),examined,written:0};
+        for(const e of entries) {
+          if(now()>=budget) return {...failed('d10_discovery_budget_exhausted'),examined,written:0};
+          const orderSn=e?.order_sn;
+          if(!D10_ORDER_RE.test(orderSn??'')||seen.has(orderSn))
+            return {...failed('d10_discovery_identity_invalid'),examined,written:0};
+          seen.add(orderSn); examined++;
+          const d=await detailOrders({...signed,orderDetailPath:'/api/v2/order/get_order_detail',
+            orderSnList:[orderSn],responseOptionalFields:['item_list','package_list','invoice_data','split_up']});
+          const rows=d?.payload?.response?.order_list;
+          if(!good(d)||!Array.isArray(rows)||rows.length!==1||rows[0]?.order_sn!==orderSn)
+            return {...failed('d10_discovery_detail_invalid'),examined,written:0};
+          const o=rows[0], createTime=Number(o.create_time), pkg=o.package_list?.[0];
+          if(!d10CandidateInWindow(p,{orderSn,createTime})||o.order_status!=='READY_TO_SHIP'
+            ||!Array.isArray(o.package_list)||o.package_list.length!==1
+            ||!PACKAGE.test(pkg?.package_number??'')||pkg.logistics_status!=='LOGISTICS_READY'
+            ||typeof o.split_up!=='boolean'||!assessFiscalReadiness(o,p.fiscalMode).ready
+            ||!prepareCelivioRedactedDetail(o,orderSn).ok) continue;
+          const t=await readTombstones({channel_account_id:p.account,order_sns:[orderSn]},{timeoutMs:12000});
+          if(!t?.ok||!Array.isArray(t.payload?.deleted_order_sns))
+            return {...failed('d10_discovery_tombstone_unavailable'),examined,written:0};
+          if(t.payload.deleted_order_sns.includes(orderSn)) continue;
+          // A one-second margin on either side must contain exactly this
+          // order in an UNFILTERED list, so later status changes cannot retarget.
+          const from=Math.max(p.from,createTime-1),to=Math.min(p.to,createTime+1);
+          if(from>=to) continue;
+          const exact=await listOrders({...signed,orderListPath:'/api/v2/order/get_order_list',
+            timeRangeField:'create_time',timeFrom:from,timeTo:to,pageSize:5});
+          const exactRows=exact?.payload?.response?.order_list;
+          if(!good(exact)||!Array.isArray(exactRows)||typeof exact.payload.response.more!=='boolean')
+            return {...failed('d10_discovery_exact_list_invalid'),examined,written:0};
+          if(exact.payload.response.more||exactRows.length!==1||exactRows[0]?.order_sn!==orderSn) continue;
+          const scopedEnv=k=>k==='SHOPEE_LIVE_CHANNEL_ACCOUNT_ID'?p.account:
+            k==='SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN'?orderSn:
+            k==='SHOPEE_LIVE_SHIPPING_FISCAL_MODE'?p.fiscalMode:getEnv(k);
+          const proof=await makePreflight({getEnv:scopedEnv,readConnection:read})();
+          if(proof?.ok!==true||proof.shop_id!==p.shop||proof.order_sn!==orderSn
+            ||proof.package_number!==pkg.package_number||proof.simple_dropoff_confirmed!==true
+            ||proof.order_status!=='READY_TO_SHIP'||proof.package_logistics_status!=='LOGISTICS_READY'
+            ||!Array.isArray(proof.modes)||proof.modes.length!==1||proof.modes[0]!=='dropoff'
+            ||typeof proof.split_up!=='boolean') continue;
+          return {ok:true,code:'d10_discovered_candidate_read_only',channel_account_id:p.account,
+            shop_id:p.shop,order_sn:orderSn,package_number:pkg.package_number,
+            create_time:createTime,window_from:from,window_to:to,examined,written:0,
+            physical_handoff_confirmed:false};
+        }
+        if(!more) return {...failed('d10_no_eligible_candidate_in_window'),examined,written:0};
+        const next=list.payload.response.next_cursor;
+        if(typeof next!=='string'||!next||cursors.has(next))
+          return {...failed('d10_discovery_cursor_invalid'),examined,written:0};
+        cursors.add(next);cursor=next;
+      }
+      return {...failed('d10_discovery_page_limit_reached'),examined,written:0};
+    }
     // The closed create_time window is immutable across status changes.
     // Never filter the list by READY_TO_SHIP: after a successful send that
     // could silently switch to a different order on a second invocation.
@@ -59,7 +126,7 @@ export function createD10Pilot({
     if (!good(list) || !Array.isArray(entries) || list.payload.response.more!==false
       || entries.length!==1) return failed('d10_window_not_single_complete_order');
     const orderSn=entries[0]?.order_sn;
-    if (!D10_ORDER_RE.test(orderSn??'')) return failed('d10_list_identity_invalid');
+    if (!D10_ORDER_RE.test(orderSn??'') || orderSn!==p.expectedOrder) return failed('d10_list_identity_invalid');
     const detail=await detailOrders({...signed,orderDetailPath:'/api/v2/order/get_order_detail',
       orderSnList:[orderSn],responseOptionalFields:['item_list','package_list','invoice_data','split_up']});
     const orders=detail?.payload?.response?.order_list;
@@ -69,7 +136,7 @@ export function createD10Pilot({
     if (!d10CandidateInWindow(p,{orderSn,createTime})) return failed('d10_candidate_outside_window');
     const pkg=o.package_list?.[0], packageNumber=pkg?.package_number;
     if (!Array.isArray(o.package_list)||o.package_list.length!==1||!PACKAGE.test(packageNumber??'')
-        ||typeof o.split_up!=='boolean') return failed('d10_package_or_split_unverified');
+        ||packageNumber!==p.expectedPackage||typeof o.split_up!=='boolean') return failed('d10_package_or_split_unverified');
     const identity={channel_account_id:p.account,shop_id:p.shop,order_sn:orderSn,package_number:packageNumber};
     const tombstone=async()=> {
       const t=await readTombstones({channel_account_id:p.account,order_sns:[orderSn]},{timeoutMs:12000});

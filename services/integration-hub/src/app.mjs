@@ -88,7 +88,7 @@ export async function handleRequest(
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
 
   // Private D10 one-order proof. No caller-selected identity or parameters.
-  if (['/internal/shopee/d10/inspect','/internal/shopee/d10/ship','/internal/shopee/d10/label'].includes(normalizedPath)) {
+  if (['/internal/shopee/d10/discover','/internal/shopee/d10/inspect','/internal/shopee/d10/ship','/internal/shopee/d10/label'].includes(normalizedPath)) {
     if (normalizedMethod !== 'POST') return json(405,{error:'method_not_allowed'});
     if (Object.keys(request.query ?? {}).length || request.headers?.['transfer-encoding']
       || Number(request.headers?.['content-length'] ?? 0)!==0 || (request.body != null && request.body !== ''))
