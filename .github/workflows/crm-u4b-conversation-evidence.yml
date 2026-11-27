@@ -1,0 +1,27 @@
+name: CRM UX Real U4-B1 Conversation Evidence
+on:
+  pull_request:
+    paths:
+      - 'src/lib/crm/conversationProfileSuggestions.ts'
+      - 'src/lib/crm/conversationProfileSuggestions.test.ts'
+      - 'src/components/crm/ConversationProfileSuggestions.tsx'
+      - 'src/components/crm/ContactProfileOverview.tsx'
+      - '.github/workflows/crm-u4b-conversation-evidence.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: CRM conversation evidence regression
+        run: |
+          npx esbuild src/lib/crm/conversationProfileSuggestions.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/crm-u4b-conversation-evidence.mjs
+          node --test /tmp/crm-u4b-conversation-evidence.mjs
+      - name: Build
+        run: npm run build
