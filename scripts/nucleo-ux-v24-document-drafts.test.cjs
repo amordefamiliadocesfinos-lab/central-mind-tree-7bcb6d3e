@@ -84,7 +84,7 @@ for(const token of [
  'if(!key||!state.ready||!state.blocked||!witness)return false',
 ])assert(fence.includes(token),"Reconciliador conservador: "+token);
 assert(k.includes('Reconciliar trava FM com o Core'),"FM requer ação expressa");
-assert(s.includes('Reconciliar trava AC-01 com o Core'),"AC-01 requer ação expressa");
+assert(s.includes('Conferir tentativa de registro anterior'),"AC-01 requer ação expressa");
 assert(k.includes('result.data.length!==1'),"FM rejeita ambiguidade de leitura");
 assert(s.includes('result.data.length!==1'),"AC-01 rejeita ambiguidade de leitura");
 assert(k.includes('await fence.verifyAndClear(witnessFieldsFm(row)'),"FM confere impressão");
