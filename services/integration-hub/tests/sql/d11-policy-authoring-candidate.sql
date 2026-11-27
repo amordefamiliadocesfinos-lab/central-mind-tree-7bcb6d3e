@@ -14,13 +14,30 @@ REVOKE ALL ON SCHEMA d11_policy_private FROM PUBLIC;
 GRANT USAGE ON SCHEMA d11_policy_private TO authenticated,d11_policy_author;
 GRANT USAGE ON SCHEMA public,auth TO d11_policy_author;
 GRANT EXECUTE ON FUNCTION auth.uid() TO d11_policy_author;
-GRANT SELECT ON public.app_admin_capabilities,public.app_users,
- public.channel_accounts,public.digital_platforms,public.shopee_oauth_connections TO d11_policy_author;
+GRANT SELECT (auth_user_id,capability,active,revoked_at) ON public.app_admin_capabilities TO d11_policy_author;
+GRANT UPDATE(active) ON public.app_admin_capabilities TO d11_policy_author;
+GRANT SELECT (auth_user_id,is_active) ON public.app_users TO d11_policy_author;
+GRANT UPDATE(is_active) ON public.app_users TO d11_policy_author;
+GRANT SELECT (id,platform_id,is_active) ON public.channel_accounts TO d11_policy_author;
+GRANT SELECT (id,group_type,parent_id,name,is_active) ON public.digital_platforms TO d11_policy_author;
+GRANT SELECT (channel_account_id,environment,shop_id,partner_id,shop_status,authorization_expires_at)
+ ON public.shopee_oauth_connections TO d11_policy_author;
 GRANT SELECT,INSERT ON public.shopee_cycle_policy_revisions TO d11_policy_author;
 GRANT SELECT,INSERT ON public.shopee_cycle_state TO d11_policy_author;
 GRANT UPDATE(updated_at) ON public.shopee_cycle_state TO d11_policy_author;
 CREATE POLICY d11_capability_author_read ON public.app_admin_capabilities FOR SELECT TO d11_policy_author
  USING(auth_user_id=(SELECT auth.uid()) AND active AND revoked_at IS NULL);
+-- Scope the definer's reads even when production source tables enforce RLS.
+CREATE POLICY d11_capability_author_lock ON public.app_admin_capabilities FOR UPDATE TO d11_policy_author
+ USING(auth_user_id=(SELECT auth.uid()) AND active AND revoked_at IS NULL) WITH CHECK(false);
+CREATE POLICY d11_app_user_author_read ON public.app_users FOR SELECT TO d11_policy_author
+ USING(auth_user_id=(SELECT auth.uid()) AND is_active);
+CREATE POLICY d11_app_user_author_lock ON public.app_users FOR UPDATE TO d11_policy_author
+ USING(auth_user_id=(SELECT auth.uid()) AND is_active) WITH CHECK(false);
+CREATE POLICY d11_oauth_author_identity_read ON public.shopee_oauth_connections FOR SELECT TO d11_policy_author
+ USING(environment='live');
+CREATE POLICY d11_channel_author_identity_read ON public.channel_accounts FOR SELECT TO d11_policy_author USING(true);
+CREATE POLICY d11_platform_author_identity_read ON public.digital_platforms FOR SELECT TO d11_policy_author USING(true);
 CREATE POLICY d11_policy_author_read ON public.shopee_cycle_policy_revisions FOR SELECT TO d11_policy_author USING(true);
 CREATE POLICY d11_policy_author_append ON public.shopee_cycle_policy_revisions FOR INSERT TO d11_policy_author
  WITH CHECK(authorized_by=(SELECT auth.uid()) AND request_id IS NOT NULL);
@@ -78,11 +95,15 @@ BEGIN
  END IF;
  PERFORM 1 FROM public.shopee_cycle_state WHERE channel_account_id=p_account FOR UPDATE;
  IF NOT FOUND THEN RETURN jsonb_build_object('status','account_state_missing'); END IF;
- -- Recheck real actor after waiting for the shared lock.
- IF NOT EXISTS(SELECT 1 FROM public.app_admin_capabilities c
-   WHERE c.auth_user_id=actor AND c.capability='shopee_manage_cycle_policy' AND c.active AND c.revoked_at IS NULL)
-   OR (SELECT count(*) FROM public.app_users u WHERE u.auth_user_id=actor AND u.is_active)<>1
- THEN RETURN jsonb_build_object('status','author_refused'); END IF;
+ -- Lock the actual authority and active collaborator rows after the account
+ -- lock. A committed revocation wins before authoring, or waits for the
+ -- already-admitted revision to commit. No write privilege to alter authority.
+ PERFORM 1 FROM public.app_admin_capabilities c
+   WHERE c.auth_user_id=actor AND c.capability='shopee_manage_cycle_policy' AND c.active AND c.revoked_at IS NULL FOR SHARE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('status','author_refused'); END IF;
+ PERFORM 1 FROM public.app_users u WHERE u.auth_user_id=actor AND u.is_active FOR SHARE;
+ GET DIAGNOSTICS v_count = ROW_COUNT;
+ IF v_count<>1 THEN RETURN jsonb_build_object('status','author_refused'); END IF;
  SELECT * INTO old FROM public.shopee_cycle_policy_revisions WHERE channel_account_id=p_account ORDER BY revision DESC LIMIT 1;
  v_revision:=coalesce(old.revision,0);
  SELECT * INTO prior FROM public.shopee_cycle_policy_revisions WHERE request_id=p_request;
@@ -147,7 +168,8 @@ ALTER FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,t
 REVOKE ALL ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) FROM PUBLIC,anon,service_role;
 GRANT EXECUTE ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) TO authenticated;
 -- A public INVOKER façade is the only candidate API. No actor argument.
-CREATE FUNCTION public.append_shopee_cycle_policy_revision(uuid,integer,uuid,text,jsonb,text)
+CREATE FUNCTION public.append_shopee_cycle_policy_revision(
+ p_account uuid,p_expected_revision integer,p_request uuid,p_operation text,p_config jsonb,p_evidence text)
  RETURNS jsonb LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
  SELECT d11_policy_private.append_revision($1,$2,$3,$4,$5,$6);
 $$;
