@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/tests/fin_e1_settlement_transaction_disposable.sql'
       - 'supabase/tests/fin_e1_settlement_concurrency_disposable.sh'
+      - 'supabase/tests/fin_e1_rectification_disposable.sql'
       - '.github/workflows/financial-e1-settlement-disposable.yml'
 permissions:
   contents: read
@@ -39,3 +40,16 @@ jobs:
           PGPASSWORD: localtest
           PGDATABASE: fin_e1_disposable
         run: bash supabase/tests/fin_e1_settlement_concurrency_disposable.sh
+
+      - name: Verify immutable rectification
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: localtest
+          PGDATABASE: fin_e1_disposable
+        run: |
+          set -euo pipefail
+          awk '/^INSERT INTO obligation\(id,direction,original,reconciled\)/{found=1;exit} {print} END{if(!found)exit 1}' supabase/tests/fin_e1_settlement_transaction_disposable.sql > /tmp/fin-rectification-setup.sql
+          echo 'COMMIT;' >> /tmp/fin-rectification-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/fin-rectification-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/fin_e1_rectification_disposable.sql
