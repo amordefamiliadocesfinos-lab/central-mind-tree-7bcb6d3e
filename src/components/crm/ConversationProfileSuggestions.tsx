@@ -37,6 +37,7 @@ export function ConversationProfileSuggestions({
   const [loading, setLoading] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
   const [scanLimitReached, setScanLimitReached] = useState(false);
+  const [analyzedLatestMessageId, setAnalyzedLatestMessageId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<CrmConversationProfileSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<CrmConversationProfileField[]>([]);
@@ -54,6 +55,7 @@ export function ConversationProfileSuggestions({
     setSelectedFields([]);
     setScannedCount(0);
     setScanLimitReached(false);
+    setAnalyzedLatestMessageId(null);
     setError(null);
     return () => { analysisRequestRef.current += 1; };
   }, [contact.id, conversationId]);
@@ -65,6 +67,7 @@ export function ConversationProfileSuggestions({
     setSuggestions(null);
     setScannedCount(0);
     setScanLimitReached(false);
+    setAnalyzedLatestMessageId(null);
     setError(null);
     const requestedContactId = contact.id;
     const requestedConversationId = conversationId;
@@ -99,6 +102,7 @@ export function ConversationProfileSuggestions({
       // Mudança de atendimento invalida a evidência (a instância também é keyed pelo contato).
       if (!isCurrentRequest()) return;
       setScannedCount(collected.length);
+      setAnalyzedLatestMessageId(collected[0]?.id ?? null);
       setScanLimitReached(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT);
       setSuggestions(proposeCrmConversationProfileFields(collected, contact));
     } catch {
@@ -109,7 +113,7 @@ export function ConversationProfileSuggestions({
   };
 
   const confirmSelected = async () => {
-    if (saveRef.current || loading || !conversationId || !suggestions || !selectedFields.length || editing) return;
+    if (saveRef.current || loading || scanLimitReached || !analyzedLatestMessageId || !conversationId || !suggestions || !selectedFields.length || editing) return;
     const accepted = suggestions.filter(item => selectedFields.includes(item.field) && item.state === 'empty');
     if (!accepted.length || accepted.length !== selectedFields.length) return;
     const patch: Partial<Contact> = {};
@@ -127,6 +131,18 @@ export function ConversationProfileSuggestions({
         .eq('contact_id', contact.id)
         .maybeSingle();
       if (scopeError || !activeConversation) throw new Error('A conversa não está mais vinculada ao contato. Reabra a ficha e consulte novamente.');
+      // Novas mensagens invalidam a proposta. Exigir leitura atual antes de gravar.
+      const { data: latestMessage, error: latestError } = await supabase.from('service_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('sender', 'customer')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError || !latestMessage || latestMessage.id !== analyzedLatestMessageId) {
+        throw new Error('Novas mensagens ou alterações no histórico exigem conferir novamente os dados da conversa.');
+      }
       // Escritor oficial: releitura, delta e comparação de versão antes de salvar.
       const saved = await saveContactProfile({ contactId: contact.id, baseline: contact, draft: patch });
       onSaved?.(saved.contact);
@@ -172,7 +188,7 @@ export function ConversationProfileSuggestions({
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-0.5" aria-label={`Selecionar ${labels[item.field]}`}
               checked={selectedFields.includes(item.field)}
-              disabled={item.state !== 'empty' || editing || saving}
+              disabled={item.state !== 'empty' || scanLimitReached || editing || saving}
               onChange={event => setSelectedFields(current => event.target.checked
                 ? [...current, item.field] : current.filter(field => field !== item.field))} />
             <span className="font-semibold">{labels[item.field]}: {item.value}</span>
@@ -186,9 +202,14 @@ export function ConversationProfileSuggestions({
           </p>
         </div>
       ))}
+      {scanLimitReached && suggestions !== null && (
+        <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
+          Histórico parcialmente examinado: preenchimento automático bloqueado para evitar conflito com mensagens não consultadas.
+        </p>
+      )}
       {suggestions && suggestions.length > 0 && (
         <div className="space-y-1.5">
-          <Button type="button" size="sm" disabled={saving || !selectedFields.length || editing}
+          <Button type="button" size="sm" disabled={saving || scanLimitReached || !selectedFields.length || editing}
             onClick={() => void confirmSelected()}>
             {saving ? 'Confirmando campos...' : `Confirmar e preencher ${selectedFields.length} campo(s) vazio(s)`}
           </Button>
