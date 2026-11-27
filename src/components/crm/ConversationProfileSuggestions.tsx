@@ -13,7 +13,11 @@ import {
 
 const labels = {
   name: 'Nome', email: 'E-mail', phone: 'Telefone',
-  zip_code: 'CEP', city: 'Cidade', address: 'Endereço principal',
+  zip_code: 'CEP principal', city: 'Cidade principal', address: 'Endereço principal',
+  address_number: 'Número principal', address_complement: 'Complemento principal',
+  neighborhood: 'Bairro principal', billing_zip_code: 'CEP de cobrança',
+  billing_city: 'Cidade de cobrança', billing_address: 'Endereço de cobrança',
+  billing_number: 'Número de cobrança', billing_neighborhood: 'Bairro de cobrança',
 };
 const states = {
   empty: 'Campo vazio — conferir',
