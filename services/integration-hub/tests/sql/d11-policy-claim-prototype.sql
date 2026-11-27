@@ -107,9 +107,10 @@ SELECT channel_account_id,source,environment,external_entity_type,endpoint,exter
  WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload_hash=repeat('a',64);
 SET LOCAL ROLE service_role;
 DO $$
-DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; x jsonb;
+DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; x jsonb; obs uuid;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
+ obs:=public.d11_fixture_observe(a,'fixture_claim_4');
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_external_state_refused';
  x:=public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean;
