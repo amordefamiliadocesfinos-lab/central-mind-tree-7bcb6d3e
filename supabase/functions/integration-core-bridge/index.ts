@@ -1,3 +1,4 @@
+import { D11_ACTIONS, executeD11BridgeAction } from './d11-bridge.mjs';
 import { sanitizeIntakeSnapshot, canonicalShopeeChannelAccount } from './shopee-intake-read-shared.mjs';
 import { syncLogisticsReadState } from './logistics-read-state.mjs';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -301,6 +302,15 @@ async function executeAction(payload: Record<string, unknown>) {
   const core = coreClient();
   if (!core) return { status: 503, body: { error: 'core_unavailable' } };
 
+
+  // D11 library actions are authenticated by the existing HMAC handler.
+  // Independent default-off gates; no effect activation through the read gate.
+  if (typeof payload.action === 'string' && D11_ACTIONS.includes(payload.action)) {
+    const enabled = Deno.env.get('SHOPEE_D11_BRIDGE_ENABLED') === 'true'
+      && (payload.action !== 'shopee.d11.effect.claim'
+        || Deno.env.get('SHOPEE_D11_EFFECT_CLAIM_ENABLED') === 'true');
+    return executeD11BridgeAction(core, payload, { enabled });
+  }
 
   // F12.3: durable read-only discovery staging, not an order/ship writer.
   // The RPCs enforce exact account, service role, generation and lease.
