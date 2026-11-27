@@ -1112,17 +1112,19 @@ export default function Operacoes() {
                             if (parsed) updateSaleItem(i, 'unit_price', parsed.number);
                           }}
                         />
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Button type="button" size="icon" variant="outline" className="h-10 w-10"
-                              aria-label="Duplicar item para outro sabor" title="Duplicar produto e apresentação compatível; selecione a nova variante"
-                              disabled={!item.product_id} onClick={() => duplicateSaleItemForFlavor(i)}>
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button type="button" size="icon" variant="ghost" className="h-10 w-10"
-                              aria-label="Remover item" onClick={() => removeSaleItem(i)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                      </div>
+                      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2" data-testid="commercial-order-item-actions">
+                        <Button type="button" size="sm" variant="outline" className="h-9 min-w-0 gap-1.5"
+                          aria-label="Duplicar item para outro sabor" title="Duplica o produto; selecione a nova variante física"
+                          disabled={!item.product_id} onClick={() => duplicateSaleItemForFlavor(i)}>
+                          <Copy className="h-4 w-4 shrink-0" />
+                          Duplicar sabor
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-9 gap-1.5"
+                          aria-label="Remover item" onClick={() => removeSaleItem(i)}>
+                          <Trash2 className="h-4 w-4 shrink-0" />
+                          Remover
+                        </Button>
                       </div>
                       {item.commercial_presentation?.composition_mode === 'composite' ? (
                         <p className="text-xs text-muted-foreground">
