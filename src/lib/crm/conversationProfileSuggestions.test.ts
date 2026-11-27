@@ -85,7 +85,7 @@ test('B3 keeps billing fields separate from principal address and rejects quoted
       'Cidade de cobrança: Itapema',
       '> Meu nome é Nome Citado',
       'Endereço de entrega: Rua do Destinatário 10',
-    ].join('\\n')),
+    ].join('\n')),
   ], {});
   const fields = Object.fromEntries(proposals.map(p => [p.field, p]));
   assert.equal(fields.address?.value, 'Rua da Praia 55');
@@ -102,7 +102,7 @@ test('B3 keeps billing fields separate from principal address and rejects quoted
 
 test('B3 ignores third-party and delivery-only address evidence', () => {
   const proposals = proposeCrmConversationProfileFields([
-    msg('x', 'customer', 'Endereço de entrega: Rua Alfa 4\\n> Endereço principal: Rua de terceiro 9'),
+    msg('x', 'customer', 'Endereço de entrega: Rua Alfa 4\n> Endereço principal: Rua de terceiro 9'),
     msg('y', 'agent', 'Endereço de cobrança: Rua da Loja 8'),
   ], {});
   assert.equal(proposals.length, 0);
