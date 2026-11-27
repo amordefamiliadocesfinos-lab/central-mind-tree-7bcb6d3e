@@ -6,8 +6,8 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path='' AS $$
  SELECT coalesce(r.registration_origin='administrativo_lovable'
  AND r.recorded_by_auth_uid IS NULL AND r.request_id IS NOT NULL
  AND r.module_id IS NOT NULL AND r.source_kind='github'
- AND r.source_locator ~ '^https://github[.]com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/[0-9a-f]{40}/docs/[A-Za-z0-9_./-]+[.](md|txt|pdf)$'
- AND r.source_locator NOT LIKE '%..%' AND r.source_locator NOT LIKE '%//docs//%'
+ AND r.source_locator ~ '^https://github[.]com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/[0-9a-f]{40}/docs/([A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+[.](md|txt|pdf)$'
+ AND r.source_locator NOT LIKE '%..%'
  AND r.source_locator NOT LIKE '%/./%' AND r.source_locator NOT LIKE '%/../%'
  AND r.registration_reference ~ '^https://github[.]com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*$'
  AND r.source_reference_id IS NULL AND r.source_checksum_sha256 IS NULL
