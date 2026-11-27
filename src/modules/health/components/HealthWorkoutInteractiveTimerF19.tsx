@@ -567,6 +567,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
   const sessionPaused = timer.sessionTiming?.status === "paused";
   const disabled = timer.saving || sessionPaused;
+  const exerciseStateLabel = sessionPaused ? "PAUSADO" : activeWork ? "EM EXECUÇÃO" : activeRest ? "EM DESCANSO" : "PRONTO";
 
   const completedOnActive = activeExercise
     ? performedCount(activeExercise.id)
@@ -869,17 +870,17 @@ export function HealthWorkoutInteractiveTimerF19({
               {viewingActiveExercise ? (
                 <div className="mt-1 flex items-center justify-center gap-2">
                   <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
-                  <span className="text-xs font-semibold text-primary">
-                    {timer.activeInterval ? "EM EXECUÇÃO" : "SELECIONADO"}
+                  <span data-testid="cch-r07-exercise-state" className="text-xs font-semibold text-primary">
+                    {exerciseStateLabel}
                   </span>
                 </div>
               ) : activeExercise ? (
                 <button
                   type="button"
-                  className="mt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  className="mt-1 min-h-11 text-xs font-medium text-primary underline-offset-2 hover:underline"
                   onClick={() => setViewedExerciseId(activeExercise.id)}
                 >
-                  Em execução:{" "}
+                  Exercício atual:{" "}
                   {exerciseNameById.get(activeExercise.exercise_id) ??
                     "Exercício"}{" "}
                   · voltar
@@ -930,7 +931,7 @@ export function HealthWorkoutInteractiveTimerF19({
               <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">
                   {viewingActiveExercise
-                    ? "Exercício atual em execução"
+                    ? "Exercício atual"
                     : "Visualização do exercício"}
                 </p>
                 <div className="flex items-center gap-1">
