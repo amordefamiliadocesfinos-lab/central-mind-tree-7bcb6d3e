@@ -66,7 +66,9 @@ export function HealthJourneyF12({
   evaluating,
   evaluationError,
   onEvaluate,
+  compact=false,
 }: {
+  compact?: boolean;
   stages: JourneyStage[];
   nextAction: JourneyNextAction | null;
   loading: boolean;
@@ -151,7 +153,33 @@ export function HealthJourneyF12({
           ) : null}
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
+        {compact ? <details className="rounded-lg border px-2" open={hasTechnicalError||integratedBlocked?true:undefined}><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">Etapas e evidências do acompanhamento</summary><div className="pb-2">        <div className="grid gap-2 md:grid-cols-2">
+          {stages.map((stage, index) => (
+            <div key={stage.code} className="rounded-xl border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 gap-2">
+                  <span className="mt-0.5 shrink-0 text-muted-foreground">
+                    <JourneyIcon state={stage.journeyState} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {index + 1}. {stage.label}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{stage.evidence}</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="shrink-0 whitespace-normal text-center">
+                  {journeyStateLabel(stage.journeyState)}
+                </Badge>
+              </div>
+              {stage.code !== "integrated_decision" ? (
+                <Button asChild variant="ghost" size="sm" className="mt-2 min-h-11 px-2">
+                  <Link to={stage.href}>Abrir etapa</Link>
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div></div></details> :         <div className="grid gap-2 md:grid-cols-2">
           {stages.map((stage, index) => (
             <div key={stage.code} className="rounded-xl border p-3">
               <div className="flex items-start justify-between gap-3">
@@ -177,7 +205,8 @@ export function HealthJourneyF12({
               ) : null}
             </div>
           ))}
-        </div>
+        </div>}
+
 
         <p className="text-xs text-muted-foreground">
           A jornada não altera dieta, treino ou dados clínicos automaticamente. Uma avaliação integrada pode resultar em decisão pausada quando faltam dados suficientes.
