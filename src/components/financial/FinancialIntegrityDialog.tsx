@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { MonetaryIntegrityPanel } from './MonetaryIntegrityPanel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -101,7 +102,8 @@ export function FinancialIntegrityDialog({ open, onOpenChange, onChanged }: Prop
     <DialogContent className="max-w-4xl max-h-[90vh]">
       <DialogHeader><DialogTitle>Revisão de integração financeira</DialogTitle></DialogHeader>
       <Tabs defaultValue="pedidos">
-        <TabsList><TabsTrigger value="pedidos">Pedidos</TabsTrigger><TabsTrigger value="cadastros">Shopee e cadastros</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="pedidos">Pedidos</TabsTrigger><TabsTrigger value="cadastros">Shopee e cadastros</TabsTrigger><TabsTrigger value="monetaria">Integridade monetária</TabsTrigger></TabsList>
+        <TabsContent value="monetaria"><MonetaryIntegrityPanel /></TabsContent>
         <TabsContent value="pedidos" className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Sem financeiro</div><div className="text-xl font-bold text-amber-600">{missing.length}</div></div>
