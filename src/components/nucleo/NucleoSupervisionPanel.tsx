@@ -1,3 +1,4 @@
+import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
@@ -177,14 +178,14 @@ export default function NucleoSupervisionPanel({
     : 0;
 
   return (
-    <Card className="p-4 space-y-3" aria-label="Supervisão assistida M5">
+    <Card className="p-4 space-y-3" aria-label="Supervisão e alertas">
       <div className="flex flex-wrap gap-2 items-start justify-between">
         <div>
           <h3 className="font-semibold text-sm flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" /> Supervisão assistida — M5
+            <ShieldCheck className="h-4 w-4" /> Supervisão e alertas
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Recomendações determinísticas baseadas nos registros M3/M4 acessíveis à sessão.
+            Sugestões baseadas nos trabalhos e evidências disponíveis nesta sessão.
             Não é um agente autônomo e não altera frentes, documentos ou permissões.
           </p>
         </div>
@@ -204,7 +205,7 @@ export default function NucleoSupervisionPanel({
         </p>
       )}
       {!loading && !loadError && latestFronts.length === 0 && (
-        <p className="text-xs text-muted-foreground">Nenhuma frente M3 disponível para análise.</p>
+        <p className="text-xs text-muted-foreground">Nenhum trabalho disponível para análise.</p>
       )}
       {snapshot && (
         <>
@@ -216,11 +217,11 @@ export default function NucleoSupervisionPanel({
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {snapshot.workstreamCount} registros M3 · {snapshot.evidenceCount} evidências consultadas ·{" "}
+            {snapshot.workstreamCount} trabalhos consultados · {snapshot.evidenceCount} evidências consultadas ·{" "}
             {snapshot.declaredDependencies} dependências explícitas · {snapshot.findings.length} alertas no conjunto.
           </p>
           {focusModuleId&&<section className="rounded-xl border p-3 space-y-1" aria-label="Recorte de supervisão do módulo">
-            <p className="text-sm font-semibold">Foco operacional: {focusedModule?.code||"módulo não localizado na leitura M5"}</p>
+            <p className="text-sm font-semibold">Foco operacional: {focusedModule ? humanWorkName(focusedModule.code,focusedModule.title) : "módulo não localizado nesta consulta"}</p>
             <p className="text-xs text-muted-foreground">
               {focusedModule
                 ? `${focusedFronts} frente(s)/subfrente(s) no recorte M5 · ${findingsShown.length} alerta(s) encontrados pelas regras atuais.`
@@ -249,14 +250,14 @@ export default function NucleoSupervisionPanel({
                     onClick={()=>{
                       const front=latestFronts.find(item=>item.code===finding.workstreamCode);
                       if(front)onOpenWorkstream(front.id);
-                    }}>Abrir ficha M3 da frente</Button>}
+                    }}>Abrir ficha do trabalho</Button>}
                 {onOpenEvidence && finding.evidenceIds.length>0 && latestFronts.some(front=>front.code===finding.workstreamCode) &&
                   <Button type="button" variant="outline" size="sm" onClick={()=>{
                     const front=latestFronts.find(item=>item.code===finding.workstreamCode);
                     if(front)onOpenEvidence(front.id);
-                  }}>Consultar evidências M4 da ficha</Button>}
+                  }}>Consultar evidências do trabalho</Button>}
                 {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && latestFronts.filter(target=>target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && latestFronts.some(origin=>origin.id===link.workstream_id && origin.code===finding.workstreamCode))).map(target=>(
-                  <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir dependência {target.code}</Button>
+                  <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir trabalho relacionado: {humanWorkName(target.code,target.title)}</Button>
                 ))}
                 {finding.evidenceIds.length > 0 && (
                   <details className="mt-2 rounded-md border p-2">
