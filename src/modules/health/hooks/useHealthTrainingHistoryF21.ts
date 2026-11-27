@@ -399,6 +399,7 @@ export function useHealthTrainingHistoryF21(
       }),
     );
 
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
     setSessions(
       [...strengthSessions, ...activitySessions].sort(
         (a, b) =>
@@ -414,7 +415,6 @@ export function useHealthTrainingHistoryF21(
         }),
       ),
     );
-    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
     setAvailable(true);
     setLoading(false);
     }catch(cause){fail(cause instanceof Error?cause.message:"Consulta indisponível.");}
