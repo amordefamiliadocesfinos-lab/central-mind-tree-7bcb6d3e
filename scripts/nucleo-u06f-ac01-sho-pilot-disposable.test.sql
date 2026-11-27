@@ -25,14 +25,14 @@ BEGIN
  THEN RAISE EXCEPTION 'unexpected M3 modification'; END IF;
  BEGIN
   INSERT INTO public.nucleo_specialist_contributions(module_id,specialist_role,contribution_kind,title,source_kind,source_locator,request_id)
-  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','CI','metodo','Invalid anonymous author','github','https://example.invalid/source','44444444-4444-4444-8444-444444444444');
+  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','Especialista CI','metodo','Invalid anonymous author','github','https://example.invalid/source','44444444-4444-4444-8444-444444444444');
   RAISE EXCEPTION 'unattributed insert accepted';
  EXCEPTION WHEN raise_exception THEN
   IF SQLERRM<>'AC-01 requer sessão autenticada' THEN RAISE; END IF;
  END;
  BEGIN
   INSERT INTO public.nucleo_specialist_contributions(module_id,specialist_role,contribution_kind,title,source_kind,source_locator,request_id,registration_origin,registration_reference)
-  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','CI','metodo','Invalid admin scope','github','https://example.invalid/source','44444444-4444-4444-8444-444444444444','administrativo_lovable','fake');
+  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','Especialista CI','metodo','Invalid admin scope','github','https://example.invalid/source','44444444-4444-4444-8444-444444444444','administrativo_lovable','fake');
   RAISE EXCEPTION 'admin scope escaped';
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
@@ -53,7 +53,7 @@ SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333'
 DO $human$
 BEGIN
  INSERT INTO public.nucleo_specialist_contributions(module_id,specialist_role,contribution_kind,title,source_kind,source_locator,request_id,recorded_by_auth_uid)
- VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','CI','metodo','Human proposal','github','https://example.invalid/human','55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666');
+ VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','Especialista CI','metodo','Human proposal','github','https://example.invalid/human','55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666');
  IF NOT EXISTS(SELECT 1 FROM public.nucleo_specialist_contributions WHERE request_id='55555555-5555-4555-8555-555555555555' AND recorded_by_auth_uid=auth.uid() AND registration_origin='auth_app' AND registration_reference IS NULL)
  THEN RAISE EXCEPTION 'human authorship regression'; END IF;
  BEGIN
@@ -62,7 +62,7 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
   INSERT INTO public.nucleo_specialist_contributions(module_id,specialist_role,contribution_kind,title,source_kind,source_locator,request_id,registration_origin,registration_reference)
-  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','CI','metodo','Forged origin','github','https://example.invalid/forged','77777777-7777-4777-8777-777777777777','administrativo_lovable','fake');
+  VALUES ('3d9351f1-75e0-4581-86e1-edb902532ae3','Especialista CI','metodo','Forged origin','github','https://example.invalid/forged','77777777-7777-4777-8777-777777777777','administrativo_lovable','fake');
   RAISE EXCEPTION 'forged origin accepted';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $human$;
