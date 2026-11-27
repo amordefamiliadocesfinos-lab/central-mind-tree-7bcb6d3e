@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/components/financial/**'
       - 'src/hooks/useFinancial.ts'
+      - 'src/hooks/useRealizedCash.ts'
       - 'src/lib/financial/**'
       - 'src/pages/Financeiro.tsx'
       - '.github/workflows/financial-e1-validation.yml'
@@ -21,6 +22,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --experimental-strip-types --test src/lib/financial/integrityDiagnostics.test.ts src/lib/financial/adjustedSettlementCandidate.test.ts
+      - run: node --experimental-strip-types --test src/lib/financial/integrityDiagnostics.test.ts src/lib/financial/adjustedSettlementCandidate.test.ts src/lib/financial/realizedCash.test.ts
       - run: npx tsc --noEmit -p tsconfig.app.json
       - run: npm run build
