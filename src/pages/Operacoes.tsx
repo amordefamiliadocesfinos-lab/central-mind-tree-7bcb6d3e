@@ -22,7 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, FileSpreadsheet, GitMerge } from 'lucide-react';
+import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, Copy, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, FileSpreadsheet, GitMerge } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ProductGallery } from '@/components/ProductGallery';
 import { ProductMovementHistory } from '@/components/ProductMovementHistory';
@@ -92,6 +92,7 @@ import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
+import { duplicateCommercialSaleLine } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 
@@ -636,6 +637,13 @@ export default function Operacoes() {
     });
   };
 
+  const duplicateSaleItemForFlavor = (index: number) => {
+    setNewSale(current => ({
+      ...current,
+      items: duplicateCommercialSaleLine(current.items, index),
+    }));
+  };
+
   const updateSaleItem = (index: number, field: keyof NewSaleItem, value: string | number | null) => {
     setNewSale((current) => {
       const items = [...current.items];
@@ -1004,7 +1012,7 @@ export default function Operacoes() {
                     </div>
                     {newSale.items.map((item, i) => (
                       <div key={i} className="mb-3 space-y-2 rounded-lg border bg-muted/10 p-2.5">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(170px,1fr)_minmax(9rem,0.9fr)_minmax(9rem,0.9fr)_5rem_10rem_2.5rem] sm:items-center">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
@@ -1098,9 +1106,17 @@ export default function Operacoes() {
                             if (parsed) updateSaleItem(i, 'unit_price', parsed.number);
                           }}
                         />
-                          <Button size="icon" variant="ghost" className="h-10 w-full sm:w-10" onClick={() => removeSaleItem(i)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <div className="flex items-center gap-1">
+                            <Button type="button" size="icon" variant="outline" className="h-10 w-10"
+                              aria-label="Duplicar item para outro sabor" title="Duplicar produto e apresentação compatível; selecione a nova variante"
+                              disabled={!item.product_id} onClick={() => duplicateSaleItemForFlavor(i)}>
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-10 w-10"
+                              aria-label="Remover item" onClick={() => removeSaleItem(i)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                       </div>
                       {item.commercial_presentation?.composition_mode === 'composite' ? (
                         <p className="text-xs text-muted-foreground">
