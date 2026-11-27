@@ -1,0 +1,144 @@
+MAPA MESTRE DE DESENVOLVIMENTO — FINANCEIRO E FISCAL
+V2.1 — CONGELADO POR APROVAÇÃO EXPRESSA DO PROPRIETÁRIO
+Projeto: Painel Central — Amor de Família
+Data de aprovação: 27/11/2026 (data da proposta aprovada)
+Autoridade: Proprietário / Camada Mestre
+Módulo Núcleo: FIN — fd862761-1261-4d31-8f37-7a03af61977a
+Natureza: mapa de desenvolvimento e continuidade; não certifica execução, implantação ou uso real.
+Registro AC-01/AC-02: pendente de ato autenticado e readback; congelamento documental expresso não equivale a publicação no Núcleo.
+
+1. MISSÃO E ARQUITETURA PERMANENTE
+Representar com fidelidade obrigações e movimentos financeiros dos fatos reais, reconciliar com dinheiro efetivamente movimentado e fornecer leitura econômica confiável para decisões.
+F1 — Núcleo Financeiro e eficiência operacional: contas, caixa, bancos, cartões, pagar/receber, correção segura, precisão monetária, baixas, classificação, pesquisa, recorrência, extratos, formulários e mobile.
+F2 — Integração Financeira do Organismo: Vendas/CRM, Compras, Produção, Logística, Shopee, Fiscal, cancelamentos/reversões e navegação de origem.
+F3 — Verdade Financeira e Conciliação: obrigação, pagamento, movimento, extrato, conciliação, parciais, juros/descontos/multas/tarifas, cartão/fatura, transferências, estornos, repasses, saldos.
+F4 — Dashboard, patrimônio e gestão estratégica: semântica temporal, indicadores reproduzíveis, caixa, liquidez, recebíveis, compromissos, patrimônio e canais.
+F5 — Custos, margem e rentabilidade: aquisição, produção, embalagem, logística, canal, financeiro, tributos, overhead, perdas, margem e resultado consolidado.
+F6 — Projeção e inteligência: caixa futuro, agenda, capital de giro/imobilizado, custo de capital, planejado/realizado, cenários, investimento, alertas, Consciência.
+Fiscal é subdomínio funcional do Financeiro com fronteira própria, não F7: documentos, vínculos, cadastro fiscal, importação NF-e, emissão real, XML/DANFE, regime e regras tributárias, obrigações e entrega de custos tributários à Precificação, condicionados a autoridade competente.
+
+2. CONTRATOS PRESERVADOS
+Obrigação != movimento realizado. Vencimento != competência != data do movimento. Nota fiscal != recebimento != conciliação. Conta financeira != conta de marketplace. Pedido != OP; nenhum lançamento financeiro implica baixa de estoque.
+Venda: preservar receita total incluindo frete cobrado; custo logístico real separado e opcional, vinculado ao Pedido, sem segunda receita; pago exige conta e movimento efetivo, a pagar apenas obrigação. Cancelamento não apaga custo efetivamente pago.
+Compra: faturamento gera obrigação; recebimento é fato físico; valor e vencimento protegidos, regularização explícita. Não apagar histórico nem desativar guardas.
+Shopee: pedido → bruto → descontos/subsídios → taxas/deduções → líquido → recebível → repasse → movimento bancário → conciliação → resultado. Shopee autoridade de fatos externos; Financeiro autoridade de movimentos e conciliação. Motor Econômico prevê, não comprova dinheiro recebido.
+Fiscal: não inventar alíquotas, regime ou autorização; usar fonte contábil/fiscal competente. Precificação consome fatos/custos validados, não os cria. Overhead/rateio e custo de capital exigem metodologia aprovada. Ocorrências/perdas derivam de fatos reais.
+GitHub/main código; Lovable Cloud/Supabase oficial dados e schema; Núcleo governança, referências e histórico. Não criar fonte concorrente.
+
+3. BASELINE DATADA — 27/11/2026
+Fontes: Estado Vigente V1.1 de 06/10, Estado Mestre no GitHub docs/architecture/knowledge-recovery/2026-10-03/PCL-MST-ESTADO-FINANCEIRO-V1.0.txt, gravação 26/11 (4m44s, observação visual), consultas Lovable Cloud projeto 1720a410-34cd-4410-995c-8c92c7edf16b e inspeção main.
+1846 financial_entries; 1695 financial_movements; 4 contas; 25 lançamentos e 22 movimentos com frações de centavo; 1 conta afetada; 4 obrigações ativas com saldo residual subcentavo; 117 lançamentos ativos sem categoria.
+37 compras faturadas, todas com ao menos obrigação ativa; isso não certifica valor, quitação ou conciliação de cada compra.
+9 vínculos de fechamento de Produção, sem frações de centavo no corte; causa global da precisão ainda não estabelecida.
+24 despesas identificadas pelo marcador FIN-F17; existência não certifica idempotência, pagamento ou cancelamento.
+marketplace_settlements e economic_financial_attributions com zero registros no corte; estruturas e interfaces existentes a reaproveitar, não reconstruir.
+PC-00034: obrigação R$ 1749,50, vencimento 10/11, integralmente paga no corte; ausência anterior explicada pelo recorte temporal, pesquisa global FIN-F18 permanece.
+PC-00054: tentativa de alterar R$ 1759,10 para R$ 1804,10 retorna erro na gravação; obrigação e movimento persistidos R$ 1759,10. Natureza dos R$ 45,00 não comprovada. Não alterar histórico sem prova.
+FIN-F15: encerrada como falso positivo, esclarecimento do proprietário (data do fato x lançamento).
+FIN-F11: aberto; Dashboard usa value_paid; validar movimento por data real, parciais e período.
+FIN-F16: panorama patrimonial incorporado à E4; execução condicionada a fontes confiáveis, sequência e decisões transversais.
+FISC-FIN-01: invoiceSync.ts marca is_conciliated por emissão; nenhum registro encontrado pelo marcador textual pesquisado, não prova ausência de efeitos históricos. Decisão transversal necessária.
+Patrimônio técnico: FinancialIntegrityDialog, UncategorizedReviewDialog, EconomicReconciliationDialog, MarketplaceSettlementDialog, MobileFinancialView, StatementImporter, financial_entries/movements/accounts e economic_financial_attributions; aproveitar interfaces e contratos existentes.
+Estados: F1 uso real/refinamento; F2 parcial; F3 parcial/aberta; F4 base existente/evolução estratégica; F5 fundações; F6 futuro. Não atribuir percentuais arbitrários.
+
+4. ENTREGAS EXECUTIVAS CONGELADAS — 72 ETAPAS
+E1–E6 são ordem executiva, não substituem F1–F6. Preservar, validar, corrigir e desenvolver conforme lacuna; não são 72 PRs.
+
+E1 — VERDADE, INTEGRIDADE E SEGURANÇA FINANCEIRA
+E1.1 Investigar e solucionar a retificação financeira do PC-00054.
+E1.2 Definir política canônica de precisão monetária.
+E1.3 Impedir novas frações de centavo nos valores financeiros liquidados.
+E1.4 Diagnosticar os registros históricos afetados e preparar regularização controlada.
+E1.5 Corrigir resíduos indevidos em pagamentos integrais.
+E1.6 Conferir consistência entre obrigações, movimentos e saldos.
+E1.7 Consolidar juros, descontos, multas, tarifas e ajustes.
+E1.8 Resolver FISC-FIN-01, mediante decisão transversal.
+E1.9 Retestar Caixa Realizado — FIN-F11.
+E1.10 Reaproveitar e aprimorar a ferramenta existente de integridade financeira.
+ACEITE DA ENTREGA: O valor devido, pago, diferença e movimentos devem ser reproduzíveis; nenhuma regularização histórica indiscriminada.
+
+E2 — EXPERIÊNCIA OPERACIONAL E AUTOMAÇÃO CONTEXTUAL
+E2.1 Refinamento da navegação geral do módulo.
+E2.2 Baixa simples como experiência padrão.
+E2.3 Baixa avançada disponível sob demanda.
+E2.4 Classificação financeira contextual pela origem.
+E2.5 Revisão assistida dos lançamentos sem categoria.
+E2.6 Pesquisa global — FIN-F18.
+E2.7 Melhorias de filtros, períodos e estados.
+E2.8 Lançamentos rápidos e modelos reutilizáveis.
+E2.9 Recebimento manual assistido das contas Shopee.
+E2.10 Navegação direta para a origem de cada lançamento.
+E2.11 Padronização dos formulários de criação e edição.
+E2.12 Refinamento da experiência mobile.
+E2.13 Mensagens de erro explicativas e recuperação de operações.
+ACEITE DA ENTREGA: Reduzir preenchimentos e cliques sem perder recursos avançados; busca localiza registros fora do período sem alterar silenciosamente os indicadores; recebimento manual não duplica recebíveis.
+
+E3 — INTEGRAÇÕES, CONCILIAÇÃO E FECHAMENTO FINANCEIRO
+E3.1 Consolidar Venda/Pedido → Financeiro.
+E3.2 Preservar e estabilizar Compra → Financeiro.
+E3.3 Consolidar Produção → Financeiro.
+E3.4 Validar FIN-F17 — custo logístico.
+E3.5 Consolidar importação de extratos e deduplicação.
+E3.6 Aprimorar conciliação bancária.
+E3.7 Consolidar cartão, fatura e pagamento.
+E3.8 Consolidar transferências entre contas.
+E3.9 Consolidar estornos, devoluções e reembolsos.
+E3.10 Shopee — taxas e recebíveis reais.
+E3.11 Shopee — repasses e movimentos bancários.
+E3.12 Conciliação de marketplaces por conta.
+E3.13 Evolução fiscal documental e integração com provedor.
+E3.14 Tributação e obrigações fiscais, quando houver fonte competente.
+E3.15 Fechamento financeiro periódico assistido.
+ACEITE DA ENTREGA: Provar origem, obrigação, movimento e conciliação sem duplicidade; Shopee e Fiscal avançam sob contratos, disponibilidade e autoridades próprias, sem bloquear as demais integrações.
+
+E4 — GESTÃO ESTRATÉGICA E PANORAMA PATRIMONIAL
+E4.1 Redefinir a estrutura e semântica dos indicadores.
+E4.2 Visão de caixa realizado.
+E4.3 Visão de contas a pagar e receber.
+E4.4 Visão de liquidez e disponibilidade.
+E4.5 Panorama patrimonial — FIN-F16.
+E4.6 Visão de endividamento e comprometimento.
+E4.7 Evolução financeira por período.
+E4.8 Desempenho por canal e conta comercial.
+E4.9 Rastreabilidade dos indicadores até a origem.
+E4.10 Central de decisões e pontos de atenção.
+ACEITE DA ENTREGA: Cada indicador declara significado, fonte, base temporal e composição. Separar caixa, recebíveis, obrigações, patrimônio e projeção; ativos e estoques somente com critérios de avaliação confiáveis.
+
+E5 — ECONOMIA, CUSTOS, MARGEM E RENTABILIDADE
+E5.1 Custo real de aquisição dos materiais.
+E5.2 Custo real de fabricação.
+E5.3 Mão de obra, embalagem e preparação.
+E5.4 Custos e resultado logístico.
+E5.5 Custos comerciais por canal.
+E5.6 Custos financeiros atribuíveis à venda.
+E5.7 Custos tributários validados.
+E5.8 Despesas estruturais e metodologia de absorção.
+E5.9 Perdas e ocorrências econômicas.
+E5.10 Margem de contribuição.
+E5.11 Rentabilidade por produto, pedido e canal.
+E5.12 Reconciliação entre precificação prevista e resultado real.
+E5.13 Resultado econômico consolidado.
+ACEITE DA ENTREGA: Reutilizar atribuições e reconciliação econômica existentes; separar previsão de fato real, evitar dupla contagem e não inventar rateios ou tributos.
+
+E6 — PROJEÇÃO, PLANEJAMENTO E INTELIGÊNCIA FINANCEIRA
+E6.1 Fluxo de caixa futuro.
+E6.2 Agenda financeira projetada.
+E6.3 Capital de giro.
+E6.4 Capital imobilizado.
+E6.5 Custo de capital, mediante metodologia aprovada.
+E6.6 Planejado × realizado.
+E6.7 Simulação de cenários.
+E6.8 Capacidade de investimento.
+E6.9 Alertas preventivos.
+E6.10 Recomendações inteligentes.
+E6.11 Integração com Núcleo e Consciência.
+ACEITE DA ENTREGA: Projeções distinguem fatos, premissas, cenários e incerteza; recomendações reproduzíveis e fundamentadas em fontes confiáveis.
+5. DEPENDÊNCIAS E MÉTODO
+E1 primeiro nos contratos afetados; E2 e E3 podem avançar em paralelo quando seguros; E4 depende da semântica e fontes necessárias, E5 das integrações e custos reais, E6 de E4/E5 conforme indicador. Fiscal/Shopee não bloqueiam trabalho independente. Não transformar sequência em fila rígida.
+CONSTRUIR → USAR → OBSERVAR → CORRIGIR → EVOLUIR. Investigar por diferença; agrupar por contrato; teste proporcional ao risco; preservar histórico; disponibilizar melhorias utilizáveis; checkpoints somente por mudança material. Reaproveitar experiência UX Saúde sem impor telas ou perda de funcionalidades.
+Evidência: distinguir planejado, código, testes, merge, migration/deploy, homologação e uso real. Mudanças transversais, fonte/autoridade, dados históricos, schema e conciliação respeitam governança específica. Nenhum lançamento fictício em produção.
+6. CONTINUIDADE E REGISTRO
+Núcleo AC-01: vincular fonte versionada ao FIN mediante sessão/autoridade autenticada, trilha de revisão/decisão/publicação conforme contrato vigente; não contornar com SQL administrativo. AC-02: recuperar mapa, checkpoint e próxima ação; pacote consultivo não equivale a homologação. Preservar FIN-N1-N2 e referências anteriores até reconciliação formal; não apagar nem promover automaticamente.
+Próxima ação única inicial: E1.1, diagnóstico do PC-00054, separar regularização comercial de retificação do pagamento/ajuste econômico e oferecer caminho seguro ao operador. E1.2–E1.10 seguem conforme evidências e dependências.
+Fontes complementares: PANORAMA_MESTRE_INTEGRACAO_SHOPEE_PAINEL_CENTRAL_V1_1_REFINADA_2026-11-06.txt (fotografia histórica); Mapa Mestre Núcleo V1.3 AC-01 congelado 14/11; decisões da Camada Mestre na conversa Financeiro; repasses Precificação/Fiscal. Não promover propostas metodológicas a vigência automática.
+FIM — V2.1 CONGELADO DOCUMENTALMENTE.
