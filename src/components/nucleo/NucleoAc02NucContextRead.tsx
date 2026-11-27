@@ -15,6 +15,7 @@ type Checkpoint={
 };
 type Context={
  checkpoint:Checkpoint;
+ continuity_context?:unknown;
  contract:"nucleo_ac02_context_nuc_v1";
  status:"consultivo_nao_homologado";
  module:{id:string;code:"NUC"};
@@ -31,6 +32,41 @@ const CONTRIBUTION_ID="80f64bfb-cfa0-4012-a2ad-b75226881c2d";
 // `main` mostra a fonte atual: não certifica os bytes da proposta registrada.
 const PILOT_MAP_SOURCE="docs/architecture/MAPA_CONTINUIDADE_CANONICA_ESPECIALISTAS_NUCLEO20_V1_1_CONGELADO_PLANEJAMENTO_2026-11-19.md";
 const PILOT_MAP_URL="https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/blob/main/"+PILOT_MAP_SOURCE;
+
+
+// U06 is additive: legacy responses still support the original consultive journey.
+// Only allowlisted metadata and the root action are displayed, never FM bodies or locators.
+type U06Meta={root:{next_action_record:string;updated_at:string};sections:{code:string;version:number;authority:string}[];revisions:{id:string;version:number;authority:string}[]};
+type U06Diagnostic={state:"legacy"|"incomplete"}|{state:"current";data:U06Meta};
+function inspectU06(value:unknown):U06Diagnostic{
+ const obj=(v:unknown):Record<string,unknown>|null=>v!==null&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
+ const str=(v:unknown):v is string=>typeof v==="string"&&v.trim().length>0;
+ const version=(v:unknown):v is number=>typeof v==="number"&&Number.isSafeInteger(v)&&v>0;
+ if(value===undefined)return {state:"legacy"};
+ const c=obj(value),root=obj(c?.root);
+ if(!c||c.kind!=="nucleo_ac02_leitura_contextual_u06"||c.authority!=="consultivo_nao_homologado"||
+    !root||root.id!==ID||root.code!=="NUC"||typeof root.next_action_record!=="string"||
+    !str(root.updated_at)||!Number.isFinite(Date.parse(root.updated_at))||
+    !Array.isArray(c.sections)||c.sections.length!==4||!Array.isArray(c.ac01_revisions)||
+    c.ac01_revisions.length===0||c.ac01_revisions.length>=100)return {state:"incomplete"};
+ const expected=["FM-03","FM-08","FM-09","FM-10"];
+ const sections:U06Meta["sections"]=[];
+ for(const item of c.sections){
+  const row=obj(item),r=obj(row?.revision);
+  if(!row||row.state!=="registro_core"||!str(row.section_code)||!expected.includes(row.section_code)||
+     sections.some(x=>x.code===row.section_code)||!r||r.section_code!==row.section_code||
+     !version(r.version_no)||!str(r.authority_state))return {state:"incomplete"};
+  sections.push({code:row.section_code,version:r.version_no,authority:r.authority_state});
+ }
+ const revisions:U06Meta["revisions"]=[];
+ for(const item of c.ac01_revisions){
+  const r=obj(item);
+  if(!r||!str(r.id)||!version(r.version_no)||!str(r.authority_state)||revisions.some(x=>x.id===r.id))
+   return {state:"incomplete"};
+  revisions.push({id:r.id,version:r.version_no,authority:r.authority_state});
+ }
+ return {state:"current",data:{root:{next_action_record:root.next_action_record,updated_at:root.updated_at},sections,revisions}};
+}
 
 const isContext=(v:unknown):v is Context=>{
  if(!v||typeof v!=="object")return false;
@@ -111,6 +147,7 @@ export default function NucleoAc02NucContextRead(){
  const [focusedFront,setFocusedFront]=useState("NUC-M4");
  const visibleResult=sessionUid&&resultOwner===sessionUid?result:null;
  const decisionSummary=visibleResult?buildConsultiveDecisionSummary(visibleResult):null;
+ const u06=visibleResult?inspectU06(visibleResult.continuity_context):null;
  useEffect(()=>{
   // Apenas mudança de identidade encerra o contexto, nunca refresh do token.
   setResult(null);setResultOwner(null);setError("");setCopyStatus("idle");
@@ -148,6 +185,23 @@ export default function NucleoAc02NucContextRead(){
    <p role="status" className="text-xs font-medium">Contexto consultivo confirmado pela leitura autenticada. Nenhum sucessor ou mandato foi certificado.</p>
    <p className="text-xs">Mapa: {visibleResult.contribution.title} · v{visibleResult.contribution.version_no} · {visibleResult.contribution.authority_state}</p>
    <p className="text-xs break-all">Contribuição AC-01: {visibleResult.contribution.id}</p>
+   {u06&&<section className="rounded-lg border p-3 space-y-2 text-xs" aria-label="Diagnóstico da projeção contextual U06">
+    <h5 className="font-semibold text-sm">Contexto de continuidade U06</h5>
+    {u06.state==="legacy"&&<p role="status">Resposta legada: projeção U06 não recebida. A consulta anterior permanece disponível.</p>}
+    {u06.state==="incomplete"&&<p role="status">Projeção U06 incompleta ou incompatível. Sem confirmação de cobertura contextual.</p>}
+    {u06.state==="current"&&<>
+     <p role="status">Projeção contextual U06 recebida e validada · consultivo_nao_homologado</p>
+     <p>Raiz NUC · atualização do Core: {u06.data.root.updated_at}</p>
+     <p>Seções FM recebidas: {u06.data.sections.length}/4</p>
+     <ul>{u06.data.sections.map(row=><li key={row.code}>{row.code} · v{row.version} · {row.authority}</li>)}</ul>
+     <p>Revisões AC-01 recebidas: {u06.data.revisions.length}</p>
+     <ul>{u06.data.revisions.map(row=><li key={row.id} className="break-all">{row.id} · v{row.version} · {row.authority}</li>)}</ul>
+     <details><summary className="cursor-pointer font-medium">Registro integral da próxima ação NUC</summary>
+      <p className="whitespace-pre-wrap break-words">{u06.data.root.next_action_record}</p>
+     </details>
+    </>}
+    <p className="text-muted-foreground">Diagnóstico da resposta desta sessão, não certifica vigência, mandato, sucessão, homologação ou acesso pelo Chat normal.</p>
+   </section>}
    <p className="text-xs">Especialidade descritiva: {visibleResult.specialist.specialty} — não homologada</p>
    <section className="rounded-lg border p-3 space-y-2" aria-label="Identidade e vínculos de atuação">
     <h5 className="text-sm font-semibold">Especialidade e contexto de atuação</h5>
