@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -35,14 +35,16 @@ import {
 
 function numberOrNull(value: string) {
   if (!value.trim()) return null;
-  const parsed = Number(value);
+  if(!/^\d+(?:[.,]\d+)?$/.test(value.trim()))return null;
+  const parsed = Number(value.replace(",","."));
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const validNumbers=(values:string[])=>values.every(v=>!v.trim()||numberOrNull(v)!==null);
 function localDateTimeInput(value: string) {
   const date = new Date(value);
   const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  return new Date(date.getTime() - offset).toISOString().slice(0, 19);
 }
 
 function durationMinutes(startedAt: string, endedAt: string | null) {
@@ -50,10 +52,7 @@ function durationMinutes(startedAt: string, endedAt: string | null) {
   return String(
     Math.max(
       0,
-      Math.round(
-        (new Date(endedAt).getTime() - new Date(startedAt).getTime()) /
-          60_000,
-      ),
+      (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60_000,
     ),
   );
 }
@@ -98,7 +97,7 @@ function HistoricalSetEditor({
     reps: number | null;
     rir: number | null;
     restSeconds: number | null;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
   const [load, setLoad] = useState("");
@@ -118,7 +117,7 @@ function HistoricalSetEditor({
 
   if (!editing) {
     return (
-      <div className="grid grid-cols-[34px_1fr_40px] items-center gap-2 rounded-lg bg-muted/35 px-3 py-2 text-sm">
+      <div className="grid grid-cols-[26px_1fr_44px] items-center gap-2 rounded-lg bg-muted/35 px-3 py-2 text-sm">
         <span className="font-semibold">#{set.set_number}</span>
         <div className="min-w-0">
           <p>
@@ -134,7 +133,7 @@ function HistoricalSetEditor({
         <Button
           size="icon"
           variant="ghost"
-          className="min-h-9 min-w-9"
+          className="min-h-11 min-w-11"
           disabled={saving}
           onClick={begin}
           aria-label={"Editar série " + set.set_number}
@@ -207,7 +206,7 @@ function HistoricalSetEditor({
 
       <Button
         className="min-h-11 w-full"
-        disabled={saving}
+        disabled={saving||!validNumbers([load,reps,rir,rest])||[reps,rest].some(v=>v.trim()&&!Number.isInteger(numberOrNull(v)))}
         onClick={() =>
           void onSave({
             loadValue: numberOrNull(load),
@@ -215,7 +214,7 @@ function HistoricalSetEditor({
             reps: numberOrNull(reps),
             rir: numberOrNull(rir),
             restSeconds: numberOrNull(rest),
-          }).then(() => setEditing(false))
+          }).then(ok => {if(ok)setEditing(false);})
         }
       >
         <Save className="mr-2 h-4 w-4" />
@@ -238,7 +237,7 @@ function StrengthCard({
     startedAt: string;
     endedAt: string;
     notes: string | null;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   onUpdateSet: (
     setId: string,
     values: {
@@ -248,8 +247,8 @@ function StrengthCard({
       rir: number | null;
       restSeconds: number | null;
     },
-  ) => Promise<void>;
-  onVoid: (reason: string) => Promise<void>;
+  ) => Promise<boolean>;
+  onVoid: (reason: string) => Promise<boolean>;
 }) {
   const [mode, setMode] = useState<"edit" | "void" | null>(null);
   const [start, setStart] = useState(() => localDateTimeInput(session.started_at));
@@ -280,12 +279,12 @@ function StrengthCard({
     const endedAt = new Date(
       new Date(startedAt).getTime() + minutes * 60_000,
     ).toISOString();
-    await onUpdateSession({
+    const ok=await onUpdateSession({
       startedAt,
       endedAt,
       notes: notes.trim() || null,
     });
-    setMode(null);
+    if(ok)setMode(null);
   };
 
   return (
@@ -325,7 +324,7 @@ function StrengthCard({
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="min-h-11"
+            className="min-h-11 h-auto whitespace-normal"
             disabled={saving}
             onClick={openEdit}
           >
@@ -334,7 +333,7 @@ function StrengthCard({
           </Button>
           <Button
             variant="outline"
-            className="min-h-11 text-destructive hover:text-destructive"
+            className="min-h-11 h-auto whitespace-normal text-destructive hover:text-destructive"
             disabled={saving}
             onClick={() => setMode("void")}
           >
@@ -359,7 +358,7 @@ function StrengthCard({
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Início">
                 <Input
-                  type="datetime-local"
+                  type="datetime-local" step="1"
                   value={start}
                   onChange={(e) => setStart(e.target.value)}
                 />
@@ -382,7 +381,7 @@ function StrengthCard({
 
             <Button
               className="min-h-11 w-full"
-              disabled={saving}
+              disabled={saving||numberOrNull(duration)===null||!Number.isFinite(Date.parse(start))}
               onClick={() => void saveSession()}
             >
               <Save className="mr-2 h-4 w-4" />
@@ -401,15 +400,13 @@ function StrengthCard({
               if (!reason.trim()) {
                 throw new Error("Informe o motivo da exclusão.");
               }
-              await onVoid(reason.trim());
-              setReason("");
-              setMode(null);
+              if(await onVoid(reason.trim())){setReason("");setMode(null);}
             }}
           />
         ) : null}
 
         <details className="rounded-xl border p-3">
-          <summary className="cursor-pointer text-sm font-medium">
+          <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">
             Exercícios e séries
           </summary>
 
@@ -472,8 +469,8 @@ function ActivityCard({
     elevationGainM: number | null;
     steps: number | null;
     notes: string | null;
-  }) => Promise<void>;
-  onVoid: (reason: string) => Promise<void>;
+  }) => Promise<boolean>;
+  onVoid: (reason: string) => Promise<boolean>;
 }) {
   const [mode, setMode] = useState<"edit" | "void" | null>(null);
   const [modality, setModality] = useState(session.modality_code);
@@ -482,7 +479,7 @@ function ActivityCard({
   const [duration, setDuration] = useState(() =>
     session.active_duration_seconds == null
       ? ""
-      : String(Math.round(session.active_duration_seconds / 60)),
+      : String(session.active_duration_seconds / 60),
   );
   const [distanceKm, setDistanceKm] = useState(() =>
     session.distance_meters == null
@@ -520,7 +517,7 @@ function ActivityCard({
     setDuration(
       session.active_duration_seconds == null
         ? ""
-        : String(Math.round(session.active_duration_seconds / 60)),
+        : String(session.active_duration_seconds / 60),
     );
     setDistanceKm(
       session.distance_meters == null
@@ -552,7 +549,7 @@ function ActivityCard({
       throw new Error("Informe uma duração válida.");
     }
 
-    await onUpdate({
+    const ok=await onUpdate({
       modalityCode: modality,
       title: title.trim(),
       startedAt: new Date(start).toISOString(),
@@ -571,7 +568,7 @@ function ActivityCard({
       notes: notes.trim() || null,
     });
 
-    setMode(null);
+    if(ok)setMode(null);
   };
 
   return (
@@ -600,7 +597,7 @@ function ActivityCard({
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="min-h-11"
+            className="min-h-11 h-auto whitespace-normal"
             disabled={saving}
             onClick={resetEdit}
           >
@@ -609,7 +606,7 @@ function ActivityCard({
           </Button>
           <Button
             variant="outline"
-            className="min-h-11 text-destructive hover:text-destructive"
+            className="min-h-11 h-auto whitespace-normal text-destructive hover:text-destructive"
             disabled={saving}
             onClick={() => setMode("void")}
           >
@@ -652,7 +649,7 @@ function ActivityCard({
               </Field>
               <Field label="Início">
                 <Input
-                  type="datetime-local"
+                  type="datetime-local" step="1"
                   value={start}
                   onChange={(e) => setStart(e.target.value)}
                 />
@@ -686,7 +683,7 @@ function ActivityCard({
 
             <Button
               className="min-h-11 w-full"
-              disabled={saving}
+              disabled={saving||!validNumbers([duration,distanceKm,calories,avgHr,maxHr,rpe,cadence,elevation,steps])||(numberOrNull(duration)??0)<=0||!Number.isFinite(Date.parse(start))||(numberOrNull(rpe)??0)>10||(numberOrNull(avgHr)!==null&&numberOrNull(maxHr)!==null&&numberOrNull(avgHr)!>numberOrNull(maxHr)!)||(numberOrNull(steps)!==null&&!Number.isInteger(numberOrNull(steps)))||!title.trim()||!modalities.some(m=>m.code===modality)}
               onClick={() => void save()}
             >
               <Save className="mr-2 h-4 w-4" />
@@ -705,9 +702,7 @@ function ActivityCard({
               if (!reason.trim()) {
                 throw new Error("Informe o motivo da exclusão.");
               }
-              await onVoid(reason.trim());
-              setReason("");
-              setMode(null);
+              if(await onVoid(reason.trim())){setReason("");setMode(null);}
             }}
           />
         ) : null}
@@ -727,7 +722,7 @@ function VoidPanel({
   onReasonChange: (value: string) => void;
   saving: boolean;
   onCancel: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<boolean>;
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-destructive/30 p-3">
@@ -808,25 +803,45 @@ function Metric({
 }
 
 export function HealthTrainingHistoryPage() {
-  const { toast } = useToast();
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const history = useHealthTrainingHistoryF21(athlete?.id);
+  const {athlete,loading}=useHealthAthlete();
+  if(loading)return <p role="status">Carregando perfil…</p>;
+  if(!athlete?.id)return <p>Perfil indisponível.</p>;
+  return <HistoryContent key={athlete.id} athleteId={athlete.id}/>;
+}
+function HistoryContent({athleteId}:{athleteId:string}){
+  const {toast}=useToast();
+  const history=useHealthTrainingHistoryF21(athleteId);
+  const [kind,setKind]=useState("all"),[query,setQuery]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
+  const [busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[reviewed,setReviewed]=useState(false);
+  const lock=useRef(false);
+  const usable=history.available&&!history.error&&!history.loading;
+  const blocked=!usable||busy||history.saving||failed;
+  const matches=(session:typeof history.sessions[number])=>{
+    const d=new Date(session.started_at);const day=Number.isFinite(d.getTime())?new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10):"";
+    const name=session.kind==="strength"?[session.template_name,session.template_code,...session.exercises.map(e=>e.exercise_name)].join(" "):session.title+" "+session.modality_name;
+    return (kind==="all"||kind===session.kind)&&(!from||day>=from)&&(!to||day<=to)&&name.toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
+  };
+  const filtered=usable?history.sessions.filter(matches):[];
+  const review=async()=>{if(lock.current)return;lock.current=true;setBusy(true);setReviewed(false);try{await history.reload(true);setReviewed(true);}catch{toast({title:"Consulta não confirmada"});}finally{lock.current=false;setBusy(false);}};
 
   const run = async (label: string, action: () => Promise<void>) => {
+    if(blocked||lock.current)return false;
+    lock.current=true;setBusy(true);
     try {
       await action();
-      toast({ title: "Histórico atualizado", description: label });
+      toast({ title: "Histórico atualizado", description: label });return true;
     } catch (cause) {
+      setFailed(true);setReviewed(false);
       toast({
         variant: "destructive",
         title: "Não foi possível concluir",
         description:
-          cause instanceof Error ? cause.message : "Tente novamente.",
-      });
-    }
+          cause instanceof Error ? cause.message : "Confira antes de repetir.",
+      });return false;
+    }finally{lock.current=false;setBusy(false);}
   };
 
-  if (athleteLoading || history.loading) {
+  if (history.loading && history.sessions.length===0) {
     return (
       <div className="flex min-h-56 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -836,8 +851,8 @@ export function HealthTrainingHistoryPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">
             Histórico de treinos
           </h2>
@@ -852,8 +867,8 @@ export function HealthTrainingHistoryPage() {
             variant="outline"
             size="icon"
             className="min-h-11 min-w-11"
-            disabled={history.saving}
-            onClick={() => void history.reload()}
+            disabled={history.saving||busy||history.loading}
+            onClick={() => void review()}
             aria-label="Atualizar histórico"
           >
             <RefreshCw className="h-4 w-4" />
@@ -870,15 +885,15 @@ export function HealthTrainingHistoryPage() {
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Registros ativos</p>
-          <p className="mt-1 text-lg font-semibold">{history.sessions.length}</p>
+          <p className="mt-1 text-lg font-semibold">{usable?history.sessions.length:"—"}</p>
         </div>
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Musculação</p>
-          <p className="mt-1 text-lg font-semibold">{history.strengthCount}</p>
+          <p className="mt-1 text-lg font-semibold">{usable?history.strengthCount:"—"}</p>
         </div>
         <div className="rounded-xl border p-3">
           <p className="text-xs text-muted-foreground">Atividades</p>
-          <p className="mt-1 text-lg font-semibold">{history.activityCount}</p>
+          <p className="mt-1 text-lg font-semibold">{usable?history.activityCount:"—"}</p>
         </div>
       </div>
 
@@ -890,20 +905,30 @@ export function HealthTrainingHistoryPage() {
         </Card>
       ) : null}
 
-      {!history.available ? (
+      {failed?<div role="alert" className="space-y-2 rounded-lg border p-3 text-sm"><p>Resultado não confirmado. Atualize e confira antes de repetir a correção.</p><Button variant="outline" className="min-h-11 w-full" disabled={busy||history.loading} onClick={()=>void review()}>Conferir histórico</Button><Button variant="outline" className="min-h-11 w-full" disabled={!reviewed||!usable||busy} onClick={()=>{setFailed(false);setReviewed(false);}}>Conferi; liberar nova ação</Button></div>:null}
+      <section className="space-y-2" aria-label="Filtros do histórico">
+        <p className="text-xs text-muted-foreground">Até 300 sessões de cada tipo consultadas; filtros atuam sobre esses registros.</p>
+        <div className="grid grid-cols-3 gap-1">{[["all","Todos"],["strength","Musculação"],["activity","Atividades"]].map(([id,label])=><Button key={id} variant={kind===id?"default":"outline"} aria-pressed={kind===id} className="min-h-11 px-1 text-xs" onClick={()=>setKind(id)}>{label}</Button>)}</div>
+        <Label htmlFor="sx08-history-search">Buscar sessão ou exercício</Label><Input id="sx08-history-search" className="min-h-11" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <div className="grid grid-cols-2 gap-2"><div className="min-w-0"><Label htmlFor="sx08-from">Desde</Label><Input id="sx08-from" type="date" className="min-h-11" value={from} onChange={e=>setFrom(e.target.value)}/></div><div className="min-w-0"><Label htmlFor="sx08-to">Até</Label><Input id="sx08-to" type="date" className="min-h-11" value={to} onChange={e=>setTo(e.target.value)}/></div></div>
+        {usable?<p role="status" className="text-xs">{filtered.length} registros no filtro</p>:null}
+        <Button variant="outline" className="min-h-11 w-full" onClick={()=>{setKind("all");setQuery("");setFrom("");setTo("");}}>Limpar filtros</Button>
+      </section>
+      {!usable ? (
         <Card>
           <CardContent className="py-4 text-sm">
-            A camada F21 ainda não está disponível neste ambiente.
+            Histórico não confirmado. Atualize para consultar.
           </CardContent>
         </Card>
       ) : history.sessions.length ? (
         <div className="space-y-4">
-          {history.sessions.map((session) =>
-            session.kind === "strength" ? (
+          {filtered.length===0?<p className="text-sm">Nenhum registro corresponde aos filtros.</p>:null}
+          {history.sessions.map((session) => <div key={session.kind+session.id} hidden={!matches(session)}>
+            {session.kind === "strength" ? (
               <StrengthCard
                 key={"strength-" + session.id}
                 session={session}
-                saving={history.saving}
+                saving={blocked}
                 onUpdateSession={(values) =>
                   run("Sessão corrigida.", () =>
                     history.updateWorkoutSession(session.id, values),
@@ -925,7 +950,7 @@ export function HealthTrainingHistoryPage() {
                 key={"activity-" + session.id}
                 session={session}
                 modalities={history.modalities}
-                saving={history.saving}
+                saving={blocked}
                 onUpdate={(values) =>
                   run("Atividade corrigida.", () =>
                     history.updateActivitySession(session.id, values),
@@ -937,8 +962,8 @@ export function HealthTrainingHistoryPage() {
                   )
                 }
               />
-            ),
-          )}
+            )}
+          </div>)}
         </div>
       ) : (
         <Card>
