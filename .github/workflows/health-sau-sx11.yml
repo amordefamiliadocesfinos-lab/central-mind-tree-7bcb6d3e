@@ -1,0 +1,27 @@
+name: SAU SX11 Integrated Regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/modules/health/**'
+      - 'scripts/health-sau-sx*'
+      - '.github/workflows/health-sau-sx11.yml'
+permissions:
+  contents: read
+jobs:
+  sx11:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22,cache: npm}
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Production build
+        run: npm run build
+      - name: Integrated synthetic regression
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts vitest@3.2.4 jsdom@26.1.0 @testing-library/react@16.3.0
+          npx vitest run --config scripts/health-sau-sx11-vitest.config.ts
