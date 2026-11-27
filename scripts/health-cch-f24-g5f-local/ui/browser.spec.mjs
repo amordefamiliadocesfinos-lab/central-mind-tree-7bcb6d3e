@@ -25,6 +25,9 @@ for(const width of [320,360,390,430,1280]){
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
    expect(overflow).toBeLessThanOrEqual(1);
    await expect(extra(page)).toBeVisible();
+   await expect(page.getByTestId("g5f-navigation-chrome")).toBeHidden();
+   await expect(page.getByRole("button",{name:"Sair do modo focado"})).toBeVisible();
+   await expect(page.getByTestId("cch-rest-clock")).toBeVisible();
    const rect=await extra(page).boundingBox();
    expect(rect?.height??0).toBeGreaterThanOrEqual(44);
    await page.screenshot({path:"test-results/g5f-auth-"+width+".png",fullPage:true});
@@ -65,6 +68,13 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await page.getByRole("button",{name:"Exercício anterior",exact:true}).click();
  await expect(selected(page)).toBeEnabled();
  await selected(page).click();
+ await expect(page.getByTestId("cch-work-clock")).toBeVisible();
+ await page.getByRole("button",{name:"Sair do modo focado"}).click();
+ await expect(page.getByTestId("g5f-navigation-chrome")).toBeVisible();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
+ await page.getByRole("button",{name:"Ativar modo focado"}).click();
+ await expect(page.getByTestId("g5f-navigation-chrome")).toBeHidden();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
  const movement=page.getByRole("button",{name:"Ver movimento: Supino máquina"});
  await movement.click();
  await expect(page.getByRole("dialog")).toContainText("Demonstração visual aprovada ainda não disponível.");
