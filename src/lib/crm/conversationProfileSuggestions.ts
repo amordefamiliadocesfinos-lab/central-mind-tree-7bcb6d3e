@@ -3,7 +3,7 @@
  * Never sends messages, writes to contacts or interprets conversation instructions.
  * Conservative, labelled examples only; unknown fields stay unproposed.
  */
-export const CRM_CONVERSATION_PROFILE_FIELDS = ['name', 'email', 'phone', 'zip_code', 'city', 'address'] as const;
+export const CRM_CONVERSATION_PROFILE_FIELDS = ['name', 'email', 'phone', 'zip_code', 'city', 'address', 'address_number', 'address_complement', 'neighborhood', 'billing_zip_code', 'billing_city', 'billing_address', 'billing_number', 'billing_neighborhood'] as const;
 export type CrmConversationProfileField = typeof CRM_CONVERSATION_PROFILE_FIELDS[number];
 
 export interface CrmConversationProfileMessage {
@@ -29,6 +29,14 @@ const patterns: Record<CrmConversationProfileField, RegExp> = {
   zip_code: /(?:^|\n)\s*(?:meu cep (?:é|:)|cep\s*:)\s*(\d{5}-?\d{3})\b/i,
   city: /(?:^|\n)\s*(?:minha cidade (?:é|:)|cidade\s*:)\s*([^\n,;]{2,60})/i,
   address: /(?:^|\n)\s*(?:meu endereço (?:é|:)|endereço principal\s*:)\s*([^\n;]{5,140})/i,
+  address_number: /(?:^|\n)\s*(?:número (?:do endereço principal|da residência)|número residencial)\s*:\s*([0-9]{1,8}[A-Za-z]?|s\/?n)\b/i,
+  address_complement: /(?:^|\n)\s*complemento (?:do endereço principal|residencial)\s*:\s*([^\n;]{2,80})/i,
+  neighborhood: /(?:^|\n)\s*(?:meu bairro (?:é|:)|bairro principal\s*:)\s*([^\n,;]{2,60})/i,
+  billing_zip_code: /(?:^|\n)\s*cep (?:de cobrança|para cobrança)\s*:\s*(\d{5}-?\d{3})\b/i,
+  billing_city: /(?:^|\n)\s*cidade (?:de cobrança|para cobrança)\s*:\s*([^\n,;]{2,60})/i,
+  billing_address: /(?:^|\n)\s*endereço (?:de cobrança|para cobrança)\s*:\s*([^\n;]{5,140})/i,
+  billing_number: /(?:^|\n)\s*número (?:de cobrança|do endereço de cobrança)\s*:\s*([0-9]{1,8}[A-Za-z]?|s\/?n)\b/i,
+  billing_neighborhood: /(?:^|\n)\s*bairro (?:de cobrança|para cobrança)\s*:\s*([^\n,;]{2,60})/i,
 };
 
 const simplify = (value: string): string => value.trim().replace(/\s+/g, ' ');
@@ -45,8 +53,15 @@ export function proposeCrmConversationProfileFields(
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
     const body = message.content.slice(0, 4000);
+    // Linhas citadas, encaminhadas ou rotuladas como dados de terceiro não provam
+    // titularidade. São evidências para revisão humana, nunca cadastro automático.
+    const lines = body.split(/\r?\n/).filter(line => {
+      const trimmed = line.trim();
+      return !/^(?:>|"|encaminhad[ao]|dados (?:d[ao]|de) (?:cliente|terceiro|mãe|pai|esposa|marido|amigo)|endereço (?:de entrega|da minha mãe|do meu pai))\b/i.test(trimmed);
+    });
+    const directBody = lines.join('\n');
     for (const field of CRM_CONVERSATION_PROFILE_FIELDS) {
-      const found = patterns[field].exec(body);
+      const found = patterns[field].exec(directBody);
       if (!found) continue;
       const value = simplify(found[1]);
       if (!value || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
