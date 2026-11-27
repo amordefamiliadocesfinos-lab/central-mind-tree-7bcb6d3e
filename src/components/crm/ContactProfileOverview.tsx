@@ -9,6 +9,7 @@ import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarc
 import { PROFILE_EDITABLE_KEYS } from '@/lib/crm/contactEditContract';
 import { saveContactProfile, updateContactCommercialOptOut, updateContactOfficialNextAction, updateContactActiveState } from '@/lib/crm/contactProfileWriter';
 import { ContactProfileMediaImport } from '@/components/crm/ContactProfileMediaImport';
+import { ConversationProfileSuggestions } from '@/components/crm/ConversationProfileSuggestions';
 import { Link } from 'react-router-dom';
 import { ContactTasksPanel } from '@/components/crm/ContactTasksPanel';
 import { format } from 'date-fns';
@@ -426,6 +427,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
           </div>
         </div>
       )}
+      <ConversationProfileSuggestions key={`${contact.id}|${conversationId ?? ''}`} contact={contact} conversationId={conversationId} editing={activeEdit !== null || mediaBusy || savingCount > 0} />
       {SECTIONS.map((section, index) => (
         <Collapsible key={contact.id + '-' + section.key} defaultOpen={index === 0} className="rounded-lg border">
           <div className="flex items-center gap-1 pr-2">
