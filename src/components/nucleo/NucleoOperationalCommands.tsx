@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { filterOperationalCommands, operationalCommands } from "@/lib/nucleo/operationalCommands";
+import { filterOperationalCommands, operationalCommands, operationalCommandInvocation } from "@/lib/nucleo/operationalCommands";
 
 export default function NucleoOperationalCommands() {
   const [query, setQuery] = useState("");
@@ -10,13 +10,13 @@ export default function NucleoOperationalCommands() {
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const categories = ["Todos", ...new Set(operationalCommands.map(entry => entry.category))];
   const reveal = (id: string) => setExpanded(previous => previous.includes(id) ? previous : [...previous, id]);
-  async function copy(id: string, body: string) {
+  async function copy(id: string, body: string, short = false) {
     try {
       await navigator.clipboard.writeText(body);
-      setFeedback(previous => ({ ...previous, [id]: "Comando copiado integralmente." }));
+      setFeedback(previous => ({ ...previous, [id]: short ? "Chamada curta copiada." : "Comando copiado integralmente." }));
     } catch {
       reveal(id);
-      setFeedback(previous => ({ ...previous, [id]: "Cópia automática indisponível. Selecione o texto completo abaixo e copie manualmente." }));
+      setFeedback(previous => ({ ...previous, [id]: short ? "Cópia automática indisponível. Selecione a chamada curta acima." : "Cópia automática indisponível. Selecione o texto completo abaixo e copie manualmente." }));
     }
   }
   const entries = filterOperationalCommands(query, category);
@@ -40,13 +40,15 @@ export default function NucleoOperationalCommands() {
       <div className="grid min-w-0 gap-3">
         {entries.map(entry => (
           <article key={entry.id} className="min-w-0 space-y-2 rounded-xl border p-3">
-            <p className="text-xs text-muted-foreground">{entry.id} · {entry.category}</p>
+            <p className="text-xs text-muted-foreground"><strong className="text-lg text-foreground">{entry.code}</strong> · {entry.category}</p>
             <h4 className="font-semibold">{entry.name}</h4>
             <p className="text-sm">{entry.purpose}</p>
             <p className="text-sm"><strong>Quando usar:</strong> {entry.when}</p>
             <p className="break-words text-xs text-muted-foreground">{entry.version} · {entry.source}</p>
             {entry.body === null ? <p className="text-sm">Texto integral pendente de recuperação. Cópia indisponível.</p> : <>
+              <p className="select-text break-words rounded-md bg-muted p-2 text-sm">{operationalCommandInvocation(entry.code)}</p>
               <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => void copy(entry.id, operationalCommandInvocation(entry.code), true)}>Copiar chamada curta</Button>
                 <Button type="button" variant="outline" aria-expanded={expanded.includes(entry.id)} aria-controls={`command-${entry.id}`} onClick={() => setExpanded(previous => previous.includes(entry.id) ? previous.filter(id => id !== entry.id) : [...previous, entry.id])}>{expanded.includes(entry.id) ? "Recolher comando" : "Ver comando"}</Button>
                 <Button type="button" onClick={() => void copy(entry.id, entry.body!)}>Copiar comando</Button>
               </div>
