@@ -30,7 +30,7 @@ for(const token of [
  'requestedSection?:{section:FMSection;seq:number}|null',
  'if(requestedSection?.section && !saving && !draftDirty && !writeUncertain && !fence.blocked)',
  'onClick={()=>onOpenWorkstream(front.id)}',
- 'Abrir ficha M3 desta frente',
+ 'Abrir ficha do trabalho',
  'onOpenWorkstream&&',
 ])assert(fm.includes(token),"Ficha FM-09: "+token);
 assert(text.includes('selectedRecord && (moduleSection==="conhecimento" || knowledgeVisited)'),"Preservar a Ficha Viva montada");
