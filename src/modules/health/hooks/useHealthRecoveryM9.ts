@@ -221,7 +221,6 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
   }, [reload]);
 
   const recordSleepPeriod = useCallback(async (input: {
-    clientEventId?: string;
     sleepDate?: string;
     periodType?: SleepPeriod["period_type"];
     bedAt?: string | null;
@@ -250,7 +249,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
       p_data_source: "USER_REPORTED",
       p_confidence: "moderate",
       p_notes: input.notes?.trim() || null,
-      p_client_event_id: input.clientEventId??clientEventId(),
+      p_client_event_id: clientEventId(),
       p_supersedes_sleep_period_id: null,
     }));
   }, [athleteId, run]);
@@ -259,7 +258,6 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     metrics: RecoveryMetricInput[],
     observedAt = new Date(),
     notes?: string | null,
-    eventId?: string,
   ) => {
     if (!athleteId) throw new Error("Atleta não disponível.");
     const usable = metrics.filter((metric) =>
@@ -267,7 +265,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     );
     if (!usable.length) throw new Error("Informe ao menos uma percepção de recuperação.");
 
-    const checkinEventId = eventId??crypto.randomUUID();
+    const checkinEventId = crypto.randomUUID();
     const observedAtIso = observedAt.toISOString();
     const observedOn = todayIso();
 
