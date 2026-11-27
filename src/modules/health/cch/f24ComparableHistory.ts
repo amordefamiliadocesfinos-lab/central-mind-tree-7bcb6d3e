@@ -1,5 +1,6 @@
 /** F24 G2: conservative reference from actual F21/M4 sessions.
- * Same exercise AND explicitly confirmed identical equipment are required.
+ * Same exercise and matching explicitly reported equipment label are required.
+ * A label is not proof of physical equipment identity.
  * This is a displayed fact, never an automatic load recommendation.
  */
 export type F24HistoryRow = {
@@ -47,5 +48,6 @@ export function selectF24ComparableHistory(
   if(!chosen)return null;
   return {sessionId:chosen.sessionId,occurredAt:chosen.sessionStartedAt,
     equipmentLabel:chosen.equipmentLabel!.trim(),loadValue:chosen.loadValue!,
-    loadUnit:chosen.loadUnit as "kg"|"lb",reps:chosen.reps!,rir:chosen.rir};
+    loadUnit:chosen.loadUnit as "kg"|"lb",reps:chosen.reps!,
+    rir:chosen.rir!==null && Number.isFinite(chosen.rir) && chosen.rir>=0 ? chosen.rir : null};
 }
