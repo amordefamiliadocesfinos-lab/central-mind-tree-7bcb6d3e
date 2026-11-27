@@ -15,13 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import {
@@ -331,39 +324,15 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="body-weight-method">Método do peso</Label>
-              <Select value={weightMethod} onValueChange={(value) => setWeightMethod(value as BodyMeasurementInput["method"])}>
-                <SelectTrigger id="body-weight-method" className="min-h-11"><SelectValue placeholder="Escolha" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scale">Balança</SelectItem>
-                  <SelectItem value="bioimpedance">Bioimpedância</SelectItem>
-                  <SelectItem value="professional">Profissional</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
+              <select id="body-weight-method" value={weightMethod} onChange={e=>setWeightMethod(e.target.value as BodyMeasurementInput["method"])} disabled={blocked} className="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"><option value="">Escolha</option><option value="scale">Balança</option><option value="bioimpedance">Bioimpedância</option><option value="professional">Profissional</option><option value="other">Outro</option></select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="body-fat-method">Método da gordura</Label>
-              <Select value={bodyFatMethod} onValueChange={(value) => setBodyFatMethod(value as BodyMeasurementInput["method"])}>
-                <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bioimpedance">Bioimpedância</SelectItem>
-                  <SelectItem value="caliper">Dobras / adipômetro</SelectItem>
-                  <SelectItem value="dexa">DEXA</SelectItem>
-                  <SelectItem value="estimated">Estimativa</SelectItem>
-                  <SelectItem value="professional">Profissional</SelectItem>
-                </SelectContent>
-              </Select>
+              <select id="body-fat-method" value={bodyFatMethod} onChange={e=>setBodyFatMethod(e.target.value as BodyMeasurementInput["method"])} disabled={blocked} className="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"><option value="">Escolha</option><option value="bioimpedance">Bioimpedância</option><option value="caliper">Dobras / adipômetro</option><option value="dexa">DEXA</option><option value="estimated">Estimativa</option><option value="professional">Profissional</option></select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="body-context">Condição da pesagem</Label>
-              <Select value={weighingContext} onValueChange={setWeighingContext}>
-                <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="morning_fasted">Manhã em jejum</SelectItem>
-                  <SelectItem value="morning_unfasted">Manhã sem jejum</SelectItem>
-                  <SelectItem value="other">Outra condição</SelectItem>
-                </SelectContent>
-              </Select>
+              <select id="body-context" value={weighingContext} onChange={e=>setWeighingContext(e.target.value)} disabled={blocked} className="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"><option value="">Escolha</option><option value="morning_fasted">Manhã em jejum</option><option value="morning_unfasted">Manhã sem jejum</option><option value="other">Outra condição</option></select>
             </div>
           </div>
 
