@@ -10,7 +10,7 @@ const actor='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const lease=a=>query(`SELECT lease_id FROM public.shopee_cycle_state WHERE channel_account_id='${a}'`);
 const pause=(a,q)=>`SELECT public.append_shopee_cycle_policy_revision('${a}',1,'${q}','pause',null,'fixture/pause')`;
-const claim=(a,l,shop)=>`SELECT public.claim_shopee_cycle_effect('${a}','${l}',1,'ship',${shop},'D11SYNTHETIC1','PKG1',repeat('a',64))`;
+const claim=(a,l,shop)=>`SELECT public.claim_shopee_cycle_effect('${a}','${l}',1,'ship',${shop},'D11SYNTHETIC1','PKG1',repeat('a',64),(SELECT id FROM public.shopee_cycle_observations WHERE channel_account_id='${a}' AND lease_id='${l}'))`;
 const auth=`SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${actor}',false)`;
 const service='SET ROLE service_role';
 const parse=s=>JSON.parse(s.split('\n').map(x=>x.trim()).find(x=>x.startsWith('{')));
