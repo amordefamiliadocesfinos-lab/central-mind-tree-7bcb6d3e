@@ -1,11 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Apple, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { useHealthNutritionM5, MealItem } from "../hooks/useHealthNutritionM5";
+import type { useHealthNutritionM5, MealItem, FoodLogOrigin } from "../hooks/useHealthNutritionM5";
 import type { useHealthNutritionStateM6 } from "../hooks/useHealthNutritionStateM6";
 
 type Nutrition = ReturnType<typeof useHealthNutritionM5>;
@@ -48,25 +48,36 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
   const [mealId,setMealId]=useState("");
   const [foodId,setFoodId]=useState("");
   const [quantity,setQuantity]=useState("");
+  const [origin,setOrigin]=useState<FoodLogOrigin>("declared_quantity");
+  const [reviewRequired,setReviewRequired]=useState(false);
+  const [reviewLoaded,setReviewLoaded]=useState(false);
+  const [date,setDate]=useState(localDate);
   const [confirmation,setConfirmation]=useState<string|null>(null);
   const [feedback,setFeedback]=useState("");
   const [actionError,setActionError]=useState("");
   const [busy,setBusy]=useState(false);
   const lock=useRef(false);
-  const date=localDate();
+  useEffect(()=>{
+    const sync=()=>setDate(localDate());
+    const handle=window.setInterval(sync,15000);
+    window.addEventListener("focus",sync);
+    document.addEventListener("visibilitychange",sync);
+    return ()=>{window.clearInterval(handle);window.removeEventListener("focus",sync);document.removeEventListener("visibilitychange",sync);};
+  },[]);
+  useEffect(()=>{setMealId("");setMealType("");setFoodId("");setQuantity("");setConfirmation(null);setFeedback("");},[date]);
   const day=nutrition.day;
   const complete=day?.completeness_status==="complete";
-  const currentScope=(!day||(day.athlete_id===athleteId&&day.log_date===date))&&
+  const currentScope=nutrition.readDate===date&&(!day||(day.athlete_id===athleteId&&day.log_date===date))&&
     nutrition.meals.every(m=>m.athlete_id===athleteId&&m.food_log_day_id===day?.id)&&
     nutrition.activeItems.every(i=>i.athlete_id===athleteId&&nutrition.meals.some(m=>m.id===i.meal_log_id));
   const unavailable=Boolean(nutrition.error||!currentScope);
   const pending=busy||nutrition.saving||nutrition.loading||nutritionState.refreshing;
-  const blocked=pending||unavailable;
+  const blocked=pending||unavailable||reviewRequired;
   const selectedMeal=nutrition.meals.find(m=>m.id===mealId);
   const selectedFood=nutrition.foods.find(f=>f.id===foodId);
   const amount=Number(quantity.replace(",","."));
-  const validAmount=quantity.trim()!==""&&Number.isFinite(amount)&&amount>0;
-  const canRegister=!blocked&&!complete&&Boolean(selectedMeal&&selectedFood&&selectedFood.basis_unit&&validAmount);
+  const validAmount=/^\d+(?:[.,]\d+)?$/.test(quantity.trim())&&Number.isFinite(amount)&&amount>0;
+  const canRegister=!blocked&&!complete&&Boolean(selectedMeal&&selectedFood&&["g","ml","unit"].includes(selectedFood.basis_unit)&&validAmount&&(origin!=="weighed"||selectedFood.basis_unit==="g"));
   const daily=nutritionState.daily;
   // M6 resolves the applicable published plan by date. Only reuse that reference
   // if its source still matches the M5 published version and the observed diary.
@@ -86,7 +97,7 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
   ];
   const run=async(message:string,action:()=>Promise<void>)=>{
     if(lock.current||blocked)return;
-    if(localDate()!==date){setActionError("A data mudou. Atualize o diário antes de continuar.");return;}
+    if(localDate()!==date){setDate(localDate());setActionError("A data mudou. Atualize o diário antes de continuar.");return;}
     lock.current=true;setBusy(true);setFeedback("");setActionError("");
     try {
       await action();
@@ -94,8 +105,15 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
       setConfirmation(null);
       await nutritionState.refresh();
     } catch(cause) {
-      setActionError((cause instanceof Error?cause.message:"Não foi possível concluir.")+" Confira o diário antes de tentar novamente.");
+      setReviewRequired(true);setReviewLoaded(false);setConfirmation(null);
+      setActionError((cause instanceof Error?cause.message:"Não foi possível concluir.")+" A gravação pode ter sido recebida. Confira o diário antes de qualquer nova tentativa.");
     } finally {lock.current=false;setBusy(false);}
+  };
+  const review=async()=>{
+    if(lock.current||pending)return;
+    lock.current=true;setBusy(true);setReviewLoaded(false);
+    try{await nutrition.reload();setReviewLoaded(true);}catch{setActionError("Não foi possível conferir o diário. Tente atualizar novamente.");}
+    finally{lock.current=false;setBusy(false);}
   };
   return <div className="space-y-3" data-testid="sau-sx01-diary">
     <Card>
@@ -124,7 +142,11 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
         {nutritionState.error?<p role="status" className="text-xs text-muted-foreground">O estado nutricional M6 não foi atualizado. Consulte Evolução para revisar.</p>:null}
       </CardContent>
     </Card>
-    {unavailable?<Button variant="outline" className="min-h-11 w-full" disabled={pending} onClick={()=>void nutrition.reload()}>Atualizar diário</Button>:null}
+    {unavailable||reviewRequired?<Button variant="outline" className="min-h-11 w-full" disabled={pending} onClick={()=>void review()}>Atualizar diário</Button>:null}
+    {reviewRequired?<div className="space-y-2 rounded-lg border p-3">
+      <p role="alert" className="text-sm">Resultado da última gravação não confirmado. Atualize e confira as refeições abaixo. Não repetiremos a gravação automaticamente.</p>
+      <Button variant="outline" className="min-h-11 w-full" disabled={pending||unavailable||!reviewLoaded} onClick={()=>{setReviewRequired(false);setReviewLoaded(false);setActionError("");setFoodId("");setQuantity("");setMealType("");setConfirmation(null);}}>Conferi os registros; liberar nova ação</Button>
+    </div>:null}
     {!unavailable&&!complete?<Card>
       <CardHeader className="px-3 pb-2 pt-3"><CardTitle className="text-base">Registrar alimentação</CardTitle></CardHeader>
       <CardContent className="space-y-3 px-3 pb-3">
@@ -136,14 +158,21 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
           </select>
           {selectedMeal?<div className="space-y-2">
             <Label htmlFor="sx01-food">Alimento do catálogo</Label>
-            <select id="sx01-food" className={selectClass} value={selectedFood?.id??""} disabled={blocked} onChange={e=>{setFoodId(e.target.value);setQuantity("");}}>
+            <select id="sx01-food" className={selectClass} value={selectedFood?.id??""} disabled={blocked} onChange={e=>{setFoodId(e.target.value);setQuantity("");setOrigin("declared_quantity");}}>
               <option value="">Escolha o alimento</option>
               {nutrition.foods.map(f=><option key={f.id} value={f.id}>{f.canonical_name}{f.brand?" · "+f.brand:""} ({f.basis_unit})</option>)}
             </select>
-            <Label htmlFor="sx01-quantity">Quantidade medida {selectedFood?"("+selectedFood.basis_unit+")":""}</Label>
+            <p className="text-xs text-muted-foreground">Catálogo: até 200 alimentos nesta consulta; a lista pode não ser completa.</p>
+            <Label htmlFor="sx01-quantity">Quantidade {selectedFood?"("+selectedFood.basis_unit+")":""}</Label>
             <Input id="sx01-quantity" className="min-h-11" inputMode="decimal" value={quantity} disabled={blocked||!selectedFood} onChange={e=>setQuantity(e.target.value)} placeholder={selectedFood?.basis_unit??"Quantidade"}/>
-            <p className="text-xs text-muted-foreground">O fluxo atual registra quantidade medida e alimento preparado. Não informe estimativas como medição.</p>
-            <Button className="min-h-12 w-full" disabled={!canRegister} onClick={()=>{if(!canRegister||!selectedMeal||!selectedFood)return;void run("Registro enviado.",async()=>{await nutrition.logFoodItem(selectedMeal.id,selectedFood,amount,selectedFood.basis_unit);setFoodId("");setQuantity("");});}}>Registrar alimento</Button>
+            <Label htmlFor="sx01-origin">Origem da quantidade</Label>
+            <select id="sx01-origin" className={selectClass} value={origin} disabled={blocked||!selectedFood} onChange={e=>setOrigin(e.target.value as FoodLogOrigin)}>
+              <option value="declared_quantity">Quantidade informada</option>
+              {selectedFood?.basis_unit==="g"?<option value="weighed">Pesada em balança</option>:null}
+              <option value="visual_estimate">Estimativa visual</option>
+            </select>
+            <p className="text-xs text-muted-foreground">Use a unidade e a referência do alimento no catálogo. Quantidade informada ou estimada não é pesagem. Preparo não verificado.</p>
+            <Button className="min-h-12 w-full" disabled={!canRegister} onClick={()=>{if(!canRegister||!selectedMeal||!selectedFood)return;void run("Registro enviado.",async()=>{await nutrition.logFoodItem(selectedMeal.id,selectedFood,amount,selectedFood.basis_unit,origin);setFoodId("");setQuantity("");});}}>Registrar alimento</Button>
           </div>:null}
         </div>:null}
         <details open={nutrition.meals.length===0?true:undefined} className="rounded-lg border px-2">
