@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -141,11 +141,15 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
   const [results, setResults] = useState<BiomarkerResult[]>([]);
   const [states, setStates] = useState<BiomarkerState[]>([]);
   const [vitals, setVitals] = useState<VitalObservation[]>([]);
+  const generation=useRef(0);
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setError(message);setLoading(false);}if(strict)throw Error(message);};
+    try {
     if (!athleteId) {
       setDocuments([]);
       setReports([]);
@@ -163,7 +167,7 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
       db.from("health_clinical_documents").select("*")
         .eq("athlete_id", athleteId).order("created_at", { ascending: false }).limit(100),
       db.from("health_lab_reports").select("*")
-        .eq("athlete_id", athleteId).order("collected_at", { ascending: false }).order("created_at", { ascending: false }).limit(100),
+        .eq("athlete_id", athleteId).order("collected_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(100),
       db.from("health_biomarker_longitudinal_states").select("*")
         .eq("athlete_id", athleteId).order("as_of_date", { ascending: false }).limit(250),
       db.from("health_vital_observations").select("*")
@@ -172,43 +176,41 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
 
     const firstError = documentResult.error ?? reportResult.error ?? stateResult.error ?? vitalResult.error;
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
     const nextReports = (reportResult.data ?? []) as LabReport[];
     let nextResults: BiomarkerResult[] = [];
     if (nextReports.length) {
-      const resultResult = await db.from("health_biomarker_results").select("*")
+      const resultResult = await db.from("health_biomarker_results").select("*",{count:"exact"})
         .eq("athlete_id", athleteId)
         .in("lab_report_id", nextReports.map((report) => report.id))
         .order("created_at", { ascending: true });
       if (resultResult.error) {
-        setError(resultResult.error.message);
-        setLoading(false);
+        fail(resultResult.error.message);
         return;
       }
       nextResults = (resultResult.data ?? []) as BiomarkerResult[];
+      if(resultResult.count!==nextResults.length){fail("Consulta de resultados incompleta.");return;}
     }
 
     const docs = (documentResult.data ?? []) as ClinicalDocument[];
-    const docsWithUrls = await Promise.all(docs.map(async (document) => {
-      if (document.status !== "active") return document;
-      const signed = await supabase.storage.from("health-private").createSignedUrl(document.object_path, 60 * 10);
-      return { ...document, signed_url: signed.error ? null : signed.data.signedUrl };
-    }));
-
-    setDocuments(docsWithUrls);
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
+    const nextStates=(stateResult.data??[]) as BiomarkerState[];
+    const nextVitals=(vitalResult.data??[]) as VitalObservation[];
+    if([...docs,...nextReports,...nextResults,...nextStates,...nextVitals].some(row=>row.athlete_id!==athleteId)||nextResults.some(row=>!nextReports.some(report=>report.id===row.lab_report_id))){fail("Escopo dos exames não confirmado.");return;}
+    setDocuments(docs.map(document=>({...document,signed_url:null})));
     setReports(nextReports);
     setResults(nextResults);
     setStates((stateResult.data ?? []) as BiomarkerState[]);
     setVitals((vitalResult.data ?? []) as VitalObservation[]);
     setLoading(false);
+    }catch(cause){fail(cause instanceof Error?cause.message:"Consulta de exames indisponível.");}
   }, [athleteId]);
 
   useEffect(() => {
-    void reload();
+    void reload();return ()=>{generation.current++;};
   }, [reload]);
 
   const uploadDocument = useCallback(async (file: File, options?: {
@@ -244,18 +246,26 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
         p_notes: null,
       });
       if (register.error) {
-        await supabase.storage.from("health-private").remove([objectPath]);
+        // A lost response can conceal a committed registration. Preserve bytes for controlled reconciliation.
         throw register.error;
       }
 
-      await reload();
+      await reload(true);
       return documentId;
     } finally {
       setSaving(false);
     }
   }, [athleteId, reload]);
 
+  const requestDocumentUrl=useCallback(async(documentId:string)=>{
+    const doc=documents.find(d=>d.id===documentId&&d.athlete_id===athleteId&&d.status==="active");
+    if(!doc||!athleteId||!doc.object_path.startsWith(athleteId+"/clinical/"+doc.id+"/")||loading||error)throw Error("Documento indisponível.");
+    const signed=await supabase.storage.from("health-private").createSignedUrl(doc.object_path,600);
+    if(signed.error||!signed.data?.signedUrl)throw Error("Link privado indisponível.");
+    return signed.data.signedUrl;
+  },[documents,athleteId,loading,error]);
   const voidDocument = useCallback(async (documentId: string) => {
+    if(!documents.some(d=>d.id===documentId&&d.athlete_id===athleteId&&d.status==="active"))throw Error("Documento indisponível.");
     setSaving(true);
     setError(null);
     try {
@@ -264,11 +274,11 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
         p_reason: "Anulado pelo usuário",
       });
       if (result.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
-  }, [reload]);
+  }, [reload,documents,athleteId]);
 
   const recordLabReport = useCallback(async (input: {
     laboratoryName?: string | null;
@@ -301,7 +311,7 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
         p_supersedes_lab_report_id: null,
       });
       if (result.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
       return result.data;
     } finally {
       setSaving(false);
@@ -337,7 +347,7 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
         p_supersedes_vital_observation_id: null,
       });
       if (result.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
@@ -367,7 +377,7 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
     saving,
     error,
     reload,
-    uploadDocument,
+    uploadDocument,requestDocumentUrl,
     voidDocument,
     recordLabReport,
     recordVital,

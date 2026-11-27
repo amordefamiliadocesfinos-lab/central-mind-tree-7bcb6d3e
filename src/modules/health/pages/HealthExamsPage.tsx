@@ -1,209 +1,93 @@
-import { useMemo, useState } from "react";
-import { FileText, FlaskConical, HeartPulse, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { useHealthAthlete } from "../hooks/useHealthAthlete";
-import { type BiomarkerInput, useHealthExamsM9 } from "../hooks/useHealthExamsM9";
+import {useEffect,useRef,useState} from "react";
+import {Button} from "@/components/ui/button";
+import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {Textarea} from "@/components/ui/textarea";
+import {useHealthAthlete} from "../hooks/useHealthAthlete";
+import {useHealthExamsM9,type BiomarkerInput} from "../hooks/useHealthExamsM9";
 
-function numberOrNull(value: string) {
-  if (!value.trim()) return null;
-  const parsed = Number(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
+const emptyMarker=():BiomarkerInput=>({original_analyte_name:"",original_result_text:"",numeric_value:null,original_unit:"",original_reference_text:"",original_flag:"",method_text:""});
+const numberOrNull=(v:string)=>/^[+-]?\d+(?:[.,]\d+)?$/.test(v.trim())&&Number.isFinite(Number(v.replace(",",".")))?Number(v.replace(",",".")):null;
+const mime=["application/pdf","image/jpeg","image/png","image/webp"];
+const vitalSpecs:Record<string,{label:string;unit:string;min:number;max:number}>={
+ blood_pressure:{label:"Pressão arterial",unit:"mmHg",min:20,max:350},
+ resting_heart_rate:{label:"Frequência cardíaca de repouso",unit:"bpm",min:10,max:300},
+ temperature:{label:"Temperatura",unit:"°C",min:20,max:50},
+ oxygen_saturation:{label:"Saturação",unit:"%",min:1,max:100},
+ respiratory_rate:{label:"Frequência respiratória",unit:"irpm",min:1,max:100},
+ blood_glucose:{label:"Glicemia",unit:"mg/dL",min:1,max:2000},
+};
+const status=(v:string)=>v==="active"?"Ativo":v==="voided"?"Anulado":v==="superseded"?"Substituído":v;
+const date=(v:string|null)=>v?new Date(v).toLocaleString("pt-BR"):"Data não informada";
+const selectClass="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm";
+const populated=(row:BiomarkerInput)=>Object.values(row).some(v=>v!=null&&String(v).trim()!=="");
+export function completeMarkers(rows:BiomarkerInput[]){
+ const filled=rows.filter(populated);
+ return filled.length&&filled.every(row=>row.original_analyte_name.trim()&&row.original_result_text.trim())?filled:null;
 }
-
-export function HealthExamsPage() {
-  const { toast } = useToast();
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const exams = useHealthExamsM9(athlete?.id);
-
-  const [file, setFile] = useState<File | null>(null);
-  const [provider, setProvider] = useState("");
-  const [documentDate, setDocumentDate] = useState("");
-
-  const [labName, setLabName] = useState("");
-  const [collectedAt, setCollectedAt] = useState("");
-  const [fastingStatus, setFastingStatus] = useState("unknown");
-  const [reportNotes, setReportNotes] = useState("");
-  const [biomarkers, setBiomarkers] = useState<BiomarkerInput[]>([{
-    original_analyte_name: "",
-    original_result_text: "",
-    numeric_value: null,
-    original_unit: "",
-    original_reference_text: "",
-    original_flag: "",
-  }]);
-
-  const [vitalMetric, setVitalMetric] = useState("blood_pressure");
-  const [vitalValue, setVitalValue] = useState("");
-  const [vitalSecondary, setVitalSecondary] = useState("");
-  const [vitalUnit, setVitalUnit] = useState("mmHg");
-  const [vitalContext, setVitalContext] = useState("");
-
-  const activeDocuments = useMemo(() => exams.documents.filter((item) => item.status === "active"), [exams.documents]);
-  const activeReports = useMemo(() => exams.reports.filter((item) => item.status === "active"), [exams.reports]);
-
-  const upload = async () => {
-    if (!file) return;
-    try {
-      await exams.uploadDocument(file, {
-        documentType: "laboratory_report",
-        documentDate: documentDate || null,
-        providerName: provider || null,
-      });
-      toast({ title: "Documento privado salvo", description: "O arquivo foi registrado sem transformá-lo automaticamente em dado clínico confirmado." });
-      setFile(null);
-      setProvider("");
-      setDocumentDate("");
-    } catch (cause) {
-      toast({ variant: "destructive", title: "Não foi possível enviar", description: cause instanceof Error ? cause.message : "Tente novamente." });
-    }
-  };
-
-  const saveReport = async () => {
-    const rows = biomarkers.filter((item) => item.original_analyte_name.trim() && item.original_result_text.trim());
-    try {
-      await exams.recordLabReport({
-        laboratoryName: labName || null,
-        collectedAt: collectedAt || null,
-        fastingStatus: fastingStatus === "unknown" ? null : fastingStatus,
-        notes: reportNotes || null,
-        biomarkers: rows,
-      });
-      toast({ title: "Exame registrado", description: "Valor, unidade e referência originais foram preservados." });
-      setBiomarkers([{ original_analyte_name: "", original_result_text: "", numeric_value: null, original_unit: "", original_reference_text: "", original_flag: "" }]);
-      setReportNotes("");
-    } catch (cause) {
-      toast({ variant: "destructive", title: "Não foi possível registrar", description: cause instanceof Error ? cause.message : "Tente novamente." });
-    }
-  };
-
-  const saveVital = async () => {
-    const numericValue = numberOrNull(vitalValue);
-    if (numericValue == null) return;
-    try {
-      await exams.recordVital({
-        metricCode: vitalMetric,
-        numericValue,
-        secondaryNumericValue: numberOrNull(vitalSecondary),
-        unitCode: vitalUnit,
-        conditionText: vitalContext,
-      });
-      toast({ title: "Sinal fisiológico registrado" });
-      setVitalValue("");
-      setVitalSecondary("");
-    } catch (cause) {
-      toast({ variant: "destructive", title: "Não foi possível registrar", description: cause instanceof Error ? cause.message : "Tente novamente." });
-    }
-  };
-
-  if (athleteLoading || exams.loading) {
-    return <div className="flex min-h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
-  }
-
-  return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Exames e biomarcadores</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Resultados, documentos e histórico. Estrutura não é diagnóstico.</p>
-        </div>
-        <Button size="sm" variant="outline" className="min-h-10 shrink-0" disabled={exams.saving} onClick={() => void exams.reload()}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button>
-      </div>
-
-      {exams.error ? <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{exams.error}</CardContent></Card> : null}
-
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Upload className="h-4 w-4 text-primary" /> Documento privado</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="clinical-file">PDF ou imagem</Label><Input id="clinical-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="min-h-11" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></div>
-            <div className="space-y-2"><Label>Data do documento</Label><Input type="date" className="min-h-11" value={documentDate} onChange={(event) => setDocumentDate(event.target.value)} /></div>
-          </div>
-          <div className="space-y-2"><Label>Laboratório / prestador</Label><Input className="min-h-11" value={provider} onChange={(event) => setProvider(event.target.value)} /></div>
-          <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">O arquivo fica no bucket privado. Upload não significa resultado confirmado; extração futura passa por revisão antes de virar fato canônico.</div>
-          <Button className="min-h-11 w-full" disabled={!file || exams.saving} onClick={() => void upload()}>{exams.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Salvar documento privado</Button>
-
-          {activeDocuments.length ? <div className="space-y-2 border-t pt-4">{activeDocuments.map((document) => (
-            <div key={document.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-              <div className="min-w-0"><p className="truncate text-sm font-medium">{document.original_filename}</p><p className="text-xs text-muted-foreground">{document.provider_name ?? "Prestador desconhecido"} · {document.document_date ?? "Data desconhecida"}</p></div>
-              <div className="flex gap-1">
-                {document.signed_url ? <Button asChild size="sm" variant="outline" className="min-h-10"><a href={document.signed_url} target="_blank" rel="noreferrer">Abrir</a></Button> : null}
-                <Button size="icon" variant="ghost" className="min-h-11 min-w-11" onClick={() => void exams.voidDocument(document.id)}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            </div>
-          ))}</div> : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><FlaskConical className="h-4 w-4 text-primary" /> Registrar exame manualmente</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-2"><Label>Laboratório</Label><Input className="min-h-11" value={labName} onChange={(e) => setLabName(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Coleta</Label><Input type="datetime-local" className="min-h-11" value={collectedAt} onChange={(e) => setCollectedAt(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Jejum</Label><Select value={fastingStatus} onValueChange={setFastingStatus}><SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unknown">Desconhecido</SelectItem><SelectItem value="fasting">Sim</SelectItem><SelectItem value="non_fasting">Não</SelectItem></SelectContent></Select></div>
-          </div>
-
-          <div className="space-y-3">
-            {biomarkers.map((item, index) => (
-              <div key={index} className="rounded-xl border p-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2"><Label>Marcador original</Label><Input className="min-h-11" value={item.original_analyte_name} onChange={(e) => setBiomarkers((rows) => rows.map((row, i) => i === index ? { ...row, original_analyte_name: e.target.value } : row))} /></div>
-                  <div className="space-y-2"><Label>Resultado original</Label><Input className="min-h-11" value={item.original_result_text} onChange={(e) => setBiomarkers((rows) => rows.map((row, i) => i === index ? { ...row, original_result_text: e.target.value, numeric_value: numberOrNull(e.target.value) } : row))} /></div>
-                  <div className="space-y-2"><Label>Unidade original</Label><Input className="min-h-11" value={item.original_unit ?? ""} onChange={(e) => setBiomarkers((rows) => rows.map((row, i) => i === index ? { ...row, original_unit: e.target.value } : row))} /></div>
-                  <div className="space-y-2"><Label>Referência original</Label><Input className="min-h-11" value={item.original_reference_text ?? ""} onChange={(e) => setBiomarkers((rows) => rows.map((row, i) => i === index ? { ...row, original_reference_text: e.target.value } : row))} /></div>
-                  <div className="space-y-2 sm:col-span-2"><Label>Flag original do laboratório</Label><Input className="min-h-11" value={item.original_flag ?? ""} onChange={(e) => setBiomarkers((rows) => rows.map((row, i) => i === index ? { ...row, original_flag: e.target.value } : row))} /></div>
-                </div>
-                {biomarkers.length > 1 ? <Button variant="ghost" size="sm" className="mt-2 min-h-10" onClick={() => setBiomarkers((rows) => rows.filter((_, i) => i !== index))}>Remover linha</Button> : null}
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" className="min-h-11 w-full" onClick={() => setBiomarkers((rows) => [...rows, { original_analyte_name: "", original_result_text: "", numeric_value: null, original_unit: "", original_reference_text: "", original_flag: "" }])}>Adicionar marcador</Button>
-          <Textarea placeholder="Observações do exame" value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} />
-          <Button className="min-h-11 w-full" disabled={exams.saving || !biomarkers.some((item) => item.original_analyte_name.trim() && item.original_result_text.trim())} onClick={() => void saveReport()}>Salvar exame confirmado</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><HeartPulse className="h-4 w-4 text-primary" /> Sinal fisiológico</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <div className="space-y-2"><Label>Métrica</Label><Select value={vitalMetric} onValueChange={(value) => { setVitalMetric(value); if (value === "blood_pressure") setVitalUnit("mmHg"); }}><SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="blood_pressure">Pressão arterial</SelectItem><SelectItem value="resting_heart_rate">Frequência cardíaca</SelectItem><SelectItem value="temperature">Temperatura</SelectItem><SelectItem value="oxygen_saturation">Saturação</SelectItem><SelectItem value="respiratory_rate">Frequência respiratória</SelectItem><SelectItem value="blood_glucose">Glicemia</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label>{vitalMetric === "blood_pressure" ? "Sistólica" : "Valor"}</Label><Input inputMode="decimal" className="min-h-11" value={vitalValue} onChange={(e) => setVitalValue(e.target.value)} /></div>
-            {vitalMetric === "blood_pressure" ? <div className="space-y-2"><Label>Diastólica</Label><Input inputMode="decimal" className="min-h-11" value={vitalSecondary} onChange={(e) => setVitalSecondary(e.target.value)} /></div> : null}
-            <div className="space-y-2"><Label>Unidade</Label><Input className="min-h-11" value={vitalUnit} onChange={(e) => setVitalUnit(e.target.value)} /></div>
-          </div>
-          <Input className="min-h-11" placeholder="Condição/contexto opcional" value={vitalContext} onChange={(e) => setVitalContext(e.target.value)} />
-          <Button className="min-h-11 w-full" disabled={exams.saving || numberOrNull(vitalValue) == null} onClick={() => void saveVital()}>Registrar sinal</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><FileText className="h-4 w-4 text-primary" /> Histórico de exames</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {activeReports.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum exame confirmado.</p> : activeReports.map((report) => (
-            <div key={report.id} className="rounded-xl border p-3">
-              <p className="text-sm font-medium">{report.laboratory_name ?? "Laboratório não informado"}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{report.collected_at ? new Date(report.collected_at).toLocaleString("pt-BR") : "Coleta desconhecida"}</p>
-              <div className="mt-3 space-y-2">
-                {exams.reportResults(report.id).map((result) => (
-                  <div key={result.id} className="rounded-lg bg-muted/40 p-2.5 text-sm">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2"><strong>{result.original_analyte_name}</strong><span>{result.original_result_text}{result.original_unit ? ` ${result.original_unit}` : ""}</span></div>
-                    <p className="mt-1 text-xs text-muted-foreground">Referência: {result.original_reference_text || "Desconhecida"}{result.original_flag ? ` · Flag original: ${result.original_flag}` : ""}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <p className="px-1 text-xs text-muted-foreground">Resultados estruturados não são diagnóstico. Mudanças clínicas continuam pertencendo à avaliação profissional apropriada.</p>
-    </div>
-  );
+export function vitalPayload(metric:string,value:string,secondary:string,unit:string,context:string,device:string){
+ const spec=vitalSpecs[metric],n=numberOrNull(value),s=numberOrNull(secondary);
+ if(!spec||unit!==spec.unit||n===null||n<spec.min||n>spec.max)return null;
+ if(metric==="blood_pressure"?(s===null||s<10||s>250||s>n):secondary.trim()!=="")return null;
+ return {metricCode:metric,numericValue:n,secondaryNumericValue:metric==="blood_pressure"?s:null,unitCode:unit,conditionText:context,deviceText:device};
+}
+export function HealthExamsPage(){
+ const {athlete,loading}=useHealthAthlete();
+ if(loading)return <p role="status" className="p-3 text-sm">Carregando perfil…</p>;
+ if(!athlete?.id)return <p className="p-3 text-sm">Perfil indisponível.</p>;
+ return <ExamsContent key={athlete.id} athleteId={athlete.id}/>;
+}
+function ExamsContent({athleteId}:{athleteId:string}){
+ const exams=useHealthExamsM9(athleteId);
+ const [section,setSection]=useState<"document"|"report"|"vital"|null>(null);
+ const [file,setFile]=useState<File|null>(null),[provider,setProvider]=useState(""),[documentDate,setDocumentDate]=useState("");
+ const [lab,setLab]=useState(""),[collected,setCollected]=useState(""),[fasting,setFasting]=useState(""),[notes,setNotes]=useState("");
+ const [rows,setRows]=useState<BiomarkerInput[]>([emptyMarker()]);
+ const [metric,setMetric]=useState(""),[value,setValue]=useState(""),[secondary,setSecondary]=useState(""),[unit,setUnit]=useState(""),[context,setContext]=useState(""),[device,setDevice]=useState("");
+ const [busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[reviewed,setReviewed]=useState(false),[notice,setNotice]=useState("");
+ const [voidId,setVoidId]=useState<string|null>(null);
+ const [link,setLink]=useState<{id:string;url:string;expires:number}|null>(null);
+ const [accessError,setAccessError]=useState("");
+ useEffect(()=>{if(!link)return;const timer=window.setTimeout(()=>setLink(null),Math.max(0,link.expires-Date.now()));return ()=>window.clearTimeout(timer);},[link]);
+ const lock=useRef(false);
+ const scoped=[...exams.documents,...exams.reports,...exams.results,...exams.states,...exams.vitals].every(x=>x.athlete_id===athleteId);
+ const usable=!exams.loading&&!exams.error&&scoped;
+ const blocked=!usable||busy||exams.saving||failed;
+ const reports=usable?exams.reports:[];
+ const documents=usable?exams.documents:[];
+ const vitals=usable?exams.vitals:[];
+ const current=reports.find(r=>r.status==="active");
+ const markers=completeMarkers(rows);
+ const vital=vitalPayload(metric,value,secondary,unit,context,device);
+ const run=async(action:()=>Promise<unknown>,message:string)=>{
+  if(blocked||lock.current)return;
+  lock.current=true;setBusy(true);setNotice("");setLink(null);
+  try{await action();setNotice(message);setVoidId(null);}
+  catch{setFailed(true);setReviewed(false);setVoidId(null);setNotice("Resultado não confirmado. Confira os registros antes de repetir; não haverá nova tentativa automática.");}
+  finally{lock.current=false;setBusy(false);}
+ };
+ const reload=async()=>{if(lock.current)return;lock.current=true;setBusy(true);setReviewed(false);setLink(null);try{await exams.reload(true);setReviewed(true);setNotice("Confira os registros atualizados.");}catch{setNotice("Consulta não confirmada.");}finally{lock.current=false;setBusy(false);}};
+ const requestLink=async(id:string)=>{if(blocked||lock.current)return;lock.current=true;setBusy(true);setLink(null);setAccessError("");try{const url=await exams.requestDocumentUrl(id);setLink({id,url,expires:Date.now()+540000});}catch{setAccessError("Link privado indisponível. Consulte novamente.");}finally{lock.current=false;setBusy(false);}};
+ const clear=()=>{setFile(null);setProvider("");setDocumentDate("");setLab("");setCollected("");setFasting("");setNotes("");setRows([emptyMarker()]);setMetric("");setValue("");setSecondary("");setUnit("");setContext("");setDevice("");setSection(null);};
+ const rowField=(index:number,key:keyof BiomarkerInput,label:string)=><div className="space-y-1"><Label htmlFor={"marker-"+index+"-"+key}>{label}</Label><Input id={"marker-"+index+"-"+key} className="min-h-11" value={String(rows[index][key]??"")} disabled={blocked} onChange={e=>setRows(old=>old.map((row,i)=>i===index?{...row,[key]:e.target.value,...(key==="original_result_text"?{numeric_value:numberOrNull(e.target.value)}:{})}:row))}/></div>;
+ return <div className="space-y-3 pb-4">
+  <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0 flex-1"><h2 className="text-xl font-semibold">Exames e biomarcadores</h2><p className="text-sm text-muted-foreground">Resultados originais, fontes e histórico. Não é diagnóstico.</p></div><Button variant="outline" className="min-h-11" disabled={busy||exams.loading||exams.saving} onClick={()=>void reload()}>Atualizar</Button></div>
+  {exams.loading?<p role="status" className="text-sm">Consultando exames…</p>:null}
+  {exams.error||!scoped?<p role="alert" className="text-sm text-destructive">Consulta indisponível. Atualize antes de registrar.</p>:null}
+  {notice?<p role={failed?"alert":"status"} className="text-sm">{notice}</p>:null}
+  {failed&&reviewed&&usable?<Button variant="outline" className="min-h-11 w-full" disabled={busy} onClick={()=>{clear();setFailed(false);setReviewed(false);setNotice("");}}>Conferi; liberar nova ação</Button>:null}
+  <Card data-testid="sx07-overview"><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-lg">Meus resultados</CardTitle></CardHeader><CardContent className="space-y-2 px-3 pb-3">{current?<><div className="rounded-lg bg-muted/25 p-3"><p className="text-xs text-muted-foreground">Último relatório ativo da consulta</p><p className="font-semibold break-words">{current.laboratory_name??"Laboratório não informado"}</p><p className="text-xs">Coleta: {date(current.collected_at)} · {current.data_source} · confiança {current.confidence}</p></div><p className="text-xs">{exams.reportResults(current.id).length} resultados registrados. Referências pertencem à coleta original.</p></>:<p className="text-sm text-muted-foreground">{usable?"Nenhum relatório ativo na consulta.":"Resultados não confirmados."}</p>}<p className="text-xs text-muted-foreground">Documentos não equivalem a resultados revisados. Fora da referência não é diagnóstico; dentro da referência não garante normalidade.</p></CardContent></Card>
+  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{([{key:"document",label:"Enviar documento privado"},{key:"report",label:"Registrar exame manual"},{key:"vital",label:"Registrar sinal"}] as const).map(item=><Button key={item.key} variant={section===item.key?"default":"outline"} className="min-h-11 h-auto whitespace-normal" disabled={blocked} onClick={()=>setSection(s=>s===item.key?null:item.key)}>{item.label}</Button>)}</div>
+  {section==="document"?<Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Documento privado</CardTitle></CardHeader><CardContent className="space-y-2 px-3 pb-3"><Label htmlFor="clinical-file">PDF ou imagem</Label><Input id="clinical-file" type="file" accept={mime.join(",")} className="min-h-11" disabled={blocked} onChange={e=>setFile(e.target.files?.[0]??null)}/><Label htmlFor="document-date">Data do documento</Label><Input id="document-date" type="date" className="min-h-11" value={documentDate} disabled={blocked} onChange={e=>setDocumentDate(e.target.value)}/><Label htmlFor="provider">Laboratório / prestador</Label><Input id="provider" className="min-h-11" value={provider} disabled={blocked} onChange={e=>setProvider(e.target.value)}/><p className="text-xs">Armazenamento privado. Enviar não confirma extração nem cria resultado clínico.</p><Button className="min-h-11 w-full" disabled={blocked||!file||!mime.includes(file.type)||file.size===0} onClick={()=>{if(file)void run(async()=>{await exams.uploadDocument(file,{documentType:"laboratory_report",documentDate:documentDate||null,providerName:provider||null});setFile(null);setProvider("");setDocumentDate("");setSection(null);},"Documento registrado. Confira a lista.");}}>Salvar documento privado</Button></CardContent></Card>:null}
+  {section==="report"?<Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Registrar exame manualmente</CardTitle></CardHeader><CardContent className="space-y-3 px-3 pb-3"><Label htmlFor="lab-name">Laboratório</Label><Input id="lab-name" className="min-h-11" value={lab} disabled={blocked} onChange={e=>setLab(e.target.value)}/><Label htmlFor="collected">Coleta</Label><Input id="collected" type="datetime-local" className="min-h-11" value={collected} disabled={blocked} onChange={e=>setCollected(e.target.value)}/><Label htmlFor="fasting">Jejum</Label><select id="fasting" className={selectClass} value={fasting} disabled={blocked} onChange={e=>setFasting(e.target.value)}><option value="">Não informado</option><option value="fasting">Sim</option><option value="non_fasting">Não</option></select>
+   {rows.map((_,i)=><fieldset key={i} className="space-y-2 rounded-lg border p-2"><legend className="text-sm">Marcador {i+1}</legend>{rowField(i,"original_analyte_name","Nome original")}{rowField(i,"original_result_text","Resultado original")}{rowField(i,"original_unit","Unidade original")}<details><summary className="min-h-11 cursor-pointer py-3 text-sm">Referência, flag e método</summary>{rowField(i,"original_reference_text","Referência original")}{rowField(i,"original_flag","Flag original")}{rowField(i,"method_text","Método original")}</details>{rows.length>1?<Button variant="ghost" className="min-h-11 w-full" disabled={blocked} onClick={()=>setRows(old=>old.filter((_,n)=>n!==i))}>Remover marcador {i+1}</Button>:null}</fieldset>)}
+   <Button variant="outline" className="min-h-11 w-full" disabled={blocked} onClick={()=>setRows(old=>[...old,emptyMarker()])}>Adicionar marcador</Button><Label htmlFor="report-notes">Observações</Label><Textarea id="report-notes" value={notes} disabled={blocked} onChange={e=>setNotes(e.target.value)}/>{!markers?<p className="text-xs">Preencha nome e resultado de cada marcador iniciado ou remova a linha. Nenhum marcador parcial será descartado silenciosamente.</p>:null}<Button className="min-h-11 w-full" disabled={blocked||!markers||(collected!==""&&(!Number.isFinite(Date.parse(collected))||Date.parse(collected)>Date.now()))} onClick={()=>{if(markers)void run(async()=>{await exams.recordLabReport({laboratoryName:lab||null,collectedAt:collected||null,fastingStatus:fasting||null,notes:notes||null,biomarkers:markers});clear();},"Resultados declarados registrados.");}}>Salvar resultados declarados</Button></CardContent></Card>:null}
+  {section==="vital"?<Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Sinal fisiológico declarado</CardTitle></CardHeader><CardContent className="space-y-2 px-3 pb-3"><Label htmlFor="vital-metric">Métrica</Label><select id="vital-metric" className={selectClass} value={metric} disabled={blocked} onChange={e=>{setMetric(e.target.value);setUnit("");setValue("");setSecondary("");}}><option value="">Escolha</option>{Object.entries(vitalSpecs).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}</select>{metric?<><Label htmlFor="vital-unit">Confirme a unidade da medição</Label><select id="vital-unit" className={selectClass} value={unit} disabled={blocked} onChange={e=>setUnit(e.target.value)}><option value="">Escolha</option><option value={vitalSpecs[metric].unit}>{vitalSpecs[metric].unit}</option></select><Label htmlFor="vital-value">{metric==="blood_pressure"?"Sistólica":"Valor"}</Label><Input id="vital-value" inputMode="decimal" className="min-h-11" value={value} disabled={blocked} onChange={e=>setValue(e.target.value)}/>{metric==="blood_pressure"?<><Label htmlFor="vital-secondary">Diastólica</Label><Input id="vital-secondary" inputMode="decimal" className="min-h-11" value={secondary} disabled={blocked} onChange={e=>setSecondary(e.target.value)}/></>:null}<p className="text-xs">Registre somente na unidade indicada. Não há conversão automática. Os limites de entrada são técnicos, não faixas clínicas.</p></>:null}<Label htmlFor="vital-context">Condição (opcional)</Label><Input id="vital-context" className="min-h-11" value={context} disabled={blocked} onChange={e=>setContext(e.target.value)}/><Label htmlFor="vital-device">Equipamento (opcional)</Label><Input id="vital-device" className="min-h-11" value={device} disabled={blocked} onChange={e=>setDevice(e.target.value)}/><Button className="min-h-11 w-full" disabled={blocked||!vital} onClick={()=>{if(vital)void run(async()=>{await exams.recordVital(vital);clear();},"Sinal declarado registrado.");}}>Salvar sinal</Button></CardContent></Card>:null}
+  <Card data-testid="sx07-results"><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Histórico de exames</CardTitle><p className="text-xs text-muted-foreground">Até 100 relatórios. Datas desconhecidas permanecem desconhecidas.</p></CardHeader><CardContent className="space-y-2 px-3 pb-3">{reports.length===0?<p className="text-sm">{usable?"Nenhum relatório consultado.":"Histórico indisponível."}</p>:reports.map(report=><details key={report.id} className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">{report.laboratory_name??"Laboratório não informado"} · {date(report.collected_at)} · {status(report.status)}</summary><p className="text-xs">Fonte {report.data_source} · confiança {report.confidence} · jejum {report.fasting_status??"Não informado"}</p>{exams.reportResults(report.id).map(result=><div key={result.id} className="border-t py-2"><p className="text-sm font-medium break-words">{result.original_analyte_name}</p><p className="text-lg font-semibold break-words">{result.original_result_text} {result.original_unit??""}</p><p className="text-xs">Referência original: {result.original_reference_text||"Não informada"} · flag original: {result.original_flag||"Não informada"}</p><p className="text-xs text-muted-foreground">Método: {result.method_text??"Não informado"} · confiança {result.confidence}</p></div>)}</details>)}</CardContent></Card>
+  <Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Comparação longitudinal registrada</CardTitle></CardHeader><CardContent className="space-y-2 px-3 pb-3">{!usable||exams.latestStatesByCode.size===0?<p className="text-sm">Nenhuma comparação confirmada na consulta.</p>:Array.from(exams.latestStatesByCode.values()).map(s=>{const latest=exams.results.find(x=>x.id===s.latest_result_id),previous=exams.results.find(x=>x.id===s.previous_result_id);const linked=Boolean(latest&&previous&&[latest,previous].every(x=>x&&reports.some(r=>r.id===x.lab_report_id&&r.status==="active")));const comparable=linked&&latest?.canonical_code===s.canonical_code&&previous?.canonical_code===s.canonical_code&&s.comparability_status==="comparable"&&s.latest_numeric_value!==null&&s.previous_numeric_value!==null&&Number.isFinite(Number(s.latest_numeric_value))&&Number.isFinite(Number(s.previous_numeric_value))&&Boolean(s.comparison_unit);return <details key={s.id} className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">{latest?.original_analyte_name??s.canonical_code} · {comparable?"Comparação registrada":"Sem comparação confirmada"}</summary><p className="text-xs">Estado de {s.as_of_date} · confiança {s.confidence} · {s.observation_count} observações.</p>{comparable?<p className="text-sm">{s.previous_numeric_value} → {s.latest_numeric_value} {s.comparison_unit}</p>:null}<p className="text-xs">{s.reason_codes.join(" · ")} · {s.algorithm_version}. Direção numérica não equivale a melhora clínica.</p></details>})}</CardContent></Card>
+  <Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Documentos privados</CardTitle><p className="text-xs text-muted-foreground">Links somente sob demanda. Anulação preserva o registro; não apaga o arquivo.</p></CardHeader><CardContent className="space-y-2 px-3 pb-3">{documents.length===0?<p className="text-sm">{usable?"Nenhum documento consultado.":"Documentos indisponíveis."}</p>:documents.map(doc=><div key={doc.id} className="space-y-2 rounded-lg border p-2"><p className="text-sm font-medium break-words">{doc.original_filename}</p><p className="text-xs">{doc.document_date??"Data desconhecida"} · {doc.provider_name??"Prestador desconhecido"} · {status(doc.status)}</p>{doc.status==="active"?<><Button variant="outline" className="min-h-11 w-full" disabled={blocked} onClick={()=>void requestLink(doc.id)}>Preparar acesso privado</Button>{link?.id===doc.id&&Date.now()<link.expires?<Button asChild variant="outline" className="min-h-11 w-full"><a href={link.url} target="_blank" rel="noopener noreferrer">Abrir documento privado</a></Button>:null}<Button variant="ghost" className="min-h-11 w-full" disabled={blocked} onClick={()=>{setVoidId(doc.id);setLink(null);}}>Anular documento</Button>{voidId===doc.id?<div className="space-y-2"><p className="text-sm">Confirmar anulação deste documento? O histórico permanece.</p><div className="grid grid-cols-2 gap-2"><Button variant="outline" className="min-h-11" disabled={blocked} onClick={()=>setVoidId(null)}>Cancelar</Button><Button variant="destructive" className="min-h-11" disabled={blocked} onClick={()=>void run(()=>exams.voidDocument(doc.id),"Documento anulado.")}>Confirmar anulação</Button></div></div>:null}</>:null}</div>)}{accessError?<p role="alert" className="text-xs">{accessError}</p>:null}</CardContent></Card>
+  <Card><CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Histórico de sinais fisiológicos</CardTitle></CardHeader><CardContent className="space-y-2 px-3 pb-3">{vitals.length===0?<p className="text-sm">{usable?"Nenhum sinal consultado.":"Histórico indisponível."}</p>:vitals.map(v=><details key={v.id} className="rounded-lg border px-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">{vitalSpecs[v.metric_code]?.label??v.metric_code}: {v.numeric_value}{v.secondary_numeric_value!==null?"/"+v.secondary_numeric_value:""} {v.unit_code}</summary><p className="text-xs">{date(v.observed_at)} · {status(v.status)} · {v.data_source} · confiança {v.confidence}</p><p className="text-xs">Condição: {v.condition_text??"Não informada"} · equipamento: {v.device_text??"Não informado"}</p></details>)}</CardContent></Card>
+  <p className="text-xs text-muted-foreground">Nenhuma alteração de treino, alimentação, medicação ou tratamento é feita por esta tela. A avaliação clínica cabe ao profissional apropriado.</p>
+ </div>;
 }
