@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/tests/fin_e1_settlement_transaction_disposable.sql'
+      - 'supabase/tests/fin_e1_settlement_concurrency_disposable.sh'
       - '.github/workflows/financial-e1-settlement-disposable.yml'
 permissions:
   contents: read
@@ -30,3 +31,11 @@ jobs:
         env:
           PGPASSWORD: localtest
         run: psql -h localhost -U postgres -d fin_e1_disposable -v ON_ERROR_STOP=1 -f supabase/tests/fin_e1_settlement_transaction_disposable.sql
+
+      - name: Verify concurrent settlements
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: localtest
+          PGDATABASE: fin_e1_disposable
+        run: bash supabase/tests/fin_e1_settlement_concurrency_disposable.sh
