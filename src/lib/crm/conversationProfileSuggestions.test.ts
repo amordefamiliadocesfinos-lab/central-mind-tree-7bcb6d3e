@@ -117,3 +117,25 @@ test('B3 marks conflicting values inside one customer message ambiguous', () => 
   assert.equal(evidence[0].state, 'ambiguous');
   assert.equal(evidence[0].messageId, 'multi');
 });
+
+test('B4 validates source format and keeps a bounded line excerpt', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('bad', 'customer', 'Telefone: 123456789\nE-mail: invalido@dominio\nCEP: 1234567'),
+    msg('ok', 'customer', 'Telefone: (47) 99999-9999\nE-mail: ana@example.com\nCEP: 88220-000'),
+  ], {});
+  assert.equal(result.length, 3);
+  const by = Object.fromEntries(result.map(p => [p.field, p]));
+  assert.equal(by.phone?.value, '(47) 99999-9999');
+  assert.equal(by.email?.value, 'ana@example.com');
+  assert.equal(by.zip_code?.value, '88220-000');
+  assert.equal(by.phone?.evidenceExcerpt, 'Telefone: (47) 99999-9999');
+  assert.ok(result.every(p => p.evidenceExcerpt.length <= 160));
+});
+
+test('B4 phone and CEP formatting do not manufacture a conflict', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('x', 'customer', 'Telefone: (47) 99999-9999\nCEP: 88220-000'),
+  ], { phone: '47999999999', zip_code: '88220000' });
+  assert.equal(result.find(p => p.field === 'phone')?.state, 'same');
+  assert.equal(result.find(p => p.field === 'zip_code')?.state, 'same');
+});
