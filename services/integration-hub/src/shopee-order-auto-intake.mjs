@@ -7,13 +7,13 @@ import { normalizeShopeeOrderRawSnapshot } from './shopee-order-normalizer.mjs';
 import { buildShopeeMappingPreview } from './shopee-mapping-preview.mjs';
 import { buildShopeeOrderProjectionPreview } from './shopee-order-projection-preview.mjs';
 import { applyShopeeInternalOrderContract } from './shopee-internal-order-contract.mjs';
-import { persistShopeeOrderContract } from './shopee-order-writer.mjs';
+import { buildShopeeOrderCreateRequest, persistShopeeOrderContract } from './shopee-order-writer.mjs';
 import {
   SHOPEE_OPERATIONAL_COMMIT_POLICY,
   shouldStopShopeeControlledRound,
 } from './shopee-intake-policy.mjs';
 
-const MODES = new Set(['preview', 'commit']);
+const MODES = new Set(['preview', 'commit', 'reconcile']);
 
 function sanitizeResult(result = {}) {
   return {
@@ -28,6 +28,7 @@ function sanitizeResult(result = {}) {
 export function createShopeeControlledAutoIntake({
   readBatch = readLiveShopeeOrderIntakeBatch,
   persistOrder = persistShopeeOrderContract,
+  readExistingBatch = null, verifyCanonicalOrder = null,
 } = {}) {
   return async function runShopeeControlledAutoIntake({
     channelAccountId,
@@ -50,7 +51,14 @@ export function createShopeeControlledAutoIntake({
       throw new TypeError('expectedOrderSn must be null or a non-empty string up to 300 chars');
     }
 
-    const batch = await readBatch({
+    // Reconciliation is an explicit, exact-order, read-only path. It must
+    // use a separate trusted reader that includes the existing order; never
+    // reinterpret the ordinary intake skip counter as composition evidence.
+    if (mode === 'reconcile' && (limit !== 1 || !/^[A-Za-z0-9]{8,100}$/.test(expectedOrderSn ?? '')
+      || typeof readExistingBatch !== 'function' || typeof verifyCanonicalOrder !== 'function')) {
+      return { ok: false, code: 'reconcile_scope_unavailable', mode, selected: 0, ready: 0, blocked: 0, written: 0, results: [] };
+    }
+    const batch = await (mode === 'reconcile' ? readExistingBatch : readBatch)({
       channel_account_id: channelAccountId.trim(),
       limit,
       ...(expectedOrderSn === null ? {} : { order_sn: expectedOrderSn.trim() }),
@@ -121,6 +129,11 @@ export function createShopeeControlledAutoIntake({
         sourceCounts: payload.counts ?? null,
         results: [],
       };
+    }
+
+    if (mode === 'reconcile' && (payload.channel_account_id !== channelAccountId.trim()
+      || payload.snapshots.length !== 1 || selectedSnapshots[0]?.channel_account_id !== channelAccountId.trim())) {
+      return { ok: false, code: 'reconcile_identity_mismatch', mode, selected: 0, ready: 0, blocked: 0, written: 0, results: [] };
     }
 
     const results = [];
@@ -215,6 +228,23 @@ export function createShopeeControlledAutoIntake({
           marketplaceAccount,
         });
         ready += 1;
+
+        if (mode === 'reconcile') {
+          // Reuse the exact writer projection, but never call its persistence
+          // function, including when the canonical order is absent.
+          const request = buildShopeeOrderCreateRequest(contract);
+          const verified = await verifyCanonicalOrder(request);
+          if (verified?.ok !== true || verified?.status !== 'verified_existing'
+            || verified?.channel_account_id !== request.channel_account_id
+            || verified?.order_number !== request.order_number
+            || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(verified?.order_id ?? '')) {
+            blocked += 1;
+            results.push({ orderSn, status: 'blocked', blockers: ['canonical_order_unverified'], write: null });
+          } else {
+            results.push({ orderSn, status: 'verified_existing', blockers: [], write: null, orderId: verified.order_id });
+          }
+          continue;
+        }
 
         if (mode === 'preview') {
           results.push({
