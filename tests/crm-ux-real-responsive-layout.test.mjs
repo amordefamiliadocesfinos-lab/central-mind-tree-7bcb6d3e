@@ -22,3 +22,16 @@ test('CRM e Operações: lançamento de Pedido não exige seis colunas horizonta
       `${path}: preço comercial não pode exigir largura mínima que estoure sua coluna`);
   }
 });
+
+test('Operações: duplicar sabor permanece visível fora da grade de campos', () => {
+  const source = readFileSync('src/pages/Operacoes.tsx', 'utf8');
+  assert.match(source, /data-testid="commercial-order-item-actions"/);
+  assert.match(source, /Duplicar sabor/);
+  assert.match(source, /onClick=\{\(\) => duplicateSaleItemForFlavor\(i\)\}/);
+  const gridStart = source.indexOf('data-testid="commercial-order-item-grid"');
+  const actionsStart = source.indexOf('data-testid="commercial-order-item-actions"', gridStart);
+  const gridEnd = source.lastIndexOf('</div>', actionsStart);
+  assert.ok(gridStart >= 0 && actionsStart > gridStart && gridEnd > gridStart,
+    'Ações precisam estar após a grade de controles, sem sexta coluna oculta');
+  assert.match(source.slice(gridEnd, actionsStart), /<div className="flex min-w-0 flex-wrap/);
+});
