@@ -75,3 +75,32 @@ assert.match(endpoint,/Revisões FM conflitantes/);
 assert.match(endpoint,/authority:"consultivo_nao_homologado"/);
 assert.match(endpoint,/ac01_revisions:revisionRead.data/);
 assert.match(endpoint,/M3 para checkpoint; FM\/AC-01 para revisão documental; AC-02 somente consulta/);
+
+
+// U06 additive response diagnostic: execute the actual pure parser extracted from the component.
+const start=ui.indexOf("type U06Meta=");
+const end=ui.indexOf("const isContext=",start);
+assert.ok(start>=0&&end>start);
+const diagnosticSource="const ID="+JSON.stringify(ID)+";\n"+ui.slice(start,end)+"\nexport {inspectU06};";
+const diagnosticTs=ts.transpileModule(diagnosticSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(diagnosticTs.diagnostics.filter(d=>d.category===ts.DiagnosticCategory.Error).length,0);
+const diagnosticExports={};
+vm.runInNewContext(diagnosticTs.outputText,{exports:diagnosticExports});
+const inspect=diagnosticExports.inspectU06;
+const sections=["FM-03","FM-08","FM-09","FM-10"].map(section_code=>({section_code,state:"registro_core",revision:{section_code,version_no:1,authority_state:"rascunho",body:"PRIVATE_BODY",source_reference:"PRIVATE_SOURCE"}}));
+const ac01_revisions=[{id:"r1",version_no:1,authority_state:"proposta"},{id:"r2",version_no:2,authority_state:"em_evolucao"}];
+const sample={kind:"nucleo_ac02_leitura_contextual_u06",authority:"consultivo_nao_homologado",root:{id:ID,code:"NUC",updated_at:"2026-11-26T23:45:10.388730Z",next_action_record:"Histórico. Ação vigente: U06-E."},sections,ac01_revisions};
+assert.equal(inspect(undefined).state,"legacy");
+const current=inspect(sample);
+assert.equal(current.state,"current");
+assert.equal(current.data.sections.length,4);
+assert.equal(current.data.revisions.length,2);
+assert.equal(current.data.root.updated_at,sample.root.updated_at);
+assert.equal(current.data.root.next_action_record,sample.root.next_action_record);
+assert.doesNotMatch(JSON.stringify(current),/PRIVATE_BODY|PRIVATE_SOURCE/);
+for(const bad of [null,{}, {...sample,authority:"homologado"},{...sample,root:{...sample.root,id:"other"}},{...sample,root:{...sample.root,updated_at:"invalid"}},{...sample,sections:sections.slice(1)},{...sample,sections:[sections[0],sections[0],...sections.slice(2)]},{...sample,sections:[{...sections[0],revision:null},...sections.slice(1)]},{...sample,ac01_revisions:[]},{...sample,ac01_revisions:[ac01_revisions[0],ac01_revisions[0]]}])assert.equal(inspect(bad).state,"incomplete");
+assert.match(ui,/visibleResult\?inspectU06\(visibleResult\.continuity_context\):null/);
+assert.match(ui,/u06\.state==="legacy"/);
+assert.match(ui,/u06\.state==="incomplete"/);
+assert.match(ui,/u06\.state==="current"/);
+console.log("PASS U06 diagnostic: legacy/current/incomplete, four unique FM, AC01 metadata, root timestamp, no FM body/source exposure");
