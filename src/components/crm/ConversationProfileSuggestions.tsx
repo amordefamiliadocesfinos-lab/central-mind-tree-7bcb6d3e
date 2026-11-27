@@ -49,6 +49,7 @@ export function ConversationProfileSuggestions({
 
   // A resposta de uma consulta antiga não pode ser aplicada após troca de atendimento.
   useEffect(() => {
+    setLoading(false);
     setSuggestions(null);
     setSelectedFields([]);
     setScannedCount(0);
@@ -108,7 +109,7 @@ export function ConversationProfileSuggestions({
   };
 
   const confirmSelected = async () => {
-    if (saveRef.current || !suggestions || !selectedFields.length || editing) return;
+    if (saveRef.current || loading || !conversationId || !suggestions || !selectedFields.length || editing) return;
     const accepted = suggestions.filter(item => selectedFields.includes(item.field) && item.state === 'empty');
     if (!accepted.length || accepted.length !== selectedFields.length) return;
     const patch: Partial<Contact> = {};
@@ -119,6 +120,13 @@ export function ConversationProfileSuggestions({
     saveRef.current = true;
     setSaving(true);
     try {
+      // Reconfirmar o vínculo antes de permitir a persistência cadastral.
+      const { data: activeConversation, error: scopeError } = await supabase.from('service_conversations')
+        .select('id,contact_id')
+        .eq('id', conversationId)
+        .eq('contact_id', contact.id)
+        .maybeSingle();
+      if (scopeError || !activeConversation) throw new Error('A conversa não está mais vinculada ao contato. Reabra a ficha e consulte novamente.');
       // Escritor oficial: releitura, delta e comparação de versão antes de salvar.
       const saved = await saveContactProfile({ contactId: contact.id, baseline: contact, draft: patch });
       onSaved?.(saved.contact);
