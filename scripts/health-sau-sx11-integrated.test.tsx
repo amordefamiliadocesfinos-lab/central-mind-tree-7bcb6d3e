@@ -36,7 +36,9 @@ describe("SX11 real router and access boundary",()=>{
   allowed();render(<App/>);expect(screen.getByTestId("destination").textContent).toBe("Dashboard");
   const nav=screen.getByRole("navigation",{name:"Navegação Saúde"});
   fireEvent.click(within(nav).getByRole("link",{name:"Alimentação"}));expect(screen.getByTestId("destination").textContent).toBe("Nutrition");
-  fireEvent.click(within(nav).getByRole("button",{name:/Mais áreas/}));fireEvent.click(within(nav).getByRole("link",{name:"Relatórios"}));
+  const currentNav=screen.getByRole("navigation",{name:"Navegação Saúde"});
+  expect(within(currentNav).getByRole("link",{name:"Alimentação"}).getAttribute("aria-current")).toBe("page");
+  fireEvent.click(within(currentNav).getByRole("button",{name:/Mais áreas/}));fireEvent.click(within(currentNav).getByRole("link",{name:"Relatórios"}));
   expect(screen.getByTestId("destination").textContent).toBe("Reports");
   fireEvent.click(screen.getByRole("button",{name:"Back fixture"}));expect(screen.getByTestId("destination").textContent).toBe("Nutrition");
   expect(m.create).not.toHaveBeenCalled();
