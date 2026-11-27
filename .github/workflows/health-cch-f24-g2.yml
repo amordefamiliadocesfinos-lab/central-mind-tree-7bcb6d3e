@@ -7,6 +7,7 @@ on:
       - 'src/modules/health/cch/f24ComparableHistory.ts'
       - 'src/modules/health/pages/HealthWorkoutPage.tsx'
       - 'src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx'
+      - 'src/modules/health/components/HealthWorkoutContextualGuidance.tsx'
       - 'scripts/health-cch-f24-g2-history.test.mjs'
       - 'scripts/health-cch-f24-f19-ssr-journey.test.mjs'
       - 'scripts/health-cch-f24-f19-interaction.test.tsx'
@@ -33,7 +34,7 @@ jobs:
       - name: Frontend TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: ESLint
-        run: npx eslint src/modules/health/hooks/useF24WorkoutHistory.ts src/modules/health/cch/f24ComparableHistory.ts src/modules/health/pages/HealthWorkoutPage.tsx src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx
+        run: npx eslint src/modules/health/hooks/useF24WorkoutHistory.ts src/modules/health/cch/f24ComparableHistory.ts src/modules/health/pages/HealthWorkoutPage.tsx src/modules/health/components/HealthWorkoutInteractiveTimerF19.tsx src/modules/health/components/HealthWorkoutContextualGuidance.tsx
       - name: Production build
         run: npm run build
       - name: F19 click journey with synthetic React controller (no live data)
