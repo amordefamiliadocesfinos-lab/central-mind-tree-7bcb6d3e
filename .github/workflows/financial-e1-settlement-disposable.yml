@@ -1,0 +1,32 @@
+name: Financeiro E1 settlement disposable
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/tests/fin_e1_settlement_transaction_disposable.sql'
+      - '.github/workflows/financial-e1-settlement-disposable.yml'
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: localtest
+          POSTGRES_DB: fin_e1_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated transaction and rollback
+        env:
+          PGPASSWORD: localtest
+        run: psql -h localhost -U postgres -d fin_e1_disposable -v ON_ERROR_STOP=1 -f supabase/tests/fin_e1_settlement_transaction_disposable.sql
