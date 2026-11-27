@@ -11,12 +11,13 @@ export function HealthExerciseMovementPreview({exercise,name}:{exercise?:Exercis
  const [open,setOpen]=useState(false);
  const [playingGif,setPlayingGif]=useState<string|null>(null);
  const [failed,setFailed]=useState<string[]>([]);
- const [reduced,setReduced]=useState(()=>typeof window!=="undefined"&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+ const [reduced,setReduced]=useState(()=>typeof window!=="undefined"&&typeof window.matchMedia==="function"&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
  useEffect(()=>{
+  if(typeof window.matchMedia!=="function")return;
   const query=window.matchMedia("(prefers-reduced-motion: reduce)");
   const sync=()=>{setReduced(query.matches);if(query.matches)setPlayingGif(null);};
-  sync();query.addEventListener("change",sync);
-  return ()=>query.removeEventListener("change",sync);
+  sync();query.addEventListener?.("change",sync);
+  return ()=>query.removeEventListener?.("change",sync);
  },[]);
  const media=exercise?selectF24BundledAssets(exercise.id,f24ApprovedAssets):[];
  const visibleMedia=media.filter(asset=>!failed.includes(asset.mediaId));
