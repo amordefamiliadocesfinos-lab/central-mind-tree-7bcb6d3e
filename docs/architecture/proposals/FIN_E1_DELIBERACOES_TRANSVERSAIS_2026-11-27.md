@@ -12,3 +12,6 @@ Mapa V2.1: nota fiscal != recebimento != conciliação. invoiceSync.ts marca is_
 Decisão solicitada: autorizar correção restrita do writer fiscal e testes, sem retroatividade.
 ## Continuidade
 E2/E3 independentes podem avançar conforme seção 5 do mapa. Contraprovas operacionais acumuladas por determinação do proprietário; REG-FIN-01 não impeditiva. Nenhum lançamento fictício ou migration produtiva.
+
+## Decisão expressa do proprietário / Camada Mestre
+27/11/2026 — D1 aprovada: direção arquitetural, migration candidata não aplicada e testes descartáveis de compatibilidade. D2 aprovada: correção restrita FISC-FIN-01 e testes, sem retroatividade. Preservar Mapa V2.1 e registros históricos. Não constitui autorização de aplicação da migration no Cloud. Registro AC-01/AC-02 ainda pendente (REG-FIN-01).
