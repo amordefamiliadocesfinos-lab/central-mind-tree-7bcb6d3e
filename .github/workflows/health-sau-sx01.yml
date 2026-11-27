@@ -1,4 +1,4 @@
-name: SAU SX01 Diary UX
+name: SAU SX01 SX02 Nutrition UX
 on:
   pull_request:
     branches: [main]
@@ -7,7 +7,10 @@ on:
       - 'src/modules/health/pages/HealthNutritionPage.tsx'
       - 'src/modules/health/hooks/useHealthNutritionM5.ts'
       - 'src/modules/health/hooks/useHealthNutritionStateM6.ts'
+      - 'src/modules/health/components/HealthNutrition*SX02.tsx'
+      - 'src/modules/health/cch/nutritionReviewSX02.ts'
       - 'scripts/health-sau-sx01-*'
+      - 'scripts/health-sau-sx02-*'
       - '.github/workflows/health-sau-sx01.yml'
 permissions:
   contents: read
@@ -23,7 +26,7 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Targeted lint
-        run: npx eslint src/modules/health/components/HealthNutritionDiarySX01.tsx src/modules/health/pages/HealthNutritionPage.tsx src/modules/health/hooks/useHealthNutritionM5.ts src/modules/health/hooks/useHealthNutritionStateM6.ts
+        run: npx eslint src/modules/health/components/HealthNutritionDiarySX01.tsx src/modules/health/pages/HealthNutritionPage.tsx src/modules/health/hooks/useHealthNutritionM5.ts src/modules/health/hooks/useHealthNutritionStateM6.ts src/modules/health/components/HealthNutritionPlanSX02.tsx src/modules/health/components/HealthNutritionRecipesSX02.tsx src/modules/health/components/HealthNutritionEvolutionSX02.tsx src/modules/health/cch/nutritionReviewSX02.ts
       - name: Production build
         run: npm run build
       - name: Synthetic interaction tests (no live data)
