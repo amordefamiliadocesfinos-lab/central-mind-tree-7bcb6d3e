@@ -42,17 +42,19 @@ export function ConversationProfileSuggestions({
   const [selectedFields, setSelectedFields] = useState<CrmConversationProfileField[]>([]);
   const [saving, setSaving] = useState(false);
   const saveRef = useRef(false);
+  const analysisRequestRef = useRef(0);
   useEffect(() => {
     onReviewChange?.(selectedFields.length > 0 || saving);
   }, [selectedFields, saving, onReviewChange]);
 
-  // Evidência consultiva só serve para o par contato/conversa atualmente aberto.
+  // A resposta de uma consulta antiga não pode ser aplicada após troca de atendimento.
   useEffect(() => {
     setSuggestions(null);
     setSelectedFields([]);
     setScannedCount(0);
     setScanLimitReached(false);
     setError(null);
+    return () => { analysisRequestRef.current += 1; };
   }, [contact.id, conversationId]);
 
   const analyze = async () => {
@@ -65,7 +67,17 @@ export function ConversationProfileSuggestions({
     setError(null);
     const requestedContactId = contact.id;
     const requestedConversationId = conversationId;
+    const requestId = ++analysisRequestRef.current;
+    const isCurrentRequest = () => analysisRequestRef.current === requestId;
     try {
+      // A conversa precisa pertencer ao contato aberto; RLS da sessão continua obrigatório.
+      const { data: boundConversation, error: boundError } = await supabase.from('service_conversations')
+        .select('id,contact_id')
+        .eq('id', requestedConversationId)
+        .eq('contact_id', requestedContactId)
+        .maybeSingle();
+      if (!isCurrentRequest()) return;
+      if (boundError || !boundConversation) throw new Error('Conversa não vinculada ao contato selecionado.');
       // Paginação somente leitura, sempre na mesma conversa autorizada.
       // O teto explícito evita consultas ilimitadas e alegações de cobertura total.
       const collected: CrmConversationProfileMessage[] = [];
@@ -77,20 +89,21 @@ export function ConversationProfileSuggestions({
           .order('created_at', { ascending: false })
           .order('id', { ascending: false })
           .range(offset, offset + CRM_CONVERSATION_PAGE_SIZE - 1);
+        if (!isCurrentRequest()) return;
         if (queryError) throw queryError;
         const page = (data ?? []) as CrmConversationProfileMessage[];
         collected.push(...page);
         if (page.length < CRM_CONVERSATION_PAGE_SIZE) break;
       }
       // Mudança de atendimento invalida a evidência (a instância também é keyed pelo contato).
-      if (requestedContactId !== contact.id || requestedConversationId !== conversationId) return;
+      if (!isCurrentRequest()) return;
       setScannedCount(collected.length);
       setScanLimitReached(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT);
       setSuggestions(proposeCrmConversationProfileFields(collected, contact));
     } catch {
-      setError('Não foi possível consultar as mensagens autorizadas deste atendimento.');
+      if (isCurrentRequest()) setError('Não foi possível confirmar a conversa vinculada ou consultar suas mensagens autorizadas.');
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) setLoading(false);
     }
   };
 
