@@ -17,6 +17,7 @@ export interface CrmConversationProfileSuggestion {
   value: string;
   messageId: string;
   createdAt: string;
+  evidenceExcerpt: string;
   state: 'empty' | 'same' | 'conflict' | 'ambiguous';
   /** All candidates are advisory, never automatically persisted. */
   requiresReview: true;
@@ -44,11 +45,27 @@ function normalize(value: string): string {
   return simplify(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+/** Restrict direct-fill candidates; ambiguous data remains for manual review only. */
+function validCandidate(field: CrmConversationProfileField, value: string): boolean {
+  if (field === 'email') return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value);
+  if (field === 'zip_code' || field === 'billing_zip_code') return /^\d{5}-?\d{3}$/.test(value);
+  if (field === 'phone') {
+    const digits = value.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 13;
+  }
+  return !/[<>\x00-\x1f]/.test(value) && value.length <= 140;
+}
+
+function comparable(field: CrmConversationProfileField, value: string): string {
+  return field === 'phone' || field === 'zip_code' || field === 'billing_zip_code'
+    ? value.replace(/\D/g, '') : normalize(value);
+}
+
 export function proposeCrmConversationProfileFields(
   messages: readonly CrmConversationProfileMessage[],
   current: Partial<Record<CrmConversationProfileField, unknown>>,
 ): CrmConversationProfileSuggestion[] {
-  const candidates = new Map<CrmConversationProfileField, Array<{ value: string; id: string; date: string }>>();
+  const candidates = new Map<CrmConversationProfileField, Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
@@ -66,9 +83,9 @@ export function proposeCrmConversationProfileFields(
         const found = patterns[field].exec(line);
         if (!found) continue;
         const value = simplify(found[1]);
-        if (!value || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
+        if (!value || !validCandidate(field, value) || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
         const list = candidates.get(field) ?? [];
-        list.push({ value, id: message.id, date: message.created_at });
+        list.push({ value, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
         candidates.set(field, list);
       }
     }
@@ -79,13 +96,14 @@ export function proposeCrmConversationProfileFields(
     if (!entries?.length) continue;
     const ordered = [...entries].sort((a, b) => a.date.localeCompare(b.date));
     const latest = ordered[ordered.length - 1];
-    const differing = ordered.some(entry => normalize(entry.value) !== normalize(latest.value));
+    const differing = ordered.some(entry => comparable(field, entry.value) !== comparable(field, latest.value));
     const oldValue = String(current[field] ?? '').trim();
     const state = differing ? 'ambiguous'
       : !oldValue ? 'empty'
-      : normalize(oldValue) === normalize(latest.value) ? 'same' : 'conflict';
+      : comparable(field, oldValue) === comparable(field, latest.value) ? 'same' : 'conflict';
     proposals.push({
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
+      evidenceExcerpt: latest.excerpt,
       state, requiresReview: true,
     });
   }
