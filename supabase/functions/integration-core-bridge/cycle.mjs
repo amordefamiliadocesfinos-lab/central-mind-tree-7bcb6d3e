@@ -88,3 +88,34 @@ export async function verifyCycleOrder(core, orderId, payload) {
     && [...expected].every(([k, e]) => { const a = actual.get(k); return a && a.quantity === e.quantity
       && a.unknown === e.unknown && Math.abs(a.value - e.value) < 0.00001; });
 }
+
+// D11 candidate, NOT connected to the bridge action router. Unlike intake,
+// this read includes tombstones and refuses ambiguous or closed orders.
+// The future trusted caller must supply the fresh exact mapped projection
+// under the account's policy/lease. A verified read is not a claim.
+export async function verifyCycleExistingOrder(core, payload) {
+  const refused = () => ({ ok: false, status: 'canonical_order_unverified' });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload?.channel_account_id ?? '')
+    || !/^[A-Za-z0-9]{8,100}$/.test(payload?.order_number ?? '')
+    || !Array.isArray(payload.items) || !payload.items.length) return refused();
+  try {
+    const result = await core.from('orders')
+      .select('id,channel_account_id,channel,order_number,sale_origin,deleted_at,status,operational_status,total_value')
+      .eq('channel_account_id',payload.channel_account_id).eq('channel','shopee')
+      .eq('order_number',payload.order_number).limit(2);
+    if (result.error || !Array.isArray(result.data) || result.data.length !== 1) return refused();
+    const o = result.data[0];
+    if (!o || o.channel_account_id !== payload.channel_account_id || o.channel !== 'shopee'
+      || o.order_number !== payload.order_number || o.sale_origin !== 'shopee_open_platform'
+      || o.deleted_at != null || !['todo','preparing'].includes(o.operational_status)
+      || typeof o.status !== 'string' || ['cancelado','finalizado'].includes(o.status)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(o.id ?? '')
+      || o.total_value == null || payload.total_value == null
+      || !Number.isFinite(Number(o.total_value)) || !Number.isFinite(Number(payload.total_value))
+      || Number(o.total_value) < 0 || Number(payload.total_value) < 0
+      || Math.abs(Number(o.total_value) - Number(payload.total_value)) > 0.00001
+      || !(await verifyCycleOrder(core,o.id,payload))) return refused();
+    return {ok:true,status:'verified_existing',channel_account_id:o.channel_account_id,
+      order_number:o.order_number,order_id:o.id};
+  } catch { return refused(); }
+}
