@@ -23,12 +23,22 @@ test('CRM e Operações: outro sabor não herda variante ou apresentação vincu
   assert.strictEqual(result[0], original);
   assert.equal(result[1].variant_id, null);
   assert.equal(result[1].commercial_presentation, null);
-  assert.equal(result[1].commercial_quantity, 3);
-  assert.equal(result[1].quantity, 3);
+  // 3 caixas do sabor anterior NÃO podem virar 3 unidades físicas.
+  assert.equal(result[1].commercial_quantity, 1);
+  assert.equal(result[1].quantity, 1);
   assert.equal(result[1].unit_price, 42);
   assert.equal(result[1]._unit_price_text, undefined);
   assert.equal(original.variant_id, 'brigadeiro');
   assert.equal(original._unit_price_text, '42,00');
+});
+
+test('cópia de unidade direta preserva quantidade comercial de vários sabores', () => {
+  const direct = line(null);
+  const result = duplicateCommercialSaleLine([direct], 0);
+  assert.equal(result[1].commercial_quantity, 3);
+  assert.equal(result[1].quantity, 3);
+  assert.equal(result[1].commercial_presentation, null);
+  assert.equal(result[1].variant_id, null);
 });
 
 test('apresentação independente e composição fixa conservam snapshot e quantidade física', () => {
