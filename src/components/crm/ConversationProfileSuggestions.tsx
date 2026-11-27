@@ -134,6 +134,9 @@ export function ConversationProfileSuggestions({
             <span className="font-semibold">{labels[item.field]}: {item.value}</span>
           </label>
           <p className="text-muted-foreground">{states[item.state]}</p>
+          <p className="mt-1 break-words text-[11px] text-muted-foreground">
+            Trecho da conversa: “{item.evidenceExcerpt}”
+          </p>
           <p className="text-[10px] text-muted-foreground">
             Fonte: mensagem {item.messageId} · {item.createdAt}
           </p>
