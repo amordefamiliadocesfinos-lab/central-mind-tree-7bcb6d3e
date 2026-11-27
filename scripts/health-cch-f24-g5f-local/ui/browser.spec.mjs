@@ -132,4 +132,36 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await expect(page.getByTestId("g5f-count")).toContainText("5",{timeout:30_000});
  await expect(extra(page)).toBeVisible();
  await expect(selected(page)).toHaveCount(0);
+ // At the plan target the next exercise and extra remain explicit choices.
+ const choices=page.getByTestId("cch-rest-next-action");
+ const next=choices.getByRole("button",{name:"Próximo exercício",exact:true});
+ await expect(next).toBeVisible();
+ await expect(extra(page)).toHaveAttribute("aria-pressed","false");
+ await expect(next).toHaveAttribute("aria-pressed","false");
+ const extraRect=await extra(page).boundingBox(),nextRect=await next.boundingBox();
+ expect(Math.abs(extraRect.width-nextRect.width)).toBeLessThanOrEqual(1);
+ expect(Math.abs(extraRect.height-nextRect.height)).toBeLessThanOrEqual(1);
+ await next.click();
+ await expect(page.getByRole("button",{name:"Iniciar Remada",exact:true})).toBeDisabled();
+ await page.getByPlaceholder("kg").fill("80");
+ await page.getByPlaceholder(/plano 6/).fill("8");
+ await page.getByRole("button",{name:"Salvar resultado"}).click();
+ await expect(page.getByRole("button",{name:"Iniciar Remada",exact:true})).toBeEnabled();
+ await page.getByRole("button",{name:"Iniciar Remada",exact:true}).click();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
+ await page.getByRole("button",{name:"Concluir série"}).click();
+ // First of three Remada sets: result save followed by a single explicit
+ // Start tap, without choosing the same exercise again.
+ await expect(page.getByRole("button",{name:"Iniciar próxima série",exact:true})).toBeDisabled();
+ await expect(extra(page)).toHaveCount(0);
+ await page.getByPlaceholder("kg").fill("40");
+ await page.getByPlaceholder(/plano 8/).fill("10");
+ await page.getByRole("button",{name:"Salvar resultado"}).click();
+ const continueSet=page.getByRole("button",{name:"Iniciar próxima série",exact:true});
+ await expect(continueSet).toBeEnabled();
+ await expect(page.getByTestId("cch-rest-clock")).toBeVisible();
+ await continueSet.click();
+ await expect(page.getByTestId("cch-work-clock")).toBeVisible();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
+ await expect(page.getByTestId("g5f-count")).toContainText("5");
 });
