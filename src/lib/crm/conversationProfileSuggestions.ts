@@ -70,6 +70,14 @@ export function proposeCrmConversationProfileFields(
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
     const body = message.content.slice(0, 4000);
+    // Blocos de terceiros frequentemente têm cabeçalho seguido de rótulos comuns
+    // (Nome completo, E-mail, Cidade). Não os atribuir automaticamente ao titular.
+    const headerLines = body.split(/\r?\n/);
+    const thirdPartyHeader = headerLines.some(line =>
+      /^\s*(?:dados|informações|cadastro)\s+(?:d[ao]|de)\s+(?:minha|meu|outra|outro|um|uma|terceiro|terceira|cliente|destinatári[ao]|esposa|marido|mãe|pai|filh[ao]|amig[ao])/i.test(line)
+      || /^\s*(?:encaminhada de|mensagem encaminhada|forwarded message|contato de terceiro)\b/i.test(line)
+    );
+    if (thirdPartyHeader) continue;
     // Linhas citadas, encaminhadas ou rotuladas como dados de terceiro não provam
     // titularidade. São evidências para revisão humana, nunca cadastro automático.
     const lines = body.split(/\r?\n/).filter(line => {
