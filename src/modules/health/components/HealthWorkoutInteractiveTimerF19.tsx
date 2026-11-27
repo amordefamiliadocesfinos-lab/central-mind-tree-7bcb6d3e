@@ -373,6 +373,12 @@ export function HealthWorkoutInteractiveTimerF19({
       ? orderedExercises[viewedIndex + 1]
       : null;
 
+  const historyStatus = viewedExercise ? historicalReferences.get(viewedExercise.id) : undefined;
+  // Only a verified label match from the existing scoped read may expose values.
+  // A matching label does not certify the same physical machine.
+  const previousReference = !historyLoading && historyStatus?.reason === "comparable"
+    ? historyStatus.reference : null;
+
   const viewingActiveExercise =
     viewedExercise != null &&
     activeExercise != null &&
@@ -935,26 +941,6 @@ export function HealthWorkoutInteractiveTimerF19({
                     exercise={exerciseCatalogById?.get(viewedExercise.exercise_id)}
                     name={exerciseNameById.get(viewedExercise.exercise_id) ?? "Exercício"}/>
                 </div>
-                {historyLoading ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Consultando referência anterior…</p>
-                ) : historicalReferences.get(viewedExercise.id)?.reference ? (
-                  <p className="mt-1 text-xs text-muted-foreground" aria-label="Histórico anterior com o mesmo rótulo de aparelho informado pelo atleta; identidade física não certificada">
-                    Último registro com mesmo rótulo ·{" "}
-                    {historicalReferences.get(viewedExercise.id)!.reference!.loadValue}{" "}
-                    {historicalReferences.get(viewedExercise.id)!.reference!.loadUnit}
-                    {" × "}{historicalReferences.get(viewedExercise.id)!.reference!.reps} reps
-                    {" · "}{historicalReferences.get(viewedExercise.id)!.reference!.equipmentLabel}
-                    {" · "}{new Date(historicalReferences.get(viewedExercise.id)!.reference!.occurredAt).toLocaleDateString("pt-BR")}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {historicalReferences.get(viewedExercise.id)?.reason === "equipment_unconfirmed"
-                      ? "Histórico: confirme o aparelho para comparar"
-                      : historicalReferences.get(viewedExercise.id)?.reason === "unavailable"
-                        ? "Histórico não disponível no momento"
-                        : "Sem referência anterior com o mesmo rótulo"}
-                  </p>
-                )}
                 <p className="mt-1 text-sm text-muted-foreground">
                   {viewingActiveExercise
                     ? timer.activeInterval
@@ -977,6 +963,37 @@ export function HealthWorkoutInteractiveTimerF19({
           </CardHeader>
 
           <CardContent className="space-y-3 px-3 pb-3">
+            <aside data-testid="cch-history-reference" aria-label="Referência histórica, não é o resultado atual"
+              className="rounded-lg bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                <p className="font-medium">Última execução comparável</p>
+                {previousReference ? (
+                  <time dateTime={previousReference.occurredAt}>{new Date(previousReference.occurredAt).toLocaleDateString("pt-BR")}</time>
+                ) : null}
+              </div>
+              {historyLoading ? (
+                <p className="mt-1">Consultando histórico…</p>
+              ) : previousReference ? (
+                <>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium text-foreground tabular-nums">
+                    <span>{previousReference.loadValue} {previousReference.loadUnit}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{previousReference.reps} reps</span>
+                    <span aria-hidden="true">·</span>
+                    <span>RIR {previousReference.rir ?? "—"}</span>
+                  </p>
+                  <p className="mt-1 break-words">Mesmo rótulo: {previousReference.equipmentLabel}. Identidade física não confirmada.</p>
+                </>
+              ) : (
+                <p className="mt-1">{
+                  historyStatus?.reason === "equipment_unconfirmed"
+                    ? "Confirme o rótulo do aparelho para comparar."
+                    : historyStatus?.reason === "unavailable" || !historyStatus
+                      ? "Histórico indisponível no momento."
+                      : "Sem registro anterior com o mesmo rótulo. Não compare cargas de aparelhos distintos."
+                }</p>
+              )}
+            </aside>
             <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
               context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
               eligible={Boolean(guidanceScope && guidanceReadReady && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
