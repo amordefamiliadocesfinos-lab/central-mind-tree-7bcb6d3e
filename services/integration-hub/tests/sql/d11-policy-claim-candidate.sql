@@ -4,16 +4,16 @@
 -- Existing durable ledgers still arbitrate uniqueness and uncertain outcomes.
 CREATE FUNCTION public.claim_shopee_cycle_effect(
   p_channel_account_id uuid,p_lease_id uuid,p_revision integer,p_action text,
-  p_shop_id bigint,p_order_sn text,p_package_number text,p_request_hash text
+  p_shop_id bigint,p_order_sn text,p_package_number text,p_request_hash text,p_observation_id uuid
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
 DECLARE
   v public.shopee_cycle_state%ROWTYPE;
-  p jsonb; r jsonb; o jsonb; pkg jsonb; t timestamptz;
+  p jsonb; r jsonb; o jsonb; pkg jsonb; e jsonb;
   n bigint; valid_count bigint;
 BEGIN
   IF p_action IS NULL OR p_action NOT IN ('ship','label')
     OR p_channel_account_id IS NULL OR p_lease_id IS NULL OR p_revision IS NULL OR p_revision<1
-    OR p_shop_id IS NULL OR p_shop_id<=0
+    OR p_observation_id IS NULL OR p_shop_id IS NULL OR p_shop_id<=0
     OR coalesce(p_order_sn,'') !~ '^[A-Za-z0-9]{8,100}$'
     OR coalesce(p_package_number,'') !~ '^[A-Za-z0-9_-]{1,100}$'
     OR coalesce(p_request_hash,'') !~ '^[0-9a-f]{64}$'
@@ -42,23 +42,15 @@ BEGIN
     AND operational_status IN ('todo','preparing')) INTO n,valid_count
   FROM public.orders WHERE channel_account_id=p_channel_account_id AND channel='shopee' AND order_number=p_order_sn;
   IF n<>1 OR valid_count<>1 THEN RETURN jsonb_build_object('status','policy_canonical_order_refused'); END IF;
-  -- Require one unambiguous latest canonical Raw captured in this lease. This
-  -- is supplemental to, never a replacement for, fresh official preflight.
-  SELECT max(observed_at) INTO t FROM public.marketplace_raw_snapshots
-   WHERE channel_account_id=p_channel_account_id AND external_entity_id=p_order_sn
-     AND source='shopee_open_platform' AND environment='live' AND external_entity_type='order'
-     AND endpoint='/api/v2/order/get_order_detail';
-  IF t IS NULL OR t<v.updated_at OR t>clock_timestamp()
-  THEN RETURN jsonb_build_object('status','policy_raw_not_fresh'); END IF;
-  SELECT count(*) INTO n FROM public.marketplace_raw_snapshots
-    WHERE channel_account_id=p_channel_account_id AND external_entity_id=p_order_sn
-     AND source='shopee_open_platform' AND environment='live' AND external_entity_type='order'
-     AND endpoint='/api/v2/order/get_order_detail' AND observed_at=t;
-  IF n<>1 THEN RETURN jsonb_build_object('status','policy_raw_ambiguous'); END IF;
-  SELECT payload INTO r FROM public.marketplace_raw_snapshots
-    WHERE channel_account_id=p_channel_account_id AND external_entity_id=p_order_sn
-     AND source='shopee_open_platform' AND environment='live' AND external_entity_type='order'
-     AND endpoint='/api/v2/order/get_order_detail' AND observed_at=t;
+  -- Current receipt is mandatory and must match the exact evidence selected
+  -- by the worker. No fallback to the Raw's original timestamp.
+  e:=public.read_shopee_cycle_observation(p_channel_account_id,p_lease_id,p_revision,p_action);
+  IF e IS NULL OR e->>'observation_id' IS DISTINCT FROM p_observation_id::text
+    OR e->>'channel_account_id' IS DISTINCT FROM p_channel_account_id::text
+    OR e->>'shop_id' IS DISTINCT FROM p_shop_id::text
+    OR e->>'order_sn' IS DISTINCT FROM p_order_sn
+  THEN RETURN jsonb_build_object('status','policy_observation_refused'); END IF;
+  r:=e->'payload';
   IF jsonb_typeof(r#>'{response,order_list}') IS DISTINCT FROM 'array'
   THEN RETURN jsonb_build_object('status','policy_raw_identity_refused'); END IF;
   IF jsonb_array_length(r#>'{response,order_list}')<>1
@@ -95,10 +87,13 @@ BEGIN
   -- claim authorizes one in-flight attempt, not immunity to later revocation.
   IF NOT public.check_shopee_cycle_policy_lease(p_channel_account_id,p_lease_id,p_revision,p_action)
   THEN RETURN jsonb_build_object('status','policy_lease_refused'); END IF;
+  e:=public.read_shopee_cycle_observation(p_channel_account_id,p_lease_id,p_revision,p_action);
+  IF e IS NULL OR e->>'observation_id' IS DISTINCT FROM p_observation_id::text
+  THEN RETURN jsonb_build_object('status','policy_observation_refused'); END IF;
   IF p_action='ship' THEN
     RETURN public.claim_shopee_shipping_arrangement(p_channel_account_id,p_shop_id,p_order_sn,p_package_number,p_request_hash);
   END IF;
   RETURN public.claim_shopee_shipping_document(p_channel_account_id,p_shop_id,p_order_sn,p_package_number,'NORMAL_AIR_WAYBILL',p_request_hash);
 END $$;
-REVOKE ALL ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text) TO service_role;
+REVOKE ALL ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid) TO service_role;
