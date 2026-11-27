@@ -1,0 +1,25 @@
+name: Financeiro E1 validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/financial/**'
+      - 'src/hooks/useFinancial.ts'
+      - 'src/lib/financial/**'
+      - 'src/pages/Financeiro.tsx'
+      - '.github/workflows/financial-e1-validation.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm run build
