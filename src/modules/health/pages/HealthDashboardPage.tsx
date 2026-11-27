@@ -477,6 +477,7 @@ function HealthDashboardContent({athlete}:{athlete:{id:string;display_name?:stri
         <p className="text-xs text-muted-foreground">Revise períodos e evidências antes de alterar o planejamento. Nenhuma alteração é automática.</p>
       </section>
       <HealthJourneyF12
+        compact
         stages={journey.stages}
         nextAction={journey.nextAction}
         loading={journey.loading || integrated.loading}
