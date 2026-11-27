@@ -95,7 +95,15 @@ function validateActionPayload(payload, nowMs) {
   }
 
   if (!LIVE_ACTIONS.has(payload.action)) return false;
-  if (D11_ACTIONS.includes(payload.action)) return validateD11Payload(payload);
+  if (D11_ACTIONS.includes(payload.action)) {
+    if (!validateD11Payload(payload)) return false;
+    // Reuse the exact existing projection contract, not an arbitrary JSON writer.
+    if (payload.action === 'shopee.d11.reconcile.verify') {
+      return payload.projection.channel_account_id === payload.channel_account_id
+        && validateActionPayload({ ...payload.projection, action: 'shopee.order.create' }, nowMs);
+    }
+    return true;
+  }
 
 
   // F12.3 is restricted to Adão even before hitting the SQL account check.
