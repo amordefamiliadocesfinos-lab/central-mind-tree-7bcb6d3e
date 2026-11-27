@@ -12,6 +12,7 @@ function fixture(options={}) {
   SHOPEE_D10_FISCAL_MODE:'cpf_no_invoice_step',SHOPEE_D10_WINDOW_FROM:String(T-600),
   SHOPEE_D10_WINDOW_TO:String(T-30),SHOPEE_D10_EXPIRES_AT:new Date(NOW+600000).toISOString(),
   SHOPEE_D10_SHIP_ENABLED:'true',SHOPEE_D10_LABEL_ENABLED:'true',
+  SHOPEE_D10_EXPECTED_ORDER_SN:O,SHOPEE_D10_EXPECTED_PACKAGE_NUMBER:P,
   SHOPEE_LIVE_PARTNER_KEY:'mock',SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY:'mock',...options.env};
  const calls=[], bodies=[], claims=[];
  const connection=async d=>{assert.equal(d.channel_account_id,A);return {ok:true,payload:{
@@ -21,9 +22,9 @@ function fixture(options={}) {
   simple_dropoff_confirmed:true,split_up:options.split??false};
  const run=createD10Pilot({getEnv:k=>env[k],now:()=>NOW,readConnection:connection,
   decryptToken:async()=> 'mock',
-  listOrders:async d=>{calls.push('list');assert.equal(d.shopId,SHOP);assert.equal(d.orderStatus,undefined);
+  listOrders:async d=>{calls.push('list');assert.equal(d.shopId,SHOP);assert.equal(d.orderStatus,options.discovery && d.timeTo-d.timeFrom>2?'READY_TO_SHIP':undefined);
    return {response:{ok:true},payload:{error:'',response:{more:options.more??false,
-    order_list:options.multiple?[{order_sn:O},{order_sn:'OTHERORDER1'}]:[{order_sn:O}]}}}},
+    order_list:options.empty?[]:options.multiple?[{order_sn:O},{order_sn:'OTHERORDER1'}]:[{order_sn:O}]}}}},
   detailOrders:async()=>{calls.push('detail');return {response:{ok:true},payload:{error:'',response:{order_list:[{
    order_sn:O,create_time:T-120,order_status:options.processed?'PROCESSED':'READY_TO_SHIP',
    package_list:[{package_number:P,logistics_status:options.processed?'LOGISTICS_REQUEST_CREATED':'LOGISTICS_READY'}],
@@ -77,4 +78,30 @@ test('D10 route rejects body/query and is default off',async()=>{
  assert.equal((await handleRequest({...req,query:{order_sn:O}},opts)).status,400);
  assert.equal((await handleRequest({...req,body:'{}'},opts)).status,400);
  assert.equal(invoked,0);
+});
+
+const discoveryEnv={SHOPEE_D10_DISCOVERY_ENABLED:'true',SHOPEE_D10_SHIP_ENABLED:'false',
+ SHOPEE_D10_LABEL_ENABLED:'false',SHOPEE_D10_EXPECTED_ORDER_SN:'',SHOPEE_D10_EXPECTED_PACKAGE_NUMBER:''};
+test('D10 discovery finds and returns a pinned singleton creation window, with no writes',async()=>{
+ const f=fixture({discovery:true,env:discoveryEnv});
+ const result=await f.run('discover');
+ assert.equal(result.code,'d10_discovered_candidate_read_only');
+ assert.equal(result.order_sn,O);assert.equal(result.package_number,P);
+ assert.equal(result.window_from,T-121);assert.equal(result.window_to,T-119);
+ assert.deepEqual(f.calls,['list','detail','list','preflight']);
+ assert.equal((await f.run('ship')).ok,false);
+ assert.equal((await f.run('label')).ok,false);
+});
+test('D10 discovery reports empty window and rejects armed writer',async()=>{
+ const f=fixture({discovery:true,empty:true,env:discoveryEnv});
+ assert.equal((await f.run('discover')).code,'d10_no_eligible_candidate_in_window');
+ assert.deepEqual(f.calls,['list']);
+ const g=fixture({discovery:true,env:{...discoveryEnv,SHOPEE_D10_SHIP_ENABLED:'true'}});
+ assert.equal((await g.run('discover')).ok,false);assert.deepEqual(g.calls,[]);
+});
+test('D10 writer cannot retarget discovered identity or package',async()=>{
+ for(const env of [{SHOPEE_D10_EXPECTED_ORDER_SN:'OTHERORDER1'},
+   {SHOPEE_D10_EXPECTED_PACKAGE_NUMBER:'OTHERPKG'},{SHOPEE_D10_EXPECTED_ORDER_SN:''}]){
+  const f=fixture({env});assert.equal((await f.run('ship')).ok,false);assert.equal(f.calls.includes('raw'),false);assert.equal(f.calls.includes('post'),false);
+ }
 });
