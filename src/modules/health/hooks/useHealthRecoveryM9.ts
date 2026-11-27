@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -105,6 +105,8 @@ export type SleepRecoveryState = {
   computed_at: string;
 };
 
+export type SleepDeviceReference = {id:string;athlete_id:string;observed_on:string;observed_at:string;window_start_at:string|null;window_end_at:string|null;metric_code:string;numeric_value:number|string;unit_code:string;provider:string;device_model:string|null;provider_algorithm_version:string|null;confidence:string;status:string};
+
 export type RecoveryMetricInput = {
   metric_code: RecoveryMetricCode;
   value_ordinal?: number | null;
@@ -131,15 +133,21 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
   const [sleepPeriods, setSleepPeriods] = useState<SleepPeriod[]>([]);
   const [checkins, setCheckins] = useState<RecoveryCheckin[]>([]);
   const [states, setStates] = useState<SleepRecoveryState[]>([]);
+  const [deviceObservations,setDeviceObservations]=useState<SleepDeviceReference[]>([]);
+  const [deviceError,setDeviceError]=useState<string|null>(null);
+  const generation=useRef(0);
   const [loading, setLoading] = useState(Boolean(athleteId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (strict=false) => {
+    const request=++generation.current;
+    const fail=(message:string)=>{if(request===generation.current){setError(message);setLoading(false);}if(strict)throw Error(message);};
+    try {
     if (!athleteId) {
       setSleepPeriods([]);
       setCheckins([]);
-      setStates([]);
+      setStates([]);setDeviceObservations([]);setDeviceError(null);
       setLoading(false);
       return;
     }
@@ -147,7 +155,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     setLoading(true);
     setError(null);
 
-    const [sleepResult, checkinResult, stateResult] = await Promise.all([
+    const [sleepResult, checkinResult, stateResult, deviceResult] = await Promise.all([
       db.from("health_sleep_periods")
         .select("*")
         .eq("athlete_id", athleteId)
@@ -165,15 +173,20 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
         .order("as_of_date", { ascending: false })
         .order("window_days", { ascending: true })
         .limit(24),
+      db.from("health_sleep_device_observations").select("id,athlete_id,observed_on,observed_at,window_start_at,window_end_at,metric_code,numeric_value,unit_code,provider,device_model,provider_algorithm_version,confidence,status").eq("athlete_id",athleteId).eq("status","active").order("observed_at",{ascending:false}).limit(60),
     ]);
 
     const firstError = sleepResult.error ?? checkinResult.error ?? stateResult.error;
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
+    if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
+    if([...(sleepResult.data??[]),...(checkinResult.data??[]),...(stateResult.data??[])].some(row=>row.athlete_id!==athleteId)){fail("Escopo da recuperação não confirmado.");return;}
+    const devices=(deviceResult.data??[]) as SleepDeviceReference[];
+    const unavailable=Boolean(deviceResult.error)||devices.some(row=>row.athlete_id!==athleteId);
+    setDeviceObservations(unavailable?[]:devices);setDeviceError(unavailable?"Consulta de dispositivos indisponível.":null);
     setSleepPeriods((sleepResult.data ?? []) as SleepPeriod[]);
     setCheckins((checkinResult.data ?? []) as RecoveryCheckin[]);
 
@@ -187,10 +200,11 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     }));
 
     setLoading(false);
+    } catch(cause){fail(cause instanceof Error?cause.message:"Consulta de recuperação indisponível.");}
   }, [athleteId]);
 
   useEffect(() => {
-    void reload();
+    void reload();return ()=>{generation.current++;};
   }, [reload]);
 
   const run = useCallback(async (operation: () => PromiseLike<LooseOperationResult>) => {
@@ -199,7 +213,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     try {
       const result = await operation();
       if (result?.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
       return result?.data;
     } finally {
       setSaving(false);
@@ -275,7 +289,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
       ));
       const failed = results.find((result) => result.error);
       if (failed?.error) throw new Error(failed.error.message);
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
@@ -295,7 +309,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
         });
         if (result.error) throw new Error(result.error.message);
       }
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
@@ -328,6 +342,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
   return {
     sleepPeriods,
     checkins,
+    deviceObservations,deviceError,
     activeSleepPeriods,
     activeCheckins,
     states,
