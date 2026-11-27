@@ -72,6 +72,10 @@ BEGIN
  old_obs:=public.d11_fixture_observe(a,'fixture_claim_1');
  obs:=public.d11_fixture_observe(a,'fixture_claim_2');
  ASSERT old_obs<>obs;
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),NULL)->>'status'='invalid_request';
+ ASSERT (SELECT count(*) FROM public.marketplace_raw_snapshots WHERE channel_account_id=a)=1;
+ ASSERT (SELECT count(*) FROM public.shopee_cycle_observations WHERE channel_account_id=a)=2;
+ ASSERT (SELECT observed_at FROM public.marketplace_raw_snapshots WHERE channel_account_id=a)<(SELECT updated_at FROM public.shopee_cycle_state WHERE channel_account_id=a);
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),old_obs)->>'status'='policy_observation_refused';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_external_state_refused';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','OTHERPKG',repeat('a',64),obs)->>'status'='policy_history_or_package_refused';
@@ -95,6 +99,8 @@ DO $$
 DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; obs uuid;
 BEGIN
  SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
+ SELECT id INTO obs FROM public.shopee_cycle_observations WHERE channel_account_id=a ORDER BY recorded_at DESC LIMIT 1;
+ ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_observation_refused';
  obs:=public.d11_fixture_observe(a,'fixture_claim_3');
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG2',repeat('a',64),obs)->>'status'='policy_prior_scope_requires_reconciliation';
 END $$;
