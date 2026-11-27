@@ -101,6 +101,7 @@ function ReplanningItemCard({
             Decisão humana
           </label>
           <select
+            disabled={saving}
             id={"f14-decision-" + item.id}
             value={decision}
             onChange={(event) =>
@@ -128,6 +129,7 @@ function ReplanningItemCard({
             Notas opcionais
           </label>
           <Textarea
+            disabled={saving}
             id={"f14-notes-" + item.id}
             value={notes}
             maxLength={4000}
@@ -199,12 +201,13 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
   const caseMatchesCurrentOutcome =
     Boolean(replanning.currentCase && sourceOutcome) &&
     replanning.currentCase?.sourceReviewOutcomeId === sourceOutcome?.id;
+  const caseClosed = replanning.currentCase?.caseStatus === "completed" || replanning.currentCase?.caseStatus === "voided";
   const pendingItems = replanning.items.filter(
     (item) => item.itemStatus === "pending",
   ).length;
 
   const openCase = async () => {
-    if (!sourceRun) return;
+    if (!sourceRun || !sourceRequiresReplanning || review.error || replanning.error || sourceOutcome?.reviewRunId !== sourceRun.id) return;
     setLocalError(null);
     try {
       await replanning.openCase(sourceRun.id);
@@ -357,6 +360,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
                 <Button
                   className="min-h-11 w-full sm:w-auto"
                   disabled={
+                    !!review.error || !!replanning.error || sourceOutcome.reviewRunId !== sourceRun.id ||
                     !review.backendAvailable ||
                     !replanning.backendAvailable ||
                     replanning.saving
@@ -403,6 +407,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
                 Aberto em {dateLabel(replanning.currentCase.openedAt)}
               </p>
               <p className="text-xs text-muted-foreground">
+                {caseClosed ? "Caso encerrado: decisões preservadas para consulta. " : `${pendingItems} de ${replanning.items.length} decisões pendentes. `}
                 Este caso registra decisões humanas. Alterações reais devem ser
                 feitas no módulo especialista.
               </p>
@@ -413,9 +418,9 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
             <div className="grid gap-4 lg:grid-cols-2">
               {replanning.items.map((item) => (
                 <ReplanningItemCard
-                  key={item.id}
+                  key={`${item.id}:${item.decidedAt ?? "pending"}`}
                   item={item}
-                  saving={replanning.saving}
+                  saving={replanning.saving || !!replanning.error || !replanning.backendAvailable || caseClosed}
                   onSave={(decision, notes) =>
                     replanning.recordDecision({
                       caseId: replanning.currentCase!.id,
@@ -447,7 +452,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
               <CardContent className="space-y-4">
                 <Button
                   className="min-h-11 w-full"
-                  disabled={pendingItems > 0 || replanning.saving}
+                  disabled={pendingItems > 0 || replanning.saving || !!replanning.error || !replanning.backendAvailable}
                   onClick={() => void completeCase()}
                 >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -478,7 +483,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
                   <Button
                     variant="outline"
                     className="mt-2 min-h-11 w-full"
-                    disabled={!voidReason.trim() || replanning.saving}
+                    disabled={!voidReason.trim() || replanning.saving || !!replanning.error || !replanning.backendAvailable}
                     onClick={() => void voidCase()}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
