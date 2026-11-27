@@ -35,10 +35,10 @@ for(const [part,why] of [
 for(const [part,why] of [
  ['summarizeDevelopmentCheckpoint',"Reuse existing M3 event summarizer"],
  ['history.find(event=>event.workstream_id===resumeItem.id)',"Match actual chosen resume record"],
- ['Último checkpoint M3 localizado nesta leitura',"User sees checkpoint provenance"],
+ ['Última atualização do trabalho nesta leitura',"User sees checkpoint provenance"],
  ['resumeCheckpointSummary.changes.slice(0,2)',"Bounded readable latest changes"],
  ['Nenhum evento desta frente localizado na janela global de 200 registros',"Explicit absence in bounded history"],
- ['Evento administrativo; não equivale a aceite, deploy ou homologação.',"No implicit authorization"],
+ ['Registro administrativo; não significa aprovação formal ou publicação.',"No implicit authorization"],
 ])has(part,why);
 // UX-3: Atlas continua montado; retorno não sobrescreve filtros nem a ficha FM.
 for(const [part,why] of [
@@ -65,7 +65,7 @@ assert(s.includes('resumeItem.id===crmAttention.id'),"Deduplicate by stable ID, 
 assert(s.includes('resumeIsCrmAttention')&&s.includes('A próxima ação e o registro integral estão no cartão acima.'),"Same action is presented only in CRM card");
 assert(s.includes('<OverviewAction value={crmAttention.next_action||""}/>')&&s.includes('<OverviewAction value={resumeItem.next_action?.trim()||""}/>'),"Reuse literal excerpt for distinct fronts");
 assert(s.includes('const excerpt=explicitNextActionExcerpt(value)')&&s.includes('Registro integral e ressalvas')&&s.includes('{value}</p>'),"Keep complete original and limitations");
-assert(s.includes('Ver alterações do checkpoint')&&s.includes('resumeCheckpointSummary.changes.slice(0,2)'),"Historical text remains expandable");
+assert(s.includes('Ver o que mudou')&&s.includes('resumeCheckpointSummary.changes.slice(0,2)'),"Historical text remains expandable");
 const globalSearch=fs.readFileSync("src/components/GlobalSearchBar.tsx","utf8");
 assert(globalSearch.includes('const dockedInNucleo = /^\\/nucleo\\/?$/.test(pathname);'),"Dock only Núcleo route");
 assert(globalSearch.includes('style={dockedInNucleo ? undefined : {')&&globalSearch.includes('relative mx-auto flex w-full'),"In-flow search, not overlay");
