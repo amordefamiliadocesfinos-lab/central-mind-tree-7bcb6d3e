@@ -179,13 +179,13 @@ test('B6 validates conversation identity before any message page and discards st
   // Guard both before reading the conversation and immediately before saving.
   assert.ok(panel.split("from('service_conversations')").length - 1 >= 2);
   assert.match(panel, /if \(scopeError \|\| !activeConversation\) throw/);
-  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| scanLimitReached \|\| !analyzedLatestMessageId \|\| !conversationId/);
+  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| scanLimitReached \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId \|\| !conversationId/);
 });
 
 test('B7 blocks confirmation for truncated history and requires a fresh customer-message snapshot', () => {
   const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
   assert.match(panel, /setAnalyzedLatestMessageId\(collected\[0\]\?\.id \?\? null\)/);
-  assert.match(panel, /scanLimitReached \|\| !analyzedLatestMessageId/);
+  assert.match(panel, /scanLimitReached \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId/);
   assert.match(panel, /item\.state !== 'empty' \|\| scanLimitReached/);
   assert.match(panel, /Histórico parcialmente examinado: preenchimento automático bloqueado/);
   const confirmation = panel.slice(panel.indexOf('const confirmSelected = async'));
@@ -197,4 +197,24 @@ test('B7 blocks confirmation for truncated history and requires a fresh customer
   assert.match(confirmation, /\.eq\('sender', 'customer'\)/);
   assert.match(confirmation, /\.limit\(1\)/);
   assert.match(confirmation, /Novas mensagens ou alterações no histórico exigem conferir novamente/);
+});
+
+test('B8 reconfirms every examined customer message before the canonical writer', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /analyzedHistoryRef\.current = JSON\.stringify\(collected\)/);
+  assert.match(panel, /analyzedHistoryRef\.current = null/);
+  assert.match(panel, /const currentHistory: CrmConversationProfileMessage\[\] = \[\]/);
+  const confirmation = panel.slice(panel.indexOf('const confirmSelected = async'));
+  const scope = confirmation.indexOf("const { data: activeConversation, error: scopeError }");
+  const currentHistory = confirmation.indexOf('const currentHistory: CrmConversationProfileMessage[]');
+  const writer = confirmation.indexOf('await saveContactProfile(');
+  assert.ok(scope >= 0 && currentHistory > scope && writer > currentHistory);
+  const historyReview = confirmation.slice(currentHistory, writer);
+  assert.match(historyReview, /\.eq\('conversation_id', conversationId\)/);
+  assert.match(historyReview, /\.eq\('sender', 'customer'\)/);
+  assert.match(historyReview, /offset < CRM_CONVERSATION_REVIEW_LIMIT/);
+  assert.match(historyReview, /JSON\.stringify\(currentHistory\) !== analyzedHistoryRef\.current/);
+  assert.match(historyReview, /currentHistory\.length >= CRM_CONVERSATION_REVIEW_LIMIT/);
+  assert.match(historyReview, /O histórico mudou desde a análise ou está incompleto/);
+  assert.match(panel, /disabled=\{!conversationId \|\| editing \|\| loading \|\| saving\}/);
 });
