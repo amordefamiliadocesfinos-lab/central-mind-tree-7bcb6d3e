@@ -1,6 +1,7 @@
 import React, {useMemo, useState} from "react";
 import {describe,it,expect} from "vitest";
 import {render,fireEvent,screen,waitFor,cleanup} from "@testing-library/react";
+import {HealthWorkoutContextualGuidance} from "../src/modules/health/components/HealthWorkoutContextualGuidance";
 import {HealthWorkoutInteractiveTimerF19} from "../src/modules/health/components/HealthWorkoutInteractiveTimerF19";
 import type {WorkoutExercise,WorkoutSet} from "../src/modules/health/hooks/useHealthWorkoutM4";
 import type {F24ExerciseHistoryStatus} from "../src/modules/health/hooks/useF24WorkoutHistory";
@@ -25,15 +26,15 @@ const makeRest=(n:number)=>({
  workout_set_id:"s-"+n,set_number:n,started_at:"2026-11-23T22:00:00Z",
  target_seconds:90,pause_accumulated_seconds:0,paused_at:null,ended_at:null
 });
-function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false}:{
- initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean
+function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false,scope,paused=false}:{
+ initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean;scope?:string;paused?:boolean
 }){
  const [count,setCount]=useState(initialCount);
  const rest=useMemo(()=>makeRest(count),[count]);
  const sets=useMemo(()=>Array.from({length:count},(_,i)=>completed(i+1)),[count]);
  const timer={
   available:true,loading:false,saving:false,activeInterval:rest,intervals:[rest],
-  sessionTiming:{id:"synthetic-session-timer",status:"active",
+  sessionTiming:{id:"synthetic-session-timer",status:paused?"paused":"active",
    started_at:"2026-11-23T20:00:00Z",pause_accumulated_seconds:0,
    timer_paused_at:null,ended_at:null},
   finishRest:async (_id:string, options?:{startNextWork?:boolean;nextWorkoutExerciseId?:string|null})=>{
@@ -47,7 +48,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),histor
   resumeWorkout:async()=>{},cancelInterval:async()=>{}
  } as unknown as HealthWorkoutTimerF19Controller;
  return <HealthWorkoutInteractiveTimerF19
-   sessionTitle="Treino sintético" fallbackStartedAt={base}
+   sessionTitle="Treino sintético" fallbackStartedAt={base} guidanceScope={scope} guidanceReadReady={true}
    exercises={exercises} setsByExercise={new Map([["ex1",sets],["ex2",[]]])}
    exerciseNameById={names} historicalReferences={history} historyLoading={historyLoading}
    timer={timer} onCompleteWorkout={async()=>{}}
@@ -114,6 +115,48 @@ describe("F24 R03 — historical values remain distinct from actual result",()=>
   view.rerender(<ExerciseHarness history={unavailable}/>);
   expect(screen.getByTestId("cch-history-reference").textContent).toContain("Histórico indisponível");
   expect(screen.getByTestId("cch-history-reference").textContent).not.toContain("95 kg");
+  cleanup();
+ });
+});
+
+describe("F24 R05 — optional guidance without interference",()=>{
+ const history=new Map<string,F24ExerciseHistoryStatus>([["ex1",{reference:null,equipmentLabel:null,reason:"equipment_unconfirmed"}]]);
+ it("silence survives pause/resume and resets only with a new session scope",()=>{
+  const view=render(<ExerciseHarness initialCount={2} scope="session-a" history={history}/>);
+  const tip=screen.getByTestId("cch-contextual-guidance");
+  expect(tip.textContent).not.toContain("Sem rótulo confirmado");
+  expect(screen.getByRole("button",{name:"Iniciar próxima série"}).compareDocumentPosition(tip)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Ver dica"}));
+  fireEvent.click(screen.getByRole("button",{name:"Silenciar dicas"}));
+  expect(screen.queryByTestId("cch-contextual-guidance")).toBeNull();
+  view.rerender(<ExerciseHarness initialCount={2} scope="session-a" history={history} paused/>);
+  expect(screen.queryByRole("button",{name:"Reativar orientações"})).toBeNull();
+  view.rerender(<ExerciseHarness initialCount={2} scope="session-a" history={history}/>);
+  expect(screen.getByRole("button",{name:"Reativar orientações"})).toBeTruthy();
+  view.rerender(<ExerciseHarness initialCount={2} scope="session-b" history={history}/>);
+  expect(screen.getByRole("button",{name:"Ver dica"})).toBeTruthy();
+  cleanup();
+ });
+ it("defers and reopens in one tap, explains only on demand, ignores repeated equipment advice",()=>{
+  const view=render(<HealthWorkoutContextualGuidance context="exercise-a" sessionContext="session-a" eligible unconfirmed/>);
+  fireEvent.click(screen.getByRole("button",{name:"Ver dica"}));
+  expect(screen.queryByText(/Origem:/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Por quê?"}));
+  expect(screen.getByText(/Origem:/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Ver depois"}));
+  fireEvent.click(screen.getByRole("button",{name:"Consultar dica"}));
+  expect(screen.getByText(/Sem rótulo confirmado/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Ignorar"}));
+  view.rerender(<HealthWorkoutContextualGuidance context="exercise-b" sessionContext="session-a" eligible unconfirmed/>);
+  expect(screen.queryByTestId("cch-contextual-guidance")).toBeNull();
+  view.rerender(<HealthWorkoutContextualGuidance context="exercise-b" sessionContext="session-a" eligible unconfirmed executionSignal="below_rir"/>);
+  fireEvent.click(screen.getByRole("button",{name:"Ver dica"}));
+  expect(screen.getByText(/não diagnostica fadiga/)).toBeTruthy();
+  view.rerender(<HealthWorkoutContextualGuidance context="exercise-b" sessionContext="session-a" eligible={false} unconfirmed executionSignal="below_rir"/>);
+  expect(screen.queryByTestId("cch-contextual-guidance")).toBeNull();
+  view.rerender(<HealthWorkoutContextualGuidance context="exercise-b" sessionContext="session-a" eligible unconfirmed executionSignal="below_rir"/>);
+  expect(screen.queryByText(/não diagnostica fadiga/)).toBeNull();
+  expect(screen.getByRole("button",{name:"Ver dica"})).toBeTruthy();
   cleanup();
  });
 });
