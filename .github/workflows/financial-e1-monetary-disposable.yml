@@ -5,6 +5,7 @@ on:
     paths:
       - 'docs/architecture/proposals/FIN_E1_3_UNIFIED_SALE_MONETARY_BOUNDARY_NAO_APLICAR.sql'
       - 'supabase/tests/fin_e1_monetary_boundary_disposable.sql'
+      - 'supabase/migrations/20261127170000_fin_e1_final_total_two_decimals.sql'
       - '.github/workflows/financial-e1-monetary-disposable.yml'
 permissions:
   contents: read
@@ -43,3 +44,30 @@ jobs:
         env:
           PGPASSWORD: localtest
         run: psql -h localhost -U postgres -d fin_e1_disposable -v ON_ERROR_STOP=1 -f supabase/tests/fin_e1_monetary_boundary_disposable.sql
+      - name: Validate controlled migration, replay and business regression in disposable PostgreSQL
+        env:
+          PGPASSWORD: localtest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          base = Path('supabase/migrations/20261020183000_preserve_order_item_commercial_group.sql').read_text()
+          candidate = Path('docs/architecture/proposals/FIN_E1_3_UNIFIED_SALE_MONETARY_BOUNDARY_NAO_APLICAR.sql').read_text()
+          migration = Path('supabase/migrations/20261127170000_fin_e1_final_total_two_decimals.sql').read_text()
+          fixture = Path('supabase/tests/fin_e1_monetary_boundary_disposable.sql').read_text()
+          start = 'CREATE OR REPLACE FUNCTION public.create_unified_sale_unguarded_01b'
+          baseline_function = base[base.index(start):]
+          old = 'v_total := GREATEST(v_subtotal - v_discount + v_shipping, 0);'
+          new = 'v_total := round(GREATEST(v_subtotal - v_discount + v_shipping, 0), 2);'
+          assert candidate[candidate.index(start):] == baseline_function.replace(old,new)
+          assert migration.count('EXECUTE v_target;') == 1 and 'v_approved_hash' in migration
+          fixture = fixture.replace('BEGIN;\n', '', 1).replace('ROLLBACK;\n', '')
+          marker = r'\ir ../../docs/architecture/proposals/FIN_E1_3_UNIFIED_SALE_MONETARY_BOUNDARY_NAO_APLICAR.sql'
+          assert fixture.count(marker) == 1
+          acl = '''
+          REVOKE ALL ON FUNCTION public.create_unified_sale_unguarded_01b(jsonb,jsonb) FROM PUBLIC, anon, authenticated;
+          GRANT EXECUTE ON FUNCTION public.create_unified_sale_unguarded_01b(jsonb,jsonb) TO service_role;
+          '''
+          fixture = fixture.replace(marker,baseline_function + '\n' + acl + '\n' + migration + '\n' + migration)
+          Path('/tmp/fin_e1_migration_disposable.sql').write_text(fixture)
+          PY
+          psql -h localhost -U postgres -d fin_e1_disposable -v ON_ERROR_STOP=1 -f /tmp/fin_e1_migration_disposable.sql
