@@ -297,6 +297,9 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
     (inventoryFilter==="evidencia"&&item.evidenceToReview.length>0));
   const selected = catalog.find(item => item.id === selectedId) ?? null;
   const currentModuleArea = MODULE_SECTIONS.find(item => item.id === moduleSection) ?? MODULE_SECTIONS[0];
+  const currentAreaIndex = MODULE_SECTIONS.indexOf(currentModuleArea);
+  const previousArea = MODULE_SECTIONS[currentAreaIndex - 1];
+  const nextArea = MODULE_SECTIONS[currentAreaIndex + 1];
   const selectedProvenance = selected ? MODULE_PROVENANCE[selected.id] : undefined;
   const selectedRecord = workstreams.find(item => item.kind === "modulo" && item.code === selectedId);
   const selectedFronts = selectedRecord ? workstreams.filter(item => item.kind === "frente" && item.parent_id === selectedRecord.id) : [];
@@ -1133,6 +1136,14 @@ export default function NucleoOperationalAtlas({ workstreams, events, dependenci
               <p className="text-xs font-medium text-muted-foreground">Área selecionada</p>
               <h4 id="nucleo-module-active-section-heading" className="text-base font-semibold">{currentModuleArea.label}</h4>
               <p className="text-sm text-muted-foreground">{currentModuleArea.hint}</p>
+              <nav aria-label="Sequência de consulta do módulo" className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">Área {currentAreaIndex+1} de {MODULE_SECTIONS.length} · ordem de leitura, não progresso do trabalho.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {previousArea&&<Button type="button" variant="outline" size="sm" className="min-h-11 whitespace-normal" onClick={()=>selectModuleArea(previousArea.id)}>Anterior: {previousArea.label}</Button>}
+                  {nextArea&&<Button type="button" variant="outline" size="sm" className="min-h-11 whitespace-normal" onClick={()=>selectModuleArea(nextArea.id)}>Próxima: {nextArea.label}</Button>}
+                </div>
+                <p className="text-xs text-muted-foreground">Você também pode escolher diretamente qualquer área acima.</p>
+              </nav>
             </div>
           {moduleSection==="funcoes" && <div className="grid gap-3 md:grid-cols-2">
             <div className="border rounded-lg p-3 space-y-2">
