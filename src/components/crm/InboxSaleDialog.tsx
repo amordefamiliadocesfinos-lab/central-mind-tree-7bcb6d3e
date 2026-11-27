@@ -23,6 +23,7 @@ import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
+import { duplicateCommercialSaleLine } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
@@ -169,25 +170,24 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
   const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }]);
   const duplicateItemForFlavor = (index: number) => {
-    setItems(current => {
-      const source = current[index];
-      if (!source?.product_id) return current;
-      const sourcePresentation = source.commercial_presentation;
-      // Uma apresentação vinculada à variante física antiga não pode ser
-      // herdada ao selecionar outro sabor. As composições independentes da
-      // variante são preservadas; a validação existente exige nova seleção.
-      const safePresentation = sourcePresentation?.composition_mode === 'composite'
-        || !sourcePresentation?.variant_id ? sourcePresentation : null;
-      const copy: SaleItem = {
-        ...source,
-        variant_id: null,
-        commercial_presentation: safePresentation,
-        quantity: safePresentation?.conversion_factor ?? 1,
-        commercial_quantity: 1,
-        _unit_price_text: undefined,
-      };
-      return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
+    setItems(current => duplicateCommercialSaleLine(current, index));
+  };
+
+  // Somente altera valores na tela após um clique explícito. Fonte de preço: Operações.
+  // A referência de cada linha considera o mix inteiro antes da aplicação em lote.
+  const applyOfficialPricesToAll = () => {
+    if (channel !== 'whatsapp') return;
+    let changed = 0;
+    const nextItems = items.map(item => {
+      const advice = getOfficialPriceAdvice(item);
+      if (!advice || !Number.isFinite(advice.amount) || advice.amount <= 0
+        || Math.abs(Number(item.unit_price) - advice.amount) <= 0.005) return item;
+      changed++;
+      return { ...item, unit_price: advice.amount, _unit_price_text: undefined };
     });
+    if (!changed) return toast.info('Nenhuma linha elegível com diferença de preço oficial.');
+    setItems(nextItems);
+    toast.success(`Tabela oficial aplicada em ${changed} item(ns). Confira o total negociado.`);
   };
 
   const updateItem = (index: number, patch: Partial<SaleItem>) => {
@@ -376,7 +376,20 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           </section>
 
           <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-          <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Itens</h3><Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Adicionar item</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Itens</h3>
+            <div className="flex flex-wrap gap-2">
+              {channel === 'whatsapp' && items.length > 0 && (
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyOfficialPricesToAll}
+                  title="Substitui os valores negociados das linhas elegíveis pela tabela oficial de Operações">
+                  Aplicar tabela aos itens
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}>
+                <Plus className="h-3.5 w-3.5" /> Adicionar item
+              </Button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input aria-label="Buscar produto para venda" className="h-8 min-w-[180px] flex-1 text-xs" placeholder="Buscar produto ou SKU..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
             <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
@@ -408,7 +421,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   && item.commercial_presentation?.composition_mode !== 'composite' && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-300">Selecione a variante física deste item antes de registrar a venda.</p>
                   )}
-                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_5rem_10rem_2.5rem] sm:gap-1.5">
+                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-3 sm:gap-1.5">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
