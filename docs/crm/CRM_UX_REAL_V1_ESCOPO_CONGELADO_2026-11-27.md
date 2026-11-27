@@ -22,3 +22,10 @@ Natureza: **escopo funcional aprovado**, NÃO homologação técnica, deploy, au
 
 ## Exclusões/portões
 Sem novo Pedido, tabela, RPC, migration, RLS, writer financeiro ou preço oficial; sem mudanças produtivas, envio de mensagens, clientes de teste, homologação de runtime ou promoção documental por mera CI. F2 precificação é de Operações; cross-domain exige preservação de contratos e owner competente.
+
+## Contraprova real de 27/11/2026 — CRM e Operações
+- Capturas CRM: duplicar sabor mantém a família, exige nova variante e a versão publicada mostra preço de tabela antes da escolha da variante.
+- Gravação Operações (30,5 s): Novo Pedido tem rolagem horizontal, cortando preço e ações do item.
+- As evidências foram captadas na versão publicada **anterior** à PR #1176; não são homologação da interface da branch.
+- Ajuste de engenharia U1-A: selecionar variante numa linha direta duplicada preserva quantidade informada; quando apresentação vinculada é removida, reinicia quantidade com aviso; preço da nova variante sempre vem da referência canônica. Não mostrar referência/preço oficial antes de variante necessária.
+- Portão pendente: contraprova da PR realmente servida em CRM e Operações, sem criar Pedido de teste na produção.
