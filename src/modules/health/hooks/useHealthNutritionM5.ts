@@ -91,7 +91,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (strict=false) => {
     const request=++generation.current;
     if (!athleteId) {
       setState(emptyState);
@@ -102,6 +102,11 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     setLoading(true);
     setError(null);
     const today = todayIso();
+    const fail=(message:string)=>{
+      if(request===generation.current){setError(message);setLoading(false);}
+      if(strict)throw new Error(message);
+    };
+    try {
 
     const [planResult, recipesResult, foodsResult, dayResult] = await Promise.all([
       db.from("health_nutrition_plans").select("*").eq("athlete_id", athleteId)
@@ -115,8 +120,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
 
     const firstError = planResult.error ?? recipesResult.error ?? foodsResult.error ?? dayResult.error;
     if (firstError) {
-      setError(firstError.message);
-      setLoading(false);
+      fail(firstError.message);
       return;
     }
 
@@ -128,9 +132,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       const versionsResult = await db.from("health_nutrition_plan_versions").select("*")
         .eq("plan_id", plan.id).eq("athlete_id", athleteId).order("version_number", { ascending: false });
       if (versionsResult.error) {
-        setError(versionsResult.error.message);
-        setLoading(false);
-        return;
+        fail(versionsResult.error.message);
+      return;
       }
       const versions = (versionsResult.data ?? []) as NutritionPlanVersion[];
       version = versions.find((item) => item.id === plan.current_version_id)
@@ -141,9 +144,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
         const targetResult = await db.from("health_nutrition_targets").select("*")
           .eq("plan_version_id", version.id).eq("athlete_id", athleteId).maybeSingle();
         if (targetResult.error) {
-          setError(targetResult.error.message);
-          setLoading(false);
-          return;
+          fail(targetResult.error.message);
+      return;
         }
         target = targetResult.data as NutritionTarget | null;
       }
@@ -156,9 +158,8 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       const rv = await db.from("health_recipe_versions").select("*").in("recipe_id", recipeIds)
         .order("version_number", { ascending: false });
       if (rv.error) {
-        setError(rv.error.message);
-        setLoading(false);
-        return;
+        fail(rv.error.message);
+      return;
       }
       recipeVersions = (rv.data ?? []) as RecipeVersion[];
     }
@@ -170,27 +171,25 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       const mealResult = await db.from("health_meal_logs").select("*", { count: "exact" })
         .eq("food_log_day_id", day.id).eq("athlete_id", athleteId).order("occurred_at", { ascending: true });
       if (mealResult.error) {
-        setError(mealResult.error.message);
-        setLoading(false);
-        return;
+        fail(mealResult.error.message);
+      return;
       }
       meals = (mealResult.data ?? []) as MealLog[];
-      if(mealResult.count!==meals.length){setError("Consulta de refeições incompleta. Atualize antes de registrar.");setLoading(false);return;}
+      if(mealResult.count!==meals.length){fail("Consulta de refeições incompleta. Atualize antes de registrar.");return;}
       if (meals.length) {
         const itemResult = await db.from("health_meal_items").select("*", { count: "exact" }).in("meal_log_id", meals.map((meal) => meal.id))
           .eq("athlete_id", athleteId).order("created_at", { ascending: true });
         if (itemResult.error) {
-          setError(itemResult.error.message);
-          setLoading(false);
-          return;
+          fail(itemResult.error.message);
+      return;
         }
         items = (itemResult.data ?? []) as MealItem[];
-        if(itemResult.count!==items.length){setError("Consulta de itens incompleta. Atualize antes de registrar.");setLoading(false);return;}
+        if(itemResult.count!==items.length){fail("Consulta de itens incompleta. Atualize antes de registrar.");return;}
       }
     }
 
-    if(request!==generation.current)return;
-    if(today!==todayIso()){setError("A data mudou durante a consulta. Atualize o diário.");setLoading(false);return;}
+    if(request!==generation.current){if(strict)throw new Error("Consulta substituída. Confira o diário atualizado.");return;}
+    if(today!==todayIso()){fail("A data mudou durante a consulta. Atualize o diário.");return;}
     setState({
       readDate: today,
       plan,
@@ -204,6 +203,9 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       items,
     });
     setLoading(false);
+    } catch(cause) {
+      fail(cause instanceof Error?cause.message:"Falha ao consultar alimentação.");
+    }
   }, [athleteId]);
 
   useEffect(() => { void reload(); return ()=>{generation.current++;}; }, [reload]);
@@ -214,7 +216,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     try {
       const result = await operation();
       if (result?.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
       return result?.data;
     } finally {
       setSaving(false);
@@ -299,7 +301,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
       confidence: "moderate",
     }).select("id").single();
     if (result.error) throw new Error(result.error.message);
-    await reload();
+    await reload(true);
     return result.data.id as string;
   }, [athleteId, reload, state.day, assertDiaryDate]);
 
@@ -318,7 +320,7 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
         data_source: "USER_REPORTED",
       });
       if (result.error) throw new Error(result.error.message);
-      await reload();
+      await reload(true);
     } finally {
       setSaving(false);
     }
