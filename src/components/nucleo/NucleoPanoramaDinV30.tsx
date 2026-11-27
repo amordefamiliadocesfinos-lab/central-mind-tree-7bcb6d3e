@@ -1,3 +1,4 @@
+import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { DevelopmentStatus, DevelopmentWorkstream } from "@/lib/nucleo/development.types";
@@ -160,7 +161,7 @@ export default function NucleoPanoramaDinV30({workstreams,onFocusModule,onFocusS
             className="w-full rounded-xl border border-[#dce5f1] bg-[#f7faff] p-3 text-left transition-colors hover:border-[#8ab4f8] hover:bg-[#e8f0fe] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] dark:border-slate-700 dark:bg-slate-800"
             onClick={()=>onFocusModule(group.module.id)}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold">{group.module.code} · {group.module.title}</span>
+              <span className="text-sm font-semibold">{humanWorkName(group.module.code,group.module.title)}</span>
               <span className="text-xs text-muted-foreground">{group.records.length} frentes/subfrentes · {group.blocked} bloqueada(s)</span>
             </div>
             <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-[#e5eaf1]" aria-hidden="true">
