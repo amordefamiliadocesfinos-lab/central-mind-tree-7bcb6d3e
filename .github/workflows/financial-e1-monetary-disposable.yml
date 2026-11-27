@@ -1,0 +1,45 @@
+name: Financeiro E1 monetary boundary disposable
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/architecture/proposals/FIN_E1_3_UNIFIED_SALE_MONETARY_BOUNDARY_NAO_APLICAR.sql'
+      - 'supabase/tests/fin_e1_monetary_boundary_disposable.sql'
+      - '.github/workflows/financial-e1-monetary-disposable.yml'
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: localtest
+          POSTGRES_DB: fin_e1_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure candidate differs only in final rounding
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('supabase/migrations/20261020183000_preserve_order_item_commercial_group.sql').read_text()
+          cand = Path('docs/architecture/proposals/FIN_E1_3_UNIFIED_SALE_MONETARY_BOUNDARY_NAO_APLICAR.sql').read_text()
+          start = 'CREATE OR REPLACE FUNCTION public.create_unified_sale_unguarded_01b'
+          old = 'v_total := GREATEST(v_subtotal - v_discount + v_shipping, 0);'
+          new = 'v_total := round(GREATEST(v_subtotal - v_discount + v_shipping, 0), 2);'
+          src, cand = src[src.index(start):], cand[cand.index(start):]
+          assert src.count(old) == 1 and cand == src.replace(old, new)
+          PY
+      - name: Test on disposable PostgreSQL
+        env:
+          PGPASSWORD: localtest
+        run: psql -h localhost -U postgres -d fin_e1_disposable -v ON_ERROR_STOP=1 -f supabase/tests/fin_e1_monetary_boundary_disposable.sql
