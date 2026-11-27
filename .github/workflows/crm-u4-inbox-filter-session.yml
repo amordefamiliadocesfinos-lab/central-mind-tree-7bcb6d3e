@@ -1,0 +1,26 @@
+name: CRM UX Real U4 Inbox Filter Session
+on:
+  pull_request:
+    paths:
+      - 'src/lib/crm/inboxFilterSession.ts'
+      - 'src/lib/crm/inboxFilterSession.test.ts'
+      - 'src/pages/ContatosInbox.tsx'
+      - '.github/workflows/crm-u4-inbox-filter-session.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Inbox filter session tests
+        run: |
+          npx esbuild src/lib/crm/inboxFilterSession.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/crm-u4-inbox-filters.mjs
+          node --test /tmp/crm-u4-inbox-filters.mjs
+      - name: Build
+        run: npm run build
