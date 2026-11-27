@@ -18,7 +18,7 @@ export function createProtectedReconciliationReader(core,{
   if(!UUID.test(accountId??'')||!UUID.test(leaseId??'')||!Number.isSafeInteger(revision)||revision<1||legacy.has(accountId))
     return denied('reconcile_scope_invalid');
   const scope={accountId,leaseId,revision,action:'intake'};
-  let initial=null, served=false, consumed=false;
+  let initial=null, attempted=false, served=false, consumed=false;
   async function inspect(){
    const time=now();
    const admitted=await readPolicy(core,{accountId,action:'intake',now:time});
@@ -78,11 +78,12 @@ export function createProtectedReconciliationReader(core,{
    const snapshot=sanitizeIntakeSnapshot(initial.row);
    return {ok:true,code:'reconcile_reader_prepared',orderSn:initial.orderSn,
     readExistingBatch:async request=>{
-     if(served||request?.channel_account_id!==accountId||request?.order_sn!==initial.orderSn||request?.limit!==1)
+     if(attempted||request?.channel_account_id!==accountId||request?.order_sn!==initial.orderSn||request?.limit!==1)
       return denied('reconcile_scope_invalid');
-     served=true;
+     attempted=true;
      try{
       if(!unchanged(await inspect()))return denied('reconcile_scope_changed');
+      served=true;
       return {ok:true,payload:{channel_account_id:accountId,marketplace_account:account.account.name,
        snapshots:[snapshot],mappings:physical.mappings}};
      }catch{return denied('reconcile_read_unavailable');}
