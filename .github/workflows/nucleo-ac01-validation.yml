@@ -106,6 +106,8 @@ on:
       - "docs/architecture/proposals/NUCLEO_U06F_A07_AC01_TRANSVERSAL_CANDIDATE_NAO_APLICAR.sql"
       - "supabase/migrations/20261127191000_nucleo_u06f_a071_ac01_transversal.sql"
       - "scripts/nucleo-u06f-a07-ac01-transversal-disposable.test.sql"
+      - "supabase/migrations/20261127192500_nucleo_u06f_a072_fm_writer.sql"
+      - "scripts/nucleo-u06f-a072-fm-disposable.test.sql"
       - ".github/workflows/nucleo-ac01-validation.yml"
   workflow_dispatch:
 permissions:
@@ -198,6 +200,12 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127191000_nucleo_u06f_a071_ac01_transversal.sql
       - name: Verify transverse proposal writer and legacy pilot
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-a07-ac01-transversal-disposable.test.sql
+      - name: Install historical FM schema on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112200000_nucleo_v12_ficha_viva_revisoes.sql
+      - name: Apply A07.2 official FM migration on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127192500_nucleo_u06f_a072_fm_writer.sql
+      - name: Verify FM CAS, replay, provenance and human writer
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-a072-fm-disposable.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
