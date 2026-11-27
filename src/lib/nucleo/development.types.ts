@@ -33,6 +33,9 @@ export type DevelopmentEvent = {
   before_state: Record<string, unknown> | null;
   after_state: Record<string, unknown>;
   actor_auth_uid: string | null;
+  registration_origin?: string;
+  registration_reference?: string | null;
+  registration_request_id?: string | null;
   recorded_at: string;
 };
 export type DevelopmentDependency = {

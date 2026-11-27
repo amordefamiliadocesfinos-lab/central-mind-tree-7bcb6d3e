@@ -1597,7 +1597,7 @@ export default function NucleoDevelopmentCenter() {
                       <dl className="mt-2 grid gap-2 break-all sm:grid-cols-2" aria-label={"Identificação do evento "+event.id}>
                         <div><dt className="text-muted-foreground">UUID do evento</dt><dd>{event.id}</dd></div>
                         <div><dt className="text-muted-foreground">UUID da frente</dt><dd>{event.workstream_id}</dd></div>
-                        <div><dt className="text-muted-foreground">Autoria registrada</dt><dd>{event.actor_auth_uid??"Não identificada no evento"}</dd></div>
+                        <div><dt className="text-muted-foreground">Autoria registrada</dt><dd>{event.actor_auth_uid??(event.registration_origin==="administrativo_lovable"?"Registro administrativo Lovable · sem autoria humana Auth":"Não identificada no evento")}</dd></div>
                         {event.event_type==="criado"&&<>
                           <div><dt className="text-muted-foreground">Código inicial</dt><dd>{String(event.after_state.code??"Não registrado")}</dd></div>
                           <div><dt className="text-muted-foreground">UUID do módulo pai no evento</dt><dd>{String(event.after_state.parent_id??"Não registrado")}</dd></div>

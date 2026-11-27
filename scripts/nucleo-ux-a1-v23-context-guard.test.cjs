@@ -34,7 +34,7 @@ for(const key of [
   "Ver detalhes técnicos do evento","UUID do evento","UUID da frente",
   "UUID do módulo pai no evento","Estado inicial","Prioridade inicial",
   "Papel funcional inicial","Alcance de evidência inicial",
-  'event.actor_auth_uid??"Não identificada no evento"',
+  'event.actor_auth_uid??(event.registration_origin==="administrativo_lovable"?"Registro administrativo Lovable · sem autoria humana Auth":"Não identificada no evento")',
   'event.event_type==="criado"','event.after_state.parent_id',
   'event.after_state.status','event.after_state.evidence_state',
   "não constituem homologação",
