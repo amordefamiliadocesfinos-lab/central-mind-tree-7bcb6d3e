@@ -1,3 +1,4 @@
+import { humanWorkName, originalWorkReference } from "@/lib/nucleo/humanLanguageV1";
 import { useState } from "react";
 import { selectAttention } from "@/lib/nucleo/workstreamPriority";
 import { Badge } from "@/components/ui/badge";
@@ -107,12 +108,12 @@ export default function NucleoCrossModuleCoverage({
         {visible.map(({module,record,fronts,subfronts,provenance,candidates,attentionFront})=>(
           <article key={module.id} className="rounded-lg border p-4 space-y-2 min-w-0">
             <div className="flex flex-wrap gap-2 items-center justify-between">
-              <span className="font-mono text-xs text-muted-foreground">{module.id}</span>
+              <span className="sr-only">{originalWorkReference(module.id,module.name)}</span>
               <Badge variant={fronts.length>0?"secondary":"outline"}>
                 {record ? fronts.length>0?"Com frente vinculada":"Cadastro sem frente":"Somente no catálogo"}
               </Badge>
             </div>
-            <h4 className="text-sm font-semibold">{module.name}</h4>
+            <h4 className="text-sm font-semibold">{humanWorkName(module.id,module.name)}</h4>
             <p className="text-sm">Estado registrado: {record?.status.replaceAll("_"," ") ?? "não cadastrado"}</p>
             <p className="text-sm text-muted-foreground">{fronts.length} frente(s) · {subfronts.length} subfrente(s){attentionFront? " · Em atenção: "+attentionFront.code:""}</p>
             <Button type="button" size="sm" className="min-h-11" onClick={()=>onOpenModule(module)}>
@@ -179,7 +180,7 @@ export default function NucleoCrossModuleCoverage({
             <div className="rounded-md border bg-muted/20 p-3 space-y-1.5" aria-label={`Atenção do módulo ${module.id}`}>
               {attentionFront ? (
                 <>
-                  <p className="text-xs font-medium leading-relaxed">{attentionFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção: {attentionFront.code} · {attentionFront.title}</p>
+                  <p className="text-xs font-medium leading-relaxed">{attentionFront.kind==="subfrente"?"Subfrente":"Frente"} em atenção: {humanWorkName(attentionFront.code,attentionFront.title)}</p>
                   <p className="text-xs text-muted-foreground">Situação declarada: {attentionFront.status.replaceAll("_"," ")}</p>
                   {attentionFront.blocker.trim() && <p className="text-xs break-words"><span className="font-medium">Bloqueio:</span> {attentionFront.blocker}</p>}
                   <p className="text-xs break-words"><span className="font-medium">Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:</span> {attentionFront.next_action.trim()||"não informada no Core"}</p>

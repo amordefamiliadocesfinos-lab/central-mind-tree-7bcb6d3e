@@ -1,3 +1,4 @@
+import { humanWorkName, originalWorkReference } from "@/lib/nucleo/humanLanguageV1";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { DevelopmentWorkstream } from "@/lib/nucleo/development.types";
@@ -43,8 +44,8 @@ export default function NucleoFocusPreviewV30({records,onOpenWorkstream}:Props) 
               onClick={()=>setPreviewId(item.id)}
               className={"min-w-0 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8] "+
                 (preview.id===item.id?"border-[#1a73e8] bg-[#e8f0fe] text-[#174ea6] dark:bg-blue-950 dark:text-blue-100":"border-[#dce5f1] bg-white hover:bg-[#edf4ff] dark:border-slate-700 dark:bg-slate-800")}>
-              <p className="truncate font-mono text-xs font-semibold">{item.code}</p>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold">{item.title}</p>
+              <span className="sr-only">{originalWorkReference(item.code,item.title)}</span>
+              <p className="mt-1 line-clamp-2 text-sm font-semibold">{humanWorkName(item.code,item.title)}</p>
               <p className="mt-2 text-xs">{statusLabels[item.status]}</p>
             </button>
           ))}
@@ -53,7 +54,7 @@ export default function NucleoFocusPreviewV30({records,onOpenWorkstream}:Props) 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground">Frente selecionada para consulta</p>
-              <h4 className="break-words text-sm font-semibold">{preview.code} · {preview.title}</h4>
+              <h4 className="break-words text-sm font-semibold">{humanWorkName(preview.code,preview.title)}</h4>
             </div>
             <Button type="button" size="sm" className="min-h-10 rounded-full bg-[#1a73e8] text-white hover:bg-[#185abc]"
               onClick={()=>onOpenWorkstream(preview.id)}>Abrir ficha para executar</Button>

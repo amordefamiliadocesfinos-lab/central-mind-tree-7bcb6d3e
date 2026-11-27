@@ -1,3 +1,4 @@
+import { knowledgeSectionLabels, humanWorkName } from "@/lib/nucleo/humanLanguageV1";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -360,7 +361,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
   return (
     <Card className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Ficha Viva do módulo">
       <div>
-        <h4 className="nucleo-v22-title text-lg">Ficha Viva — seções FM-01 a FM-10</h4>
+        <h4 className="nucleo-v22-title text-lg">Conhecimento do módulo — Ficha Viva</h4>
         <p className="text-xs text-muted-foreground">Histórico por versão. O formulário cria apenas rascunhos declarados, nunca manuais homologados automaticamente.</p>
       </div>
       {saving&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
@@ -384,7 +385,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               disabled={saving||writeUncertain||fence.blocked}
               onClick={() => changeSection(entry.code)}
               className={`nucleo-v22-area-card min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
-              <span className="block font-semibold">{entry.code} · {sections[entry.code]}</span>
+              <span className="block font-semibold">{knowledgeSectionLabels[entry.code]}</span><span className="sr-only">{entry.code} · {sections[entry.code]}</span>
               <span className="block text-muted-foreground">
                 {loading ? "Core: consultando" : error ? "Core: leitura indisponível" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro neste recorte"}
               </span>
@@ -525,7 +526,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
        </section>}
        {section==="FM-09"&&<section className="rounded-md border p-3 space-y-3"
         aria-label="Evolução declarada e histórico M3 do módulo">
-        <h5 className="text-sm font-semibold">Desenvolvimento relacionado — registros M3/M4</h5>
+        <h5 className="text-sm font-semibold">Desenvolvimento relacionado — trabalhos e evidências</h5>
         <p className="text-xs text-muted-foreground">
           Frente e próxima ação são estados declarados no Core. Histórico abaixo considera
           apenas a janela global de até 200 eventos carregada pela Central;
@@ -541,26 +542,26 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             </p>}
             {fm09.fronts.map(front=><div key={front.id} className="rounded border p-2 space-y-2">
               <div className="flex flex-wrap gap-2 items-center">
-                <span className="font-semibold text-xs">{front.code} · {front.title}</span>
+                <span className="font-semibold text-xs">{humanWorkName(front.code,front.title)}</span>
                 <Badge variant="outline">M3: {front.status.replaceAll("_"," ")}</Badge>
                 <Badge variant="outline">Prova declarada: {front.evidenceState.replaceAll("_"," ")}</Badge>
               </div>
               <p className="text-xs text-muted-foreground">Próxima ação: {front.nextAction||"não declarada"}</p>
               {onOpenWorkstream&&<Button type="button" size="sm" variant="outline"
                 onClick={()=>onOpenWorkstream(front.id)}>
-                Abrir ficha M3 desta frente
+                Abrir ficha do trabalho
               </Button>}
               <Button type="button" size="sm" variant="outline"
                 aria-expanded={m4FrontId===front.id}
                 onClick={()=>setM4FrontId(id=>id===front.id?null:front.id)}>
-                {m4FrontId===front.id?"Ocultar evidências M4":"Consultar evidências M4 desta frente"}
+                {m4FrontId===front.id?"Ocultar evidências":"Consultar evidências deste trabalho"}
               </Button>
               {m4FrontId===front.id&&<NucleoTechnicalEvidence workstreamId={front.id}/>}
             </div>)}
           </div>
           <details className="rounded-md border p-2 text-xs">
             <summary className="cursor-pointer font-semibold">
-              Eventos M3 vinculados neste recorte ({fm09.events.length})
+              Atualizações registradas neste recorte ({fm09.events.length})
             </summary>
             <div className="mt-2 space-y-2">
               {fm09.events.length===0?<p>Não localizado na janela global carregada.</p>:

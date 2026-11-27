@@ -23,6 +23,7 @@ import type { KnowledgeModule } from "@/lib/nucleo/operationalKnowledgeV12";
 import { selectAttention } from "@/lib/nucleo/workstreamPriority";
 import { summarizeDevelopmentCheckpoint } from "@/lib/nucleo/developmentCheckpointV12";
 import { explicitNextActionExcerpt, managerActionExplanation } from "@/lib/nucleo/managerActionV13";
+import { humanWorkName, originalWorkReference, matchesHumanWork } from "@/lib/nucleo/humanLanguageV1";
 import type {
   NucleoDevelopmentDatabase, DevelopmentWorkstream, DevelopmentDependency,
   DevelopmentEvent, DevelopmentKind, DevelopmentStatus, Priority, EvidenceState,
@@ -198,7 +199,7 @@ export default function NucleoDevelopmentCenter() {
       setHistory([]);
       setSelectedId("");
       setEdit({});
-      toast.error("Leitura M3 indisponível. Nenhum estado anterior foi reutilizado.");
+      toast.error("Não foi possível consultar os trabalhos atualizados. Tente novamente; informações antigas não foram reutilizadas.");
     } else {
       setReadError(false);
       setLastReadAt(new Date().toISOString());
@@ -256,8 +257,7 @@ export default function NucleoDevelopmentCenter() {
   }, [hasPendingChanges]);
   const visible = useMemo(() => {
     const term = filter.toLocaleLowerCase("pt-BR").trim();
-    return items.filter(item => !term || [item.code,item.title,item.specialist,item.next_action]
-      .some(value => value.toLocaleLowerCase("pt-BR").includes(term)));
+    return items.filter(item => matchesHumanWork(term,item.code,item.title,item.specialist,item.next_action));
   }, [items, filter]);
   const selectedHistory = useMemo(() => history.filter(event => event.workstream_id === selectedId), [history, selectedId]);
   const lastOpened=byId.get(lastOpenedId);
@@ -655,10 +655,10 @@ export default function NucleoDevelopmentCenter() {
             <p className="text-xs font-bold text-[#174ea6] dark:text-blue-200">CENTRAL VISUAL / INÍCIO</p>
             <h3 id="nucleo-overview-heading" tabIndex={-1} className="mt-1 scroll-mt-28 text-xl font-bold text-[#202124] focus-visible:ring-2 focus-visible:ring-ring dark:text-slate-50">Onde estamos e como continuar</h3>
             <p className="mt-1 text-sm text-[#3c4043] dark:text-slate-200">
-              Resumo do Core M3 e da navegação deste navegador. Não indica homologação, vigência nem publicação.
+              Trabalhos registrados na base oficial e navegação deste navegador. Não indica aprovação formal ou publicação.
             </p>
             <p className="mt-2 text-xs text-[#5f6368] dark:text-slate-300">
-              Última leitura M3 nesta sessão: {lastReadAt ? new Date(lastReadAt).toLocaleString("pt-BR") : "não verificada"}.
+              Última consulta nesta sessão: {lastReadAt ? new Date(lastReadAt).toLocaleString("pt-BR") : "não verificada"}.
             </p>
             <Button type="button" className="mt-3 min-h-11 rounded-full bg-[#1a73e8] px-5 text-white hover:bg-[#185abc]"
               onClick={openModuleSearch} aria-controls="nucleo-atlas-completo">
@@ -676,7 +676,7 @@ export default function NucleoDevelopmentCenter() {
                 </p>
                 {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhuma frente pendente localizada neste recorte M3. Consulte a fila para acessar as fichas existentes.</p>}
                 {crmAttention&&<>
-                  <p className="break-words text-sm font-medium">{crmAttention.code} · {crmAttention.title}</p>
+                  <p className="break-words text-sm font-medium">{humanWorkName(crmAttention.code,crmAttention.title)}</p>
                   <div id="nucleo-crm-overview-action"><OverviewAction value={crmAttention.next_action||""}/></div>
                   <p className="text-xs text-muted-foreground">Situação: {states.find(v=>v.key===crmAttention.status)?.label||crmAttention.status}
                     {" · "}Responsável declarado: {crmAttention.specialist?.trim()||"não informado"}</p>
@@ -712,13 +712,13 @@ export default function NucleoDevelopmentCenter() {
                   const pending=linked.filter(item=>item.status!=="concluido");
                   const attention=selectAttention(linked);
                   return <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
-                    <p className="font-semibold text-sm break-words">{module.code} · {module.title}</p>
+                    <p className="font-semibold text-sm break-words">{humanWorkName(module.code,module.title)}</p>
                     <p className="text-xs text-muted-foreground">
                       {fronts.length} frente(s) diretas · {subfronts.length} subfrente(s) · {pending.length} sem conclusão declarada
                     </p>
                     <Button type="button" size="sm" variant="outline" className="min-h-10"
                       onClick={()=>focusModule(module)}>Acompanhar módulo</Button>
-                    {attention&&<p className="text-xs break-words"><strong>Em atenção:</strong> {attention.code} · {attention.next_action.trim()||"Próxima ação não registrada"}</p>}
+                    {attention&&<details className="text-xs break-words"><summary className="cursor-pointer font-medium">Em atenção: {humanWorkName(attention.code,attention.title)}</summary><OverviewAction value={attention.next_action||""}/></details>}
                   </div>;
                 })}
               {moduleOptions.every(module=>module.code.toUpperCase()==="CRM")&&
@@ -733,7 +733,7 @@ export default function NucleoDevelopmentCenter() {
               <h4 className="text-sm font-semibold">De onde continuar</h4>
               {resumeItem ? <div className="mt-2 space-y-2">
                 <p className="text-xs font-medium text-[#174ea6] dark:text-blue-300">{resumeSource}</p>
-                <h5 className="break-words text-base font-semibold">{resumeItem.code} · {resumeItem.title}</h5>
+                <h5 className="break-words text-base font-semibold">{humanWorkName(resumeItem.code,resumeItem.title)}</h5>
                 <p className="text-sm text-muted-foreground">
                   Situação: <strong>{states.find(v=>v.key===resumeItem.status)?.label}</strong>
                   {" · "}Atualizada em {new Date(resumeItem.updated_at).toLocaleString("pt-BR")}
@@ -743,19 +743,19 @@ export default function NucleoDevelopmentCenter() {
                   : <div className="rounded-xl bg-[#f5f9ff] p-3 dark:bg-slate-800">
                       <OverviewAction value={resumeItem.next_action?.trim()||""}/>
                     </div>}
-                <div className="rounded-xl border p-3 space-y-1" aria-label="Último checkpoint M3 localizado">
-                  <p className="text-xs font-semibold">Último checkpoint M3 localizado nesta leitura</p>
+                <div className="rounded-xl border p-3 space-y-1" aria-label="Última atualização do trabalho">
+                  <p className="text-xs font-semibold">Última atualização do trabalho nesta leitura</p>
                   {resumeCheckpoint && resumeCheckpointSummary ? <>
                     <p className="text-sm">{resumeCheckpointSummary.label} · {new Date(resumeCheckpoint.recorded_at).toLocaleString("pt-BR")}</p>
                     <details className="rounded-md border p-2">
-                      <summary className="cursor-pointer text-sm font-medium">Ver alterações do checkpoint</summary>
+                      <summary className="cursor-pointer text-sm font-medium">Ver o que mudou</summary>
                       <p className="mt-2 break-words text-sm text-muted-foreground">
                         {resumeCheckpointSummary.changes.length>0
                           ? resumeCheckpointSummary.changes.slice(0,2).map(change=>change.field+": "+change.after).join(" · ")
                           : "Este evento não contém campos comparáveis para resumir."}
                       </p>
                     </details>
-                    <p className="text-xs text-muted-foreground">Evento administrativo; não equivale a aceite, deploy ou homologação.</p>
+                    <p className="text-xs text-muted-foreground">Registro administrativo; não significa aprovação formal ou publicação.</p>
                   </> : <p className="text-xs text-muted-foreground">
                     Nenhum evento desta frente localizado na janela global de 200 registros. Histórico anterior pode existir.
                   </p>}
@@ -917,7 +917,7 @@ export default function NucleoDevelopmentCenter() {
                 onChange={e => setDraft(v => ({...v,parent_id:e.target.value}))}>
                 <option value="">Selecione</option>
                 {items.filter(i => i.kind === (draft.kind==="frente"?"modulo":"frente")).map(i => (
-                  <option key={i.id} value={i.id}>{i.code} — {i.title}</option>
+                  <option key={i.id} value={i.id}>{humanWorkName(i.code,i.title)}</option>
                 ))}
               </select>
             </label>
@@ -959,7 +959,7 @@ export default function NucleoDevelopmentCenter() {
             <select className="min-h-11 w-full rounded-xl border border-[#d2e3fc] bg-white px-3 text-sm font-normal dark:bg-slate-800"
               value={moduleFocusId} onChange={e=>setModuleFocusId(e.target.value)}>
               <option value="">Todos os módulos</option>
-              {moduleOptions.map(item=><option key={item.id} value={item.id}>{item.code} · {item.title}</option>)}
+              {moduleOptions.map(item=><option key={item.id} value={item.id}>{humanWorkName(item.code,item.title)}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-xs font-semibold">Especialista declarado
@@ -978,7 +978,7 @@ export default function NucleoDevelopmentCenter() {
           </label>
           <label className="space-y-1 text-xs font-semibold">Buscar neste recorte
             <Input className="min-h-11 rounded-xl border-[#d2e3fc] bg-white text-sm" value={filter}
-              onChange={e=>setFilter(e.target.value)} placeholder="Código, frente ou próxima ação"/>
+              onChange={e=>setFilter(e.target.value)} placeholder="Nome, código ou próxima ação"/>
           </label>
           <Button type="button" size="sm" variant="outline" className="min-h-11 self-end rounded-full"
             onClick={()=>void refresh()} disabled={loading}>Atualizar</Button>
@@ -1034,17 +1034,17 @@ export default function NucleoDevelopmentCenter() {
         {items.filter(i => i.kind === "modulo").map(mod => (
           <div key={mod.id} className="rounded-md border px-3 py-2 space-y-1">
             <button type="button" className="text-sm font-medium hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===mod.id?"true":undefined} onClick={() => openTreeItem(mod.id)}>
-              {mod.code} — {mod.title}
+              {humanWorkName(mod.code,mod.title)}
             </button>
             {items.filter(i => i.parent_id === mod.id).map(front => (
               <div key={front.id} className="ml-3 pl-3 border-l space-y-1">
                 <button type="button" className="text-xs font-medium hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===front.id?"true":undefined} onClick={() => openTreeItem(front.id)}>
-                  {front.code} — {front.title}
+                  {humanWorkName(front.code,front.title)}
                 </button>
                 {items.filter(i => i.parent_id === front.id).map(sub => (
                   <div key={sub.id} className="ml-3 pl-3 border-l">
                     <button type="button" className="text-xs hover:underline break-words text-left focus-visible:ring-2 focus-visible:ring-ring" aria-current={selectedId===sub.id?"true":undefined} onClick={() => openTreeItem(sub.id)}>
-                      {sub.code} — {sub.title}
+                      {humanWorkName(sub.code,sub.title)}
                     </button>
                   </div>
                 ))}
@@ -1096,7 +1096,7 @@ export default function NucleoDevelopmentCenter() {
                 ?.scrollIntoView({behavior:"smooth",block:"start"});
             }
           }}>
-            Abrir raiz de governança NUC
+            Abrir governança do Núcleo
           </Button>
         )}
       </div>
@@ -1135,11 +1135,11 @@ export default function NucleoDevelopmentCenter() {
                   <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1.8fr)_auto] gap-2 md:gap-4 items-center">
                     <div className="min-w-0">
                       <div className="flex items-center flex-wrap gap-2">
-                        <span className="font-mono text-xs font-semibold">{item.code}</span>
+                        <span className="sr-only">{originalWorkReference(item.code,item.title)}</span>
                         <Badge variant="outline">{states.find(state => state.key === item.status)?.label}</Badge>
                         <Badge variant="secondary">{priorityNames[item.priority]}</Badge>
                       </div>
-                      <p className="font-semibold text-sm mt-1">{item.title}</p>
+                      <p className="font-semibold text-sm mt-1">{humanWorkName(item.code,item.title)}</p>
                       <p className="text-xs text-muted-foreground truncate" title={item.specialist}>
                         {item.kind} · {item.specialist || "Especialista não informado"}
                       </p>
@@ -1147,7 +1147,7 @@ export default function NucleoDevelopmentCenter() {
                     <div className="min-w-0">
                       <p className="text-xs font-medium">Próxima ação</p>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {item.next_action || "Não registrada"}
+                        {explicitNextActionExcerpt(item.next_action||"") || (item.next_action?.trim() ? "Consulte a ficha para ler a ação e o contexto registrados." : "Não registrada")}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-primary md:text-right">Ver ficha completa</span>
@@ -1201,21 +1201,21 @@ export default function NucleoDevelopmentCenter() {
                       aria-pressed={selectedId === item.id}
                       className={`text-left w-full min-w-0 p-3 rounded-lg border bg-background shadow-sm hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors ${selectedId===item.id?"border-primary ring-1 ring-primary/40":"border-border"}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-mono font-semibold truncate">{item.code}</span>
+                        <span className="sr-only">{originalWorkReference(item.code,item.title)}</span>
                         <Badge variant="outline" className="text-[11px] shrink-0">{priorityNames[item.priority]}</Badge>
                       </div>
-                      <p className="text-sm font-semibold leading-snug mt-2 line-clamp-2" title={item.title}>{item.title}</p>
+                      <p className="text-sm font-semibold leading-snug mt-2 line-clamp-2" title={originalWorkReference(item.code,item.title)}>{humanWorkName(item.code,item.title)}</p>
                       <p className="text-xs text-muted-foreground mt-1 truncate" title={item.specialist || undefined}>
                         {item.kind} · {item.specialist || "Especialista não informado"}
                       </p>
                       {item.parent_id && <p className="text-xs text-muted-foreground mt-1">
-                        Pai: {byId.get(item.parent_id)?.code || "não identificado"}
+                        Trabalho principal: {byId.has(item.parent_id) ? humanWorkName(byId.get(item.parent_id)!.code,byId.get(item.parent_id)!.title) : "não identificado"}
                       </p>}
                       <div className="mt-3 border-t pt-2 space-y-1">
                         <p className="text-xs font-medium text-foreground">Próxima ação</p>
                         <p className="text-sm leading-relaxed text-muted-foreground line-clamp-3"
-                          title={item.next_action || "Não registrada"}>
-                          {item.next_action || "Não registrada"}
+                          title={explicitNextActionExcerpt(item.next_action||"") || (item.next_action?.trim() ? "Consulte a ficha para ler a ação e o contexto registrados." : "Não registrada")}>
+                          {explicitNextActionExcerpt(item.next_action||"") || (item.next_action?.trim() ? "Consulte a ficha para ler a ação e o contexto registrados." : "Não registrada")}
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -1248,8 +1248,8 @@ export default function NucleoDevelopmentCenter() {
                 <p className="text-xs font-semibold text-[#174ea6] dark:text-blue-300">NÚCLEO / FOCO / EXECUÇÃO</p>
                 <div className="mt-1 flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-mono text-xs">{selected.code}</p>
-                    <h3 className="break-words text-lg font-semibold">{selected.title}</h3>
+                    <h3 className="break-words text-lg font-semibold">{humanWorkName(selected.code,selected.title)}</h3>
+                    <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Identificação técnica</summary><p className="break-words select-text">{originalWorkReference(selected.code,selected.title)}</p></details>
                     <p className="text-xs text-muted-foreground">
                       {selected.kind} · Atualizada em {new Date(selected.updated_at).toLocaleString("pt-BR")}
                       {" · "}Situação registrada: {states.find(state=>state.key===selected.status)?.label}
@@ -1579,7 +1579,7 @@ export default function NucleoDevelopmentCenter() {
                     <option value="">Vincular dependência</option>
                     {items.filter(i => i.id!==selected.id &&
                       !dependencies.some(d=>d.workstream_id===selected.id && d.depends_on_id===i.id))
-                      .map(i=><option value={i.id} key={i.id}>{i.code} — {i.title}</option>)}
+                      .map(i=><option value={i.id} key={i.id}>{humanWorkName(i.code,i.title)}</option>)}
                   </select>
                   <Button size="sm" variant="outline" disabled={!dependencyTarget||saving} onClick={addDependency}>Adicionar</Button>
                 </div>

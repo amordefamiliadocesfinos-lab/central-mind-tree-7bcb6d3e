@@ -6,7 +6,7 @@ const must=[
   'const [lastReadAt,setLastReadAt] = useState<string|null>(null)',
   'setLastReadAt(new Date().toISOString())',
   'setLastReadAt(null)',
-  'Última leitura M3 nesta sessão:',
+  'Última consulta nesta sessão:',
   'lastReadAt ? new Date(lastReadAt).toLocaleString("pt-BR") : "não verificada"',
   'Explorar árvore completa de módulos e frentes',
   '<details className="rounded-2xl border border-[#dce5f1]',

@@ -30,7 +30,7 @@ for(const token of [
  'requestedSection?:{section:FMSection;seq:number}|null',
  'if(requestedSection?.section && !saving && !draftDirty && !writeUncertain && !fence.blocked)',
  'onClick={()=>onOpenWorkstream(front.id)}',
- 'Abrir ficha M3 desta frente',
+ 'Abrir ficha do trabalho',
  'onOpenWorkstream&&',
 ])assert(fm.includes(token),"Ficha FM-09: "+token);
 assert(text.includes('selectedRecord && (moduleSection==="conhecimento" || knowledgeVisited)'),"Preservar a Ficha Viva montada");
@@ -106,7 +106,7 @@ for(const token of [
  'const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");',
  'const attentionFront=selectAttention(pendingFronts);',
  'attentionFront.kind==="subfrente"?"Subfrente":"Frente"',
- 'em atenção: {attentionFront.code} · {attentionFront.title}',
+ 'em atenção: {humanWorkName(attentionFront.code,attentionFront.title)}',
  'Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:',
  'attentionFront.next_action.trim()||"não informada no Core"',
  'Próxima ação do módulo:',
