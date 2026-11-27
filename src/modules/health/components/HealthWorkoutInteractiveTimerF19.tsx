@@ -994,15 +994,6 @@ export function HealthWorkoutInteractiveTimerF19({
                 }</p>
               )}
             </aside>
-            <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
-              context={JSON.stringify([guidanceScope,viewedExercise.id,"equipment-reference"])}
-              eligible={Boolean(guidanceScope && guidanceReadReady && viewingActiveExercise && timer.sessionTiming?.status==="active" &&
-                !timer.loading && !timer.saving && !timer.error && !historyLoading && !showEndConfirm &&
-                !activeWork && (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
-                completedOnActive < maxSets)}
-              executionSignal={assessF24ExecutionSignal(viewedSets,viewedExercise.planned_reps_min,viewedExercise.planned_rir_target)}
-              unconfirmed={historicalReferences.get(viewedExercise.id)?.reason==="equipment_unconfirmed" &&
-                !equipmentConfirmed.includes(viewedExercise.id)}/>
             {!timer.activeInterval && viewedSets.length===0 && !equipmentConfirmed.includes(viewedExercise.id) ? (
               <details className="space-y-2 rounded-lg border px-3 py-1">
                 <summary className="flex min-h-11 cursor-pointer items-center text-xs font-medium">Máquina usada (opcional)</summary>
@@ -1435,6 +1426,19 @@ export function HealthWorkoutInteractiveTimerF19({
           </CardContent>
         </Card>
       )}
+      {/* Keep optional decisions mounted across pause, work and navigation.
+          Put guidance after the execution controls, never ahead of the clock. */}
+      <HealthWorkoutContextualGuidance key={guidanceScope??"disabled"}
+        sessionContext={guidanceScope??""}
+        context={viewedExercise?JSON.stringify([guidanceScope,viewedExercise.id]):""}
+        eligible={Boolean(guidanceScope && guidanceReadReady && viewedExercise && viewingActiveExercise &&
+          timer.sessionTiming?.status==="active" && !timer.loading && !timer.saving && !timer.error &&
+          !historyLoading && !showEndConfirm && !activeWork &&
+          (!timer.activeInterval || (activeRest?.status==="running" && resultSaved)) &&
+          completedOnActive < maxSets)}
+        executionSignal={viewedExercise?assessF24ExecutionSignal(viewedSets,viewedExercise.planned_reps_min,viewedExercise.planned_rir_target):null}
+        unconfirmed={Boolean(viewedExercise && historicalReferences.get(viewedExercise.id)?.reason==="equipment_unconfirmed" &&
+          !equipmentConfirmed.includes(viewedExercise.id))}/>
     </div>
   );
 }
