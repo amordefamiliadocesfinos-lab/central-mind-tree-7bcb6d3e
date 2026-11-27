@@ -36,3 +36,26 @@ Sem novo Pedido, tabela, RPC, migration, RLS, writer financeiro ou preço oficia
 - Delta aplicado nesta PR: grade responsiva de uma coluna em largura pequena e duas em telas maiores; os preços não impõem largura mínima, os selects podem encolher, e a região rolável da janela fica limitada à rolagem vertical. Mesmas regras para CRM e Operações.
 - Regressão estática de grade e overflow: `tests/crm-ux-real-responsive-layout.test.mjs`, executada na CI. Ela não substitui teste visual interativo em janela estreita, desktop e mobile.
 - Critério de aceite pendente: em ambas as telas nenhum controle fica inacessível por deslocamento/scroll horizontal, e o pedido real não é criado em teste produtivo.
+
+## Refinamento para fila — U4-B: Assistente CRM, extração de dados da conversa (27/11/2026)
+**Origem:** solicitação expressa do proprietário, acompanhada de captura da Inbox e ficha do contato. **Estado:** requisito de produto aprovado para planejamento; engenharia, permissões, escrita operacional e homologação NÃO autorizadas por este registro. Não altera a sequência U1 → U2 → U3 → U4 nem reabre U1-A.
+**Encaixe:** depois do núcleo U4 (Inbox, ficha e navegação), como **U4-B**, porque depende da ficha e usa as proteções de gravação U3; preparação técnica somente por diferença.
+
+### Resultado pretendido
+O Assistente CRM deve ler o histórico de conversa acessível e permitido do contato atual e identificar todas as informações cadastrais úteis explicitamente disponíveis, propondo completar os campos existentes da ficha sem digitação repetida. Abranger quando existirem: nome/nome fantasia, contatos, endereço/CEP/cidade/UF, documento fiscal, informações comerciais, preferências e observações. Campos fiscais/sensíveis e dados ambíguos requerem validação e confirmação. Não presumir que dados escritos por terceiros ou citados correspondem ao titular; distinguir residência, entrega e cobrança.
+
+### Jornada UX proposta
+1. **Extrair:** oferecer na ficha a ação contextual “Preencher dados da conversa”, com sugestões discretas enquanto o atendimento ocorre. Ler apenas mensagens e anexos permitidos que o aplicativo efetivamente suporte.
+2. **Confrontar:** normalizar por campo e classificar vazio, igual, divergente, ambíguo ou não comprovado; mostrar mensagem de origem, autor e data. Preservar os valores cadastrados, sem sobrescrita por inferência.
+3. **Confirmar e salvar:** pré-visualizar os campos sugeridos e diferenças. Após confirmação explícita do operador, preencher campos vazios pelo writer canônico da ficha, com proteção de edições pendentes, idempotência, auditoria e confirmação do resultado. Aplicar controle de acesso, minimização e base legal/consentimento pertinente. Sem escritor paralelo.
+4. **Comprovar:** reler os valores persistidos e mostrar preenchidos, ignorados, pendentes e erros, sem inferir ausência de informação não extraída. Não disparar mensagens nem modificar Resultado, Próxima Ação, Pedido, Financeiro ou opt-out.
+
+### Aceite e testes para autorização futura da U4-B
+- Extrair múltiplos campos de mensagens dispersas, tratar correções, conflitos, documentos inesperados e finalidades distintas de endereço, com proveniência por campo.
+- Não preencher cadastro errado nem tratar instruções presentes na conversa como comandos ao sistema.
+- Não sobrescrever informação confirmada; conflito, documento fiscal e baixa confiança exigem revisão.
+- Reutilizar infraestrutura de assistente, ficha, writers e histórico existente; garantir idempotência e recuperação de falha parcial.
+- Comprovar responsividade, acessibilidade e resultados de persistência em fixtures sem dados pessoais reais.
+- Sem alterar RLS, criar writer concorrente, promover deploy ou modificar clientes nesta etapa documental.
+
+**Ordem após inclusão:** U1 fechamento → U2 → U3 → U4 (navegação e ficha) → U4-B (preenchimento assistido), mantendo um único mapa e checkpoints por diferença.
