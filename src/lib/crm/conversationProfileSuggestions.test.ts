@@ -179,7 +179,7 @@ test('B6 validates conversation identity before any message page and discards st
   // Guard both before reading the conversation and immediately before saving.
   assert.ok(panel.split("from('service_conversations')").length - 1 >= 2);
   assert.match(panel, /if \(scopeError \|\| !activeConversation\) throw/);
-  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| !conversationId/);
+  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| scanLimitReached \|\| !analyzedLatestMessageId \|\| !conversationId/);
 });
 
 test('B7 blocks confirmation for truncated history and requires a fresh customer-message snapshot', () => {
