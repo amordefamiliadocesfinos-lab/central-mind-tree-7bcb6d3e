@@ -113,6 +113,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-storage-prototype.sql
       - name: D11 policy-bound existing lease proof (disposable, rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-lease-prototype.sql
+      - name: D11 policy-bound durable claims proof (disposable, rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-claim-prototype.sql
       - name: Logistics RLS roles and deleted-order visibility in disposable PostgreSQL
         run: |
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/logistics-read-fixture.sql
