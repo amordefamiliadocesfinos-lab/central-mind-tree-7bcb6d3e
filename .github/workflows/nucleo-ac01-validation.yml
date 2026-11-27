@@ -108,6 +108,8 @@ on:
       - "scripts/nucleo-u06f-a07-ac01-transversal-disposable.test.sql"
       - "supabase/migrations/20261127192500_nucleo_u06f_a072_fm_writer.sql"
       - "scripts/nucleo-u06f-a072-fm-disposable.test.sql"
+      - "docs/architecture/proposals/NUCLEO_U06F_A073_M3_CHECKPOINT_CANDIDATE_NAO_APLICAR.sql"
+      - "scripts/nucleo-u06f-a073-m3-disposable.test.sql"
       - ".github/workflows/nucleo-ac01-validation.yml"
   workflow_dispatch:
 permissions:
@@ -206,6 +208,12 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127192500_nucleo_u06f_a072_fm_writer.sql
       - name: Verify FM CAS, replay, provenance and human writer
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-a072-fm-disposable.test.sql
+      - name: Install M3 historical no-op guard on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111232500_nucleo_m3_ignore_noop_updates.sql
+      - name: Apply A07.3 checkpoint candidate on disposable PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f docs/architecture/proposals/NUCLEO_U06F_A073_M3_CHECKPOINT_CANDIDATE_NAO_APLICAR.sql
+      - name: Verify M3 CAS, audit and historical replay
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/nucleo-u06f-a073-m3-disposable.test.sql
   ui-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
