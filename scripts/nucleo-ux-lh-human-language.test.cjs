@@ -31,3 +31,11 @@ const fm=fs.readFileSync("src/components/nucleo/NucleoModuleKnowledge.tsx","utf8
 assert(fm.includes("knowledgeSectionLabels[entry.code]"));
 assert(fm.includes("sections[section]"));
 console.log("PASS LH02/LH03 human names, original identity, search, fallback and presentation-only separation");
+
+// LH04: use the original navigation handler and preserve the mounted draft panels.
+assert(atlas.includes("MODULE_SECTIONS.indexOf(currentModuleArea)"));
+assert(atlas.includes("selectModuleArea(previousArea.id)"));
+assert(atlas.includes("selectModuleArea(nextArea.id)"));
+assert(atlas.includes("ordem de leitura, não progresso do trabalho"));
+assert(atlas.includes('hidden={moduleSection!=="conhecimento"}'));
+assert(atlas.includes('hidden={moduleSection!=="especialista"}'));
