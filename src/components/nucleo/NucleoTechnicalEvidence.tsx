@@ -142,6 +142,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
                       <p>Observada na origem: {record.source_observed_at?new Date(record.source_observed_at).toLocaleString("pt-BR"):"Não informada"}</p>
                       {record.checked_at && <p>Conferida: {new Date(record.checked_at).toLocaleString("pt-BR")}</p>}
                       <p>Registrada: {new Date(record.recorded_at).toLocaleString("pt-BR")}</p>
+                      <p>Origem do registro M4: {record.recorded_by_auth_uid ? "Autoria humana identificada" : record.registration_origin === "administrativo_lovable" ? "Registro administrativo Lovable · sem autoria humana Auth" : "Legado sem autoria humana identificada"}</p>
                       {record.kind !== "migration" && <p className="break-all">{sourceDetails.shaLabel}: {sourceDetails.sha ?? (sourceDetails.conflict ? "metadados inconsistentes" : "não informado no snapshot")}</p>}
                       {record.kind === "migration" && <p>Versão da migration: {record.external_key}</p>}
                       {record.evidence_note && <p className="break-words">{record.evidence_note}</p>}

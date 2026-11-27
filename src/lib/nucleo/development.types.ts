@@ -77,6 +77,9 @@ export type TechnicalEvidence = {
   snapshot: Record<string, unknown>;
   recorded_at: string;
   recorded_by_auth_uid: string | null;
+  registration_origin?: string;
+  registration_reference?: string | null;
+  registration_request_id?: string | null;
 };
 type EvidenceTable = {
   Row: TechnicalEvidence;
