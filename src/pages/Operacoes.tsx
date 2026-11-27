@@ -852,7 +852,7 @@ export default function Operacoes() {
                 <DialogHeader className="shrink-0 border-b bg-background px-4 py-4 sm:px-6">
                   <DialogTitle>Novo Pedido</DialogTitle>
                 </DialogHeader>
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
                   <div className="space-y-5 pb-4">
                   <section className="space-y-4 rounded-xl border bg-muted/20 p-3 sm:p-4">
                   <h3 className="text-sm font-semibold">Contexto do pedido</h3>
@@ -1016,13 +1016,13 @@ export default function Operacoes() {
                       </Button>
                     </div>
                     {newSale.items.map((item, i) => (
-                      <div key={i} className="mb-3 space-y-2 rounded-lg border bg-muted/10 p-2.5">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center">
+                      <div key={i} className="mb-3 min-w-0 space-y-2 rounded-lg border bg-muted/10 p-2.5">
+                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:items-center" data-testid="commercial-order-item-grid">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
                         >
-                          <SelectTrigger className="h-10">
+                          <SelectTrigger className="h-10 min-w-0">
                             <SelectValue placeholder="Produto" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1045,7 +1045,7 @@ export default function Operacoes() {
                             updateSaleItem(i, '_unit_price_text', null);
                           }}
                         >
-                          <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                          <SelectTrigger className="h-10 min-w-0"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__direct__">Unidade direta</SelectItem>
                             {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => {
@@ -1077,7 +1077,7 @@ export default function Operacoes() {
                               }));
                             }}
                           >
-                            <SelectTrigger className="h-10">
+                            <SelectTrigger className="h-10 min-w-0">
                               <SelectValue placeholder="Variante física" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1095,7 +1095,7 @@ export default function Operacoes() {
                           onChange={(e) => updateSaleItem(i, 'commercial_quantity', Number(e.target.value) || 0)}
                         />
                         <CurrencyInput
-                          className="h-10 min-w-[10rem] text-right tabular-nums"
+                          className="h-10 w-full min-w-0 text-right tabular-nums"
                           aria-label="Valor unitário"
                           placeholder="R$ 0,00"
                           value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
@@ -1112,7 +1112,7 @@ export default function Operacoes() {
                             if (parsed) updateSaleItem(i, 'unit_price', parsed.number);
                           }}
                         />
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center justify-end gap-1">
                             <Button type="button" size="icon" variant="outline" className="h-10 w-10"
                               aria-label="Duplicar item para outro sabor" title="Duplicar produto e apresentação compatível; selecione a nova variante"
                               disabled={!item.product_id} onClick={() => duplicateSaleItemForFlavor(i)}>
