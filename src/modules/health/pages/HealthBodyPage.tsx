@@ -47,8 +47,9 @@ function positiveNumber(value: string) {
 }
 
 function measurementValue(measurements: BodyMeasurement[], code: BodyMetricCode) {
-  const item = measurements.find((measurement) => measurement.metric_code === code);
-  return item ? Number(item.value) : null;
+  const matches=measurements.filter(measurement=>measurement.metric_code===code);
+  const value=matches.length===1?Number(matches[0].value):NaN;
+  return Number.isFinite(value)&&value>0?value:null;
 }
 
 function formatNumber(value: number | string | null | undefined, decimals = 1) {
@@ -117,7 +118,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
   const [hip, setHip] = useState("");
   const [chest, setChest] = useState("");
   const [neck, setNeck] = useState("");
-  const [weightMethod, setWeightMethod] = useState<BodyMeasurementInput["method"]>("scale");
+  const [weightMethod, setWeightMethod] = useState<BodyMeasurementInput["method"]|"">("");
   const [bodyFatMethod, setBodyFatMethod] = useState<BodyMeasurementInput["method"]|"">("");
   const [weighingContext, setWeighingContext] = useState("");
   const [notes, setNotes] = useState("");
@@ -129,7 +130,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
   );
 
   const fields=[{raw:weight,min:5,max:400},{raw:waist,min:10,max:300},{raw:bodyFat,min:1,max:75},{raw:hip,min:10,max:300},{raw:chest,min:10,max:300},{raw:neck,min:10,max:300}];
-  const valid=fields.some(f=>f.raw.trim()!=="")&&fields.every(f=>!f.raw.trim()||(positiveNumber(f.raw)!==null&&positiveNumber(f.raw)!>=f.min&&positiveNumber(f.raw)!<=f.max))&&(!weight.trim()||Boolean(weighingContext))&&(!bodyFat.trim()||Boolean(bodyFatMethod));
+  const valid=fields.some(f=>f.raw.trim()!=="")&&fields.every(f=>!f.raw.trim()||(positiveNumber(f.raw)!==null&&positiveNumber(f.raw)!>=f.min&&positiveNumber(f.raw)!<=f.max))&&(!weight.trim()||Boolean(weighingContext&&weightMethod))&&(!bodyFat.trim()||Boolean(bodyFatMethod));
   const saveAssessment = async () => {
     if(!valid||blocked)return;
     const measurements: BodyMeasurementInput[] = [];
@@ -146,7 +147,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
       measurements.push({ metric_code, value, unit_code, method, confidence });
     };
 
-    add("weight_kg", weight, "kg", weightMethod,weightMethod==="other"?"moderate":"high");
+    if(weightMethod)add("weight_kg", weight, "kg", weightMethod,weightMethod==="other"?"moderate":"high");
     add("waist_cm", waist, "cm", "tape");
     if(bodyFatMethod)add("body_fat_pct", bodyFat, "pct", bodyFatMethod, bodyFatMethod === "estimated" ? "low" : "moderate");
     add("hip_cm", hip, "cm", "tape");
@@ -155,7 +156,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
 
     await run(async()=>{
       await body.recordAssessment({measurements,conditions:weight.trim()?{weighing_context:weighingContext}:null,notes:notes.trim()||null});
-      setWeight("");setWaist("");setBodyFat("");setHip("");setChest("");setNeck("");setNotes("");setWeighingContext("");setBodyFatMethod("");setShowRegistration(false);
+      setWeight("");setWaist("");setBodyFat("");setHip("");setChest("");setNeck("");setNotes("");setWeighingContext("");setWeightMethod("");setBodyFatMethod("");setShowRegistration(false);
     },"Avaliação registrada. Confira o histórico.");
   };
   const uploadPhotos=async()=>{
@@ -174,15 +175,15 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
   if (body.loading && !body.assessments.length && !body.states.length && !body.photoSets.length) {
     return (
       <div className="flex min-h-56 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none text-muted-foreground" />
       </div>
     );
   }
 
   return (
     <div className="space-y-3 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">Evolução corporal</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Medidas, fotos comparáveis e tendências. Estado corporal não é decisão nutricional.
@@ -217,7 +218,8 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
         </CardHeader>
         <CardContent className="space-y-3 px-3 pb-3">
           <div className="grid grid-cols-3 gap-2" aria-label="Janela de evolução">{([7,14,28] as const).map(days=><Button key={days} variant={days===windowDays?"default":"outline"} aria-pressed={days===windowDays} className="min-h-11" onClick={()=>setWindowDays(days)}>{days} dias</Button>)}</div>
-          {body.error?<p role="alert" className="text-sm text-destructive">Estado corporal indisponível.</p>:null}
+          {body.error?<p role="alert" className="text-sm text-destructive">Estado corporal indisponível.</p>:body.loading?<p role="status" className="text-xs">Atualizando dados corporais…</p>:null}
+          {!body.loading&&!body.error?<WeightComparison assessments={body.assessments} athleteId={athleteId}/>:null}
           {!currentState ? (
             <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
               Nenhum estado confirmado nesta janela.
@@ -330,7 +332,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
             <div className="space-y-2">
               <Label htmlFor="body-weight-method">Método do peso</Label>
               <Select value={weightMethod} onValueChange={(value) => setWeightMethod(value as BodyMeasurementInput["method"])}>
-                <SelectTrigger id="body-weight-method" className="min-h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="body-weight-method" className="min-h-11"><SelectValue placeholder="Escolha" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="scale">Balança</SelectItem>
                   <SelectItem value="bioimpedance">Bioimpedância</SelectItem>
@@ -371,13 +373,13 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
             placeholder="Observações da avaliação: hidratação, horário diferente, roupa, contexto..."
           />
 
-          {!valid?<p className="text-xs text-muted-foreground">Preencha ao menos uma medida válida. Peso: 5–400 kg; cintura e circunferências: 10–300 cm; gordura: 1–75%. Escolha condição do peso e método da gordura quando aplicáveis. Campos vazios não são registrados.</p>:null}
+          {!valid?<p className="text-xs text-muted-foreground">Preencha ao menos uma medida válida. Peso: 5–400 kg; cintura e circunferências: 10–300 cm; gordura: 1–75%. Escolha método e condição do peso e método da gordura quando aplicáveis. Campos vazios não são registrados.</p>:null}
           <Button
             className="min-h-11 w-full"
             disabled={blocked || !valid}
             onClick={() => void saveAssessment()}
           >
-            {body.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ruler className="mr-2 h-4 w-4" />}
+            {body.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Ruler className="mr-2 h-4 w-4" />}
             Registrar medidas
           </Button>
           </div>:null}
@@ -391,7 +393,7 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
             <p className="text-xs text-muted-foreground">Mantenha iluminação, distância, posição da câmera, roupa e postura semelhantes. Selecione somente os ângulos disponíveis; quatro ângulos são recomendados, não obrigatórios.</p>
             <div className="grid grid-cols-2 gap-2">
               <Button className="min-h-11 h-auto whitespace-normal" variant="outline" disabled={blocked} onClick={()=>setShowUpload(v=>!v)}>{showUpload?"Recolher envio":"Novo protocolo"}</Button>
-              <Button className="min-h-11 h-auto whitespace-normal" variant="outline" disabled={body.loading||busy||Boolean(body.error)} onClick={()=>{setShowPhotos(v=>!v);setFirstSet("");setSecondSet("");}}>{showPhotos?"Ocultar fotos":"Ver fotos privadas"}</Button>
+              <Button className="min-h-11 h-auto whitespace-normal" variant="outline" disabled={body.loading||busy||body.saving||Boolean(body.error)} onClick={()=>{setShowPhotos(v=>!v);setFirstSet("");setSecondSet("");}}>{showPhotos?"Ocultar fotos":"Ver fotos privadas"}</Button>
             </div>
             {showUpload?<div className="space-y-3 rounded-lg border p-2">
               <div className="grid gap-2 sm:grid-cols-2">{photoAngles.map(angle=><div key={angle.code} className="min-w-0 space-y-1"><Label htmlFor={"body-photo-"+angle.code}>{angle.label}</Label><Input id={"body-photo-"+angle.code} type="file" accept="image/jpeg,image/png,image/webp" className="min-h-11" disabled={blocked} onChange={e=>{const file=e.target.files?.[0];setPhotoFiles(current=>({...current,[angle.code]:file}));}}/><p className="text-xs break-words text-muted-foreground">{photoFiles[angle.code]?.name??"Não selecionada"}</p></div>)}</div>
@@ -424,7 +426,6 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
         <CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Histórico de avaliações</CardTitle><p className="text-xs text-muted-foreground">Até 12 avaliações recentes. Registros anulados e substituídos permanecem no histórico.</p></CardHeader>
         <CardContent className="space-y-2 px-3 pb-3">
           {body.error||body.loading?<p role="status" className="text-sm text-muted-foreground">Histórico não confirmado. Atualize para consultar.</p>:body.assessments.length===0?<p className="text-sm text-muted-foreground">Nenhuma avaliação registrada.</p>:<>
-            <WeightComparison assessments={body.assessments} athleteId={athleteId}/>
             {body.assessments.filter(a=>a.athlete_id===athleteId).map(assessment=>{
               const weightValue=measurementValue(assessment.measurements,"weight_kg");
               const waistValue=measurementValue(assessment.measurements,"waist_cm");
