@@ -167,7 +167,7 @@ export function useHealthExamsM9(athleteId: string | null | undefined) {
       db.from("health_clinical_documents").select("*")
         .eq("athlete_id", athleteId).order("created_at", { ascending: false }).limit(100),
       db.from("health_lab_reports").select("*")
-        .eq("athlete_id", athleteId).order("collected_at", { ascending: false }).order("created_at", { ascending: false }).limit(100),
+        .eq("athlete_id", athleteId).order("collected_at", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(100),
       db.from("health_biomarker_longitudinal_states").select("*")
         .eq("athlete_id", athleteId).order("as_of_date", { ascending: false }).limit(250),
       db.from("health_vital_observations").select("*")
