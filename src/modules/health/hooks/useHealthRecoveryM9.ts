@@ -183,7 +183,7 @@ export function useHealthRecoveryM9(athleteId: string | null | undefined) {
     }
 
     if(request!==generation.current){if(strict)throw Error("Consulta substituída.");return;}
-    if([...(sleepResult.data??[]),...(checkinResult.data??[]),...(stateResult.data??[])].some(row=>row.athlete_id!==athleteId)){fail("Escopo da recuperação não confirmado.");return;}
+    if([...((sleepResult.data??[]) as SleepPeriod[]),...((checkinResult.data??[]) as RecoveryCheckin[]),...((stateResult.data??[]) as SleepRecoveryState[])].some(row=>row.athlete_id!==athleteId)){fail("Escopo da recuperação não confirmado.");return;}
     const devices=(deviceResult.data??[]) as SleepDeviceReference[];
     const unavailable=Boolean(deviceResult.error)||devices.some(row=>row.athlete_id!==athleteId);
     setDeviceObservations(unavailable?[]:devices);setDeviceError(unavailable?"Consulta de dispositivos indisponível.":null);
