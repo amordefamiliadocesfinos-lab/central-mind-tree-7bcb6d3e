@@ -59,6 +59,40 @@ test("S01 original sample: explicit play, stop, focus and reduced motion",async(
  await expect(page.getByTestId("g5f-count")).toContainText("3");
 });
 
+test("R04 exact catalog sample coverage, fallback and live reduced motion",async({page})=>{
+ await page.setViewportSize({width:320,height:900});
+ await open(page);
+ await page.getByText("Fixtures R04",{exact:true}).click();
+ for(const name of ["Supino reto máquina sentado","Supino inclinado máquina","Elevação lateral com halteres","Remada baixa","Puxada alta","Leg press 45°","Cadeira extensora"]){
+  const trigger=page.getByRole("button",{name:"Ver movimento: "+name,exact:true});
+  await trigger.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog.getByTestId("cch-movement-sample")).toBeVisible();
+  await expect(dialog.getByText("Quadro A",{exact:true})).toBeVisible();
+  await expect(dialog.getByText("Quadro B",{exact:true})).toBeVisible();
+  await expect(dialog.getByRole("button",{name:/Reproduzir amostra/})).toBeVisible();
+  await expect(dialog.getByRole("button",{name:"Parar amostra"})).toHaveCount(0);
+  await expect(dialog).toContainText("Demonstração visual aprovada ainda não disponível.");
+  if(name==="Remada baixa"){
+   await dialog.getByRole("button",{name:/Reproduzir amostra/}).click();
+   await expect(dialog.getByRole("button",{name:"Parar amostra"})).toBeVisible();
+   await page.emulateMedia({reducedMotion:"reduce"});
+   await expect(dialog.getByText("Movimento reduzido: quadros estáticos.")).toBeVisible();
+   await expect(dialog.getByText("Quadro A",{exact:true})).toBeVisible();
+   await page.emulateMedia({reducedMotion:"no-preference"});
+   await expect(dialog.getByRole("button",{name:/Reproduzir amostra/})).toBeVisible();
+  }
+  await dialog.getByRole("button",{name:"Voltar ao treino"}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+ }
+ await page.getByRole("button",{name:"Ver movimento: Exercício sem amostra",exact:true}).click();
+ await expect(page.getByRole("dialog").getByTestId("cch-movement-sample")).toHaveCount(0);
+ await expect(page.getByRole("dialog")).toContainText("Demonstração visual aprovada ainda não disponível.");
+ await page.keyboard.press("Escape");
+ await expect(page.getByTestId("g5f-count")).toContainText("3");
+});
+
 test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({page})=>{
  const setPatches=[];
  page.on("response",res=>{if(res.request().method()==="PATCH" && res.url().includes("health_workout_sets")) setPatches.push(res.status());});
