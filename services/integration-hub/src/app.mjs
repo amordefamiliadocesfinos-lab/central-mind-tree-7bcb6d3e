@@ -29,6 +29,8 @@ import { runCelivioPreview } from './shopee-celivio-preview-read-budget.mjs';
 import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 import { runCelivioPilotCommitOne } from './shopee-celivio-commit-one.mjs';
 
+import { createD10Pilot } from './shopee-d10-pilot.mjs';
+
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
   'content-type': 'application/json; charset=utf-8',
@@ -47,6 +49,7 @@ export async function handleRequest(
   request,
   {
     runMinimumCycle = runShopeeMinimumCycle,
+    runD10 = null,
     runAdaoIntake = runAdaoAutomaticIntake,
     runAdaoAccountCycle = runAdaoCycle,
     syncAdaoLabel = syncAdaoReadyLabelOnce,
@@ -84,7 +87,20 @@ export async function handleRequest(
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
 
-  // Account-scoped reuse of Viviane's EXISTING lease/checkpoint cycle.
+  // Private D10 one-order proof. No caller-selected identity or parameters.
+  if (['/internal/shopee/d10/inspect','/internal/shopee/d10/ship','/internal/shopee/d10/label'].includes(normalizedPath)) {
+    if (normalizedMethod !== 'POST') return json(405,{error:'method_not_allowed'});
+    if (Object.keys(request.query ?? {}).length || request.headers?.['transfer-encoding']
+      || Number(request.headers?.['content-length'] ?? 0)!==0 || (request.body != null && request.body !== ''))
+      return json(400,{error:'body_or_query_not_allowed'});
+    if (getEnv('SHOPEE_D10_ENABLED')!=='true') return json(503,{status:'blocked',code:'d10_disabled'});
+    try {
+      const result=await (runD10??createD10Pilot({getEnv}))(normalizedPath.split('/').at(-1));
+      return json(result?.ok?200:409,{...result,status:result?.ok?'ok':'blocked'});
+    } catch { return json(503,{status:'blocked',code:'d10_exception_requires_review'}); }
+  }
+
+
   // Default-off; no independent scheduler. The adapter refuses to run while
   // the standalone Adão importer remains active to avoid competing writers.
   if (normalizedPath === '/internal/shopee/adao/cycle/run') {
