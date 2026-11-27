@@ -28,6 +28,7 @@ for(const width of [320,360,390,430,1280]){
    await expect(page.getByTestId("g5f-navigation-chrome")).toBeHidden();
    await expect(page.getByRole("button",{name:"Sair do modo focado"})).toBeVisible();
    await expect(page.getByTestId("cch-rest-clock")).toBeVisible();
+   await expect(page.getByTestId("cch-r07-exercise-state")).toHaveText("EM DESCANSO");
    const rect=await extra(page).boundingBox();
    expect(rect?.height??0).toBeGreaterThanOrEqual(44);
    await page.screenshot({path:"test-results/g5f-auth-"+width+".png",fullPage:true});
@@ -196,6 +197,24 @@ test("F19 genuine local Auth: 3→4→5 with new choice after reload",async({pag
  await expect(page.getByTestId("cch-rest-clock")).toBeVisible();
  await continueSet.click();
  await expect(page.getByTestId("cch-work-clock")).toBeVisible();
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
+ await expect(page.getByTestId("g5f-count")).toContainText("5");
+ // Actual F19 pause/resume RPCs on the same active synthetic interval.
+ await expect(page.getByTestId("cch-r07-exercise-state")).toHaveText("EM EXECUÇÃO");
+ await page.getByRole("button",{name:"Pausar treino",exact:true}).click();
+ await expect(page.getByTestId("cch-r07-exercise-state")).toHaveText("PAUSADO");
+ await expect(page.getByRole("button",{name:"Concluir série"})).toHaveCount(0);
+ await page.reload();
+ await expect(page.getByTestId("cch-r07-exercise-state")).toHaveText("PAUSADO",{timeout:30000});
+ await page.getByRole("button",{name:"Retomar treino",exact:true}).first().click();
+ await expect(page.getByTestId("cch-r07-exercise-state")).toHaveText("EM EXECUÇÃO");
+ await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
+ // Canceling the end confirmation must not finish or cancel the active set.
+ await page.getByRole("button",{name:"Encerrar treino",exact:true}).click();
+ await expect(page.getByText("Encerrar treino agora?",{exact:true})).toBeVisible();
+ await expect(page.getByText(/essa série incompleta não será registrada/)).toBeVisible();
+ await page.getByRole("button",{name:"Cancelar encerramento"}).click();
+ await expect(page.getByText("Encerrar treino agora?",{exact:true})).toHaveCount(0);
  await expect(page.getByRole("button",{name:"Concluir série"})).toBeEnabled();
  await expect(page.getByTestId("g5f-count")).toContainText("5");
 });
