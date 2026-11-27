@@ -140,6 +140,9 @@ export function useHealthAnalyticsF17(
     try {
     const fromDate = startDateIso(windowDays);
     const fromTimestamp = startTimestamp(windowDays);
+    const now=new Date();
+    const toDate=localIsoDate(now);
+    const untilTimestamp=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).toISOString();
 
     const [
       sessionsResult,
@@ -155,6 +158,7 @@ export function useHealthAnalyticsF17(
         .eq("record_status", "active")
         .eq("status", "completed")
         .gte("started_at", fromTimestamp)
+        .lt("started_at", untilTimestamp)
         .order("started_at", { ascending: true })
         .limit(5000),
       db
@@ -162,6 +166,7 @@ export function useHealthAnalyticsF17(
         .select("id,log_date,completeness_status",{count:"exact"})
         .eq("athlete_id", athleteId)
         .gte("log_date", fromDate)
+        .lte("log_date", toDate)
         .order("log_date", { ascending: true })
         .limit(1000),
       db
@@ -170,6 +175,7 @@ export function useHealthAnalyticsF17(
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("observed_on", fromDate)
+        .lte("observed_on", toDate)
         .order("observed_at", { ascending: true })
         .limit(1000),
       db
@@ -180,6 +186,7 @@ export function useHealthAnalyticsF17(
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("sleep_date", fromDate)
+        .lte("sleep_date", toDate)
         .order("sleep_date", { ascending: true })
         .limit(1000),
       db
@@ -190,6 +197,7 @@ export function useHealthAnalyticsF17(
         .eq("athlete_id", athleteId)
         .eq("status", "active")
         .gte("observed_on", fromDate)
+        .lte("observed_on", toDate)
         .in("metric_code", [
           "physical_recovery",
           "training_readiness",
