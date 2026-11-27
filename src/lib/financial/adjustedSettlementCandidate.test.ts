@@ -1,0 +1,12 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { calculateAdjustedSettlement as calc, type SettlementInput } from './adjustedSettlementCandidate.ts';
+const base: SettlementInput = {direction:'pagar',remainingPrincipal:'100.00',principal:'100.00'};
+test('payable interest and fee increase actual cash, not principal',()=>{const r=calc({...base,interest:'5',penalty:'2',fee:'3',discount:'1'});assert.equal(r.cash,10900n);assert.equal(r.principal,10000n);assert.equal(r.fullySettled,true);});
+test('receivable deductions reduce cash, not settlement principal',()=>{const r=calc({...base,direction:'receber',discount:'5',fee:'2',marketplaceFee:'3'});assert.equal(r.cash,9000n);assert.equal(r.remainingPrincipal,0n);});
+test('partial settlement preserves residual principal',()=>{const r=calc({...base,principal:'40',discount:'4'});assert.equal(r.cash,3600n);assert.equal(r.remainingPrincipal,6000n);assert.equal(r.fullySettled,false);});
+test('rejects extra principal on already settled obligations',()=>{assert.throws(()=>calc({...base,remainingPrincipal:'0',principal:'45'}));assert.throws(()=>calc({...base,principal:'100.01'}));});
+test('rejects fractional cents, negative, exponent and invalid values',()=>{for(const v of ['0.001','-1','1e2','NaN','Infinity',''])assert.throws(()=>calc({...base,fee:v}));});
+test('rejects marketplace fee on payables and nonpositive cash',()=>{assert.throws(()=>calc({...base,marketplaceFee:'1'}));assert.throws(()=>calc({...base,discount:'100'}));assert.throws(()=>calc({...base,direction:'receber',fee:'101'}));});
+test('rejects zero principal and excessive discount',()=>{assert.throws(()=>calc({...base,principal:'0'}));assert.throws(()=>calc({...base,discount:'101',fee:'10'}));});
+test('exact cents above Number safe integer range',()=>{const r=calc({...base,remainingPrincipal:'90071992547409.93',principal:'90071992547409.93',interest:'0.01'});assert.equal(r.cash,9007199254740994n);});
