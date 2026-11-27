@@ -19,7 +19,9 @@ export interface CommercialSaleDraftLine {
  * Apresentações atreladas à variante física anterior NÃO podem ser herdadas.
  * Apresentações independentes ou composições fixas podem ser reaproveitadas.
  * A escolha da nova variante continua obrigatória no formulário/contrato.
- * Preserva a quantidade comercial somente quando a apresentação for compatível.\n * Se remover apresentação vinculada ao sabor, reinicia a quantidade para não trocar caixas por unidades.\n * Não altera a linha original.
+ * Preserva a quantidade comercial somente quando a apresentação for compatível. 
+ * Se remover apresentação vinculada ao sabor, reinicia a quantidade para não trocar caixas por unidades. 
+ * Não altera a linha original.
  */
 export function duplicateCommercialSaleLine<T extends CommercialSaleDraftLine>(
   lines: readonly T[],
@@ -47,4 +49,28 @@ export function duplicateCommercialSaleLine<T extends CommercialSaleDraftLine>(
     _unit_price_text: undefined,
   } as T;
   return [...lines.slice(0, index + 1), duplicate, ...lines.slice(index + 1)];
+}
+
+/**
+ * Troca a variante física antes da criação do Pedido.
+ * Linha direta conserva quantidade; apresentação removida exige nova quantidade.
+ * O preço sempre parte da referência canônica da variante escolhida.
+ */
+export function selectCommercialSaleLineVariant<T extends CommercialSaleDraftLine>(
+  line: T,
+  variantId: string | null,
+  canonicalUnitPrice: number,
+): T {
+  const commercialQuantity = !line.commercial_presentation
+    && Number.isFinite(line.commercial_quantity) && line.commercial_quantity > 0
+    ? line.commercial_quantity : 1;
+  return {
+    ...line,
+    variant_id: variantId,
+    commercial_presentation: null,
+    commercial_quantity: commercialQuantity,
+    quantity: commercialQuantity,
+    unit_price: canonicalUnitPrice,
+    _unit_price_text: undefined,
+  } as T;
 }
