@@ -170,6 +170,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
   const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }]);
   const duplicateItemForFlavor = (index: number) => {
+    const source = items[index];
+    if (source?.commercial_presentation?.variant_id
+      && source.commercial_presentation.composition_mode !== 'composite') {
+      toast.info('Apresentação vinculada ao sabor anterior: selecione nova apresentação e quantidade.');
+    }
     setItems(current => duplicateCommercialSaleLine(current, index));
   };
 
