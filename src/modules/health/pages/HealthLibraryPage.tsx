@@ -202,10 +202,7 @@ export function HealthLibraryPage() {
         <Button
           className="min-h-11"
           variant={mode === "training" ? "default" : "outline"}
-          onClick={() => {
-            setMode("training");
-
-          }}
+          onClick={() => setMode("training")}
         >
           <Dumbbell className="mr-2 h-4 w-4" />
           Treino
@@ -213,10 +210,7 @@ export function HealthLibraryPage() {
         <Button
           className="min-h-11"
           variant={mode === "nutrition" ? "default" : "outline"}
-          onClick={() => {
-            setMode("nutrition");
-            setQuery("");
-          }}
+          onClick={() => setMode("nutrition")}
         >
           <Apple className="mr-2 h-4 w-4" />
           Nutrição
