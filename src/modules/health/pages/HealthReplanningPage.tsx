@@ -255,6 +255,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
         <Button
           variant="outline"
           className="min-h-11 shrink-0"
+          disabled={replanning.saving || review.generating || review.savingOutcome}
           onClick={() =>
             void Promise.all([review.reload(), replanning.reload()])
           }
@@ -286,7 +287,7 @@ function HealthReplanningPageScoped({athleteId}:{athleteId:string}) {
       {replanning.error ? (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Não foi possível concluir uma operação do replanejamento.
+            Não foi possível confirmar a operação do replanejamento. Atualize e confira o histórico antes de repetir.
           </CardContent>
         </Card>
       ) : null}

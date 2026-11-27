@@ -181,11 +181,15 @@ export function useHealthReplanningF14(
   const activeScope=useRef<string|null|undefined>(undefined);
   const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
   const currentAction=action.scope===scope?action:{saving:false,error:null};
-  const reload=useCallback(async()=>{
+  const readSnapshot=useCallback(async()=>{
     if(activeScope.current!==scope)return;
     const token=++request.current;
-    const finish=(value:typeof empty)=>{if(token===request.current)setSnapshot({scope,...value,loading:false});};
-    if(!athleteId){finish(empty);return;}
+    const finish=(value:typeof empty)=>{
+      if(token!==request.current)return undefined;
+      setSnapshot({scope,...value,loading:false});
+      return value;
+    };
+    if(!athleteId){return finish(empty);}
     setSnapshot({scope,...empty,loading:true});
     try{
     const [currentResult, historyResult] = await Promise.all([
@@ -211,12 +215,11 @@ export function useHealthReplanningF14(
 
     if(currentResult.error||historyResult.error){
       const error=currentResult.error??historyResult.error;
-      finish({...empty,backendAvailable:!isBackendUnavailable(error),error:error?.message??"Replanejamento indisponível."});
-      return;
+      return finish({...empty,backendAvailable:!isBackendUnavailable(error),error:error?.message??"Replanejamento indisponível."});
     }
     const mappedCurrent=currentResult.data?mapCase(currentResult.data):null;
     const history=((historyResult.data??[]) as unknown[]).map(mapCase);
-    if(!mappedCurrent){finish({...empty,history});return;}
+    if(!mappedCurrent){return finish({...empty,history});}
     const itemResult = await db
       .from("health_replanning_items")
       .select(
@@ -227,18 +230,23 @@ export function useHealthReplanningF14(
       .eq("record_status", "current")
       .order("created_at", { ascending: true });
 
-    if(itemResult.error){finish({...empty,backendAvailable:!isBackendUnavailable(itemResult.error),error:itemResult.error.message});return;}
-    finish({...empty,currentCase:mappedCurrent,history,items:((itemResult.data??[]) as unknown[]).map(mapItem)});
-    }catch(cause){finish({...empty,error:cause instanceof Error?cause.message:"Replanejamento indisponível."});}
+    if(itemResult.error){return finish({...empty,backendAvailable:!isBackendUnavailable(itemResult.error),error:itemResult.error.message});}
+    return finish({...empty,currentCase:mappedCurrent,history,items:((itemResult.data??[]) as unknown[]).map(mapItem)});
+    }catch(cause){return finish({...empty,error:cause instanceof Error?cause.message:"Replanejamento indisponível."});}
   },[athleteId,scope]);
+  const reload=useCallback(async()=>{
+    const value=await readSnapshot();
+    if(value && !value.error && value.backendAvailable && !locked.current)
+      setAction(previous=>previous.scope===scope?{...previous,error:null}:previous);
+  },[readSnapshot,scope]);
   useEffect(()=>{
     activeScope.current=scope;epoch.current++;locked.current=false;
     setAction({scope,saving:false,error:null});
     void reload();
     return ()=>{activeScope.current=undefined;request.current++;epoch.current++;locked.current=false;};
   },[reload,scope]);
-  const runAction=useCallback(async<T,>(operation:()=>Promise<T>)=>{
-    if(!athleteId||activeScope.current!==scope||visible.loading||visible.error||!visible.backendAvailable||locked.current)
+  const runAction=useCallback(async<T,>(operation:()=>Promise<T>,confirm:(value:typeof empty,result:T)=>boolean)=>{
+    if(!athleteId||activeScope.current!==scope||visible.loading||visible.error||!visible.backendAvailable||currentAction.error||locked.current)
       throw new Error("Aguarde uma leitura válida do atleta atual.");
     locked.current=true;
     const token=epoch.current;
@@ -246,7 +254,11 @@ export function useHealthReplanningF14(
     setAction({scope,saving:true,error:null});
     try{
       const value=await operation();
-      if(active())await reload();
+      if(active()){
+        const confirmed=await readSnapshot();
+        if(!confirmed || confirmed.error || !confirmed.backendAvailable || !confirm(confirmed,value))
+          throw new Error("Gravação não confirmada. Atualize e confira o histórico antes de repetir.");
+      }
       return value;
     }catch(cause){
       if(active())setAction({scope,saving:false,error:cause instanceof Error?cause.message:"Operação indisponível."});
@@ -254,7 +266,7 @@ export function useHealthReplanningF14(
     }finally{
       if(active()){locked.current=false;setAction(previous=>previous.scope===scope?{...previous,saving:false}:previous);}
     }
-  },[athleteId,scope,visible.loading,visible.error,visible.backendAvailable,reload]);
+  },[athleteId,scope,visible.loading,visible.error,visible.backendAvailable,currentAction.error,readSnapshot]);
   const openCase = useCallback(
     async (reviewRunId: string) =>
       runAction(async () => {
@@ -265,7 +277,7 @@ export function useHealthReplanningF14(
           throw new Error(result.error.message);
         }
         return result.data;
-      }),
+      }, (snapshot,id)=>snapshot.currentCase?.id===id && snapshot.currentCase.sourceReviewRunId===reviewRunId),
     [runAction,visible.currentCase,visible.items],
   );
 
@@ -282,7 +294,7 @@ export function useHealthReplanningF14(
       notes?: string | null;
     }) =>
       runAction(async () => {
-        if(visible.currentCase?.id!==caseId||!visible.items.some(item=>item.domain===domain))
+        if(visible.currentCase?.id!==caseId||!["open","in_review"].includes(visible.currentCase.caseStatus)||!visible.items.some(item=>item.domain===domain))
           throw new Error("Caso ou domínio fora da leitura atual.");
         const result = await db.rpc(
           "health_f14_record_replanning_item_decision",
@@ -297,7 +309,7 @@ export function useHealthReplanningF14(
           throw new Error(result.error.message);
         }
         return result.data;
-      }),
+      }, (snapshot,id)=>snapshot.currentCase?.id===caseId && snapshot.items.some(item=>item.id===id && item.domain===domain && item.itemStatus===decision && item.decisionNotes===(notes??null))),
     [runAction,visible.currentCase,visible.items],
   );
 
@@ -312,7 +324,7 @@ export function useHealthReplanningF14(
           throw new Error(result.error.message);
         }
         return result.data;
-      }),
+      }, (snapshot)=>snapshot.currentCase?.id===caseId && snapshot.currentCase.caseStatus==="completed"),
     [runAction,visible.currentCase,visible.items],
   );
 
@@ -328,7 +340,7 @@ export function useHealthReplanningF14(
           throw new Error(result.error.message);
         }
         return result.data;
-      }),
+      }, (snapshot)=>[snapshot.currentCase,...snapshot.history].some(item=>item?.id===caseId && item.caseStatus==="voided")),
     [runAction,visible.currentCase,visible.items],
   );
 

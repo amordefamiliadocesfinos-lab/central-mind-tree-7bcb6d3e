@@ -255,6 +255,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
         <Button
           variant="outline"
           className="min-h-11 shrink-0"
+          disabled={reminders.saving}
           onClick={() => void reminders.reload()}
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -279,7 +280,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
       {reminders.error ? (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Não foi possível concluir uma operação da rotina.
+            Não foi possível confirmar a operação da rotina. Atualize e confira os registros antes de repetir.
           </CardContent>
         </Card>
       ) : null}
@@ -342,7 +343,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
                           rule.id,
                           "completed",
                           clock.dateIso,
-                        )
+                        ).catch(() => undefined)
                       }
                     >
                       <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -357,7 +358,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
                           rule.id,
                           "dismissed",
                           clock.dateIso,
-                        )
+                        ).catch(() => undefined)
                       }
                     >
                       <XCircle className="mr-2 h-4 w-4" />
@@ -548,7 +549,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {reminders.rules.length === 0 ? (
+          {reminders.error || !reminders.backendAvailable ? <p className="text-sm text-muted-foreground">Regras não confirmadas nesta consulta.</p> : reminders.rules.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum lembrete configurado.
             </p>
@@ -584,7 +585,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
                     className="min-h-11 flex-1"
                     disabled={reminders.saving || !!reminders.error || !reminders.backendAvailable}
                     onClick={() =>
-                      void reminders.archiveRule(rule.id)
+                      void reminders.archiveRule(rule.id).catch(() => undefined)
                     }
                   >
                     <Archive className="mr-2 h-4 w-4" />
@@ -605,7 +606,7 @@ function HealthRoutinePageScoped({ athleteId }: { athleteId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {reminders.events.length === 0 ? (
+          {reminders.error || !reminders.backendAvailable ? <p className="text-sm text-muted-foreground">Histórico não confirmado nesta consulta.</p> : reminders.events.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Ainda não há eventos de rotina.
             </p>

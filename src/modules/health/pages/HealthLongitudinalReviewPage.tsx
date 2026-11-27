@@ -266,6 +266,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
         <Button
           variant="outline"
           className="min-h-11 shrink-0"
+          disabled={review.generating || review.savingOutcome}
           onClick={() => void review.reload()}
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -292,7 +293,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
       {review.error ? (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Não foi possível concluir uma operação da revisão longitudinal.
+            Não foi possível confirmar a operação da revisão longitudinal. Atualize e confira o histórico antes de repetir.
           </CardContent>
         </Card>
       ) : null}
@@ -355,7 +356,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
           <Button
             className="min-h-11 w-full sm:w-auto"
             disabled={!review.backendAvailable || !!review.error || review.generating || review.savingOutcome}
-            onClick={() => void review.generateReview()}
+            onClick={() => void review.generateReview().catch(() => undefined)}
           >
             {review.generating ? "Gerando revisão..." : "Gerar revisão longitudinal"}
           </Button>

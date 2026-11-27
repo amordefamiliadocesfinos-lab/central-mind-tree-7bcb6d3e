@@ -157,11 +157,15 @@ export function useHealthLongitudinalReviewF13(
   const activeScope=useRef<string|null|undefined>(undefined);
   const visible=snapshot.scope===scope?snapshot:{...empty,loading:Boolean(scope)};
   const currentAction=action.scope===scope?action:{kind:null,error:null};
-  const reload=useCallback(async()=>{
+  const readSnapshot=useCallback(async()=>{
     if(activeScope.current!==scope)return;
     const token=++request.current;
-    const finish=(value:typeof empty)=>{if(token===request.current)setSnapshot({scope,...value,loading:false});};
-    if(!athleteId){finish(empty);return;}
+    const finish=(value:typeof empty)=>{
+      if(token!==request.current)return undefined;
+      setSnapshot({scope,...value,loading:false});
+      return value;
+    };
+    if(!athleteId){return finish(empty);}
     setSnapshot({scope,...empty,loading:true});
     try{
     const today = localDateIso();
@@ -179,8 +183,7 @@ export function useHealthLongitudinalReviewF13(
       .maybeSingle();
 
     if (runResult.error) {
-      finish({...empty,backendAvailable:!isBackendUnavailable(runResult.error),error:errorMessage(runResult.error)});
-      return;
+      return finish({...empty,backendAvailable:!isBackendUnavailable(runResult.error),error:errorMessage(runResult.error)});
     }
 
     const rawRun = runResult.data as {
@@ -201,8 +204,7 @@ export function useHealthLongitudinalReviewF13(
     } | null;
 
     if (!rawRun) {
-      finish(empty);
-      return;
+      return finish(empty);
     }
 
     const [currentOutcomeResult, historyResult] = await Promise.all([
@@ -226,8 +228,7 @@ export function useHealthLongitudinalReviewF13(
     ]);
 
     if(currentOutcomeResult.error||historyResult.error){
-      finish({...empty,error:errorMessage(currentOutcomeResult.error)??errorMessage(historyResult.error)});
-      return;
+      return finish({...empty,error:errorMessage(currentOutcomeResult.error)??errorMessage(historyResult.error)});
     }
 
     const mapOutcome = (value: unknown): LongitudinalReviewOutcome => {
@@ -268,10 +269,15 @@ export function useHealthLongitudinalReviewF13(
       createdAt: rawRun.created_at,
       historical: rawRun.as_of_date !== today,
     };
-    finish({...empty,run:mappedRun,outcome:currentOutcomeResult.data?mapOutcome(currentOutcomeResult.data):null,
+    return finish({...empty,run:mappedRun,outcome:currentOutcomeResult.data?mapOutcome(currentOutcomeResult.data):null,
       history:((historyResult.data??[]) as unknown[]).map(mapOutcome)});
-    }catch(cause){finish({...empty,error:cause instanceof Error?cause.message:"Revisão indisponível."});}
+    }catch(cause){return finish({...empty,error:cause instanceof Error?cause.message:"Revisão indisponível."});}
   },[athleteId,scope]);
+  const reload=useCallback(async()=>{
+    const value=await readSnapshot();
+    if(value && !value.error && value.backendAvailable && !locked.current)
+      setAction(previous=>previous.scope===scope?{...previous,error:null}:previous);
+  },[readSnapshot,scope]);
   useEffect(()=>{
     activeScope.current=scope;epoch.current++;locked.current=false;
     setAction({scope,kind:null,error:null});
@@ -279,7 +285,7 @@ export function useHealthLongitudinalReviewF13(
     return ()=>{activeScope.current=undefined;request.current++;epoch.current++;locked.current=false;};
   },[reload,scope]);
   const perform=useCallback(async(kind:"generate"|"outcome",operation:()=>Promise<unknown>)=>{
-    if(!athleteId||activeScope.current!==scope||visible.loading||!visible.backendAvailable||visible.error||locked.current)
+    if(!athleteId||activeScope.current!==scope||visible.loading||!visible.backendAvailable||visible.error||currentAction.error||locked.current)
       throw new Error("Aguarde uma leitura válida do atleta atual.");
     locked.current=true;
     const token=epoch.current;
@@ -287,7 +293,12 @@ export function useHealthLongitudinalReviewF13(
     setAction({scope,kind,error:null});
     try{
       const result=await operation();
-      if(active())await reload();
+      if(active()){
+        const confirmed=await readSnapshot();
+        const id=kind==="generate"?confirmed?.run?.id:confirmed?.outcome?.id;
+        if(!confirmed || confirmed.error || !confirmed.backendAvailable || typeof result!=="string" || id!==result)
+          throw new Error("Gravação não confirmada. Atualize e confira o histórico antes de repetir.");
+      }
       return result;
     }catch(cause){
       if(active())setAction({scope,kind:null,error:cause instanceof Error?cause.message:"Operação indisponível."});
@@ -295,7 +306,7 @@ export function useHealthLongitudinalReviewF13(
     }finally{
       if(active()){locked.current=false;setAction(previous=>previous.scope===scope?{...previous,kind:null}:previous);}
     }
-  },[athleteId,scope,visible.loading,visible.backendAvailable,visible.error,reload]);
+  },[athleteId,scope,visible.loading,visible.backendAvailable,visible.error,currentAction.error,readSnapshot]);
   const generateReview=useCallback(()=>perform("generate",async()=>{
     const result=await db.rpc("health_f13_generate_longitudinal_review",{
       p_athlete_id:athleteId!,p_as_of_date:localDateIso(),p_window_days:28
