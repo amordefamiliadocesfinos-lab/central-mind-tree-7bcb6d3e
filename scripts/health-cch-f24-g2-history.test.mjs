@@ -28,3 +28,11 @@ test("latest comparable session and completed set wins; no arithmetic inference"
    sessionStartedAt:"2026-11-21T10:00:00Z",completedAt:"2026-11-21T11:00:00Z",loadValue:85,reps:6})]);
  assert.equal(x?.loadValue,85);assert.equal(x?.reps,6);assert.equal(x?.rir,2);
 });
+
+test("historical RIR preserves zero, decimals and missing values; invalid RIR is never displayed",()=>{
+ for(const rir of [0,1.5,2])assert.equal(select("supino","Máquina A",[row({rir})])?.rir,rir);
+ for(const rir of [null,-1,NaN,Infinity]){
+  const reference=select("supino","Máquina A",[row({rir})]);
+  assert.equal(reference?.rir,null);assert.equal(reference?.loadValue,80);
+ }
+});
