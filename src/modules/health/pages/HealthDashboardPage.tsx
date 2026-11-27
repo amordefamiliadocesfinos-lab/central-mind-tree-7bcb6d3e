@@ -29,7 +29,7 @@ import {
   integratedReasonLabel,
   useHealthIntegratedDecisionF11,
 } from "../hooks/useHealthIntegratedDecisionF11";
-import { formatMinutes, type DashboardFreshness } from "../dashboard/dashboardModel";
+import { formatMinutes, type DashboardFreshness, type DashboardAvailability } from "../dashboard/dashboardModel";
 
 function dateLabel(value: string | null | undefined) {
   if (!value) return null;
@@ -124,6 +124,7 @@ function DomainCard({
   href,
   cta,
   error,
+  availability,
   freshness,
   asOf,
   confidence,
@@ -136,6 +137,7 @@ function DomainCard({
   href: string;
   cta: string;
   error?: string | null;
+  availability: DashboardAvailability;
   freshness: DashboardFreshness;
   asOf?: string | null;
   confidence?: string | null;
@@ -144,6 +146,7 @@ function DomainCard({
   children: ReactNode;
 }) {
   const historical = historicalNote(freshness, asOf ?? null);
+  const unavailable=Boolean(error)||availability==="error";
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="px-3 pt-3 pb-2">
@@ -153,22 +156,22 @@ function DomainCard({
             {title}
           </CardTitle>
           <div className="flex flex-wrap justify-end gap-1">
-            {historical ? <Badge variant="outline">Histórico</Badge> : null}
-            {confidence ? <Badge variant="outline">{confidenceLabel(confidence)}</Badge> : null}
+            {!unavailable&&historical ? <Badge variant="outline">Histórico</Badge> : null}
+            {!unavailable&&confidence ? <Badge variant="outline">{confidenceLabel(confidence)}</Badge> : null}
           </div>
         </div>
-        {historical ? <p className="text-xs text-muted-foreground">{historical}</p> : null}
-        {coverage ? <p className="text-xs text-muted-foreground">{coverageLabel(coverage)}</p> : null}
+        {!unavailable&&historical ? <p className="text-xs text-muted-foreground">{historical}</p> : !unavailable&&asOf?<p className="text-xs text-muted-foreground">Referência: {dateLabel(asOf)}</p>:null}
+        {!unavailable&&coverage ? <p className="text-xs text-muted-foreground">{coverageLabel(coverage)}</p> : null}
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-2 px-3 pb-3">
-        {error ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        {unavailable ? (
+          <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             <div className="flex gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>Não foi possível carregar este domínio.</span>
             </div>
           </div>
-        ) : children}
+        ) : availability==="unknown" ? <p className="text-sm text-muted-foreground">Sem observação confirmada nesta área.</p> : children}
         <div className="mt-auto pt-1">
           <Button asChild variant={primary?"default":"outline"} className="min-h-11 w-full justify-between whitespace-normal">
             <Link to={href}>
@@ -220,7 +223,12 @@ function DashboardSkeleton() {
 
 export function HealthDashboardPage() {
   const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const dashboard = useHealthDashboardF10(athlete?.id);
+  if(athleteLoading)return <DashboardSkeleton/>;
+  if(!athlete?.id)return <p className="text-sm text-muted-foreground">Selecione um perfil para consultar a saúde.</p>;
+  return <HealthDashboardContent key={athlete.id} athlete={athlete}/>;
+}
+function HealthDashboardContent({athlete}:{athlete:{id:string;display_name?:string|null}}){
+  const dashboard = useHealthDashboardF10(athlete.id);
   const integrated = useHealthIntegratedDecisionF11(athlete?.id);
   const journey = useHealthJourneyF12(athlete?.id, {
     backendAvailable: integrated.backendAvailable,
@@ -233,12 +241,11 @@ export function HealthDashboardPage() {
     month: "long",
   }).format(new Date());
 
-  if (athleteLoading || dashboard.loading) return <DashboardSkeleton />;
-  if (!athlete) return <p className="text-sm text-muted-foreground">Selecione um perfil para consultar a saúde.</p>;
+  if (dashboard.loading) return <DashboardSkeleton />;
   if (dashboard.readFailed) return <Card><CardContent className="space-y-3 p-4" role="alert">
     <p>Não foi possível carregar a visão integrada. Isso não significa ausência de registros.</p>
     <Button onClick={()=>void dashboard.reload()} className="min-h-11">Tentar novamente</Button>
-    <Button asChild variant="outline" className="min-h-11"><Link to="/saude/treino">Abrir treino</Link></Button>
+    <div className="grid grid-cols-2 gap-2">{[{to:"/saude/treino",label:"Treino"},{to:"/saude/alimentacao",label:"Alimentação"},{to:"/saude/evolucao",label:"Evolução"},{to:"/saude/recuperacao",label:"Recuperação"},{to:"/saude/exames",label:"Exames"}].map(item=><Button key={item.to} asChild variant="outline" className="min-h-11 whitespace-normal"><Link to={item.to}>{item.label}</Link></Button>)}</div>
   </CardContent></Card>;
 
   const visibleIssues = dashboard.issues.slice(0, 3);
@@ -276,9 +283,10 @@ export function HealthDashboardPage() {
             title="Treino"
             icon={<Dumbbell className="h-4 w-4 text-primary" />}
             href="/saude/treino"
-            cta={!dashboard.training.error&&dashboard.training.activeSession ? "Continuar treino" : dashboard.training.error ? "Abrir área de treino" : dashboard.training.nextQueue ? "Acessar próximo treino" : "Ver treino"}
-            primary={!dashboard.training.error&&Boolean(dashboard.training.activeSession||dashboard.training.nextQueue)}
-            error={dashboard.training.error}
+            cta={dashboard.training.availability==="available"&&!dashboard.training.error&&dashboard.training.activeSession ? "Continuar treino" : dashboard.training.error||dashboard.training.availability==="error" ? "Abrir área de treino" : dashboard.training.nextQueue ? "Acessar próximo treino" : "Ver treino"}
+            primary={dashboard.training.availability==="available"&&!dashboard.training.error&&Boolean(dashboard.training.activeSession||dashboard.training.nextQueue)}
+            availability={dashboard.training.availability}
+          error={dashboard.training.error}
             freshness={dashboard.training.freshness}
             asOf={dashboard.training.asOf}
           >
@@ -308,6 +316,7 @@ export function HealthDashboardPage() {
           icon={<Utensils className="h-4 w-4 text-primary" />}
           href="/saude/alimentacao"
           cta="Abrir diário alimentar"
+          availability={dashboard.nutrition.availability}
           error={dashboard.nutrition.error}
           freshness={dashboard.nutrition.freshness}
           asOf={dashboard.nutrition.asOf}
@@ -340,6 +349,7 @@ export function HealthDashboardPage() {
           icon={<MoonStar className="h-4 w-4 text-primary" />}
           href="/saude/recuperacao"
           cta="Abrir recuperação"
+          availability={dashboard.recovery.availability}
           error={dashboard.recovery.error}
           freshness={dashboard.recovery.freshness}
           asOf={dashboard.recovery.asOf}
@@ -364,6 +374,7 @@ export function HealthDashboardPage() {
           icon={<TrendingUp className="h-4 w-4 text-primary" />}
           href="/saude/evolucao"
           cta="Abrir evolução corporal"
+          availability={dashboard.body.availability}
           error={dashboard.body.error}
           freshness={dashboard.body.freshness}
           asOf={dashboard.body.asOf}
@@ -388,6 +399,7 @@ export function HealthDashboardPage() {
           icon={<FlaskConical className="h-4 w-4 text-primary" />}
           href="/saude/exames"
           cta="Abrir exames"
+          availability={dashboard.exams.availability}
           error={dashboard.exams.error}
           freshness={dashboard.exams.freshness}
           asOf={dashboard.exams.asOf}
