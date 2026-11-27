@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -72,6 +73,7 @@ export function MobileFinancialView({
   const [channelAccountFilter, setChannelAccountFilter] = useState('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<FinancialEntry | null>(null);
+  const purchaseProtected = Boolean(editing?.purchase_order_id);
   const [paymentEntry, setPaymentEntry] = useState<FinancialEntry | null>(null);
   const [formType, setFormType] = useState<'pagar' | 'receber'>('receber');
 
@@ -139,12 +141,19 @@ export function MobileFinancialView({
       sales_channel: form.sales_channel || null, marketplace_account: form.marketplace_account || null,
     };
     if (editing) {
-      await onUpdateEntry(editing.id, payload);
-    } else {
-      await onCreateEntry(payload);
+      // Editing must not silently replace the original issue/competence dates.
+      delete payload.issue_date;
+      delete payload.competence_date;
     }
-    setFormOpen(false);
-    resetForm();
+    try {
+      if (editing) await onUpdateEntry(editing.id, payload);
+      else await onCreateEntry(payload);
+      setFormOpen(false);
+      resetForm();
+    } catch (error) {
+      const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Não foi possível salvar o lançamento.';
+      toast.error(message);
+    }
   };
 
   // Filtered entries
@@ -388,9 +397,11 @@ export function MobileFinancialView({
             </SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {purchaseProtected && <p role="note" className="rounded-md border p-3 text-sm text-muted-foreground">Compra vinculada: tipo, valor e vencimento são protegidos. Corrija a compra pelo fluxo de regularização, quando permitido. Pagamentos já registrados exigem retificação financeira, não alteração da obrigação.</p>}
             {/* Type toggle */}
             <div className="grid grid-cols-2 gap-2">
               <button
+                disabled={purchaseProtected}
                 onClick={() => setFormType('receber')}
                 className={cn(
                   'h-12 rounded-lg border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-colors',
@@ -400,6 +411,7 @@ export function MobileFinancialView({
                 <TrendingUp className="h-4 w-4" /> A receber
               </button>
               <button
+                disabled={purchaseProtected}
                 onClick={() => setFormType('pagar')}
                 className={cn(
                   'h-12 rounded-lg border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-colors',
@@ -416,6 +428,7 @@ export function MobileFinancialView({
                 type="text"
                 inputMode="decimal"
                 placeholder="0,00"
+                readOnly={purchaseProtected}
                 value={form.value}
                 onChange={(e) => setForm(f => ({ ...f, value: e.target.value }))}
                 className="h-14 text-2xl font-bold text-center"
@@ -437,6 +450,7 @@ export function MobileFinancialView({
                 <Label className="text-xs">Vencimento</Label>
                 <Input
                   type="date"
+                  readOnly={purchaseProtected}
                   value={form.due_date}
                   onChange={(e) => setForm(f => ({ ...f, due_date: e.target.value }))}
                   className="h-11"

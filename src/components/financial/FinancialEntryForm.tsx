@@ -47,6 +47,7 @@ export function FinancialEntryForm({
   accounts,
   onSave,
 }: FinancialEntryFormProps) {
+  const purchaseProtected = Boolean(entry?.purchase_order_id);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('pagamento');
   const [contact, setContact] = useState<{ id: string; name: string } | undefined>(undefined);
@@ -158,6 +159,9 @@ export function FinancialEntryForm({
         saveAndPay,
       });
       onOpenChange(false);
+    } catch (error) {
+      const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Não foi possível salvar o lançamento.';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -182,6 +186,7 @@ export function FinancialEntryForm({
         </DialogHeader>
 
         <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4">
+          {purchaseProtected && <p role="note" className="rounded-md border p-3 text-sm text-muted-foreground">Compra vinculada: valor e vencimento são protegidos. Para corrigir a compra, use a regularização em Compras quando permitida. Se já houve pagamento, não altere a obrigação para ajustar o movimento; confira o comprovante e solicite a retificação financeira.</p>}
           {/* Main fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 col-span-2 sm:col-span-1">
@@ -199,6 +204,7 @@ export function FinancialEntryForm({
                 type="number"
                 step="0.01"
                 min="0"
+                readOnly={purchaseProtected}
                 value={form.value}
                 onChange={(e) => setForm({ ...form, value: e.target.value })}
                 placeholder="0,00"
@@ -277,6 +283,7 @@ export function FinancialEntryForm({
                       "w-full justify-start text-left font-normal",
                       !form.due_date && "text-muted-foreground"
                     )}
+                    disabled={purchaseProtected}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {form.due_date ? format(parseISO(form.due_date), "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
@@ -286,7 +293,7 @@ export function FinancialEntryForm({
                   <Calendar
                     mode="single"
                     selected={form.due_date ? parseISO(form.due_date) : undefined}
-                    onSelect={(date) => setForm({ ...form, due_date: date ? format(date, 'yyyy-MM-dd') : '' })}
+                    onSelect={(date) => { if (!purchaseProtected) setForm({ ...form, due_date: date ? format(date, 'yyyy-MM-dd') : '' }); }}
                     locale={ptBR}
                     className="pointer-events-auto"
                   />
@@ -559,7 +566,7 @@ export function FinancialEntryForm({
               type="button" 
               variant="secondary"
               onClick={(e) => handleSubmit(e as any, true)}
-              disabled={loading}
+              disabled={loading || Boolean(entry && Number(entry.value_paid) >= Number(entry.value))}
             >
               Salvar e dar baixa
             </Button>
