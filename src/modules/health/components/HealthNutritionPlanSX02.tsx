@@ -4,11 +4,11 @@ import {Button} from "@/components/ui/button";
 import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import type {useHealthNutritionM5,useHealthNutritionM5 as M5Hook} from "../hooks/useHealthNutritionM5";
+import type {useHealthNutritionM5} from "../hooks/useHealthNutritionM5";
 import type {useHealthNutritionStateM6} from "../hooks/useHealthNutritionStateM6";
 import {rangeLabel,strategyLabels,targetFields,targetValues,validateTargets} from "../cch/nutritionReviewSX02";
 
-type Nutrition=ReturnType<typeof M5Hook>;
+type Nutrition=ReturnType<typeof useHealthNutritionM5>;
 type NutritionState=ReturnType<typeof useHealthNutritionStateM6>;
 export function HealthNutritionPlanSX02({nutrition,nutritionState,athleteId}:{nutrition:ReturnType<typeof useHealthNutritionM5>;nutritionState:NutritionState;athleteId:string}){
  const {plan,version,target}=nutrition;
