@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'services/integration-hub/**'
+      - 'scripts/shopee-d11-local/**'
       - 'supabase/functions/_shared/shopee-protocol.mjs'
       - 'supabase/functions/integration-core-bridge/**'
       - 'supabase/migrations/*shopee_minimum_cycle_state.sql'
@@ -136,3 +137,89 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/logistics-read-assertions.sql
       - name: Verify concurrent worker leases and document claims in independent sessions
         run: node services/integration-hub/tests/sql/check-concurrency.mjs
+
+  d11-local-auth:
+    name: D11 local GoTrue/PostgREST consolidated migration proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned local Supabase CLI and PostgreSQL client
+        run: |
+          npm install --prefix "$RUNNER_TEMP/d11-cli" --no-package-lock supabase@3.1.0
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Assemble and test a single local migration; never link hosted project
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_URL
+          unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+          cli="$RUNNER_TEMP/d11-cli/node_modules/.bin/supabase"
+          tmp="$(mktemp -d /tmp/d11-auth-XXXXXX)"
+          id="shopee-d11-$GITHUB_RUN_ID"
+          teardown(){
+            (cd "$tmp" && timeout 180s "$cli" stop --no-backup --project-id "$id") >/dev/null 2>&1 || true
+            rm -rf "$tmp"
+            if docker ps -a --format '{{.Names}}' | grep -F "$id" || docker volume ls --format '{{.Name}}' | grep -F "$id"; then
+              echo "D11 local teardown incomplete"; return 1
+            fi
+            echo "D11 local teardown verified"
+          }
+          trap teardown EXIT
+          (cd "$tmp" && "$cli" init)
+          sed -i "s/^project_id *=.*/project_id = \"$id\"/" "$tmp/supabase/config.toml"
+          grep -Fx "project_id = \"$id\"" "$tmp/supabase/config.toml" >/dev/null
+          (cd "$tmp" && "$cli" start --help >/dev/null && timeout 1100s "$cli" start) >"$tmp/start.log" 2>&1 || {
+            echo "D11 local start failed; no remote fallback"; exit 1;
+          }
+          docker ps --format '{{.Names}}' | grep -Fx "supabase_db_$id" >/dev/null
+          if docker ps --format '{{.Names}}' | grep -F "xkskyutmtlhivvpfxkjg"; then exit 1; fi
+          (cd "$tmp" && "$cli" status -o env) >"$tmp/status.env"
+          chmod 600 "$tmp/status.env"
+          set -a
+          source "$tmp/status.env"
+          set +a
+          test "$API_URL" = "http://127.0.0.1:54321"
+          case "$DB_URL" in
+            postgresql://postgres:*@127.0.0.1:54322/postgres) ;;
+            *) echo "D11 non-local database rejected"; exit 1;;
+          esac
+          test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
+          root="$GITHUB_WORKSPACE/services/integration-hub/tests/sql"
+          sed '/^CREATE ROLE /d' "$root/cycle-fixture.sql" | psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$GITHUB_WORKSPACE/supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$GITHUB_WORKSPACE/supabase/migrations/20261020225826_shopee_minimum_cycle_state.sql"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -v d11_real_auth=1 -f "$root/d11-policy-authoring-fixture.sql"
+          (cd "$tmp" && "$cli" migration new --help >/dev/null && "$cli" migration new d11_protected_cycle_policy)
+          mapfile -t files < <(find "$tmp/supabase/migrations" -maxdepth 1 -name '*_d11_protected_cycle_policy.sql')
+          test "${#files[@]}" -eq 1
+          migration="${files[0]}"
+          {
+            echo '-- D11 generated candidate; not approved for hosted publication.'
+            echo 'BEGIN;'
+            for file in d11-policy-storage-schema.sql d11-policy-lease-schema.sql d11-policy-acquire-candidate.sql d11-policy-claim-candidate.sql d11-policy-authoring-candidate.sql; do
+              printf '\n-- source: %s\n' "$file"
+              cat "$root/$file"
+            done
+            echo 'COMMIT;'
+          } > "$migration"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$migration"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -c "NOTIFY pgrst, 'reload schema';"
+          node scripts/shopee-d11-local/verify-auth.mjs
+          mkdir -p "$GITHUB_WORKSPACE/test-results/d11"
+          cp "$migration" "$GITHUB_WORKSPACE/test-results/d11/"
+          sha256sum "$migration" | cut -d' ' -f1 > "$GITHUB_WORKSPACE/test-results/d11/sha256.txt"
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/test-results/d11/source-commit.txt"
+      - name: Upload only generated SQL candidate and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: d11-local-migration-candidate
+          path: test-results/d11/
+          if-no-files-found: error
+          retention-days: 7
