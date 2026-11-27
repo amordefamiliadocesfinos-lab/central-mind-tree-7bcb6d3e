@@ -39,15 +39,20 @@ test('B1 never overwrites existing values and highlights conflicts', () => {
   assert.equal(conflict[0].state, 'conflict');
 });
 
-test('B1 no automatic writes and only scoped on-demand read in profile panel', () => {
+test('B1/B2 scoped read is separate from explicit canonical save', () => {
   const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
   const profile = readFileSync('src/components/crm/ContactProfileOverview.tsx', 'utf8');
   assert.match(panel, /\.eq\('conversation_id', requestedConversationId\)/);
   assert.match(panel, /\.eq\('sender', 'customer'\)/);
   assert.match(panel, /\.limit\(200\)/);
   assert.match(panel, /onClick=\{\(\) => void analyze\(\)\}/);
-  assert.doesNotMatch(panel, /\.update\(|\.insert\(|\.upsert\(|saveContactProfile\(|functions\.invoke\(/);
+  assert.doesNotMatch(panel, /\.update\(|\.insert\(|\.upsert\(|functions\.invoke\(/);
+  assert.match(panel, /onClick=\{\(\) => void confirmSelected\(\)\}/);
+  assert.match(panel, /selectedFields\.includes\(item\.field\) && item\.state === 'empty'/);
+  assert.match(panel, /saveContactProfile\(\{ contactId: contact\.id, baseline: contact, draft: patch \}\)/);
+  assert.match(panel, /saveRef\.current/);
   assert.match(profile, /<ConversationProfileSuggestions/);
+  assert.match(profile, /suggestionReviewActive/);
 });
 
 test('B1 ignores unsupported and instructive-looking fields', () => {
