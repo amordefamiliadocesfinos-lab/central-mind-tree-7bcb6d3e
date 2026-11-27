@@ -69,6 +69,18 @@ function App(){
    </div>
    <section aria-label="Fixture editorial isolada">
      <HealthExerciseMovementPreview name="Amostra S01 sintética" exercise={{id:"cbbf1aa6-b906-46e8-84ce-b13f67aa4f0a",muscles:[],equipment:[],equivalences:[]} as ExerciseCatalogItem}/>
+     <details><summary>Fixtures R04</summary>
+       {[
+        ["c3e88df3-7414-4ebb-a457-b4a8a266dd72","Supino reto máquina sentado"],
+        ["8c608253-bb2b-42e8-a10b-b00c4b502342","Supino inclinado máquina"],
+        ["18d9c6a3-4b1e-45ad-8643-02cea77f3461","Elevação lateral com halteres"],
+        ["b55f0597-d2a5-4773-b6f7-932092929fa6","Remada baixa"],
+        ["8e88d7a9-9cdd-4975-ab2f-f352b8c6da6f","Puxada alta"],
+        ["e3fee31e-4811-4573-9297-74ae1e24d057","Leg press 45°"],
+        ["651f57cd-a556-4c36-b170-c2a434c289e2","Cadeira extensora"],
+        ["unknown-fixture","Exercício sem amostra"]
+       ].map(([id,name])=><HealthExerciseMovementPreview key={id} name={name} exercise={{id,muscles:[],equipment:[],equivalences:[]} as ExerciseCatalogItem}/>)}
+     </details>
    </section>
  </main>;
 }
