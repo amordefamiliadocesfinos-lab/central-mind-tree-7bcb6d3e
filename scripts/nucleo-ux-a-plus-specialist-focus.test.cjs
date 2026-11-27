@@ -66,7 +66,7 @@ assert(ac02.includes('!isSafe(response.ac02_assumption_export)||!isRegistry(resp
 // UX-3: estados visíveis antes dos atalhos AC-01 e consulta AC-02.
 for(const token of [
  'Registro em andamento. Aguarde a conferência no Core antes de navegar ou repetir.',
- 'Minuta AC-01 não salva neste módulo.',
+ 'Rascunho de documento não salvo neste módulo.',
  'Resultado indeterminado. Reconsulte o Core e reconcilie a proposta',
  'role={uncertainRef.current?"alert":"status"}',
 ])assert(contributions.includes(token),"AC-01 status visual ausente: "+token);
