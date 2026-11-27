@@ -223,7 +223,7 @@ function HealthNutritionContent({athleteId}:{athleteId:string}) {
 
         <TabsContent value="meals" className="space-y-4">
           <HealthMealPrescriptionF18
-            athleteId={athlete?.id}
+            athleteId={athleteId}
             version={nutrition.version}
             foods={nutrition.foods}
             recipeVersions={nutrition.recipeVersions}
