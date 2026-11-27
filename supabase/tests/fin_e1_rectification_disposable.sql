@@ -46,7 +46,8 @@ BEGIN
  BEGIN PERFORM rectify(gen_random_uuid(),m,180410,180420,'protected','fixture-proof'); RAISE EXCEPTION 'unexpected success'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'protected reconciliation' THEN RAISE; END IF; END;
  PERFORM settle(gen_random_uuid(),2,1,10000,0,0,0,0,0,'2026-11-13','synthetic receipt');
  SELECT mv.id INTO STRICT n FROM movement mv JOIN settlement st ON st.request_id=mv.request_id WHERE st.obligation_id=2;
- IF rectify(gen_random_uuid(),n,10000,9000,'receipt correction','fixture-proof')<>-1000 OR (SELECT balance FROM account WHERE id=1)<>128590 THEN RAISE EXCEPTION 'receipt delta mismatch'; END IF;
+ IF rectify(gen_random_uuid(),n,10000,9000,'receipt correction','fixture-proof')<>-1000 THEN RAISE EXCEPTION 'receipt delta mismatch'; END IF;
+ IF (SELECT balance FROM account WHERE id=1)<>128590 OR (SELECT cash_paid FROM obligation WHERE id=2)<>9000 OR (SELECT principal_paid FROM obligation WHERE id=2)<>10000 THEN RAISE EXCEPTION 'receipt readback mismatch'; END IF;
 END $$;
 CREATE FUNCTION fail_rectification() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected failure'; END $$;
 CREATE TRIGGER fail_rectification BEFORE UPDATE ON account FOR EACH ROW EXECUTE FUNCTION fail_rectification();
