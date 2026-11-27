@@ -77,12 +77,13 @@ export function HealthMovementSample({exerciseId}:{exerciseId:string}){
  const kind=samples[exerciseId];
  const [playing,setPlaying]=useState(false);
  const [second,setSecond]=useState(false);
- const [reduced,setReduced]=useState(()=>typeof window!=="undefined"&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+ const [reduced,setReduced]=useState(()=>typeof window!=="undefined"&&typeof window.matchMedia==="function"&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
  useEffect(()=>{
+  if(typeof window.matchMedia!=="function")return;
   const query=window.matchMedia("(prefers-reduced-motion: reduce)");
   const sync=()=>{setReduced(query.matches);if(query.matches){setPlaying(false);setSecond(false);}};
-  sync();query.addEventListener("change",sync);
-  return ()=>query.removeEventListener("change",sync);
+  sync();query.addEventListener?.("change",sync);
+  return ()=>query.removeEventListener?.("change",sync);
  },[]);
  useEffect(()=>{
   if(!playing||reduced)return;
