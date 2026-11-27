@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useRealizedCash } from '@/hooks/useRealizedCash';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -176,6 +177,7 @@ export function MobileFinancialView({
   }, [entries, section, statusFilter, channelFilter, channelAccountFilter, search]);
   const channelAccounts = Array.from(new Set(entries.map(e => e.marketplace_account).filter(Boolean))) as string[];
 
+  const cash = useRealizedCash(filters, entries);
   // Totals
   const totals = useMemo(() => {
     let entradas = 0, saidas = 0, recebido = 0, pago = 0;
@@ -271,7 +273,7 @@ export function MobileFinancialView({
 
       {/* Section content */}
       {section === 'resumo' && (
-        <ResumoView totals={totals} onOpenDashboard={() => {/* dashboard tab */}} />
+        <ResumoView totals={totals} cash={cash} onOpenDashboard={() => {/* dashboard tab */}} />
       )}
 
       {section === 'mais' && (
@@ -552,7 +554,7 @@ function MiniStat({ label, value, tone }: { label: string; value: number; tone: 
   );
 }
 
-function ResumoView({ totals }: { totals: any; onOpenDashboard: () => void }) {
+function ResumoView({ totals, cash }: { totals: any; cash: ReturnType<typeof useRealizedCash>; onOpenDashboard: () => void }) {
   return (
     <div className="p-3 space-y-3">
       {/* Saldo hero */}
@@ -560,7 +562,7 @@ function ResumoView({ totals }: { totals: any; onOpenDashboard: () => void }) {
         'p-4 border-l-4',
         totals.resultado >= 0 ? 'border-l-emerald-500' : 'border-l-rose-500',
       )}>
-        <div className="text-xs text-muted-foreground uppercase tracking-wide">Resultado do período</div>
+        <div className="text-xs text-muted-foreground uppercase tracking-wide">Resultado das obrigações do período</div>
         <div className={cn(
           'text-3xl font-bold tabular-nums mt-1',
           totals.resultado >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
@@ -568,7 +570,8 @@ function ResumoView({ totals }: { totals: any; onOpenDashboard: () => void }) {
           {formatCurrency(totals.resultado)}
         </div>
         <div className="text-[11px] text-muted-foreground mt-1">
-          Saldo realizado: <span className="font-medium text-foreground">{formatCurrency(totals.saldo)}</span>
+          Caixa realizado (data do movimento): <span className="font-medium text-foreground">{cash.report ? formatCurrency(cash.report.net) : cash.loading ? 'Consultando…' : 'Indisponível'}</span>
+          {cash.error && <p role="alert">{cash.error}</p>}
         </div>
       </Card>
 
@@ -580,7 +583,7 @@ function ResumoView({ totals }: { totals: any; onOpenDashboard: () => void }) {
             <span className="text-[11px] font-medium uppercase">Entradas</span>
           </div>
           <div className="text-lg font-bold tabular-nums mt-1">{formatCurrency(totals.entradas)}</div>
-          <div className="text-[10px] text-muted-foreground">Recebido {formatCurrency(totals.recebido)}</div>
+          <div className="text-[10px] text-muted-foreground">Recebido no caixa: {cash.report ? formatCurrency(cash.report.incoming) : '—'}</div>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
@@ -588,7 +591,7 @@ function ResumoView({ totals }: { totals: any; onOpenDashboard: () => void }) {
             <span className="text-[11px] font-medium uppercase">Saídas</span>
           </div>
           <div className="text-lg font-bold tabular-nums mt-1">{formatCurrency(totals.saidas)}</div>
-          <div className="text-[10px] text-muted-foreground">Pago {formatCurrency(totals.pago)}</div>
+          <div className="text-[10px] text-muted-foreground">Pago no caixa: {cash.report ? formatCurrency(cash.report.outgoing) : '—'}</div>
         </Card>
       </div>
     </div>
