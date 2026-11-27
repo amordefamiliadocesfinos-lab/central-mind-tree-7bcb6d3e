@@ -16,7 +16,7 @@ for(const term of [
  'include_ac02:true,include_assumption_export:true',
  'Rascunho gerado nesta sessão — não homologado',
  'PREPARADO","DISPONIBILIZADO","ENTREGUE","RECEBIDO","ACEITO',
- 'Não comprovado pelo backend consultado',
+ 'Não comprovado pela consulta',
  'não transmitido',
  'Identidade e fontes oficiais',
  'Verificação independente:',
