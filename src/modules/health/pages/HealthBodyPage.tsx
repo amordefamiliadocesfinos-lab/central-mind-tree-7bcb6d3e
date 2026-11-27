@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Camera,
@@ -23,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { useHealthAthlete } from "../hooks/useHealthAthlete";
 import {
   type BodyMeasurement,
@@ -42,6 +41,7 @@ const photoAngles: Array<{ code: BodyPhoto["angle_code"]; label: string }> = [
 ];
 
 function positiveNumber(value: string) {
+  if(!/^\d+(?:[.,]\d+)?$/.test(value.trim()))return null;
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
@@ -80,10 +80,36 @@ function reasonLabel(code: string) {
 }
 
 export function HealthBodyPage() {
-  const { toast } = useToast();
-  const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const body = useHealthBodyM8(athlete?.id);
-  const profile = useHealthProfileM1(athlete?.id);
+  const {athlete,loading}=useHealthAthlete();
+  if(loading)return <p role="status" className="p-3 text-sm">Carregando perfil…</p>;
+  if(!athlete?.id)return <p className="p-3 text-sm">Perfil indisponível.</p>;
+  return <HealthBodyContent key={athlete.id} athleteId={athlete.id}/>;
+}
+function HealthBodyContent({athleteId}:{athleteId:string}){
+  const profile=useHealthProfileM1(athleteId);
+  const [showPhotos,setShowPhotos]=useState(false);
+  const mediaConsentGranted=!profile.loading&&!profile.error&&profile.latestConsents.private_media_storage?.athlete_id===athleteId&&profile.latestConsents.private_media_storage?.decision==="granted";
+  const body=useHealthBodyM8(athleteId,Boolean(mediaConsentGranted&&showPhotos));
+  const [windowDays,setWindowDays]=useState<7|14|28>(7);
+  const [comparisonAngle,setComparisonAngle]=useState<BodyPhoto["angle_code"]>("front_relaxed");
+  const [firstSet,setFirstSet]=useState("");
+  const [secondSet,setSecondSet]=useState("");
+  const [showRegistration,setShowRegistration]=useState(false);
+  const [showUpload,setShowUpload]=useState(false);
+  const [confirmVoid,setConfirmVoid]=useState<string|null>(null);
+  const [busy,setBusy]=useState(false);
+  const [reviewRequired,setReviewRequired]=useState(false);
+  const [reviewed,setReviewed]=useState(false);
+  const [notice,setNotice]=useState("");
+  const lock=useRef(false);
+  const blocked=body.loading||body.saving||busy||Boolean(body.error)||reviewRequired;
+  const run=async(action:()=>Promise<void>,message:string)=>{
+    if(lock.current||blocked)return;
+    lock.current=true;setBusy(true);setNotice("");
+    try{await action();setNotice(message);setConfirmVoid(null);}
+    catch(cause){setReviewRequired(true);setReviewed(false);setNotice((cause instanceof Error?cause.message:"Resultado não confirmado.")+" Confira o histórico antes de repetir.");}
+    finally{lock.current=false;setBusy(false);}
+  };
 
   const [weight, setWeight] = useState("");
   const [waist, setWaist] = useState("");
@@ -92,20 +118,20 @@ export function HealthBodyPage() {
   const [chest, setChest] = useState("");
   const [neck, setNeck] = useState("");
   const [weightMethod, setWeightMethod] = useState<BodyMeasurementInput["method"]>("scale");
-  const [bodyFatMethod, setBodyFatMethod] = useState<BodyMeasurementInput["method"]>("bioimpedance");
-  const [weighingContext, setWeighingContext] = useState("morning_fasted");
+  const [bodyFatMethod, setBodyFatMethod] = useState<BodyMeasurementInput["method"]|"">("");
+  const [weighingContext, setWeighingContext] = useState("");
   const [notes, setNotes] = useState("");
   const [photoFiles, setPhotoFiles] = useState<Partial<Record<BodyPhoto["angle_code"], File>>>({});
 
-  const mediaConsentGranted =
-    profile.latestConsents.private_media_storage?.decision === "granted";
-
   const currentState = useMemo(
-    () => body.states.find((state) => state.window_days === 7) ?? null,
-    [body.states],
+    () => !body.error ? body.states.find((state) => state.window_days === windowDays && state.athlete_id===athleteId) ?? null : null,
+    [body.states,windowDays,athleteId,body.error],
   );
 
+  const fields=[{raw:weight,min:5,max:400},{raw:waist,min:10,max:300},{raw:bodyFat,min:1,max:75},{raw:hip,min:10,max:300},{raw:chest,min:10,max:300},{raw:neck,min:10,max:300}];
+  const valid=fields.some(f=>f.raw.trim()!=="")&&fields.every(f=>!f.raw.trim()||(positiveNumber(f.raw)!==null&&positiveNumber(f.raw)!>=f.min&&positiveNumber(f.raw)!<=f.max))&&(!weight.trim()||Boolean(weighingContext))&&(!bodyFat.trim()||Boolean(bodyFatMethod));
   const saveAssessment = async () => {
+    if(!valid||blocked)return;
     const measurements: BodyMeasurementInput[] = [];
 
     const add = (
@@ -120,53 +146,32 @@ export function HealthBodyPage() {
       measurements.push({ metric_code, value, unit_code, method, confidence });
     };
 
-    add("weight_kg", weight, "kg", weightMethod);
+    add("weight_kg", weight, "kg", weightMethod,weightMethod==="other"?"moderate":"high");
     add("waist_cm", waist, "cm", "tape");
-    add("body_fat_pct", bodyFat, "pct", bodyFatMethod, bodyFatMethod === "estimated" ? "low" : "moderate");
+    if(bodyFatMethod)add("body_fat_pct", bodyFat, "pct", bodyFatMethod, bodyFatMethod === "estimated" ? "low" : "moderate");
     add("hip_cm", hip, "cm", "tape");
     add("chest_cm", chest, "cm", "tape");
     add("neck_cm", neck, "cm", "tape");
 
-    try {
-      await body.recordAssessment({
-        measurements,
-        conditions: { weighing_context: weighingContext },
-        notes: notes.trim() || null,
-      });
-      toast({ title: "Avaliação registrada", description: "Medidas salvas e tendências atualizadas." });
-      setNotes("");
-    } catch (cause) {
-      toast({
-        variant: "destructive",
-        title: "Não foi possível registrar",
-        description: cause instanceof Error ? cause.message : "Tente novamente.",
-      });
-    }
+    await run(async()=>{
+      await body.recordAssessment({measurements,conditions:weight.trim()?{weighing_context:weighingContext}:null,notes:notes.trim()||null});
+      setWeight("");setWaist("");setBodyFat("");setHip("");setChest("");setNeck("");setNotes("");setWeighingContext("");setBodyFatMethod("");setShowRegistration(false);
+    },"Avaliação registrada. Confira o histórico.");
+  };
+  const uploadPhotos=async()=>{
+    if(!mediaConsentGranted||blocked)return;
+    const uploads=photoAngles.flatMap(angle=>photoFiles[angle.code]?[{angle_code:angle.code,file:photoFiles[angle.code]!}]:[]);
+    await run(async()=>{await body.uploadPhotoSet(uploads,{protocol:"BODY_PHOTO_V1",guidance:"same_light_distance_posture"});setPhotoFiles({});setShowUpload(false);},"Protocolo enviado. Confira a linha do tempo.");
+  };
+  const reload=async()=>{
+    if(lock.current||busy)return;
+    lock.current=true;setBusy(true);setReviewed(false);
+    try{await body.reload(true);await profile.reload();setReviewed(true);setNotice("Confira o histórico atualizado.");}
+    catch{setNotice("Consulta não confirmada.");}
+    finally{lock.current=false;setBusy(false);}
   };
 
-  const uploadPhotos = async () => {
-    const uploads = photoAngles.flatMap((angle) => {
-      const file = photoFiles[angle.code];
-      return file ? [{ angle_code: angle.code, file }] : [];
-    });
-
-    try {
-      await body.uploadPhotoSet(uploads, {
-        protocol: "BODY_PHOTO_V1",
-        guidance: "same_light_distance_posture",
-      });
-      setPhotoFiles({});
-      toast({ title: "Fotos registradas", description: "Protocolo privado salvo com sucesso." });
-    } catch (cause) {
-      toast({
-        variant: "destructive",
-        title: "Não foi possível salvar as fotos",
-        description: cause instanceof Error ? cause.message : "Tente novamente.",
-      });
-    }
-  };
-
-  if (athleteLoading || body.loading || profile.loading) {
+  if (body.loading && !body.assessments.length && !body.states.length && !body.photoSets.length) {
     return (
       <div className="flex min-h-56 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -175,7 +180,7 @@ export function HealthBodyPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3 pb-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Evolução corporal</h2>
@@ -186,9 +191,9 @@ export function HealthBodyPage() {
         <Button
           size="sm"
           variant="outline"
-          className="min-h-10 shrink-0"
-          disabled={body.saving}
-          onClick={() => void body.refreshStates()}
+          className="min-h-11 shrink-0"
+          disabled={blocked}
+          onClick={() => void run(body.refreshStates,"Indicadores atualizados.")}
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Atualizar
@@ -201,14 +206,79 @@ export function HealthBodyPage() {
         </Card>
       ) : null}
 
-      <Card>
+      {notice?<p role={reviewRequired?"alert":"status"} className="text-sm">{notice}</p>:null}
+      {body.error||reviewRequired?<Button variant="outline" className="min-h-11 w-full" disabled={busy||body.loading} onClick={()=>void reload()}>Conferir registros</Button>:null}
+      {reviewRequired&&reviewed&&!body.error?<Button className="min-h-11 w-full" variant="outline" onClick={()=>{setReviewRequired(false);setReviewed(false);setWeight("");setWaist("");setBodyFat("");setHip("");setChest("");setNeck("");setPhotoFiles({});setConfirmVoid(null);setNotice("");}}>Conferi; liberar nova ação</Button>:null}
+      <Card data-testid="sx04-overview">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4 text-primary" /> Minha evolução
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 px-3 pb-3">
+          <div className="grid grid-cols-3 gap-2" aria-label="Janela de evolução">{([7,14,28] as const).map(days=><Button key={days} variant={days===windowDays?"default":"outline"} aria-pressed={days===windowDays} className="min-h-11" onClick={()=>setWindowDays(days)}>{days} dias</Button>)}</div>
+          {body.error?<p role="alert" className="text-sm text-destructive">Estado corporal indisponível.</p>:null}
+          {!currentState ? (
+            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              Nenhum estado confirmado nesta janela.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {[currentState].map((state) => (
+                <div key={state.id} className="rounded-xl border p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{state.window_days} dias · {state.as_of_date}</p>
+                    <Badge variant="outline">{({unobserved:"Sem observações",sparse:"Escassa",partial:"Parcial",complete:"Completa"})[state.coverage_status]} · confiança {({low:"baixa",moderate:"moderada",high:"alta"})[state.confidence]}</Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-lg bg-muted/40 p-2.5">
+                      <p className="text-xs text-muted-foreground">Último peso na janela</p>
+                      <p className="font-semibold">{state.weight_latest_kg==null?"—":formatNumber(state.weight_latest_kg)+" kg"}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-2.5">
+                      <p className="text-xs text-muted-foreground">Variação</p>
+                      <p className="font-semibold">{formatSigned(state.weight_change_kg, "kg")}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-2.5">
+                      <p className="text-xs text-muted-foreground">Tendência</p>
+                      <p className="font-semibold">{formatSigned(state.weight_trend_kg_per_week, "kg/sem")}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-2.5">
+                      <p className="text-xs text-muted-foreground">Última cintura</p>
+                      <p className="font-semibold">{state.waist_latest_cm==null?"—":formatNumber(state.waist_latest_cm)+" cm"}</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">{state.weight_observation_count} pesagens · {state.waist_observation_count} observações de cintura · cálculo {state.computed_at}</p>
+                  {state.reason_codes.length ? (
+                    <details className="mt-2"><summary className="min-h-11 py-3 cursor-pointer text-sm">Cobertura e limites</summary><ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {state.reason_codes.map((code) => <li key={code}>• {reasonLabel(code)}</li>)}
+                    </ul></details>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+          {currentState?.latest_bmi != null ? (
+            <p className="text-xs text-muted-foreground">
+              IMC derivado da altura do Perfil e do peso mais recente: {formatNumber(currentState.latest_bmi, 2)}. Ele é apenas um indicador descritivo e não substitui composição corporal.
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Ausência de informação (—) não significa zero. Tendência corporal descreve o que foi observado. Ela não altera dieta ou treino automaticamente.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="sx04-registration">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Scale className="h-4 w-4 text-primary" /> Registrar avaliação
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+        <CardContent className="space-y-3 px-3 pb-3">
+          <Button className="min-h-11 w-full" variant={showRegistration?"outline":"default"} onClick={()=>setShowRegistration(v=>!v)} disabled={blocked}>{showRegistration?"Recolher registro":"Registrar peso e medidas"}</Button>
+          {showRegistration?<div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="body-weight">Peso (kg)</Label>
               <Input
@@ -258,9 +328,9 @@ export function HealthBodyPage() {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label>Método do peso</Label>
+              <Label htmlFor="body-weight-method">Método do peso</Label>
               <Select value={weightMethod} onValueChange={(value) => setWeightMethod(value as BodyMeasurementInput["method"])}>
-                <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="body-weight-method" className="min-h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="scale">Balança</SelectItem>
                   <SelectItem value="bioimpedance">Bioimpedância</SelectItem>
@@ -270,7 +340,7 @@ export function HealthBodyPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Método da gordura</Label>
+              <Label htmlFor="body-fat-method">Método da gordura</Label>
               <Select value={bodyFatMethod} onValueChange={(value) => setBodyFatMethod(value as BodyMeasurementInput["method"])}>
                 <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -283,7 +353,7 @@ export function HealthBodyPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Condição da pesagem</Label>
+              <Label htmlFor="body-context">Condição da pesagem</Label>
               <Select value={weighingContext} onValueChange={setWeighingContext}>
                 <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -295,77 +365,22 @@ export function HealthBodyPage() {
             </div>
           </div>
 
-          <Textarea
+          <Label htmlFor="body-notes">Observações (opcional)</Label><Textarea id="body-notes"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="Observações da avaliação: hidratação, horário diferente, roupa, contexto..."
           />
 
+          {!valid?<p className="text-xs text-muted-foreground">Preencha ao menos uma medida válida. Peso: 5–400 kg; cintura e circunferências: 10–300 cm; gordura: 1–75%. Escolha condição do peso e método da gordura quando aplicáveis. Campos vazios não são registrados.</p>:null}
           <Button
             className="min-h-11 w-full"
-            disabled={body.saving || ![weight, waist, bodyFat, hip, chest, neck].some((value) => positiveNumber(value) != null)}
+            disabled={blocked || !valid}
             onClick={() => void saveAssessment()}
           >
             {body.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ruler className="mr-2 h-4 w-4" />}
             Registrar medidas
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="h-4 w-4 text-primary" /> Estado corporal
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {body.states.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-              Registre medidas para formar as primeiras janelas de tendência.
-            </div>
-          ) : (
-            <div className="grid gap-3 lg:grid-cols-3">
-              {body.states.map((state) => (
-                <div key={state.id} className="rounded-xl border p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">{state.window_days} dias</p>
-                    <Badge variant="outline">{state.coverage_status} · {state.confidence}</Badge>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                    <div className="rounded-lg bg-muted/40 p-2.5">
-                      <p className="text-xs text-muted-foreground">Peso atual</p>
-                      <p className="font-semibold">{formatNumber(state.weight_latest_kg)} kg</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-2.5">
-                      <p className="text-xs text-muted-foreground">Variação</p>
-                      <p className="font-semibold">{formatSigned(state.weight_change_kg, "kg")}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-2.5">
-                      <p className="text-xs text-muted-foreground">Tendência</p>
-                      <p className="font-semibold">{formatSigned(state.weight_trend_kg_per_week, "kg/sem")}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-2.5">
-                      <p className="text-xs text-muted-foreground">Cintura</p>
-                      <p className="font-semibold">{formatSigned(state.waist_change_cm, "cm")}</p>
-                    </div>
-                  </div>
-                  {state.reason_codes.length ? (
-                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                      {state.reason_codes.map((code) => <li key={code}>• {reasonLabel(code)}</li>)}
-                    </ul>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          )}
-          {currentState?.latest_bmi != null ? (
-            <p className="text-xs text-muted-foreground">
-              IMC derivado da altura do Perfil e do peso mais recente: {formatNumber(currentState.latest_bmi, 2)}. Ele é apenas um indicador descritivo e não substitui composição corporal.
-            </p>
-          ) : null}
-          <p className="text-xs text-muted-foreground">
-            Tendência corporal descreve o que foi observado. Ela não altera dieta ou treino automaticamente.
-          </p>
+          </div>:null}
         </CardContent>
       </Card>
 
