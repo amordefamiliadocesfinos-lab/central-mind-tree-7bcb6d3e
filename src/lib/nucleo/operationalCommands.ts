@@ -1,8 +1,10 @@
-export interface OperationalCommand { id: string; name: string; category: string; purpose: string; when: string; version: string; source: string; body: string | null }
+export interface OperationalCommand { id: string; code: string; authority: 'approved' | 'model' | 'pending'; name: string; category: string; purpose: string; when: string; version: string; source: string; body: string | null }
 
 export const operationalCommands: readonly OperationalCommand[] = [
   {
     "id": "C01",
+    "code": "MAP1",
+    "authority": "approved",
     "name": "Continuar pelo mapa",
     "category": "Continuidade",
     "purpose": "Avançar a partir do último checkpoint.",
@@ -13,6 +15,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C02",
+    "code": "MAP2",
+    "authority": "pending",
     "name": "Continuidade universal — versão completa",
     "category": "Continuidade",
     "purpose": "Aplicar a diretriz integral de continuidade executiva.",
@@ -23,6 +27,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C03",
+    "code": "ASS1",
+    "authority": "model",
     "name": "Assunção de novo especialista",
     "category": "Assunção",
     "purpose": "Recuperar o patrimônio de uma especialidade.",
@@ -33,6 +39,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C04",
+    "code": "CHK1",
+    "authority": "model",
     "name": "Registrar checkpoint",
     "category": "Documentação",
     "purpose": "Preservar estado, evidências e continuidade.",
@@ -43,6 +51,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C05",
+    "code": "MET1",
+    "authority": "model",
     "name": "Registrar método, ecossistema e aprendizagem",
     "category": "Documentação",
     "purpose": "Preservar e evoluir conhecimento operacional.",
@@ -56,5 +66,14 @@ export const operationalCommands: readonly OperationalCommand[] = [
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export function filterOperationalCommands(query: string, category: string) {
   const term = normalize(query.trim());
-  return operationalCommands.filter(entry => (category === 'Todos' || entry.category === category) && normalize([entry.id, entry.name, entry.purpose, entry.when, entry.body ?? ''].join(' ')).includes(term));
+  return operationalCommands.filter(entry => (category === 'Todos' || entry.category === category) && normalize([entry.id, entry.code, entry.name, entry.purpose, entry.when, entry.body ?? ''].join(' ')).includes(term));
+}
+
+// Stable code, independent of text revision. No fuzzy execution resolution.
+export function resolveOperationalCommand(code: string) {
+  const matches = operationalCommands.filter(entry => entry.code === code.trim().toUpperCase());
+  return matches.length === 1 ? matches[0] : undefined;
+}
+export function operationalCommandInvocation(code: string) {
+  return "EXECUTE CÓDIGO " + code + " DO NÚCLEO COMANDOS";
 }
