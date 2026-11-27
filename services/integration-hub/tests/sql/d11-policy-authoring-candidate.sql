@@ -17,7 +17,8 @@ GRANT EXECUTE ON FUNCTION auth.uid() TO d11_policy_author;
 GRANT SELECT ON public.app_admin_capabilities,public.app_users,
  public.channel_accounts,public.digital_platforms,public.shopee_oauth_connections TO d11_policy_author;
 GRANT SELECT,INSERT ON public.shopee_cycle_policy_revisions TO d11_policy_author;
-GRANT SELECT,INSERT,UPDATE ON public.shopee_cycle_state TO d11_policy_author;
+GRANT SELECT,INSERT ON public.shopee_cycle_state TO d11_policy_author;
+GRANT UPDATE(updated_at) ON public.shopee_cycle_state TO d11_policy_author;
 CREATE POLICY d11_capability_author_read ON public.app_admin_capabilities FOR SELECT TO d11_policy_author
  USING(auth_user_id=(SELECT auth.uid()) AND active AND revoked_at IS NULL);
 CREATE POLICY d11_policy_author_read ON public.shopee_cycle_policy_revisions FOR SELECT TO d11_policy_author USING(true);
@@ -26,7 +27,8 @@ CREATE POLICY d11_policy_author_append ON public.shopee_cycle_policy_revisions F
 CREATE POLICY d11_state_author_read ON public.shopee_cycle_state FOR SELECT TO d11_policy_author USING(true);
 CREATE POLICY d11_state_author_initialize ON public.shopee_cycle_state FOR INSERT TO d11_policy_author
  WITH CHECK(lease_id IS NULL AND lease_expires_at IS NULL AND candidate_order_sn IS NULL AND halted_code IS NULL);
--- SELECT FOR UPDATE requires UPDATE privilege; no UPDATE policy is granted.
+-- Locking requires UPDATE visibility; WITH CHECK false forbids actual updates.
+CREATE POLICY d11_state_author_lock ON public.shopee_cycle_state FOR UPDATE TO d11_policy_author USING(true) WITH CHECK(false);
 -- The definer function below never writes existing cycle state.
 
 CREATE FUNCTION d11_policy_private.append_revision(
@@ -36,7 +38,7 @@ DECLARE
  actor uuid:=auth.uid(); old public.shopee_cycle_policy_revisions%ROWTYPE;
  prior public.shopee_cycle_policy_revisions%ROWTYPE;
  v_shop bigint; v_now timestamptz; v_epoch bigint; v_revision integer; v_count bigint;
- v_config jsonb; v_expiry timestamptz; v_id uuid;
+ v_expiry timestamptz;
 BEGIN
  IF actor IS NULL OR NOT EXISTS(SELECT 1 FROM public.app_admin_capabilities c
    WHERE c.auth_user_id=actor AND c.capability='shopee_manage_cycle_policy' AND c.active AND c.revoked_at IS NULL)
