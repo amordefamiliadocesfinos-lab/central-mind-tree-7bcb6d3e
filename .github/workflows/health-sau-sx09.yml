@@ -6,6 +6,9 @@ on:
       - 'src/modules/health/pages/HealthLongitudinalReviewPage.tsx'
       - 'src/modules/health/pages/HealthReplanningPage.tsx'
       - 'src/modules/health/pages/HealthRoutinePage.tsx'
+      - 'src/modules/health/hooks/useHealthLongitudinalReviewF13.ts'
+      - 'src/modules/health/hooks/useHealthReplanningF14.ts'
+      - 'src/modules/health/hooks/useHealthRemindersF16.ts'
       - 'scripts/health-sau-sx09-*'
       - '.github/workflows/health-sau-sx09.yml'
 permissions:
@@ -22,7 +25,7 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Targeted lint
-        run: npx eslint src/modules/health/pages/HealthLongitudinalReviewPage.tsx src/modules/health/pages/HealthReplanningPage.tsx src/modules/health/pages/HealthRoutinePage.tsx
+        run: npx eslint src/modules/health/pages/HealthLongitudinalReviewPage.tsx src/modules/health/pages/HealthReplanningPage.tsx src/modules/health/pages/HealthRoutinePage.tsx src/modules/health/hooks/useHealthLongitudinalReviewF13.ts src/modules/health/hooks/useHealthReplanningF14.ts src/modules/health/hooks/useHealthRemindersF16.ts
       - name: Production build
         run: npm run build
       - name: Synthetic interactions
