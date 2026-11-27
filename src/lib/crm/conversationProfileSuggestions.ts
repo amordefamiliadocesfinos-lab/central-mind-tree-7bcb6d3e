@@ -25,7 +25,7 @@ export interface CrmConversationProfileSuggestion {
 const patterns: Record<CrmConversationProfileField, RegExp> = {
   name: /(?:^|\n)\s*(?:meu nome é|me chamo|nome completo\s*:)\s*([^\n,;]{3,80})/i,
   email: /(?:^|\n)\s*(?:meu e-?mail (?:é|:)|e-?mail\s*:)\s*([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i,
-  phone: /(?:^|\n)\s*(?:meu (?:telefone|celular) (?:é|:)|telefone\s*:)\s*(\+?\d[\d\s()\-]{8,18}\d)/i,
+  phone: /(?:^|\n)\s*(?:meu (?:telefone|celular) (?:é|:)|telefone\s*:)\s*((?:\+?\d|\(\d{2}\))[\d\s()\-]{7,18}\d)/i,
   zip_code: /(?:^|\n)\s*(?:meu cep (?:é|:)|cep\s*:)\s*(\d{5}-?\d{3})\b/i,
   city: /(?:^|\n)\s*(?:minha cidade (?:é|:)|cidade\s*:)\s*([^\n,;]{2,60})/i,
   address: /(?:^|\n)\s*(?:meu endereço (?:é|:)|endereço principal\s*:)\s*([^\n;]{5,140})/i,
