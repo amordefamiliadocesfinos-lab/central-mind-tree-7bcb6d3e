@@ -265,59 +265,33 @@ export function HealthProgramPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">{program.program.name}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {draft ? "Versão rascunho editável" : "Versão publicada e bloqueada para edição"}
-          </p>
-        </div>
-        <div className="space-y-1 text-right">
-          <Badge variant={draft ? "secondary" : "default"}>
+      <section data-testid="cch-r06-program-overview" className="space-y-3 rounded-xl border bg-card p-3 sm:p-4" aria-label="Visão do programa">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Meu programa</p>
+            <h2 className="break-words text-xl font-semibold tracking-tight">{program.program.name}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {draft ? "Versão rascunho editável" : "Versão publicada e bloqueada para edição"}
+            </p>
+          </div>
+          <Badge variant={draft ? "secondary" : "default"} className="shrink-0">
             v{program.version?.version_number ?? "—"} · {program.version?.status ?? "—"}
           </Badge>
-          <p className="text-[11px] text-muted-foreground" data-testid="cch-e2-build-revision"
-            data-cch-build-commit={cchBuildProvenance().revision ?? "unknown"}
-            title="Revisão do código no momento da compilação. Não representa homologação do banco ou de uso real.">
-            Código servido: {cchBuildProvenance().shortRevision ?? "revisão indisponível"}
-          </p>
-          <p className="text-[11px] text-muted-foreground"
-            data-testid="cch-e2-source-fingerprint"
-            data-cch-source-fingerprint={cchBuildProvenance().fingerprint ?? "unknown"}
-            title="SHA-256 dos sete arquivos-fonte CCH selecionados no build; não é commit Git nem prova de toda a aplicação.">
-            Conteúdo CCH: {cchBuildProvenance().shortFingerprint ?? "impressão digital indisponível"}
-          </p>
         </div>
-      </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-muted/30 p-2.5"><p className="text-xs text-muted-foreground">Sessões previstas nesta versão</p><p className="text-2xl font-semibold tabular-nums">{activeTemplateCount}</p></div>
+          <div className="rounded-lg bg-muted/30 p-2.5"><p className="text-xs text-muted-foreground">Situação</p><p className="mt-1 text-sm font-medium">{draft?"Em revisão":program.cycleComplete?"Ciclo concluído":"Programa vigente"}</p></div>
+        </div>
+        <p className="text-xs text-muted-foreground">{draft?"O rascunho não altera o programa publicado até a confirmação de publicação.":"Sequência flexível de estímulos, sem dias fixos de treino."}</p>
+        <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Seções do programa">
+          <a href="#cch-program-sessions" className="flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium">Sessões</a>
+          <a href="#cch-program-evolution" className="flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium">Evolução</a>
+          <a href={draft?"#cch-program-publication":program.cycleComplete?"#cch-cycle-renewal":"#cch-program-queue"} className="flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium">{draft?"Publicação":program.cycleComplete?"Próximo ciclo":"Fila de treino"}</a>
+          <a href="#cch-program-technical" className="flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm text-muted-foreground">Detalhes técnicos</a>
+        </nav>
+      </section>
 
-      <Card data-testid="cch-e2-readonly-preflight">
-        <CardHeader>
-          <CardTitle className="text-base">E2 · Contraprova consultiva do programa</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm">
-          <p data-testid="cch-e2-preflight-state">
-            Estado: {e2Preflight.state==="published_read_only"?"Publicado, somente leitura":
-              e2Preflight.state==="draft_review"?"Rascunho disponível para revisão":
-              e2Preflight.state==="draft_evidence_pending"?"Rascunho com evidências pendentes":
-              "Versão indisponível"}
-          </p>
-          <p className="text-muted-foreground">{e2Preflight.reason}</p>
-          <p className="text-xs text-muted-foreground">
-            Origem de auditoria: {e2Preflight.sourceAligned?"coincide com a versão publicada":
-              "não comprovada neste carregamento"}.
-          </p>
-          {e2Preflight.missingEvidence.map((item,index)=>
-            <p key={index} className="text-xs text-muted-foreground">Pendência: {item}</p>)}
-          <p className="text-xs text-muted-foreground">
-            A visualização não cria rascunhos, não altera carga ou volume e não comprova implantação remota.
-            Testes de publicação são realizados apenas em ambiente isolado.
-          </p>
-        </CardContent>
-      </Card>
-
-      <HealthPersonalizationReadiness />
-
-      <Card data-testid="cch-e3-consultative-plan">
+      <Card id="cch-program-evolution" data-testid="cch-e3-consultative-plan" className="scroll-mt-4">
         <CardHeader>
           <CardTitle className="text-base">E3 · Planejamento e continuidade do ciclo</CardTitle>
         </CardHeader>
@@ -344,19 +318,30 @@ export function HealthProgramPage() {
                 </Select>
                 <p className="text-xs text-muted-foreground">Escolha local para avaliar alternativas. Não altera seu objetivo registrado nem o programa publicado.</p>
               </div>
-              <p className="text-muted-foreground">
-                Sessões válidas observadas: {e3Periodization.cycle.completedSessions};
-                comparáveis: {e3Periodization.cycle.comparableSessions};
-                séries de trabalho: {e3Periodization.cycle.observedWorkingSets??"não consolidáveis"}.
-              </p>
-              <p className="text-muted-foreground">
-                Estímulos previstos: {e3Periodization.coverage.stimulusSequence.planned.join(", ")||"não disponíveis"};
-                observados: {e3Periodization.coverage.stimulusSequence.performed.join(", ")||"não identificados"}.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Ainda não identificados na observação: {e3Periodization.coverage.stimulusSequence.pending.join(", ")||"nenhum"};
-                outros estímulos observados: {e3Periodization.coverage.stimulusSequence.unplanned.join(", ")||"nenhum"}.
-              </p>
+              <div data-testid="cch-r06-observed" className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Realizado · registros da versão publicada de origem</p>
+                {!auditAligned || e3Observed.sourceTruncated || !e3Periodization.publishedSourceAligned ? (
+                  <p className="rounded-lg border p-3 text-xs text-muted-foreground">Contagens não consolidadas: origem ou cobertura da consulta não confirmada.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      ["Sessões válidas",e3Periodization.cycle.completedSessions],
+                      ["Comparáveis",e3Periodization.cycle.comparableSessions],
+                      ["Séries de trabalho",e3Periodization.cycle.observedWorkingSets??"—"],
+                    ].map(([label,value])=><div key={label} className="min-w-0 rounded-lg bg-muted/30 p-2">
+                      <p className="text-xl font-semibold tabular-nums">{value}</p><p className="break-words text-[11px] text-muted-foreground">{label}</p>
+                    </div>)}
+                  </div>
+                )}
+              </div>
+              <div data-testid="cch-r06-planned" className="rounded-lg border p-3 space-y-1">
+                <p className="font-medium">{draft?"Planejado · rascunho em revisão":"Planejado · programa vigente"}</p>
+                <p className="text-xs text-muted-foreground">Estímulos previstos: {e3Periodization.coverage.stimulusSequence.planned.join(", ")||"não disponíveis"}.</p>
+                {auditAligned && !draft && !e3Observed.sourceTruncated && e3Periodization.publishedSourceAligned ? (
+                  <p className="text-xs text-muted-foreground">Observados: {e3Periodization.coverage.stimulusSequence.performed.join(", ")||"não identificados"}; ainda não identificados: {e3Periodization.coverage.stimulusSequence.pending.join(", ")||"nenhum"}; outros: {e3Periodization.coverage.stimulusSequence.unplanned.join(", ")||"nenhum"}.</p>
+                ):null}
+                {draft?<p className="text-xs text-muted-foreground">Os registros da versão publicada não representam execução deste rascunho.</p>:null}
+              </div>
               {e3Periodization.publishedSourceAligned && !e3Observed.sourceTruncated && !draft && !cycleAdvisor.loading && !cycleAdvisor.error ? (
                 <div className="space-y-2 rounded-lg border p-3" data-testid="cch-u06-stimulus-coverage">
                   <p className="font-medium">Cobertura dos estímulos do programa vigente</p>
@@ -905,7 +890,7 @@ export function HealthProgramPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="cch-program-sessions" className="scroll-mt-4">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Layers3 className="h-4 w-4 text-primary" />
@@ -994,10 +979,17 @@ export function HealthProgramPage() {
                               return <div className="mt-2 space-y-1 rounded-lg border p-2 text-xs">
                                 <p className="font-medium">E2 · {candidate.decision==="candidate"?"Ajuste candidato":candidate.decision==="review"?"Revisão necessária":"Manter"} · confiança {candidate.confidence==="conditional"?"condicional":"insuficiente"}</p>
                                 <p>{candidate.reason}</p>
-                                <p>Atual: {candidate.before.planned_sets_min}–{candidate.before.planned_sets_max} séries · {candidate.before.reps_min}–{candidate.before.reps_max} reps · RIR {candidate.before.rir_target} · descanso {candidate.before.rest_seconds}s</p>
-                                <p>Proposta: {candidate.after.planned_sets_min}–{candidate.after.planned_sets_max} séries · {candidate.after.reps_min}–{candidate.after.reps_max} reps · RIR {candidate.after.rir_target} · descanso {candidate.after.rest_seconds}s</p>
+                                <div data-testid="cch-r06-prescription-diff" className="grid grid-cols-2 gap-2">
+                                  {([["Atual no rascunho",candidate.before],["Proposta consultiva",candidate.after]] as const).map(([label,value])=><div key={label} className="min-w-0 rounded-md border bg-background p-2 space-y-1">
+                                    <p className="font-semibold">{label}</p>
+                                    <p>{value.planned_sets_min}–{value.planned_sets_max} séries</p>
+                                    <p>{value.reps_min}–{value.reps_max} reps</p>
+                                    <p>RIR {value.rir_target} · {value.rest_seconds}s</p>
+                                  </div>)}
+                                </div>
+                                <p className="text-muted-foreground">Proposta não aplicada. Revise e salve explicitamente.</p>
                                 {candidate.machine ? <p>Máquina comprovada: {candidate.machine}</p> : null}
-                                {candidate.decision==="candidate" ? <Button variant="outline" size="sm" onClick={()=>{
+                                {candidate.decision==="candidate" ? <Button variant="outline" size="sm" className="min-h-11 w-full whitespace-normal" onClick={()=>{
                                   setEditId(item.id);
                                   setEdit({setsMin:String(candidate.after.planned_sets_min??""),
                                     setsMax:String(candidate.after.planned_sets_max??""),
@@ -1171,7 +1163,7 @@ export function HealthProgramPage() {
       </Card>
 
       {draft ? (
-        <Card>
+        <Card id="cch-program-publication" className="scroll-mt-4">
           <CardContent className="space-y-3 py-4">
             <p className="text-sm font-medium">Publicar versão</p>
             <p className="text-xs leading-relaxed text-muted-foreground">
@@ -1202,7 +1194,7 @@ export function HealthProgramPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card id="cch-program-queue" className="scroll-mt-4">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <ListOrdered className="h-4 w-4 text-primary" />
@@ -1235,6 +1227,46 @@ export function HealthProgramPage() {
           </CardContent>
         </Card>
       )}
+      <Card id="cch-program-technical" data-testid="cch-e2-readonly-preflight" className="scroll-mt-4">
+        <CardHeader>
+          <CardTitle className="text-base">E2 · Contraprova consultiva do programa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <p className="text-[11px] text-muted-foreground" data-testid="cch-e2-build-revision"
+            data-cch-build-commit={cchBuildProvenance().revision ?? "unknown"}
+            title="Revisão do código no momento da compilação. Não representa homologação do banco ou de uso real.">
+            Código servido: {cchBuildProvenance().shortRevision ?? "revisão indisponível"}
+          </p>
+          <p className="text-[11px] text-muted-foreground"
+            data-testid="cch-e2-source-fingerprint"
+            data-cch-source-fingerprint={cchBuildProvenance().fingerprint ?? "unknown"}
+            title="SHA-256 dos sete arquivos-fonte CCH selecionados no build; não é commit Git nem prova de toda a aplicação.">
+            Conteúdo CCH: {cchBuildProvenance().shortFingerprint ?? "impressão digital indisponível"}
+          </p>
+
+          <p data-testid="cch-e2-preflight-state">
+            Estado: {e2Preflight.state==="published_read_only"?"Publicado, somente leitura":
+              e2Preflight.state==="draft_review"?"Rascunho disponível para revisão":
+              e2Preflight.state==="draft_evidence_pending"?"Rascunho com evidências pendentes":
+              "Versão indisponível"}
+          </p>
+          <p className="text-muted-foreground">{e2Preflight.reason}</p>
+          <p className="text-xs text-muted-foreground">
+            Origem de auditoria: {e2Preflight.sourceAligned?"coincide com a versão publicada":
+              "não comprovada neste carregamento"}.
+          </p>
+          {e2Preflight.missingEvidence.map((item,index)=>
+            <p key={index} className="text-xs text-muted-foreground">Pendência: {item}</p>)}
+          <p className="text-xs text-muted-foreground">
+            A visualização não cria rascunhos, não altera carga ou volume e não comprova implantação remota.
+            Testes de publicação são realizados apenas em ambiente isolado.
+          </p>
+        </CardContent>
+      </Card>
+
+      <HealthPersonalizationReadiness />
+
+
     </div>
   );
 }

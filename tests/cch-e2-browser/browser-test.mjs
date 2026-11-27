@@ -47,12 +47,32 @@ try{
 
  await snap("01-e2-rascunho");
  const initial=await audit();
+ const overview=page.getByTestId("cch-r06-program-overview");
+ await overview.waitFor();
+ check((await overview.innerText()).includes("Sessões previstas nesta versão"),"R06 planned overview missing");
+ check((await e3.getByTestId("cch-r06-planned").innerText()).includes("Os registros da versão publicada não representam execução deste rascunho."),"R06 draft/source distinction missing");
+ await e3.getByTestId("cch-r06-observed").waitFor();
+ await page.setViewportSize({width:390,height:844});
+ for(const name of ["Sessões","Evolução","Publicação","Detalhes técnicos"]){
+  const link=overview.getByRole("link",{name,exact:true});
+  const box=await link.boundingBox();
+  check(box && box.height>=44,"R06 section target too small: "+name);
+  await link.click();
+  const hash=new URL(page.url()).hash;
+  check(hash.startsWith("#cch-program-"),"R06 section navigation failed: "+name);
+  check(await page.locator(hash).count()===1,"R06 target missing: "+name);
+ }
+ check(JSON.stringify(await audit())===JSON.stringify(initial),"R06 navigation changed records");
+ await snap("01b-r06-mobile-program");
+ await page.setViewportSize({width:1365,height:850});
  const target="aaaaaaaa-4000-4000-8000-aaaaaaaaaaaa";
  check(initial.rows.find(x=>x.id===target)?.reps_max===10,"unexpected seed prescription");
  await pick("Objetivo atual para revisar propostas E2","Hipertrofia e desenvolvimento muscular");
  await pick("Recuperação percebida agora","Adequada");
  await pick("Dor que interfere no treino","Não");
  await page.getByRole("button",{name:"Levar ao editor, sem salvar"}).first().waitFor();
+ const diff=page.getByTestId("cch-r06-prescription-diff").first();
+ check((await diff.innerText()).includes("Atual no rascunho")&&(await diff.innerText()).includes("Proposta consultiva"),"R06 comparison labels missing");
  await snap("02-e2-proposta-antes-depois");
  await page.getByRole("button",{name:"Levar ao editor, sem salvar"}).first().click();
  await page.getByRole("button",{name:"Cancelar revisão sem salvar"}).click();
