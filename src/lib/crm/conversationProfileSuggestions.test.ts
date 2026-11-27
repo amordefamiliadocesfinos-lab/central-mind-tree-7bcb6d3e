@@ -72,3 +72,38 @@ test('B2 canonical writer contract detects a value filled by another operator', 
   assert.deepEqual(getContactPatchConflicts(baseline, { email: null }, patch), []);
   assert.throws(() => buildContactProfilePatch(baseline, { next_action_text: 'não permitido' }));
 });
+
+test('B3 keeps billing fields separate from principal address and rejects quoted third-party data', () => {
+  const proposals = proposeCrmConversationProfileFields([
+    msg('addr', 'customer', [
+      'Endereço principal: Rua da Praia 55',
+      'Número residencial: 55',
+      'Bairro principal: Centro',
+      'Endereço de cobrança: Avenida Brasil 900',
+      'Número de cobrança: 900',
+      'CEP de cobrança: 88220-000',
+      'Cidade de cobrança: Itapema',
+      '> Meu nome é Nome Citado',
+      'Endereço de entrega: Rua do Destinatário 10',
+    ].join('\\n')),
+  ], {});
+  const fields = Object.fromEntries(proposals.map(p => [p.field, p]));
+  assert.equal(fields.address?.value, 'Rua da Praia 55');
+  assert.equal(fields.address_number?.value, '55');
+  assert.equal(fields.neighborhood?.value, 'Centro');
+  assert.equal(fields.billing_address?.value, 'Avenida Brasil 900');
+  assert.equal(fields.billing_number?.value, '900');
+  assert.equal(fields.billing_zip_code?.value, '88220-000');
+  assert.equal(fields.billing_city?.value, 'Itapema');
+  assert.equal(fields.name, undefined);
+  assert.equal(fields.zip_code, undefined);
+  assert.ok(proposals.every(p => p.requiresReview));
+});
+
+test('B3 ignores third-party and delivery-only address evidence', () => {
+  const proposals = proposeCrmConversationProfileFields([
+    msg('x', 'customer', 'Endereço de entrega: Rua Alfa 4\\n> Endereço principal: Rua de terceiro 9'),
+    msg('y', 'agent', 'Endereço de cobrança: Rua da Loja 8'),
+  ], {});
+  assert.equal(proposals.length, 0);
+});
