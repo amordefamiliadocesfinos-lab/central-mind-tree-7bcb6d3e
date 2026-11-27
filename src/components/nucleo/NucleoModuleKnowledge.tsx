@@ -36,6 +36,7 @@ type Revision = {
  source_reference:string; authority_state:"rascunho"|"proposta"|"homologado"|"historico";
  evidence_level:"declarado"|"codigo_verificado"|"uso_real_verificado"|"proposta"|"nao_verificado";
  reviewed_by:string; recorded_at:string; recorded_by_auth_uid:string|null;
+ registration_origin?:string; registration_reference?:string|null; registration_request_id?:string|null;
 };
 type RevisionTable = {
  Row:Revision;
@@ -401,7 +402,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             <p className="whitespace-pre-wrap break-words">{latest.body}</p>
             <p className="text-xs text-muted-foreground">Prova: {latest.evidence_level} · Registrada: {new Date(latest.recorded_at).toLocaleString("pt-BR")}</p>
             <p className="text-xs text-muted-foreground">
-              Autoria do registro: {latest.recorded_by_auth_uid ? `identificador autenticado ${latest.recorded_by_auth_uid.slice(0,8)}…` : "não identificada no registro"}.
+              Autoria do registro: {latest.recorded_by_auth_uid ? `identificador autenticado ${latest.recorded_by_auth_uid.slice(0,8)}…` : latest.registration_origin==="administrativo_lovable" ? "registro administrativo Lovable · sem autoria humana Auth" : "não identificada no registro"}.
               {latest.reviewed_by ? ` Revisão declarada por: ${latest.reviewed_by} (não certifica aprovação).` : " Sem revisor declarado."}
             </p>
             <div className="space-y-1"><p className="text-xs font-medium">Fontes declaradas da revisão — não homologadas</p><SourceReferences reference={latest.source_reference}/></div>
@@ -668,14 +669,14 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
                   <div className="flex flex-wrap items-center gap-2"><strong>Versão A · origem</strong><Badge variant="outline">v{older.version_no}</Badge></div>
                   <p className="break-words font-semibold">{older.title}</p>
                   <p className="text-xs">Estado declarado: {older.authority_state} · Evidência: {older.evidence_level}</p>
-                  <p className="text-xs text-muted-foreground">Registrada: {new Date(older.recorded_at).toLocaleString("pt-BR")} · Autoria: {older.recorded_by_auth_uid?older.recorded_by_auth_uid.slice(0,8)+"…":"não identificada"}</p>
+                  <p className="text-xs text-muted-foreground">Registrada: {new Date(older.recorded_at).toLocaleString("pt-BR")} · Autoria: {older.recorded_by_auth_uid?older.recorded_by_auth_uid.slice(0,8)+"…":older.registration_origin==="administrativo_lovable"?"registro administrativo Lovable":"não identificada"}</p>
                   <div className="border-t pt-2"><p className="mb-1 text-xs font-medium">Fontes declaradas da versão A — consultar origem</p><SourceReferences reference={older.source_reference}/></div>
                 </article>
                 <article className="min-w-0 rounded-md border border-sky-300 bg-sky-50/50 p-3 text-sm space-y-2 dark:border-sky-800 dark:bg-sky-950/20">
                   <div className="flex flex-wrap items-center gap-2"><strong>Versão B · destino</strong><Badge variant="outline">v{newer.version_no}</Badge></div>
                   <p className="break-words font-semibold">{newer.title}</p>
                   <p className="text-xs">Estado declarado: {newer.authority_state} · Evidência: {newer.evidence_level}</p>
-                  <p className="text-xs text-muted-foreground">Registrada: {new Date(newer.recorded_at).toLocaleString("pt-BR")} · Autoria: {newer.recorded_by_auth_uid?newer.recorded_by_auth_uid.slice(0,8)+"…":"não identificada"}</p>
+                  <p className="text-xs text-muted-foreground">Registrada: {new Date(newer.recorded_at).toLocaleString("pt-BR")} · Autoria: {newer.recorded_by_auth_uid?newer.recorded_by_auth_uid.slice(0,8)+"…":newer.registration_origin==="administrativo_lovable"?"registro administrativo Lovable":"não identificada"}</p>
                   <div className="border-t pt-2"><p className="mb-1 text-xs font-medium">Fontes declaradas da versão B — consultar origem</p><SourceReferences reference={newer.source_reference}/></div>
                 </article>
               </div>
@@ -725,7 +726,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             <div className="space-y-3 mt-2">
               {history.slice(1).map(r=><div key={r.id} className="border-t pt-2">
                 <p className="font-medium">v{r.version_no} · {r.title} · {r.authority_state}</p>
-                <p className="text-muted-foreground">Registrada: {new Date(r.recorded_at).toLocaleString("pt-BR")} · Autoria: {r.recorded_by_auth_uid ? `ID ${r.recorded_by_auth_uid.slice(0,8)}…` : "não identificada"} · Revisão declarada: {r.reviewed_by || "não informada"}</p>
+                <p className="text-muted-foreground">Registrada: {new Date(r.recorded_at).toLocaleString("pt-BR")} · Autoria: {r.recorded_by_auth_uid ? `ID ${r.recorded_by_auth_uid.slice(0,8)}…` : r.registration_origin==="administrativo_lovable" ? "registro administrativo Lovable" : "não identificada"} · Revisão declarada: {r.reviewed_by || "não informada"}</p>
                 <p className="whitespace-pre-wrap break-words mt-1">{r.body}</p>
                 <p className="font-medium">Fontes declaradas da revisão</p><SourceReferences reference={r.source_reference}/>
               </div>)}
