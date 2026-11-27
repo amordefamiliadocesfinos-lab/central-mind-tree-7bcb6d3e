@@ -19,7 +19,7 @@ export interface CommercialSaleDraftLine {
  * Apresentações atreladas à variante física anterior NÃO podem ser herdadas.
  * Apresentações independentes ou composições fixas podem ser reaproveitadas.
  * A escolha da nova variante continua obrigatória no formulário/contrato.
- * Preserva a quantidade comercial para reduzir digitação; não altera a origem.
+ * Preserva a quantidade comercial somente quando a apresentação for compatível.\n * Se remover apresentação vinculada ao sabor, reinicia a quantidade para não trocar caixas por unidades.\n * Não altera a linha original.
  */
 export function duplicateCommercialSaleLine<T extends CommercialSaleDraftLine>(
   lines: readonly T[],
@@ -30,8 +30,13 @@ export function duplicateCommercialSaleLine<T extends CommercialSaleDraftLine>(
   const presentation = source.commercial_presentation;
   const safePresentation = presentation?.composition_mode === 'composite'
     || !presentation?.variant_id ? presentation : null;
-  const commercialQuantity = Number.isFinite(source.commercial_quantity)
-    && source.commercial_quantity > 0 ? source.commercial_quantity : 1;
+  // Se a apresentação vinculada ao sabor anterior foi removida,
+  // manter "3 caixas" como "3 unidades" mudaria silenciosamente o Pedido.
+  // Nesse caso, exigir a nova apresentação e a quantidade novamente.
+  const presentationWasDropped = Boolean(presentation && !safePresentation);
+  const commercialQuantity = !presentationWasDropped
+    && Number.isFinite(source.commercial_quantity) && source.commercial_quantity > 0
+    ? source.commercial_quantity : 1;
 
   const duplicate = {
     ...source,
