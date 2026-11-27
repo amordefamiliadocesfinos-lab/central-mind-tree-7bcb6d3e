@@ -30,6 +30,14 @@ export type NutritionDailyStateM6 = {
   id: string;
   athlete_id: string;
   state_date: string;
+  food_log_day_id?: string | null;
+  plan_version_id?: string | null;
+  target_id?: string | null;
+  energy_kcal_min_target?: number | null; energy_kcal_max_target?: number | null;
+  protein_g_min_target?: number | null; protein_g_max_target?: number | null;
+  carbohydrate_g_min_target?: number | null; carbohydrate_g_max_target?: number | null;
+  fat_g_min_target?: number | null; fat_g_max_target?: number | null;
+  fiber_g_min_target?: number | null; fiber_g_max_target?: number | null;
   observed_meal_count: number;
   observed_item_count: number;
   energy_kcal_consumed: number | null;

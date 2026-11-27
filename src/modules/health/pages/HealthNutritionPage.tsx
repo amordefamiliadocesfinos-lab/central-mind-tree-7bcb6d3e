@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, Apple, BookOpen, BrainCircuit, Loader2, Plus, RefreshCw, Target, Trash2 } from "lucide-react";
+import { Activity, BookOpen, BrainCircuit, Loader2, Plus, RefreshCw, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { useHealthNutritionM5 } from "../hooks/useHealthNutritionM5";
 import { useHealthNutritionStateM6 } from "../hooks/useHealthNutritionStateM6";
 import { useHealthNutritionDecisionM7 } from "../hooks/useHealthNutritionDecisionM7";
 import { HealthMealPrescriptionF18 } from "../components/HealthMealPrescriptionF18";
+import { HealthNutritionDiarySX01 } from "../components/HealthNutritionDiarySX01";
 
 function num(value: string) {
   const parsed = Number(value);
@@ -52,11 +53,16 @@ function reasonLabel(code: string) {
 }
 
 export function HealthNutritionPage() {
-  const { toast } = useToast();
   const { athlete, loading: athleteLoading } = useHealthAthlete();
-  const nutrition = useHealthNutritionM5(athlete?.id);
-  const nutritionState = useHealthNutritionStateM6(athlete?.id);
-  const nutritionDecision = useHealthNutritionDecisionM7(athlete?.id);
+  if(athleteLoading)return <div role="status" className="flex min-h-56 items-center justify-center text-sm text-muted-foreground">Carregando perfil…</div>;
+  if(!athlete?.id)return <p className="p-3 text-sm text-muted-foreground">Perfil de saúde indisponível.</p>;
+  return <HealthNutritionContent key={athlete.id} athleteId={athlete.id}/>;
+}
+function HealthNutritionContent({athleteId}:{athleteId:string}) {
+  const { toast } = useToast();
+  const nutrition = useHealthNutritionM5(athleteId);
+  const nutritionState = useHealthNutritionStateM6(athleteId);
+  const nutritionDecision = useHealthNutritionDecisionM7(athleteId);
 
   const [planName, setPlanName] = useState("Plano nutricional");
   const [strategy, setStrategy] = useState("maintenance");
@@ -78,10 +84,6 @@ export function HealthNutritionPage() {
   const [foodId, setFoodId] = useState("");
   const [ingredientQty, setIngredientQty] = useState("");
 
-  const [mealType, setMealType] = useState("lunch");
-  const [mealId, setMealId] = useState("");
-  const [mealFoodId, setMealFoodId] = useState("");
-  const [mealQty, setMealQty] = useState("");
 
   const selectedRecipe = useMemo(
     () => nutrition.recipes.find((item) => item.id === recipeId) ?? nutrition.recipes.find((item) => item.status === "draft") ?? null,
@@ -107,9 +109,6 @@ export function HealthNutritionPage() {
     }
   };
 
-  if (athleteLoading || nutrition.loading) {
-    return <div className="flex min-h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
-  }
 
   const draftPlan = nutrition.version?.status === "draft";
 
@@ -117,20 +116,21 @@ export function HealthNutritionPage() {
     <div className="space-y-4 pb-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Alimentação</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Plano → consumo → resposta. M5 registra o fato sem sobrescrever o planejamento.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Registre o que consumiu e acompanhe seu plano, sem misturar planejamento e consumo.</p>
       </div>
 
       {nutrition.error ? (
         <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">{nutrition.error}</CardContent></Card>
       ) : null}
 
-            <Tabs defaultValue="plan" className="space-y-4">
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="plan">Plano</TabsTrigger>
-          <TabsTrigger value="meals">Refeições</TabsTrigger>
-          <TabsTrigger value="recipes">Receitas</TabsTrigger>
-          <TabsTrigger value="diary">Diário</TabsTrigger>
-          <TabsTrigger value="evolution">Evolução</TabsTrigger>
+            {nutrition.loading?<div role="status" className="flex min-h-24 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true"/>Atualizando alimentação…</div>:null}
+      <Tabs defaultValue="diary" className={nutrition.loading?"hidden":"space-y-3"}>
+        <TabsList aria-label="Áreas da alimentação" className="grid h-auto w-full grid-cols-3 gap-1 sm:grid-cols-5">
+          <TabsTrigger value="diary" className="min-h-11">Diário</TabsTrigger>
+          <TabsTrigger value="plan" className="min-h-11">Plano</TabsTrigger>
+          <TabsTrigger value="meals" className="min-h-11">Refeições</TabsTrigger>
+          <TabsTrigger value="recipes" className="min-h-11">Receitas</TabsTrigger>
+          <TabsTrigger value="evolution" className="min-h-11">Evolução</TabsTrigger>
         </TabsList>
 
         <TabsContent value="plan" className="space-y-4">
@@ -223,7 +223,7 @@ export function HealthNutritionPage() {
 
         <TabsContent value="meals" className="space-y-4">
           <HealthMealPrescriptionF18
-            athleteId={athlete?.id}
+            athleteId={athleteId}
             version={nutrition.version}
             foods={nutrition.foods}
             recipeVersions={nutrition.recipeVersions}
@@ -519,127 +519,8 @@ export function HealthNutritionPage() {
         </TabsContent>
 
 
-              <TabsContent value="diary" className="space-y-4">
-<Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2 text-base"><Apple className="h-4 w-4 text-primary" /> Diário de hoje</CardTitle>
-            {nutrition.day ? <Badge variant="outline">{nutrition.day.completeness_status}</Badge> : null}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="secondary"
-              className="min-h-11"
-              disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
-              onClick={() => void run("Dia concluído explicitamente.", async () => {
-                await nutrition.completeToday();
-                await nutritionState.refresh();
-              })}
-            >
-              Concluir dia
-            </Button>
-            <Button
-              variant="outline"
-              className="min-h-11"
-              disabled={nutrition.saving || nutrition.day?.completeness_status !== "complete"}
-              onClick={() => void run("Dia reaberto para correções.", async () => {
-                await nutrition.reopenToday();
-                await nutritionState.refresh();
-              })}
-            >
-              Reabrir dia
-            </Button>
-          </div>
-          {nutrition.day?.completeness_status === "complete" ? (
-            <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-              Dia concluído. Reabra o dia antes de alterar refeições ou itens.
-            </p>
-          ) : null}
-
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">
-            <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">kcal</p><p className="font-semibold">{Math.round(nutrition.totals.kcal)}</p></div>
-            <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">P</p><p className="font-semibold">{nutrition.totals.protein.toFixed(1)} g</p></div>
-            <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">C</p><p className="font-semibold">{nutrition.totals.carbs.toFixed(1)} g</p></div>
-            <div className="rounded-lg bg-muted/40 p-2"><p className="text-muted-foreground">G</p><p className="font-semibold">{nutrition.totals.fat.toFixed(1)} g</p></div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <Select value={mealType} onValueChange={setMealType}>
-              <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="breakfast">Café da manhã</SelectItem>
-                <SelectItem value="lunch">Almoço</SelectItem>
-                <SelectItem value="dinner">Jantar</SelectItem>
-                <SelectItem value="snack">Lanche</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              className="min-h-11"
-              disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
-              onClick={() => void run("Refeição criada.", () => nutrition.createMeal(mealType))}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Refeição
-            </Button>
-          </div>
-
-          {nutrition.meals.length ? (
-            <>
-              <Select value={mealId || nutrition.meals[0]?.id || ""} onValueChange={setMealId}>
-                <SelectTrigger className="min-h-11"><SelectValue placeholder="Escolha a refeição" /></SelectTrigger>
-                <SelectContent>{nutrition.meals.map((meal) => <SelectItem key={meal.id} value={meal.id}>{meal.meal_type}</SelectItem>)}</SelectContent>
-              </Select>
-              <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
-                <Select value={mealFoodId} onValueChange={setMealFoodId}>
-                  <SelectTrigger className="min-h-11"><SelectValue placeholder="Alimento" /></SelectTrigger>
-                  <SelectContent>{nutrition.foods.map((food) => <SelectItem key={food.id} value={food.id}>{food.canonical_name}</SelectItem>)}</SelectContent>
-                </Select>
-                <Input className="min-h-11" inputMode="decimal" placeholder="g" value={mealQty} onChange={(e) => setMealQty(e.target.value)} />
-                <Button
-                  className="min-h-11"
-                  disabled={!mealFoodId || !num(mealQty) || nutrition.saving || nutrition.day?.completeness_status === "complete"}
-                  onClick={() => void run("Alimento registrado.", async () => {
-                    const food = nutrition.foods.find((item) => item.id === mealFoodId);
-                    const targetMeal = mealId || nutrition.meals[0]?.id;
-                    if (!food || !targetMeal) throw new Error("Selecione alimento e refeição.");
-                    await nutrition.logFoodItem(targetMeal, food, num(mealQty)!, food.basis_unit);
-                    await nutritionState.refresh();
-                    setMealFoodId(""); setMealQty("");
-                  })}
-                >
-                  Registrar
-                </Button>
-              </div>
-            </>
-          ) : null}
-
-          <div className="space-y-2">
-            {nutrition.activeItems.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum alimento ativo registrado hoje.</p> :
-              nutrition.activeItems.map((item) => (
-                <div key={item.id} className="flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{item.item_name_snapshot}</p>
-                    <p className="text-xs text-muted-foreground">{item.quantity ?? "—"} {item.unit_code ?? ""} · {Math.round(Number(item.energy_kcal_snapshot) || 0)} kcal · {Number(item.protein_g_snapshot || 0).toFixed(1)} g proteína</p>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="min-h-11 min-w-11 shrink-0"
-                    disabled={nutrition.saving || nutrition.day?.completeness_status === "complete"}
-                    onClick={() => void run("Item anulado sem apagar o histórico.", async () => {
-                      await nutrition.voidItem(item.id);
-                      await nutritionState.refresh();
-                    })}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-          </div>
-        </CardContent>
-      </Card>
+              <TabsContent forceMount value="diary" className="space-y-3 data-[state=inactive]:hidden">
+        <HealthNutritionDiarySX01 athleteId={athleteId} nutrition={nutrition} nutritionState={nutritionState}/>
         </TabsContent>
       </Tabs>
 

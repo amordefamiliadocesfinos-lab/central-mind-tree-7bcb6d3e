@@ -52,7 +52,7 @@ export type MealLog = { id: string; food_log_day_id: string; athlete_id: string;
 export type MealItem = {
   id: string; meal_log_id: string; athlete_id: string; item_name_snapshot: string; quantity: number | null;
   unit_code: string | null; energy_kcal_snapshot: number | null; protein_g_snapshot: number | null;
-  carbohydrate_g_snapshot: number | null; fat_g_snapshot: number | null; status: string;
+  carbohydrate_g_snapshot: number | null; fat_g_snapshot: number | null; fiber_g_snapshot?: number | null; status: string;
 };
 
 type State = {
