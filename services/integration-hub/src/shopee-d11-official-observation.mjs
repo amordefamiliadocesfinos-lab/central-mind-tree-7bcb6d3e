@@ -8,6 +8,7 @@ const PKG=/^[A-Za-z0-9_-]{1,100}$/;
 const REQUEST=/^[A-Za-z0-9_.:-]{1,160}$/;
 const legacy=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const fail=code=>({ok:false,code});
+const itemId=v=>(typeof v==='string'||Number.isSafeInteger(v))&&/^[0-9]{1,19}$/.test(String(v));
 const fields=['item_id','model_id','item_sku','model_sku','item_name','model_name','model_quantity_purchased',
  'model_original_price','model_discounted_price','weight'];
 const orderFields=['order_sn','order_status','create_time','update_time','pay_time','ship_by_date','currency',
@@ -18,7 +19,7 @@ function pick(o,keys){
 }
 export function prepareD11Observation(detail,scope,nowMs){
  const body=detail?.payload,rows=body?.response?.order_list;
- if(detail?.response?.ok!==true||parseShopeeError(body)||!REQUEST.test(body?.request_id??'')
+ if(detail?.response?.ok!==true||parseShopeeError(body)||typeof body?.request_id!=='string'||!REQUEST.test(body.request_id)
    ||!Array.isArray(rows)||rows.length!==1)return fail('observation_official_response_invalid');
  const o=rows[0],pkg=o?.package_list?.[0];
  if(o?.order_sn!==scope.orderSn||!Number.isSafeInteger(o.create_time)||o.create_time<=scope.historyCutoff
@@ -28,8 +29,7 @@ export function prepareD11Observation(detail,scope,nowMs){
    ||(o.order_status==='PROCESSED'&&pkg.logistics_status==='LOGISTICS_REQUEST_CREATED')))
    return fail('observation_official_order_refused');
  if(!Array.isArray(o.item_list)||!o.item_list.length||o.item_list.length>30
-   ||!o.item_list.every(i=>/^[0-9]{1,19}$/.test(String(i?.item_id??''))&&
-     /^[0-9]{1,19}$/.test(String(i?.model_id??''))&&Number.isSafeInteger(Number(i?.model_quantity_purchased))
+   ||!o.item_list.every(i=>itemId(i?.item_id)&&itemId(i?.model_id)&&Number.isSafeInteger(Number(i?.model_quantity_purchased))
      &&Number(i.model_quantity_purchased)>0))return fail('observation_official_items_refused');
  // Keep the business projection fields already used by the normalizer.
  // No buyer/address/invoice payload, token or raw HTTP response. The official
