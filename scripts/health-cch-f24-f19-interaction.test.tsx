@@ -26,14 +26,14 @@ const makeRest=(n:number)=>({
  workout_set_id:"s-"+n,set_number:n,started_at:"2026-11-23T22:00:00Z",
  target_seconds:90,pause_accumulated_seconds:0,paused_at:null,ended_at:null
 });
-function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false,scope,paused=false}:{
- initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean;scope?:string;paused?:boolean
+function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false,scope,paused=false,ready=false,onEnd=()=>{}}:{
+ initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean;scope?:string;paused?:boolean;ready?:boolean;onEnd?:()=>void
 }){
  const [count,setCount]=useState(initialCount);
  const rest=useMemo(()=>makeRest(count),[count]);
  const sets=useMemo(()=>Array.from({length:count},(_,i)=>completed(i+1)),[count]);
  const timer={
-  available:true,loading:false,saving:false,activeInterval:rest,intervals:[rest],
+  available:true,loading:false,saving:false,activeInterval:ready?null:rest,intervals:ready?[]:[rest],
   sessionTiming:{id:"synthetic-session-timer",status:paused?"paused":"active",
    started_at:"2026-11-23T20:00:00Z",pause_accumulated_seconds:0,
    timer_paused_at:null,ended_at:null},
@@ -43,7 +43,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),histor
     setCount(n=>n+1); // synthetic response: next work then next completed rest
    }
   },
-  startWorkInterval:async()=>{},finishWorkStartRest:async()=>{},
+  startWorkInterval:async(id:string)=>onStart(id),finishWorkStartRest:async()=>{},
   updateSetExecution:async()=>{},pauseWorkout:async()=>{},
   resumeWorkout:async()=>{},cancelInterval:async()=>{}
  } as unknown as HealthWorkoutTimerF19Controller;
@@ -51,7 +51,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),histor
    sessionTitle="Treino sintético" fallbackStartedAt={base} guidanceScope={scope} guidanceReadReady={true}
    exercises={exercises} setsByExercise={new Map([["ex1",sets],["ex2",[]]])}
    exerciseNameById={names} historicalReferences={history} historyLoading={historyLoading}
-   timer={timer} onCompleteWorkout={async()=>{}}
+   timer={timer} onCompleteWorkout={async()=>{onEnd();}}
    onConfirmEquipment={async()=>{}}
  />;
 }
@@ -157,6 +157,25 @@ describe("F24 R05 — optional guidance without interference",()=>{
   view.rerender(<HealthWorkoutContextualGuidance context="exercise-b" sessionContext="session-a" eligible unconfirmed executionSignal="below_rir"/>);
   expect(screen.queryByText(/não diagnostica fadiga/)).toBeNull();
   expect(screen.getByRole("button",{name:"Ver dica"})).toBeTruthy();
+  cleanup();
+ });
+});
+
+describe("F24 R07 — ready state and explicit completion boundary",()=>{
+ it("ready state starts only after a human action and ending requires confirmation",async()=>{
+  const starts:string[]=[];let ended=0;
+  render(<ExerciseHarness initialCount={0} ready onStart={id=>starts.push(id)} onEnd={()=>ended++}/>);
+  expect(screen.getByTestId("cch-r07-exercise-state").textContent).toBe("PRONTO");
+  expect(starts).toEqual([]);
+  fireEvent.click(screen.getByRole("button",{name:"Iniciar série",exact:true}));
+  await waitFor(()=>expect(starts).toEqual(["ex1"]));
+  fireEvent.click(screen.getByRole("button",{name:"Encerrar treino",exact:true}));
+  expect(ended).toBe(0);
+  fireEvent.click(screen.getByRole("button",{name:"Cancelar encerramento"}));
+  expect(ended).toBe(0);
+  fireEvent.click(screen.getByRole("button",{name:"Encerrar treino",exact:true}));
+  fireEvent.click(screen.getByRole("button",{name:"Confirmar encerramento"}));
+  await waitFor(()=>expect(ended).toBe(1));
   cleanup();
  });
 });
