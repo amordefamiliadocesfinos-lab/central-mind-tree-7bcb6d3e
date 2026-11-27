@@ -638,6 +638,11 @@ export default function Operacoes() {
   };
 
   const duplicateSaleItemForFlavor = (index: number) => {
+    const source = newSale.items[index];
+    if (source?.commercial_presentation?.variant_id
+      && source.commercial_presentation.composition_mode !== 'composite') {
+      toast.info('Apresentação vinculada ao sabor anterior: selecione nova apresentação e quantidade.');
+    }
     setNewSale(current => ({
       ...current,
       items: duplicateCommercialSaleLine(current.items, index),
