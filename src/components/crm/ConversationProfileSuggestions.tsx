@@ -19,6 +19,9 @@ const labels = {
   billing_city: 'Cidade de cobrança', billing_address: 'Endereço de cobrança',
   billing_number: 'Número de cobrança', billing_neighborhood: 'Bairro de cobrança',
 };
+const CRM_CONVERSATION_PAGE_SIZE = 200;
+const CRM_CONVERSATION_REVIEW_LIMIT = 1000;
+
 const states = {
   empty: 'Campo vazio — conferir',
   same: 'Já cadastrado',
@@ -32,6 +35,8 @@ export function ConversationProfileSuggestions({
   onSaved?: (contact: Contact) => void; onReviewChange?: (active: boolean) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [scannedCount, setScannedCount] = useState(0);
+  const [scanLimitReached, setScanLimitReached] = useState(false);
   const [suggestions, setSuggestions] = useState<CrmConversationProfileSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<CrmConversationProfileField[]>([]);
@@ -45,6 +50,8 @@ export function ConversationProfileSuggestions({
   useEffect(() => {
     setSuggestions(null);
     setSelectedFields([]);
+    setScannedCount(0);
+    setScanLimitReached(false);
     setError(null);
   }, [contact.id, conversationId]);
 
@@ -53,23 +60,33 @@ export function ConversationProfileSuggestions({
     setLoading(true);
     setSelectedFields([]);
     setSuggestions(null);
+    setScannedCount(0);
+    setScanLimitReached(false);
     setError(null);
     const requestedContactId = contact.id;
     const requestedConversationId = conversationId;
     try {
-      // Apenas mensagens textuais acessíveis à sessão atual, em conversa já conhecida.
-      const { data, error: queryError } = await supabase.from('service_messages')
-        .select('id,sender,content,created_at')
-        .eq('conversation_id', requestedConversationId)
-        .eq('sender', 'customer')
-        .order('created_at', { ascending: false })
-        .limit(200);
-      if (queryError) throw queryError;
-      // A mudança de contato invalida a proposta pela remontagem do componente.
+      // Paginação somente leitura, sempre na mesma conversa autorizada.
+      // O teto explícito evita consultas ilimitadas e alegações de cobertura total.
+      const collected: CrmConversationProfileMessage[] = [];
+      for (let offset = 0; offset < CRM_CONVERSATION_REVIEW_LIMIT; offset += CRM_CONVERSATION_PAGE_SIZE) {
+        const { data, error: queryError } = await supabase.from('service_messages')
+          .select('id,sender,content,created_at')
+          .eq('conversation_id', requestedConversationId)
+          .eq('sender', 'customer')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(offset, offset + CRM_CONVERSATION_PAGE_SIZE - 1);
+        if (queryError) throw queryError;
+        const page = (data ?? []) as CrmConversationProfileMessage[];
+        collected.push(...page);
+        if (page.length < CRM_CONVERSATION_PAGE_SIZE) break;
+      }
+      // Mudança de atendimento invalida a evidência (a instância também é keyed pelo contato).
       if (requestedContactId !== contact.id || requestedConversationId !== conversationId) return;
-      setSuggestions(proposeCrmConversationProfileFields(
-        (data ?? []) as CrmConversationProfileMessage[], contact,
-      ));
+      setScannedCount(collected.length);
+      setScanLimitReached(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT);
+      setSuggestions(proposeCrmConversationProfileFields(collected, contact));
     } catch {
       setError('Não foi possível consultar as mensagens autorizadas deste atendimento.');
     } finally {
@@ -120,7 +137,13 @@ export function ConversationProfileSuggestions({
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
       {suggestions?.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          Nenhum campo explícito identificado nas últimas 200 mensagens. Isso não significa que o dado inexista.
+          Nenhum campo explícito identificado nas mensagens examinadas. Isso não significa que o dado inexista.
+        </p>
+      )}
+      {suggestions !== null && (
+        <p className="text-[11px] text-muted-foreground">
+          Mensagens do cliente examinadas: {scannedCount}.
+          {scanLimitReached ? ' Limite de 1.000 atingido; o histórico pode conter outras informações.' : ''}
         </p>
       )}
       {suggestions?.map(item => (
