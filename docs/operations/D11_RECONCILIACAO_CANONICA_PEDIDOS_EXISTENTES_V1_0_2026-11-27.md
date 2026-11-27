@@ -1,0 +1,14 @@
+# D11 — Reconciliação canônica de pedidos existentes V1.0
+27/11/2026 | SHO-F12 | HUI V1.1 congelada | Engenharia, não ativação.
+
+## Checkpoint anterior comprovado
+PR1220 merge 38987843afa828e80dd504c03008269214300ad0; CI46076499271 quatro jobs aprovados. GoTrue/PostgREST real local: autoria JWT, RLS, spoof, replay, pausa e revogação de capability com JWT anterior; propriedade privada, ausência de SET/USAGE do migrador e desmontagem local confirmadas. Migration local 20261127222643_d11_protected_cycle_policy.sql gerada pelo CLI; artifact 15235890944, ZIP SHA256 4408f249809122fa4300d49661bbc205bd017bf52a5acf9d0a00c4d9304edcec, 8844 bytes, expira 04/12/2026 22:26:49 UTC. Metadados e log conferidos; bytes internos ainda não extraídos independentemente. Nenhum DDL produtivo.
+
+## Diferença identificada
+O readShopeeIntakeBatch existente exclui pedidos já registrados, inclusive tombstones; expected_order_unavailable não prova composição nem autoriza logística. A D11 precisa distinguir pedido canônico íntegro, duplicidade, exclusão, divergência e ausência, sem chamar criação para reconciliar. Contrato de composição original verifyCycleOrder compara agrupamentos de produto/variante, quantidade física e valor comercial convertido. Core oficial confirmou a existência da coluna orders.total_value e campos de identidade/estado.
+
+## Delta
+Modo reconcile explícito, exato (limit=1 e Order SN), no pipeline createShopeeControlledAutoIntake, exclusivamente com adapters readExistingBatch e verifyCanonicalOrder injetados; não usa reader normal nem persistOrder. Reutiliza normalização, guardas temporais, mapping físico, projeção e buildShopeeOrderCreateRequest; recusa batch/snapshot de outra conta, múltiplos snapshots ou resultado sem identidade exata. Resposta verified_existing com orderId e write=null, written=0; consumidor deve exigir esse estado, não apenas ok/ready. Nenhum caller produtivo ou rota foi modificado. verifyCycleExistingOrder no Core Bridge cycle.mjs lê identidade exata incluindo tombstones, exige uma única ordem operacional aberta, total igual, e reutiliza verifyCycleOrder. Não altera status, itens, estoque, financeiro ou separação. Testes sintéticos de composição, mudança de variante/valor/quantidade, tombstone, duplicidade, identidade, ausência e erros.
+
+## Limites e próximo gate
+Não há reader protegido de reconciliação conectado; o futuro adapter deve obter Raw fresco e catalog por identidade e lease, com o fence da política. Verificação read-only não é claim nem garantia transacional contra mudanças posteriores. Integrar a proteção ao motor exige checagem atômica de candidato e estado antes de claim, tratamento de drift/uncertainty, limites e isolamento. Não habilitar rota legacy ou usar skip como autorização. Preservar D10 positiva pendente, desarme de tags e AC01; nenhuma alteração produtiva. CI desta PR deve ser aprovada antes de merge.
