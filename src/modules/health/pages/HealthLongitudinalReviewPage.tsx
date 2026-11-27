@@ -183,7 +183,7 @@ const outcomeOptions: Array<{
 
 const targetOptions = ["goal", "training", "nutrition", "body", "recovery"] as const;
 
-function automaticTargets(code: LongitudinalReviewOutcome["outcomeCode"]) {
+function automaticTargets(code: LongitudinalReviewOutcome["outcomeCode"] | "") {
   if (code === "review_goal") return ["goal"];
   if (code === "review_training") return ["training"];
   if (code === "review_nutrition") return ["nutrition"];
@@ -200,7 +200,7 @@ export function HealthLongitudinalReviewPage() {
 function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
   const review = useHealthLongitudinalReviewF13(athleteId);
   const [outcomeCode, setOutcomeCode] =
-    useState<LongitudinalReviewOutcome["outcomeCode"]>("continue_observation");
+    useState<LongitudinalReviewOutcome["outcomeCode"] | "">("");
   const [targets, setTargets] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -226,6 +226,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
 
   const submitOutcome = async () => {
     setLocalError(null);
+    if (!outcomeCode || review.error || !review.backendAvailable || review.generating || review.savingOutcome) return;
     if (outcomeCode === "review_multiple" && submitTargets.length < 2) {
       setLocalError("Selecione pelo menos duas áreas para uma revisão múltipla.");
       return;
@@ -238,6 +239,8 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
         notes: notes.trim() || null,
       });
       setNotes("");
+      setOutcomeCode("");
+      setTargets([]);
     } catch {
       // The hook exposes the backend error in a controlled surface.
     }
@@ -316,18 +319,20 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
             <>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl border p-3">
-                  <p className="text-xs text-muted-foreground">Período atual · 28 dias</p>
+                  <p className="text-xs text-muted-foreground">Período atual · {review.run.windowDays} dias</p>
                   <p className="mt-1 text-sm font-medium">
                     {dateLabel(review.run.currentStartDate)} <ArrowRight className="mx-1 inline h-3 w-3" /> {dateLabel(review.run.currentEndDate)}
                   </p>
                 </div>
                 <div className="rounded-xl border p-3">
-                  <p className="text-xs text-muted-foreground">Período anterior · 28 dias</p>
+                  <p className="text-xs text-muted-foreground">Período anterior · {review.run.windowDays} dias</p>
                   <p className="mt-1 text-sm font-medium">
                     {dateLabel(review.run.priorStartDate)} <ArrowRight className="mx-1 inline h-3 w-3" /> {dateLabel(review.run.priorEndDate)}
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">Fonte: snapshot F13 · {review.run.algorithmVersion} · data-base {dateLabel(review.run.asOfDate)}</p>
+              {review.run.reasonCodes.length > 0 && <details><summary className="cursor-pointer text-sm">Limitações da revisão</summary><p className="text-xs break-words">{review.run.reasonCodes.join(" · ")}</p></details>}
               <div className="flex flex-wrap gap-1">
                 {review.run.availableDomains.map((domain) => (
                   <Badge key={domain} variant="outline">
@@ -349,7 +354,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
 
           <Button
             className="min-h-11 w-full sm:w-auto"
-            disabled={!review.backendAvailable || review.generating}
+            disabled={!review.backendAvailable || !!review.error || review.generating || review.savingOutcome}
             onClick={() => void review.generateReview()}
           >
             {review.generating ? "Gerando revisão..." : "Gerar revisão longitudinal"}
@@ -570,6 +575,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
                   }}
                   className="min-h-11 w-full rounded-md border bg-background px-3 text-sm"
                 >
+                  <option value="">Selecione uma decisão</option>
                   {outcomeOptions.map((option) => (
                     <option key={option.code} value={option.code}>
                       {option.label}
@@ -619,7 +625,7 @@ function HealthLongitudinalReviewPageScoped({athleteId}:{athleteId:string}) {
 
               <Button
                 className="min-h-11 w-full sm:w-auto"
-                disabled={review.savingOutcome}
+                disabled={!outcomeCode || !!review.error || !review.backendAvailable || review.generating || review.savingOutcome}
                 onClick={() => void submitOutcome()}
               >
                 {review.savingOutcome ? "Registrando..." : "Registrar resultado"}
