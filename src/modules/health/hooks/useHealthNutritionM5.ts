@@ -43,7 +43,7 @@ export type NutritionTarget = {
 };
 export type Recipe = { id: string; athlete_id: string | null; name: string; status: string; current_version_id: string | null; owner_scope: string; };
 export type RecipeVersion = {
-  id: string; recipe_id: string; athlete_id: string | null; status: string; title: string;
+  id: string; recipe_id: string; athlete_id: string | null; status: string; title: string; version_number?: number;
   yield_amount: number | null; yield_unit: string | null; servings: number | null;
 };
 export type Food = { id: string; canonical_name: string; brand: string | null; basis_amount: number; basis_unit: string; energy_kcal: number | null; protein_g: number | null; };
@@ -404,4 +404,45 @@ export function useHealthNutritionM5(athleteId: string | null | undefined) {
     completeToday,
     reopenToday,
   };
+}
+
+export type RecipeIngredientReferenceSX02={id:string;recipe_version_id:string;athlete_id:string|null;food_id:string;quantity:number;unit_code:string;sequence_order:number};
+export type RecipeSnapshotSX02={recipe_version_id:string;athlete_id:string|null;basis_amount:number|null;basis_unit:string|null;energy_kcal:number|null;protein_g:number|null;carbohydrate_g:number|null;fat_g:number|null;fiber_g:number|null;calculation_method:string;confidence:string;calculated_at:string;algorithm_version:string|null};
+export type RecipeFrozenIngredientSX02={id:string;recipe_version_id:string;athlete_id:string|null;food_name_snapshot:string;quantity:number;unit_code:string;data_quality_snapshot:string|null;source_version_snapshot:string|null};
+export type RecipeReferenceSX02={status:"idle"|"loading"|"ready"|"unavailable";ingredients:RecipeIngredientReferenceSX02[];frozenIngredients:RecipeFrozenIngredientSX02[];snapshot:RecipeSnapshotSX02|null};
+const emptyRecipeReference:RecipeReferenceSX02={status:"idle",ingredients:[],frozenIngredients:[],snapshot:null};
+/** Existing RLS-protected tables, read only, by exact selected version and owner. */
+export function useHealthRecipeReferenceSX02(version:RecipeVersion|null,recipe:Recipe|null,athleteId:string,revision:number){
+ const id=version?.id;
+ const owner=recipe?.owner_scope==="global"?null:athleteId;
+ const valid=Boolean(id&&recipe&&version?.recipe_id===recipe.id&&version?.athlete_id===owner&&recipe.athlete_id===owner);
+ const published=version?.status==="published";
+ const key=JSON.stringify([athleteId,id,owner,published,revision,valid]);
+ const [read,setRead]=useState<{key:string;value:RecipeReferenceSX02}>({key:"",value:emptyRecipeReference});
+ useEffect(()=>{
+  if(!valid||!id)return;
+  let active=true;
+  const load=async()=>{
+   try{
+    if(published){
+     const [snapshot,ingredients]=await Promise.all([
+      db.from("health_recipe_nutrition_snapshots").select("*").eq("recipe_version_id",id).maybeSingle(),
+      db.from("health_recipe_ingredient_snapshots").select("*",{count:"exact"}).eq("recipe_version_id",id).order("id"),
+     ]);
+     const rows=(ingredients.data??[]) as RecipeFrozenIngredientSX02[];
+     const snap=snapshot.data as RecipeSnapshotSX02|null;
+     if(snapshot.error||ingredients.error||ingredients.count!==rows.length||!snap||snap.recipe_version_id!==id||snap.athlete_id!==owner||rows.some(row=>row.recipe_version_id!==id||row.athlete_id!==owner))throw Error("Referência não confirmada.");
+     if(active)setRead({key,value:{status:"ready",ingredients:[],frozenIngredients:rows,snapshot:snap}});
+    }else{
+     const result=await db.from("health_recipe_ingredients").select("*",{count:"exact"}).eq("recipe_version_id",id).order("sequence_order");
+     const rows=(result.data??[]) as RecipeIngredientReferenceSX02[];
+     if(result.error||result.count!==rows.length||rows.some(row=>row.recipe_version_id!==id||row.athlete_id!==owner))throw Error("Ingredientes não confirmados.");
+     if(active)setRead({key,value:{status:"ready",ingredients:rows,frozenIngredients:[],snapshot:null}});
+    }
+   }catch{if(active)setRead({key,value:{...emptyRecipeReference,status:"unavailable"}});}
+  };
+  void load();
+  return ()=>{active=false;};
+ },[key,id,valid,owner,published]);
+ return !valid?emptyRecipeReference:read.key===key?read.value:{...emptyRecipeReference,status:"loading"} as RecipeReferenceSX02;
 }
