@@ -59,15 +59,18 @@ export function proposeCrmConversationProfileFields(
       const trimmed = line.trim();
       return !/^(?:>|"|encaminhad[ao]|dados (?:d[ao]|de) (?:cliente|terceiro|mãe|pai|esposa|marido|amigo)|endereço (?:de entrega|da minha mãe|do meu pai))\b/i.test(trimmed);
     });
-    const directBody = lines.join('\n');
-    for (const field of CRM_CONVERSATION_PROFILE_FIELDS) {
-      const found = patterns[field].exec(directBody);
-      if (!found) continue;
-      const value = simplify(found[1]);
-      if (!value || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
-      const list = candidates.get(field) ?? [];
-      list.push({ value, id: message.id, date: message.created_at });
-      candidates.set(field, list);
+    // Percorrer cada linha, não apenas a primeira ocorrência da mensagem:
+    // correções conflitantes dentro do mesmo envio também exigem revisão.
+    for (const line of lines) {
+      for (const field of CRM_CONVERSATION_PROFILE_FIELDS) {
+        const found = patterns[field].exec(line);
+        if (!found) continue;
+        const value = simplify(found[1]);
+        if (!value || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
+        const list = candidates.get(field) ?? [];
+        list.push({ value, id: message.id, date: message.created_at });
+        candidates.set(field, list);
+      }
     }
   }
   const proposals: CrmConversationProfileSuggestion[] = [];
