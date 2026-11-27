@@ -184,6 +184,9 @@ export function createGuardedShopeeShipOrder({
         || !/^[A-Za-z0-9_-]{1,100}$/.test(String(proof.package_number ?? ''))) {
       return { ok: false, code: 'preflight_not_eligible' };
     }
+    if (automaticScope?.profileMode === 'd10' && proof.package_number !== resolveD10Profile(getEnv, now())?.expectedPackage) {
+      return { ok: false, code: 'd10_package_scope_mismatch' };
+    }
     // Only the evidenced Celivio C7 recovery may omit package_number in
     // the legacy one-pilot path. All other pilots retain their old contract.
     const celivioC7Recovery = automaticScope === null
