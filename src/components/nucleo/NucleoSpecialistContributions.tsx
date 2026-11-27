@@ -17,7 +17,7 @@ type RecordRow={
  id:string;module_id:string;workstream_id:string|null;specialist_role:string;contribution_kind:string;
  title:string;source_kind:string;source_locator:string;source_reference_id:string|null;
  source_checksum_sha256:string|null;note:string;authority_state:string;
- recorded_by_auth_uid:string;recorded_at:string;lineage_id:string;version_no:number;
+ recorded_by_auth_uid:string|null;registration_origin?:string;registration_reference?:string|null;recorded_at:string;lineage_id:string;version_no:number;
  parent_revision_id:string|null;request_id:string;
 };
 type PendingAttempt={
@@ -444,7 +444,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
          <p>Papel funcional declarado: {item.specialist_role}</p>
          <p className="break-all">Origem: {item.source_kind} · identificador/localizador: {item.source_locator}</p>
          <p>SHA-256 declarado: {item.source_checksum_sha256||"Não fornecido"}</p>
-         <p>Registrada: {new Date(item.recorded_at).toLocaleString("pt-BR")} · autoria autenticada: {item.recorded_by_auth_uid?.slice(0,8)||"indeterminada"}…</p>
+         <p>Registrada: {new Date(item.recorded_at).toLocaleString("pt-BR")} · {item.recorded_by_auth_uid ? `autoria autenticada: ${item.recorded_by_auth_uid.slice(0,8)}…` : item.registration_origin==="administrativo_lovable" ? "registro administrativo Lovable · sem autoria humana Auth" : "autoria indeterminada"}</p>
          <p className="break-words">{item.note}</p>
          <p>Versão anterior: {item.parent_revision_id||"Contribuição inicial"}</p>
          {item.parent_revision_id&&(()=>{const previous=rows.find(r=>r.id===item.parent_revision_id);return previous ? <div className="mt-2 rounded border p-2 space-y-1"><strong>Comparação de metadados com v{previous.version_no}</strong>{compareFields.filter(([,key])=>item[key]!==previous[key]).map(([label,key])=><div key={key} className="break-words"><span className="font-medium">{label}</span><p className="text-destructive">Anterior: {String(previous[key]??"não informado")}</p><p>Nova revisão: {String(item[key]??"não informado")}</p></div>)}{compareFields.every(([,key])=>item[key]===previous[key])&&<p>Metadados iguais; conteúdo da fonte não foi comparado.</p>}<p className="text-muted-foreground">Comparação limitada a metadados declarados, não é diff do conteúdo privado nem certificação da fonte.</p></div>:<p className="text-muted-foreground">Versão anterior fora do recorte; comparação indisponível.</p>})()}
