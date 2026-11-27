@@ -92,7 +92,7 @@ import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
-import { duplicateCommercialSaleLine } from '@/lib/orders/commercialSaleDraft';
+import { duplicateCommercialSaleLine, selectCommercialSaleLineVariant } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 
@@ -1068,12 +1068,13 @@ export default function Operacoes() {
                             disabled={Boolean(item.commercial_presentation?.variant_id)}
                             onValueChange={(variantId) => {
                               const variant = saleVariants.find(candidate => candidate.id === variantId);
-                              updateSaleItem(i, 'variant_id', variantId || null);
-                              updateSaleItem(i, 'commercial_presentation', null);
-                              updateSaleItem(i, 'commercial_quantity', 1);
                               const product = rawProducts.find(candidate => candidate.id === item.product_id);
-                              updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant) : 0);
-                              updateSaleItem(i, '_unit_price_text', null);
+                              const canonicalPrice = product ? getDefaultCommercialUnitPrice(product, variant) : 0;
+                              setNewSale(current => ({
+                                ...current,
+                                items: current.items.map((currentItem, index) => index === i
+                                  ? selectCommercialSaleLineVariant(currentItem, variantId || null, canonicalPrice) : currentItem),
+                              }));
                             }}
                           >
                             <SelectTrigger className="h-10">
