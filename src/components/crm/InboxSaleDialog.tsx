@@ -23,7 +23,7 @@ import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
-import { duplicateCommercialSaleLine } from '@/lib/orders/commercialSaleDraft';
+import { duplicateCommercialSaleLine, selectCommercialSaleLineVariant } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
@@ -116,6 +116,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     if (channel !== 'whatsapp' || !item.product_id) return null;
     const product = products.find(candidate => candidate.id === item.product_id);
     if (!product) return null;
+    // Preço oficial só deve aparecer após identidade física e quantidade conferíveis.
+    if ((product.variation_mode === 'variacoes_fisicas' && !item.variant_id
+      && item.commercial_presentation?.composition_mode !== 'composite')
+      || !Number.isFinite(item.commercial_quantity) || item.commercial_quantity <= 0) return null;
     const quote = resolveDirectSalePriceAdvice(
       officialPriceRows, product, item, items,
     );
@@ -207,7 +211,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
     const product = products.find((item) => item.id === items[index]?.product_id);
-    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, _unit_price_text: undefined, commercial_presentation: null, commercial_quantity: 1 });
+    const canonicalPrice = product ? getDefaultCommercialUnitPrice(product, variant) : 0;
+    setItems(current => current.map((item, i) => i === index
+      ? selectCommercialSaleLineVariant(item, variantId || null, canonicalPrice) : item));
   };
 
   const presentationKey = (productId: string, _variantId: string | null) => productId;
