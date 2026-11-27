@@ -3,6 +3,7 @@ import {describe,it,expect} from "vitest";
 import {render,fireEvent,screen,waitFor,cleanup} from "@testing-library/react";
 import {HealthWorkoutInteractiveTimerF19} from "../src/modules/health/components/HealthWorkoutInteractiveTimerF19";
 import type {WorkoutExercise,WorkoutSet} from "../src/modules/health/hooks/useHealthWorkoutM4";
+import type {F24ExerciseHistoryStatus} from "../src/modules/health/hooks/useF24WorkoutHistory";
 import type {HealthWorkoutTimerF19Controller} from "../src/modules/health/hooks/useHealthWorkoutTimerF19";
 
 const base="2026-11-23T20:00:00Z";
@@ -24,8 +25,8 @@ const makeRest=(n:number)=>({
  workout_set_id:"s-"+n,set_number:n,started_at:"2026-11-23T22:00:00Z",
  target_seconds:90,pause_accumulated_seconds:0,paused_at:null,ended_at:null
 });
-function ExerciseHarness({initialCount=3,onStart=()=>{}}:{
- initialCount?:number;onStart?:(target:string)=>void
+function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false}:{
+ initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean
 }){
  const [count,setCount]=useState(initialCount);
  const rest=useMemo(()=>makeRest(count),[count]);
@@ -48,7 +49,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{}}:{
  return <HealthWorkoutInteractiveTimerF19
    sessionTitle="Treino sintético" fallbackStartedAt={base}
    exercises={exercises} setsByExercise={new Map([["ex1",sets],["ex2",[]]])}
-   exerciseNameById={names} historicalReferences={new Map()} historyLoading={false}
+   exerciseNameById={names} historicalReferences={history} historyLoading={historyLoading}
    timer={timer} onCompleteWorkout={async()=>{}}
    onConfirmEquipment={async()=>{}}
  />;
@@ -81,6 +82,38 @@ describe("CCH F24 F19 — interface real com backend sintético isolado",()=>{
   render(<ExerciseHarness initialCount={4}/>);
   expect(extraButton().getAttribute("aria-pressed")).toBe("false");
   expect(nextButton().getAttribute("aria-pressed")).toBe("false");
+  cleanup();
+ });
+});
+
+describe("F24 R03 — historical values remain distinct from actual result",()=>{
+ const reference={sessionId:"previous",occurredAt:"2026-11-20T10:00:00Z",equipmentLabel:"Máquina A",loadValue:95,loadUnit:"kg" as const,reps:11,rir:1};
+ const history=new Map<string,F24ExerciseHistoryStatus>([
+  ["ex1",{reference,equipmentLabel:"Máquina A",reason:"comparable"}],
+  ["ex2",{reference:null,equipmentLabel:"Máquina B",reason:"no_recent_match"}],
+ ]);
+ it("shows load, reps, RIR and label provenance without copying history into actual inputs",()=>{
+  render(<ExerciseHarness history={history}/>);
+  const card=screen.getByTestId("cch-history-reference");
+  expect(card.textContent).toContain("95 kg");
+  expect(card.textContent).toContain("11 reps");
+  expect(card.textContent).toContain("RIR 1");
+  expect(card.textContent).toContain("Identidade física não confirmada");
+  expect((screen.getByPlaceholderText("kg") as HTMLInputElement).value).toBe("80");
+  fireEvent.click(screen.getByLabelText("Próximo exercício"));
+  expect(card.textContent).not.toContain("95 kg");
+  expect(card.textContent).toContain("Sem registro anterior com o mesmo rótulo");
+  fireEvent.click(screen.getByLabelText("Exercício anterior"));
+  expect(card.textContent).toContain("95 kg");
+  cleanup();
+ });
+ it("suppresses stale numbers while loading or if reason is unavailable",()=>{
+  const view=render(<ExerciseHarness history={history} historyLoading/>);
+  expect(screen.getByTestId("cch-history-reference").textContent).not.toContain("95 kg");
+  const unavailable=new Map<string,F24ExerciseHistoryStatus>([["ex1",{reference,equipmentLabel:null,reason:"unavailable"}]]);
+  view.rerender(<ExerciseHarness history={unavailable}/>);
+  expect(screen.getByTestId("cch-history-reference").textContent).toContain("Histórico indisponível");
+  expect(screen.getByTestId("cch-history-reference").textContent).not.toContain("95 kg");
   cleanup();
  });
 });
