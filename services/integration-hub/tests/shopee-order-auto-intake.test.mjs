@@ -500,3 +500,59 @@ test('F6-K.1 stops the controlled round after infrastructure writer exception', 
   assert.equal(result.results[0].status, 'write_failed');
   assert.deepEqual(result.results[0].blockers, ['writer_exception']);
 });
+
+test('D11 reconcile reuses exact mapped projection but never invokes intake writer', async () => {
+  const target='261014HRQJ4QHT', orderId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const calls=[];
+  const payload=batchPayload();
+  const run=createShopeeControlledAutoIntake({
+    readBatch:async()=>assert.fail('ordinary intake batch must not be reused for existing orders'),
+    persistOrder:async()=>assert.fail('reconciliation must not write'),
+    readExistingBatch:async args=>{
+      assert.deepEqual(args,{channel_account_id:CHANNEL_ACCOUNT_ID,limit:1,order_sn:target});
+      return {ok:true,payload};
+    },
+    verifyCanonicalOrder:async request=>{
+      calls.push(request);
+      return {ok:true,status:'verified_existing',channel_account_id:CHANNEL_ACCOUNT_ID,order_number:target,order_id:orderId};
+    }
+  });
+  const result=await run({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:1,expectedOrderSn:target});
+  assert.equal(result.written,0);
+  assert.equal(result.results[0].status,'verified_existing');
+  assert.equal(result.results[0].orderId,orderId);
+  assert.equal(result.results[0].write,null);
+  assert.equal(calls.length,1);
+  assert.deepEqual(calls[0].items.map(i=>i.quantity),[3,3]);
+  assert.equal(calls[0].order_number,target);
+});
+test('D11 reconcile rejects missing adapter, broad scope, and cross-account snapshots',async()=>{
+  const target='261014HRQJ4QHT';
+  const f=createShopeeControlledAutoIntake();
+  assert.equal((await f({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:1,expectedOrderSn:target})).code,'reconcile_scope_unavailable');
+  const run=createShopeeControlledAutoIntake({
+    readExistingBatch:async()=>({ok:true,payload:batchPayload({snapshots:[{...snapshot(),channel_account_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}]})}),
+    verifyCanonicalOrder:async()=>assert.fail('cross-account verification'),
+    persistOrder:async()=>assert.fail('must not write')
+  });
+  assert.equal((await run({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:2,expectedOrderSn:target})).code,'reconcile_scope_unavailable');
+  assert.equal((await run({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:1,expectedOrderSn:target})).code,'reconcile_identity_mismatch');
+});
+test('D11 reconcile never promotes absent, mismatched, or unverified canonical result',async()=>{
+  const target='261014HRQJ4QHT';
+  for(const proof of [null,{ok:true,status:'already_registered'},
+    {ok:true,status:'verified_existing',channel_account_id:'other',order_number:target,order_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'},
+    {ok:true,status:'verified_existing',channel_account_id:CHANNEL_ACCOUNT_ID,order_number:'OTHERORDER1',order_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}]){
+    const run=createShopeeControlledAutoIntake({readExistingBatch:async()=>({ok:true,payload:batchPayload()}),
+      verifyCanonicalOrder:async()=>proof,persistOrder:async()=>assert.fail('no fallback writer')});
+    const result=await run({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:1,expectedOrderSn:target});
+    assert.equal(result.written,0);assert.equal(result.results[0].status,'blocked');
+  }
+});
+test('D11 reconcile rejects changed mapping and cannot invoke canonical verifier',async()=>{
+  const target='261014HRQJ4QHT';
+  const run=createShopeeControlledAutoIntake({readExistingBatch:async()=>({ok:true,payload:batchPayload({mappings:[]})}),
+    verifyCanonicalOrder:async()=>assert.fail('unmapped projection'),persistOrder:async()=>assert.fail('no writer')});
+  const result=await run({channelAccountId:CHANNEL_ACCOUNT_ID,mode:'reconcile',limit:1,expectedOrderSn:target});
+  assert.equal(result.written,0);assert.equal(result.results[0].status,'blocked');
+});
