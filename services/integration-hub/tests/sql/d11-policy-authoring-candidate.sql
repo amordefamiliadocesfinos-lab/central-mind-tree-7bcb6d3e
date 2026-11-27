@@ -18,10 +18,10 @@ GRANT USAGE ON SCHEMA public TO d11_policy_author;
 -- on the server's verified request context, without reading auth tables,
 -- trusting caller parameters, or granting the author authenticated membership.
 CREATE FUNCTION d11_policy_private.request_actor() RETURNS uuid
- LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $
+ LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
  SELECT coalesce(nullif(current_setting('request.jwt.claim.sub',true),''),
    nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid
-$;
+$$;
 REVOKE ALL ON FUNCTION d11_policy_private.request_actor() FROM PUBLIC,anon,service_role;
 GRANT EXECUTE ON FUNCTION d11_policy_private.request_actor() TO authenticated,d11_policy_author;
 GRANT SELECT (auth_user_id,capability,active,revoked_at) ON public.app_admin_capabilities TO d11_policy_author;
@@ -174,23 +174,26 @@ EXCEPTION WHEN check_violation OR invalid_text_representation OR numeric_value_o
  THEN RETURN jsonb_build_object('status','invalid_config');
  WHEN unique_violation THEN RETURN jsonb_build_object('status','request_collision');
 END $$;
+REVOKE ALL ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) TO authenticated;
 -- PostgreSQL 16+ role creators need explicit SET membership for OWNER TO.
 -- Temporarily grant only SET and schema CREATE, then remove both.
-DO $ BEGIN
+DO $$ BEGIN
  IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN
-   EXECUTE format('GRANT d11_policy_author TO %I WITH SET TRUE',current_user);
+   EXECUTE format('GRANT d11_policy_author TO %I WITH INHERIT FALSE, SET TRUE',current_user);
  END IF;
-END $;
+END $$;
 GRANT CREATE ON SCHEMA d11_policy_private TO d11_policy_author;
 ALTER FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) OWNER TO d11_policy_author;
 REVOKE CREATE ON SCHEMA d11_policy_private FROM d11_policy_author;
-DO $ BEGIN
+DO $$ BEGIN
  IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN
    EXECUTE format('REVOKE SET OPTION FOR d11_policy_author FROM %I',current_user);
+   IF pg_has_role(current_user,'d11_policy_author','SET') OR pg_has_role(current_user,'d11_policy_author','USAGE') THEN
+     RAISE EXCEPTION 'migration role retains author execution membership';
+   END IF;
  END IF;
-END $;
-REVOKE ALL ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) FROM PUBLIC,anon,service_role;
-GRANT EXECUTE ON FUNCTION d11_policy_private.append_revision(uuid,integer,uuid,text,jsonb,text) TO authenticated;
+END $$;
 -- A public INVOKER façade is the only candidate API. No actor argument.
 CREATE FUNCTION public.append_shopee_cycle_policy_revision(
  p_account uuid,p_expected_revision integer,p_request uuid,p_operation text,p_config jsonb,p_evidence text)
