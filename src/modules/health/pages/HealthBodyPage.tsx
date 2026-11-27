@@ -124,8 +124,8 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
   const [photoFiles, setPhotoFiles] = useState<Partial<Record<BodyPhoto["angle_code"], File>>>({});
 
   const currentState = useMemo(
-    () => !body.error ? body.states.find((state) => state.window_days === windowDays && state.athlete_id===athleteId) ?? null : null,
-    [body.states,windowDays,athleteId,body.error],
+    () => !body.error&&!body.loading ? body.states.find((state) => state.window_days === windowDays && state.athlete_id===athleteId) ?? null : null,
+    [body.states,windowDays,athleteId,body.error,body.loading],
   );
 
   const fields=[{raw:weight,min:5,max:400},{raw:waist,min:10,max:300},{raw:bodyFat,min:1,max:75},{raw:hip,min:10,max:300},{raw:chest,min:10,max:300},{raw:neck,min:10,max:300}];
@@ -384,146 +384,87 @@ function HealthBodyContent({athleteId}:{athleteId:string}){
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Camera className="h-4 w-4 text-primary" /> Protocolo de fotos
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
-            Para comparar melhor: mantenha iluminação, distância, posição da câmera, roupa e postura semelhantes. As imagens ficam no bucket privado do atleta.
-          </div>
-
-          {!mediaConsentGranted ? (
-            <div className="rounded-xl border border-dashed p-4 text-sm">
-              Ative o consentimento <strong>Mídia privada</strong> no Perfil antes de enviar fotos.{" "}
-              <Link className="font-medium text-primary underline-offset-4 hover:underline" to="/saude/perfil">
-                Ir para Perfil
-              </Link>
+      <Card data-testid="sx04-photos">
+        <CardHeader className="px-3 pt-3 pb-2"><CardTitle className="flex items-center gap-2 text-base"><Camera className="h-4 w-4 text-primary"/>Fotos de evolução</CardTitle><p className="text-xs text-muted-foreground">Protocolo privado BODY_PHOTO_V1. Fotos não medem gordura nem massa muscular.</p></CardHeader>
+        <CardContent className="space-y-3 px-3 pb-3">
+          {!mediaConsentGranted?<div className="rounded-lg border p-3 text-sm">{profile.loading||profile.error?"Consentimento não confirmado. Fotos indisponíveis.":"Ative o consentimento Mídia privada no Perfil para acessar ou enviar fotos."} <Link to="/saude/perfil" className="inline-flex min-h-11 items-center font-medium text-primary underline">Ir para Perfil</Link></div>:<>
+            <p className="text-xs text-muted-foreground">Mantenha iluminação, distância, posição da câmera, roupa e postura semelhantes. Selecione somente os ângulos disponíveis; quatro ângulos são recomendados, não obrigatórios.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="min-h-11 h-auto whitespace-normal" variant="outline" disabled={blocked} onClick={()=>setShowUpload(v=>!v)}>{showUpload?"Recolher envio":"Novo protocolo"}</Button>
+              <Button className="min-h-11 h-auto whitespace-normal" variant="outline" disabled={body.loading||busy||Boolean(body.error)} onClick={()=>{setShowPhotos(v=>!v);setFirstSet("");setSecondSet("");}}>{showPhotos?"Ocultar fotos":"Ver fotos privadas"}</Button>
             </div>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {photoAngles.map((angle) => (
-                  <div key={angle.code} className="space-y-2 rounded-xl border p-3">
-                    <Label htmlFor={"body-photo-" + angle.code}>{angle.label}</Label>
-                    <Input
-                      id={"body-photo-" + angle.code}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="min-h-11"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        setPhotoFiles((current) => ({ ...current, [angle.code]: file }));
-                      }}
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      {photoFiles[angle.code]?.name ?? "Nenhuma foto selecionada."}
-                    </p>
-                  </div>
-                ))}
+            {showUpload?<div className="space-y-3 rounded-lg border p-2">
+              <div className="grid gap-2 sm:grid-cols-2">{photoAngles.map(angle=><div key={angle.code} className="min-w-0 space-y-1"><Label htmlFor={"body-photo-"+angle.code}>{angle.label}</Label><Input id={"body-photo-"+angle.code} type="file" accept="image/jpeg,image/png,image/webp" className="min-h-11" disabled={blocked} onChange={e=>{const file=e.target.files?.[0];setPhotoFiles(current=>({...current,[angle.code]:file}));}}/><p className="text-xs break-words text-muted-foreground">{photoFiles[angle.code]?.name??"Não selecionada"}</p></div>)}</div>
+              <Button className="min-h-11 w-full whitespace-normal" disabled={blocked||!Object.values(photoFiles).some(Boolean)} onClick={()=>void uploadPhotos()}>Salvar protocolo fotográfico</Button>
+            </div>:null}
+            {showPhotos&&!body.error&&!body.loading?<div data-testid="sx04-photo-timeline" className="space-y-3">
+              <p className="text-sm font-medium">Linha do tempo · até 6 protocolos recentes</p>
+              {body.photoSets.length===0?<p className="text-sm text-muted-foreground">Nenhum protocolo ativo confirmado.</p>:<>
+              <div className="space-y-2 rounded-lg border p-2">
+                <p className="text-sm font-medium">Comparar dois registros</p>
+                <Label htmlFor="sx04-angle">Ângulo</Label><select id="sx04-angle" value={comparisonAngle} onChange={e=>setComparisonAngle(e.target.value as BodyPhoto["angle_code"])} className="min-h-11 w-full rounded-md border bg-background px-2 text-sm">{photoAngles.map(a=><option key={a.code} value={a.code}>{a.label}</option>)}</select>
+                <div className="grid grid-cols-2 gap-2">{([{id:"sx04-first",label:"Primeiro registro",value:firstSet,set:setFirstSet},{id:"sx04-second",label:"Segundo registro",value:secondSet,set:setSecondSet}] as const).map(field=><div key={field.id} className="min-w-0 space-y-1"><Label htmlFor={field.id}>{field.label}</Label><select id={field.id} value={field.value} onChange={e=>field.set(e.target.value)} className="min-h-11 w-full rounded-md border bg-background px-1 text-sm"><option value="">Escolha</option>{body.photoSets.filter(set=>set.athlete_id===athleteId&&set.photos.some(photo=>photo.angle_code===comparisonAngle)).map((set,index)=><option key={set.id} value={set.id}>{set.captured_on} · {index+1}</option>)}</select></div>)}</div>
+                {(()=>{
+                  const first=body.photoSets.find(s=>s.id===firstSet&&s.athlete_id===athleteId);
+                  const second=body.photoSets.find(s=>s.id===secondSet&&s.athlete_id===athleteId);
+                  if(!first||!second||first.id===second.id)return <p className="text-xs text-muted-foreground">Escolha dois protocolos distintos.</p>;
+                  if(first.protocol_version!==second.protocol_version)return <p className="text-xs text-muted-foreground">Protocolos diferentes: comparação não apresentada.</p>;
+                  const pair=[first,second].map(set=>({set,photos:set.photos.filter(p=>p.angle_code===comparisonAngle&&p.athlete_id===athleteId)}));
+                  if(pair.some(item=>item.photos.length!==1))return <p className="text-xs text-muted-foreground">Ângulo ausente ou ambíguo.</p>;
+                  return <><div className="grid grid-cols-2 gap-2">{pair.map(({set,photos})=><div key={set.id} className="min-w-0"><p className="text-xs">{set.captured_on}</p><PrivatePhoto photo={photos[0]} label={photoAngles.find(a=>a.code===comparisonAngle)?.label??"Foto corporal"}/></div>)}</div><p className="text-xs text-muted-foreground">Mesmo ângulo e versão de protocolo; iluminação, distância e postura não foram verificadas. Sem inferência de composição corporal.</p></>;
+                })()}
               </div>
-              <Button
-                variant="secondary"
-                className="min-h-11 w-full"
-                disabled={body.saving || !Object.values(photoFiles).some(Boolean)}
-                onClick={() => void uploadPhotos()}
-              >
-                {body.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                Salvar protocolo fotográfico
-              </Button>
-            </>
-          )}
-
-          {body.photoSets.length ? (
-            <div className="space-y-3 border-t pt-4">
-              <p className="text-sm font-medium">Linha do tempo visual</p>
-              {body.photoSets.map((set) => (
-                <div key={set.id} className="rounded-xl border p-3">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{set.captured_on}</p>
-                    <Badge variant="outline">{set.protocol_version}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {set.photos.map((photo) => (
-                      <div key={photo.id} className="overflow-hidden rounded-lg border bg-muted/30">
-                        {photo.signed_url ? (
-                          <img
-                            src={photo.signed_url}
-                            alt={photoAngles.find((angle) => angle.code === photo.angle_code)?.label ?? "Foto corporal"}
-                            className="aspect-[3/4] w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex aspect-[3/4] items-center justify-center text-muted-foreground">
-                            <ImageIcon className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
+              {body.photoSets.filter(set=>set.athlete_id===athleteId).map(set=><details key={set.id} className="rounded-lg border px-2"><summary className="min-h-11 py-3 cursor-pointer text-sm">{set.captured_on} · {set.photos.length} fotos · {set.protocol_version}</summary><PhotoSetDetails set={set} athleteId={athleteId}/></details>)}
+              </>}
+            </div>:showPhotos&&body.loading?<p role="status" className="text-xs">Consultando referências privadas…</p>:null}
+          </>}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Histórico de avaliações</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {body.assessments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma avaliação registrada.</p>
-          ) : (
-            body.assessments.map((assessment) => {
-              const weightValue = measurementValue(assessment.measurements, "weight_kg");
-              const waistValue = measurementValue(assessment.measurements, "waist_cm");
-              const fatValue = measurementValue(assessment.measurements, "body_fat_pct");
-              return (
-                <div key={assessment.id} className="flex min-h-14 items-center justify-between gap-3 rounded-xl border p-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{assessment.observed_on}</p>
-                      <Badge variant="outline">{assessment.status}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Peso {weightValue == null ? "—" : formatNumber(weightValue) + " kg"} ·
-                      Cintura {waistValue == null ? "—" : formatNumber(waistValue) + " cm"} ·
-                      Gordura {fatValue == null ? "—" : formatNumber(fatValue) + "%"}
-                    </p>
-                  </div>
-                  {assessment.status === "active" ? (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="min-h-11 min-w-11 shrink-0"
-                      disabled={body.saving}
-                      aria-label="Anular avaliação"
-                      onClick={() =>
-                        void body
-                          .voidAssessment(assessment.id)
-                          .then(() => toast({ title: "Avaliação anulada", description: "O histórico foi preservado." }))
-                          .catch((cause) =>
-                            toast({
-                              variant: "destructive",
-                              title: "Não foi possível anular",
-                              description: cause instanceof Error ? cause.message : "Tente novamente.",
-                            }),
-                          )
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-              );
-            })
-          )}
+      <Card data-testid="sx04-history">
+        <CardHeader className="px-3 pt-3 pb-2"><CardTitle className="text-base">Histórico de avaliações</CardTitle><p className="text-xs text-muted-foreground">Até 12 avaliações recentes. Registros anulados e substituídos permanecem no histórico.</p></CardHeader>
+        <CardContent className="space-y-2 px-3 pb-3">
+          {body.error||body.loading?<p role="status" className="text-sm text-muted-foreground">Histórico não confirmado. Atualize para consultar.</p>:body.assessments.length===0?<p className="text-sm text-muted-foreground">Nenhuma avaliação registrada.</p>:<>
+            <WeightComparison assessments={body.assessments} athleteId={athleteId}/>
+            {body.assessments.filter(a=>a.athlete_id===athleteId).map(assessment=>{
+              const weightValue=measurementValue(assessment.measurements,"weight_kg");
+              const waistValue=measurementValue(assessment.measurements,"waist_cm");
+              return <div key={assessment.id} className="rounded-lg border px-2.5">
+                <details><summary className="min-h-11 cursor-pointer py-3">
+                  <span className="text-sm font-medium">{assessment.observed_on} · {assessment.status==="active"?"Ativa":assessment.status==="voided"?"Anulada":"Substituída"}</span>
+                  <span className="block text-xs text-muted-foreground">Peso {weightValue==null?"—":formatNumber(weightValue)+" kg"} · Cintura {waistValue==null?"—":formatNumber(waistValue)+" cm"}</span>
+                </summary>
+                <div className="space-y-2 pb-2">
+                  <p className="text-xs text-muted-foreground">Origem: {assessment.data_source} · confiança {assessment.confidence} · condição {contextLabel(assessment.conditions?.weighing_context)}</p>
+                  {assessment.measurements.filter(m=>m.athlete_id===athleteId&&m.assessment_id===assessment.id).map(m=><p key={m.id} className="text-xs">{metricLabels[m.metric_code]??m.metric_code}: {formatNumber(m.value)} {m.unit_code==="pct"?"%":m.unit_code} · {methodLabel(m.method)} · confiança {m.confidence}</p>)}
+                  {assessment.notes?<p className="text-xs break-words">{assessment.notes}</p>:null}
+                  {assessment.status==="active"?<Button variant="outline" className="min-h-11 w-full" disabled={blocked} onClick={()=>setConfirmVoid(assessment.id)}><Trash2 className="mr-2 h-4 w-4" aria-hidden="true"/>Anular avaliação</Button>:null}
+                  {confirmVoid===assessment.id&&assessment.status==="active"?<div className="space-y-2 rounded-md border p-2"><p className="text-sm">Anular esta avaliação? O histórico será preservado.</p><div className="grid grid-cols-2 gap-2"><Button className="min-h-11" variant="outline" onClick={()=>setConfirmVoid(null)} disabled={blocked}>Cancelar</Button><Button variant="destructive" className="min-h-11" disabled={blocked} onClick={()=>void run(()=>body.voidAssessment(assessment.id),"Anulação registrada. Confira o histórico.")}>Confirmar anulação</Button></div></div>:null}
+                </div></details>
+              </div>;
+            })}
+          </>}
         </CardContent>
       </Card>
     </div>
   );
+}
+const metricLabels:Record<string,string>={weight_kg:"Peso",waist_cm:"Cintura",hip_cm:"Quadril",chest_cm:"Peito",neck_cm:"Pescoço",body_fat_pct:"Gordura corporal",arm_left_cm:"Braço esquerdo",arm_right_cm:"Braço direito",thigh_left_cm:"Coxa esquerda",thigh_right_cm:"Coxa direita",calf_left_cm:"Panturrilha esquerda",calf_right_cm:"Panturrilha direita",lean_mass_kg:"Massa magra",skeletal_muscle_mass_kg:"Massa muscular esquelética"};
+const methodLabel=(value:string)=>({scale:"Balança",tape:"Fita",bioimpedance:"Bioimpedância",caliper:"Adipômetro",dexa:"DEXA",estimated:"Estimativa",professional:"Profissional",other:"Outro"} as Record<string,string>)[value]??value;
+const contextLabel=(value:unknown)=>value==="morning_fasted"?"Manhã em jejum":value==="morning_unfasted"?"Manhã sem jejum":value==="other"?"Outra condição":"Não informada";
+function PrivatePhoto({photo,label}:{photo:BodyPhoto;label:string}){
+ const [failed,setFailed]=useState(false);
+ return photo.signed_url&&!failed?<img src={photo.signed_url} alt={label} loading="lazy" onError={()=>setFailed(true)} className="aspect-[3/4] w-full rounded-md border object-contain bg-muted/20"/>:<div className="flex aspect-[3/4] items-center justify-center rounded-md border text-xs text-muted-foreground"><ImageIcon className="mr-1 h-4 w-4" aria-hidden="true"/>Foto indisponível</div>;
+}
+function PhotoSetDetails({set,athleteId}:{set:import("../hooks/useHealthBodyM8").BodyPhotoSet;athleteId:string}){
+ const [open,setOpen]=useState(false);
+ return <div className="space-y-2 pb-2"><Button variant="outline" className="min-h-11 w-full" onClick={()=>setOpen(v=>!v)}>{open?"Recolher imagens":"Mostrar imagens deste protocolo"}</Button>{open?<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{set.photos.filter(p=>p.athlete_id===athleteId&&p.photo_set_id===set.id).map(photo=><div key={photo.id}><p className="text-xs">{photoAngles.find(a=>a.code===photo.angle_code)?.label??"Ângulo personalizado"}</p><PrivatePhoto key={photo.signed_url??photo.id} photo={photo} label={photoAngles.find(a=>a.code===photo.angle_code)?.label??"Foto corporal"}/></div>)}</div>:null}</div>;
+}
+export function WeightComparison({assessments,athleteId}:{assessments:import("../hooks/useHealthBodyM8").BodyAssessment[];athleteId:string}){
+ const entries=assessments.filter(a=>a.athlete_id===athleteId&&a.status==="active").map(a=>({a,weights:a.measurements.filter(m=>m.athlete_id===athleteId&&m.assessment_id===a.id&&m.metric_code==="weight_kg"&&m.unit_code==="kg"&&Number.isFinite(Number(m.value))&&Number(m.value)>0)})).filter(x=>x.weights.length===1).sort((a,b)=>b.a.observed_at.localeCompare(a.a.observed_at));
+ const current=entries[0];
+ if(!current)return <p className="text-xs text-muted-foreground">Sem pesagem ativa confirmada no histórico consultado.</p>;
+ const context=current.a.conditions?.weighing_context;
+ const method=current.weights[0].method;
+ const prior=entries.find(entry=>entry.a.observed_on<current.a.observed_on&&entry.a.conditions?.weighing_context===context&&(context==="morning_fasted"||context==="morning_unfasted")&&entry.weights[0].method===method&&(method==="scale"||method==="bioimpedance"));
+ return <div className="space-y-1 rounded-lg bg-muted/25 p-3" data-testid="sx04-weight-comparison"><p className="text-xs text-muted-foreground">Última pesagem registrada · {current.a.observed_on}</p><p className="text-xl font-semibold tabular-nums">{formatNumber(current.weights[0].value)} kg</p><p className="text-xs">{methodLabel(method)} · {contextLabel(context)}</p>{prior?<><p className="text-xs">Referência de {prior.a.observed_on}: {formatNumber(prior.weights[0].value)} kg · diferença {formatSigned(Number(current.weights[0].value)-Number(prior.weights[0].value),"kg")}</p><p className="text-xs text-muted-foreground">Mesmo método e condição declarados; aparelho e hidratação não verificados. Não indica alteração de gordura.</p></>:<p className="text-xs text-muted-foreground">Sem referência comparável confirmada nesta consulta.</p>}</div>;
 }
