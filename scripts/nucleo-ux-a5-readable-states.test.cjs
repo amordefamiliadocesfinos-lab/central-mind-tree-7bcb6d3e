@@ -9,8 +9,8 @@ for(const x of ["overview","module","operation"])has(a,'aria-pressed={level==="'
 has(a,"grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center","Mobile nav");
 has(a,"min-h-11 w-full max-w-full min-w-0 whitespace-normal break-words","Long name");
 has(a,"Nenhum módulo corresponde à busca atual.","Filtered empty");
-has(f,'error ? "Core: leitura indisponível"',"Read error must not claim zero");
-has(f,'"Core: sem registro neste recorte"',"Zero only in successful recorte");
+has(f,'error ? "Consulta indisponível"',"Read error must not claim zero");
+has(f,'"Sem registro nesta consulta"',"Zero only in successful recorte");
 has(f,"min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5","320/390 responsivity");
 has(f,'disabled={saving||loading||Boolean(error)||writeUncertain||!fence.ready||fence.blocked}',"FM CTA read and indeterminate-write guard");
 has(f,'role="alert" className="rounded-md border border-destructive/40',"FM alert");
