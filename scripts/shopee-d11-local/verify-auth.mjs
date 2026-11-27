@@ -59,9 +59,42 @@ for(const u of [a,b,c]){
  const w=await request('/rest/v1/shopee_cycle_policy_revisions',anon,u.token,{channel_account_id:account,revision:99});
  assert.ok(w.status>=400);
 }
+// Exercise the consolidated observation and claim RPCs through real local
+// PostgREST role checks, with synthetic Raw and no network to Shopee.
+const sn='D11SYNTHETIC1', pkg='PKG1', hash='a'.repeat(64);
+const detail={response:{order_list:[{order_sn:sn,create_time:Math.floor(Date.now()/1000)-120,
+ order_status:'READY_TO_SHIP',split_up:false,package_list:[{package_number:pkg,logistics_status:'LOGISTICS_READY'}]}]}};
+sql(`INSERT INTO public.shopee_cycle_orders(channel_account_id,order_sn) VALUES ('${account}','${sn}');
+INSERT INTO public.orders(id,channel_account_id,order_number,channel,sale_origin,deleted_at,status,operational_status)
+ VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','${account}','${sn}','shopee','shopee_open_platform',NULL,'pendente','todo');
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
+ VALUES ('${account}','shopee_open_platform','live','order','/api/v2/order/get_order_detail','${sn}','${JSON.stringify(detail)}','${hash}',clock_timestamp()-interval '1 minute');`);
+const effect=(name,args,token=service,key=service)=>request('/rest/v1/rpc/'+name,key,token,args);
+const lease=await effect('acquire_shopee_cycle',{p_channel_account_id:account});
+assert.equal(lease.status,200);assert.equal(lease.data.status,'acquired');
+assert.equal(lease.data.policy_revision,1);
+const started=sql('SELECT clock_timestamp()');
+const received=sql('SELECT clock_timestamp()');
+const record={p_account:account,p_lease:lease.data.lease_id,p_revision:1,p_shop:123,p_order:sn,
+ p_hash:hash,p_payload:detail,p_request:'fixture-real-auth-1',p_started:started,p_received:received};
+for(const token of [anon,a.token,b.token,c.token])
+ assert.ok((await effect('record_shopee_cycle_observation',record,token,anon)).status>=400);
+const rec=await effect('record_shopee_cycle_observation',record);
+assert.equal(rec.status,200);assert.equal(rec.data.status,'observation_recorded');
+const fence={p_channel_account_id:account,p_lease_id:lease.data.lease_id,p_revision:1,p_action:'ship',
+ p_shop_id:123,p_order_sn:sn,p_package_number:pkg,p_request_hash:'b'.repeat(64),p_observation_id:rec.data.observation_id};
+assert.ok((await effect('claim_shopee_cycle_effect',fence,a.token,anon)).status>=400);
+assert.equal((await effect('claim_shopee_cycle_effect',{...fence,p_observation_id:crypto.randomUUID()})).data.status,'policy_observation_refused');
+const claim=await effect('claim_shopee_cycle_effect',fence);
+assert.equal(claim.status,200);assert.equal(claim.data.status,'claimed');assert.equal(claim.data.fresh,true);
+assert.equal((await effect('claim_shopee_cycle_effect',fence)).data.status,'already_claimed');
+assert.equal(sql('SELECT count(*) FROM public.shopee_shipping_arrangement_attempts'),'1');
 const pause={...payload,p_expected_revision:1,p_request:crypto.randomUUID(),p_operation:'pause',p_config:null,p_evidence:'fixture/pause'};
 assert.equal((await rpc(a.token,anon,pause)).data.status,'recorded');
 assert.equal(sql("SELECT enabled::text||':'||paused::text FROM public.shopee_cycle_policy_revisions ORDER BY revision DESC LIMIT 1"),'false:true');
+assert.equal((await effect('claim_shopee_cycle_effect',fence)).data.status,'policy_admission_refused');
+assert.equal(sql('SELECT count(*) FROM public.shopee_shipping_arrangement_attempts'),'1');
+console.log('PASS local consolidated observation/claim RPC: service-only, exact receipt, duplicate and pause denial');
 sql(`UPDATE public.app_admin_capabilities SET active=false,revoked_at=now() WHERE auth_user_id='${a.id}' AND capability='shopee_manage_cycle_policy';`);
 assert.equal((await rpc(a.token,anon,{...payload,p_expected_revision:2,p_request:crypto.randomUUID()})).data.status,'author_refused');
 assert.equal(sql('SELECT count(*) FROM public.shopee_cycle_policy_revisions'),'2');
