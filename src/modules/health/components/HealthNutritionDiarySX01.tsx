@@ -48,7 +48,7 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
   const [mealId,setMealId]=useState("");
   const [foodId,setFoodId]=useState("");
   const [quantity,setQuantity]=useState("");
-  const [confirmation,setConfirmation]=useState<"complete"|"reopen"|string|null>(null);
+  const [confirmation,setConfirmation]=useState<string|null>(null);
   const [feedback,setFeedback]=useState("");
   const [actionError,setActionError]=useState("");
   const [busy,setBusy]=useState(false);
@@ -72,10 +72,10 @@ export function HealthNutritionDiarySX01({nutrition,nutritionState,athleteId}:{n
   // if its source still matches the M5 published version and the observed diary.
   const aligned=Boolean(!nutritionState.error&&!nutritionState.loading&&!nutritionState.refreshing&&
     daily&&daily.athlete_id===athleteId&&daily.state_date===date&&day&&daily.food_log_day_id===day.id&&
-    daily.completeness_status===day.completeness_status&&daily.observed_item_count===nutrition.activeItems.length&&
+    !unavailable&&!nutrition.loading&&daily.completeness_status===day.completeness_status&&daily.observed_item_count===nutrition.activeItems.length&&
     daily.observed_meal_count===nutrition.meals.length&&nutrition.version?.status==="published"&&
     nutrition.plan?.current_version_id===nutrition.version.id&&daily.plan_version_id===nutrition.version.id&&
-    nutrition.target&&daily.target_id===nutrition.target.id&&nutrition.target.plan_version_id===nutrition.version.id);
+    nutrition.target&&nutrition.target.athlete_id===athleteId&&daily.target_id===nutrition.target.id&&nutrition.target.plan_version_id===nutrition.version.id);
   const values=metricKeys.map(key=>unavailable||nutrition.loading?null:sumKnown(nutrition.activeItems,key,complete));
   const metrics=[
     {label:"Energia",unit:"kcal",value:values[0],m6:daily?.energy_kcal_consumed,min:daily?.energy_kcal_min_target,max:daily?.energy_kcal_max_target},
