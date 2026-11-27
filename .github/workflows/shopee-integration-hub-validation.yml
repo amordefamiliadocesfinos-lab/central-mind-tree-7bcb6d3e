@@ -115,6 +115,17 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-lease-prototype.sql
       - name: D11 policy-bound durable claims proof (disposable, rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-claim-prototype.sql
+      - name: D11 authenticated policy authoring and concurrent pause versus claim (disposable)
+        run: |
+          createdb d11_policy_test
+          trap 'dropdb --if-exists d11_policy_test; psql -X -d cycle_test -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS d11_policy_author"' EXIT
+          export PGDATABASE=d11_policy_test
+          sed '/^CREATE ROLE /d' services/integration-hub/tests/sql/cycle-fixture.sql | psql -X -v ON_ERROR_STOP=1
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261020225826_shopee_minimum_cycle_state.sql
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-authoring-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-authoring-assertions.sql
+          node services/integration-hub/tests/sql/check-d11-policy-concurrency.mjs
       - name: Logistics RLS roles and deleted-order visibility in disposable PostgreSQL
         run: |
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/logistics-read-fixture.sql
