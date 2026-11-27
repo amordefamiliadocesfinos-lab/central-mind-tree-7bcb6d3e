@@ -141,7 +141,7 @@ function bodyFileExtension(type: string) {
   return "jpg";
 }
 
-export function useHealthBodyM8(athleteId: string | null | undefined, includePhotoUrls = true) {
+export function useHealthBodyM8(athleteId: string | null | undefined, includePhotoUrls = false) {
   const [assessments, setAssessments] = useState<BodyAssessment[]>([]);
   const [states, setStates] = useState<BodyRollingState[]>([]);
   const [photoSets, setPhotoSets] = useState<BodyPhotoSet[]>([]);
@@ -193,6 +193,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined, includePho
       return;
     }
 
+    if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
     const rawAssessments = (assessmentsResult.data ?? []) as unknown as Omit<BodyAssessment, "measurements">[];
     const assessmentIds = rawAssessments.map((item) => item.id);
 
@@ -236,6 +237,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined, includePho
         return;
       }
 
+      if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
       const rawPhotos = (photosResult.data ?? []) as unknown as Omit<BodyPhoto, "signed_url">[];
       photos = await Promise.all(
         rawPhotos.map(async (photo) => {
@@ -260,7 +262,7 @@ export function useHealthBodyM8(athleteId: string | null | undefined, includePho
     }
 
     if(request!==generation.current){if(strict)throw new Error("Consulta substituída.");return;}
-    if(rawAssessments.some(x=>x.athlete_id!==athleteId)||measurements.some(x=>x.athlete_id!==athleteId)||rawPhotoSets.some(x=>x.athlete_id!==athleteId)||photos.some(x=>x.athlete_id!==athleteId)){fail("Escopo da consulta não confirmado.");return;}
+    if(((statesResult.data??[]) as unknown as BodyRollingState[]).some(x=>x.athlete_id!==athleteId)||rawAssessments.some(x=>x.athlete_id!==athleteId)||measurements.some(x=>x.athlete_id!==athleteId)||rawPhotoSets.some(x=>x.athlete_id!==athleteId)||photos.some(x=>x.athlete_id!==athleteId)){fail("Escopo da consulta não confirmado.");return;}
     setAssessments(
       rawAssessments.map((assessment) => ({
         ...assessment,
