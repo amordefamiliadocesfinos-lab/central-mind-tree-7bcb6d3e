@@ -359,7 +359,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
         <div className="space-y-5 pb-4">
           <section className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-4">
           <h3 className="text-sm font-semibold">Contexto da venda</h3>
@@ -427,14 +427,14 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
               </p>
             )}
             {items.map((item, index) => (
-              <div key={index} className="space-y-1">
+              <div key={index} className="min-w-0 space-y-1">
                 {index > 0 && !item.variant_id && products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas'
                   && item.commercial_presentation?.composition_mode !== 'composite' && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-300">Selecione a variante física deste item antes de registrar a venda.</p>
                   )}
-                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-3 sm:gap-1.5">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-2 sm:gap-2" data-testid="commercial-order-item-grid">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+                  <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
                     {visibleProducts.map((product) => (
                       <SelectItem key={product.id} value={product.id} className="text-xs">{product.name}</SelectItem>
@@ -447,12 +447,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
                   updateItem(index, { commercial_presentation: presentation, variant_id: presentation?.composition_mode === 'composite' ? null : item.variant_id, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
                 }} disabled={!item.product_id}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                  <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                   <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
                 </Select>
                 {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                   <Select value={item.variant_id || ''} onValueChange={(value) => pickVariant(index, value)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
+                    <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
                     <SelectContent>
                       {variants.filter((variant) => variant.product_id === item.product_id).map((variant) => (
                         <SelectItem key={variant.id} value={variant.id} className="text-xs">{variant.variant_name} · {variant.sku}</SelectItem>
@@ -465,7 +465,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
                 />
                 <CurrencyInput
-                  className="h-8 min-w-[10rem] text-right text-xs tabular-nums"
+                  className="h-8 w-full min-w-0 text-right text-xs tabular-nums"
                   aria-label="Valor unitário"
                   placeholder="R$ 0,00"
                   value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
@@ -477,7 +477,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     if (parsed) updateItem(index, { unit_price: parsed.number });
                   }}
                 />
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-1">
                   <Button size="icon" variant="outline" className="h-8 w-8" disabled={!item.product_id} aria-label="Duplicar linha para outro sabor" title="Duplicar produto e apresentação para outro sabor" onClick={() => duplicateItemForFlavor(index)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
