@@ -1,4 +1,4 @@
-import { resolveD10Profile, d10CandidateInWindow } from './shopee-d10-profile.mjs';
+import { resolveD10Profile, d10CandidateInWindow, D10_ORDER_RE } from './shopee-d10-profile.mjs';
 import { readLiveShopeeOauthConnection, readShopeeLogisticsTombstones, upsertLiveShopeeOrderSnapshot, sha256Hex, readLiveShopeeOrderIntakeBatch } from './core-bridge.mjs';
 import { getOrderList, getOrderDetail, parseShopeeError } from './connectors/shopee-protocol.mjs';
 import { decryptShopeeToken } from './shopee-token-crypto.mjs';
@@ -59,6 +59,7 @@ export function createD10Pilot({
     if (!good(list) || !Array.isArray(entries) || list.payload.response.more!==false
       || entries.length!==1) return failed('d10_window_not_single_complete_order');
     const orderSn=entries[0]?.order_sn;
+    if (!D10_ORDER_RE.test(orderSn??'')) return failed('d10_list_identity_invalid');
     const detail=await detailOrders({...signed,orderDetailPath:'/api/v2/order/get_order_detail',
       orderSnList:[orderSn],responseOptionalFields:['item_list','package_list','invoice_data','split_up']});
     const orders=detail?.payload?.response?.order_list;
