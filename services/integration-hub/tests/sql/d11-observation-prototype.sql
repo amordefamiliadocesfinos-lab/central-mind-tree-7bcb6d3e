@@ -88,6 +88,27 @@ BEGIN
  ASSERT public.record_shopee_cycle_observation(a,l3,1,123,'D11SYNTHETIC1',repeat('a',64),r.payload,'req_3',t,clock_timestamp())->>'status'='observation_recorded';
 END $$;
 RESET ROLE;
+-- The current receipt also binds the canonical content, not just a mutable hash field.
+SAVEPOINT tamper;
+UPDATE public.marketplace_raw_snapshots SET payload=payload||'{"tampered":true}'
+ WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+SET LOCAL ROLE service_role;
+DO $$ DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
+ ASSERT public.read_shopee_cycle_observation(a,l,1,'intake') IS NULL;
+END $$;
+RESET ROLE;
+ROLLBACK TO SAVEPOINT tamper;
+SAVEPOINT pause;
+INSERT INTO public.shopee_cycle_policy_revisions(channel_account_id,revision,environment,shop_id,partner_id,history_cutoff)
+VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,'live',123,2047685,1);
+SET LOCAL ROLE service_role;
+DO $$ DECLARE a uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; l uuid; BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=a;
+ ASSERT public.read_shopee_cycle_observation(a,l,1,'intake') IS NULL;
+END $$;
+RESET ROLE;
+ROLLBACK TO SAVEPOINT pause;
 -- A newer Raw without matching receipt is ambiguous, so don't use old proof.
 INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
 SELECT channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload||'{"later":true}',repeat('c',64),clock_timestamp()
