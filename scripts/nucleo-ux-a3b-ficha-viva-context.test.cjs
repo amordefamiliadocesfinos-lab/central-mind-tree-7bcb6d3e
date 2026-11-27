@@ -106,7 +106,7 @@ for(const token of [
  'const pendingFronts=[...fronts,...subfronts].filter(front=>front.status!=="concluido");',
  'const attentionFront=selectAttention(pendingFronts);',
  'attentionFront.kind==="subfrente"?"Subfrente":"Frente"',
- 'em atenção: {attentionFront.code} · {attentionFront.title}',
+ 'em atenção: {humanWorkName(attentionFront.code,attentionFront.title)}',
  'Próxima ação {attentionFront.kind==="subfrente"?"da subfrente":"da frente"}:',
  'attentionFront.next_action.trim()||"não informada no Core"',
  'Próxima ação do módulo:',
