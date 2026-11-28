@@ -15,6 +15,7 @@ import {
   InvoicesManager,
   StatementImporter,
 } from '@/components/financial';
+import { ShopeeReceiptAssistDialog } from '@/components/financial/ShopeeReceiptAssistDialog';
 import { GlobalFinancialSearchDialog } from '@/components/financial/GlobalFinancialSearchDialog';
 import { MobileFinancialView } from '@/components/financial/MobileFinancialView';
 import { useFinancial, EntryStatus } from '@/hooks/useFinancial';
@@ -31,6 +32,7 @@ import { MarketplaceSettlementDialog } from '@/components/financial/MarketplaceS
 import { useIsMobile } from '@/hooks/use-mobile';
 export default function Financeiro() {
   const isMobile = useIsMobile();
+  const [receiptAssistOpen,setReceiptAssistOpen]=useState(false);
   const [globalSearchOpen,setGlobalSearchOpen]=useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [quickAction, setQuickAction] = useState<'receber' | 'pagar' | 'contas' | null>(null);
@@ -109,12 +111,14 @@ export default function Financeiro() {
 
       <div className="container mx-auto p-4 space-y-4">
         <Button variant="outline" className="w-full justify-start" onClick={()=>setGlobalSearchOpen(true)}>Pesquisar lançamentos em todos os períodos</Button>
-        {globalSearchOpen && <GlobalFinancialSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen}/>}
+        {receiptAssistOpen && <ShopeeReceiptAssistDialog open={receiptAssistOpen} onOpenChange={setReceiptAssistOpen}/>}
+      {globalSearchOpen && <GlobalFinancialSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen}/>}
         <section aria-label="Operações rápidas" className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('receber')}><TrendingUp className="h-5 w-5 text-emerald-600" /> Nova conta a receber</Button>
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('pagar')}><TrendingDown className="h-5 w-5 text-red-500" /> Nova conta a pagar</Button>
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('contas')}><ArrowRightLeft className="h-5 w-5 text-blue-600" /> Transferir</Button>
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => setSettlementOpen(true)}><ShoppingBag className="h-5 w-5 text-orange-600" /> Conciliar repasse</Button>
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={()=>setReceiptAssistOpen(true)}><ShoppingBag className="h-4 w-4 text-orange-600"/> Recebimento Shopee</Button>
         </section>
         {/* Period selector */}
         <div className="flex flex-wrap items-center gap-2">
