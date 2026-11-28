@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,8 @@ interface FinancialEntriesListProps {
   onExport: () => void;
   statusFilter: EntryStatus | 'all';
   onStatusFilterChange: (status: EntryStatus | 'all') => void;
+  quickCreate?: boolean;
+  onQuickCreateConsumed?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }
@@ -78,6 +80,8 @@ export function FinancialEntriesList({
   onStatusFilterChange,
   searchQuery,
   onSearchChange,
+  quickCreate,
+  onQuickCreateConsumed,
 }: FinancialEntriesListProps) {
   const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
@@ -283,6 +287,13 @@ export function FinancialEntriesList({
     setFormTab('pagamento');
     setFormOpen(true);
   };
+
+  useEffect(() => {
+    if (quickCreate) {
+      handleNew();
+      onQuickCreateConsumed?.();
+    }
+  }, [quickCreate]);
 
   const handleSave = async (saveAndPay: boolean = false) => {
     const data = {
