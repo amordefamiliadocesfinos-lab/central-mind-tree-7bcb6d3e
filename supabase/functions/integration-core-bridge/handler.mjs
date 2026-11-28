@@ -98,7 +98,7 @@ function validateActionPayload(payload, nowMs) {
   if (D11_ACTIONS.includes(payload.action)) {
     if (!validateD11Payload(payload)) return false;
     // Reuse the exact existing projection contract, not an arbitrary JSON writer.
-    if (payload.action === 'shopee.d11.reconcile.verify') {
+    if (payload.action === 'shopee.d11.reconcile.verify' || payload.action === 'shopee.d11.intake.commit') {
       return payload.projection.channel_account_id === payload.channel_account_id
         && validateActionPayload({ ...payload.projection, action: 'shopee.order.create' }, nowMs);
     }
