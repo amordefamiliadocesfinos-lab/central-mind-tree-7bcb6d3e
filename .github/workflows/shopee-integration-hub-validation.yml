@@ -118,6 +118,16 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-policy-claim-prototype.sql
       - name: D11 fresh observation receipt proof (disposable, rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-observation-prototype.sql
+      - name: D11 existing commercial writer composition proof (disposable)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          createdb p4_shopee_writer_disposable
+          trap 'dropdb --if-exists p4_shopee_writer_disposable' EXIT
+          export PGDATABASE=p4_shopee_writer_disposable
+          sed '/^CREATE ROLE /d' supabase/tests/p4_shopee_writer_fixture_disposable.sql | psql -X -v ON_ERROR_STOP=1
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-intake-composition-prototype.sql
+
       - name: D11 authenticated policy authoring and concurrent pause versus claim (disposable)
         run: |
           createdb d11_policy_test
