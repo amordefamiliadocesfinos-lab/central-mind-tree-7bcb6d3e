@@ -218,3 +218,33 @@ test('B8 reconfirms every examined customer message before the canonical writer'
   assert.match(historyReview, /O histórico mudou desde a análise ou está incompleto/);
   assert.match(panel, /disabled=\{!conversationId \|\| editing \|\| loading \|\| saving\}/);
 });
+
+test('B9 free-text email and CEP are presented only as unverified evidence', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('plain', 'customer', ['Pode mandar para contato@example.com, por favor', 'Acho que é 88220-000'].join(String.fromCharCode(10))),
+  ], {});
+  assert.deepEqual(result.map(item => item.field).sort(), ['email', 'zip_code']);
+  assert.ok(result.every(item => item.state === 'unverified' && item.requiresReview));
+  assert.equal(result[0].messageId, 'plain');
+});
+
+test('B9 explicit labelled evidence wins; quoted and third-party blocks stay out', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('quoted', 'customer', ['Dados da minha mãe:', 'E-mail: mae@example.com'].join(String.fromCharCode(10))),
+    msg('agent', 'agent', 'contato@agente.com'),
+    msg('plain', 'customer', 'Talvez teste@example.com'),
+    msg('label', 'customer', 'Meu e-mail é cliente@example.com'),
+  ], {});
+  assert.equal(result.length, 1);
+  assert.equal(result[0].field, 'email');
+  assert.equal(result[0].value, 'cliente@example.com');
+  assert.equal(result[0].state, 'empty');
+});
+
+test('B9 unverified fields are not eligible for the canonical confirmation button', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /selectedFields\.includes\(item\.field\) && item\.state === 'empty'/);
+  assert.match(panel, /disabled=\{item\.state !== 'empty'/);
+  assert.match(panel, /unverified: 'Texto livre: titularidade não comprovada/);
+  assert.doesNotMatch(panel, /\.upsert\(|\.insert\(/);
+});
