@@ -702,14 +702,14 @@ export function FinancialEntriesList({
                               {status !== 'pago' && (
                                 <>
                                   <DropdownMenuItem onClick={() => {
-                                    setAdvancedPaymentEntries([entry]);
+                                    setPaymentEntry(entry);
                                     setIsPartialPayment(false);
                                   }}>
                                     <CheckCircle className="mr-2 h-4 w-4" />
                                     Baixa total do {type === 'receber' ? 'recebimento' : 'pagamento'}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => {
-                                    setAdvancedPaymentEntries([entry]);
+                                    setPaymentEntry(entry);
                                     setIsPartialPayment(true);
                                   }}>
                                     <DollarSign className="mr-2 h-4 w-4" />
@@ -1052,8 +1052,10 @@ export function FinancialEntriesList({
           onOpenChange={(open) => !open && setPaymentEntry(undefined)}
           entry={paymentEntry}
           accounts={accounts}
-          onConfirm={async (value, accountId, notes) => {
-            await onRegisterPayment(paymentEntry.id, value, accountId, notes);
+          partial={isPartialPayment}
+          onAdvanced={() => { setAdvancedPaymentEntries([paymentEntry]); setPaymentEntry(undefined); }}
+          onConfirm={async (value, accountId, notes, paymentDate) => {
+            await onRegisterPayment(paymentEntry.id, value, accountId, notes, paymentDate);
             setPaymentEntry(undefined);
           }}
         />
