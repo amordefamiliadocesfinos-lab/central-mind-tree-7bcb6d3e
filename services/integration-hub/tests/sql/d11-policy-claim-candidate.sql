@@ -175,3 +175,28 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_shopee_cycle_effect(uuid,uuid,integer,text,bigint,text,text,text,uuid) TO service_role;
+
+-- Resolve only a previously bound attempt, even after policy pause/lease
+-- expiry. Never grant another effect, reset a claim or infer external success.
+CREATE FUNCTION public.resolve_shopee_d11_effect(p_account uuid,p_lease uuid,p_revision integer,
+ p_observation uuid,p_effect text,p_attempt uuid,p_hash text,p_outcome text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+BEGIN
+ IF p_account IS NULL OR p_lease IS NULL OR p_revision IS NULL OR p_revision<1 OR p_observation IS NULL
+  OR p_attempt IS NULL OR coalesce(p_hash,'') !~ '^[0-9a-f]{64}$'
+  OR p_effect IS NULL OR p_effect NOT IN ('ship','label') OR p_outcome IS NULL OR p_outcome NOT IN ('succeeded','uncertain')
+  OR p_account IN ('8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892')
+ THEN RETURN jsonb_build_object('status','invalid_request'); END IF;
+ IF p_effect='ship' THEN
+  PERFORM 1 FROM public.shopee_shipping_arrangement_attempts WHERE id=p_attempt AND channel_account_id=p_account
+   AND d11_lease_id=p_lease AND d11_policy_revision=p_revision AND d11_observation_id=p_observation AND request_hash=p_hash FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status','effect_binding_refused'); END IF;
+  RETURN public.resolve_shopee_shipping_arrangement(p_attempt,p_hash,p_outcome);
+ END IF;
+ PERFORM 1 FROM public.shopee_shipping_document_attempts WHERE id=p_attempt AND channel_account_id=p_account
+  AND d11_lease_id=p_lease AND d11_policy_revision=p_revision AND d11_observation_id=p_observation AND request_hash=p_hash FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('status','effect_binding_refused'); END IF;
+ RETURN public.resolve_shopee_shipping_document(p_attempt,p_hash,p_outcome);
+END $$;
+REVOKE ALL ON FUNCTION public.resolve_shopee_d11_effect(uuid,uuid,integer,uuid,text,uuid,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_shopee_d11_effect(uuid,uuid,integer,uuid,text,uuid,text,text) TO service_role;
