@@ -5,6 +5,7 @@ import {createD11RecurringPreflight} from './shopee-d11-recurring-preflight.mjs'
 import {createD11DiscoveryPage} from './shopee-d11-discovery-page.mjs';
 import {createD11ShipExecutor} from './shopee-d11-ship-executor.mjs';
 import {createD11LabelExecutor} from './shopee-d11-label-executor.mjs';
+import {createD11Refresh} from './shopee-d11-refresh.mjs';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const id=v=>typeof v==='string'&&UUID.test(v);
 const SN=/^[A-Za-z0-9]{8,100}$/;
@@ -14,6 +15,7 @@ export function createD11RecurringRound({enabled=false,intakeCommitEnabled=false
  adapters=createD11BridgeAdapters({enabled,call}),
  preflight=createD11RecurringPreflight({enabled,intakeCommitEnabled,now,call,adapters}),
  discover=createD11DiscoveryPage({enabled,now,call,getEnv,adapters}),
+ refresh=createD11Refresh({enabled,now,call,getEnv,adapters}),
  makeShip=createD11ShipExecutor,makeLabel=createD11LabelExecutor}={}){
  return async function run({accountId,discoveryTurn=false}={}){
   if(enabled!==true||getEnv('SHOPEE_D11_RECURRING_ENABLED')!=='true')return result(false,'d11_round_disabled');
@@ -38,6 +40,17 @@ export function createD11RecurringRound({enabled=false,intakeCommitEnabled=false
    }catch{}
    return result(false,'d11_round_finish_unconfirmed',{ordersWritten:writes,effects,leaseReleased:false,reconciliationRequired:true,orderSn:scope.orderSn});
   };
+  // OAuth rotation is a separate round under the same lease. Acknowledged
+  // rotation is not an order/label effect; ambiguous rotation halts only this account.
+  try{
+   const a=await refresh({...scope,deadline});
+   if(a?.ok===true&&a.code==='d11_oauth_refreshed')
+    return finish('d11_oauth_refreshed',result(true,a.code,{oauthRefreshed:true}));
+   if(a?.code==='cycle_refresh_or_discovery_uncertain')
+    return finish(a.code,result(false,a.code,{reconciliationRequired:true}));
+   if(a?.ok!==true||a.code!=='d11_oauth_current')
+    return finish('d11_oauth_refresh_not_admitted',result(false,'d11_oauth_refresh_not_admitted'));
+  }catch{return finish('cycle_refresh_or_discovery_uncertain',result(false,'cycle_refresh_or_discovery_uncertain',{reconciliationRequired:true}));}
   // Discovery always gets a turn even with pending documents, through the
   // internal cadence selector. A successful checkpoint releases this lease.
   if(scope.orderSn===null||discoveryTurn){
