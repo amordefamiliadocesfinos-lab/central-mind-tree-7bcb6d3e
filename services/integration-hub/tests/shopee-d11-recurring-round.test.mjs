@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createD11RecurringRound} from '../src/shopee-d11-recurring-round.mjs';
+import {createD11RecurringRound,createD11ScheduledCycle} from '../src/shopee-d11-recurring-round.mjs';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',L='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',I='cccccccc-cccc-4ccc-8ccc-cccccccccccc',O='dddddddd-dddd-4ddd-8ddd-dddddddddddd',S='D11SYNTHETIC1',N=Date.parse('2026-11-28T12:00:00Z');
 function fixture(){
  const f={calls:[],flag:'true',candidate:S,proof:{ok:true,code:'d11_preflight_verified_existing',accountId:A,orderSn:S,orderId:O,observationId:I,rawId:L,ordersWritten:0,effects:0,outcome:'pending',effectAuthorized:false},effect:'ship',response:{ok:true,code:'ship_order_api_acknowledged_not_collected',effects:1}};
@@ -53,4 +53,15 @@ test('D11 expired OAuth uses a separate turn; unknown rotation halts without pro
  assert.equal(r.oauthRefreshed,true);assert.deepEqual(f.calls,['acquire','d11_oauth_refreshed']);
  const g=fixture();g.oauth={ok:false,code:'cycle_refresh_or_discovery_uncertain'};const t=await g.run({accountId:A});
  assert.equal(t.reconciliationRequired,true);assert.deepEqual(g.calls,['acquire','cycle_refresh_or_discovery_uncertain']);
+});
+
+test('D11 shared scheduler selects account by Core with no request identity',async()=>{
+ const calls=[];let flag='true',competing=false;
+ const run=createD11ScheduledCycle({getEnv:k=>k==='SHOPEE_D11_RECURRING_ENABLED'?flag:k==='SHOPEE_D10_ENABLED'&&competing?'true':undefined,
+  adapters:{selectAccount:async()=>{calls.push('select');return {status:'selected',accountId:A,discoveryTurn:true};}},
+  round:async p=>{calls.push(p);return {ok:true,code:'d11_discovery_checkpointed',ordersWritten:0,effects:0};}});
+ assert.equal((await run({accountId:O})).accountId,A);
+ assert.deepEqual(calls,['select',{accountId:A,discoveryTurn:true}]);
+ calls.length=0;competing=true;assert.equal((await run()).code,'d11_competing_writer_enabled');assert.deepEqual(calls,[]);
+ competing=false;flag='false';assert.equal((await run()).code,'d11_cycle_disabled');
 });
