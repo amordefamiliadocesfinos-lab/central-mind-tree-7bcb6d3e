@@ -1,4 +1,5 @@
 import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
+import { documentedJourneys } from "@/lib/nucleo/documentedJourneysV1";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
@@ -279,6 +280,26 @@ export default function NucleoSupervisionPanel({
               </div>
             ))}
           </div>
+          <details className="rounded-xl border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">Conexões entre áreas</summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-sm text-muted-foreground">Roteiros de acompanhamento documentados. Não são dependências bloqueantes cadastradas, alertas ou confirmação de execução. Consulte as fontes e o especialista antes de agir.</p>
+              {documentedJourneys(latestFronts,focusModuleId).length===0 && <p className="text-sm text-muted-foreground">Nenhum roteiro documentado disponível neste recorte. Isso não significa que não existam conexões.</p>}
+              {documentedJourneys(latestFronts,focusModuleId).map(journey=>(
+                <section key={journey.key} className="rounded-lg border p-3 space-y-2">
+                  <h5 className="text-sm font-semibold">{journey.title}</h5>
+                  <p className="text-sm break-words">{journey.sequence}</p>
+                  <p className="text-sm text-muted-foreground"><strong>O que conferir:</strong> {journey.next}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {journey.modules.map(module=>onOpenWorkstream
+                      ? <Button key={module.id} type="button" variant="outline" size="sm" className="min-h-11 whitespace-normal" onClick={()=>onOpenWorkstream(module.id)}>Consultar {humanWorkName(module.code,module.title)}</Button>
+                      : <span key={module.id} className="text-xs">{humanWorkName(module.code,module.title)}</span>)}
+                  </div>
+                  <a className="text-xs underline" href={journey.source} target="_blank" rel="noopener noreferrer">Fonte documental de 25/11/2026</a>
+                </section>
+              ))}
+            </div>
+          </details>
           <details className="rounded-xl border p-3">
             <summary className="cursor-pointer text-sm font-semibold">Detalhes da leitura e da governança</summary>
             <div className="mt-3 space-y-3">
