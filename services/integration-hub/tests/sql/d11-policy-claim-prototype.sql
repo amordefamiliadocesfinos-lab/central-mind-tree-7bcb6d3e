@@ -13,6 +13,15 @@ ALTER TABLE public.orders ADD COLUMN status text, ADD COLUMN operational_status 
 \ir d11-observation-candidate.sql
 \ir d11-policy-claim-candidate.sql
 \ir d11-observation-fixture-helper.sql
+-- Disposable fault injection: failure to bind must roll back the fresh claim.
+CREATE FUNCTION public.d11_fixture_reject_binding() RETURNS trigger LANGUAGE plpgsql AS $fault$
+BEGIN
+ IF current_setting('d11.fixture_reject_binding',true)='on' AND NEW.d11_observation_id IS NOT NULL
+ THEN RAISE EXCEPTION 'fixture_binding_failure'; END IF;
+ RETURN NEW;
+END $fault$;
+CREATE TRIGGER d11_fixture_binding_failure BEFORE UPDATE ON public.shopee_shipping_arrangement_attempts
+ FOR EACH ROW EXECUTE FUNCTION public.d11_fixture_reject_binding();
 
 INSERT INTO public.channel_accounts(id,name,is_active,platform_id) VALUES
 ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','D11 synthetic A',true,'11111111-1111-4111-8111-111111111111'),
@@ -79,6 +88,14 @@ BEGIN
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),old_obs)->>'status'='policy_observation_refused';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_external_state_refused';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','OTHERPKG',repeat('a',64),obs)->>'status'='policy_history_or_package_refused';
+ BEGIN
+   PERFORM set_config('d11.fixture_reject_binding','on',true);
+   PERFORM public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs);
+   RAISE EXCEPTION 'fixture binding failure unexpectedly accepted';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM<>'fixture_binding_failure' THEN RAISE; END IF;
+ END;
+ ASSERT NOT EXISTS(SELECT 1 FROM public.shopee_shipping_arrangement_attempts WHERE channel_account_id=a);
  x:=public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean; attempt:=(x->>'attempt_id')::uuid;
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='already_claimed';
