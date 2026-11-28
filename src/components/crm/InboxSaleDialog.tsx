@@ -100,6 +100,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const [pendingDocuments, setPendingDocuments] = useState<PendingOrderDocument[]>([]);
   const [presentationsByIdentity, setPresentationsByIdentity] = useState<Record<string, CommercialPresentation[]>>({});
   const [saving, setSaving] = useState(false);
+  const [savePhase, setSavePhase] = useState<'idle' | 'order' | 'extras'>('idle');
+  const saveInFlightRef = useRef(false);
   const saleRequestKeyRef = useRef<string | null>(null);
 
   const visibleProducts = useMemo(() => {
@@ -259,6 +261,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   };
 
   const handleSave = async () => {
+    if (saveInFlightRef.current) return;
     const validItems = items.filter(item => item.product_id && item.quantity > 0);
     if (!validItems.length) return toast.error('Adicione ao menos um produto para registrar a venda.');
     const missingVariant = validItems.map(item => ({ item, product: products.find(product => product.id === item.product_id) }))
@@ -271,7 +274,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     if (registerLogisticsCost && logisticsCostStatus === 'pago' && !logisticsCostAccountId) {
       return toast.error('Selecione a conta que pagou o frete.');
     }
+    saveInFlightRef.current = true;
     setSaving(true);
+    setSavePhase('order');
     try {
       const result = await createUnifiedSale({
         customer_name: contactName, customer_contact: contactHandle || null, contact_id: contactId,
@@ -292,6 +297,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
         if (!product) throw new Error('Produto não encontrado.');
         return expandCommercialOrderItem(product, variant, item.commercial_quantity || 0, price!.number, item.commercial_presentation, undefined, { products, variants });
       }));
+      setSavePhase('extras');
       // F5-C: aproveita o ato REAL de registrar Venda na Inbox.
       // A consulta valida envio + resposta na mesma conversa + Pedido real.
       // Um erro no vínculo jamais causa novo createUnifiedSale ou falso rollback.
@@ -306,7 +312,8 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
         toast.warning('Venda registrada; não foi possível comprovar vínculo com campanha.');
       }
       if (registerLogisticsCost) {
-        await upsertOrderLogisticsExpense({
+        try {
+          await upsertOrderLogisticsExpense({
           orderId: result.order_id,
           orderNumber: result.order_number,
           amount: logisticsCost,
@@ -315,7 +322,11 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           paymentDate: logisticsCostStatus === 'pago' ? logisticsCostDate : null,
           dueDate: logisticsCostStatus === 'pendente' ? logisticsCostDate : null,
           providerLabel: logisticsMode || operationalDestination || null,
-        });
+          });
+        } catch (logisticsError) {
+          console.warn('Pedido confirmado; custo logístico não registrado:', logisticsError);
+          toast.warning('Venda registrada, mas o custo logístico não foi confirmado. Confira o Financeiro antes de tentar novamente.');
+        }
       }
       const documentResults = await Promise.allSettled(
         pendingDocuments.map(document => uploadOrderDocument({
@@ -344,7 +355,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     } catch (error: any) {
       console.error(error);
       toast.error(error?.message || 'Não foi possível registrar a venda completa.');
-    } finally { setSaving(false); }
+    } finally { saveInFlightRef.current = false; setSaving(false); setSavePhase('idle'); }
   };
 
   return (
@@ -638,7 +649,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
         </div>
         </div>
-        <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-6"><div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button><Button onClick={handleSave} disabled={saving} className="flex-[2] gap-1.5">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}Registrar venda</Button></div></div>
+        <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-6"><div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button><Button onClick={handleSave} disabled={saving} className="flex-[2] gap-1.5">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}{savePhase === 'order' ? 'Registrando pedido...' : savePhase === 'extras' ? 'Finalizando documentos e custos...' : 'Registrar venda'}</Button></div></div>
       </DialogContent>
     </Dialog>
   );

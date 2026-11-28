@@ -1,0 +1,23 @@
+name: CRM UX Real U3 Save Validation
+on:
+  pull_request:
+    paths:
+      - 'src/components/crm/InboxSaleDialog.tsx'
+      - 'tests/crm-ux-real-u3-save-regression.test.mjs'
+      - '.github/workflows/crm-ux-real-u3-validation.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: CRM U3 save regression
+        run: node --test tests/crm-ux-real-u3-save-regression.test.mjs
+      - name: Build
+        run: npm run build
