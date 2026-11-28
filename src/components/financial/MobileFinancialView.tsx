@@ -39,7 +39,7 @@ interface Props {
   onCreateEntry: (data: any) => Promise<any>;
   onUpdateEntry: (id: string, data: any) => Promise<void>;
   onDeleteEntry: (id: string) => Promise<void>;
-  onRegisterPayment: (id: string, value: number, accountId?: string, notes?: string) => Promise<void>;
+  onRegisterPayment: (id: string, value: number, accountId?: string, notes?: string, paymentDate?: string) => Promise<void>;
   onSaveAccount: (data: any) => Promise<any>;
   onSaveCategory: (data: any) => Promise<any>;
 }
