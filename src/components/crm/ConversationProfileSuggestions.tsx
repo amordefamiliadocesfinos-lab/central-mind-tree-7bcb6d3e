@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   proposeCrmConversationProfileFields,
+  buildCrmConversationSaveReport,
+  type CrmConversationSaveReport,
   type CrmConversationProfileMessage,
   CRM_CONVERSATION_MESSAGE_TEXT_LIMIT,
   type CrmConversationProfileField,
@@ -42,6 +44,7 @@ export function ConversationProfileSuggestions({
   const [oversizedMessageCount, setOversizedMessageCount] = useState(0);
   const [analyzedLatestMessageId, setAnalyzedLatestMessageId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<CrmConversationProfileSuggestion[] | null>(null);
+  const [saveReport, setSaveReport] = useState<CrmConversationSaveReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<CrmConversationProfileField[]>([]);
   const [saving, setSaving] = useState(false);
@@ -57,6 +60,7 @@ export function ConversationProfileSuggestions({
   useEffect(() => {
     setLoading(false);
     setSuggestions(null);
+    setSaveReport(null);
     setSelectedFields([]);
     setScannedCount(0);
     setScanLimitReached(false);
@@ -72,6 +76,7 @@ export function ConversationProfileSuggestions({
     setLoading(true);
     setSelectedFields([]);
     setSuggestions(null);
+    setSaveReport(null);
     setScannedCount(0);
     setScanLimitReached(false);
     setOversizedMessageCount(0);
@@ -175,11 +180,14 @@ export function ConversationProfileSuggestions({
       }
       // Escritor oficial: releitura, delta e comparação de versão antes de salvar.
       const saved = await saveContactProfile({ contactId: contact.id, baseline: contact, draft: patch });
+      const report = buildCrmConversationSaveReport(suggestions, selectedFields, saved.changedFields, saved.contact);
       onSaved?.(saved.contact);
+      setSaveReport(report);
       setSelectedFields([]);
       setSuggestions(null);
       analyzedHistoryRef.current = null;
-      toast.success(`${saved.changedFields.length} campo(s) confirmado(s) na ficha.`);
+      if (report.filled.length) toast.success(`${report.filled.length} campo(s) confirmado(s) na ficha.`);
+      if (report.pending.some(field => selectedFields.includes(field))) toast.warning('Nem todos os campos selecionados foram confirmados. Consulte o resumo antes de tentar novamente.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Dados não confirmados; confira a ficha antes de tentar novamente.');
     } finally {
@@ -203,6 +211,15 @@ export function ConversationProfileSuggestions({
       </div>
       {!conversationId && <p className="text-xs text-muted-foreground">Abra um atendimento com conversa vinculada para consultar.</p>}
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+      {saveReport && (
+        <div role="status" aria-label="Resumo da confirmação cadastral" className="space-y-1 rounded-md border p-2 text-xs">
+          <p className="font-semibold">Resultado da conferência cadastral</p>
+          <p>Preenchidos ({saveReport.filled.length}): {saveReport.filled.map(field => labels[field]).join(', ') || 'Nenhum'}</p>
+          <p>Ignorados ({saveReport.ignored.length}): {saveReport.ignored.map(field => labels[field]).join(', ') || 'Nenhum'}</p>
+          <p>Pendentes ({saveReport.pending.length}): {saveReport.pending.map(field => labels[field]).join(', ') || 'Nenhum'}</p>
+          <p className="text-muted-foreground">Resumo baseado no retorno do cadastro salvo. Campos pendentes exigem nova conferência; nenhum deles foi confirmado por este resumo.</p>
+        </div>
+      )}
       {suggestions?.length === 0 && (
         <p className="text-xs text-muted-foreground">
           Nenhum campo explícito identificado nas mensagens examinadas. Isso não significa que o dado inexista.
