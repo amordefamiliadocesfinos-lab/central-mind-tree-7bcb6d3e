@@ -272,7 +272,7 @@ export default function NucleoSupervisionPanel({
                     onClick={()=>onOpenWorkstream(front.id)}>Abrir ficha do trabalho</Button>}
                 {onOpenEvidence && finding.evidenceIds.length>0 && front &&
                   <Button type="button" variant="outline" size="sm" onClick={()=>onOpenEvidence(front.id)}>Consultar evidências do trabalho</Button>}
-                {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && latestFronts.filter(target=>target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && latestFronts.some(origin=>origin.id===link.workstream_id && origin.code===finding.workstreamCode))).map(target=>(
+                {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && front && latestFronts.filter(target=>target.id!==front.id && target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && link.workstream_id===front.id)).map(target=>(
                   <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir trabalho relacionado: {humanWorkName(target.code,target.title)}</Button>
                 ))}
                 {finding.evidenceIds.length > 0 && (
