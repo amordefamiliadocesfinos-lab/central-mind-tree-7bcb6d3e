@@ -1,8 +1,10 @@
-export interface OperationalCommand { id: string; code: string; authority: 'approved' | 'model' | 'pending'; name: string; category: string; purpose: string; when: string; version: string; source: string; body: string | null }
+export interface OperationalCommand { id: string; code: string; catalogState: 'active' | 'pending' | 'candidate'; evidence: string; authority: 'approved' | 'model' | 'pending'; name: string; category: string; purpose: string; when: string; version: string; source: string; body: string | null }
 
 export const operationalCommands: readonly OperationalCommand[] = [
   {
     "id": "C01",
+    "catalogState": "active",
+    "evidence": "Uso recorrente pelo proprietário; texto literal aprovado no Comando Mestre NUC-BIB01.",
     "code": "MAP1",
     "authority": "approved",
     "name": "Continuar pelo mapa",
@@ -15,6 +17,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C02",
+    "catalogState": "pending",
+    "evidence": "Fonte integral original não localizada; não executar nem copiar.",
     "code": "MAP2",
     "authority": "pending",
     "name": "Continuidade universal — versão completa",
@@ -27,6 +31,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C03",
+    "catalogState": "active",
+    "evidence": "Patrimônio U06 e contraprova de resolução independente ASS1/SAU, Issue #1037 comentário 7230447309; assunção integral pendente.",
     "code": "ASS1",
     "authority": "model",
     "name": "Assunção de novo especialista",
@@ -39,6 +45,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C04",
+    "catalogState": "active",
+    "evidence": "Patrimônio de checkpoint M3: docs/architecture/u06/U06_F_A07_CONTRATO_TRANSVERSAL_CANDIDATO_V1.md, A07.3; modelo, não autorização de escrita.",
     "code": "CHK1",
     "authority": "model",
     "name": "Registrar checkpoint",
@@ -51,6 +59,8 @@ export const operationalCommands: readonly OperationalCommand[] = [
   },
   {
     "id": "C05",
+    "catalogState": "candidate",
+    "evidence": "Patrimônio FM/AC01 existe, mas uso deste comando combinado e distinção prática frente a CHK1 ainda não demonstrados.",
     "code": "MET1",
     "authority": "model",
     "name": "Registrar método, ecossistema e aprendizagem",
@@ -76,4 +86,9 @@ export function resolveOperationalCommand(code: string) {
 }
 export function operationalCommandInvocation(code: string) {
   return "EXECUTE CÓDIGO " + code + " DO NÚCLEO COMANDOS";
+}
+
+// Catalog visibility does not grant operational authority.
+export function isOperationalCommandAvailable(entry: OperationalCommand) {
+  return entry.catalogState === 'active' && entry.authority !== 'pending' && entry.body !== null;
 }
