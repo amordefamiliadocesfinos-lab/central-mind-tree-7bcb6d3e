@@ -245,3 +245,37 @@ body:has(.sau-workout-vivid[data-cch-focus="true"]) [data-cch-health-main] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Work phase: share the viewport with the session bar, navigation and tools.
+   Only the active exercise grows; browsing another exercise keeps natural flow.
+   The outer shell already supplies 100dvh, so never add a second viewport. */
+.sau-workout-vivid[data-cch-focus="true"] .sau-execution-stack[data-sau-phase="work"] > .sau-current-exercise[data-sau-active-work="true"] {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] .sau-exercise-content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] .sau-exercise-content > * + * {
+  margin-top: 0;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] [data-testid="cch-work-clock"] {
+  flex: 1 0 auto;
+  justify-content: center;
+  padding: 8px 6px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] [data-testid="cch-work-clock"] .font-mono {
+  font-size: clamp(40px, 11vw, 64px);
+  line-height: 1.1;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-primary-work-action {
+  flex: 0 0 auto;
+  min-height: 48px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-workout-tools {
+  flex: 0 0 auto;
+}
