@@ -71,7 +71,7 @@ export function proposeCrmConversationProfileFields(
   // Trechos sem declaração explícita de titularidade são apenas pistas consultivas.
   const unverified = new Map<'email' | 'zip_code', Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Valores posteriormente negados continuam inválidos mesmo se apareceram antes como rotulados.
-  const deniedValues = new Map<'email' | 'zip_code', Set<string>>();
+  const deniedValues = new Map<'email' | 'zip_code', Map<string, string>>();
   // Retratações anafóricas sem valor literal bloqueiam a sugestão anterior do campo.
   const fieldLevelDenials = new Map<'email' | 'zip_code' | 'phone', string>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
@@ -112,13 +112,15 @@ export function proposeCrmConversationProfileFields(
           if (!previous || message.created_at > previous) fieldLevelDenials.set(referencedField, message.created_at);
         }
         for (const email of line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
-          const denied = deniedValues.get('email') ?? new Set<string>();
-          denied.add(comparable('email', email));
+          const denied = deniedValues.get('email') ?? new Map<string, string>();
+          const key = comparable('email', email);
+          if (!denied.has(key) || message.created_at > denied.get(key)!) denied.set(key, message.created_at);
           deniedValues.set('email', denied);
         }
         for (const cep of line.match(/\b\d{5}-?\d{3}\b/g) ?? []) {
-          const denied = deniedValues.get('zip_code') ?? new Set<string>();
-          denied.add(comparable('zip_code', cep));
+          const denied = deniedValues.get('zip_code') ?? new Map<string, string>();
+          const key = comparable('zip_code', cep);
+          if (!denied.has(key) || message.created_at > denied.get(key)!) denied.set(key, message.created_at);
           deniedValues.set('zip_code', denied);
         }
         continue;
@@ -170,8 +172,11 @@ export function proposeCrmConversationProfileFields(
     const latest = ordered[ordered.length - 1];
     const differing = ordered.some(entry => comparable(field, entry.value) !== comparable(field, latest.value));
     const oldValue = String(current[field] ?? '').trim();
+    // Considerar a cronologia, não apenas a presença do valor em uma negação antiga:
+    // nova declaração explícita do mesmo identificador pode vir depois.
     const deniedCandidate = (field === 'email' || field === 'zip_code')
-      && entries.some(entry => deniedValues.get(field)?.has(comparable(field, entry.value)));
+      && Boolean(deniedValues.get(field)?.get(comparable(field, latest.value))
+        && deniedValues.get(field)!.get(comparable(field, latest.value))! >= latest.date);
     const deniedAfterLatest = (field === 'email' || field === 'zip_code' || field === 'phone')
       && Boolean(fieldLevelDenials.get(field) && fieldLevelDenials.get(field)! >= latest.date);
     const state = differing || deniedCandidate || deniedAfterLatest ? 'ambiguous'
@@ -191,8 +196,10 @@ export function proposeCrmConversationProfileFields(
     const entries = unverified.get(field);
     // Não exibir como pista vigente um identificador negado em qualquer mensagem
     // elegível; a supressão permanece consultiva e nunca autoriza escrita.
-    const eligibleEntries = entries?.filter(entry =>
-      !deniedValues.get(field)?.has(comparable(field, entry.value)));
+    const eligibleEntries = entries?.filter(entry => {
+      const deniedAt = deniedValues.get(field)?.get(comparable(field, entry.value));
+      return !deniedAt || deniedAt < entry.date;
+    });
     if (!eligibleEntries?.length) continue;
     const ordered = [...eligibleEntries].sort((a, b) => a.date.localeCompare(b.date));
     if (fieldLevelDenials.get(field) && fieldLevelDenials.get(field)! >= ordered[ordered.length - 1].date) continue;
