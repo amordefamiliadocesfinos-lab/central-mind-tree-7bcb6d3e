@@ -134,7 +134,7 @@ export async function callCoreBridgeAction({
       response,
       [CORE_BRIDGE_ACTIONS.SHOPEE_ORDER_INTAKE_BATCH_READ, CORE_BRIDGE_ACTIONS.CYCLE_ACQUIRE,
         CORE_BRIDGE_ACTIONS.F12_ADAO_ACQUIRE,
-        CORE_BRIDGE_ACTIONS.F12_ADAO_RESUME, 'shopee.d11.reconcile.read'].includes(action)
+        CORE_BRIDGE_ACTIONS.F12_ADAO_RESUME, 'shopee.d11.reconcile.read','shopee.d11.intake.read'].includes(action)
         ? MAX_INTAKE_RESPONSE_BYTES
         : MAX_RESPONSE_BYTES,
     );
