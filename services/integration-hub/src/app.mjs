@@ -30,6 +30,7 @@ import { CELIVIO_C4C_ACCOUNT_ID } from './shopee-celivio-c4c-preflight.mjs';
 import { runCelivioPilotCommitOne } from './shopee-celivio-commit-one.mjs';
 
 import { createD10Pilot } from './shopee-d10-pilot.mjs';
+import { createD11ScheduledCycle } from './shopee-d11-recurring-round.mjs';
 
 const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
@@ -50,6 +51,7 @@ export async function handleRequest(
   {
     runMinimumCycle = runShopeeMinimumCycle,
     runD10 = null,
+    runD11 = null,
     runAdaoIntake = runAdaoAutomaticIntake,
     runAdaoAccountCycle = runAdaoCycle,
     syncAdaoLabel = syncAdaoReadyLabelOnce,
@@ -86,6 +88,25 @@ export async function handleRequest(
 
   const normalizedPath = String(request.path ?? '/');
   const normalizedMethod = String(request.method ?? 'GET').toUpperCase();
+
+  // Private IAM-protected shared recurrence. No caller-selected account,
+  // order, package, cursor, effect or mode. Disabled by default.
+  if(normalizedPath==='/internal/shopee/d11/cycle/run'){
+    if(normalizedMethod!=='POST')return json(405,{error:'method_not_allowed'});
+    if(Object.keys(request.query??{}).length||request.headers?.['transfer-encoding']
+      ||Number(request.headers?.['content-length']??0)!==0||(request.body!=null&&request.body!==''))
+      return json(400,{error:'body_or_query_not_allowed'});
+    if(getEnv('SHOPEE_D11_RECURRING_ENABLED')!=='true')return json(503,{status:'blocked',code:'d11_cycle_disabled'});
+    try{
+      const r=await (runD11??createD11ScheduledCycle({getEnv}))();
+      const code=typeof r?.code==='string'&&/^[a-z][a-z0-9_]{0,99}$/.test(r.code)?r.code:'d11_cycle_unconfirmed';
+      return json(r?.ok===true?200:409,{status:r?.ok===true?'ok':'blocked',code,
+        orders_written:[0,1].includes(r?.ordersWritten)?r.ordersWritten:null,
+        effects:[0,1].includes(r?.effects)?r.effects:null,
+        queue_outcome:['pending','complete','blocked'].includes(r?.queueOutcome)?r.queueOutcome:null,
+        reconciliation_required:r?.reconciliationRequired===true,physical_handoff_confirmed:false});
+    }catch{return json(503,{status:'blocked',code:'d11_cycle_unconfirmed'});}
+  }
 
   // Private D10 one-order proof. No caller-selected identity or parameters.
   if (['/internal/shopee/d10/discover','/internal/shopee/d10/inspect','/internal/shopee/d10/ship','/internal/shopee/d10/label'].includes(normalizedPath)) {
