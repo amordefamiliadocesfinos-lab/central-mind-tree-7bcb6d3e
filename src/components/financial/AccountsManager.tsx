@@ -33,6 +33,8 @@ import { SALES_CHANNELS, salesChannelLabel } from '@/lib/salesChannels';
 interface AccountsManagerProps {
   accounts: FinancialAccount[];
   onSave: (account: Partial<FinancialAccount> & { name: string; type: string }) => Promise<void>;
+  quickTransfer?: boolean;
+  onQuickTransferConsumed?: () => void;
   startDate?: Date;
   endDate?: Date;
   onPeriodChange?: (start: Date | undefined, end: Date | undefined) => void;
@@ -73,9 +75,15 @@ const accountTypeLabels: Record<string, string> = {
   cartao: 'Cartão',
 };
 
-export function AccountsManager({ accounts, onSave, startDate, endDate, onPeriodChange }: AccountsManagerProps) {
+export function AccountsManager({ accounts, onSave, startDate, endDate, onPeriodChange, quickTransfer, onQuickTransferConsumed }: AccountsManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  useEffect(() => {
+    if (quickTransfer) {
+      setTransferDialogOpen(true);
+      onQuickTransferConsumed?.();
+    }
+  }, [quickTransfer]);
   const [payInvoiceDialogOpen, setPayInvoiceDialogOpen] = useState(false);
   const [payInvoiceCardId, setPayInvoiceCardId] = useState<string>('');
   const [payInvoiceBankId, setPayInvoiceBankId] = useState<string>('');
