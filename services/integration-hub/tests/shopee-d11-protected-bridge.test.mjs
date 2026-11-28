@@ -19,13 +19,15 @@ function fixture(){
  updated_at:iso(N-10000),lease_expires_at:iso(N+60000)};
  const core={from(table){f.reads++;const q={select(){return q},eq(){return q},limit(){return Promise.resolve({data:f.orders})},maybeSingle(){return Promise.resolve({data:table==='shopee_cycle_state'?state:{channel_account_id:A,order_sn:S,state:'pending'}})}};return q;},
  async rpc(name,args){f.calls.push({name,args});
+ if(name==='read_shopee_cycle_observation')return {data:{observation_id:I,channel_account_id:A,shop_id:123,order_sn:S,payload}};
+ if(name==='resolve_shopee_d11_effect')return {data:{status:'resolved',state:args.p_outcome}};
  if(name==='acquire_shopee_d11_preflight')return {data:{status:'acquired',channel_account_id:A,lease_id:L,policy_revision:1,candidate_order_sn:S,expires_at:iso(N+60000),work_budget_ms:48000,private:'never-return'}};
  if(name==='commit_shopee_d11_intake')return {data:{status:'intake_written',order_id:I,separation_id:L,observation_id:args.p_observation}};
  if(name==='finish_shopee_d11_preflight')return {data:{status:'finished'}};
  return {data:name==='record_shopee_cycle_observation'?{status:'observation_recorded',observation_id:I,raw_id:L,private:'never-return'}:f.claim};}};
  const handler=createBridgeHandler({getSecret:()=>SECRET,checkCore:async()=>true,executeAction:p=>executeD11BridgeAction(core,p,{
  enabled:f.enabled,now:()=>N,readPolicy:async(_core,{action})=>({ok:f.admitted,profile:{account:A,revision:1,partner:2047685,shop:123,
- action,history_cutoff:Math.floor(N/1000)-3600,expires_at:iso(N+60000)}}),
+ action,history_cutoff:Math.floor(N/1000)-3600,expires_at:iso(N+60000),fiscal_mode:'cpf_no_invoice_step',shipping_mode:'simple_dropoff',document_type:'NORMAL_AIR_WAYBILL',work_budget_ms:48000}}),
  checkLease:async()=>({ok:f.lease}),
  prepareReconciliation:()=>async scope=>{
   assert.equal(scope.expectedObservationId,I);
@@ -148,4 +150,18 @@ test('D11 default-off flags isolate intake commit from observation and shipment 
  env.SHOPEE_D11_INTAKE_COMMIT_ENABLED='true';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),true);
  assert.equal(isD11BridgeActionEnabled('shopee.d11.effect.claim',get),false);
  env.SHOPEE_D11_BRIDGE_ENABLED='false';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),false);
+});
+
+test('D11 signed effect scope pins receipt and resolve survives policy pause without new authorization',async()=>{
+ const f=fixture(),p={...scope,observationId:I,effect:'ship'};
+ const v=await f.adapters.readEffectScope(p);
+ assert.equal(v.status,'effect_scope');assert.equal(v.packageNumber,'PKG1');assert.equal(v.splitUp,false);
+ assert.equal(v.fiscalMode,'cpf_no_invoice_step');
+ f.admitted=false;f.lease=false;
+ assert.equal(await f.adapters.readEffectScope(p),null);
+ const r=await f.adapters.resolveEffect({...p,attemptId:I,requestHash:'b'.repeat(64),outcome:'uncertain'});
+ assert.equal(r.state,'uncertain');
+ assert.equal(f.calls.at(-1).name,'resolve_shopee_d11_effect');
+ assert.equal(f.calls.at(-1).args.p_observation,I);
+ assert.equal(await f.adapters.resolveEffect({...p,attemptId:I,requestHash:'b'.repeat(64),outcome:'retry'}),null);
 });
