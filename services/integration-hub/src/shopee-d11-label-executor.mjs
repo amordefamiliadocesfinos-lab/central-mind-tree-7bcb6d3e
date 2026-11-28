@@ -9,7 +9,7 @@ import {getOrderDetail} from './connectors/shopee-protocol.mjs';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const id=v=>typeof v==='string'&&UUID.test(v);
 const legacy=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
-const fail=(code,extra={})=>({ok:false,code,ordersWritten:0,physicalHandoffConfirmed:false,...extra});
+const fail=(code,extra={})=>({ok:false,code,ordersWritten:0,effects:0,reconciliationRequired:false,physicalHandoffConfirmed:false,...extra});
 const validHash=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 export function createD11LabelExecutor({enabled=false,now=Date.now,call=callCoreBridgeAction,getEnv=k=>process.env[k],
  adapters=createD11BridgeAdapters({enabled,call}),reconcile=createD11RecurringPreflight({enabled,now,call,adapters}),
