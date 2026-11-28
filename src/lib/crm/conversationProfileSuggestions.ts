@@ -70,6 +70,8 @@ export function proposeCrmConversationProfileFields(
   const candidates = new Map<CrmConversationProfileField, Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Trechos sem declaração explícita de titularidade são apenas pistas consultivas.
   const unverified = new Map<'email' | 'zip_code', Array<{ value: string; id: string; date: string; excerpt: string }>>();
+  // Valores posteriormente negados continuam inválidos mesmo se apareceram antes como rotulados.
+  const deniedValues = new Map<'email' | 'zip_code', Set<string>>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
@@ -96,7 +98,19 @@ export function proposeCrmConversationProfileFields(
       // Excluir a linha inteira evita que o fallback de texto livre reintroduza
       // como pista um dado que a pessoa acabou de negar.
       const ownershipDenied = /(?:\bn[aã]o\s+(?:é|eh|s[aã]o)\s+(?:(?:o|a|os|as)\s+)?(?:meu|minha|meus|minhas)\b|\b(?:é|eh|pertence)\s+(?:d[ao]|de|ao|à)\s+(?:(?:minha|meu|um|uma|outr[ao])\s+)?(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega|cliente|terceir[ao]|destinat[aá]ri[ao])\b|\b(?:d[ao]|de)\s+(?:minha|meu)\s+(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega)\b|\b(?:desconsiderar|n[aã]o\s+usar|valor\s+errado|dado\s+incorreto)\b)/i.test(line);
-      if (ownershipDenied) continue;
+      if (ownershipDenied) {
+        for (const email of line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
+          const denied = deniedValues.get('email') ?? new Set<string>();
+          denied.add(comparable('email', email));
+          deniedValues.set('email', denied);
+        }
+        for (const cep of line.match(/\b\d{5}-?\d{3}\b/g) ?? []) {
+          const denied = deniedValues.get('zip_code') ?? new Set<string>();
+          denied.add(comparable('zip_code', cep));
+          deniedValues.set('zip_code', denied);
+        }
+        continue;
+      }
       // Apenas formatos reconhecíveis; ausência de rótulo não comprova titularidade.
       // Não inferir CEP de cobrança ou endereço principal a partir de um número solto.
       const emailsOnLine = [...line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map(match => match[0]);
@@ -144,7 +158,9 @@ export function proposeCrmConversationProfileFields(
     const latest = ordered[ordered.length - 1];
     const differing = ordered.some(entry => comparable(field, entry.value) !== comparable(field, latest.value));
     const oldValue = String(current[field] ?? '').trim();
-    const state = differing ? 'ambiguous'
+    const deniedCandidate = (field === 'email' || field === 'zip_code')
+      && entries.some(entry => deniedValues.get(field)?.has(comparable(field, entry.value)));
+    const state = differing || deniedCandidate ? 'ambiguous'
       : !oldValue ? 'empty'
       : comparable(field, oldValue) === comparable(field, latest.value) ? 'same' : 'conflict';
     proposals.push({
