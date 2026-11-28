@@ -9,11 +9,11 @@ export const operationalCommands: readonly OperationalCommand[] = [
     "authority": "approved",
     "name": "Continuar pelo mapa",
     "category": "Continuidade",
-    "purpose": "Avançar a partir do último checkpoint.",
+    "purpose": "Priorizar o próximo resultado funcional autorizado.",
     "when": "Quando existir uma próxima etapa autorizada.",
-    "version": "Texto aprovado em 27/11/2026",
-    "source": "Comando Mestre NUC-BIB01, seção 5",
-    "body": "CONTINUE PELO MAPA — Execute a próxima etapa autorizada, por diferença, sem reconstruir o que já foi concluído. Preserve os contratos e o escopo; desenvolva, teste, comprove, registre e avance enquanto houver atividades liberadas."
+    "version": "V2.0 — atualização aprovada pelo proprietário, 28/11/2026",
+    "source": "Comando Mestre — Biblioteca de Comandos | MAP1 V2.0 + Refinamento UX, seção 4.3. V1.0: commit 9df03d430c75bee4a8f036c565058d3b82080fcf, catálogo oficial.",
+    "body": "CONTINUE PELO MAPA — Execute a próxima atividade autorizada de maior valor funcional, considerando o mapa vigente, o estado real das frentes e as dependências comprovadas.\n\nRecupere o último checkpoint e trabalhe exclusivamente por diferença, sem reconstruir entregas concluídas.\n\nAntes de desenvolver, verifique se a capacidade já existe, se a intervenção é realmente necessária para o próximo resultado e se pode ser agrupada a outras atividades compatíveis.\n\nPreserve segurança, integridade, contratos, arquitetura e autoridade. Não crie novas etapas, proteções, documentos ou complexidade sem necessidade material demonstrada.\n\nPriorize concluir funcionalidades utilizáveis em vez de aprofundar indefinidamente uma mesma frente técnica.\n\nDesenvolva, teste e comprove proporcionalmente ao risco. Encaminhe ao uso real quando os portões aplicáveis estiverem satisfeitos. Registre somente decisões, evidências e aprendizados relevantes.\n\nSe uma frente estiver bloqueada, aguardando autorização ou prova operacional, avance em outra atividade independente e autorizada do mapa.\n\nConsidere uma entrega concluída quando seus critérios de aceite previamente definidos estiverem comprovados. Não acrescente requisitos ao fechamento sem fundamento material.\n\nAo final de cada ciclo, reconcilie o mapa completo, identifique o resultado alcançado e selecione a próxima prioridade de maior valor.\n\nContinue enquanto houver trabalho autorizado, necessário e proporcional. Não confunda existência de atividades possíveis com obrigação de continuar desenvolvendo.\n\nMantenha os mapas e contratos congelados. Não execute operações reservadas nem promova propostas automaticamente."
   },
   {
     "id": "C02",
