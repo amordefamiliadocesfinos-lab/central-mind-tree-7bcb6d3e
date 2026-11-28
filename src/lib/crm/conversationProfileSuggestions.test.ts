@@ -290,3 +290,34 @@ test('B10 labeled contradictions remain blocked while equivalent formats count o
   assert.equal(result.find(item => item.field === 'city')?.distinctValues, 2);
   assert.equal(result.find(item => item.field === 'city')?.state, 'ambiguous');
 });
+
+test('B11 reads all free-text identifiers in one line as review-only conflicting hints', () => {
+  const items = proposeCrmConversationProfileFields([
+    msg('same-line','customer','Envie para um@example.com ou dois@example.com; CEPs 88220-000 e 88300-000'),
+  ], {});
+  const email = items.find(item => item.field === 'email');
+  const cep = items.find(item => item.field === 'zip_code');
+  assert.equal(email?.state, 'unverified');
+  assert.equal(email?.distinctValues, 2);
+  assert.equal(cep?.state, 'unverified');
+  assert.equal(cep?.distinctValues, 2);
+  assert.ok(items.every(item => item.requiresReview));
+});
+
+test('B11 multiple values within one labeled line are ambiguous, never writable', () => {
+  const items = proposeCrmConversationProfileFields([
+    msg('explicit','customer','E-mail: primeiro@example.com ou segundo@example.com'),
+  ], {});
+  const email = items.find(item => item.field === 'email');
+  assert.equal(email?.state, 'ambiguous');
+  assert.equal(email?.distinctValues, 2);
+});
+
+test('B11 other-person email and delivery CEP do not become unverified principal hints', () => {
+  const items = proposeCrmConversationProfileFields([
+    msg('third','customer','E-mail da minha mãe: mae@example.com'),
+    msg('delivery','customer','CEP de entrega: 88220-000 ou 88300-000'),
+  ], {});
+  assert.equal(items.find(item => item.field === 'email'), undefined);
+  assert.equal(items.find(item => item.field === 'zip_code'), undefined);
+});
