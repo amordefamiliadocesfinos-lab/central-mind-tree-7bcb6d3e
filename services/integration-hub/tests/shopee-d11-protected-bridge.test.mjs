@@ -18,7 +18,10 @@ function fixture(){
  const state={channel_account_id:A,lease_id:L,lease_policy_revision:1,candidate_order_sn:S,halted_code:null,
  updated_at:iso(N-10000),lease_expires_at:iso(N+60000)};
  const core={from(table){f.reads++;const q={select(){return q},eq(){return q},maybeSingle(){return Promise.resolve({data:table==='shopee_cycle_state'?state:{channel_account_id:A,order_sn:S,state:'pending'}})}};return q;},
- async rpc(name,args){f.calls.push({name,args});return {data:name==='record_shopee_cycle_observation'?{status:'observation_recorded',observation_id:I,raw_id:L,private:'never-return'}:f.claim};}};
+ async rpc(name,args){f.calls.push({name,args});
+ if(name==='acquire_shopee_d11_preflight')return {data:{status:'acquired',channel_account_id:A,lease_id:L,policy_revision:1,candidate_order_sn:S,expires_at:iso(N+60000),work_budget_ms:48000,private:'never-return'}};
+ if(name==='finish_shopee_d11_preflight')return {data:{status:'finished'}};
+ return {data:name==='record_shopee_cycle_observation'?{status:'observation_recorded',observation_id:I,raw_id:L,private:'never-return'}:f.claim};}};
  const handler=createBridgeHandler({getSecret:()=>SECRET,checkCore:async()=>true,executeAction:p=>executeD11BridgeAction(core,p,{
  enabled:f.enabled,now:()=>N,readPolicy:async(_core,{action})=>({ok:f.admitted,profile:{account:A,revision:1,partner:2047685,shop:123,
  action,history_cutoff:Math.floor(N/1000)-3600,expires_at:iso(N+60000)}}),
@@ -95,4 +98,23 @@ test('D11 signed reconciliation actions pin receipt and reuse the existing proje
  assert.equal(await f.adapters.verifyReconciliation(pinned,{...p,channel_account_id:L}),null);
  assert.equal(await f.adapters.verifyReconciliation(pinned,{...p,items:[]}),null);
  assert.deepEqual(f.calls,[]);
+});
+
+test('D11 signed preflight lifecycle accepts only account acquire and pending-only exact release',async()=>{
+ const f=fixture(),l=await f.adapters.acquirePreflight(A);
+ assert.equal(l.status,'acquired');assert.equal(l.candidate_order_sn,S);assert.equal(l.private,undefined);
+ f.admitted=false;f.lease=false;
+ const finished=await f.adapters.finishPreflight({...scope,orderSn:S},'d11_preflight_scope_refused');
+ assert.equal(finished.status,'finished');
+ assert.deepEqual(f.calls,[{name:'acquire_shopee_d11_preflight',args:{p_account:A}},
+ {name:'finish_shopee_d11_preflight',args:{p_account:A,p_lease:L,p_revision:1,p_candidate:S,p_code:'d11_preflight_scope_refused'}}]);
+ for(const [action,data] of [
+ ['shopee.d11.preflight.acquire',{channel_account_id:A,order_sn:S}],
+ ['shopee.d11.preflight.finish',{channel_account_id:A,lease_id:L,revision:1,candidate_order_sn:S,code:'complete'}],
+ ['shopee.d11.preflight.finish',{channel_account_id:A,lease_id:L,revision:1,candidate_order_sn:S,code:'d11_preflight_verified_existing',page:{}}],
+ ]){
+ assert.equal((await f.call({action,data})).status,400);
+ }
+ f.enabled=false;assert.equal(await f.adapters.acquirePreflight(A),null);
+ assert.equal(f.calls.length,2);
 });
