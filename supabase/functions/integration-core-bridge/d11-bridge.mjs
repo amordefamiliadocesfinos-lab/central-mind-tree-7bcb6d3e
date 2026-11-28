@@ -8,6 +8,11 @@ const HASH=/^[0-9a-f]{64}$/;
 const LEGACY=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const scopeKeys=['channel_account_id','lease_id','revision'];
 export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish','shopee.d11.intake.read','shopee.d11.intake.commit']);
+export function isD11BridgeActionEnabled(action,getEnv){
+ return D11_ACTIONS.includes(action)&&getEnv('SHOPEE_D11_BRIDGE_ENABLED')==='true'
+  &&(action!=='shopee.d11.effect.claim'||getEnv('SHOPEE_D11_EFFECT_CLAIM_ENABLED')==='true')
+  &&(action!=='shopee.d11.intake.commit'||getEnv('SHOPEE_D11_INTAKE_COMMIT_ENABLED')==='true');
+}
 const id=v=>typeof v==='string'&&UUID.test(v);
 const text=(v,re)=>typeof v==='string'&&re.test(v);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
