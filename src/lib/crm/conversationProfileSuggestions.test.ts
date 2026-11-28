@@ -386,3 +386,30 @@ test('B14 preserves only unrelated unverified hints, without enabling writes', (
   assert.equal(email?.distinctValues, 1);
   assert.equal(email?.requiresReview, true);
 });
+
+test('B15 a later field-only email denial blocks earlier explicit profile suggestion', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('first', 'customer', 'Meu e-mail é ana@example.com', '2026-11-27T12:00:00Z'),
+    msg('deny', 'customer', 'Esse e-mail não é meu', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'ambiguous');
+});
+
+test('B15 later field-only denial blocks unverified CEP and labelled phone', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('cep', 'customer', 'Pode entregar em 88220-000', '2026-11-27T12:00:00Z'),
+    msg('phone', 'customer', 'Meu telefone é (47) 99999-9999', '2026-11-27T12:00:00Z'),
+    msg('deny-cep', 'customer', 'Esse CEP não é meu', '2026-11-27T13:00:00Z'),
+    msg('deny-phone', 'customer', 'Esse telefone não é meu', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'zip_code'), undefined);
+  assert.equal(result.find(item => item.field === 'phone')?.state, 'ambiguous');
+});
+
+test('B15 old field-only denial does not revoke a newer explicit declaration', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('deny', 'customer', 'Esse e-mail não é meu', '2026-11-27T11:00:00Z'),
+    msg('new', 'customer', 'Meu e-mail é ana@example.com', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'empty');
+});
